@@ -1,7 +1,31 @@
 # pc4-ward 
 
-A [re-frame](https://github.com/day8/re-frame) application designed to ... well, that part is up to
-you.
+An lightweight e-observations application.
+
+It has a deliberately *limited* scope, designed to 
+
+* user login
+* patient lookup / selection from ward lists
+* review of results (tabulation and charts)
+* entry of new e-observations
+
+It is designed to:
+
+* suit a workflow on a hospital ward.
+* test a new architecture for PatientCare v4. 
+  
+For its main operations, it connects to pc4-server. 
+
+A core principle is that user-facing applications should be smart in 
+user interactions but dumb in terms of business logic; the latter are 
+delegated to the backend server.
+
+Although initially components such as the SVG NEWS2 chart will be built into 
+this application, they will be put into a shared library for re-use across
+multiple user-facing applications.
+
+Fetching data from the backend uses a graph API. Changes are made using
+events, sent to the server. 
 
 ## Getting Started
 
