@@ -1,25 +1,25 @@
 {:paths   ["src" "resources"]
- :deps    {org.clojure/clojure              {:mvn/version "1.10.3"}
-           org.clojure/core.async           {:mvn/version "1.3.618"}
-           org.clojure/data.csv             {:mvn/version "1.0.0"}
-           org.clojure/data.xml             {:mvn/version "0.2.0-alpha6"}
-           org.clojure/data.zip             {:mvn/version "1.0.0"}
-           org.clojure/tools.cli            {:mvn/version "1.0.206"}
-           org.clojure/tools.logging        {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic   {:mvn/version "1.2.3"}
+ :deps    {org.clojure/clojure            {:mvn/version "1.10.3"}
+           org.clojure/core.async         {:mvn/version "1.3.618"}
+           org.clojure/data.csv           {:mvn/version "1.0.0"}
+           org.clojure/data.xml           {:mvn/version "0.2.0-alpha6"}
+           org.clojure/data.zip           {:mvn/version "1.0.0"}
+           org.clojure/tools.cli          {:mvn/version "1.0.206"}
+           org.clojure/tools.logging      {:mvn/version "1.1.0"}
+           ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
 
-           com.eldrix/trud                  {:git/url "https://github.com/wardle/trud.git"
-                                             :sha     "eb8b7d567a4a81dd970623fe2ac3380f4ce3f722"}
+           com.eldrix/clods               {:git/url "https://github.com/wardle/clods.git"
+                                           :sha     "7df043e8e9fce3e82187cd5f975c9a81082ce57f"}
 
-           aero/aero                        {:mvn/version "1.1.6"}
-           cheshire/cheshire                {:mvn/version "5.10.0"}
-           com.wsscode/pathom               {:git/url "https://github.com/wilkerlucio/pathom3"
-                                             :sha     "ea60bb0031961fca5600630ce297b43dbd643225"}
-           expound/expound                  {:mvn/version "0.8.9"}
-           integrant/integrant              {:mvn/version "0.8.0"}
+           aero/aero                      {:mvn/version "1.1.6"}
+           cheshire/cheshire              {:mvn/version "5.10.0"}
+           com.wsscode/pathom             {:git/url "https://github.com/wilkerlucio/pathom3"
+                                           :sha     "ea60bb0031961fca5600630ce297b43dbd643225"}
+           expound/expound                {:mvn/version "0.8.9"}
+           integrant/integrant            {:mvn/version "0.8.0"}
 
-           io.pedestal/pedestal.service     {:mvn/version "0.5.8"}
-           io.pedestal/pedestal.jetty       {:mvn/version "0.5.8"}}
+           io.pedestal/pedestal.service   {:mvn/version "0.5.8"}
+           io.pedestal/pedestal.jetty     {:mvn/version "0.5.8"}}
 
  :aliases {
            :pathom-viz {:extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}}}
