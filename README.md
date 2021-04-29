@@ -34,18 +34,14 @@ The principles are:
 lightweight, ephemeral and focused on workflow and process, providing multiple
   user centric views of the same data.
 
-# pc4
+# Components
 
-This repository is the first substantial user-facing component.
+## pc4-server
 
-#### Internal development
+This is the main server component, providing an API for graph-like queries for reads and writes. Data is pulled into
+the application, and events are streamed to the server in order to perform effects such as login or recording new data.
 
-You can run 
-```shell
-shadow-cljs watch app
-```
+## pc4-ward
 
-And connect to the nREPL, switching to a cljs REPL when using Cursive IDE using 
-```clojure
-(shadow/repl :app)
-```
+This repository is the first substantial user-facing component. 
+It is designed as an electronic observations application.
