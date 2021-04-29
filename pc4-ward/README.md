@@ -2,19 +2,19 @@
 
 An lightweight e-observations application.
 
-It has a deliberately *limited* scope, designed to 
+It has a deliberately *limited* scope, designed to support 
 
 * user login
 * patient lookup / selection from ward lists
 * review of results (tabulation and charts)
 * entry of new e-observations
 
-It is designed to:
+in order to:
 
 * suit a workflow on a hospital ward.
 * test a new architecture for PatientCare v4. 
   
-For its main operations, it connects to pc4-server. 
+For its main operations, it connects to `pc4-server`. 
 
 A core principle is that user-facing applications should be smart in 
 user interactions but dumb in terms of business logic; the latter are 
@@ -26,53 +26,6 @@ multiple user-facing applications.
 
 Fetching data from the backend uses a graph API. Changes are made using
 events, sent to the server. 
-
-## Getting Started
-
-### Project Overview
-
-* Architecture:
-[Single Page Application (SPA)](https://en.wikipedia.org/wiki/Single-page_application)
-* Languages
-  - Front end ([re-frame](https://github.com/day8/re-frame)): [ClojureScript](https://clojurescript.org/) (CLJS)
-* Dependencies
-  - UI framework: [re-frame](https://github.com/day8/re-frame)
-  ([docs](https://github.com/day8/re-frame/blob/master/docs/README.md),
-  [FAQs](https://github.com/day8/re-frame/blob/master/docs/FAQs/README.md)) ->
-  [Reagent](https://github.com/reagent-project/reagent) ->
-  [React](https://github.com/facebook/react)
-* Build tools
-  - Project task & dependency management: [tools.deps](https://clojure.org/guides/deps_and_cli)
-  - CLJS compilation, REPL, & hot reload: [`shadow-cljs`](https://github.com/thheller/shadow-cljs)
-* Development tools
-  - Debugging: [CLJS DevTools](https://github.com/binaryage/cljs-devtools)
-
-#### Directory structure
-
-* [`/`](/../../): project config files
-* [`dev/`](dev/): source files compiled only with the [dev](#running-the-app) profile
-  - [`cljs/user.cljs`](dev/cljs/user.cljs): symbols for use during development in the
-[ClojureScript REPL](#connecting-to-the-browser-repl-from-a-terminal)
-* [`resources/public/`](resources/public/): SPA root directory;
-[dev](#running-the-app) / [prod](#production) profile depends on the most recent build
-  - [`index.html`](resources/public/index.html): SPA home page
-    - Dynamic SPA content rendered in the following `div`:
-        ```html
-        <div id="app"></div>
-        ```
-    - Customizable; add headers, footers, links to other scripts and styles, etc.
-  - Generated directories and files
-    - Created on build with either the [dev](#running-the-app) or [prod](#production) profile
-    - `js/compiled/`: compiled CLJS (`shadow-cljs`)
-      - Not tracked in source control; see [`.gitignore`](.gitignore)
-* [`src/cljs/eldrix/pc4_ward/`](src/cljs/eldrix/pc4_ward/): SPA source files (ClojureScript,
-[re-frame](https://github.com/Day8/re-frame))
-  - [`core.cljs`](src/cljs/eldrix/pc4_ward/core.cljs): contains the SPA entry point, `init`
-
-### Editor/IDE
-
-Use your preferred editor or IDE that supports Clojure/ClojureScript development. See
-[Clojure tools](https://clojure.org/community/resources#_clojure_tools) for some popular options.
 
 ### Environment Setup
 
