@@ -34,45 +34,6 @@
   (route/expand-routes
     #{["/api" :post pathom-api]}))
 
-;; TODO(mw): make a configuration option
-(def service-map
-  {::http/routes          routes
-   ::http/type            :jetty
-   ::http/port            8081
-   ::http/host            "0.0.0.0"                         ;; TODO: this is a security risk so must be a configuration option
-   ::http/allowed-origins (fn [host] (println "check CORS  host:" host)
-                            true)})                         ;; TODO: make a configuration option
-
-(defn start-server
-  ([config port] (start-server config port true))
-  ([config port join?]
-   (log/info "starting server on port " port)
-   (log/warn "binding to 0.0.0.0 - this will be changed in a future release")
-   (-> service-map
-       (assoc ::http/port port)
-       (assoc ::http/join? join?)
-       (http/default-interceptors)
-       (update ::http/interceptors conj
-               (intc/interceptor (inject config))
-               (io.pedestal.http.body-params/body-params)
-               http/transit-body)
-       (http/create-server)
-       (http/start))))
-
-(defn stop-server [server]
-  (http/stop server))
-
-;; For interactive development
-(defonce server (atom nil))
-
-(defn start-dev [svc port]
-  (reset! server
-          (start-server svc port false)))
-
-(defn stop-dev []
-  (http/stop @server))
-
-
 
 (comment
   (require '[com.eldrix.clods.core :as clods])

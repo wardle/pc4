@@ -9,7 +9,9 @@
            ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
 
            com.eldrix/clods               {:git/url "https://github.com/wardle/clods.git"
-                                           :sha     "7df043e8e9fce3e82187cd5f975c9a81082ce57f"}
+                                           :sha     "ccb8da3a2928b4352bf4984b6720c3b5914df0d6"}
+           com.eldrix/hermes              {:git/url "https://github.com/wardle/hermes.git"
+                                           :sha     "2b082ca7dbfc5b160e7195f0677c75d859351aef"}
 
            aero/aero                      {:mvn/version "1.1.6"}
            cheshire/cheshire              {:mvn/version "5.10.0"}
