@@ -44,9 +44,6 @@
   ;;(require '[com.wsscode.pathom.viz.ws-connector.core :as pvc])
   ;;(p.connector/connect-env registry {::pvc/parser-id pc4-server})
 
-  (start-dev {:pathom-registry registry} 8080)
-  (stop-dev)
-
   (p.eql/process registry [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"] [:uk.gov.ons.nhspd/LSOA11 :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M :uk.gov.ons.nhspd/PCT :uk.nhs.ord/name :uk.nhs.ord.primaryRole/displayName {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
   )
 ;; from command line, send some transit+json data to the API endpoint

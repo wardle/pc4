@@ -11,21 +11,32 @@
   (fn [_ _]
     db/default-db))
 
+
+
+
+(defn make-snomed-search-op[params]
+  [{(list 'info.snomed.Search/search
+      params)
+    [:info.snomed.Concept/id
+     :info.snomed.Description/id
+     :info.snomed.Description/term
+     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+
+
 (rf/reg-event-fx
   :user/user-login-do
   []
   (fn [{db :db} [_ namespace username password]]
-    (js/console.log "doing login " username)
+    (js/console.log "performing login " username)
     {:http-xhrio {:method          :post
                   :uri             "http://localhost:8080/api"
                   :timeout         3000
                   :format          (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
                   :headers         {:Authorization (str "Bearer " (:service-token db))}
-                  :params          [{[:info.snomed.Concept/id 24700007]
-                                     [:info.snomed.Concept/id
-                                      :info.snomed.Concept/active
-                                      {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+                  :params          (make-snomed-search-op {:s "mult scler"
+                                                           :constraint "<404684003"
+                                                           :max-hits 100})
                   
                   
                   :on-success      [:user/user-login-success]
