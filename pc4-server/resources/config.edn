@@ -1,0 +1,26 @@
+{:secrets                    #include #join [#env HOME "/.secrets.edn"]
+
+ :com.eldrix/clods           {:ods-path   "/var/tmp/ods"
+                              :nhspd-path "/var/tmp/nhspd"}
+
+ :com.eldrix/hermes          {:path "/Users/mark/Dev/hermes/snomed.db"}
+
+ :com.eldrix/concierge-nadex #profile {:default {:connection-pool-size  5
+                                                 :default-bind-username #ref [:secrets :nadex-bind-username]
+                                                 :default-bind-password #ref [:secrets :nadex-bind-password]}
+                                       :dev     {}}
+
+ ;; :wales.nhs/empi       {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+ ;;                        :processing-id "P"}
+ ;; :wales.nhs.cavuhb/pms {:username    #ref [:secrets :cav-pms-username]
+ ;;                        :password    #ref [:secrets :cav-pms-password]
+ ;;                        :database    "vpmslive.world"
+ ;;                        :user-string "patientcare-concierge"}
+
+ :pathom/registry            {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
+                                    :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes}}
+
+ :http/server                {:port            8080
+                              :allowed-origins "*"
+                              :host            "0.0.0.0"
+                              :env             {:pathom-registry #ig/ref :pathom/registry}}}

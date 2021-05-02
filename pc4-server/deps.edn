@@ -10,6 +10,8 @@
 
            com.eldrix/clods               {:git/url "https://github.com/wardle/clods.git"
                                            :sha     "ccb8da3a2928b4352bf4984b6720c3b5914df0d6"}
+           com.eldrix/concierge           {:git/url "https://github.com/wardle/concierge.git"
+                                           :sha     "bb738cbc775b2cfde1c3f6bc526cded1af300978"}
            com.eldrix/hermes              {:git/url "https://github.com/wardle/hermes.git"
                                            :sha     "2b082ca7dbfc5b160e7195f0677c75d859351aef"}
 

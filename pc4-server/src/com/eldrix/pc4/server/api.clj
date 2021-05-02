@@ -24,10 +24,10 @@
 (def pathom-api
   {:name  ::pathom-api
    :enter (fn [context]
-            (println "transit params:" (get-in context [:request :transit-params]))
+            (log/debug "api call; eql:" (get-in context [:request :transit-params]))
             (let [registry (:pathom-registry context)
                   result (p.eql/process registry (get-in context [:request :transit-params]))]
-              (println "result: " result)
+              (log/debug "api call; result:" result)
               (assoc context :response (ok result))))})
 
 (def routes
