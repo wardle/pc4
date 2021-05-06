@@ -22,6 +22,8 @@
 (def ok (partial response 200))
 
 (def pathom-api
+  "Simple interceptor that pulls out EQL from the request and responds with
+  the result of its processing."
   {:name  ::pathom-api
    :enter (fn [context]
             (log/debug "api call; eql:" (get-in context [:request :transit-params]))

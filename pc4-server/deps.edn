@@ -13,7 +13,7 @@
            com.eldrix/concierge           {:git/url "https://github.com/wardle/concierge.git"
                                            :sha     "bb738cbc775b2cfde1c3f6bc526cded1af300978"}
            com.eldrix/hermes              {:git/url "https://github.com/wardle/hermes.git"
-                                           :sha     "2b082ca7dbfc5b160e7195f0677c75d859351aef"}
+                                           :sha     "a2b5bb3500e787af84b308a9fd886ae7406b63df"}
 
            aero/aero                      {:mvn/version "1.1.6"}
            cheshire/cheshire              {:mvn/version "5.10.0"}
@@ -26,41 +26,43 @@
            io.pedestal/pedestal.jetty     {:mvn/version "0.5.8"}}
 
  :aliases {
-           :pathom-viz {:extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}}}
+           :dev       {:extra-paths [ "dev"]
+                       :extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}
+                                    org.clojure/test.check           {:mvn/version "0.9.0"}}}
 
-           :test       {:extra-paths ["test" "test/resources"]
-                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                 :sha     "b6b3193fcc42659d7e46ecd1884a228993441182"}}
-                        :main-opts   ["-m" "cognitect.test-runner"]}
+           :test      {:extra-paths ["test" "test/resources"]
+                       :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                :sha     "b6b3193fcc42659d7e46ecd1884a228993441182"}}
+                       :main-opts   ["-m" "cognitect.test-runner"]}
 
-           :log        {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}}
+           :log       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}}
 
-           :outdated   {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
-                        :main-opts  ["-m" "antq.core"]}
+           :outdated  {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+                       :main-opts  ["-m" "antq.core"]}
 
-           :check      {:extra-deps {athos/clj-check
-                                     {:git/url "https://github.com/athos/clj-check.git"
-                                      :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-                        :main-opts  ["-m" "clj-check.check" "src"]}
+           :check     {:extra-deps {athos/clj-check
+                                    {:git/url "https://github.com/athos/clj-check.git"
+                                     :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                       :main-opts  ["-m" "clj-check.check" "src"]}
 
            ;; run with clj -M:serve:fhir-r4:check-all to test all codepaths
-           :check-all  {:extra-deps {athos/clj-check
-                                     {:git/url "https://github.com/athos/clj-check.git"
-                                      :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-                        :main-opts  ["-m" "clj-check.check" "src" "fhir_r4" "serve"]}
+           :check-all {:extra-deps {athos/clj-check
+                                    {:git/url "https://github.com/athos/clj-check.git"
+                                     :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                       :main-opts  ["-m" "clj-check.check" "src" "fhir_r4" "serve"]}
 
            :lint/kondo
-                       {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
-                        :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
+                      {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
+                       :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
            :lint/eastwood
-                       {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
-                        :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
+                      {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
+                       :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            ;; build a utility uberjar - just the command-line tools
-           :uberjar    {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.216"}}
-                        :exec-fn      hf.depstar/uberjar
-                        :exec-args    {:jar        "target/pc4-server.jar"
-                                       :aot        true
-                                       :main-class com.eldrix.clods.core}}}}
+           :uberjar   {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.0.216"}}
+                       :exec-fn      hf.depstar/uberjar
+                       :exec-args    {:jar        "target/pc4-server.jar"
+                                      :aot        true
+                                      :main-class com.eldrix.clods.core}}}}
 

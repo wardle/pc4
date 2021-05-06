@@ -1,14 +1,20 @@
-{:secrets                    #include #join [#env HOME "/.secrets.edn"]
+{:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
- :com.eldrix/clods           {:ods-path   "/var/tmp/ods"
-                              :nhspd-path "/var/tmp/nhspd"}
+ :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
+                                      :nhspd-path "/var/tmp/nhspd"}
 
- :com.eldrix/hermes          {:path "/Users/mark/Dev/hermes/snomed.db"}
+ :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
- :com.eldrix/concierge-nadex #profile {:default {:connection-pool-size  5
-                                                 :default-bind-username #ref [:secrets :nadex-bind-username]
-                                                 :default-bind-password #ref [:secrets :nadex-bind-password]}
-                                       :dev     {}}
+ :com.eldrix.concierge/nadex         #profile {:default {:connection-pool-size  5
+                                                         :default-bind-username #ref [:secrets :nadex-bind-username]
+                                                         :default-bind-password #ref [:secrets :nadex-bind-password]}
+                                               :dev     {}}
+
+ :com.eldrix.pc4/fake-login-provider {:password "password"}
+
+ ;; login provides a map containing providers for that profile
+ :com.eldrix.pc4/login               #profile {:default {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
+                                               :dev     {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}}
 
  ;; :wales.nhs/empi       {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
  ;;                        :processing-id "P"}
@@ -17,10 +23,11 @@
  ;;                        :database    "vpmslive.world"
  ;;                        :user-string "patientcare-concierge"}
 
- :pathom/registry            {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
-                                    :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes}}
+ :pathom/registry                    {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
+                                            :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
+                                            :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login}}
 
- :http/server                {:port            8080
-                              :allowed-origins "*"
-                              :host            "0.0.0.0"
-                              :env             {:pathom-registry #ig/ref :pathom/registry}}}
+ :http/server                        {:port            8080
+                                      :allowed-origins "*"
+                                      :host            "0.0.0.0"
+                                      :env             {:pathom-registry #ig/ref :pathom/registry}}}
