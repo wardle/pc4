@@ -3,13 +3,14 @@
             [io.pedestal.http :as http]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
+            [io.pedestal.interceptor.error :as int-err]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.interface.eql :as p.eql]))
 
 (set! *warn-on-reflection* true)
 
 (defn inject
-  "A simple interceptor to inject into the context."
+  "A simple interceptor to inject the map into the context."
   [m]
   {:name  ::inject
    :enter (fn [context] (merge context m))})
@@ -20,6 +21,20 @@
    :headers headers})
 
 (def ok (partial response 200))
+
+(def service-error-handler
+  (int-err/error-dispatch [ctx ex]
+    [{:exception-type :java.lang.ArithmeticException :interceptor ::another-bad-one}]
+    (assoc ctx :response {:status 400 :body "Another bad one"})
+
+
+    [{:exception-type :java.lang.ArithmeticException}]
+    (assoc ctx :response {:status 400 :body "A bad one"})
+
+    :else
+    (do
+      (log/info "error: " ex)
+      (assoc ctx :io.pedestal.interceptor.chain/error ex))))
 
 (def pathom-api
   "Simple interceptor that pulls out EQL from the request and responds with
@@ -34,19 +49,11 @@
 
 (def routes
   (route/expand-routes
-    #{["/api" :post pathom-api]}))
+    #{["/api" :post [service-error-handler pathom-api]]}))
 
 
 (comment
-  (require '[com.eldrix.clods.core :as clods])
-  (require '[com.eldrix.clods.graph])
-  (def clods (com.eldrix.clods.core/open-index "/var/tmp/ods" "/var/tmp/nhspd"))
-  (def registry (-> (pci/register com.eldrix.clods.graph/all-resolvers)
-                    (assoc :clods clods)))
-  ;;(require '[com.wsscode.pathom.viz.ws-connector.core :as pvc])
-  ;;(p.connector/connect-env registry {::pvc/parser-id pc4-server})
 
-  (p.eql/process registry [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"] [:uk.gov.ons.nhspd/LSOA11 :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M :uk.gov.ons.nhspd/PCT :uk.nhs.ord/name :uk.nhs.ord.primaryRole/displayName {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
+  ;; from command line, send some transit+json data to the API endpoint
+  ;; echo '["^ ","a",1,"b",[1,2.2,200000,null]]' | http -f POST localhost:8080/api Content-Type:application/transit+json;charset=UTF-8
   )
-;; from command line, send some transit+json data to the API endpoint
-;; echo '["^ ","a",1,"b",[1,2.2,200000,null]]' | http -f POST localhost:8080/api Content-Type:application/transit+json;charset=UTF-8

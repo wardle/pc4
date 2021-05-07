@@ -29,8 +29,8 @@
                    :extra-paths ["test"]}
          :jar     {:extra-deps {seancorfield/depstar {:mvn/version "1.0.94"}}
                    :main-opts  ["-m" "hf.depstar.jar" "re-frame-template.jar"]}
-         :install {:extra-deps {deps-deploy {:mvn/version "0.0.9"}}
+         :install {:extra-deps {deps-deploy/deps-deploy {:mvn/version "0.0.9"}}
                    :main-opts  ["-m" "deps-deploy.deps-deploy" "install" "re-frame-template.jar"]}
-         :deploy  {:extra-deps {deps-deploy {:mvn/version "0.0.9"}}
+         :deploy  {:extra-deps {deps-deploy/deps-deploy {:mvn/version "0.0.9"}}
                    :main-opts  ["-m" "deps-deploy.deps-deploy" "deploy" "re-frame-template.jar"]}}}
 

@@ -14,7 +14,7 @@
 
 
 
-(defn make-snomed-search-op[params]
+(defn make-snomed-search-op [{:keys [s constraint] :as params}]
   [{(list 'info.snomed.Search/search
       params)
     [:info.snomed.Concept/id
@@ -22,6 +22,17 @@
      :info.snomed.Description/term
      {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
 
+(defn make-login-op [{:keys [system value password] :as params}]
+  [{(list 'pc4.users/login
+          params)
+    [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+     :urn.oid.2.5.4/givenName
+     :urn.oid.2.5.4/surname
+     :urn.oid.2.5.4/commonName
+     {:org.hl7.fhir.Practitioner/name
+      [:org.hl7.fhir.HumanName/use
+       :org.hl7.fhir.HumanName/family
+       :org.hl7.fhir.HumanName/given]}]}])
 
 (rf/reg-event-fx
   :user/user-login-do
@@ -34,9 +45,9 @@
                   :format          (ajax/transit-request-format)
                   :response-format (ajax/transit-response-format)
                   :headers         {:Authorization (str "Bearer " (:service-token db))}
-                  :params          (make-snomed-search-op {:s "mult scler"
-                                                           :constraint "<404684003"
-                                                           :max-hits 100})
+                  :params          
+                  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+                  ;;(make-snomed-search-op {:s "mnd" :constraint "<404684003" :max-hits 100})
                   
                   
                   :on-success      [:user/user-login-success]
@@ -56,5 +67,13 @@
   :user/user-login-success
   []
   (fn [{db :db} [_ response]]
-    (js/console.log "User login success: response: " + response)))
+    (js/console.log "User login success: response: " response)))
 
+(rf/reg-event-fx
+ :user/user-login-failure
+ []
+ (fn [{:keys [db]} [_ response]]
+   (js/console.log "User login failure: response " response)))
+
+(comment
+  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"}))
