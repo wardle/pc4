@@ -26,12 +26,15 @@
                     :info.snomed.Concept/preferredDescription
                     :uk.nhs.dmd/NM]}])
   (p.eql/process (:pathom/registry system)
-                 [{[:uk.nhs.dmd/VTMID 108537001]
+                 [{[:info.snomed.Concept/id 108537001]
                    [:uk.nhs.dmd/VTMID
                     :uk.nhs.dmd/NM
-                    {:uk.nhs.dmd/VMPS [:uk.nhs.dmd/VPID :uk.nhs.dmd/NM]}
+                    {:uk.nhs.dmd/VMPS [:uk.nhs.dmd/VPID :uk.nhs.dmd/NM
+                                       {:uk.nhs.dmd/VIRTUAL_PRODUCT_INGREDIENT [:uk.nhs.dmd/STRNT_NMRTR_VAL
+                                                                                :uk.nhs.dmd/STRNT_DNMTR_VAL
+                                                                                {:uk.nhs.dmd/STRNT_NMRTR_UOM [:uk.nhs.dmd/DESC]}
+                                                                                {:uk.nhs.dmd/STRNT_DNMTR_UOM [:uk.nhs.dmd/DESC]}]}]}
                     :info.snomed.Concept/id
-                    :info.snomed.Concept/parentRelationshipIds
                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
   (com.eldrix.dmd.store/fetch-product (get-in system [:pathom/registry :com.eldrix.dmd.graph/store]) 108537001)
 
