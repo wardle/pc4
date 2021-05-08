@@ -7,6 +7,8 @@
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.clods.graph]
+            [com.eldrix.dmd.core :as dmd]
+            [com.eldrix.dmd.graph]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
             [com.eldrix.pc4.server.api :as api]
@@ -30,6 +32,14 @@
 
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
+
+(defmethod ig/init-key :com.eldrix/dmd [_ {:keys [path]}]
+  (log/info "opening UK NHS dm+d index: " path)
+  (swap! resolvers into com.eldrix.dmd.graph/all-resolvers)
+  (dmd/open-store path))
+
+(defmethod ig/halt-key! :com.eldrix/dmd [_ dmd]
+  (.close dmd))
 
 (defmethod ig/init-key :com.eldrix.concierge/nadex
   [_ {:keys [connection-pool-size _default-bind-username _default-bind-password] :as params}]

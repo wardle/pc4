@@ -12,13 +12,15 @@
                                            :sha     "ccb8da3a2928b4352bf4984b6720c3b5914df0d6"}
            com.eldrix/concierge           {:git/url "https://github.com/wardle/concierge.git"
                                            :sha     "bb738cbc775b2cfde1c3f6bc526cded1af300978"}
+           com.eldrix/dmd                 {:git/url "https://github.com/wardle/dmd.git"
+                                           :sha     "6716490efb871fa4f2e2a7ad846987f4428a6b5c"}
            com.eldrix/hermes              {:git/url "https://github.com/wardle/hermes.git"
                                            :sha     "a2b5bb3500e787af84b308a9fd886ae7406b63df"}
 
            aero/aero                      {:mvn/version "1.1.6"}
            cheshire/cheshire              {:mvn/version "5.10.0"}
            com.wsscode/pathom             {:git/url "https://github.com/wilkerlucio/pathom3"
-                                           :sha     "ea60bb0031961fca5600630ce297b43dbd643225"}
+                                           :sha     "ccb9ed70ac56c87b1e28a4958089c129e8c24fa8"}
            expound/expound                {:mvn/version "0.8.9"}
            integrant/integrant            {:mvn/version "0.8.0"}
 
@@ -26,9 +28,9 @@
            io.pedestal/pedestal.jetty     {:mvn/version "0.5.8"}}
 
  :aliases {
-           :dev       {:extra-paths [ "dev"]
-                       :extra-deps {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}
-                                    org.clojure/test.check           {:mvn/version "0.9.0"}}}
+           :dev       {:extra-paths ["dev"]
+                       :extra-deps  {com.wsscode/pathom-viz-connector {:mvn/version "2021.04.20"}
+                                     org.clojure/test.check           {:mvn/version "0.9.0"}}}
 
            :test      {:extra-paths ["test" "test/resources"]
                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"

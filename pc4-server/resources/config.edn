@@ -3,6 +3,8 @@
  :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
                                       :nhspd-path "/var/tmp/nhspd"}
 
+ :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-04-12.db"}
+
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
  :com.eldrix.concierge/nadex         #profile {:default {:connection-pool-size  5
@@ -24,6 +26,7 @@
  ;;                        :user-string "patientcare-concierge"}
 
  :pathom/registry                    {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
+                                            :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
                                             :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
                                             :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login}}
 
