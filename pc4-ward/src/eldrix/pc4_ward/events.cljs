@@ -11,12 +11,9 @@
   (fn [_ _]
     db/default-db))
 
-
-
-
 (defn make-snomed-search-op [{:keys [s constraint] :as params}]
   [{(list 'info.snomed.Search/search
-      params)
+          params)
     [:info.snomed.Concept/id
      :info.snomed.Description/id
      :info.snomed.Description/term
@@ -34,34 +31,27 @@
        :org.hl7.fhir.HumanName/family
        :org.hl7.fhir.HumanName/given]}]}])
 
+
+(defn make-xhrio-request [{:keys [service-token params on-success on-failure]}]
+  {:method          :post
+   :uri             "http://localhost:8080/api"
+   :timeout         3000
+   :format          (ajax/transit-request-format)
+   :response-format (ajax/transit-response-format)
+   :headers         (when service-token {:Authorization (str "Bearer " service-token)})
+   :params          params
+   :on-success      on-success
+   :on-failure      on-failure})
+
 (rf/reg-event-fx
   :user/user-login-do
   []
   (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
-    {:http-xhrio {:method          :post
-                  :uri             "http://localhost:8080/api"
-                  :timeout         3000
-                  :format          (ajax/transit-request-format)
-                  :response-format (ajax/transit-response-format)
-                  :headers         {:Authorization (str "Bearer " (:service-token db))}
-                  :params          
-                  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
-                  ;;(make-snomed-search-op {:s "mnd" :constraint "<404684003" :max-hits 100})
-                  
-                  
-                  :on-success      [:user/user-login-success]
-                  :on-failure      [:user/user-login-failure]}}))
-
-
-;; (comment [{[:uk.gov.ons.nhspd/PCDS "CF14 4XW"]
-;;              [:uk.gov.ons.nhspd/LSOA11
- ;;              :uk.gov.ons.nhspd/OSNRTH1M
- ;              :uk.gov.ons.nhspd/OSEAST1M
- ;              :uk.gov.ons.nhspd/PCT
- ;              :uk.nhs.ord/name
- ;              :uk.nhs.ord.primaryRole/displayName
- ;              {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
+    {:http-xhrio (make-xhrio-request {:service-token (:service-token db)
+                                      :params        (make-login-op {:system namespace :value username :password password})
+                                      :on-success    [:user/user-login-success]
+                                      :on-failure    [:user/user-login-failure]})}))
 
 (rf/reg-event-fx
   :user/user-login-success
@@ -70,10 +60,12 @@
     (js/console.log "User login success: response: " response)))
 
 (rf/reg-event-fx
- :user/user-login-failure
- []
- (fn [{:keys [db]} [_ response]]
-   (js/console.log "User login failure: response " response)))
+  :user/user-login-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "User login failure: response " response)))
 
 (comment
-  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"}))
+  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+  (rf/dispatch [:user/user-login-do "cymru.nhs.uk" "donduck" "password"])
+  )
