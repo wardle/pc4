@@ -98,6 +98,20 @@ to which you may now connect.
 
 #### Connecting to the browser REPL from your editor
 
+For IntelliJ (Cursive), simply create a new remote REPL run configuration, using the nREPL server port printed
+by shadow cljs. The REPL starts in clj mode, so switch to cljs by simply typing
+
+```clojure
+(shadow.cljs.devtools.api/nrepl-select :app)
+```
+
+You'll then be able to directly execute cljs in the browser:
+
+```clojure
+(js/console.log "Hi there from the REPL" ) 
+(js/alert "Hello, World")
+```
+
 See
 [Shadow CLJS User's Guide: Editor Integration](https://shadow-cljs.github.io/docs/UsersGuide.html#_editor_integration).
 Note that  `shadow-cljs -A dev watch app` expects that this project's running build id is
