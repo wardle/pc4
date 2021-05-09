@@ -22,34 +22,26 @@
 
 (def ok (partial response 200))
 
-(def service-error-handler
-  (int-err/error-dispatch [ctx ex]
-    [{:exception-type :java.lang.ArithmeticException :interceptor ::another-bad-one}]
-    (assoc ctx :response {:status 400 :body "Another bad one"})
-
-
-    [{:exception-type :java.lang.ArithmeticException}]
-    (assoc ctx :response {:status 400 :body "A bad one"})
-
-    :else
-    (do
-      (log/info "error: " ex)
-      (assoc ctx :io.pedestal.interceptor.chain/error ex))))
-
 (def pathom-api
   "Simple interceptor that pulls out EQL from the request and responds with
   the result of its processing."
   {:name  ::pathom-api
-   :enter (fn [context]
-            (log/debug "api call; eql:" (get-in context [:request :transit-params]))
-            (let [registry (:pathom-registry context)
-                  result (p.eql/process registry (get-in context [:request :transit-params]))]
+   :enter (fn [ctx]
+            (log/debug "api call; eql:" (get-in ctx [:request :transit-params]))
+            (let [registry (:pathom-registry ctx)
+                  result (p.eql/process registry (get-in ctx [:request :transit-params]))]
               (log/debug "api call; result:" result)
-              (assoc context :response (ok result))))})
+              (if-let [mutation-error (first (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
+                (do
+                  (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
+                                                :cause (:cause (Throwable->map  mutation-error))})
+                  (assoc ctx :response {:status 400
+                                      :body {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}}))
+                (assoc ctx :response (ok result)))))})
 
 (def routes
   (route/expand-routes
-    #{["/api" :post [service-error-handler pathom-api]]}))
+    #{["/api" :post [pathom-api]]}))
 
 
 (comment

@@ -20,7 +20,7 @@
      {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
 
 (defn make-login-op [{:keys [system value password] :as params}]
-  [{(list 'pc4.users/login
+  [{(list 'pc4.users/login2
           params)
     [:urn.oid.1.2.840.113556.1.4/sAMAccountName
      :urn.oid.2.5.4/givenName
