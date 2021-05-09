@@ -9,7 +9,7 @@
            ch.qos.logback/logback-classic {:mvn/version "1.2.3"}
 
            com.eldrix/clods               {:git/url "https://github.com/wardle/clods.git"
-                                           :sha     "ccb8da3a2928b4352bf4984b6720c3b5914df0d6"}
+                                           :sha     "b9c3e00db3d6867dff436d050e29ee78014527c3"}
            com.eldrix/concierge           {:git/url "https://github.com/wardle/concierge.git"
                                            :sha     "bb738cbc775b2cfde1c3f6bc526cded1af300978"}
            com.eldrix/dmd                 {:git/url "https://github.com/wardle/dmd.git"
