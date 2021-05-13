@@ -1,6 +1,6 @@
 # PatientCare v4
 
-PatientCare v4 is a new type of electronic health and care patient record. 
+PatientCare v4 is a new type of electronic health and care patient electronic record system. 
 
 Previous versions have been in constant use within NHS Wales, UK since 2008, 
 helping support the care of a range of patients with both neurological and 
@@ -33,6 +33,7 @@ The principles are:
 * clear separation of data, logic and user interface; with user facing applications
 lightweight, ephemeral and focused on workflow and process, providing multiple
   user centric views of the same data.
+* different semantics for reading data comparing to writing data; we read using a graph API across disparate federated datasets and write using an event model.
 
 # Components
 
