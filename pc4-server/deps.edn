@@ -15,9 +15,10 @@
            com.eldrix/dmd                 {:git/url "https://github.com/wardle/dmd.git"
                                            :sha     "6716490efb871fa4f2e2a7ad846987f4428a6b5c"}
            com.eldrix/hermes              {:git/url "https://github.com/wardle/hermes.git"
-                                           :sha     "a2b5bb3500e787af84b308a9fd886ae7406b63df"}
+                                           :sha     "c02adaec7b9baafb37c7956a930d71d9e684b37c"}
 
            aero/aero                      {:mvn/version "1.1.6"}
+           buddy/buddy-sign               {:mvn/version "3.4.1"}
            cheshire/cheshire              {:mvn/version "5.10.0"}
            com.wsscode/pathom             {:git/url "https://github.com/wilkerlucio/pathom3"
                                            :sha     "ccb9ed70ac56c87b1e28a4958089c129e8c24fa8"}

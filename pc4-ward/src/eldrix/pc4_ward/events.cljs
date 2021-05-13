@@ -19,6 +19,9 @@
      :info.snomed.Description/term
      {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
 
+(defn make-refresh-token-op [:keys [system value token]]
+  )
+
 (defn make-login-op [{:keys [system value password] :as params}]
   [{(list 'pc4.users/login2
           params)
@@ -64,6 +67,24 @@
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "User login failure: response " response)))
+
+
+(rf/reg-event-fx
+  :user/refresh-user-token
+  []
+  (fn [{db :db} [_ namespace username]]                     ;; note first argument is cofx, so we extract db (:db cofx) using clojure's destructuring
+    (js/console.log "Refreshing user token")
+    {:db         (assoc db :show-background-spinner true)   ;; causes the twirly-waiting-dialog to show??
+     :http-xhrio {:method          :get
+                  :uri             (str config/concierge-server-address "/v1/refresh")
+                  :headers         {:Authorization (str "Bearer " (get-in db [:authenticated-user :token]))}
+                  :timeout         5000                     ;; optional see API docs
+                  :format          (ajax/json-request-format)
+                  :response-format (kebab-json-response-format)
+                  :on-success      [:user/user-login-success namespace username]
+                  :on-failure      [:user/session-expired]}}))
+
+
 
 (comment
   (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})

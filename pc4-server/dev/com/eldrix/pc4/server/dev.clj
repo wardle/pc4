@@ -45,4 +45,17 @@
                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
   (com.eldrix.dmd.store/fetch-product (get-in system [:pathom/registry :com.eldrix.dmd.graph/store]) 108537001)
 
+
+  (def result (p.eql/process (:pathom/registry system)
+                 [{(list 'pc4.users/login2
+                         {:username "ma090906" :password "password" })
+                   [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+                    :urn.oid.2.5.4/givenName
+                    :urn.oid.2.5.4/surname
+                    :urn.oid.2.5.4/commonName
+                    {:org.hl7.fhir.Practitioner/name
+                     [:org.hl7.fhir.HumanName/use
+                      :org.hl7.fhir.HumanName/family
+                      :org.hl7.fhir.HumanName/given]}]}]))
+  result
   )
