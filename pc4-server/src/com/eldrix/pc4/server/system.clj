@@ -169,7 +169,7 @@
       ;; do we have a fake login provider configured?
       fake-login
       (do
-        (log/info "fake login for " system value)
+        (log/info "performing fake login for " system value)
         (when (= (:password fake-login) password)
           {:urn.oid.1.2.840.113556.1.4/sAMAccountName value
            :io.jwt/token                              token
