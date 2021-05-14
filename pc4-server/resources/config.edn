@@ -12,14 +12,15 @@
                                                          :default-bind-password #ref [:secrets :nadex-bind-password]}
                                                :dev     {}}
 
- :com.eldrix.pc4/fake-login-provider {:password "password"}
+ :com.eldrix.pc4/fake-login-provider {:username "ma090906"
+                                      :password "password"}
 
  :com.eldrix.pc4/login               #profile {:default {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
                                                          :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                         :jwt-expiry-seconds 120}
+                                                         :jwt-expiry-seconds 300}
                                                :dev     {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
                                                          :jwt-secret-key     "secret"
-                                                         :jwt-expiry-seconds 120}}
+                                                         :jwt-expiry-seconds 300}}
 
  ;; :wales.nhs/empi       {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
  ;;                        :processing-id "P"}

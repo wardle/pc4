@@ -54,8 +54,8 @@
   (when connection-pool (.close connection-pool)))
 
 (defmethod ig/init-key :com.eldrix.pc4/fake-login-provider
-  [_ {:keys [password]}]
-  {:password password})
+  [_ {:keys [username password] :as options}]
+  options)
 
 (defmethod ig/init-key :com.eldrix.pc4/login
   [_ config]
@@ -109,7 +109,7 @@
 
 (defn make-user-token
   [creds {:keys [jwt-expiry-seconds jwt-secret-key]}]
-  (jwt/sign (assoc creds :exp (.plusSeconds (Instant/now) (or jwt-expiry-seconds 120))) jwt-secret-key))
+  (jwt/sign (assoc creds :exp (.plusSeconds (Instant/now) (or jwt-expiry-seconds (* 60 5)))) jwt-secret-key))
 
 (pco/defmutation refresh-token-operation
   "Refresh the user token.
@@ -123,6 +123,7 @@
    ::pco/output  [:io.jwt.token]}
   (when-let [current-user (try (jwt/unsign token (:jwt-secret-key login))
                                (catch Exception e (log/debug "Attempt to refresh invalid token")))]
+    (log/info "Issuing refreshed token for user " current-user)
     (make-user-token current-user login)))
 
 (pco/defmutation login-operation
@@ -169,8 +170,9 @@
       ;; do we have a fake login provider configured?
       fake-login
       (do
-        (log/info "performing fake login for " system value)
-        (when (= (:password fake-login) password)
+        (log/info "performing fake login for " system value password "expecting " (:username fake-login) (:password fake-login))
+        (when (and (= (:username fake-login) value) (= (:password fake-login) password))
+          (log/info "successful fake login")
           {:urn.oid.1.2.840.113556.1.4/sAMAccountName value
            :io.jwt/token                              token
            :urn.oid.2.5.4/surname                     "Duck"
@@ -229,6 +231,9 @@
 
   (def system (init :dev))
   (ig/halt! system)
+  (do
+    (ig/halt! system)
+    (def system (init :dev)))
 
   (keys system)
 

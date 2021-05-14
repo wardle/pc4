@@ -3,75 +3,49 @@
     [re-frame.core :as rf]
     [day8.re-frame.http-fx]                                 ;; required for its side-effects in registering a re-frame "effect"
     [eldrix.pc4-ward.db :as db]
-    [ajax.core :as ajax]
-    ))
+    [eldrix.pc4-ward.server :as srv]))
 
 (rf/reg-event-db
   ::initialize-db
   (fn [_ _]
     db/default-db))
 
-(defn make-snomed-search-op [{:keys [s constraint] :as params}]
-  [{(list 'info.snomed.Search/search
-          params)
-    [:info.snomed.Concept/id
-     :info.snomed.Description/id
-     :info.snomed.Description/term
-     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+;; our 1s timer
+(defn dispatch-timer-1s-event []
+  (let [now (js/Date.)]
+    (rf/dispatch [::timer-one-second now])))                ;; <-- dispatch used
 
-(defn make-refresh-token-op [{:keys [token]}]
-  [{(list 'pc4.users/refresh-token
-          {:token token})
-    [:io.jwt/token]}])
+;; our 5 min timer
+(defn dispatch-timer-1m-event [] (rf/dispatch [::timer-one-minute]))
 
-(defn make-login-op [{:keys [system value password] :as params}]
-  [{(list 'pc4.users/login
-          params)
-    [:urn.oid.1.2.840.113556.1.4/sAMAccountName
-     :io.jwt/token
-     :urn.oid.2.5.4/givenName
-     :urn.oid.2.5.4/surname
-     :urn.oid.2.5.4/commonName
-     {:org.hl7.fhir.Practitioner/name
-      [:org.hl7.fhir.HumanName/use
-       :org.hl7.fhir.HumanName/family
-       :org.hl7.fhir.HumanName/given]}]}])
+;; call our timer events at the required intervals
+(defonce do-timer (do
+                    (js/setInterval dispatch-timer-1s-event 1000)
+                    (js/setInterval dispatch-timer-1m-event 60000)))
 
 
-(defn make-xhrio-request [{:keys [service-token params on-success on-failure]}]
-  {:method          :post
-   :uri             "http://localhost:8080/api"
-   :timeout         3000
-   :format          (ajax/transit-request-format)
-   :response-format (ajax/transit-response-format)
-   :headers         (when service-token {:Authorization (str "Bearer " service-token)})
-   :params          params
-   :on-success      on-success
-   :on-failure      on-failure})
+(rf/reg-event-db                                            ;; usage:  (rf/dispatch [:timer a-js-Date])
+  ::timer-one-second
+  (fn [db [_ new-time]]                                     ;; <-- notice how we de-structure the event vector
+    (assoc db :current-time new-time)))
 
-(rf/reg-event-fx
-  :user/user-login-do
-  []
-  (fn [{db :db} [_ namespace username password]]
-    (js/console.log "performing login " username)
-    {:http-xhrio (make-xhrio-request {:service-token (:service-token db)
-                                      :params        (make-login-op {:system namespace :value username :password password})
-                                      :on-success    [:user/user-login-success]
-                                      :on-failure    [:user/user-login-failure]})}))
+;; every minute, we check our authentication tokens are valid, and refresh if necessary
+;; we cannot refresh an expired login token ourselves, so give up and logout with a session expired notice
+(rf/reg-event-fx                                            ;; usage:  (rf/dispatch [:timer a-js-Date])
+  ::timer-one-minute
+  (fn [{db :db} [_]]                                        ;; <-- notice how we de-structure the event vector
+    (cond
+      ;; no authenticated user -> explicitly do nothing... without this, the next condition will be thrown
+      (nil? (:authenticated-user db))
+      (do (js/console.log "no current logged in user") {})
 
-(rf/reg-event-fx
-  :user/user-login-success
-  []
-  (fn [{db :db} [_ response]]
-    (js/console.log "User login success: response: " response)))
+      ;; user token expired - we have to force end to our session
+      (not (srv/jwt-valid? (get-in db [:authenticated-user :io.jwt/token])))
+      (do (js/console.log "session expired") {:dispatch [:eldrix.pc4-ward.users/session-expired]})
 
-(rf/reg-event-fx
-  :user/user-login-failure
-  []
-  (fn [{:keys [db]} [_ response]]
-    (js/console.log "User login failure: response " response)))
+      ;; user token expiring soon - we still have chance refresh our token without needing to ask for credentials again
+      (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 60)
+      {:dispatch [:user/refresh-token {:token (get-in db [:authenticated-user :io.jwt/token])}]}
 
-(comment
-  (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
-  (rf/dispatch [:user/user-login-do "cymru.nhs.uk" "donduck" "password"])
-  )
+      ;; we have an active session
+      :else (js/console.log "active session"))))

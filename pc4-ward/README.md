@@ -79,7 +79,7 @@ Start a temporary local web server, build the app with the `dev` profile, and se
 hot reload:
 
 ```sh
-shadow-cljs -A dev watch app
+shadow-cljs -A:dev watch app
 
 ```
 
