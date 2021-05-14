@@ -3,6 +3,7 @@
     [re-frame.core :as rf]
     [day8.re-frame.http-fx]                                 ;; required for its side-effects in registering a re-frame "effect"
     [eldrix.pc4-ward.db :as db]
+    [eldrix.pc4-ward.users :as users]
     [eldrix.pc4-ward.server :as srv]))
 
 (rf/reg-event-db
@@ -41,7 +42,7 @@
 
       ;; user token expired - we have to force end to our session
       (not (srv/jwt-valid? (get-in db [:authenticated-user :io.jwt/token])))
-      (do (js/console.log "session expired") {:dispatch [:eldrix.pc4-ward.users/session-expired]})
+      (do (js/console.log "session expired") {:dispatch [::users/do-session-expire]})
 
       ;; user token expiring soon - we still have chance refresh our token without needing to ask for credentials again
       (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 60)

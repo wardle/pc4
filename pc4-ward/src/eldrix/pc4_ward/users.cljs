@@ -31,7 +31,7 @@
     {:db (dissoc db :authenticated-user)}))
 
 (rf/reg-event-db
-  ::expire-session
+  ::do-session-expire
   []
   (fn [_ [_]]
     (-> db/default-db
