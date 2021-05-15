@@ -114,7 +114,6 @@
 (def all-resolvers
   [login-operation
    refresh-token-operation
-   (pbir/equivalence-resolver)
    x500->common-name
    fhir-practitioner-name
    fhir-contact-points
