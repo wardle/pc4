@@ -1,13 +1,15 @@
 (ns eldrix.pc4-ward.views
   (:require
-    [re-frame.core :as rf]
-    [eldrix.pc4-ward.users :as users]
     [clojure.string :as str]
+    [re-frame.core :as rf]
+    [eldrix.pc4-ward.events :as events]
+    [eldrix.pc4-ward.users :as users]
+
     [reagent.core :as reagent]))
 
 (defn nav-bar []
   (let [show-nav-menu? (reagent/atom false)
-        authenticated-user (rf/subscribe [::users/authenticated-user])]
+        authenticated-user-full-name (rf/subscribe [::users/authenticated-user-full-name])]
     (fn []
       [:nav.navbar.is-black.is-fixed-top {:role "navigation" :aria-label "main navigation"}
        [:div.navbar-brand
@@ -43,7 +45,7 @@
 
         [:div.navbar-end
          [:div.navbar-item.has-dropdown.is-hoverable
-          [:a.navbar-link (:urn.oid.2.5.4/commonName @authenticated-user)]
+          [:a.navbar-link @authenticated-user-full-name]
           [:div.navbar-dropdown
            [:a.navbar-item "Profile"]
            [:a.navbar-item "Teams"]
@@ -71,58 +73,57 @@
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
         do-login #(rf/dispatch [::users/do-login "wales.nhs.uk" (str/trim @username) @password])]
     (fn []
-      [:section.hero.is-full-height
-       [:div.hero-body
-        [:div.container
-         [:div.columns.is-centered
-          [:div.column.is-5-tablet.is-4-desktop.is-3-widescreen
-           [:section.section [:div.container [:h1.title "PatientCare"] [:p.subtitle "Ward"]]]
-           [:div.box
-            ;; username field - if user presses enter, automatically switch to password field
-            [:div.field [:label.label {:for "login-un"} "Username"]
-             [:div.control
-              [:input.input {:id          "login-un" :type "text" :placeholder "e.g. ma090906" :required true
-                             :disabled    submitting
-                             :auto-focus  true
-                             :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "login-pw"))))
-                             :value       @username
-                             :on-change   #(reset! username (-> % .-target .-value))}]]]
+      [:<>
+       [:section.hero.is-full-height
+        [:div.hero-body
+         [:div.container
+          [:div.columns.is-centered
+           [:div.column.is-5-tablet.is-4-desktop.is-3-widescreen
+            [:section.section [:div.container [:h1.title "PatientCare"] [:p.subtitle "Ward"]]]
+            [:div.box
+             ;; username field - if user presses enter, automatically switch to password field
+             [:div.field [:label.label {:for "login-un"} "Username"]
+              [:div.control
+               [:input.input {:id          "login-un" :type "text" :placeholder "e.g. ma090906" :required true
+                              :disabled    submitting
+                              :auto-focus  true
+                              :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "login-pw"))))
+                              :value       @username
+                              :on-change   #(reset! username (-> % .-target .-value))}]]]
 
-            ;; password field - if user presses enter, automatically submit
-            [:div.field [:label.label {:for "login-pw"} "Password"]
-             [:div.control
-              [:input.input {:id          "login-pw" :type "password" :placeholder "Enter password" :required true
-                             :disabled    submitting
-                             :on-key-down #(if (= 13 (.-which %))
-                                             (do (reset! password (-> % .-target .-value)) (do-login)))
-                             :value       @password
-                             :on-change   #(reset! password (-> % .-target .-value))}]]]
+             ;; password field - if user presses enter, automatically submit
+             [:div.field [:label.label {:for "login-pw"} "Password"]
+              [:div.control
+               [:input.input {:id          "login-pw" :type "password" :placeholder "Enter password" :required true
+                              :disabled    submitting
+                              :on-key-down #(if (= 13 (.-which %))
+                                              (do (reset! password (-> % .-target .-value)) (do-login)))
+                              :value       @password
+                              :on-change   #(reset! password (-> % .-target .-value))}]]]
 
-            [:button.button {:class    ["is-primary" (when submitting "is-loading")]
-                             :disabled submitting
-                             :on-click do-login} " Login "]]
+             [:button.button {:class    ["is-primary" (when submitting "is-loading")]
+                              :disabled submitting
+                              :on-click do-login} " Login "]]
 
-           (if-not (str/blank? @error) [:div.notification.is-danger [:p @error]])]]]]])))
+            (if-not (str/blank? @error) [:div.notification.is-danger [:p @error]])]]]]]])))
 
+  (defn- panels [panel-name]
+    (case panel-name
+      :home-panel [home-panel]
+      :login-panel [login-panel]
+      :about-panel [about-panel]
+      [:div]))
 
+  (defn show-panel [panel-name]
+    [panels panel-name])
 
-(defn- panels [panel-name]
-  (case panel-name
-    :home-panel [home-panel]
-    :login-panel [login-panel]
-    :about-panel [about-panel]
-    [:div]))
-
-(defn show-panel [panel-name]
-  [panels panel-name])
-
-(defn main-page []
-  (let [authenticated-user (rf/subscribe [::users/authenticated-user])
-        active-panel (rf/subscribe [::users/active-panel])]
-    (fn []
-      (if @authenticated-user
-        [:div
-         [nav-bar]
-         [show-panel @active-panel]]
-        [login-panel]))))
+  (defn main-page []
+    (let [authenticated-user (rf/subscribe [::users/authenticated-user])
+          active-panel (rf/subscribe [::events/active-panel])]
+      (fn []
+        (if @authenticated-user
+          [:div
+           [nav-bar]
+           [show-panel @active-panel]]
+          [login-panel]))))
 

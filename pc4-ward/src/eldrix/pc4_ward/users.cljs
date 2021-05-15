@@ -1,7 +1,12 @@
 (ns eldrix.pc4-ward.users
+  "Events and subscriptions relating to users.
+  * Login and logout
+  * Session timeout
+  * Token management, including refresh"
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.db :as db]
             [eldrix.pc4-ward.server :as srv]))
+
 
 (rf/reg-event-fx
   ::do-login []
@@ -14,8 +19,7 @@
 
 ;; Login success simply means the http request worked.
 ;; The pc4.users/login operation returns a user if the login was successful.
-(rf/reg-event-fx
-  ::handle-login-response
+(rf/reg-event-fx ::handle-login-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [login]}]]
     (js/console.log "user login transaction: response: " login)
@@ -23,29 +27,25 @@
       {:db (assoc db :authenticated-user login)}
       {:db (assoc-in db [:errors ::login] "Incorrect username or password")})))
 
-(rf/reg-event-fx
-  ::handle-login-failure
+(rf/reg-event-fx ::handle-login-failure
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "User login failure: response " response)
     {:db (dissoc db :authenticated-user)}))
 
-(rf/reg-event-db
-  ::do-session-expire
-  []
-  (fn [_ [_]]
-    (-> db/default-db
-        (assoc-in [:errors ::login] "Your session expired. Please login again"))))
+(rf/reg-event-db ::do-session-expire
+                 []
+                 (fn [_ [_]]
+                   (-> db/default-db
+                       (assoc-in [:errors ::login] "Your session expired. Please login again"))))
 
-(rf/reg-event-db
-  ::do-logout
-  []
-  (fn [db [_ user]]
-    (js/console.log "Logging out user" user)
-    db/default-db))
+(rf/reg-event-db ::do-logout
+                 []
+                 (fn [db [_ user]]
+                   (js/console.log "Logging out user" user)
+                   db/default-db))
 
-(rf/reg-event-fx
-  ::refresh-token
+(rf/reg-event-fx ::refresh-token
   []
   (fn [{:keys [db]} [_ token]]
     (js/console.log "performing token refresh" token)
@@ -54,33 +54,55 @@
                                           :on-success [::handle-refresh-token-response]
                                           :on-failure [::handle-refresh-token-failure]})}))
 
-(rf/reg-event-fx
-  ::handle-refresh-token-response
+(rf/reg-event-fx ::handle-refresh-token-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [refresh-token]}]]
     (js/console.log "Refresh token success: response: " refresh-token)
     {:db (assoc-in db [:authenticated-user :io.jwt/token] refresh-token)}))
 
-(rf/reg-event-fx
-  ::handle-refresh-token-failure
+(rf/reg-event-fx ::handle-refresh-token-failure
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "User token refresh failure: response " response)))
 
-(rf/reg-sub
-  ::authenticated-user
+
+(defn check-token-and-refresh
+  "Checks the expiry of the current authentication token and refreshes if it is
+  due to expire or ends session if it has expired.
+  Returns re-frame events, or nil."
+  [db]
+  (cond
+    ;; no authenticated user -> explicitly do nothing... without this, the next condition will be thrown
+    (nil? (:authenticated-user db))
+    (js/console.log "no current logged in user")
+
+    ;; user token expired - we have to force end to our session
+    (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 0)
+    (do (js/console.log "session expired")
+        {:dispatch [::do-session-expire]})
+
+    ;; user token expiring soon - we still have chance to refresh our token without needing to ask for credentials again
+    (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 90)
+    (do (js/console.log "session expiring in " (srv/jwt-expires-seconds (get-in db [:authenticated-user :io.jwt/token])) " seconds; refreshing token")
+        {:dispatch [::refresh-token {:token (get-in db [:authenticated-user :io.jwt/token])}]})
+
+    ;; we have an active session
+    :else (js/console.log "active session; token expires in " (srv/jwt-expires-seconds (get-in db [:authenticated-user :io.jwt/token])) "seconds")))
+
+
+(rf/reg-sub ::authenticated-user
   (fn [db]
     (:authenticated-user db)))
 
-(rf/reg-sub
-  ::login-error
+(rf/reg-sub ::authenticated-user-full-name
+  (fn []
+    (rf/subscribe [::authenticated-user]))
+  (fn [user]
+    (:urn.oid.2.5.4/commonName user)))
+
+(rf/reg-sub ::login-error
   (fn [db]
     (get-in db [:errors ::login])))
-
-(rf/reg-sub
-  ::active-panel
-  (fn [db]
-    (:active-panel db)))
 
 (comment
   (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
