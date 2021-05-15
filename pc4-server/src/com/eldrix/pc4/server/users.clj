@@ -2,6 +2,7 @@
   (:require [buddy.sign.jwt :as jwt]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.wales.nadex :as nadex]
+            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco])
   (:import (java.time Instant)))
 
@@ -35,10 +36,9 @@
     |- :password           : the password.
   Returns a user.
 
-  It would seem sensible to make a LoginProtocol for each provider, but
-  we still need to map to the keys specified here so it is simpler to use
-  `cond` and choose the correct path based on the namespace and the providers
-  available at runtime."
+  We could make a LoginProtocol for each provider, but we still need to map to
+  the keys specified here so it is simpler to use `cond` and choose the correct
+  path based on the namespace and the providers available at runtime."
   [{:com.eldrix.pc4/keys [login] :as env} {:keys [system value password]}]
   {::pco/op-name 'pc4.users/login
    ::pco/params  [:system :value :password]
@@ -75,11 +75,11 @@
         (log/info "performing fake login for " system value password "expecting " (:username fake-login) (:password fake-login))
         (when (and (= (:username fake-login) value) (= (:password fake-login) password))
           (log/info "successful fake login")
-          {:urn.oid.1.2.840.113556.1.4/sAMAccountName value
-           :io.jwt/token                              token
-           :urn.oid.2.5.4/surname                     "Wardle"
-           :urn.oid.2.5.4/givenName                   "Mark"
-           :urn.oid.2.5.4/title                       "Consultant Neurologist"}))
+          {:urn.oid.1.2.840.113556.1.4.221          value
+           :io.jwt/token                            token
+           :urn.oid.2.5.4/surname                   "Wardle"
+           :urn.oid.2.5.4/givenName                 "Mark"
+           :urn.oid.2.5.4/title                     "Consultant Neurologist"}))
 
       ;; no login provider found for the namespace provided
       :else
@@ -87,12 +87,13 @@
 
 (pco/defresolver x500->common-name
   "Generates an x500 common-name."
+  "Generate an x500 common-name."
   [{:urn.oid.2.5.4/keys [givenName surname]}]
   {::pco/output [:urn.oid.2.5.4/commonName]}                ;; (cn)   common name - first, middle, last
   {:urn.oid.2.5.4/commonName (str givenName " " surname)})
 
 (pco/defresolver fhir-practitioner-name
-  "Generates a FHIR practitioner name from x500 data."
+  "Generate a FHIR practitioner name from x500 data."
   [{:urn.oid.2.5.4/keys [givenName surname]}]
   {::pco/output [{:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/given
                                                    :org.hl7.fhir.HumanName/family
@@ -101,9 +102,21 @@
                                     :org.hl7.fhir.HumanName/given  surname
                                     :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}})
 
+(pco/defresolver fhir-contact-points
+  "Generate FHIR contact points from x500 data."
+  [{email :urn.oid.0.9.2342.19200300.100.1.3
+    telephone}]
+  {::pco/output [{:org.hl7.fhir.Practitioner/contactPoints [:org.hl7.fhir.ContactPoint/system
+                                                            :org.hl7.fhir.ContactPoint/value]}]}
+  {:org.hl7.fhir.Practitioner/contactPoints [{:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
+                                              :org.hl7.fhir.ContactPoint/value  email}]})
 
 (def all-resolvers
   [login-operation
    refresh-token-operation
+   (pbir/equivalence-resolver)
    x500->common-name
-   fhir-practitioner-name])
+   fhir-practitioner-name
+   fhir-contact-points
+   ])
+

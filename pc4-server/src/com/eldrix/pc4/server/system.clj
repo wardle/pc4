@@ -87,6 +87,8 @@
                  (com.wsscode.pathom3.plugin/register [pbip/remove-stats-plugin
                                                        (pbip/attribute-errors-plugin)]))))
 
+(defmethod ig/halt-key! :pathom/registry [_ env]
+  (reset! resolvers []))
 
 (defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env]}]
   (-> {::http/type            :jetty
@@ -112,7 +114,7 @@
 
 
 (def default-resolvers
-  users/all-resolvers)
+  (concat users/all-resolvers))
 
 (defmethod aero/reader 'ig/ref [_ _ value]
   (ig/ref value))
