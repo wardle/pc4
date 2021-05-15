@@ -25,7 +25,7 @@
 
 (defn jwt-expires-in-seconds?
   "Does the token expire within the next (x) seconds? Returns true if no token"
-  [token, sec]
+  [token sec]
   (if (str/blank? token)
     true
     (let [now (int (/ (.getTime (js/Date.)) 1000))
