@@ -2,7 +2,7 @@
 
  :com.eldrix/patientcare             {:dbtype          "postgresql"
                                       :dbname          "rsdb"
-                                      :maximumPoolSize 2}
+                                      :maximumPoolSize 10}
 
  :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
                                       :nhspd-path "/var/tmp/nhspd"}

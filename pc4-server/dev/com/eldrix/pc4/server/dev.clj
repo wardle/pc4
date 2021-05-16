@@ -72,8 +72,7 @@
 
   (jdbc/execute-one! (:com.eldrix/patientcare system)
                      ["SELECT * from t_episode where id=11095"])
-  (jdbc/execute-one! (:com.eldrix/patientcare system)
-                     ["SELECT * from t_form_edss limit 5"])
+
   )
 
 
