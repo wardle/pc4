@@ -1,7 +1,8 @@
 (ns com.eldrix.pc4.server.patientcare
   "PatientCare provides functionality to integrate with the rsdb backend.
   `rsdb` is the Apple WebObjects 'legacy' application."
-  (:require [clojure.tools.logging.readable :as log]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [next.jdbc :as jdbc]
@@ -205,6 +206,11 @@
         (map :t_encounter_user/userid)
         (map #(hash-map :t_user/id %)))})
 
+(pco/defresolver encounter->hospital
+  [{hospital-id :t_encounter/hospital_fk}]
+  {::pco/output [{:t_encounter/hospital [:urn.oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
+  (when hospital-id {:t_encounter/hospital {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id}}))
+
 (pco/defresolver encounter->encounter_template
   [{:com.eldrix.patientcare/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
   {::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
@@ -235,18 +241,25 @@
                  :t_user/professional_registration
                  :t_user/professional_registration_authority_fk]}
   (parse-entity (jdbc/execute-one!
-    conn
-    (sql/format {:select [:username :title :first_names :last_name :postnomial :t_user/custom_initials
-                          :email :custom_job_title :job_title_fk :send_email_for_messages
-                          :authentication_method :professional_registration
-                          :professional_registration_authority_fk]
-                 :from [:t_user]
-                 :where [:= :id user-id]}))))
+                  conn
+                  (sql/format {:select [:username :title :first_names :last_name :postnomial :t_user/custom_initials
+                                        :email :custom_job_title :job_title_fk :send_email_for_messages
+                                        :authentication_method :professional_registration
+                                        :professional_registration_authority_fk]
+                               :from   [:t_user]
+                               :where  [:= :id user-id]}))))
 
 (pco/defresolver user->full-name
   [{:t_user/keys [title first_names last_name]}]
   {::pco/output [:t_user/full_name]}
   {:t_user/full_name (str title " " first_names " " last_name)})
+
+(pco/defresolver user->initials
+  [{:t_user/keys [first_names last_name custom_initials]}]
+  {::pco/output [:t_user/initials]}
+  {:t_user/initials (if custom_initials
+                      custom_initials
+                      (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
 
 (def resolvers
   [patient-by-identifier
@@ -264,9 +277,11 @@
    patient->encounters
    encounter->users
    encounter->encounter_template
+   encounter->hospital
    encounter_template->encounter_type
    user-by-identifier
-   user->full-name])
+   user->full-name
+   user->initials])
 
 (comment
 
@@ -312,8 +327,12 @@
                     :t_patient/last_name
                     :t_patient/status
                     :t_patient/surgery
-                    {:t_patient/encounters [{:t_encounter/users [:t_user/full_name]}]}]}])
-
+                    {:t_patient/encounters [:t_encounter/date_time
+                                            :t_encounter/is_deleted
+                                            :t_encounter/hospital
+                                            {:t_encounter/users [:t_user/id
+                                                                 :t_user/initials
+                                                                 :t_user/full_name]}]}]}])
 
   (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                        :where  [:= :id 15]}))
