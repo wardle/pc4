@@ -25,9 +25,11 @@
           (or (nil? to) (.isBefore date' to))))))
 
 (def property-parsers
-  {:t_address/ignore_invalid_address #(Boolean/parseBoolean %)
+  {:t_patient/status                 #(keyword %)
+   :t_address/ignore_invalid_address #(Boolean/parseBoolean %)
    :t_address/date_from              #(LocalDate/from %)
-   :t_address/date_to                #(LocalDate/from %)})
+   :t_address/date_to                #(LocalDate/from %)
+   :t_encounter/is_deleted           #(Boolean/parseBoolean %)})
 
 (defn parse-entity
   [m & {:keys [remove-nils?] :or {remove-nils? false}}]
@@ -53,29 +55,29 @@
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
-  (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]})))
+  (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}))))
 
-(pco/defresolver patient-country-of-birth
+(pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
   {::pco/output [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
   (when concept-id {:t_patient/country_of_birth {:info.snomed.Concept/id concept-id}}))
 
-(pco/defresolver patient-ethnic-origin
+(pco/defresolver patient->ethnic-origin
   [{concept-id :t_patient/ethnic_origin_concept_fk}]
   {::pco/output [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
   (when concept-id {:t_patient/ethnic_origin {:info.snomed.Concept/id concept-id}}))
 
-(pco/defresolver patient-racial-group
+(pco/defresolver patient->racial-group
   [{concept-id :t_patient/racial_group_concept_fk}]
   {::pco/output [{:t_patient/racial_group [:info.snomed.Concept/id]}]}
   (when concept-id {:t_patient/racial_group {:info.snomed.Concept/id concept-id}}))
 
-(pco/defresolver patient-occupation
+(pco/defresolver patient->occupation
   [{concept-id :t_patient/occupation_concept_fk}]
   {::pco/output [{:t_patient/occupation [:info.snomed.Concept/id]}]}
   (when concept-id {:t_patient/occupation {:info.snomed.Concept/id concept-id}}))
 
-(pco/defresolver patient-surgery
+(pco/defresolver patient->surgery
   [{surgery-fk :t_patient/surgery_fk}]
   {::pco/output [{:t_patient/surgery [:urn.oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   (when surgery-fk {:t_patient/surgery {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
@@ -112,12 +114,12 @@
         (filter #(date-in-range? (:t_address/date_from %) (:t_address/date_to %) date))
         first)))
 
-(pco/defresolver patient-addresses
+(pco/defresolver patient->addresses
   [{:com.eldrix.patientcare/keys [conn]} {id :t_patient/id}]
   {::pco/output [{:t_patient/addresses address-properties}]}
   {:t_patient/addresses (fetch-patient-addresses conn id)})
 
-(pco/defresolver patient-address
+(pco/defresolver patient->address
   "Returns the current address, or the address for the specified date.
   Will make use of existing data in t_patient/addresses, if key exists.
   This resolver takes an optional parameter :date. If provided, the address
@@ -134,15 +136,14 @@
                     (string? date) (LocalDate/parse date)
                     :else date)
         addresses' (or addresses (fetch-patient-addresses conn id))]
-    (println "determining address for date: " date " = " date')
     {:t_patient/address (address-for-date addresses' date')}))
 
-(pco/defresolver address-housing
+(pco/defresolver address->housing
   [{concept-id :t_address/housing_concept_fk}]
   {::pco/output [{:t_address/housing [:info.snomed.Concept/id]}]}
   (when concept-id {:t_address/housing {:info.snomed.Concept/id concept-id}}))
 
-(pco/defresolver patient-episodes
+(pco/defresolver patient->episodes
   [{conn :com.eldrix.patientcare/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
                                        :t_episode/date_referral
@@ -159,7 +160,24 @@
                                                         :from   [:t_episode]
                                                         :where  [:= :patient_fk patient-id]}))})
 
-(pco/defresolver patient-encounters
+(pco/defresolver episode->project
+  [{conn :com.eldrix.patientcare/conn} {project-id :t_episode/project_fk}]
+  {::pco/output [{:t_episode/project [:t_project/id :t_project/name :t_project/title
+                                      :t_project/long_description
+                                      :t_project/type :t_project/date_from :t_project/date_to
+                                      :t_project/exclusion_criteria :t_project/inclusion_criteria
+                                      :t_project/address1 :t_project/address2 :t_project/address3
+                                      :t_project/address4 :t_project/postcode
+                                      :t_project/parent_project_fk
+                                      :t_project/virtual :t_project/can_own_equipment
+                                      :t_project/specialty_concept_fk
+                                      :t_project/care_plan_information
+                                      :t_project/is_private]}]}
+  {:t_episode/project (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
+                                                                         :from   [:t_project]
+                                                                         :where  [:= :id project-id]})))})
+
+(pco/defresolver patient->encounters
   [{:com.eldrix.patientcare/keys [conn]} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/encounters [:t_encounter/id
                                          :t_encounter/date_time
@@ -175,19 +193,80 @@
                                                           :where    [:= :patient_fk patient-id]
                                                           :order-by [[:date_time :desc]]}))})
 
-(pco/defresolver encounter-encounter_template
+(pco/defresolver encounter->users
+  "Return the users for the encounter.
+  We flatten the relationship here, avoiding the join table."
+  [{conn :com.eldrix.patientcare/conn} {encounter-id :t_encounter/id}]
+  {::pco/output [{:t_encounter/users [:t_user/id]}]}
+  {:t_encounter/users
+   (->> (jdbc/execute! conn (sql/format {:select [:userid]
+                                         :from   [:t_encounter_user]
+                                         :where  [:= :encounterid encounter-id]}))
+        (map :t_encounter_user/userid)
+        (map #(hash-map :t_user/id %)))})
+
+(pco/defresolver encounter->encounter_template
   [{:com.eldrix.patientcare/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
   {::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
                                                    :t_encounter_template/encounter_type_fk]}]}
   {:t_encounter/encounter_template (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                                                         :where  [:= :id encounter-template-fk]}))})
 
-(pco/defresolver encounter_template-encounter_type
+(pco/defresolver encounter_template->encounter_type
   [{:com.eldrix.patientcare/keys [conn]} {encounter-type-id :t_encounter_template/encounter_type_fk}]
   {::pco/output [{:t_encounter_template/encounter_type [:t_encounter_type/id
                                                         :t_encounter_type/name
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
+
+(pco/defresolver user-by-identifier
+  [{conn :com.eldrix.patientcare/conn} {user-id :t_user/id}]
+  {::pco/output [:t_user/username
+                 :t_user/title
+                 :t_user/first_names
+                 :t_user/last_name
+                 :t_user/postnomial
+                 :t_user/custom_initials
+                 :t_user/email
+                 :t_user/custom_job_title
+                 :t_user/job_title_fk
+                 :t_user/send_email_for_messages
+                 :t_user/authentication_method
+                 :t_user/professional_registration
+                 :t_user/professional_registration_authority_fk]}
+  (parse-entity (jdbc/execute-one!
+    conn
+    (sql/format {:select [:username :title :first_names :last_name :postnomial :t_user/custom_initials
+                          :email :custom_job_title :job_title_fk :send_email_for_messages
+                          :authentication_method :professional_registration
+                          :professional_registration_authority_fk]
+                 :from [:t_user]
+                 :where [:= :id user-id]}))))
+
+(pco/defresolver user->full-name
+  [{:t_user/keys [title first_names last_name]}]
+  {::pco/output [:t_user/full_name]}
+  {:t_user/full_name (str title " " first_names " " last_name)})
+
+(def resolvers
+  [patient-by-identifier
+   patient->country-of-birth
+   patient->ethnic-origin
+   patient->racial-group
+   patient->occupation
+   patient->surgery
+   patient->addresses
+   patient->address
+   (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
+   address->housing
+   patient->episodes
+   episode->project
+   patient->encounters
+   encounter->users
+   encounter->encounter_template
+   encounter_template->encounter_type
+   user-by-identifier
+   user->full-name])
 
 (comment
 
@@ -202,29 +281,39 @@
                                    :from   [:t_patient]
                                    :where  [:= :id 14232]}))
 
-  (def env (-> (pci/register [patient-by-identifier
-                              patient-country-of-birth
-                              patient-ethnic-origin
-                              patient-racial-group
-                              patient-occupation
-                              patient-surgery
-                              patient-addresses
-                              patient-address
-                              (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
-                              address-housing
-                              patient-episodes
-                              patient-encounters
-                              encounter-encounter_template
-                              encounter_template-encounter_type])
+  (def env (-> (pci/register resolvers)
                (assoc :com.eldrix.patientcare/conn conn)))
   (patient-by-identifier {:com.eldrix.patientcare/conn conn} {:t_patient/patient-identifier 12999})
-  (p.eql/process env [{[:t_patient/patient-identifier 17371] [:t_patient/id :t_patient/email
-                                                             :t_patient/first_names
-                                                             :t_patient/last_name
-                                                             :t_patient/surgery
-                                                             :t_patient/ethnic_origin_concept_fk
-                                                             :t_patient/ethnic_origin
-                                                             `(:t_patient/address {:date ~"2020-06-01"})]}])
+  (p.eql/process env [{[:t_patient/patient-identifier 17371] [:t_patient/id
+                                                              :t_patient/email
+                                                              :t_patient/first_names
+                                                              :t_patient/last_name
+                                                              :t_patient/status
+                                                              :t_patient/surgery
+                                                              :t_patient/alerts
+                                                              `(:t_patient/address {:date ~"2010-06-01"})]}])
+
+  (p.eql/process env
+                 [{[:t_patient/patient-identifier 17371]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    :t_patient/surgery
+                    {:t_patient/episodes [:t_episode/date_registration
+                                          :t_episode/date_discharge
+                                          :t_episode/project_fk
+                                          {:t_episode/project [:t_project/title]}]}]}])
+
+  (p.eql/process env
+                 [{[:t_patient/patient-identifier 12182]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    :t_patient/surgery
+                    {:t_patient/encounters [{:t_encounter/users [:t_user/full_name]}]}]}])
+
 
   (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                        :where  [:= :id 15]}))
@@ -236,9 +325,6 @@
   (address-for-date (fetch-patient-addresses conn 7382))
 
   (fetch-patient-addresses conn 119032)
-  (.isBefore date (:date_to (first (fetch-patient-addresses conn 119032))))
+  (episode->project {:com.eldrix.patientcare/conn conn} {:t_episode/project_fk 34})
 
-  (jdbc/execute! conn (sql/format {:select [:*]
-                                   :from   [:t_episode]
-                                   :where  [:= :patient_fk 5448]}))
   )
