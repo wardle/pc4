@@ -1,5 +1,9 @@
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
+ :com.eldrix/patientcare             {:dbtype          "postgresql"
+                                      :dbname          "rsdb"
+                                      :maximumPoolSize 2}
+
  :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
                                       :nhspd-path "/var/tmp/nhspd"}
 
@@ -32,7 +36,8 @@
  :pathom/registry                    {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
                                             :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
                                             :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
-                                            :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login}}
+                                            :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
+                                            :com.eldrix/patientcare      #ig/ref :com.eldrix/patientcare}}
 
  :http/server                        {:port            8080
                                       :allowed-origins "*"

@@ -29,7 +29,9 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [integrant.core :as ig]
             [io.pedestal.http :as http]
-            [io.pedestal.interceptor :as intc]))
+            [io.pedestal.interceptor :as intc]
+            [next.jdbc.connection :as connection])
+  (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
 
@@ -59,6 +61,15 @@
 
 (defmethod ig/halt-key! :com.eldrix.concierge/nadex [_ {:keys [connection-pool]}]
   (when connection-pool (.close connection-pool)))
+
+(defmethod ig/init-key :com.eldrix/patientcare
+  [_ params]
+  (connection/->pool HikariDataSource params))
+
+(defmethod ig/halt-key! :com.eldrix/patientcare
+  [_ conn]
+  (.close conn))
+
 
 (defmethod ig/init-key :com.eldrix.pc4/fake-login-provider
   [_ {:keys [username password] :as options}]
@@ -175,5 +186,3 @@
                                                 {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIwOTEwNTkzfQ.7PXGgYZYeXNy4qLbCDeKdA_LGQaWbD9AHu1FFWar1os"})
                                              [:io.jwt/token]}])
   )
-
-

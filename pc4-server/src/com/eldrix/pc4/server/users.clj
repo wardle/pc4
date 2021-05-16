@@ -44,7 +44,6 @@
    ::pco/params  [:system :value :password]
    ::pco/output  [:urn.oid.1.2.840.113556.1.4/sAMAccountName ;; sAMAccountName
                   :io.jwt/token
-                  :urn.oid.1.2.840.113556.1.4.221
                   :urn.oid.0.9.2342.19200300.100.1.3        ;; (email)
                   :urn.oid.0.9.2342.19200300.100.1.1        ;; (uid)
                   :urn.oid:2.5.4/givenName                  ;; (givenName)
@@ -65,28 +64,31 @@
            :io.jwt/token                              token
            :urn.oid.2.5.4/surname                     (:sn user)
            :urn.oid.2.5.4/givenName                   (:givenName user)
-           :urn.oid.2.5.4/title                       (:title user)}
+           :urn.oid.2.5.4/title                       (:title user)
+           :urn.oid.2.5.4/telephoneNumber             (:telephoneNumber user)
+           :urn.oid.0.9.2342.19200300.100.1.3         (:mail user)}
           (log/info "failed to authenticate user " system "/" value)))
 
       ;; finally, if nothing else has worked....
       ;; do we have a fake login provider configured?
       fake-login
       (do
-        (log/info "performing fake login for " system value password "expecting " (:username fake-login) (:password fake-login))
+        (log/info "performing fake login for " system value)
         (when (and (= (:username fake-login) value) (= (:password fake-login) password))
           (log/info "successful fake login")
-          {:urn.oid.1.2.840.113556.1.4.221          value
-           :io.jwt/token                            token
-           :urn.oid.2.5.4/surname                   "Wardle"
-           :urn.oid.2.5.4/givenName                 "Mark"
-           :urn.oid.2.5.4/title                     "Consultant Neurologist"}))
+          {:urn.oid.1.2.840.113556.1.4/sAMAccountName value
+           :io.jwt/token                              token
+           :urn.oid.2.5.4/surname                     "Wardle"
+           :urn.oid.2.5.4/givenName                   "Mark"
+           :urn.oid.2.5.4/title                       "Consultant Neurologist"
+           :urn.oid.0.9.2342.19200300.100.1.3         "****.*****@wales.nhs.uk"
+           :urn.oid.2.5.4/telephoneNumber             "02920747747"}))
 
       ;; no login provider found for the namespace provided
       :else
       (log/info "no login provider found for namespace" {:system system :providers (keys login)}))))
 
 (pco/defresolver x500->common-name
-  "Generates an x500 common-name."
   "Generate an x500 common-name."
   [{:urn.oid.2.5.4/keys [givenName surname]}]
   {::pco/output [:urn.oid.2.5.4/commonName]}                ;; (cn)   common name - first, middle, last
@@ -104,16 +106,32 @@
 
 (pco/defresolver fhir-contact-points
   "Generate FHIR contact points from x500 data."
-  [{email :urn.oid.0.9.2342.19200300.100.1.3
-    telephone}]
-  {::pco/output [{:org.hl7.fhir.Practitioner/contactPoints [:org.hl7.fhir.ContactPoint/system
+  [{email     :urn.oid.0.9.2342.19200300.100.1.3
+    telephone :urn.oid.2.5.4/telephoneNumber}]              ;;
+  {::pco/input  [(pco/? :urn.oid.0.9.2342.19200300.100.1.3)
+                 (pco/? :urn.oid.2.5.4/telephoneNumber)]
+   ::pco/output [{:org.hl7.fhir.Practitioner/contactPoints [:org.hl7.fhir.ContactPoint/system
                                                             :org.hl7.fhir.ContactPoint/value]}]}
-  {:org.hl7.fhir.Practitioner/contactPoints [{:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
-                                              :org.hl7.fhir.ContactPoint/value  email}]})
+  {:org.hl7.fhir.Practitioner/contactPoints
+   (cond-> []
+           email
+           (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
+                  :org.hl7.fhir.ContactPoint/value  email})
+           telephone
+           (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/phone
+                  :org.hl7.fhir.ContactPoint/value  telephone}))})
+
+(comment
+  (fhir-contact-points {:urn.oid.2.5.4/telephoneNumber "07786196137"}))
+
 
 (def all-resolvers
   [login-operation
    refresh-token-operation
+   (pbir/equivalence-resolver :urn.oid.2.5.4/telephoneNumber :urn.oid.2.5.4.20)
+   (pbir/equivalence-resolver :urn.oid.2.5.4/surname :urn.oid.2.5.4.4)
+   (pbir/equivalence-resolver :urn.oid.2.5.4/givenName :urn.oid.2.5.4.42)
+   (pbir/equivalence-resolver :urn.oid.2.5.4/sn :urn.oid.2.5.4/surname)
    x500->common-name
    fhir-practitioner-name
    fhir-contact-points

@@ -4,7 +4,8 @@
     [com.wsscode.pathom3.interface.eql :as p.eql]
     [com.wsscode.pathom.viz.ws-connector.core :as pvc]
     [com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector]
-    [integrant.core :as ig]))
+    [integrant.core :as ig]
+    [next.jdbc :as jdbc]))
 
 
 (defn connect-viz [registry]
@@ -64,4 +65,15 @@
                       :org.hl7.fhir.HumanName/family
                       :org.hl7.fhir.HumanName/given]}]}]))
   result
+
+  (time (jdbc/execute-one! (:com.eldrix/patientcare system)
+                     ["SELECT * FROM t_encounter where patient_fk = ?"
+                      14332])  )
+
+  (jdbc/execute-one! (:com.eldrix/patientcare system)
+                     ["SELECT * from t_episode where id=11095"])
+  (jdbc/execute-one! (:com.eldrix/patientcare system)
+                     ["SELECT * from t_form_edss limit 5"])
   )
+
+
