@@ -261,7 +261,7 @@
                       custom_initials
                       (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
 
-(def resolvers
+(def all-resolvers
   [patient-by-identifier
    patient->country-of-birth
    patient->ethnic-origin
@@ -345,5 +345,4 @@
 
   (fetch-patient-addresses conn 119032)
   (episode->project {:com.eldrix.patientcare/conn conn} {:t_episode/project_fk 34})
-
   )

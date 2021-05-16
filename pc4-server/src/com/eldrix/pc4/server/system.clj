@@ -20,6 +20,7 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
             [com.eldrix.pc4.server.api :as api]
+            [com.eldrix.pc4.server.patientcare :as patientcare]
             [com.eldrix.pc4.server.users :as users]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -64,6 +65,8 @@
 
 (defmethod ig/init-key :com.eldrix/patientcare
   [_ params]
+  (log/info "registering PatientCare EPR" params)
+  (swap! resolvers into com.eldrix.pc4.server.patientcare/all-resolvers)
   (connection/->pool HikariDataSource params))
 
 (defmethod ig/halt-key! :com.eldrix/patientcare

@@ -37,7 +37,7 @@
                                             :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
                                             :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
                                             :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
-                                            :com.eldrix/patientcare      #ig/ref :com.eldrix/patientcare}}
+                                            :com.eldrix.patientcare/conn #ig/ref :com.eldrix/patientcare}}
 
  :http/server                        {:port            8080
                                       :allowed-origins "*"

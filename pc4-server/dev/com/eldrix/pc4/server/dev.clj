@@ -66,6 +66,21 @@
                       :org.hl7.fhir.HumanName/given]}]}]))
   result
 
+  (p.eql/process (:pathom/registry system)
+                 [{[:t_patient/patient-identifier 12182]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    {:t_patient/surgery [:uk.nhs.ord/name]}
+                    {:t_patient/encounters [:t_encounter/id
+                                            :t_encounter/date_time
+                                            :t_encounter/is_deleted
+                                            {:t_encounter/hospital [:uk.nhs.ord/name]}
+                                            {:t_encounter/users [:t_user/id
+                                                                 :t_user/initials
+                                                                 :t_user/full_name]}]}]}])
+
   (time (jdbc/execute-one! (:com.eldrix/patientcare system)
                      ["SELECT * FROM t_encounter where patient_fk = ?"
                       14332])  )
