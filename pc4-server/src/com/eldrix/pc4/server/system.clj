@@ -20,7 +20,7 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
             [com.eldrix.pc4.server.api :as api]
-            [com.eldrix.pc4.server.patientcare :as patientcare]
+            [com.eldrix.pc4.server.rsdb :as rsdb]
             [com.eldrix.pc4.server.users :as users]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -31,7 +31,8 @@
             [integrant.core :as ig]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as intc]
-            [next.jdbc.connection :as connection])
+            [next.jdbc.connection :as connection]
+            [buddy.sign.jwt :as jwt])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
@@ -56,23 +57,22 @@
 
 (defmethod ig/init-key :com.eldrix.concierge/nadex
   [_ {:keys [connection-pool-size _default-bind-username _default-bind-password] :as params}]
-  (if connection-pool-size
+  (when connection-pool-size
     (-> params
         (assoc :connection-pool (nadex/make-connection-pool connection-pool-size)))))
 
 (defmethod ig/halt-key! :com.eldrix.concierge/nadex [_ {:keys [connection-pool]}]
   (when connection-pool (.close connection-pool)))
 
-(defmethod ig/init-key :com.eldrix/patientcare
+(defmethod ig/init-key :com.eldrix/rsdb
   [_ params]
-  (log/info "registering PatientCare EPR" params)
-  (swap! resolvers into com.eldrix.pc4.server.patientcare/all-resolvers)
+  (log/info "registering PatientCare EPR [rsdb]" params)
+  (swap! resolvers into com.eldrix.pc4.server.rsdb/all-resolvers)
   (connection/->pool HikariDataSource params))
 
-(defmethod ig/halt-key! :com.eldrix/patientcare
+(defmethod ig/halt-key! :com.eldrix/rsdb
   [_ conn]
   (.close conn))
-
 
 (defmethod ig/init-key :com.eldrix.pc4/fake-login-provider
   [_ {:keys [username password] :as options}]
@@ -92,13 +92,19 @@
 (defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
   (.close svc))
 
-(defmethod ig/init-key :pathom/registry [_ {:keys [env]}]
+(defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
+  config)
+
+(defmethod ig/init-key :wales.nhs/empi [_ config]
+  config)
+
+(defmethod ig/init-key :pathom/registry [_ {:keys [env] :as config}]
   (log/info "creating pathom registry " env " resolvers:" (count @resolvers))
   (dorun (->> @resolvers
               (map (fn [r] (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name])))
               (map #(log/info "resolver: " %))))
   (merge env (-> (pci/register (seq @resolvers))
-                 (com.wsscode.pathom3.plugin/register [pbip/remove-stats-plugin
+                 (com.wsscode.pathom3.plugin/register [;;pbip/remove-stats-plugin
                                                        (pbip/attribute-errors-plugin)]))))
 
 (defmethod ig/halt-key! :pathom/registry [_ env]
@@ -125,7 +131,6 @@
 
 (defmethod ig/halt-key! :http/server [_ service-map]
   (http/stop service-map))
-
 
 (def default-resolvers
   (concat users/all-resolvers))
@@ -175,17 +180,21 @@
 
   (p.eql/process (:pathom/registry system) [{'(pc4.users/login
                                                 {:system :uk.nhs.cymru :value "ma090906" :password "password"})
-                                             [:urn.oid.1.2.840.113556.1.4/sAMAccountName
-                                              :io.jwt/token
-                                              :urn.oid.2.5.4/givenName
-                                              :urn.oid.2.5.4/surname
+                                             [:io.jwt/token
+                                              :urn.oid.2.5.4/sn
+                                              :wales.nhs.nadex/givenName
                                               :urn.oid.2.5.4/commonName
-                                              {:org.hl7.fhir.Practitioner/name
-                                               [:org.hl7.fhir.HumanName/use
-                                                :org.hl7.fhir.HumanName/family
-                                                :org.hl7.fhir.HumanName/given]}]}])
+                                              :wales.nhs.nadex/personalTitle
+                                              :wales.nhs.nadex/mail
+                                              :wales.nhs.nadex/postOfficeBox
+                                              {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family
+                                                                                :org.hl7.fhir.HumanName/given]}
+                                              :wales.nhs.nadex/professionalRegistration
+                                              :uk.org.hl7.fhir.id/gmc-number]}])
 
   (p.eql/process (:pathom/registry system) [{'(pc4.users/refresh-token
                                                 {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIwOTEwNTkzfQ.7PXGgYZYeXNy4qLbCDeKdA_LGQaWbD9AHu1FFWar1os"})
                                              [:io.jwt/token]}])
+  (users/login-operation (:pathom/registry system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+
   )

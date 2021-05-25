@@ -44,7 +44,7 @@
                                                                                 :uk.nhs.dmd/STRNT_DNMTR_VAL
                                                                                 {:uk.nhs.dmd/STRNT_NMRTR_UOM [:uk.nhs.dmd/DESC]}
                                                                                 {:uk.nhs.dmd/STRNT_DNMTR_UOM [:uk.nhs.dmd/DESC]}
-                                                                                '(:info.snomed.Concept/parentRelationshipIds {:type 116680003}) ]}]}
+                                                                                '(:info.snomed.Concept/parentRelationshipIds {:type 116680003})]}]}
                     :info.snomed.Concept/id
                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
 
@@ -52,18 +52,18 @@
   (com.eldrix.dmd.store/fetch-product (get-in system [:pathom/registry :com.eldrix.dmd.graph/store]) 108537001)
 
   (def result (p.eql/process (:pathom/registry system)
-                 [{(list 'pc4.users/login
-                         {:system "wales.nhs.uk" :value "ma090906" :password "password" })
-                   [:urn.oid.1.2.840.113556.1.4/sAMAccountName
-                    :urn.oid.2.5.4/givenName
-                    :urn.oid.2.5.4/surname
-                    :urn.oid.2.5.4/commonName
-                    :urn.oid.0.9.2342.19200300.100.1.3
-                    :org.hl7.fhir.Practitioner/contactPoints
-                    {:org.hl7.fhir.Practitioner/name
-                     [:org.hl7.fhir.HumanName/use
-                      :org.hl7.fhir.HumanName/family
-                      :org.hl7.fhir.HumanName/given]}]}]))
+                             [{(list 'pc4.users/login
+                                     {:system "wales.nhs.uk" :value "ma090906" :password "password"})
+                               [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+                                :urn.oid.2.5.4/givenName
+                                :urn.oid.2.5.4/surname
+                                :urn.oid.2.5.4/commonName
+                                :urn.oid.0.9.2342.19200300.100.1.3
+                                :org.hl7.fhir.Practitioner/contactPoints
+                                {:org.hl7.fhir.Practitioner/name
+                                 [:org.hl7.fhir.HumanName/use
+                                  :org.hl7.fhir.HumanName/family
+                                  :org.hl7.fhir.HumanName/given]}]}]))
   result
 
   (p.eql/process (:pathom/registry system)
@@ -80,13 +80,22 @@
                                             {:t_encounter/users [:t_user/id
                                                                  :t_user/initials
                                                                  :t_user/full_name]}]}]}])
-
-  (time (jdbc/execute-one! (:com.eldrix/patientcare system)
-                     ["SELECT * FROM t_encounter where patient_fk = ?"
-                      14332])  )
-
-  (jdbc/execute-one! (:com.eldrix/patientcare system)
-                     ["SELECT * from t_episode where id=11095"])
+  (require '[com.eldrix.hermes.snomed :as snomed])
+  (p.eql/process (:pathom/registry system)
+                 [{[:t_patient/patient-identifier 81253]
+                   [:t_patient/last_name
+                    ]}
+                   {[:t_patient/patient-identifier 17490]
+                   [:t_patient/last_name
+                    :org.hl7.fhir.Patient/gender
+                    {:t_patient/ethnic_origin [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}
+                                               `(:info.snomed.Concept/parentRelationshipIds {:type ~snomed/IsA})]}
+                    :t_patient/status
+                    {:t_patient/address [:t_address/address1 :t_address/address2 :uk.gov.ons.nhspd/LSOA11 :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M]}
+                    {:t_patient/surgery [:org.w3.2004.02.skos.core/prefLabel]}
+                    {:t_patient/hospitals [:t_patient_hospital/patient_identifier
+                                           {:t_patient_hospital/hospital [:uk.nhs.ord/name
+                                                                          :org.w3.2004.02.skos.core/prefLabel]}]}]}])
 
   )
 

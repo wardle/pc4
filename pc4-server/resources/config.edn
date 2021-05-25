@@ -1,6 +1,6 @@
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
- :com.eldrix/patientcare             {:dbtype          "postgresql"
+ :com.eldrix/rsdb                    {:dbtype          "postgresql"
                                       :dbname          "rsdb"
                                       :maximumPoolSize 10}
 
@@ -26,18 +26,21 @@
                                                          :jwt-secret-key     "secret"
                                                          :jwt-expiry-seconds 300}}
 
- ;; :wales.nhs/empi       {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
- ;;                        :processing-id "P"}
- ;; :wales.nhs.cavuhb/pms {:username    #ref [:secrets :cav-pms-username]
- ;;                        :password    #ref [:secrets :cav-pms-password]
- ;;                        :database    "vpmslive.world"
- ;;                        :user-string "patientcare-concierge"}
+ :wales.nhs.cavuhb/pms               #profile {:default {:username    #ref [:secrets :cav-pms-username]
+                                                         :password    #ref [:secrets :cav-pms-password]
+                                                         :database    "vpmslive.world"
+                                                         :user-string "patientcare-concierge"}
+                                               :dev     {}}
+
+
+ :wales.nhs/empi                     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+                                      :processing-id "P"}
 
  :pathom/registry                    {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
                                             :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
                                             :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
                                             :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
-                                            :com.eldrix.patientcare/conn #ig/ref :com.eldrix/patientcare}}
+                                            :com.eldrix.rsdb/conn        #ig/ref :com.eldrix/rsdb}}
 
  :http/server                        {:port            8080
                                       :allowed-origins "*"

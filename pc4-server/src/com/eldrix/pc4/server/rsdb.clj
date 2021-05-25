@@ -1,6 +1,11 @@
-(ns com.eldrix.pc4.server.patientcare
-  "PatientCare provides functionality to integrate with the rsdb backend.
-  `rsdb` is the Apple WebObjects 'legacy' application."
+(ns com.eldrix.pc4.server.rsdb
+  "Integratation with the rsdb backend.
+  `rsdb` is the Apple WebObjects 'legacy' application that was PatientCare v1-3.
+
+  Depending on real-life usage, we could pre-fetch relationships and therefore
+  save multiple database round-trips, particularly for to-one relationships.
+  Such a change would be trivial because pathom would simply not bother
+  trying to resolve data that already exists. "
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [honeysql.core :as sql]
@@ -40,11 +45,12 @@
         (assoc m k (let [f (get property-parsers k)]
                      (if (and f v) (f v) v))))) {} m))
 
-
 (pco/defresolver patient-by-identifier
-  [{:com.eldrix.patientcare/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
+  [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
   {::pco/output [:t_patient/id
                  :t_patient/patient-identifier
+                 :t_patient/sex
+                 :t_patient/title
                  :t_patient/first_names
                  :t_patient/last_name
                  :t_patient/email
@@ -57,6 +63,20 @@
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
   (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}))))
+
+(pco/defresolver patient->hospitals
+  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
+                                        :t_patient_hospital/patient_identifier
+                                        :t_patient_hospital/authoritative]}]}
+  {:t_patient/hospitals (->> (jdbc/execute! conn (sql/format {:select [:*]
+                                                              :from   [:t_patient_hospital]
+                                                              :where  [:= :patient_fk patient-id]}))
+                             (map parse-entity))})
+
+(pco/defresolver patient-hospital->hospital
+  [{hospital_fk :t_patient_hospital/hospital_fk}]
+  {:t_patient_hospital/hospital {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
@@ -93,7 +113,6 @@
                          :t_address/postcode
                          :t_address/ignore_invalid_address])
 
-
 (defn fetch-patient-addresses
   "Returns patient addresses.
   Unfortunately, the backend database stores the from and to dates as timestamps
@@ -116,7 +135,7 @@
         first)))
 
 (pco/defresolver patient->addresses
-  [{:com.eldrix.patientcare/keys [conn]} {id :t_patient/id}]
+  [{:com.eldrix.rsdb/keys [conn]} {id :t_patient/id}]
   {::pco/output [{:t_patient/addresses address-properties}]}
   {:t_patient/addresses (fetch-patient-addresses conn id)})
 
@@ -128,7 +147,7 @@
   Parameters:
   - :date - a ISO LOCAL DATE string e.g \"2020-01-01\" or an instance of
             java.time.LocalDate."
-  [{conn :com.eldrix.patientcare/conn :as env} {:t_patient/keys [id addresses]}]
+  [{conn :com.eldrix.rsdb/conn :as env} {:t_patient/keys [id addresses]}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
    ::pco/output [:t_patient/address address-properties]}
@@ -145,7 +164,7 @@
   (when concept-id {:t_address/housing {:info.snomed.Concept/id concept-id}}))
 
 (pco/defresolver patient->episodes
-  [{conn :com.eldrix.patientcare/conn} {patient-id :t_patient/id}]
+  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
                                        :t_episode/date_referral
                                        :t_episode/date_registration
@@ -162,7 +181,7 @@
                                                         :where  [:= :patient_fk patient-id]}))})
 
 (pco/defresolver episode->project
-  [{conn :com.eldrix.patientcare/conn} {project-id :t_episode/project_fk}]
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
   {::pco/output [{:t_episode/project [:t_project/id :t_project/name :t_project/title
                                       :t_project/long_description
                                       :t_project/type :t_project/date_from :t_project/date_to
@@ -179,7 +198,7 @@
                                                                          :where  [:= :id project-id]})))})
 
 (pco/defresolver patient->encounters
-  [{:com.eldrix.patientcare/keys [conn]} {patient-id :t_patient/id}]
+  [{:com.eldrix.rsdb/keys [conn]} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/encounters [:t_encounter/id
                                          :t_encounter/date_time
                                          :t_encounter/active
@@ -197,7 +216,7 @@
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
-  [{conn :com.eldrix.patientcare/conn} {encounter-id :t_encounter/id}]
+  [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
   {::pco/output [{:t_encounter/users [:t_user/id]}]}
   {:t_encounter/users
    (->> (jdbc/execute! conn (sql/format {:select [:userid]
@@ -212,21 +231,21 @@
   (when hospital-id {:t_encounter/hospital {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id}}))
 
 (pco/defresolver encounter->encounter_template
-  [{:com.eldrix.patientcare/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
   {::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
                                                    :t_encounter_template/encounter_type_fk]}]}
   {:t_encounter/encounter_template (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                                                         :where  [:= :id encounter-template-fk]}))})
 
 (pco/defresolver encounter_template->encounter_type
-  [{:com.eldrix.patientcare/keys [conn]} {encounter-type-id :t_encounter_template/encounter_type_fk}]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-type-id :t_encounter_template/encounter_type_fk}]
   {::pco/output [{:t_encounter_template/encounter_type [:t_encounter_type/id
                                                         :t_encounter_type/name
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
 
 (pco/defresolver user-by-identifier
-  [{conn :com.eldrix.patientcare/conn} {user-id :t_user/id}]
+  [{conn :com.eldrix.rsdb/conn} {user-id :t_user/id}]
   {::pco/output [:t_user/username
                  :t_user/title
                  :t_user/first_names
@@ -261,8 +280,25 @@
                       custom_initials
                       (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
 
+(def sex->fhir-patient
+  {"MALE" :org.hl7.fhir.administrative-gender/male
+   "FEMALE" :org.hl7.fhir.administrative-gender/female
+   "UNKNOWN" :org.hl7.fhir.administrative-gender/unknown})
+
+(pco/defresolver patient->fhir-gender
+  [{sex :t_patient/sex}]
+  {:org.hl7.fhir.Patient/gender (get sex->fhir-patient sex)})
+
+(pco/defresolver patient->fhir-human-name
+  [{:t_patient/keys [title first_names last_name]}]
+  {:org.hl7.fhir.Patient/name [{:org.hl7.fhir.HumanName/prefix (str/split title #" ")
+                                :org.hl7.fhir.HumanName/given (str/split first_names #" ")
+                                :org.hl7.fhir.HumanName/family last_name}]})
+
 (def all-resolvers
   [patient-by-identifier
+   patient->hospitals
+   patient-hospital->hospital
    patient->country-of-birth
    patient->ethnic-origin
    patient->racial-group
@@ -281,7 +317,9 @@
    encounter_template->encounter_type
    user-by-identifier
    user->full-name
-   user->initials])
+   user->initials
+   patient->fhir-human-name
+   patient->fhir-gender])
 
 (comment
 
@@ -296,9 +334,9 @@
                                    :from   [:t_patient]
                                    :where  [:= :id 14232]}))
 
-  (def env (-> (pci/register resolvers)
-               (assoc :com.eldrix.patientcare/conn conn)))
-  (patient-by-identifier {:com.eldrix.patientcare/conn conn} {:t_patient/patient-identifier 12999})
+  (def env (-> (pci/register all-resolvers)
+               (assoc :com.eldrix.rsdb/conn conn)))
+  (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient-identifier 12999})
   (p.eql/process env [{[:t_patient/patient-identifier 17371] [:t_patient/id
                                                               :t_patient/email
                                                               :t_patient/first_names
@@ -334,9 +372,19 @@
                                                                  :t_user/initials
                                                                  :t_user/full_name]}]}]}])
 
+  (p.eql/process env
+                 [{[:t_patient/patient-identifier 12182]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    :t_patient/surgery
+                    {:t_patient/hospitals [:t_patient_hospital/patient_identifier
+                                           :t_patient_hospital/hospital]}]}])
+
   (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                        :where  [:= :id 15]}))
-  (encounter-encounter_template {:com.eldrix.patientcare/conn conn} {:t_encounter/encounter_template_fk 15})
+  (encounter-encounter_template {:com.eldrix.rsdb/conn conn} {:t_encounter/encounter_template_fk 15})
   (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
 
   (def ^LocalDate date (LocalDate/now))
@@ -344,5 +392,5 @@
   (address-for-date (fetch-patient-addresses conn 7382))
 
   (fetch-patient-addresses conn 119032)
-  (episode->project {:com.eldrix.patientcare/conn conn} {:t_episode/project_fk 34})
+  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
   )

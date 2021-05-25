@@ -1,17 +1,37 @@
 (ns com.eldrix.pc4.server.users
   (:require [buddy.sign.jwt :as jwt]
             [clojure.tools.logging.readable :as log]
+            [clojure.spec.alpha :as s]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco])
   (:import (java.time Instant)))
 
+
+(s/def ::jwt-secret-key string?)
+(s/def ::jwt-expiry-seconds number?)
+(s/def ::login-configuration (s/keys :req-un [::jwt-secret-key] :opt-un [::jwt-expiry-seconds]))
+
 (defn make-user-token
-  "Create a user token using the credentials and configuration supplied.
+  "Create a user token using the claims and configuration supplied.
+  Parameters:
+  - claims : a map containing arbitrary claims e.g {:username \"ma090906\"}
+  - config : a map containing
+           |- :jwt-expiry-seconds - expiry in seconds, default 300 seconds
+           |- :jwt-secret-key     - JWT secret key
   e.g.
-  (make-user-token {:system system :value value} {:jwt-secret-key \"secret\"})"
-  [creds {:keys [jwt-expiry-seconds jwt-secret-key] :or {jwt-expiry-seconds (* 60 5)}}]
-  (jwt/sign (assoc creds :exp (.plusSeconds (Instant/now) jwt-expiry-seconds)) jwt-secret-key))
+  (make-user-token {:system \"cymru.nhs.uk\" :value \"ma090906\"} {:jwt-secret-key \"secret\"})"
+  [claims {:keys [jwt-expiry-seconds jwt-secret-key] :or {jwt-expiry-seconds (* 60 5)}}]
+  (jwt/sign (assoc claims :exp (.plusSeconds (Instant/now) jwt-expiry-seconds)) jwt-secret-key))
+
+(defn refresh-user-token
+  "Refreshes a user token.
+  Essentially, takes out the claims and re-signs. No new token will be issued if
+  the token has expired or is invalid for any other reason."
+  [existing-token {:keys [jwt-secret-key] :as config}]
+  (when-let [claims (try (jwt/unsign existing-token jwt-secret-key)
+                               (catch Exception e (log/debug "Attempt to refresh invalid token")))]
+    (make-user-token claims config)))
 
 (pco/defmutation refresh-token-operation
   "Refresh the user token.
@@ -23,10 +43,9 @@
   {::pco/op-name 'pc4.users/refresh-token
    ::pco/params  [:token]
    ::pco/output  [:io.jwt.token]}
-  (when-let [current-user (try (jwt/unsign token (:jwt-secret-key login))
-                               (catch Exception e (log/debug "Attempt to refresh invalid token")))]
-    (log/info "Issuing refreshed token for user " current-user)
-    (make-user-token current-user login)))
+  (when-not (s/valid? ::login-configuration login)
+    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
+  (refresh-user-token token login))
 
 (pco/defmutation login-operation
   "Perform a login.
@@ -40,16 +59,9 @@
   the keys specified here so it is simpler to use `cond` and choose the correct
   path based on the namespace and the providers available at runtime."
   [{:com.eldrix.pc4/keys [login] :as env} {:keys [system value password]}]
-  {::pco/op-name 'pc4.users/login
-   ::pco/params  [:system :value :password]
-   ::pco/output  [:urn.oid.1.2.840.113556.1.4/sAMAccountName ;; sAMAccountName
-                  :io.jwt/token
-                  :urn.oid.0.9.2342.19200300.100.1.3        ;; (email)
-                  :urn.oid.0.9.2342.19200300.100.1.1        ;; (uid)
-                  :urn.oid:2.5.4/givenName                  ;; (givenName)
-                  :urn.oid.2.5.4/surname                    ;; (sn)
-                  :urn.oid.2.5.4/title                      ;; job title, not prefix
-                  ]}
+  {::pco/op-name 'pc4.users/login}
+  (when-not (s/valid? ::login-configuration login)
+    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
   (let [wales-nadex (get-in login [:providers :com.eldrix.concierge/nadex])
         fake-login (get-in login [:providers :com.eldrix.pc4/fake-login-provider])
         token (make-user-token {:system system :value value} login)]
@@ -58,35 +70,51 @@
       (and wales-nadex (= system "cymru.nhs.uk"))
       (do
         (log/info "login for " system value "; config:" wales-nadex)
-        (if-let [user (nadex/search (:connection-pool wales-nadex) value password)]
-          ;;(reduce-kv (fn [m k v] (assoc m (keyword "uk.nhs.cymru" (name k)) v)) {} user)
-          {:urn.oid.1.2.840.113556.1.4/sAMAccountName (:sAMAccountName user)
-           :io.jwt/token                              token
-           :urn.oid.2.5.4/surname                     (:sn user)
-           :urn.oid.2.5.4/givenName                   (:givenName user)
-           :urn.oid.2.5.4/title                       (:title user)
-           :urn.oid.2.5.4/telephoneNumber             (:telephoneNumber user)
-           :urn.oid.0.9.2342.19200300.100.1.3         (:mail user)}
+        (if-let [user (first (nadex/search (:connection-pool wales-nadex) value password))]
+          (assoc (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {} user)
+            :io.jwt/token token)
           (log/info "failed to authenticate user " system "/" value)))
 
-      ;; finally, if nothing else has worked....
+      ;; if nothing else has worked....
       ;; do we have a fake login provider configured?
       fake-login
       (do
         (log/info "performing fake login for " system value)
         (when (and (= (:username fake-login) value) (= (:password fake-login) password))
           (log/info "successful fake login")
-          {:urn.oid.1.2.840.113556.1.4/sAMAccountName value
-           :io.jwt/token                              token
-           :urn.oid.2.5.4/surname                     "Wardle"
-           :urn.oid.2.5.4/givenName                   "Mark"
-           :urn.oid.2.5.4/title                       "Consultant Neurologist"
-           :urn.oid.0.9.2342.19200300.100.1.3         "****.*****@wales.nhs.uk"
-           :urn.oid.2.5.4/telephoneNumber             "02920747747"}))
+          (assoc (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {}
+                            {:sAMAccountName           value
+                             :sn                       "Wardle"
+                             :givenName                "Mark"
+                             :mail                     "mark@wardle.org"
+                             :telephoneNumber          "02920747747"
+                             :professionalRegistration {:regulator "GMC" :code "4624000"}
+                             :title                    "Consultant Neurologist"})
+            :io.jwt/token token)))
 
       ;; no login provider found for the namespace provided
       :else
       (log/info "no login provider found for namespace" {:system system :providers (keys login)}))))
+
+
+(def regulator->namespace
+  {"GMC"  :uk.org.hl7.fhir.id/gmc-number
+   "GPhC" :uk.org.hl7.fhir.id/gphc-number
+   "NMC"  :uk.org.hl7.fhir.id/nms-pin})
+
+(pco/defresolver professional-regulators
+  "Resolves a professional regulator.
+  e.g.
+  {:wales.nhs.nadex/professionalRegistration {:regulator \"GMC\" :code \"4624000\"}}
+
+  will result in:
+  {:uk.org.hl7.fhir.id/gmc-number \"4624000\"}"
+  [{{:keys [regulator code]} :wales.nhs.nadex/professionalRegistration}]
+  {::pco/output [:uk.org.hl7.fhir.id/gmc-number
+                 :uk.org.hl7.fhir.id/gphc-number
+                 :uk.org.hl7.fhir.id/nmc-pin]}
+  (if-let [nspace (get regulator->namespace regulator)]
+    {nspace code}))
 
 (pco/defresolver x500->common-name
   "Generate an x500 common-name."
@@ -132,8 +160,51 @@
    (pbir/equivalence-resolver :urn.oid.2.5.4/surname :urn.oid.2.5.4.4)
    (pbir/equivalence-resolver :urn.oid.2.5.4/givenName :urn.oid.2.5.4.42)
    (pbir/equivalence-resolver :urn.oid.2.5.4/sn :urn.oid.2.5.4/surname)
+   (pbir/equivalence-resolver :wales.nhs.nadex/givenName :urn.oid.2.5.4/givenName)
+   (pbir/equivalence-resolver :wales.nhs.nadex/sn :urn.oid.2.5.4/sn)
+   (pbir/equivalence-resolver :wales.nhs.nadex/email :urn.oid.0.9.2342.19200300.100.1.3)
+   professional-regulators
    x500->common-name
    fhir-practitioner-name
    fhir-contact-points
    ])
 
+
+(defn make-mutation [m]
+  (pco/mutation
+    (reduce-kv
+      (fn [m k v] (assoc m (if (qualified-keyword? k) k (keyword "com.wsscode.pathom3.connect.operation" (name k))) v))
+      {} m)))
+
+(defn make-resolver [m]
+  (pco/resolver
+    (reduce-kv
+      (fn [m k v] (assoc m (if (qualified-keyword? k) k (keyword "com.wsscode.pathom3.connect.operation" (name k))) v))
+      {} m)))
+
+(comment
+  (macroexpand-1 x500->common-name)
+  (macroexpand-1 login-operation)
+
+  (some true? (map qualified-keyword? (keys {:hi 1 :there 2 ::pco/op-name 'wibble})))
+
+  (def r (make-resolver {:input     [:urn.oid.2.5.4/givenName
+                                     :urn.oid.2.5.4/surname],
+                         :output    [:urn.oid.2.5.4/commonName],
+                         :docstring "Generate an x500 common-name.",
+                         :op-name   'com.eldrix.pc4.server.users/x500->common-name
+                         :resolve   (fn [env {:urn.oid.2.5.4/keys [givenName surname]}]
+                                      {:urn.oid.2.5.4/commonName (str givenName " " surname)})}))
+  (pco/resolver? r)
+  r
+  x500->common-name
+  (r {} {:urn.oid.2.5.4/givenName "Mark" :urn.oid.2.5.4/surname "Wardle"})
+
+  (make-mutation {:op-name   'pc4.users/login
+                  :params    [:system
+                              :value
+                              :password],
+                  :docstring "This is the documentation"
+                  :mutate    (fn [env params] params)})
+  (pbir/equivalence-resolver :urn.oid.2.5.4/telephoneNumber :urn.oid.2.5.4.20)
+  )
