@@ -4,7 +4,8 @@
             [clojure.spec.alpha :as s]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
-            [com.wsscode.pathom3.connect.operation :as pco])
+            [com.wsscode.pathom3.connect.operation :as pco]
+            [clojure.string :as str])
   (:import (java.time Instant)))
 
 
@@ -30,7 +31,7 @@
   the token has expired or is invalid for any other reason."
   [existing-token {:keys [jwt-secret-key] :as config}]
   (when-let [claims (try (jwt/unsign existing-token jwt-secret-key)
-                               (catch Exception e (log/debug "Attempt to refresh invalid token")))]
+                         (catch Exception e (log/debug "Attempt to refresh invalid token")))]
     (make-user-token claims config)))
 
 (pco/defmutation refresh-token-operation
@@ -96,7 +97,6 @@
       :else
       (log/info "no login provider found for namespace" {:system system :providers (keys login)}))))
 
-
 (def regulator->namespace
   {"GMC"  :uk.org.hl7.fhir.id/gmc-number
    "GPhC" :uk.org.hl7.fhir.id/gphc-number
@@ -122,25 +122,32 @@
   {::pco/output [:urn.oid.2.5.4/commonName]}                ;; (cn)   common name - first, middle, last
   {:urn.oid.2.5.4/commonName (str givenName " " surname)})
 
+(pco/defresolver fhir-practitioner-identifiers
+  [{:wales.nhs.nadex/keys [sAMAccountName]}]
+  {::pco/output [{:org.hl7.fhir.Practitioner/identifier [:org.hl7.fhir.Identifier/system
+                                                         :org.hl7.fhir.Identifier/value ]}]}
+  {:org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "cymru.nhs.uk"
+                                          :org.hl7.fhir.Identifier/value sAMAccountName}]})
+
 (pco/defresolver fhir-practitioner-name
   "Generate a FHIR practitioner name from x500 data."
   [{:urn.oid.2.5.4/keys [givenName surname]}]
   {::pco/output [{:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/given
                                                    :org.hl7.fhir.HumanName/family
                                                    :org.hl7.fhir.HumanName/use]}]}
-  {:org.hl7.fhir.Practitioner/name {:org.hl7.fhir.HumanName/family givenName
-                                    :org.hl7.fhir.HumanName/given  surname
-                                    :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}})
+  {:org.hl7.fhir.Practitioner/name [{:org.hl7.fhir.HumanName/family surname
+                                    :org.hl7.fhir.HumanName/given  (str/split givenName #"\s")
+                                    :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
 
-(pco/defresolver fhir-contact-points
-  "Generate FHIR contact points from x500 data."
+(pco/defresolver fhir-telecom
+  "Generate FHIR telecom (contact points) from x500 data."
   [{email     :urn.oid.0.9.2342.19200300.100.1.3
     telephone :urn.oid.2.5.4/telephoneNumber}]              ;;
-  {::pco/input  [(pco/? :urn.oid.0.9.2342.19200300.100.1.3)
+  {::pco/input  [:urn.oid.0.9.2342.19200300.100.1.3
                  (pco/? :urn.oid.2.5.4/telephoneNumber)]
-   ::pco/output [{:org.hl7.fhir.Practitioner/contactPoints [:org.hl7.fhir.ContactPoint/system
-                                                            :org.hl7.fhir.ContactPoint/value]}]}
-  {:org.hl7.fhir.Practitioner/contactPoints
+   ::pco/output [{:org.hl7.fhir.Practitioner/telecom [:org.hl7.fhir.ContactPoint/system
+                                                      :org.hl7.fhir.ContactPoint/value]}]}
+  {:org.hl7.fhir.Practitioner/telecom
    (cond-> []
            email
            (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
@@ -150,7 +157,7 @@
                   :org.hl7.fhir.ContactPoint/value  telephone}))})
 
 (comment
-  (fhir-contact-points {:urn.oid.2.5.4/telephoneNumber "07786196137"}))
+  (fhir-telecom {:urn.oid.2.5.4/telephoneNumber "07786196137"}))
 
 
 (def all-resolvers
@@ -161,13 +168,15 @@
    (pbir/equivalence-resolver :urn.oid.2.5.4/givenName :urn.oid.2.5.4.42)
    (pbir/equivalence-resolver :urn.oid.2.5.4/sn :urn.oid.2.5.4/surname)
    (pbir/equivalence-resolver :wales.nhs.nadex/givenName :urn.oid.2.5.4/givenName)
+   (pbir/equivalence-resolver :wales.nhs.nadex/sAMAccountName :urn.oid.1.2.840.113556.1.4/sAMAccountName)
+   (pbir/equivalence-resolver :wales.nhs.nadex/title :urn.oid.2.5.4/title)
    (pbir/equivalence-resolver :wales.nhs.nadex/sn :urn.oid.2.5.4/sn)
    (pbir/equivalence-resolver :wales.nhs.nadex/email :urn.oid.0.9.2342.19200300.100.1.3)
    professional-regulators
    x500->common-name
+   fhir-practitioner-identifiers
    fhir-practitioner-name
-   fhir-contact-points
-   ])
+   fhir-telecom])
 
 
 (defn make-mutation [m]

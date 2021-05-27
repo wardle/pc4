@@ -77,7 +77,11 @@
      :io.jwt/token
      :urn.oid.2.5.4/givenName
      :urn.oid.2.5.4/surname
+     :urn.oid.0.9.2342.19200300.100.1.3
      :urn.oid.2.5.4/commonName
+     :urn.oid.2.5.4/title
+     :urn.oid.2.5.4/telephoneNumber
+     :org.hl7.fhir.Practitioner/identifier
      {:org.hl7.fhir.Practitioner/name
       [:org.hl7.fhir.HumanName/use
        :org.hl7.fhir.HumanName/family

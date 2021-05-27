@@ -57,9 +57,12 @@
                                [:urn.oid.1.2.840.113556.1.4/sAMAccountName
                                 :urn.oid.2.5.4/givenName
                                 :urn.oid.2.5.4/surname
+                                :urn.oid.2.5.4/title
                                 :urn.oid.2.5.4/commonName
+                                :urn.oid.2.5.4/telephoneNumber
                                 :urn.oid.0.9.2342.19200300.100.1.3
-                                :org.hl7.fhir.Practitioner/contactPoints
+                                :org.hl7.fhir.Practitioner/telecom
+                                :org.hl7.fhir.Practitioner/identifier
                                 {:org.hl7.fhir.Practitioner/name
                                  [:org.hl7.fhir.HumanName/use
                                   :org.hl7.fhir.HumanName/family

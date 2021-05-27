@@ -79,7 +79,6 @@
          [:div.container
           [:div.columns.is-centered
            [:div.column.is-5-tablet.is-4-desktop.is-3-widescreen
-            [:section.section [:div.container [:h1.title "PatientCare"] [:p.subtitle "Ward"]]]
             [:div.box
              ;; username field - if user presses enter, automatically switch to password field
              [:div.field [:label.label {:for "login-un"} "Username"]
