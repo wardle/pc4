@@ -1,5 +1,5 @@
 (ns eldrix.pc4-ward.core
-  (:require [reagent.dom :as dom]
+  (:require [reagent.dom :as rdom]
             [reitit.core :as r]
             [reitit.coercion.spec :as rss]
             [reitit.frontend :as rf]
@@ -8,6 +8,7 @@
             [re-frame.core :as re-frame]
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.views :as views]
+            [eldrix.pc4-ward.refer :as refer]
             [eldrix.pc4-ward.config :as config]))
 
 (re-frame/reg-fx :push-state
@@ -27,7 +28,6 @@
 (re-frame/reg-sub ::current-route
   (fn [db]
     (:current-route db)))
-
 
 (defn href
   "Return relative url for given route. Url can be used in HTML links."
@@ -49,20 +49,22 @@
       [:li "value id:" value-id]
       [:li "patient id " patient-id]]]))
 
-(def routes
-  [["/" {:name      ::home
-         :view      views/main-page
-         :link-text "Home"
-         :controllers
-                    [{;; Do whatever initialization needed for home page
-                      ;; I.e (re-frame/dispatch [::events/load-something-with-ajax])
-                      :start (fn [& params] (js/console.log "Entering home page"))
-                      ;; Teardown can be done here.
-                      :stop  (fn [& params] (js/console.log "Leaving home page"))}]}]
-   ["/{system-id}/{value-id}/{patient-id}/test-params" {:name        ::refer
-                                                        :view        test-parameters-page
-                                                        :controllers [{:start      (fn [& params] (js/console.log "entering refer page: " params))
-                                                                       :parameters {:path [:namespace-id :patient-id]}}]}]])
+(defn routes []
+  [["/"
+    {:name      ::home
+     :view      views/main-page
+     :link-text "Home"
+     :controllers
+                [{;; Do whatever initialization needed for home page
+                  ;; I.e (re-frame/dispatch [::events/load-something-with-ajax])
+                  :start (fn [& params] (js/console.log "Entering home page"))
+                  ;; Teardown can be done here.
+                  :stop  (fn [& params] (js/console.log "Leaving home page"))}]}]
+   ["/{system-id}/{value-id}/{patient-id}/test-params"
+    {:name        ::refer
+     :view        test-parameters-page
+     :controllers [{:start      (fn [& params] (js/console.log "entering refer page: " params))
+                    :parameters {:path [:namespace-id :patient-id]}}]}]])
 
 (defn on-navigate [new-match]
   (when new-match
@@ -70,7 +72,7 @@
 
 (def router
   (rf/router
-    routes
+    (routes)
     {:data {:coercion rss/coercion}}))
 
 (defn init-routes! []
@@ -94,11 +96,15 @@
 
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
-  (dom/render [router-component {:router router}]
-              (.getElementById js/document "app")))
+  ;;(rdom/render [router-component {:router router}] (.getElementById js/document "app"))
+  (rdom/render [refer/refer-page] (.getElementById js/document "app"))
+  )
 
 (defn init []
   (re-frame/dispatch-sync [::events/initialize-db])
   (dev-setup)
   (init-routes!)                                            ;; Reset routes on reload
   (mount-root))
+
+(comment
+  )
