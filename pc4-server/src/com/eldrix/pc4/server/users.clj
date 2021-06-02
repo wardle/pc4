@@ -6,8 +6,17 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [clojure.string :as str])
-  (:import (java.time Instant)))
+  (:import (java.time Instant LocalDateTime)))
 
+(pco/defmutation ping-operation
+  "Return service status."
+  [{:keys [uuid]}]
+  {::pco/op-name 'pc4.users/ping
+   ::pco/params  [:uuid]
+   ::pco/output  [:uuid :date-time]}
+  (log/debug "received ping " uuid)
+  {:uuid      uuid
+   :date-time (LocalDateTime/now)})
 
 (s/def ::jwt-secret-key string?)
 (s/def ::jwt-expiry-seconds number?)
@@ -87,6 +96,7 @@
                             {:sAMAccountName           value
                              :sn                       "Wardle"
                              :givenName                "Mark"
+                             :personalTitle            "Dr."
                              :mail                     "mark@wardle.org"
                              :telephoneNumber          "02920747747"
                              :professionalRegistration {:regulator "GMC" :code "4624000"}
@@ -125,19 +135,26 @@
 (pco/defresolver fhir-practitioner-identifiers
   [{:wales.nhs.nadex/keys [sAMAccountName]}]
   {::pco/output [{:org.hl7.fhir.Practitioner/identifier [:org.hl7.fhir.Identifier/system
-                                                         :org.hl7.fhir.Identifier/value ]}]}
+                                                         :org.hl7.fhir.Identifier/value]}]}
   {:org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "cymru.nhs.uk"
-                                          :org.hl7.fhir.Identifier/value sAMAccountName}]})
+                                           :org.hl7.fhir.Identifier/value  sAMAccountName}]})
 
 (pco/defresolver fhir-practitioner-name
   "Generate a FHIR practitioner name from x500 data."
-  [{:urn.oid.2.5.4/keys [givenName surname]}]
+  [{:urn.oid.2.5.4/keys [givenName surname personalTitle]}]
+  {::pco/input [:urn.oid.2.5.4/givenName
+                :urn.oid.2.5.4/surname
+                (pco/? :urn.oid.2.5.4/personalTitle)]}
   {::pco/output [{:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/given
                                                    :org.hl7.fhir.HumanName/family
                                                    :org.hl7.fhir.HumanName/use]}]}
-  {:org.hl7.fhir.Practitioner/name [{:org.hl7.fhir.HumanName/family surname
-                                    :org.hl7.fhir.HumanName/given  (str/split givenName #"\s")
-                                    :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
+  {:org.hl7.fhir.Practitioner/name [(cond-> {:org.hl7.fhir.HumanName/use :org.hl7.fhir.name-use/usual}
+                                            (not (str/blank? surname))
+                                            (assoc :org.hl7.fhir.HumanName/family surname)
+                                            (not (str/blank? givenName))
+                                            (assoc :org.hl7.fhir.HumanName/given (str/split givenName #"\s"))
+                                            (not (str/blank? personalTitle))
+                                            (assoc :org.hl7.fhir.HumanName/prefix [personalTitle]))]})
 
 (pco/defresolver fhir-telecom
   "Generate FHIR telecom (contact points) from x500 data."
@@ -157,21 +174,27 @@
                   :org.hl7.fhir.ContactPoint/value  telephone}))})
 
 (comment
-  (fhir-telecom {:urn.oid.2.5.4/telephoneNumber "07786196137"}))
+  (fhir-telecom {:urn.oid.2.5.4/telephoneNumber "07786196137" :urn.oid.0.9.2342.19200300.100.1.3 "mark.wardle@wales.nhs.uk"})
+
+  (fhir-practitioner-name {:urn.oid.2.5.4/surname "Wardle" :urn.oid.2.5.4/givenName "Mark" :urn.oid.2.5.4/personalTitle "Dr"})
+  )
 
 
 (def all-resolvers
-  [login-operation
+  [ping-operation
+   login-operation
    refresh-token-operation
    (pbir/equivalence-resolver :urn.oid.2.5.4/telephoneNumber :urn.oid.2.5.4.20)
    (pbir/equivalence-resolver :urn.oid.2.5.4/surname :urn.oid.2.5.4.4)
    (pbir/equivalence-resolver :urn.oid.2.5.4/givenName :urn.oid.2.5.4.42)
    (pbir/equivalence-resolver :urn.oid.2.5.4/sn :urn.oid.2.5.4/surname)
-   (pbir/equivalence-resolver :wales.nhs.nadex/givenName :urn.oid.2.5.4/givenName)
-   (pbir/equivalence-resolver :wales.nhs.nadex/sAMAccountName :urn.oid.1.2.840.113556.1.4/sAMAccountName)
-   (pbir/equivalence-resolver :wales.nhs.nadex/title :urn.oid.2.5.4/title)
-   (pbir/equivalence-resolver :wales.nhs.nadex/sn :urn.oid.2.5.4/sn)
-   (pbir/equivalence-resolver :wales.nhs.nadex/email :urn.oid.0.9.2342.19200300.100.1.3)
+   (pbir/alias-resolver :wales.nhs.nadex/givenName :urn.oid.2.5.4/givenName)
+   (pbir/alias-resolver :wales.nhs.nadex/sAMAccountName :urn.oid.1.2.840.113556.1.4/sAMAccountName)
+   (pbir/alias-resolver :wales.nhs.nadex/title :urn.oid.2.5.4/title)
+   (pbir/alias-resolver :wales.nhs.nadex/personalTitle :urn.oid.2.5.4/personalTitle)
+   (pbir/alias-resolver :wales.nhs.nadex/sn :urn.oid.2.5.4/sn)
+   (pbir/alias-resolver :wales.nhs.nadex/telephoneNumber :urn.oid.2.5.4/telephoneNumber)
+   (pbir/alias-resolver :wales.nhs.nadex/mail :urn.oid.0.9.2342.19200300.100.1.3)
    professional-regulators
    x500->common-name
    fhir-practitioner-identifiers
