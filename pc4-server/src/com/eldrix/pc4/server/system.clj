@@ -22,6 +22,7 @@
             [com.eldrix.pc4.server.api :as api]
             [com.eldrix.pc4.server.rsdb :as rsdb]
             [com.eldrix.pc4.server.users :as users]
+            [com.eldrix.pc4.server.patients :as patients]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
@@ -98,14 +99,20 @@
 (defmethod ig/init-key :wales.nhs/empi [_ config]
   config)
 
+
+(def default-resolvers
+  [users/all-resolvers
+   patients/all-resolvers])
+
 (defmethod ig/init-key :pathom/registry [_ {:keys [env] :as config}]
   (log/info "creating pathom registry " env " resolvers:" (count @resolvers))
-  (dorun (->> @resolvers
-              (map (fn [r] (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name])))
-              (map #(log/info "resolver: " %))))
-  (merge env (-> (pci/register (seq @resolvers))
-                 (com.wsscode.pathom3.plugin/register [;;pbip/remove-stats-plugin
-                                                       (pbip/attribute-errors-plugin)]))))
+  (let [resolvers (flatten [@resolvers default-resolvers])]
+    (dorun (->> resolvers
+                (map (fn [r] (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name])))
+                (map #(log/info "resolver: " %))))
+    (merge env (-> (pci/register resolvers)
+                   (com.wsscode.pathom3.plugin/register [;;pbip/remove-stats-plugin
+                                                         (pbip/attribute-errors-plugin)])))))
 
 (defmethod ig/halt-key! :pathom/registry [_ env]
   (reset! resolvers []))
@@ -132,9 +139,6 @@
 (defmethod ig/halt-key! :http/server [_ service-map]
   (http/stop service-map))
 
-(def default-resolvers
-  (concat users/all-resolvers))
-
 (defmethod aero/reader 'ig/ref [_ _ value]
   (ig/ref value))
 
@@ -149,7 +153,7 @@
 
 (defn init [profile]
   ;; start with a default set of resolvers
-  (reset! resolvers default-resolvers)
+  (reset! resolvers [])
   ;; configuration can add further resolvers, depending on what is configured
   (ig/init (config profile)))
 
@@ -161,10 +165,17 @@
   (prep :dev)
 
   (def system (init :dev))
+  (reset! resolvers [])
   (ig/halt! system)
+
   (do
     (ig/halt! system)
     (def system (init :dev)))
+
+  (count @resolvers)
+  (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers)))
+  (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
+
 
   (keys system)
 
@@ -187,6 +198,8 @@
                                               :wales.nhs.nadex/personalTitle
                                               :wales.nhs.nadex/mail
                                               :wales.nhs.nadex/postOfficeBox
+                                              :org.hl7.fhir.Practitioner/identifier
+                                              :org.hl7.fhir.Practitioner/telecom
                                               {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family
                                                                                 :org.hl7.fhir.HumanName/given]}
                                               :wales.nhs.nadex/professionalRegistration
