@@ -38,7 +38,13 @@
                                   :ADDRESS3  "Cardiff"
                                   :ADDRESS4  ""
                                   :POSTCODE  "CF14 4XW"
-                                  :DATE_FROM (LocalDate/of 1970 01 01) :DATE_TO nil}]}})
+                                  :DATE_FROM (LocalDate/of 2020 01 01) :DATE_TO nil}
+                                 {:ADDRESS1  "Llandough Hospital"
+                                  :ADDRESS2  ""
+                                  :ADDRESS3  ""
+                                  :ADDRESS4  ""
+                                  :POSTCODE  "CF14 4XW"
+                                  :DATE_FROM (LocalDate/of 2019 01 01) :DATE_TO nil}]}})
 
 (defn add-namespace-cav-patient [pt]
   (assoc (record->map "wales.nhs.cavuhb.Patient" pt)
@@ -151,7 +157,6 @@
     (def system (pc4-system/init :dev)))
   (connect-viz (:pathom/registry system))
 
-
   (add-namespace-cav-patient (get fake-cav-patients "A999998"))
   (get fake-cav-patients "A999998")
 
@@ -166,9 +171,7 @@
                         :org.hl7.fhir.Patient/identifiers
                         :wales.nhs.cavuhb.Patient/SEX
                         :org.hl7.fhir.Patient/gender
-                        {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:uk.gov.ons.nhspd/PCDS]}
-                        {:wales.nhs.cavuhb.Patient/ADDRESSES
-                         [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}
+                        {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}
                         :org.hl7.fhir.Patient/address]}])
   (cav->fhir-identifiers (add-namespace-cav-patient (get fake-cav-patients "A999998")))
   )
