@@ -8,6 +8,7 @@
   trying to resolve data that already exists. "
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.pc4.server.dates :as dates]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [next.jdbc :as jdbc]
@@ -20,15 +21,6 @@
            (java.time LocalDate)))
 
 (next.jdbc.date-time/read-as-local)
-
-(defn date-in-range?
-  "Is the date in the range specified, or is the range 'current'?"
-  ([^LocalDate from ^LocalDate to]
-   (date-in-range? from to nil))
-  ([^LocalDate from ^LocalDate to ^LocalDate date]
-   (let [date' (or date (LocalDate/now))]
-     (and (or (nil? from) (not (.isBefore date' from)))
-          (or (nil? to) (.isBefore date' to))))))
 
 (def property-parsers
   {:t_patient/status                 #(keyword %)
@@ -115,8 +107,8 @@
 
 (defn fetch-patient-addresses
   "Returns patient addresses.
-  Unfortunately, the backend database stores the from and to dates as timestamps
-  without timezones, so we convert to instances of java.time.LocalDate."
+  The backend database stores the from and to dates as timestamps without
+  timezones, so we convert to instances of java.time.LocalDate."
   [conn patient-id]
   (->> (jdbc/execute! conn (sql/format {:select   [:address1 :address2 :address3 :address4 [:postcode_raw :postcode]
                                                    :date_from :date_to :housing_concept_fk :ignore_invalid_address]
@@ -131,7 +123,7 @@
    (address-for-date sorted-addresses nil))
   ([sorted-addresses ^LocalDate date]
    (->> sorted-addresses
-        (filter #(date-in-range? (:t_address/date_from %) (:t_address/date_to %) date))
+        (filter #(dates/in-range? (:t_address/date_from %) (:t_address/date_to %) date))
         first)))
 
 (pco/defresolver patient->addresses

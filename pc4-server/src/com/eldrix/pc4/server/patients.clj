@@ -2,11 +2,22 @@
   (:require
     [clojure.tools.logging.readable :as log]
     [com.eldrix.concierge.wales.cav-pms :as cavpms]
+    [com.eldrix.pc4.server.dates :as dates]
     [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
     [com.wsscode.pathom3.connect.operation :as pco]
     [com.wsscode.pathom3.connect.indexes :as pci]
-    [clojure.string :as str])
+    [clojure.string :as str]
+    [com.eldrix.pc4.server.dates :as dates])
   (:import (java.time LocalDate)))
+
+(defn date-in-range?
+  "Is the date in the range specified, or is the range 'current'?"
+  ([^LocalDate from ^LocalDate to]
+   (date-in-range? from to nil))
+  ([^LocalDate from ^LocalDate to ^LocalDate date]
+   (let [date' (or date (LocalDate/now))]
+     (and (or (nil? from) (not (.isBefore date' from)))
+          (or (nil? to) (.isBefore date' to))))))
 
 (defn record->map
   "Turn a record into a namespaced map."
@@ -25,9 +36,9 @@
               :ADDRESSES        [{:ADDRESS1  "University Hospital Wales"
                                   :ADDRESS2  "Heath Park"
                                   :ADDRESS3  "Cardiff"
-                                  :ADDRESS4  nil
+                                  :ADDRESS4  ""
                                   :POSTCODE  "CF14 4XW"
-                                  :DATE_FROM (LocalDate/of 1970 01 01) :DATE_TO ""}]}})
+                                  :DATE_FROM (LocalDate/of 1970 01 01) :DATE_TO nil}]}})
 
 (defn add-namespace-cav-patient [pt]
   (assoc (record->map "wales.nhs.cavuhb.Patient" pt)
@@ -84,11 +95,52 @@
              "F" :org.hl7.fhir.administrative-gender/female
              :org.hl7.fhir.administrative-gender/unknown)})
 
+(defn make-cav-fhir-address
+  [{:wales.nhs.cavuhb.Address/keys [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE DATE_FROM DATE_TO]}]
+  {:org.hl7.fhir.Address/use        :org.hl7.fhir.address-use/home
+   :org.hl7.fhir.Address/type       :org.hl7.fhir.address-type/both
+   :org.hl7.fhir.Address/text       (str/join "\n" (remove str/blank? [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE]))
+   :org.hl7.fhir.Address/line       [ADDRESS1]
+   :org.hl7.fhir.Address/district   ADDRESS2
+   :org.hl7.fhir.Address/city       ADDRESS3
+   :org.hl7.fhir.Address/state      ADDRESS4
+   :org.hl7.fhir.Address/postalCode POSTCODE
+   :org.hl7.fhir.Address/period     {:org.hl7.fhir.Period/start DATE_FROM
+                                     :org.hl7.fhir.Period/end   DATE_TO}})
 
+(pco/defresolver cav->fhir-addresses
+  [{:wales.nhs.cavuhb.Patient/keys [ADDRESSES]}]
+  {::pco/output
+   [{:org.hl7.fhir.Patient/address
+     [:org.hl7.fhir.Address/use :org.hl7.fhir.Address/type
+      :org.hl7.fhir.Address/text
+      :org.hl7.fhir.Address/line :org.hl7.fhir.Address/city :org.hl7.fhir.Address/district
+      :org.hl7.fhir.Address/state :org.hl7.fhir.Address/postalCode
+      :org.hl7.fhir.Address/country
+      {:org.hl7.fhir.Address/period [:org.hl7.fhir.Period/start
+                                     :org.hl7.fhir.Period/end]}]}]}
+  {:org.hl7.fhir.Patient/address (map make-cav-fhir-address ADDRESSES)})
+
+(pco/defresolver cav->current-address
+  "Resolve the current address."
+  [{:wales.nhs.cavuhb.Patient/keys [ADDRESSES]}]
+  {::pco/output
+   [{:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS
+     [:wales.nhs.cavuhb.Address/ADDRESS1 :wales.nhs.cavuhb.Address/ADDRESS2 :wales.nhs.cavuhb.Address/ADDRESS3
+      :wales.nhs.cavuhb.Address/ADDRESS4 :wales.nhs.cavuhb.Address/POSTCODE
+      :wales.nhs.cavuhb.Address/DATE_FROM :wales.nhs.cavuhb.Address/DATE_TO]}]}
+  {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS
+   (->> (sort-by :wales.nhs.cavuhb.Address/DATE_FROM ADDRESSES)
+        reverse
+        (filter #(dates/in-range? (:wales.nhs.cav.uhb.Address/DATE_FROM %) (:wales.nhs.cavuhb.Address/DATE_TO %)))
+        first)})
 
 (def all-resolvers [fetch-cav-patient
                     cav->fhir-identifiers
-                    cav->fhir-gender])
+                    cav->fhir-gender
+                    cav->fhir-addresses
+                    cav->current-address
+                    (pbir/alias-resolver :wales.nhs.cavuhb.Address/POSTCODE :uk.gov.ons.nhspd/PCDS)])
 
 (comment
   (require '[com.eldrix.pc4.server.system :as pc4-system])
@@ -113,6 +165,10 @@
                         :wales.nhs.cavuhb.Patient/HOSPITAL_ID
                         :org.hl7.fhir.Patient/identifiers
                         :wales.nhs.cavuhb.Patient/SEX
-                        :org.hl7.fhir.Patient/gender]}])
+                        :org.hl7.fhir.Patient/gender
+                        {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:uk.gov.ons.nhspd/PCDS]}
+                        {:wales.nhs.cavuhb.Patient/ADDRESSES
+                         [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}
+                        :org.hl7.fhir.Patient/address]}])
   (cav->fhir-identifiers (add-namespace-cav-patient (get fake-cav-patients "A999998")))
   )
