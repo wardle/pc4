@@ -6,22 +6,24 @@
            org.clojure/data.zip              {:mvn/version "1.0.0"}
            org.clojure/tools.cli             {:mvn/version "1.0.206"}
            org.clojure/tools.logging         {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic    {:mvn/version "1.2.3"}
+           ch.qos.logback/logback-classic    {:mvn/version "1.3.0-alpha5"}
+           org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha1"}
+
 
            com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
                                               :sha     "b9c3e00db3d6867dff436d050e29ee78014527c3"}
            com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
-                                              :sha     "bb738cbc775b2cfde1c3f6bc526cded1af300978"}
+                                              :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                               :sha     "6716490efb871fa4f2e2a7ad846987f4428a6b5c"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "c02adaec7b9baafb37c7956a930d71d9e684b37c"}
+                                              :sha     "b8924df2b506f7c427a4593ebfa9eee584193707"}
 
            aero/aero                         {:mvn/version "1.1.6"}
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
            cheshire/cheshire                 {:mvn/version "5.10.0"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
-                                              :sha     "7e61113f1818e63d9528e61344a79bca20db969c"}
+                                              :sha     "4d95182c47aab2bc957f664157271f76da7c0729"}
            com.zaxxer/HikariCP               {:mvn/version "4.0.3"}
 
            expound/expound                   {:mvn/version "0.8.9"}
@@ -36,11 +38,11 @@
  :aliases {
            :dev       {:extra-paths ["dev"]
                        :extra-deps  {com.wsscode/pathom-viz-connector {:mvn/version "2021.05.13"}
-                                     org.clojure/test.check           {:mvn/version "0.9.0"}}}
+                                     org.clojure/test.check           {:mvn/version "1.1.0"}}}
 
            :test      {:extra-paths ["test" "test/resources"]
                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                :sha     "b6b3193fcc42659d7e46ecd1884a228993441182"}}
+                                                                :sha     "62ef1de18e076903374306060ac0e8a752e57c86"}}
                        :main-opts   ["-m" "cognitect.test-runner"]}
 
            :log       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}}
