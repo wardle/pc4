@@ -68,6 +68,7 @@
 
 (defn login-panel []
   (let [error (rf/subscribe [::users/login-error])
+        ping-error (rf/subscribe [::users/ping-error])
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
@@ -103,8 +104,8 @@
              [:button.button {:class    ["is-primary" (when submitting "is-loading")]
                               :disabled submitting
                               :on-click do-login} " Login "]]
-
-            (if-not (str/blank? @error) [:div.notification.is-danger [:p @error]])]]]]]])))
+            (when-not (str/blank? @error) [:div.notification.is-danger [:p @error]])
+            (when @ping-error [:div.notification.is-warning [:p "Connection error: unable to connect to server. Will retry automatically."]])]]]]]])))
 
   (defn- panels [panel-name]
     (case panel-name

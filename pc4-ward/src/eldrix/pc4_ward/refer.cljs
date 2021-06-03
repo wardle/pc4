@@ -8,22 +8,23 @@
 
 ;; these could be automatically generated from the FHIR specs, except that the
 ;; specifications often have everything as optional (e.g. cardinality 0..1).
-(s/def :org.hl7.fhir.Identifier/system string?)
-(s/def :org.hl7.fhir.Identifier/value string?)
+(s/def ::non-blank-string (s/and string? (complement str/blank?)))
+(s/def :org.hl7.fhir.Identifier/system ::non-blank-string)
+(s/def :org.hl7.fhir.Identifier/value ::non-blank-string)
 (s/def :org.hl7.fhir/Identifier (s/keys :req [:org.hl7.fhir.Identifier/system :org.hl7.fhir.Identifier/value]
                                         :opt [:org.hl7.fhir.Identifier/use :org.hl7.fhir.Identifier/type
                                               :org.hl7.fhir.Identifier/period :org.hl7.fhir.Identifier/assigner]))
-(s/def :org.hl7.fhir.Coding/system string?)
-(s/def :org.hl7.fhir.Coding/code string?)
+(s/def :org.hl7.fhir.Coding/system ::non-blank-string)
+(s/def :org.hl7.fhir.Coding/code ::non-blank-string)
 (s/def :org.hl7.fhir/Coding (s/keys :req [:org.hl7.fhir.Coding/system :org.hl7.fhir.Coding/code]
                                     :opt [:org.hl7.fhir.Coding/version :org.hl7.fhir.Coding/display]))
 (s/def :org.hl7.fhir.CodeableConcept/coding :org.hl7.fhir/Coding)
-(s/def :org.hl7.fhir.CodeableConcept/text string?)
+(s/def :org.hl7.fhir.CodeableConcept/text ::non-blank-string)
 (s/def :org.hl7.fhir/CodeableConcept (s/keys :req [:org.hl7.fhir.CodeableConcept/coding]
                                              :opt [:org.hl7.fhir.CodeableConcept/text]))
 
-(s/def :org.hl7.fhir.HumanName/given (s/coll-of string?))
-(s/def :org.hl7.fhir.HumanName/family string?)
+(s/def :org.hl7.fhir.HumanName/given (s/coll-of ::non-blank-string))
+(s/def :org.hl7.fhir.HumanName/family ::non-blank-string)
 (s/def :org.hl7.fhir/HumanName (s/keys :req [:org.hl7.fhir.HumanName/family :org.hl7.fhir.HumanName/given]))
 (s/def :org.hl7.fhir.Practitioner/identifier (s/coll-of :org.hl7.fhir/Identifier))
 (s/def :org.hl7.fhir.Practitioner/name (s/coll-of :org.hl7.fhir/HumanName))
@@ -62,55 +63,150 @@
                                                   :org.hl7.fhir.ServiceRequest/reasonCode]
                                             :opt [:org.hl7.fhir.ServiceRequest/patientInstruction]))
 
-(s/def ::referrer-information (s/keys :req [::contact-details]
-                                      :opt [::other-contact-details]))
+
+(s/def ::practitioner :org.hl7.fhir/Practitioner)
+(s/def ::job-title ::non-blank-string)
+(s/def ::contact-details ::non-blank-string)
+(s/def ::referrer (s/keys :req [::practitioner
+                                ::job-title
+                                ::contact-details]
+                          :opt [::team-contact-details]))
 (s/def ::mode #{:inpatient :outpatient :advice})
-(s/def ::location (s/keys :req [::mode
-                                ::hospital] :opt [::ward]))
-(s/def ::draft-referral (s/keys :req [::date-time ::user]
-                                :opt [::patient
-                                      ::referrer-information
-                                      ::location
-                                      ::referral-question
-                                      ::service]))
-(s/def ::referral (s/keys :req [::date-time
-                                ::user
-                                ::patient
-                                ::location
-                                ::referral-question
-                                ::service]))
+(s/def ::location (s/keys :req [::mode]
+                          :opt [::hospital ::ward]))
+
+(s/def ::valid-referrer? (s/keys :req [::referrer]))
+(s/def ::valid-patient? (s/keys :req [::referrer ::patient]))
+(s/def ::valid-service? (s/keys :req [::referrer ::patient ::service]))
+(s/def ::valid-question? (s/keys :req [::referrer ::patient ::service ::question]))
+(s/def ::valid-referral? (s/keys :req [::date-time ::referrer ::patient ::question ::service]))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
-  (s/valid? ::user {:urn.oid.1.2.840.113556.1.4/sAMAccountName "ma090906"})
-  (s/explain ::referral {::date-time         1
-                         ::user              {:org.hl7.fhir.Practitioner/name       [{:org.hl7.fhir.HumanName/family "Wardle"
-                                                                                      :org.hl7.fhir.HumanName/given  ["Mark"]
-                                                                                      :org.hl7.fhir.HumanName/prefix ["Dr"]}]
-                                              :org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "nadex"
-                                                                                      :org.hl7.fhir.Identifier/value  "ma090906"}]}
-                         ::patient           {:org.hl7.fhir.Patient/name       [{:org.hl7.fhir.HumanName/family "Duck"
-                                                                                 :org.hl7.fhir.HumanName/given  ["Donald"]}]
-                                              :org.hl7.fhir.Patient/identifier [{:org.hl7.fhir.Identifier/system "cav"
-                                                                                 :org.hl7.fhir.Identifier/value  "A999998"}]}
-                         ::location          {::mode :advice}
-                         ::referral-question {}
-                         ::service           {}})
-  )
+  (s/valid? :org.hl7.fhir/Identifier {:org.hl7.fhir.Identifier/system "wales.nhs.uk" :org.hl7.fhir.Identifier/value "ma090906"})
+  (s/valid? :org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "wales.nhs.uk" :org.hl7.fhir.Identifier/value "ma090906"}])
+  (s/valid? :org.hl7.fhir/Practitioner {:org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "wales.nhs.uk" :org.hl7.fhir.Identifier/value "ma090906"}]
+                                        :org.hl7.fhir.Practitioner/name       [{:org.hl7.fhir.HumanName/given ["Mark"] :org.hl7.fhir.HumanName/family "Wardle"}]})
+  (s/valid? ::valid-referrer? {::date-time 1
+                               ::referrer  {::practitioner    {:org.hl7.fhir.Practitioner/name       [{:org.hl7.fhir.HumanName/family "Wardle"
+                                                                                                       :org.hl7.fhir.HumanName/given  ["Mark"]
+                                                                                                       :org.hl7.fhir.HumanName/prefix ["Dr"]}]
+                                                               :org.hl7.fhir.Practitioner/identifier [{:org.hl7.fhir.Identifier/system "nadex"
+                                                                                                       :org.hl7.fhir.Identifier/value  "ma090906"}]}
+                                            ::contact-details "02920747747"
+                                            ::job-title       "Consultant Neurologist"}
+                               ::patient   {:org.hl7.fhir.Patient/name       [{:org.hl7.fhir.HumanName/family "Duck"
+                                                                               :org.hl7.fhir.HumanName/given  ["Donald"]}]
+                                            :org.hl7.fhir.Patient/identifier [{:org.hl7.fhir.Identifier/system "cav"
+                                                                               :org.hl7.fhir.Identifier/value  "A999998"}]}
+                               ::location  {::mode :advice}
+                               ::service   {}}))
 
+(defn active-menus [referral]
+  (cond-> #{::who-are-you?}
+          (s/valid? ::valid-referrer? referral)
+          (conj ::who-is-patient?)
+          (s/valid? ::valid-patient? referral)
+          (conj ::to-which-service?)
+          (s/valid? ::valid-service? referral)
+          (conj ::what-is-question?)
+          (s/valid? ::valid-question? referral)
+          (conj ::send-referral)))
 
-(defn referral-progress []
+(defn user-panel
+  "Make a user details form - to include name, job title, contact details and
+  team.
+  Parameters:
+   - value : atom "
+  [value {:keys [name-kp title-kp contact-kp team-kp valid-fn next-fn]}]
+  (let [valid? (if valid-fn (valid-fn) true)]
+    [:div.box
+     [:div.field [:label.label {:for "name-un"} "Your name"]
+      [:div.control
+       [:input.input {:id        "name-un" :type "text"
+                      :value     (or (get-in @value name-kp) "")
+                      :read-only true :disabled true}]]]
+     (when title-kp
+       [:div.field [:label.label {:for "title-un"} "Your grade / job title"]
+        [:div.control
+         [:input.input {:id        "title-un" :type "text"
+                        :value     (or (get-in @value title-kp) "")
+                        :on-change #(swap! value assoc-in title-kp (-> % .-target .-value))}]]])
+     (when contact-kp
+       [:div.field [:label.label {:for "contact-un"} "Your contact details (pager / mobile)"]
+        [:div.control
+         [:input.input {:id        "contact-un" :type "text"
+                        :value     (or (get-in @value contact-kp) "")
+                        :on-change #(swap! value assoc-in contact-kp (-> % .-target .-value))}]]])
+     (when team-kp
+       [:div.field [:label.label {:for "contact2-un"} "Team contact details "]
+        [:div.control
+         [:input.input {:id        "contact2-un" :type "text"
+                        :value     (or (get-in @value team-kp))
+                        :on-change #(swap! value assoc-in team-kp (-> % .-target .-value))}]]
+        [:p.help "Include information about your colleagues / who to contact if you are unavailable."]])
+     [:button.button.is-primary {:disabled (not valid?)
+                                 :on-click (when valid? next-fn)} "Next"]]))
+
+(defn patient-search-panel
+  [value {:keys [identifier-kp valid-fn next-fn]}]
+  (let [valid? (if valid-fn (valid-fn) true)]
+    [:div.box
+     [:div.field [:label.label {:for "name-un"} "Search for patient"]
+      [:div.control
+       [:input.input {:id    "name-un" :type "text"
+                      :value (or (get-in @value identifier-kp) "")
+                      :on-change #(swap! value assoc-in identifier-kp (-> % .-target .-value))}]]]
+     [:a.button.is-primary "Search"]
+
+     (when next-fn
+       [:button.button.is-primary {:disabled (not valid?)
+                                   :on-click (when valid? next-fn)} "Next"])]))
+
+(def menu
+  {:title "Make a referral"
+   :items [{:id ::who-are-you? :label "Who are you?"}
+           {:id ::who-is-patient? :label "Who is the patient?"}
+           {:id ::to-which-service? :label "To which service?"}
+           {:id ::what-is-question? :label "What is the question?"}
+           {:id ::send-referral :label "Send referral"}]})
+
+(defn render-menu
+  "Render a simple menu with a title and items.
+  Parameters:
+   - :title    : title of the menu
+   - :items    : a sequence of maps representing each item
+                 |- :id    - unique identifier for item
+                 |- :label - label to use
+   - :selected : which item is selected  (item identifier)
+   - :enabled  : function to determine whether item is enabled, optional.
+   - :choose-fn: a function to be called when an item is chosen (fn [item-id]).
+
+   As sets act as functions, :enabled can be #{::my-first-item ::my-second-item}."
+  [{:keys [title items selected enabled choose-fn] :or {enabled (constantly true)}}]
   [:aside.menu
-   [:p.menu-label "Make a referral"]
+   [:p.menu-label title]
    [:ul.menu-list
-    [:li [:a.button.is-active "Who are you?"]]
-    [:li [:a.button {:disabled true} "Who is the patient?"]]
-    [:li [:a.button {:disabled true} "What is the question?"]]
-    [:li [:a.button {:disabled true} "To which service?"]]]])
+    (for [item items]
+      [:li {:key (:id item)}
+       [:a.button
+        (cond-> {}
+                (= selected (:id item)) (assoc :class "is-active")
+                (enabled (:id item)) (assoc :on-click #(choose-fn (:id item)))
+                (not (enabled (:id item))) (assoc :disabled true))
+        (:label item)]])]])
+
+(comment
+  (render-menu (assoc menu
+                 :selected ::who-are-you?
+                 :enabled #{::who-are-you? ::who-is-patient?}
+                 :choose-fn nil))
+  )
 
 (defn login-panel
   []
   (let [error (rf/subscribe [::users/login-error])
+        ping-error (rf/subscribe [::users/ping-error])
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
@@ -139,44 +235,57 @@
         [:button.button {:class    ["is-primary" (when submitting "is-loading")]
                          :disabled submitting
                          :on-click do-login} " Login "]]
-       (when-not (str/blank? @error) [:div.notification.is-danger [:p @error]])])))
+       (when-not (str/blank? @error) [:div.notification.is-danger [:p @error]])
+       (when @ping-error [:div.notification.is-warning [:p "Warning: connection error; unable to connect to server. Will retry automatically."]])])))
 
-(def username (reagent/atom ""))
-(def password (reagent/atom ""))
+
+
+(defn initialize-referral [user]
+  (-> {:active-panel ::who-are-you?}
+      (assoc-in [::referrer ::practitioner] user)
+      (assoc-in [::referrer ::job-title] (:urn.oid.2.5.4/title user))
+      (assoc-in [::referrer ::contact-details] (:urn.oid.2.5.4/telephoneNumber user))))
 
 (defn refer-page []
-  (let [authenticated-user @(rf/subscribe [::users/authenticated-user])]
-    (println "user:" authenticated-user)
-    [:<>
-     [:section.section
-      [:nav.navbar.is-black.is-fixed-top {:role "navigation" :aria-label "main navigation"}
-       [:div.navbar-brand
-        [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
-       (when authenticated-user
-         [:div.navbar-end
-          [:div.navbar-item (:urn.oid.2.5.4/commonName authenticated-user)]
-          [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]])]]
+  (let [authenticated-user (rf/subscribe [::users/authenticated-user])
+        referral (reagent/atom {})]
+    (fn []
+      (let [user @authenticated-user]
+        (when-not (= (get-in @referral [::referrer ::practitioner]) user)
+          (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName])
+                                        (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
+                             (initialize-referral user))))
+        [:<>
+         [:section.section
+          [:nav.navbar {:role "navigation" :aria-label "main navigation"}
+           [:div.navbar-brand
+            [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
+           (when user
+             [:div.navbar-end
+              [:div.navbar-item (:urn.oid.2.5.4/commonName user)]
+              [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]])]]
 
-     [:section.section
-      [:div.columns
-       [:div.column.is-one-fifth
-        [referral-progress]]
-       [:div.column.is-four-fifths
-        (if authenticated-user
-          [:div.box
-           [:div.field [:label.label {:for "name-un"} "Your name"]
-            [:div.control
-             [:input.input {:id       "name-un" :type "text"
-                            :value    (:urn.oid.2.5.4/commonName authenticated-user)
-                            :disabled true}]]]
-           [:div.field [:label.label {:for "title-un"} "Your grade / job title"]
-            [:div.control
-             [:input.input {:id "title-un" :type "text" :value (:urn.oid.2.5.4/title authenticated-user)}]]]
-           [:div.field [:label.label {:for "contact-un"} "Your contact details (pager / mobile)"]
-            [:div.control
-             [:input.input {:id "contact-un" :type "text"}]]]
-           [:div.field [:label.label {:for "contact2-un"} "Team contact details "]
-            [:div.control
-             [:input.input {:id "contact2-un" :type "text"}]]]
-           [:button.button.is-primary {:disabled true} "Next"]]
-          [login-panel])]]]]))
+         [:section.section
+          [:div.columns
+           [:div.column.is-one-fifth
+            [render-menu (assoc menu
+                           :selected (or (:active-panel @referral)
+                                         (do (swap! referral assoc :active-panel ::who-are-you?) (:active-panel @referral)))
+                           :enabled (active-menus @referral)
+                           :choose-fn #(swap! referral assoc :active-panel %))]
+            [:a.button {:on-click #(js/console.log "referral: " @referral)} "Log referral [debug]"]]
+           [:div.column.is-four-fifths
+            (if-not user
+              [login-panel]
+              ;; TODO: make menu handle component to show in a generic fashion?
+              (case (:active-panel @referral)
+                ::who-are-you?
+                [user-panel referral {:name-kp    [::referrer ::practitioner :urn.oid.2.5.4/commonName]
+                                      :title-kp   [::referrer ::job-title]
+                                      :contact-kp [::referrer ::contact-details]
+                                      :team-kp    [::referrer ::team-details]
+                                      :valid-fn   (fn [] (s/valid? ::valid-referrer? @referral))
+                                      :next-fn    #(swap! referral assoc :active-panel ::who-is-patient?)}]
+                ::who-is-patient?
+                [patient-search-panel referral {:identifier-kp [::patient-search-identifier]}]
+                [:p "Invalid menu selected"]))]]]]))))
