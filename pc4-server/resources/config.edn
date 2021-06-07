@@ -36,7 +36,7 @@
  :wales.nhs/empi                     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                                       :processing-id "P"}
 
- :pathom/registry                    {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
+ :pathom/boundary-interface          {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
                                             :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
                                             :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
                                             :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
@@ -45,4 +45,4 @@
  :http/server                        {:port            8080
                                       :allowed-origins "*"
                                       :host            "0.0.0.0"
-                                      :env             {:pathom-registry #ig/ref :pathom/registry}}}
+                                      :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface}}}

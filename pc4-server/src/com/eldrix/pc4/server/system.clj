@@ -33,7 +33,8 @@
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as intc]
             [next.jdbc.connection :as connection]
-            [buddy.sign.jwt :as jwt])
+            [buddy.sign.jwt :as jwt]
+            [com.eldrix.pc4.server.dates :as dates])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
@@ -99,22 +100,23 @@
 (defmethod ig/init-key :wales.nhs/empi [_ config]
   config)
 
-
 (def default-resolvers
   [users/all-resolvers
    patients/all-resolvers])
 
-(defmethod ig/init-key :pathom/registry [_ {:keys [env] :as config}]
+(defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env] :as config}]
   (log/info "creating pathom registry " env " resolvers:" (count @resolvers))
   (let [resolvers (flatten [@resolvers default-resolvers])]
     (dorun (->> resolvers
-                (map (fn [r] (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name])))
+                (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))))
+                sort
                 (map #(log/info "resolver: " %))))
-    (merge env (-> (pci/register resolvers)
-                   (com.wsscode.pathom3.plugin/register [;;pbip/remove-stats-plugin
-                                                         (pbip/attribute-errors-plugin)])))))
+    (p.eql/boundary-interface (merge env (-> (pci/register resolvers)
+                                             (com.wsscode.pathom3.plugin/register
+                                               [;;pbip/remove-stats-plugin
+                                                (pbip/attribute-errors-plugin)]))))))
 
-(defmethod ig/halt-key! :pathom/registry [_ env]
+(defmethod ig/halt-key! :pathom/boundary-interface [_ env]
   (reset! resolvers []))
 
 (defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env]}]
@@ -132,7 +134,10 @@
       (update ::http/interceptors conj
               (intc/interceptor (api/inject env))
               (io.pedestal.http.body-params/body-params)
-              http/transit-body)
+              (http/transit-body-interceptor ::transit-json-body
+                                             "application/transit+json;charset=UTF-8"
+                                             :json
+                                             {:handlers dates/transit-writers}))
       (http/create-server)
       (http/start)))
 
@@ -173,13 +178,13 @@
     (def system (init :dev)))
 
   (count @resolvers)
-  (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers)))
+  (sort (map str (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers))))
   (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
 
 
   (keys system)
 
-  (p.eql/process (:pathom/registry system) [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
+  ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
                                              [:uk.gov.ons.nhspd/LSOA11
                                               :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M
                                               :urn.ogc.def.crs.EPSG.4326/latitude
@@ -187,9 +192,9 @@
                                               :uk.gov.ons.nhspd/PCT :uk.nhs.ord/name
                                               :uk.nhs.ord.primaryRole/displayName
                                               {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
-  (p.eql/process (:pathom/registry system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+  ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
 
-  (p.eql/process (:pathom/registry system) [{'(pc4.users/login
+  ((:pathom/boundary-interface system) [{'(pc4.users/login
                                                 {:system :uk.nhs.cymru :value "ma090906" :password "password"})
                                              [:io.jwt/token
                                               :urn.oid.2.5.4/sn
@@ -205,9 +210,19 @@
                                               :wales.nhs.nadex/professionalRegistration
                                               :uk.org.hl7.fhir.id/gmc-number]}])
 
-  (p.eql/process (:pathom/registry system) [{'(pc4.users/refresh-token
+  ((:pathom/boundary-interface system) [{'(pc4.users/refresh-token
                                                 {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIwOTEwNTkzfQ.7PXGgYZYeXNy4qLbCDeKdA_LGQaWbD9AHu1FFWar1os"})
                                              [:io.jwt/token]}])
-  (users/login-operation (:pathom/registry system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+  ((:pathom/boundary-interface system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+
+  ((:pathom/boundary-interface system) [{'(wales.nhs.cavuhb/fetch-patient
+                                                {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
+                                             [:wales.nhs.cavuhb.Patient/LAST_NAME
+                                              :wales.nhs.cavuhb.Patient/ADDRESSES
+                                              :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+                                              :org.hl7.fhir.Patient/identifiers
+                                              :wales.nhs.cavuhb.Patient/SEX
+                                              :org.hl7.fhir.Patient/gender
+                                              {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}]}])
 
   )
