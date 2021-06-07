@@ -9,7 +9,9 @@
   Both have the same result."
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clojure.string :as str]
+            [com.eldrix.pc4.commons.dates :as dates]
             [ajax.core :as ajax]
+            [ajax.transit :as ajax-transit]
             [goog.crypt.base64 :as b64]
             [cljs.core.async :refer [<!]])
   (:import [goog.date UtcDateTime]))
@@ -57,8 +59,8 @@
   (merge {:method          :post
           :uri             "http://localhost:8080/api"
           :timeout         timeout
-          :format          (ajax/transit-request-format)
-          :response-format (ajax/transit-response-format)
+          :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
+          :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
           :headers         (when token {:Authorization (str "Bearer " token)})}
          opts))
 
@@ -102,9 +104,25 @@
        :org.hl7.fhir.HumanName/family
        :org.hl7.fhir.HumanName/given]}]}])
 
+(defn make-cav-search-op
+  [{:keys [pas-identifier]}]
+  [{(list 'wales.nhs.cavuhb/fetch-patient
+          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
+    [:wales.nhs.cavuhb.Patient/LAST_NAME
+     :wales.nhs.cavuhb.Patient/ADDRESSES
+     :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+     :org.hl7.fhir.Patient/identifiers
+     :wales.nhs.cavuhb.Patient/SEX
+     :org.hl7.fhir.Patient/gender
+     {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :wales.nhs.cavuhb.Address/ADDRESS2
+                                                 :wales.nhs.cavuhb.Address/ADDRESS3 :wales.nhs.cavuhb.Address/ADDRESS4
+                                                 :uk.gov.ons.nhspd/PCDS]}
+     ;;:org.hl7.fhir.Patient/address
+     ]}])
+
 (defn do!
   "Execute a xhrio request on the server."
-  [{:keys [request handler error-handler] :as opts}]
+  [{:keys [_request _handler _error-handler] :as opts}]
   (ajax/POST "http://localhost:8080/api" (make-xhrio-request opts)))
 
 (defn do-snomed-search [{:keys [_s _constrant _max-hits]} {:keys [handler error-handler]}])
@@ -113,9 +131,20 @@
   (shadow.cljs.devtools.api/nrepl-select :app)
   (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
 
+
   (def results (atom nil))
   (do! {:params        (make-snomed-search-op {:s "amyloid" :max-hits 5})
         :handler       #(reset! results %)
         :error-handler #(println "failure: " %)})
   @results
+
+  (reset! results nil)
+  (make-cav-search-op {:pas-identifier "A999998"})
+  (do! {:params        (make-cav-search-op {:pas-identifier "A999998"})
+        :handler       #(reset! results %)
+        :error-handler #(println "failure: " %)})
+  (def pt (get @results 'wales.nhs.cavuhb/fetch-patient))
+  pt
+  (def a1 (first (:wales.nhs.cavuhb.Patient/ADDRESSES pt)))
+  (println (:wales.nhs.cavuhb.Address/DATE_FROM a1))
   )

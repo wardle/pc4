@@ -6,7 +6,10 @@
                                                org.clojure/google-closure-library-third-party]
                                  :mvn/version "1.10.866"}
          org.clojure/spec.alpha {:mvn/version "0.2.194"}
+
          cljs-http/cljs-http    {:mvn/version "0.1.46"}
+         com.eldrix.pc4/client  {:local/root "../pc4-client"}
+
          day8.re-frame/http-fx  {:mvn/version "0.2.3"}
          metosin/reitit         {:mvn/version "0.5.13"}
          re-frame/re-frame      {:mvn/version "1.2.0"}
