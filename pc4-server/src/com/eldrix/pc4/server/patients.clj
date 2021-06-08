@@ -8,7 +8,8 @@
     [com.wsscode.pathom3.connect.indexes :as pci]
     [clojure.string :as str]
     [com.eldrix.pc4.server.dates :as dates])
-  (:import (java.time LocalDate)))
+  (:import (java.time LocalDate Period LocalDateTime)
+           (java.time.temporal ChronoUnit TemporalAccessor)))
 
 (defn date-in-range?
   "Is the date in the range specified, or is the range 'current'?"
@@ -67,10 +68,14 @@
   {::pco/op-name 'wales.nhs.cavuhb/fetch-patient
    ::pco/output  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
                   :wales.nhs.cavuhb.Patient/NHS_NO]}
+  (log/info "cavuhb fetch patient: " {:config config :system system :value value})
   (cond
     ;; if there is no active configuration, run in development mode
     (empty? config)
-    (do (add-namespace-cav-patient (get (fake-cav-patients) (str/upper-case value))))
+    (do
+      (log/info "generating fake patient for cavuhb: " system value)
+      (when-let [pt (get (fake-cav-patients) (str/upper-case value))]
+        (add-namespace-cav-patient pt)))
 
     (or (= system :wales.nhs.cavuhb.id/pas-identifier) (= system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier"))
     (when-let [pt (cavpms/fetch-patient-by-crn config value)]
@@ -141,11 +146,43 @@
         (filter #(dates/in-range? (:wales.nhs.cav.uhb.Address/DATE_FROM %) (:wales.nhs.cavuhb.Address/DATE_TO %)))
         first)})
 
+(pco/defresolver cav->age
+  [env {:wales.nhs.cavuhb.Patient/keys [DATE_BIRTH DATE_DEATH]}]
+  {::pco/input  [:wales.nhs.cavuhb.Patient/DATE_BIRTH
+                 (pco/? :wales.nhs.cavuhb.Patient/DATE_DEATH)]
+   ::pco/output [:wales.nhs.cavuhb.Patient/AGE]}
+  (let [on-date (or (get env :date) (LocalDate/now))
+        age (dates/calculate-age DATE_BIRTH :date-death DATE_DEATH :on-date on-date)]
+    (when age
+      {:wales.nhs.cavuhb.Patient/AGE age})))
+
+(pco/defresolver cav->cui-display-age
+  [env {:wales.nhs.cavuhb.Patient/keys [DATE_BIRTH DATE_DEATH]}]
+  {::pco/output [:wales.nhs.cavuhb.Patient/DISPLAY_AGE]}
+  (let [display-age (dates/age-display DATE_BIRTH (or (get env :date) (LocalDate/now)))]
+    (when (and (not DATE_DEATH) display-age)
+      {:wales.nhs.cavuhb.Patient/DISPLAY_AGE display-age})))
+
+(pco/defresolver cav->is-deceased?
+  [{:wales.nhs.cavuhb.Patient/keys [DATE_DEATH]}]
+  {:wales.nhs.cavuhb.Patient/IS_DECEASED (some? DATE_DEATH)})
+
+(pco/defresolver cav->cui-nhs-number
+  "Returns an NHS number formatted to the NHS Connecting for Health  NHS number
+  formatting standard, ISB 1504.
+  See https://webarchive.nationalarchives.gov.uk/20150107145557/http://www.isb.nhs.uk/library/standard/135"
+  [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER]}]
+  {:uk.nhs.cfh.isb1504/nhsNumber (com.eldrix.concierge.nhs-number/format-nnn NHS_NUMBER)})
+
 (def all-resolvers [fetch-cav-patient
                     cav->fhir-identifiers
                     cav->fhir-gender
                     cav->fhir-addresses
                     cav->current-address
+                    cav->age
+                    cav->cui-display-age
+                    cav->is-deceased?
+                    cav->cui-nhs-number
                     (pbir/alias-resolver :wales.nhs.cavuhb.Address/POSTCODE :uk.gov.ons.nhspd/PCDS)])
 
 (comment
@@ -171,7 +208,6 @@
                         :org.hl7.fhir.Patient/identifiers
                         :wales.nhs.cavuhb.Patient/SEX
                         :org.hl7.fhir.Patient/gender
-                        {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}
-                        :org.hl7.fhir.Patient/address]}])
+                        {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}]}])
   (cav->fhir-identifiers (add-namespace-cav-patient (get fake-cav-patients "A999998")))
   )

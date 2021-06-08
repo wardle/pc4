@@ -220,6 +220,10 @@
                                              [:wales.nhs.cavuhb.Patient/LAST_NAME
                                               :wales.nhs.cavuhb.Patient/ADDRESSES
                                               :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+                                              :wales.nhs.cavuhb.Patient/NHS_NUMBER
+                                              :uk.nhs.cfh.isb1504/nhsNumber
+                                              :wales.nhs.cavuhb.Patient/DISPLAY_AGE
+                                              :wales.nhs.cavuhb.Patient/IS_DECEASED
                                               :org.hl7.fhir.Patient/identifiers
                                               :wales.nhs.cavuhb.Patient/SEX
                                               :org.hl7.fhir.Patient/gender
