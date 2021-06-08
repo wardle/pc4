@@ -5,10 +5,14 @@
 (def transit-writers
   {goog.date.Date
    (transit/write-handler (constantly "LocalDate")
-                          (fn [^goog.date.Date d] (.toIsoString d)))})
+                          (fn [^goog.date.Date d] (.toIsoString d)))
+   goog.date.DateTime
+   (transit/write-handler (constantly "LocalDateTime")
+                          (fn [^goog.date.DateTime dt] (.toIsoString dt)))})
 
 (def transit-readers
-  {"LocalDate"     (transit/read-handler #(Date/fromIsoString %))})
+  {"LocalDate"     (transit/read-handler #(Date/fromIsoString %))
+   "LocalDateTime" (transit/read-handler #(DateTime/fromIsoString %))})
 
 (comment
   (js/alert "hi there")
