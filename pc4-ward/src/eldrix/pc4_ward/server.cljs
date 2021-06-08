@@ -109,6 +109,8 @@
   [{(list 'wales.nhs.cavuhb/fetch-patient
           {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
     [:wales.nhs.cavuhb.Patient/LAST_NAME
+     :wales.nhs.cavuhb.Patient/DATE_BIRTH
+     :wales.nhs.cavuhb.Patient/DATE_DEATH
      :wales.nhs.cavuhb.Patient/ADDRESSES
      :wales.nhs.cavuhb.Patient/HOSPITAL_ID
      :org.hl7.fhir.Patient/identifiers
@@ -117,7 +119,7 @@
      {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :wales.nhs.cavuhb.Address/ADDRESS2
                                                  :wales.nhs.cavuhb.Address/ADDRESS3 :wales.nhs.cavuhb.Address/ADDRESS4
                                                  :uk.gov.ons.nhspd/PCDS]}
-     ;;:org.hl7.fhir.Patient/address
+     :org.hl7.fhir.Patient/address
      ]}])
 
 (defn do!
