@@ -8,7 +8,7 @@
             [re-frame.core :as re-frame]
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.views :as views]
-            [eldrix.pc4-ward.refer :as refer]
+            [eldrix.pc4-ward.refer2 :as refer2]
             [eldrix.pc4-ward.config :as config]))
 
 (re-frame/reg-fx :push-state
@@ -97,7 +97,7 @@
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
   ;;(rdom/render [router-component {:router router}] (.getElementById js/document "app"))
-  (rdom/render [refer/refer-page] (.getElementById js/document "app"))
+  (rdom/render [refer2/refer-page] (.getElementById js/document "app"))
   )
 
 (defn init []

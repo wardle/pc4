@@ -343,7 +343,7 @@
                              (js/console.log "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
                              (initialize-referral user))))
         [:<>
-         [:nav.navbar.is-black.is-fixed-top {:role "navigation" :aria-label "main navigation"}
+         [:nav.navbar.is-black {:role "navigation" :aria-label "main navigation"}
           [:div.navbar-brand
            [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
           (when user
