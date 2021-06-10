@@ -216,17 +216,18 @@
   ((:pathom/boundary-interface system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
 
   ((:pathom/boundary-interface system) [{'(wales.nhs.cavuhb/fetch-patient
-                                                {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
+                                                {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999997"})
                                              [:wales.nhs.cavuhb.Patient/LAST_NAME
-                                              :wales.nhs.cavuhb.Patient/ADDRESSES
+;;                                              :wales.nhs.cavuhb.Patient/ADDRESSES
                                               :wales.nhs.cavuhb.Patient/HOSPITAL_ID
                                               :wales.nhs.cavuhb.Patient/NHS_NUMBER
-                                              :uk.nhs.cfh.isb1504/nhsNumber
+                                              :uk.nhs.cfh.isb1504/nhs-number
+                                              :uk.nhs.cfh.isb1506/patient-name
                                               :wales.nhs.cavuhb.Patient/DISPLAY_AGE
                                               :wales.nhs.cavuhb.Patient/IS_DECEASED
                                               :org.hl7.fhir.Patient/identifiers
                                               :wales.nhs.cavuhb.Patient/SEX
                                               :org.hl7.fhir.Patient/gender
-                                              {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}]}])
+                                              :org.hl7.fhir.Patient/activeAddress]}])
 
   )

@@ -8,8 +8,7 @@
     [com.wsscode.pathom3.connect.indexes :as pci]
     [clojure.string :as str]
     [com.eldrix.pc4.server.dates :as dates])
-  (:import (java.time LocalDate Period LocalDateTime)
-           (java.time.temporal ChronoUnit TemporalAccessor)))
+  (:import (java.time LocalDate)))
 
 (defn date-in-range?
   "Is the date in the range specified, or is the range 'current'?"
@@ -26,14 +25,26 @@
   (reduce-kv (fn [m k v] (assoc m (keyword n (name k)) v)) {} r))
 
 (defn fake-cav-patients []
-  {"A999998" {:HOSPITAL_ID      "A999998"
+  {"A999997" {:HOSPITAL_ID "A999997"
+              :NHS_NUMBER  "2222222222"
+              :LAST_NAME   "Duck"
+              :FIRST_NAMES "Donald"
+              :DATE_BIRTH  (LocalDate/of 1984 12 3)
+              :DATE_DEATH  (LocalDate/of 1992 1 1)}
+   "A999998" {:HOSPITAL_ID      "A999998"
               :NHS_NUMBER       "1111111111"
-              :LAST_NAME        "Dummy" :FIRST_NAMES "Albert"
-              :SEX,             "M" :DATE_BIRTH (LocalDate/of 1970 1 1) :DATE_DEATH nil
-              :HOME_PHONE_NO    :WORK_PHONE_NO,
-              :COUNTRY_OF_BIRTH :ETHNIC_ORIGIN :MARITAL_STATUS :OCCUPATION
-              :PLACE_OF_BIRTH   :PLACE_OF_DEATH
-              :GP_ID            :GPPR_ID
+              :LAST_NAME        "Dummy"
+              :FIRST_NAMES      "Albert"
+              :TITLE            "Mr"
+              :SEX,             "M"
+              :DATE_BIRTH       (LocalDate/of 1970 1 1)
+              :DATE_DEATH       nil
+              :HOME_PHONE_NO    "0292074747"
+              :WORK_PHONE_NO    "02920747747",
+              :COUNTRY_OF_BIRTH "UK" :ETHNIC_ORIGIN "???"
+              :MARITAL_STATUS   "???" :OCCUPATION "???"
+              :PLACE_OF_BIRTH   "" :PLACE_OF_DEATH ""
+              :GP_ID            "" :GPPR_ID ""
               :ADDRESSES        [{:ADDRESS1  "University Hospital Wales"
                                   :ADDRESS2  "Heath Park"
                                   :ADDRESS3  "Cardiff"
@@ -67,7 +78,14 @@
   [{config :wales.nhs.cavuhb/pms} {:keys [system value]}]
   {::pco/op-name 'wales.nhs.cavuhb/fetch-patient
    ::pco/output  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
-                  :wales.nhs.cavuhb.Patient/NHS_NO]}
+                  :wales.nhs.cavuhb.Patient/NHS_NO
+                  :wales.nhs.cavuhb.Patient/LAST_NAME
+                  :wales.nhs.cavuhb.Patient/FIRST_NAMES
+                  :wales.nhs.cavuhb.Patient/DATE_BIRTH
+                  :wales.nhs.cavuhb.Patient/DATE_DEATH
+                  :wales.nhs.cavuhb.Patient/TITLE
+                  :wales.nhs.cavuhb.Patient/GPPR_ID
+                  :wales.nhs.cavuhb.Patient/GP_ID]}
   (log/info "cavuhb fetch patient: " {:config config :system system :value value})
   (cond
     ;; if there is no active configuration, run in development mode
@@ -106,11 +124,15 @@
              "F" :org.hl7.fhir.administrative-gender/female
              :org.hl7.fhir.administrative-gender/unknown)})
 
+(pco/defresolver cav->fhir-deceased
+  [{DATE_DEATH :wales.nhs.cavuhb.Patient/DATE_DEATH}]
+  {:org.hl7.fhir.Patient/deceased DATE_DEATH})
+
 (defn make-cav-fhir-address
   [{:wales.nhs.cavuhb.Address/keys [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE DATE_FROM DATE_TO]}]
   {:org.hl7.fhir.Address/use        :org.hl7.fhir.address-use/home
    :org.hl7.fhir.Address/type       :org.hl7.fhir.address-type/both
-   :org.hl7.fhir.Address/text       (str/join "\n" (remove str/blank? [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE]))
+   :org.hl7.fhir.Address/text       (str/join ", " (remove str/blank? [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE]))
    :org.hl7.fhir.Address/line       [ADDRESS1]
    :org.hl7.fhir.Address/district   ADDRESS2
    :org.hl7.fhir.Address/city       ADDRESS3
@@ -119,17 +141,20 @@
    :org.hl7.fhir.Address/period     {:org.hl7.fhir.Period/start DATE_FROM
                                      :org.hl7.fhir.Period/end   DATE_TO}})
 
+(def fhir-address-properties
+  [:org.hl7.fhir.Address/use :org.hl7.fhir.Address/type
+   :org.hl7.fhir.Address/text
+   :org.hl7.fhir.Address/line :org.hl7.fhir.Address/city :org.hl7.fhir.Address/district
+   :org.hl7.fhir.Address/state :org.hl7.fhir.Address/postalCode
+   :org.hl7.fhir.Address/country
+   {:org.hl7.fhir.Address/period [:org.hl7.fhir.Period/start
+                                  :org.hl7.fhir.Period/end]}])
+
 (pco/defresolver cav->fhir-addresses
   [{:wales.nhs.cavuhb.Patient/keys [ADDRESSES]}]
   {::pco/output
    [{:org.hl7.fhir.Patient/address
-     [:org.hl7.fhir.Address/use :org.hl7.fhir.Address/type
-      :org.hl7.fhir.Address/text
-      :org.hl7.fhir.Address/line :org.hl7.fhir.Address/city :org.hl7.fhir.Address/district
-      :org.hl7.fhir.Address/state :org.hl7.fhir.Address/postalCode
-      :org.hl7.fhir.Address/country
-      {:org.hl7.fhir.Address/period [:org.hl7.fhir.Period/start
-                                     :org.hl7.fhir.Period/end]}]}]}
+     fhir-address-properties}]}
   {:org.hl7.fhir.Patient/address (map make-cav-fhir-address ADDRESSES)})
 
 (pco/defresolver cav->current-address
@@ -146,6 +171,21 @@
         (filter #(dates/in-range? (:wales.nhs.cav.uhb.Address/DATE_FROM %) (:wales.nhs.cavuhb.Address/DATE_TO %)))
         first)})
 
+(pco/defresolver cav->fhir-active-addresses
+  [{:wales.nhs.cavuhb.Patient/keys [ADDRESSES]}]
+  {::pco/output [{:org.hl7.fhir.Patient/activeAddress fhir-address-properties}]}
+  {:org.hl7.fhir.Patient/activeAddress
+   (->> (sort-by :wales.nhs.cavuhb.Address/DATE_FROM ADDRESSES)
+        reverse
+        (filter #(dates/in-range? (:wales.nhs.cav.uhb.Address/DATE_FROM %) (:wales.nhs.cavuhb.Address/DATE_TO %)))
+        (map make-cav-fhir-address))})
+
+(pco/defresolver fhir-current-address
+  [{activeAddresses :org.hl7.fhir.Patient/activeAddress}]
+  {::pco/output [{:org.hl7.fhir.Patient/currentAddress fhir-address-properties}]}
+  {:org.hl7.fhir.Patient/currentAddress
+   (first activeAddresses)})
+
 (pco/defresolver cav->age
   [env {:wales.nhs.cavuhb.Patient/keys [DATE_BIRTH DATE_DEATH]}]
   {::pco/input  [:wales.nhs.cavuhb.Patient/DATE_BIRTH
@@ -157,33 +197,58 @@
       {:wales.nhs.cavuhb.Patient/AGE age})))
 
 (pco/defresolver cav->cui-display-age
+  "Returns a display age formatted as per NHS Connecting for Health (CfH)
+   CUI standard ISB1505.
+   See https://webarchive.nationalarchives.gov.uk/20150107150145/http://www.isb.nhs.uk/documents/isb-1505/dscn-09-2010/"
   [env {:wales.nhs.cavuhb.Patient/keys [DATE_BIRTH DATE_DEATH]}]
-  {::pco/output [:wales.nhs.cavuhb.Patient/DISPLAY_AGE]}
+  {::pco/input [:wales.nhs.cavuhb.Patient/DATE_BIRTH
+                (pco/? :wales.nhs.cavuhb.Patient/DATE_DEATH)]
+   ::pco/output [:uk.nhs.cfh.isb1505/display-age]}
   (let [display-age (dates/age-display DATE_BIRTH (or (get env :date) (LocalDate/now)))]
     (when (and (not DATE_DEATH) display-age)
-      {:wales.nhs.cavuhb.Patient/DISPLAY_AGE display-age})))
+      {:uk.nhs.cfh.isb1505/display-age display-age})))
 
 (pco/defresolver cav->is-deceased?
   [{:wales.nhs.cavuhb.Patient/keys [DATE_DEATH]}]
   {:wales.nhs.cavuhb.Patient/IS_DECEASED (some? DATE_DEATH)})
 
-(pco/defresolver cav->cui-nhs-number
-  "Returns an NHS number formatted to the NHS Connecting for Health  NHS number
-  formatting standard, ISB 1504.
+(pco/defresolver nhs-number->cui-formatted
+  "Returns an NHS number formatted to the NHS Connecting for Health (CfH) NHS
+  number formatting standard, ISB-1504.
   See https://webarchive.nationalarchives.gov.uk/20150107145557/http://www.isb.nhs.uk/library/standard/135"
-  [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER]}]
-  {:uk.nhs.cfh.isb1504/nhsNumber (com.eldrix.concierge.nhs-number/format-nnn NHS_NUMBER)})
+  [{nnn :uk.nhs.id/nhs-number}]
+  {:uk.nhs.cfh.isb1504/nhs-number (com.eldrix.concierge.nhs-number/format-nnn nnn)})
+
+(pco/defresolver cav->cui-patient-name
+  "Returns a CAV patient name formatted to the NHS Connecting for Health (CfH)
+  patient name standard, ISB-1506.
+  See https://webarchive.nationalarchives.gov.uk/20150107150129/http://www.isb.nhs.uk/library/standard/137"
+  [{:wales.nhs.cavuhb.Patient/keys [FIRST_NAMES LAST_NAME TITLE]}]
+  {::pco/input [:wales.nhs.cavuhb.Patient/FIRST_NAMES
+                :wales.nhs.cavuhb.Patient/LAST_NAME
+                (pco/? :wales.nhs.cavuhb.Patient/TITLE)]}
+  {:uk.nhs.cfh.isb1506/patient-name
+   (str (str/upper-case LAST_NAME) ", "
+        FIRST_NAMES
+        (when-not (str/blank? TITLE) (str " (" TITLE ")")))})
 
 (def all-resolvers [fetch-cav-patient
                     cav->fhir-identifiers
                     cav->fhir-gender
+                    cav->fhir-deceased
                     cav->fhir-addresses
                     cav->current-address
+                    cav->fhir-active-addresses
+                    fhir-current-address
                     cav->age
                     cav->cui-display-age
                     cav->is-deceased?
-                    cav->cui-nhs-number
-                    (pbir/alias-resolver :wales.nhs.cavuhb.Address/POSTCODE :uk.gov.ons.nhspd/PCDS)])
+                    nhs-number->cui-formatted
+                    cav->cui-patient-name
+                    (pbir/alias-resolver :wales.nhs.cavuhb.Address/POSTCODE :uk.gov.ons.nhspd/PCDS)
+                    (pbir/alias-resolver :wales.nhs.cavuhb.Patient/NHS_NUMBER :uk.nhs.id/nhs-number)
+                    (pbir/alias-resolver :wales.nhs.cavuhb.Patient/DATE_BIRTH :org.hl7.fhir.Patient/birthDate)
+                    (pbir/alias-resolver :wales.nhs.cavuhb.Patient/DATE_DEATH :org.hl7.fhir.Patient/deceased)])
 
 (comment
   (require '[com.eldrix.pc4.server.system :as pc4-system])
