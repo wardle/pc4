@@ -3,7 +3,6 @@
             [com.eldrix.pc4.server.dates :as dates])
   (:import (java.time LocalDateTime ZonedDateTime ZoneId LocalDate)))
 
-
 (def display-age-examples
   [{:start       (LocalDateTime/of 2020 04 29 19 29 23)
     :end         (LocalDateTime/of 2020 04 29 20 59 45)
@@ -18,7 +17,7 @@
    {:start       (LocalDateTime/of 2010 04 28 13 45 00)
     :end         (LocalDateTime/of 2010 04 29 15 50 21)
     :description "1 day 2 hours 5 minutes"
-    :expected    "26hrs"}
+    :expected    "26hr"}
    {:start       (LocalDateTime/of 2020 10 31 20 05 52)
     :end         (LocalDateTime/of 2020 11 04 13 12 52)
     :description "3 days 17 hours 7 minutes"
