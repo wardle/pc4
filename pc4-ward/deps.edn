@@ -1,5 +1,5 @@
 {:paths ["src" "resources"]
- :deps  {org.clojure/clojure    #:mvn{:version "1.10.3"}
+ :deps  {org.clojure/clojure    {:mvn/version "1.11.0-alpha1"}
          org.clojure/clojurescript
                                 {:exclusions  [com.google.javascript/closure-compiler-unshaded
                                                org.clojure/google-closure-library
