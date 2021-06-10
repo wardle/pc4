@@ -2,6 +2,27 @@
   (:require [cognitect.transit :as transit])
   (:import [goog.date Date DateTime]))
 
+(def months-en
+  {0 "Jan"
+   1 "Feb"
+   2 "Mar"
+   3 "Apr"
+   4 "May"
+   5 "Jun"
+   6 "Jul"
+   7 "Aug"
+   8 "Sep"
+   9 "Oct"
+   10 "Nov"
+   11 "Dec"})
+
+(defn format-date [^Date date]
+  (str (.getDate date)
+       "-"
+       (get months-en (.getMonth date))
+       "-"
+       (.getYear date)))
+
 (def transit-writers
   {goog.date.Date
    (transit/write-handler (constantly "LocalDate")
