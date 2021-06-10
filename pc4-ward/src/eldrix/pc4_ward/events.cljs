@@ -7,7 +7,7 @@
     [re-frame.core :as rf]
     [day8.re-frame.http-fx]                                 ;; required for its side-effects in registering a re-frame "effect"
     [eldrix.pc4-ward.db :as db]
-    [eldrix.pc4-ward.users :as users]
+    [eldrix.pc4-ward.rf.users :as users]
     [eldrix.pc4-ward.server :as srv]))
 
 (rf/reg-event-db

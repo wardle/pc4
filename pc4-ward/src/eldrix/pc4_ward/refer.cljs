@@ -1,10 +1,10 @@
 (ns eldrix.pc4-ward.refer
   (:require [cljs.spec.alpha :as s]
             [re-frame.core :as rf]
-            [eldrix.pc4-ward.users :as users]
+            [eldrix.pc4-ward.rf.users :as users]
+            [eldrix.pc4-ward.rf.patients :as patients]
             [reagent.core :as reagent]
             [clojure.string :as str]))
-
 
 ;; these could be automatically generated from the FHIR specs, except that the
 ;; specifications often have everything as optional (e.g. cardinality 0..1).
@@ -148,20 +148,107 @@
      [:button.button.is-primary {:disabled (not valid?)
                                  :on-click (when valid? next-fn)} "Next"]]))
 
-(defn patient-search-panel
-  [value {:keys [identifier-kp valid-fn next-fn]}]
-  (let [valid? (if valid-fn (valid-fn) true)]
-    [:div.box
-     [:div.field [:label.label {:for "name-un"} "Search for patient"]
-      [:div.control
-       [:input.input {:id    "name-un" :type "text"
-                      :value (or (get-in @value identifier-kp) "")
-                      :on-change #(swap! value assoc-in identifier-kp (-> % .-target .-value))}]]]
-     [:a.button.is-primary "Search"]
 
-     (when next-fn
-       [:button.button.is-primary {:disabled (not valid?)
-                                   :on-click (when valid? next-fn)} "Next"])]))
+(defn select-patients
+  "A simple table allowing selection of a patient from a list."
+  [patients & {:keys [select-fn is-selectable-fn]}]
+  (cond
+    (nil? patients)
+    nil
+
+    (empty? patients)
+    [:div.notification
+     [:button.delete] "No patients found"]
+
+    :else
+    [:table.table.is-striped.is-fullwidth
+     [:thead
+      [:tr
+       [:th]
+       [:th "Name"]
+       [:th [:abbr {:title "NHS number"} "NHS No"]]
+       [:th "Born"]
+       [:th "Age"]
+       [:th "Address"]
+       [:th [:abbr {:title "Hospital numbers"} "CRNs"]]]]
+
+     [:tbody
+      (for [patient patients]
+        (let [selectable? (if is-selectable-fn (is-selectable-fn patient) true)]
+          [:tr {:key (:uk.nhs.cfh.isb1504/nhs-number patient)}
+           [:td [:button.button.is-info.is-rounded
+                 (if selectable? {:title    (str "Select " (:uk.nhs.cfh.isb1506/patient-name patient))
+                                  :on-click #(when select-fn (select-fn patient))}
+                                 {:disabled true}) "Select"]]
+           [:td (:uk.nhs.cfh.isb1506/patient-name patient)]
+           [:td {:dangerouslySetInnerHTML {:__html (str/replace (:uk.nhs.cfh.isb1504/nhs-number patient) #" " "&nbsp;")}}]
+           [:td (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
+           [:td (if-let [deceased (:org.hl7.fhir.Patient/deceased patient)]
+                  [:span.tag.is-danger (if (instance? goog.date.Date deceased)
+                                         (str "Died on " (com.eldrix.pc4.commons.dates/format-date deceased))
+                                         "Deceased")]
+                  (:uk.nhs.cfh.isb1505/display-age patient))]
+           [:td (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]
+           [:td "A123456 " [:br] "M1234567"]]))]]))
+
+(defn patient-banner [patient & {:keys [on-close]}]
+  [:div.card
+   [:header.card-header
+    [:p.card-header-title.level
+     [:div.level-left
+      [:div.level-item (:uk.nhs.cfh.isb1506/patient-name patient)]
+      [:div.level-item
+       [:span.has-text-weight-light "NHS No:"]
+       (:uk.nhs.cfh.isb1504/nhs-number patient)]
+      [:div.level-item
+       [:span.has-text-weight-light "Gender:"]
+       (str/upper-case (name (:org.hl7.fhir.Patient/gender patient)))]
+      [:div.level-item
+        (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]]
+     [:div.level-right
+      [:div.level-item [:span.has-text-weight-light "Born:"]
+       (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
+      [:div.level-item [:span.has-text-weight-light "Age:"]
+       (:uk.nhs.cfh.isb1505/display-age patient)]
+      (when on-close [:div.level-item [:button.delete {:on-click on-close}]])]]]])
+
+(defn patient-panel
+  [patient]
+  [:div.box
+     [:div.field [:label.label {:for "name-un"} "Patient"]
+      [:div.control
+       [:input.input {:id        "name-un" :type "text" :read-only true
+                      :value     (:uk.nhs.cfh.isb1506/patient-name patient)}]]]])
+
+(defn patient-search-panel
+  []
+  (let [search-text (reagent/atom "")
+        search-results (rf/subscribe [::patients/search-results])
+        current-patient (rf/subscribe [::patients/current-patient])
+        do-search-fn #(do (js/console.log "searching for " @search-text)
+                          (rf/dispatch [::patients/fetch @search-text]))]
+    (fn []
+      (if-let [selected-patient @current-patient]
+        [patient-panel selected-patient]
+        [:div.box
+         [:div.field [:label.label {:for "name-un"} "Search for patient"]
+          [:div.control
+           [:input.input {:id          "name-un" :type "text"
+                          :value       @search-text
+                          :auto-focus  true
+                          :on-key-down #(if (= 13 (.-which %))
+                                          (do-search-fn))
+                          :on-change   #(do (reset! search-text (-> % .-target .-value))
+                                            (rf/dispatch [::patients/clear-search-results]))}]]]
+         [:a.button.is-primary
+          {:disabled (str/blank? @search-text)
+           :on-click do-search-fn}
+          "Search"]
+
+         [select-patients @search-results
+          :select-fn (fn [pt] (rf/dispatch [::patients/set-current-patient pt]))
+          :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)]
+         ]))))
 
 (def menu
   {:title "Make a referral"
@@ -247,23 +334,25 @@
       (assoc-in [::referrer ::contact-details] (:urn.oid.2.5.4/telephoneNumber user))))
 
 (defn refer-page []
-  (let [authenticated-user (rf/subscribe [::users/authenticated-user])
-        referral (reagent/atom {})]
+  (let [referral (reagent/atom {})]
     (fn []
-      (let [user @authenticated-user]
-        (when-not (= (get-in @referral [::referrer ::practitioner]) user)
+      (let [user @(rf/subscribe [::users/authenticated-user])]
+        (when-not (= (get-in @referral [::referrer ::practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
           (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName])
                                         (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
+                             (js/console.log "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
                              (initialize-referral user))))
         [:<>
-         [:section.section
-          [:nav.navbar {:role "navigation" :aria-label "main navigation"}
-           [:div.navbar-brand
-            [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
-           (when user
-             [:div.navbar-end
-              [:div.navbar-item (:urn.oid.2.5.4/commonName user)]
-              [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]])]]
+         [:nav.navbar.is-black.is-fixed-top {:role "navigation" :aria-label "main navigation"}
+          [:div.navbar-brand
+           [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
+          (when user
+            [:div.navbar-end
+             [:div.navbar-item (:urn.oid.2.5.4/commonName user)]
+             [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]])]
+
+         (when-let [pt @(rf/subscribe [::patients/current-patient])]
+           [patient-banner pt :on-close #(rf/dispatch [::patients/close-current-patient])])
 
          [:section.section
           [:div.columns
@@ -287,5 +376,6 @@
                                       :valid-fn   (fn [] (s/valid? ::valid-referrer? @referral))
                                       :next-fn    #(swap! referral assoc :active-panel ::who-is-patient?)}]
                 ::who-is-patient?
-                [patient-search-panel referral {:identifier-kp [::patient-search-identifier]}]
+                [patient-search-panel referral {:identifier-kp      [::patient-search-identifier]
+                                                :authenticated-user user}]
                 [:p "Invalid menu selected"]))]]]]))))

@@ -3,8 +3,7 @@
     [clojure.string :as str]
     [re-frame.core :as rf]
     [eldrix.pc4-ward.events :as events]
-    [eldrix.pc4-ward.users :as users]
-
+    [eldrix.pc4-ward.rf.users :as users]
     [reagent.core :as reagent]))
 
 (defn nav-bar []

@@ -104,30 +104,38 @@
        :org.hl7.fhir.HumanName/family
        :org.hl7.fhir.HumanName/given]}]}])
 
-(defn make-cav-search-op
+(defn make-cav-fetch-patient-op
   [{:keys [pas-identifier]}]
   [{(list 'wales.nhs.cavuhb/fetch-patient
           {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
-    [:wales.nhs.cavuhb.Patient/LAST_NAME
-     :wales.nhs.cavuhb.Patient/DATE_BIRTH
+    [:org.hl7.fhir.Patient/birthDate
      :wales.nhs.cavuhb.Patient/DATE_DEATH
+     :uk.nhs.cfh.isb1505/display-age
+     :wales.nhs.cavuhb.Patient/IS_DECEASED
      :wales.nhs.cavuhb.Patient/ADDRESSES
      :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+     :uk.nhs.cfh.isb1504/nhs-number
+     :uk.nhs.cfh.isb1506/patient-name
      :org.hl7.fhir.Patient/identifiers
      :wales.nhs.cavuhb.Patient/SEX
      :org.hl7.fhir.Patient/gender
-     {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :wales.nhs.cavuhb.Address/ADDRESS2
-                                                 :wales.nhs.cavuhb.Address/ADDRESS3 :wales.nhs.cavuhb.Address/ADDRESS4
-                                                 :uk.gov.ons.nhspd/PCDS]}
-     :org.hl7.fhir.Patient/address
-     ]}])
+     :org.hl7.fhir.Patient/deceased
+     :org.hl7.fhir.Patient/currentAddress]}])
 
 (defn do!
   "Execute a xhrio request on the server."
-  [{:keys [_request _handler _error-handler] :as opts}]
+  [opts]
   (ajax/POST "http://localhost:8080/api" (make-xhrio-request opts)))
 
-(defn do-snomed-search [{:keys [_s _constrant _max-hits]} {:keys [handler error-handler]}])
+(defn default-error-handler [x]
+  (js/console.log "error in request: " x))
+
+(defn fetch-patient
+  [s & {:keys [handler error-handler token] :or {error-handler default-error-handler}}]
+  (do! {:params        (make-cav-fetch-patient-op {:pas-identifier s})
+        :token         token
+        :handler       #(handler (get % 'wales.nhs.cavuhb/fetch-patient))
+        :error-handler error-handler}))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
@@ -142,9 +150,11 @@
 
   (reset! results nil)
   (make-cav-search-op {:pas-identifier "A999998"})
-  (do! {:params        (make-cav-search-op {:pas-identifier "A999998"})
+
+  (do! {:params        (make-cav-fetch-patient-op {:pas-identifier "A999998"})
         :handler       #(reset! results %)
         :error-handler #(println "failure: " %)})
+  @results
   (def pt (get @results 'wales.nhs.cavuhb/fetch-patient))
   pt
   (def a1 (first (:wales.nhs.cavuhb.Patient/ADDRESSES pt)))
