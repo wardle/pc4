@@ -4,7 +4,6 @@
            (java.time.format DateTimeFormatter)
            (java.time.temporal ChronoUnit TemporalAccessor)))
 
-
 (defn in-range?
   "Is the date in the range specified, or is the range 'current'?
   Handles open ranges if `from` or `to` nil."
@@ -36,15 +35,17 @@
   - >= 18 years - years.
 
   The minimum unit is determined by the class of `start`. A LocalDate will be
-  limited to days but a LocalDateTime or ZonedDateTime, to minutes."
+  limited to days but a LocalDateTime or ZonedDateTime, to minutes.
+
+  The display standard is per the NHS' now deprecated standard ISB-1505,
+  developed as part of Connecting for Health (CfH).
+  See https://webarchive.nationalarchives.gov.uk/20150107150145/http://www.isb.nhs.uk/documents/isb-1505/dscn-09-2010/
+  Unfortunately the examples in that DSCN have an error and pluralize the 'hours'."
   [^TemporalAccessor start ^TemporalAccessor end]
   (let [period (Period/between (LocalDate/from start) (LocalDate/from end))
         years (.getYears period)
         months (.getMonths period)]
     (cond
-      (.isNegative period)
-      nil
-
       (>= years 18)
       (str years "y")
 
@@ -53,6 +54,9 @@
 
       (>= years 1)
       (str (+ (* 12 years) months) "m " (.getDays period) "d")
+
+      (.isNegative period)
+      nil
 
       :else                                                 ;; special handling of infants
       (let [days (.between (ChronoUnit/DAYS) start end)
@@ -74,23 +78,13 @@
           "<1d"
 
           (>= hours 2)
-          (str hours "hrs")
+          (str hours "hr")
 
           (not minutes?)
           "<2hr"
 
           :else
           (str minutes "min"))))))
-
-(comment
-  (age-display (LocalDate/of 1970 01 01) (LocalDate/now))
-  (age-display (java.time.LocalDate/of 2021 6 7) (java.time.LocalDate/now))
-  (age-display (java.time.LocalDateTime/of 1902 3 12 21 18 16) (java.time.LocalDateTime/now))
-  (.between (ChronoUnit/HOURS) (java.time.LocalDateTime/of 2021 06 07 17 10 16) (java.time.LocalDateTime/now))
-  (.between (ChronoUnit/HOURS) (java.time.LocalDate/of 2021 06 06) (java.time.LocalDate/now))
-
-  )
-
 
 (def transit-writers
   {LocalDateTime
@@ -126,5 +120,6 @@
   (def r (transit/reader in :json {:handlers transit-readers}))
   (def x (transit/read r))
   (print x)
+
   )
 
