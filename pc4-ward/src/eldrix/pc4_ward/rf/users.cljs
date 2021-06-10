@@ -1,4 +1,4 @@
-(ns eldrix.pc4-ward.users
+(ns eldrix.pc4-ward.rf.users
   "Events and subscriptions relating to users.
   * Login and logout
   * Session timeout
@@ -126,6 +126,7 @@
 (rf/reg-sub ::ping-error
   (fn [db]
     (get-in db [:errors ::ping])))
+
 
 (comment
   (rf/dispatch [::do-login "cymru.nhs.uk" "ma090906" "password"])
