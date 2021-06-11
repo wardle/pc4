@@ -92,20 +92,20 @@
 
 (defn patient-banner
   [& {:keys [name nhs-number born hospital-identifier address deceased]}]
-  [:div.grid.grid-cols-1.border-2.shadow-lg.p-4.m-2 {:class (if-not deceased "border-gray-200" "bg-red-50 border-red-200")}
+  [:div.grid.grid-cols-1.border-2.shadow-lg.p-4.m-2.border-gray-200
    (when deceased
-     [:div.grid.grid-cols-1.p-4  [badge-red "Deceased"]])
+     [:div.grid.grid-cols-1.pb-2
+      [badge-red "Deceased"]])
    [:div.grid.grid-cols-2.lg:grid-cols-5
-    [:div.font-bold.text-lg.min-w-min name ]
-    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.font-thin.hidden.sm:inline "Gender "] "Male"]
-    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.font-thin "Born "] born]
+    [:div.font-bold.text-lg.min-w-min name]
+    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] "Male"]
+    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] born]
     [:div.lg:hidden.text-right "Male" " " born]
-    [:div.lg:text-center.lg:ml-2.min-w-min [:span.font-thin "NHS No "] nhs-number]
-    [:div.text-right.min-w-min [:span.font-thin "CRN "] hospital-identifier]]
+    [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] nhs-number]
+    [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] hospital-identifier]]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
-    [:div.font-light.text-sm.tracking-tighter.text-gray-500 address]]
+    [:div.font-light.text-sm.tracking-tighter.text-gray-500 address]]])
 
-   ])
 
 (defn refer-page []
   [:<> [nav-bar
