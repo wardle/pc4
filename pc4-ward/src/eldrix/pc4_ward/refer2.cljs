@@ -15,10 +15,17 @@
   [:svg.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
    [:path {:fill-rule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clip-rule "evenodd"}]])
 
-(defn badge-red
-  "Display a small badge in red with the text specified."
-  [s]
-  [:span.text-xs.text-center.font-semibold.inline-block.py-1.px-2.uppercase.rounded-full.text-red-200.bg-red-600.uppercase.last:mr-0.mr-1 s])
+(defn badge
+  "Display a small badge with the text specified."
+  [s & {:keys [text-color bg-color uppercase?] :or {text-color "text-red-200" bg-color "bg-red-500" uppercase? true}}]
+  [:span.text-xs.text-center.font-semibold.inline-block.py-1.px-2.uppercase.rounded-full.ml-1.last:mr-0.mr-1
+   {:class (str/join " " [text-color bg-color (when uppercase? "uppercase")])} s])
+
+(defn box-error-message [& {:keys [title message]}]
+  (when message
+    [:div.bg-red-100.border.border-red-400.text-red-700.px-4.py-3.rounded.relative.shadow-md {:role "alert"}
+     (when title [:span.strong.font-bold.mr-4 title])
+     [:span.block.sm:inline message]]))
 
 (defn nav-bar
   "A navigation bar.
@@ -95,7 +102,9 @@
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-4.m-2.border-gray-200
    (when deceased
      [:div.grid.grid-cols-1.pb-2
-      [badge-red "Deceased"]])
+      [badge (if (instance? goog.date.Date deceased)
+               (str "Died " (com.eldrix.pc4.commons.dates/format-date deceased))
+               "Deceased")]])
    [:div.grid.grid-cols-2.lg:grid-cols-5
     [:div.font-bold.text-lg.min-w-min name]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] "Male"]
@@ -104,22 +113,62 @@
     [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] nhs-number]
     [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] hospital-identifier]]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
-    [:div.font-light.text-sm.tracking-tighter.text-gray-500 address]]])
+    [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]])
 
+(defn login-panel
+  "A login panel with parameters:
+  - on-login   - function to be called with username and password
+  - disabled   - if login form should be disabled
+  - error      - an error message to show."
+  [& params]
+  (let [username (reagent/atom "")
+        password (reagent/atom "")]
+    (fn [& {:keys [on-login disabled error] :or {disabled false}}]
+      [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
+       [:div.max-w-md.w-full.space-y-8
+        [:div
+         [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]
+         [:h2.mt-6.text-center.text-2xl.md:text-3xl.font-extrabold.text-gray-900 "Please sign in to your account"]]
+        [:div.rounded-md.shadow-sm.-space-y-px
+         [:div
+          [:label.sr-only {:for "username"} "username"]
+          [:input#email-address.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
+           {:name        "username" :type "text" :autoComplete "username" :required true :placeholder "Username" :auto-focus true :disabled disabled
+            :on-change   #(reset! username (-> % .-target .-value))
+            :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "password"))))}]]
+         [:div
+          [:label.sr-only {:for "password"} "Password"]
+          [:input#password.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-b-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
+           {:name        "password" :type "password" :autoComplete "current-password" :required true :placeholder "Password" :disabled disabled
+            :on-change   #(reset! password (-> % .-target .-value))
+            :on-key-down #(if (= 13 (.-which %))
+                            (do (reset! password (-> % .-target .-value))
+                                (when on-login (on-login @username @password))))}]]]
+        (when error
+          [box-error-message :title "Login error:" :message error])
+        [:div
+         [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
+          {:type "submit" :on-click #(when on-login (on-login @username @password)) :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
+          [:span.absolute.left-0.inset-y-0.flex.items-center.pl-3
+           [:svg.h-5.w-5.text-indigo-500.group-hover:text-indigo-400 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true" :class (when disabled "animate-bounce")}
+            [:path {:fill-rule "evenodd" :d "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" :clip-rule "evenodd"}]]] (if disabled "Signing in" "Sign in")]]]])))
 
 (defn refer-page []
-  [:<> [nav-bar
-        :title "PatientCare v4"
-        :menu [{:id :refer-patient :title "Refer patient"}]
-        :selected :refer-patient
-        :show-user? true
-        :full-name "Dr Mark Wardle"
-        :initials "MW"
-        :user-menu [{:id :logout :title "Sign out" :on-click #(js/console.log "Menu: logout")}]]
-   [patient-banner
-    :name "DUMMY, Albert (Mr)"
-    :nhs-number "111 111 1111"
-    :deceased false
-    :born "01-Jun-1985 (36y)"
-    :hospital-identifier "A999998"
-    :address "University Hospital Wales, Heath Park, Cardiff, CF14 4XW"]])
+  [:<>
+   [nav-bar
+    :title "PatientCare v4"
+    :menu [{:id :refer-patient :title "Refer patient"}]
+    :selected :refer-patient
+    :show-user? true
+    :full-name "Dr Mark Wardle"
+    :initials "MW"
+    :user-menu [{:id :logout :title "Sign out" :on-click #(js/console.log "Menu: logout")}]]
+   (comment [patient-banner
+             :name "DUMMY, Albert (Mr)"
+             :nhs-number "111 111 1111"
+             :deceased false
+             :born "01-Jun-1985 (36y)"
+             :hospital-identifier "A999998"
+             :address "University Hospital Wales, Heath Park, Cardiff, CF14 4XW"])
+   [login-panel :disabled false :on-login #(println "login for user : " %1)]
+   ])
