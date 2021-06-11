@@ -217,9 +217,9 @@
           [:option "United States"]
           [:option "Canada"]
           [:option "Mexico"]]]]]
-      [:div.px-4.py-3.bg-gray-50.text-right.sm:px-6
-       [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-black.bg-white.hover:bg-gray-100.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.mr-4 {:type "cancel"} "Cancel"]
-       [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500 {:type "submit"} "Save"]]]]]])
+      [:div.flex.flex-col.px-4.py-3.bg-gray-50.text-right.sm:px-6.sm:flex-row.sm:flex-row-reverse
+       [:button.w-full.sm:w-max.inline-flex.justify-center.py-2.px-8.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500 {:type "submit"} "Save"]
+       [:button.w-full.sm:w-max.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-black.bg-white.hover:bg-gray-100.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.mr-4 {:type "cancel"} "Cancel"]]]]]])
 
 
 (defn refer-page []
