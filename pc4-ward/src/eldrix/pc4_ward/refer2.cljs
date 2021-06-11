@@ -18,7 +18,7 @@
 (defn badge-red
   "Display a small badge in red with the text specified."
   [s]
-  [:span.align-middle.inline-flex.items-center.justify-center.px-2.py-1.mr-4.text-xs.font-bold.leading-none.text-red-100.bg-red-600.rounded-full s])
+  [:span.text-xs.text-center.font-semibold.inline-block.py-1.px-2.uppercase.rounded-full.text-red-200.bg-red-600.uppercase.last:mr-0.mr-1 s])
 
 (defn nav-bar
   "A navigation bar.
