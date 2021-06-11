@@ -153,6 +153,75 @@
            [:svg.h-5.w-5.text-indigo-500.group-hover:text-indigo-400 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true" :class (when disabled "animate-bounce")}
             [:path {:fill-rule "evenodd" :d "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" :clip-rule "evenodd"}]]] (if disabled "Signing in" "Sign in")]]]])))
 
+
+(defn ui-textfield [& {:keys [name autocomplete field-type error] :or {field-type "text"}}]
+  [:<> [:input.mt-1.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.shadow-sm.sm:text-sm.border-2.rounded-md.p-1
+   {:type field-type :name name :autocomplete autocomplete
+    :class (if-not error "border-gray-200" "border-red-600")}]
+  (if (string? error) [:span.text-red-600.text-sm "Please enter your email"])])
+
+(defn ui-label [& {:keys [for label]}]
+  [:label.block.text-sm.font-medium.text-gray-700 {:for for} label])
+
+(defn ui-control [& {:keys [name _autocomplete _label] :as opts}]
+  [ui-label (assoc opts :for name)]
+  [ui-textfield opts])
+
+(defn example-form
+  "This is simply an experiment in styling a form with some help desk
+  and different controls, with save and cancel buttons. Labels are above the
+  fields."
+  []
+  [:div.mt-8.shadow-lg.sm:m-8.max-w-5xl
+   [:div.md:grid.md:grid-cols-3.md:gap-0
+    [:div.md:col-span-1.sm:bg-gray-50
+     [:div.px-4.sm:px-4.sm:pt-8.border-none
+      [:h3.text-lg.font-medium.leading-6.text-gray-900 "Personal Information"]
+      [:p.mt-1.text-sm.text-gray-600 "Use a permanent address where you can receive mail."]
+      [:div.mt-8 [box-error-message :message "Please fix the errors and retry."]]]]
+    [:div.mt-5.md:mt-0.md:col-span-2
+     [:div.overflow-hidden.sm:rounded-md
+      [:div.px-4.py-5.bg-white.sm:p-6.border-l-2.border-b-2
+       [:div.grid.grid-cols-6.gap-6
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "title" :label "Title"]
+         [ui-textfield :name "title"]]
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "first_name" :label "First names"]
+         [ui-textfield :name "first-name" :autocomplete "given-name"]]
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "last_name" :label "Last name"]
+         [ui-textfield :name "last-name" :autocomplete "family-name"]]
+        [:div.col-span-6.sm:col-span-4
+         [ui-label :for "email_address" :label "Email"]
+         [ui-textfield :name "email_address" :autocomplete "email" :field-type "email" :error "Please enter your email."]]
+        [:div.col-span-6
+         [ui-label :for "address1" :label "Address 1"]
+         [ui-textfield :name "address1" :autocomplete "streetaddress"]]
+        [:div.col-span-6
+         [ui-label :for "address2" :label "Address 2"]
+         [ui-textfield :name "address2"]]
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "city" :label "Town / city"]
+         [ui-textfield :name "city"]]
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "state" :label "County"]
+         [ui-textfield :name "state"]]
+        [:div.col-span-6.sm:col-span-2
+         [ui-label :for "postal-code" :label "Postal code"]
+         [ui-textfield :name "postal-code" :autocomplete "postal-code"]]
+        [:div.col-span-6.sm:col-span-4
+         [:label.block.text-sm.font-medium.text-gray-700 {:for "country"} "Country / Region"]
+         [:select#country.mt-1.block.w-full.py-2.px-3.border.border-gray-300.bg-white.rounded-md.shadow-sm.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm {:name "country" :autocomplete "country"}
+          [:option "United Kingdom"]
+          [:option "United States"]
+          [:option "Canada"]
+          [:option "Mexico"]]]]]
+      [:div.px-4.py-3.bg-gray-50.text-right.sm:px-6
+       [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-black.bg-white.hover:bg-gray-100.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.mr-4 {:type "cancel"} "Cancel"]
+       [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500 {:type "submit"} "Save"]]]]]])
+
+
 (defn refer-page []
   [:<>
    [nav-bar
@@ -170,5 +239,8 @@
              :born "01-Jun-1985 (36y)"
              :hospital-identifier "A999998"
              :address "University Hospital Wales, Heath Park, Cardiff, CF14 4XW"])
-   [login-panel :disabled false :on-login #(println "login for user : " %1)]
+   ;;[login-panel :disabled false :on-login #(println "login for user : " %1)]
+
+   [example-form]
+
    ])
