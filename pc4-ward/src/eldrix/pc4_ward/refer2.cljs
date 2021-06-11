@@ -99,7 +99,7 @@
 
 (defn patient-banner
   [& {:keys [name nhs-number born hospital-identifier address deceased]}]
-  [:div.grid.grid-cols-1.border-2.shadow-lg.p-4.m-2.border-gray-200
+  [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
    (when deceased
      [:div.grid.grid-cols-1.pb-2
       [badge (if (instance? goog.date.Date deceased)
@@ -156,12 +156,12 @@
 
 (defn ui-textfield [& {:keys [name autocomplete field-type error] :or {field-type "text"}}]
   [:<> [:input.mt-1.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.shadow-sm.sm:text-sm.border-2.rounded-md.p-1
-   {:type field-type :name name :autocomplete autocomplete
-    :class (if-not error "border-gray-200" "border-red-600")}]
-  (if (string? error) [:span.text-red-600.text-sm "Please enter your email"])])
+        {:type  field-type :name name :autocomplete autocomplete
+         :class (if-not error "border-gray-200" "border-red-600")}]
+   (if (string? error) [:span.text-red-600.text-sm "Please enter your email"])])
 
 (defn ui-label [& {:keys [for label]}]
-  [:label.block.text-sm.font-medium.text-gray-700 {:for for} label])
+  [:label.block.text-sm.font-medium.text-gray-700.align-middle {:for for} label])
 
 (defn ui-control [& {:keys [name _autocomplete _label] :as opts}]
   [ui-label (assoc opts :for name)]
@@ -222,25 +222,114 @@
        [:button.w-full.sm:w-max.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-black.bg-white.hover:bg-gray-100.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.mr-4 {:type "cancel"} "Cancel"]]]]]])
 
 
+(defn svg-shield []
+  [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
+   [:path {:d "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"}]])
+
+(defn svg-person []
+  [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
+   [:path {:d "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"}]
+   [:circle {:cx "12" :cy "7" :r "4"}]])
+
+(defn svg-anchor []
+  [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
+   [:circle {:cx "12" :cy "5" :r "3"}]
+   [:path {:d "M12 22V8M5 12H2a10 10 0 0020 0h-3"}]])
+
+(defn svg-graph []
+  [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
+   [:path {:d "M22 12h-4l-3 9L9 3l-3 9H2"}]])
+
+(defn svg-tick []
+  [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
+   [:path {:d "M22 11.08V12a10 10 0 11-5.93-9.14"}]
+   [:path {:d "M22 4L12 14.01l-3-3"}]])
+
+(defn progress-item [& {:keys [id done selected title text svg end? on-click] :or {end? false}}]
+  (let [done? (contains? done id)
+        selected? (= id selected)]
+    [:a [:div.flex.relative.pb-12 {:key id :on-click #(on-click id)}
+     (when-not end? [:div.h-full.w-10.absolute.inset-0.flex.items-center.justify-center
+                     [:div.h-full.w-1.bg-gray-200.pointer-events-none]])
+     [:div.flex-shrink-0.w-10.h-10.rounded-full.inline-flex.items-center.justify-center.text-white.relative.z-10.hover:bg-blue-200
+      {:class (cond selected? "bg-red-500" done? "bg-green-500" :else "bg-indigo-500")} svg]
+     [:div.flex-grow.pl-4.h-10
+      [:h2.title-font.text-gray-900.mb-1.tracking-wider {:class (if selected? "font-bold" "text-sm font-medium")} title]
+      [:p.leading-relaxed {:class (if selected? "font-bold underline" "font-medium")} text]]]]))
+
+(defn progress
+  "Display progress through a multi-step process.
+  Parameters:
+  - title : title
+  - items : a sequence of your items (progress-item)"
+  [title & items]
+  [:div.container.px-5.py-24.mx-auto.flex.flex-wrap
+   [:h1.font-bold.font-lg.uppercase title]
+   [:div.flex.flex-wrap.w-full.pt-4
+    [:div.md:pr-10.md:py-6 {:class "lg:w-2/5 md:w-1/2"}
+     (map-indexed #(with-meta %2 {:key %1}) items)
+     [:div.md:mt-0.mt-12 {:class "lg:w-3/5 md:w-1/2"}]]]])
+
+
+
+(def prog (reagent/atom {:done     #{}
+                             :selected :clinician}))
+
+(defn select-item [item]
+  (swap! prog assoc :selected item))
+
 (defn refer-page []
-  [:<>
-   [nav-bar
-    :title "PatientCare v4"
-    :menu [{:id :refer-patient :title "Refer patient"}]
-    :selected :refer-patient
-    :show-user? true
-    :full-name "Dr Mark Wardle"
-    :initials "MW"
-    :user-menu [{:id :logout :title "Sign out" :on-click #(js/console.log "Menu: logout")}]]
-   (comment [patient-banner
-             :name "DUMMY, Albert (Mr)"
-             :nhs-number "111 111 1111"
-             :deceased false
-             :born "01-Jun-1985 (36y)"
-             :hospital-identifier "A999998"
-             :address "University Hospital Wales, Heath Park, Cardiff, CF14 4XW"])
-   ;;[login-panel :disabled false :on-login #(println "login for user : " %1)]
+  (let [referral (reagent/atom {})]
+    (fn []
+      (let [user @(rf/subscribe [::users/authenticated-user])
+            patient @(rf/subscribe [::patients/current-patient])]
+        [:<>
+         [nav-bar
+          :title "PatientCare v4"                           ;:menu [{:id :refer-patient :title "Refer patient"}]
+          :selected :refer-patient
+          :show-user? user
+          :full-name (:urn.oid.2.5.4/commonName user)
+          :initials (:urn.oid.2.5.4/initials user)
+          :user-menu [{:id :logout :title "Sign out" :on-click #(rf/dispatch [::users/do-logout])}]]
+         (when patient
+           (let [deceased (:org.hl7.fhir.Patient/deceased patient)]
+             [patient-banner
+              :name (:uk.nhs.cfh.isb1506/patient-name patient)
+              :nhs-number (:uk.nhs.cfh.isb1504/nhs-number patient)
+              :deceased deceased
+              :born (str (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient)) " " (when-not deceased (:uk.nhs.cfh.isb1505/display-age patient)))
+              :hospital-identifier (:wales.nhs.cavuhb.Patient/HOSPITAL_ID patient) ;; TODO: switch to using whichever organisation makes sense in context
+              :address (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]))
+         ;;[login-panel :disabled false :on-login #(println "login for user : " %1)]
 
-   [example-form]
 
-   ])
+         ;[example-form]
+
+         [:section.text-gray-600.body-font
+          [progress "Make referral"
+           [progress-item :id :clinician
+            :done (:done @prog)
+            :selected (:selected @prog)
+            :on-click select-item
+            :svg [svg-shield] :title "STEP 1:" :text "Who are you?"]
+           [progress-item :id :patient
+            :done (:done @prog)
+            :selected (:selected @prog)
+            :on-click select-item
+            :svg [svg-person] :title "STEP 2:" :text "Who is the patient?"]
+           [progress-item :id :service
+            :selected (:selected @prog)
+            :on-click select-item
+            :svg [svg-anchor] :title "STEP 3:" :text "To which service?"]
+           [progress-item :id :question
+            :selected (:selected @prog)
+            :on-click select-item
+            :svg [svg-graph] :title "STEP 4:" :text "What is the question?"]
+           [progress-item :id :send
+            :selected (:selected @prog)
+            :on-click select-item
+            :svg [svg-tick] :title "FINISH:" :text "Send referral" :end? true]]]]
+        ))))
+
+(swap! prog assoc :done #{:clinician })
+(swap! prog assoc :selected :service)

@@ -8,6 +8,7 @@
             [re-frame.core :as re-frame]
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.views :as views]
+            [eldrix.pc4-ward.refer :as refer]
             [eldrix.pc4-ward.refer2 :as refer2]
             [eldrix.pc4-ward.config :as config]))
 
