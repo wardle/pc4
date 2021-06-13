@@ -283,12 +283,14 @@
 
 
 (defn textfield-control
-  [value & {:keys [id label type placeholder required auto-focus disabled on-change]}]
-  [:div
+  [value & {:keys [id label type placeholder required auto-focus disabled on-change help-text]}]
+  [:div.mb-4
    (when label [:label.text-gray-700.dark:text-gray-200 {:for id} label])
-   [:input#username.block.w-full.px-4.py-2.mb-4.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-    {:id         id :type type :placeholder placeholder :required required
-     :disabled   disabled
-     :value      value
-     :auto-focus auto-focus
-     :on-change  #(on-change (-> % .-target .-value))}]])
+   [:input#username.block.w-full.px-4.pt-2..border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+    {:id            id :type type :placeholder placeholder :required required
+     :class (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic" ])
+     :disabled      disabled
+     :default-value value
+     :auto-focus    auto-focus
+     :on-change       #(on-change (-> % .-target .-value))}]
+   (when help-text [:p.text-sm.text-gray-500.italic help-text])])

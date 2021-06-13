@@ -15,22 +15,23 @@
 (defn user-panel
   "A user details form - to include name, job title, contact details and team."
   [referral]
-  (let [data (reagent.core/atom {})]
-    (ui/panel {:title "Who are you?"}
-              [ui/textfield-control
-               (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/commonName])
-               :id "user-name" :label "Name" :required true :disabled true]
-              [ui/textfield-control (get-in referral [::refer/referrer ::refer/job-title])
-               :id "user-job-title" :label "Job title / grade" :required true
-               :on-change #(swap! data assoc :job-title %)]
-              [ui/textfield-control
-               (get-in referral [::refer/referrer ::refer/contact-details])
-               :id "user-contact" :label "Your contact details (pager / mobile)" :required true
-               :on-change #(swap! data assoc :contact-details %)]
-              [ui/textfield-control
-               (get-in referral [::refer/referrer ::refer/team-contact-details])
-               :id "user-team" :label "Team contact details" :required false
-               :on-change #(swap! data assoc :team-contact-details %)])))
+
+  (ui/panel {:title "Who are you?"}
+            [ui/textfield-control
+             (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/commonName])
+             :id "user-name" :label "Name" :required true :disabled true]
+            [ui/textfield-control (get-in referral [::refer/referrer ::refer/job-title])
+             :id "user-job-title" :label "Job title / grade" :required true
+             :on-change #(rf/dispatch-sync [::events/update-referral (assoc-in referral [::refer/referrer ::refer/job-title] %)])]
+            [ui/textfield-control
+             (get-in referral [::refer/referrer ::refer/contact-details])
+             :id "user-contact" :label "Your contact details (pager / mobile)" :required true
+             :on-change #(rf/dispatch-sync [::events/update-referral (assoc-in referral [::refer/referrer ::refer/contact-details] %)])]
+            [ui/textfield-control
+             (get-in referral [::refer/referrer ::refer/team-contact-details])
+             :id "user-team" :label "Team contact details" :required false
+             :help-text "Include information about your colleagues / who to contact if you are unavailable."
+             :on-change #(rf/dispatch-sync [::events/update-referral (assoc-in referral [::refer/referrer ::refer/team-contact-details] %)])]))
 
 (defn refer-page []
   (let [referral @(rf/subscribe [::subs/referral])
@@ -40,8 +41,7 @@
         select-stage #(rf/dispatch [::events/set-stage %])]
     [:<>
      [ui/nav-bar
-      :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]
-      :selected :refer-patient
+      :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]   :selected :refer-patient
       :show-user? (get-in referral [::refer/referrer ::refer/practitioner])
       :full-name (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/commonName])
       :initials (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/initials])
