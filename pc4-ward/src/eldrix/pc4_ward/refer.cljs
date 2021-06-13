@@ -1,8 +1,10 @@
 (ns eldrix.pc4-ward.refer
   (:require [cljs.spec.alpha :as s]
             [re-frame.core :as rf]
-            [eldrix.pc4-ward.rf.users :as users]
-            [eldrix.pc4-ward.rf.patients :as patients]
+            [eldrix.pc4-ward.user.subs :as user-subs]
+            [eldrix.pc4-ward.user.events :as user-events]
+            [eldrix.pc4-ward.patient.events :as patient-events]
+            [eldrix.pc4-ward.patient.subs :as patient-subs]
             [reagent.core :as reagent]
             [clojure.string :as str]))
 
@@ -223,10 +225,10 @@
 (defn patient-search-panel
   []
   (let [search-text (reagent/atom "")
-        search-results (rf/subscribe [::patients/search-results])
-        current-patient (rf/subscribe [::patients/current-patient])
+        search-results (rf/subscribe [::patient-subs/search-results])
+        current-patient (rf/subscribe [::patient-subs/current-patient])
         do-search-fn #(do (js/console.log "searching for " @search-text)
-                          (rf/dispatch [::patients/fetch @search-text]))]
+                          (rf/dispatch [::patient-events/fetch @search-text]))]
     (fn []
       (if-let [selected-patient @current-patient]
         [patient-panel selected-patient]
@@ -239,14 +241,14 @@
                           :on-key-down #(if (= 13 (.-which %))
                                           (do-search-fn))
                           :on-change   #(do (reset! search-text (-> % .-target .-value))
-                                            (rf/dispatch [::patients/clear-search-results]))}]]]
+                                            (rf/dispatch [::patient-events/clear-search-results]))}]]]
          [:a.button.is-primary
           {:disabled (str/blank? @search-text)
            :on-click do-search-fn}
           "Search"]
 
          [select-patients @search-results
-          :select-fn (fn [pt] (rf/dispatch [::patients/set-current-patient pt]))
+          :select-fn (fn [pt] (rf/dispatch [::patient-events/set-current-patient pt]))
           :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)]
          ]))))
 
@@ -292,12 +294,12 @@
 
 (defn login-panel
   []
-  (let [error (rf/subscribe [::users/login-error])
-        ping-error (rf/subscribe [::users/ping-error])
+  (let [error (rf/subscribe [::user-subs/login-error])
+        ping-error (rf/subscribe [::user-subs/ping-error])
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
-        do-login #(rf/dispatch [::users/do-login "wales.nhs.uk" (str/trim @username) @password])]
+        do-login #(rf/dispatch [::user-events/do-login "wales.nhs.uk" (str/trim @username) @password])]
     (fn []
       [:<>
        [:div.box
@@ -336,7 +338,7 @@
 (defn refer-page []
   (let [referral (reagent/atom {})]
     (fn []
-      (let [user @(rf/subscribe [::users/authenticated-user])]
+      (let [user @(rf/subscribe [::user-subs/authenticated-user])]
         (when-not (= (get-in @referral [::referrer ::practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
           (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName])
                                         (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
@@ -349,10 +351,10 @@
           (when user
             [:div.navbar-end
              [:div.navbar-item (:urn.oid.2.5.4/commonName user)]
-             [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]])]
+             [:a.navbar-item {:on-click #(rf/dispatch [::user-events/do-logout])} "Logout"]])]
 
-         (when-let [pt @(rf/subscribe [::patients/current-patient])]
-           [patient-banner pt :on-close #(rf/dispatch [::patients/close-current-patient])])
+         (when-let [pt @(rf/subscribe [::patient-subs/current-patient])]
+           [patient-banner pt :on-close #(rf/dispatch [::patient-events/close-current-patient])])
 
          [:section.section
           [:div.columns

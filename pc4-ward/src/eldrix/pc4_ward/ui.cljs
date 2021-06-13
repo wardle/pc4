@@ -1,10 +1,7 @@
-(ns eldrix.pc4-ward.refer2
-  (:require [cljs.spec.alpha :as s]
-            [re-frame.core :as rf]
-            [eldrix.pc4-ward.rf.users :as users]
-            [eldrix.pc4-ward.rf.patients :as patients]
-            [reagent.core :as reagent]
-            [clojure.string :as str]))
+(ns eldrix.pc4-ward.ui
+  (:require [clojure.string :as str]
+            [reagent.core :as reagent]))
+
 
 (defn icon-bell []
   [:svg.h-6.w-6 {:xmlns   "http://www.w3.org/2000/svg" :fill "none"
@@ -42,10 +39,10 @@
   - initials   : initials of user (for display on small devices)
   - photo      : photo to show for user  [todo: URL or something else?]
   - on-notify  : function if notify button should appear (and call if clicked)"
-  [& {:keys [title menu selected user-menu show-user? full-name initials photo on-notify] :or {show-user? false}}]
+  [& opts]
   (let [show-menu? (reagent/atom false)
         show-user-menu? (reagent/atom false)]
-    (fn []
+    (fn [& {:keys [title menu selected user-menu show-user? full-name initials photo on-notify] :or {show-user? false}}]
       [:nav.bg-gray-800
        [:div.max-w-7xl.mx-auto.px-2.sm:px-6.lg:px-8
         [:div.relative.flex.items-center.justify-between.h-16
@@ -115,8 +112,8 @@
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
     [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]])
 
-(defn login-panel
-  "A login panel with parameters:
+(defn main-login-panel
+  "PatientCare main login panel with hero title, and parameters:
   - on-login   - function to be called with username and password
   - disabled   - if login form should be disabled
   - error      - an error message to show."
@@ -163,12 +160,8 @@
 (defn ui-label [& {:keys [for label]}]
   [:label.block.text-sm.font-medium.text-gray-700.align-middle {:for for} label])
 
-(defn ui-control [& {:keys [name _autocomplete _label] :as opts}]
-  [ui-label (assoc opts :for name)]
-  [ui-textfield opts])
-
 (defn example-form
-  "This is simply an experiment in styling a form with some help desk
+  "This is simply an experiment in styling a form with some help text
   and different controls, with save and cancel buttons. Labels are above the
   fields."
   []
@@ -221,7 +214,6 @@
        [:button.w-full.sm:w-max.inline-flex.justify-center.py-2.px-8.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500 {:type "submit"} "Save"]
        [:button.w-full.sm:w-max.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-black.bg-white.hover:bg-gray-100.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.mr-4 {:type "cancel"} "Cancel"]]]]]])
 
-
 (defn svg-shield []
   [:svg.w-5.h-5 {:fill "none" :stroke "currentColor" :stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :viewBox "0 0 24 24"}
    [:path {:d "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"}]])
@@ -245,17 +237,21 @@
    [:path {:d "M22 11.08V12a10 10 0 11-5.93-9.14"}]
    [:path {:d "M22 4L12 14.01l-3-3"}]])
 
-(defn progress-item [& {:keys [id done selected title text svg end? on-click] :or {end? false}}]
+(defn progress-item [& {:keys [id done selected active title text svg end? on-click] :or {end? false}}]
   (let [done? (contains? done id)
-        selected? (= id selected)]
-    [:a [:div.flex.relative.pb-12 {:key id :on-click #(on-click id)}
-     (when-not end? [:div.h-full.w-10.absolute.inset-0.flex.items-center.justify-center
-                     [:div.h-full.w-1.bg-gray-200.pointer-events-none]])
-     [:div.flex-shrink-0.w-10.h-10.rounded-full.inline-flex.items-center.justify-center.text-white.relative.z-10.hover:bg-blue-200
-      {:class (cond selected? "bg-red-500" done? "bg-green-500" :else "bg-indigo-500")} svg]
-     [:div.flex-grow.pl-4.h-10
-      [:h2.title-font.text-gray-900.mb-1.tracking-wider {:class (if selected? "font-bold" "text-sm font-medium")} title]
-      [:p.leading-relaxed {:class (if selected? "font-bold underline" "font-medium")} text]]]]))
+        selected? (= id selected)
+        active? (contains? active id)]
+    [:a [:div.flex.relative.pb-12 {:key id :on-click #(when active? (on-click id))}
+         (when-not end? [:div.h-full.w-10.absolute.inset-0.flex.items-center.justify-center
+                         [:div.h-full.w-1.bg-gray-200.pointer-events-none]])
+         [:div.flex-shrink-0.w-10.h-10.rounded-full.inline-flex.items-center.justify-center.text-white.relative.z-10
+          {:class (cond selected? "bg-red-500"
+                        done? "bg-green-500 hover:opacity-70"
+                        active? "bg-indigo-500 hover:opacity-70"
+                        :else "bg-indigo-500 opacity-50")} svg]
+         [:div.flex-grow.pl-4.h-10
+          [:h2.title-font.text-gray-900.mb-1.tracking-wider {:class (if selected? "font-bold" "text-sm font-medium")} title]
+          [:p.leading-relaxed {:class (if selected? "font-bold underline" "font-medium")} text]]]]))
 
 (defn progress
   "Display progress through a multi-step process.
@@ -263,73 +259,36 @@
   - title : title
   - items : a sequence of your items (progress-item)"
   [title & items]
-  [:div.container.px-5.py-24.mx-auto.flex.flex-wrap
+  [:div.container.px-4.py-4.mx-auto.flex.flex-wrap
    [:h1.font-bold.font-lg.uppercase title]
    [:div.flex.flex-wrap.w-full.pt-4
-    [:div.md:pr-10.md:py-6 {:class "lg:w-2/5 md:w-1/2"}
+    [:div.md:py-6
      (map-indexed #(with-meta %2 {:key %1}) items)
      [:div.md:mt-0.mt-12 {:class "lg:w-3/5 md:w-1/2"}]]]])
 
 
-
-(def prog (reagent/atom {:done     #{}
-                             :selected :clinician}))
-
-(defn select-item [item]
-  (swap! prog assoc :selected item))
-
-(defn refer-page []
-  (let [referral (reagent/atom {})]
-    (fn []
-      (let [user @(rf/subscribe [::users/authenticated-user])
-            patient @(rf/subscribe [::patients/current-patient])]
-        [:<>
-         [nav-bar
-          :title "PatientCare v4"                           ;:menu [{:id :refer-patient :title "Refer patient"}]
-          :selected :refer-patient
-          :show-user? user
-          :full-name (:urn.oid.2.5.4/commonName user)
-          :initials (:urn.oid.2.5.4/initials user)
-          :user-menu [{:id :logout :title "Sign out" :on-click #(rf/dispatch [::users/do-logout])}]]
-         (when patient
-           (let [deceased (:org.hl7.fhir.Patient/deceased patient)]
-             [patient-banner
-              :name (:uk.nhs.cfh.isb1506/patient-name patient)
-              :nhs-number (:uk.nhs.cfh.isb1504/nhs-number patient)
-              :deceased deceased
-              :born (str (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient)) " " (when-not deceased (:uk.nhs.cfh.isb1505/display-age patient)))
-              :hospital-identifier (:wales.nhs.cavuhb.Patient/HOSPITAL_ID patient) ;; TODO: switch to using whichever organisation makes sense in context
-              :address (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]))
-         ;;[login-panel :disabled false :on-login #(println "login for user : " %1)]
+(defn panel
+  [{:keys [title cols save-label cancel-label on-save] :or {cols 1 save-label "Save" cancel-label "Cancel"}} & children]
+  [:section.p-2.mx-auto.bg-white.rounded-md.shadow-md.dark:bg-gray-800
+   (when title [:h2.text-lg.font-semibold.text-gray-700.dark:text-white title])
+   [:div.grid.grid-cols-1.gap-6.mt-4
+    (into [:div] children)]
+   [:div.flex.mt-6
+    (when cancel-label
+      [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-400.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
+       {:on-click on-save} cancel-label])
+    [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
+     {:on-click on-save} save-label]]])
 
 
-         ;[example-form]
 
-         [:section.text-gray-600.body-font
-          [progress "Make referral"
-           [progress-item :id :clinician
-            :done (:done @prog)
-            :selected (:selected @prog)
-            :on-click select-item
-            :svg [svg-shield] :title "STEP 1:" :text "Who are you?"]
-           [progress-item :id :patient
-            :done (:done @prog)
-            :selected (:selected @prog)
-            :on-click select-item
-            :svg [svg-person] :title "STEP 2:" :text "Who is the patient?"]
-           [progress-item :id :service
-            :selected (:selected @prog)
-            :on-click select-item
-            :svg [svg-anchor] :title "STEP 3:" :text "To which service?"]
-           [progress-item :id :question
-            :selected (:selected @prog)
-            :on-click select-item
-            :svg [svg-graph] :title "STEP 4:" :text "What is the question?"]
-           [progress-item :id :send
-            :selected (:selected @prog)
-            :on-click select-item
-            :svg [svg-tick] :title "FINISH:" :text "Send referral" :end? true]]]]
-        ))))
-
-(swap! prog assoc :done #{:clinician })
-(swap! prog assoc :selected :service)
+(defn textfield-control
+  [value & {:keys [id label type placeholder required auto-focus disabled on-change]}]
+  [:div
+   (when label [:label.text-gray-700.dark:text-gray-200 {:for id} label])
+   [:input#username.block.w-full.px-4.py-2.mb-4.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+    {:id         id :type type :placeholder placeholder :required required
+     :disabled   disabled
+     :value      value
+     :auto-focus auto-focus
+     :on-change  #(on-change (-> % .-target .-value))}]])

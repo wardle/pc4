@@ -7,7 +7,7 @@
     [re-frame.core :as rf]
     [day8.re-frame.http-fx]                                 ;; required for its side-effects in registering a re-frame "effect"
     [eldrix.pc4-ward.db :as db]
-    [eldrix.pc4-ward.rf.users :as users]
+    [eldrix.pc4-ward.user.events :as user-events]
     [eldrix.pc4-ward.server :as srv]))
 
 (rf/reg-event-db
@@ -29,14 +29,14 @@
 (rf/reg-event-fx
   ::time-10-seconds
   (fn [{db :db} [_]]
-    {:fx [[:dispatch [::users/ping-server]]]}))
+    {:fx [[:dispatch [::user-events/ping-server]]]}))
 
 ;; every minute, we check our authentication tokens are valid, and refresh if necessary
 ;; we cannot refresh an expired login token ourselves, so give up and logout with a session expired notice
 (rf/reg-event-fx                                            ;; usage:  (rf/dispatch [:timer a-js-Date])
   ::timer-one-minute
-  (fn [{:keys [db]} [_]]
-    (users/check-token-and-refresh db)))
+  (fn [{db :db} [_]]
+    {:fx [[:dispatch [::user-events/check-token]]]}))
 
 (rf/reg-sub ::active-panel
   (fn [db]

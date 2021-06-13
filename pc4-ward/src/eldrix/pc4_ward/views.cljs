@@ -2,13 +2,13 @@
   (:require
     [clojure.string :as str]
     [re-frame.core :as rf]
-    [eldrix.pc4-ward.events :as events]
-    [eldrix.pc4-ward.rf.users :as users]
+    [eldrix.pc4-ward.user.events :as user-events]
+    [eldrix.pc4-ward.user.subs :as user-subs]
     [reagent.core :as reagent]))
 
 (defn nav-bar []
   (let [show-nav-menu? (reagent/atom false)
-        authenticated-user-full-name (rf/subscribe [::users/authenticated-user-full-name])]
+        authenticated-user-full-name (rf/subscribe [::user-subs/authenticated-user-full-name])]
     (fn []
       [:nav.navbar.is-black.is-fixed-top {:role "navigation" :aria-label "main navigation"}
        [:div.navbar-brand
@@ -50,7 +50,7 @@
            [:a.navbar-item "Teams"]
            [:hr.navbar-divider]
            [:a.navbar-item {:disabled true} "Report an issue"]]]
-         [:a.navbar-item {:on-click #(rf/dispatch [::users/do-logout])} "Logout"]]]])))
+         [:a.navbar-item {:on-click #(rf/dispatch [::user-events/do-logout])} "Logout"]]]])))
 
 (defn home-panel []
   [:div
@@ -66,12 +66,12 @@
      " go to Home Page "]]])
 
 (defn login-panel []
-  (let [error (rf/subscribe [::users/login-error])
-        ping-error (rf/subscribe [::users/ping-error])
+  (let [error (rf/subscribe [::user-subs/login-error])
+        ping-error (rf/subscribe [::user-subs/ping-error])
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
-        do-login #(rf/dispatch [::users/do-login "wales.nhs.uk" (str/trim @username) @password])]
+        do-login #(rf/dispatch [::user-events/do-login "wales.nhs.uk" (str/trim @username) @password])]
     (fn []
       [:<>
        [:section.hero.is-full-height
@@ -117,8 +117,8 @@
     [panels panel-name])
 
   (defn main-page []
-    (let [authenticated-user (rf/subscribe [::users/authenticated-user])
-          active-panel (rf/subscribe [::events/active-panel])]
+    (let [authenticated-user (rf/subscribe [::user-subs/authenticated-user])
+          active-panel (rf/subscribe [::user-subs/active-panel])]
       (fn []
         (if @authenticated-user
           [:div

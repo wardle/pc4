@@ -1,5 +1,5 @@
-(ns eldrix.pc4-ward.rf.patients
-  "Events and subscriptions relating to patients."
+(ns eldrix.pc4-ward.patient.events
+  "Events relating to patients."
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.server :as srv]))
 
@@ -34,23 +34,14 @@
   (fn [db _]
     (dissoc db :patient/search-results)))
 
-(rf/reg-sub ::search-results
-  (fn [db]
-    (:patient/search-results db)))
-
-
 (rf/reg-event-db ::set-current-patient
   []
   (fn [db [_ patient]]
     (js/console.log "selecting patient " patient)
-    (assoc db :patient/current patient)))
+    (assoc-in db [:patient/current :patient] patient)))
 
 (rf/reg-event-db ::close-current-patient
   []
   (fn [db [_ patient]]
     (js/console.log "closing patient" patient)
     (dissoc db :patient/current patient)))
-
-(rf/reg-sub ::current-patient
-  (fn [db]
-    (:patient/current db)))
