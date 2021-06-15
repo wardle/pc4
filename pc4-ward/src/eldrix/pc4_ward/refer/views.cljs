@@ -52,7 +52,7 @@
     [:table.min-w-full
      [:thead.bg-gray-50
       [:tr
-       [:th]
+       (when select-fn [:th])
        [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider "Name"]
        [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider [:abbr {:title "NHS number"} "NHS No"]]
        [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider "Born"]
@@ -64,12 +64,13 @@
       (for [[idx patient] (map-indexed vector patients)]
         (let [selectable? (if is-selectable-fn (is-selectable-fn patient) true)]
           [:tr {:key idx :class (if (odd? idx) "bg-white" "bg-gray-150")}
-           [:td.px-2.py-4.sm:whitespace-nowrap
-            [:button.px-3.py-2.leading-5.text-black.transition-colors.duration-200.border.border-gray-500.transform.bg-gray-200.rounded-md.hover:bg-gray-400.focus:outline-none.focus:bg-gray-600
-             (if selectable? {
-                              :title    (str "Select " (:uk.nhs.cfh.isb1506/patient-name patient))
-                              :on-click #(when select-fn (select-fn patient))}
-                             {:disabled true :hidden true}) "Select"]]
+           (when select-fn
+             [:td.px-2.py-4.sm:whitespace-nowrap
+              [:button.px-3.py-2.leading-5.text-black.transition-colors.duration-200.border.border-gray-500.transform.bg-gray-200.rounded-md.hover:bg-gray-400.focus:outline-none.focus:bg-gray-600
+               (if selectable? {
+                                :title    (str "Select " (:uk.nhs.cfh.isb1506/patient-name patient))
+                                :on-click #(when select-fn (select-fn patient))}
+                               {:disabled true :hidden true}) "Select"]])
            [:td.px-6.py-4.sm:whitespace-nowrap (:uk.nhs.cfh.isb1506/patient-name patient)]
            [:td.px-6.py-4.sm:whitespace-nowrap {:dangerouslySetInnerHTML {:__html (str/replace (:uk.nhs.cfh.isb1504/nhs-number patient) #" " "&nbsp;")}}]
            [:td.px-6.py-4.sm:whitespace-nowrap (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
