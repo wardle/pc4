@@ -112,6 +112,27 @@
           :select-fn (fn [pt] (rf/dispatch [::patient-events/set-current-patient pt]))
           :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)])])))
 
+
+(defn select-or-autocomplete []
+  (let [mode (reagent/atom :select)]
+    (fn []
+      [:<>
+       [ui/ui-label :label "Hospital"]
+       (case @mode
+         :select
+         [:<>
+          [:select.border.bg-white.rounded.px-3.py-2.outline-none
+           [:option.py-1 "University Hospital Wales, Cardiff"]
+           [:option.py-1 "Prince Charles Hospital, Merthyr Tydfil"]]
+          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+           {:on-click #(reset! mode :autocomplete)} "..."]]
+         :autocomplete
+         [:<>
+          [:p "Autocompleting"]
+          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+           {:on-click #(reset! mode :select)} "Close"]])])))
+
+
 (defn patient-panel
   [referral]
   (let [current-patient (::refer/patient referral)]
@@ -129,6 +150,7 @@
                ""
                :id "pt-ward" :label "Ward" :required true :disabled false
                :help-text "On which ward is the patient?"]
+              [select-or-autocomplete]
               )))
 
 
