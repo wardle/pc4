@@ -7,6 +7,17 @@
     (get-in db [:patient/current :patient])))
 
 (rf/reg-sub ::search-results
-            (fn [db]
-              (:patient/search-results db)))
+  (fn [db]
+    (:patient/search-results db)))
+
+;; return the hospital in which the patient is currently admitted
+;; as our backend services do not yet know this information, we return nil
+(rf/reg-sub ::hospital
+  (fn [db]
+    (get-in db [:patient/current :hospital])))
+
+;; is the patient record loading data?
+(rf/reg-sub ::loading?
+  (fn [db]
+    (get-in db [:patient/current :loading])))
 

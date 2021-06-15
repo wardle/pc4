@@ -122,6 +122,19 @@
      :org.hl7.fhir.Patient/deceased
      :org.hl7.fhir.Patient/currentAddress]}])
 
+(defn make-fetch-uk-org
+  "Fetch a UK organisation. Conceivably this could be deprecated
+  in favour of a more general approach in which we use identifier tuples
+  at the client level. At the moment, we hardcode UK, but this could
+  be a configurable option at runtime at the client."
+  [org-identifier]
+  {[:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id org-identifier]
+   [:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id
+    :org.w3.2004.02.skos.core/prefLabel]})
+
+(defn make-fetch-uk-orgs [org-identifiers]
+  (into [] (map make-fetch-uk-org org-identifiers)))
+
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
@@ -137,16 +150,28 @@
         :handler       #(handler (get % 'wales.nhs.cavuhb/fetch-patient))
         :error-handler error-handler}))
 
+(defn fetch-uk-orgs
+  [identifiers & {:keys [handler error-handler token] :or {error-handler default-error-handler}}]
+  (do! {:params        (make-fetch-uk-orgs identifiers)
+        :token         token
+        :handler       #(handler %)
+        :error-handler error-handler}))
+
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
   (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
-
 
   (def results (atom nil))
   (do! {:params        (make-snomed-search-op {:s "amyloid" :max-hits 5})
         :handler       #(reset! results %)
         :error-handler #(println "failure: " %)})
-  @results
+  (vals @results)
+
+  (do! {:params        (make-fetch-uk-orgs ["7A4BV" "7A4"])
+        :handler       #(reset! results %)
+        :error-handler #(println "failure: " %)})
+
+  (fetch-uk-orgs ["7A4BV"] :handler #(println "received result: "%))
 
   (reset! results nil)
   (make-cav-search-op {:pas-identifier "A999998"})

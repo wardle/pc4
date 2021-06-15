@@ -11,7 +11,7 @@
   ::do-login []
   (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
-    {:db (update-in db [:errors] dissoc ::login)
+    {:db (update-in db [:errors] dissoc :user/login)
      :fx [[:http-xhrio (srv/make-xhrio-request {:params     (srv/make-login-op {:system namespace :value username :password password})
                                                 :on-success [::handle-login-response]
                                                 :on-failure [::handle-login-failure]})]]}))
@@ -25,7 +25,7 @@
     (if login
       {:db (assoc db :authenticated-user {:io.jwt/token (:io.jwt/token login)
                                           :practitioner (dissoc login :io.jwt/token)})}
-      {:db (assoc-in db [:errors ::login] "Incorrect username or password")})))
+      {:db (assoc-in db [:errors :user/login] "Incorrect username or password")})))
 
 (rf/reg-event-fx ::handle-login-failure
   []
@@ -33,13 +33,13 @@
     (js/console.log "User login failure: response " response)
     {:db (-> db
              (dissoc :authenticated-user)
-             (assoc-in [:errors ::login] "Failed to login: unable to connect to server. Please check your connection and retry."))}))
+             (assoc-in [:errors :user/login] "Failed to login: unable to connect to server. Please check your connection and retry."))}))
 
 (rf/reg-event-db ::do-session-expire
   []
   (fn [_ [_]]
     (-> db/default-db
-        (assoc-in [:errors ::login] "Your session expired. Please login again"))))
+        (assoc-in [:errors :user/login] "Your session expired. Please login again"))))
 
 (rf/reg-event-db ::do-logout
   []
@@ -65,7 +65,7 @@
 (rf/reg-event-fx ::handle-ping-failure
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
-    {:db (assoc-in db [:errors ::ping] response)}))
+    {:db (assoc-in db [:errors :ping] response)}))
 
 (rf/reg-event-fx ::refresh-token
   []

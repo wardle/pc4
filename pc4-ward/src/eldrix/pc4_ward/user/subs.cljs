@@ -17,10 +17,17 @@
 
 (rf/reg-sub ::login-error
   (fn [db]
-    (get-in db [:errors ::login])))
+    (get-in db [:errors :user/login])))
 
 (rf/reg-sub ::ping-error
   (fn [db]
-    (get-in db [:errors ::ping])))
+    (get-in db [:errors :ping])))
 
+;; we currently hardcode the common hospitals for a user,
+;; but we could derive based on where they work or a user-configured list
+;; after demo release.
+(rf/reg-sub ::common-hospitals
+  (fn [db]
+    ({:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id "7A4BV"
+      :org.w3.2004.02.skos.core/prefLabel "UNIVERSITY HOSPITAL OF WALES"})))
 

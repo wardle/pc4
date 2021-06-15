@@ -94,15 +94,24 @@
                 [:a.bg-gray-900.text-white.block.px-3.py-2.rounded-md.text-base.font-medium {:key (:id item) :on-click (:on-click item) :aria-current "page"} (:title item)]
                 [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
+(comment [:button.rounded.bg-white.border {:on-click on-close}
+          [:svg {:xmlns "http://www.w3.org/2000/svg" :width "18" :height "18" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]
+
+         )
+
 (defn patient-banner
-  [& {:keys [name nhs-number born hospital-identifier address deceased]}]
-  [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
+  [& {:keys [name nhs-number born hospital-identifier address deceased on-close]}]
+  [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
+   (when on-close
+     [:div.absolute.-top-2.5.-right-2
+      [:button.bg-gray-100.hover:bg-gray-400.border.border-gray-400.text-xs.text-gray-900.font-bold.px-2.py-1.rounded-full
+       {:on-click on-close :title "Close patient record"} "X"]])
    (when deceased
      [:div.grid.grid-cols-1.pb-2
       [badge (if (instance? goog.date.Date deceased)
                (str "Died " (com.eldrix.pc4.commons.dates/format-date deceased))
                "Deceased")]])
-   [:div.grid.grid-cols-2.lg:grid-cols-5
+   [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
     [:div.font-bold.text-lg.min-w-min name]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] "Male"]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] born]
@@ -158,7 +167,7 @@
    (if (string? error) [:span.text-red-600.text-sm "Please enter your email"])])
 
 (defn ui-label [& {:keys [for label]}]
-  [:label.block.text-sm.font-medium.text-gray-700.align-middle {:for for} label])
+  [:label.text-gray-700.dark:text-gray-200 {:for for} label])
 
 (defn example-form
   "This is simply an experiment in styling a form with some help text
@@ -268,17 +277,19 @@
 
 
 (defn panel
-  [{:keys [title cols save-label cancel-label on-save] :or {cols 1 save-label "Save" cancel-label "Cancel"}} & children]
+  [{:keys [title cols save-label save-disabled cancel-label on-save on-cancel] :or {cols 1}} & children]
   [:section.p-2.mx-auto.bg-white.rounded-md.shadow-md.dark:bg-gray-800
    (when title [:h2.text-lg.font-semibold.text-gray-700.dark:text-white title])
    [:div.grid.grid-cols-1.gap-6.mt-4
     (into [:div] children)]
-   [:div.flex.mt-6
-    (when cancel-label
-      [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-400.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
-       {:on-click on-save} cancel-label])
-    [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
-     {:on-click on-save} save-label]]])
+   (when (or cancel-label save-label)
+     [:div.flex.mt-6
+      (when cancel-label
+        [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-400.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
+         {:on-click on-cancel} cancel-label])
+      (when save-label
+        [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md
+         {:on-click on-save :disabled save-disabled :class (if save-disabled "opacity-50" "hover:bg-gray-600.focus:outline-none.focus:bg-gray-600")} save-label])])])
 
 
 
@@ -286,11 +297,11 @@
   [value & {:keys [id label type placeholder required auto-focus disabled on-change help-text]}]
   [:div.mb-4
    (when label [:label.text-gray-700.dark:text-gray-200 {:for id} label])
-   [:input#username.block.w-full.px-4.pt-2..border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+   [:input.block.w-full.px-4.py-1..border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
     {:id            id :type type :placeholder placeholder :required required
-     :class (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic" ])
+     :class         (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
      :disabled      disabled
      :default-value value
      :auto-focus    auto-focus
-     :on-change       #(on-change (-> % .-target .-value))}]
+     :on-change     #(on-change (-> % .-target .-value))}]
    (when help-text [:p.text-sm.text-gray-500.italic help-text])])

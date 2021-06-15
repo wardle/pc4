@@ -71,7 +71,8 @@
 (s/def ::mode #{:inpatient :outpatient :advice})
 (s/def ::location (s/keys :req [::mode]
                           :opt [::hospital ::ward]))
-
+(s/def ::service string?)
+(s/def ::question string?)
 (s/def ::valid-referrer? (s/keys :req [::referrer]))
 (s/def ::valid-patient? (s/keys :req [::referrer ::patient]))
 (s/def ::valid-service? (s/keys :req [::referrer ::patient ::service]))
@@ -87,32 +88,36 @@
           patient
           (assoc ::patient patient)))
 
-(defn available-stages [referral]
-  (cond-> #{:clinician}
-          (s/valid? ::valid-referrer? referral)
+(defn completed-stages [referral]
+  (cond-> #{}
+          (s/valid? ::referrer (::referrer referral))
+          (conj :clinician)
+          (s/valid? ::patient (::patient referral))
           (conj :patient)
-          (s/valid? ::valid-patient? referral)
+          (s/valid? ::service (::service referral))
           (conj :service)
-          (s/valid? ::valid-service? referral)
-          (conj :question)
-          (s/valid? ::valid-question? referral)
-          (conj :send)))
+          (s/valid? ::question (::question referral))
+          (conj :question)))
+
+(defn available-stages [referral]
+  (let [completed (completed-stages referral)]
+    (cond
+      (not (contains? completed :clinician))
+      #{:clinician}
+      (not (contains? completed :patient))
+      #{:clinician :patient}
+      (not (contains? completed :service))
+      #{:clinician :patient :service}
+      (not (contains? completed :question))
+      #{:clinician :patient :service :question}
+      :else
+      #{:clinician :patient :service :send})))
 
 (comment
   (def ex1 {::referrer {::practitioner    {:org.hl7.fhir.Practitioner/identifier []
                                            :org.hl7.fhir.Practitioner/name       {}}
                         :job-title        "Consultant Neurologist"
-                        ::contact-details "02920747747"}})
+                        ::contact-details "02920747747"}
+            ::patient  {:name "Smith"}})
   (s/explain ::valid-referrer? ex1)
   (available-stages ex1))
-
-(defn completed-stages [referral]
-  (cond-> #{}
-          (s/valid? (s/keys :req [::referrer]) referral)
-          (conj :clinician)
-          (s/valid? ::valid-patient? referral)
-          (conj :patient)
-          (s/valid? ::valid-service? referral)
-          (conj :service)
-          (s/valid? ::valid-question? referral)
-          (conj :question)))

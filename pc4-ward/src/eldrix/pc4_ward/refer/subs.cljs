@@ -14,7 +14,6 @@
      (rf/subscribe [::user-subs/authenticated-user])])
   (fn [[db current-patient user]]
     (let [ref (get-in db [:patient/current :referral])]
-      (tap> ref)
       (cond-> ref
               (and current-patient (not (::refer/patient ref)))
               (assoc ::refer/patient current-patient)
