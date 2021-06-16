@@ -113,11 +113,11 @@
                "Deceased")]])
    [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
     [:div.font-bold.text-lg.min-w-min name]
-    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] "Male"]
-    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] born]
-    [:div.lg:hidden.text-right "Male" " " born]
-    [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] nhs-number]
-    [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] hospital-identifier]]
+    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] [:span.font-bold "Male"]]
+    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] [:span.font-bold born]]
+    [:div.lg:hidden.text-right "Male" " " [:span.font-bold born]]
+    [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]]
+    [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]]]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
     [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]])
 
