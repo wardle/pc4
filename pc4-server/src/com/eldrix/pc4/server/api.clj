@@ -27,7 +27,8 @@
   the result of its processing."
   {:name  ::pathom-api
    :enter (fn [ctx]
-            (log/info "api call; eql:" (get-in ctx [:request :transit-params]))
+            (log/debug "api auth " (get-in ctx [:request :headers "authorization"]))
+            (log/debug "api call; eql:" (get-in ctx [:request :transit-params]))
             (let [boundary-interface (:pathom-boundary-interface ctx)
                   result (boundary-interface (get-in ctx [:request :transit-params]))]
               (log/info "api call; result:" result)
