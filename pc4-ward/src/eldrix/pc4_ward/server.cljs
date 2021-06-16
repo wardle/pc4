@@ -135,6 +135,14 @@
 (defn make-fetch-uk-orgs [org-identifiers]
   (into [] (map make-fetch-uk-org org-identifiers)))
 
+(defn make-search-uk-org
+  [params]
+  [{(list 'uk.nhs.ord/search
+          params)
+    [:org.hl7.fhir.Organization/name
+     :org.hl7.fhir.Organization/address
+     :uk.nhs.ord/active]}])
+
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
@@ -171,7 +179,7 @@
         :handler       #(reset! results %)
         :error-handler #(println "failure: " %)})
 
-  (fetch-uk-orgs ["7A4BV"] :handler #(println "received result: "%))
+  (fetch-uk-orgs ["7A4BV"] :handler #(println "received result: " %))
 
   (reset! results nil)
   (make-cav-search-op {:pas-identifier "A999998"})
