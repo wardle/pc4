@@ -11,7 +11,7 @@
   ::do-login []
   (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
-    {:db (update-in db [:errors] dissoc :user/login)
+    {:db db/default-db
      :fx [[:http-xhrio (srv/make-xhrio-request {:params     (srv/make-login-op {:system namespace :value username :password password})
                                                 :on-success [::handle-login-response]
                                                 :on-failure [::handle-login-failure]})]]}))
@@ -60,12 +60,18 @@
   []
   (fn [{db :db} [_ {:pc4.users/syms [ping]}]]
     (js/console.log "Ping success: response: " ping)
-    {:db (update-in db [:errors] dissoc ::ping)}))
+    {:db (update-in db [:errors] dissoc :ping)}))
 
 (rf/reg-event-fx ::handle-ping-failure
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
-    {:db (assoc-in db [:errors :ping] response)}))
+    {:db (assoc-in db [:errors :ping] response)
+     :fx [[:dispatch-later [{:ms 1000 :dispatch [::ping-server]} ]]]}))
+
+(rf/reg-event-db ::clear-ping-failure
+  []
+  (fn [db _]
+    (update-in db [:errors] dissoc :ping)))
 
 (rf/reg-event-fx ::refresh-token
   []
