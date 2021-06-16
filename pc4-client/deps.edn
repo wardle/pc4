@@ -4,7 +4,8 @@
            org.clojure/tools.logging   {:mvn/version "1.1.0"}
 
            com.andrewmcveigh/cljs-time {:mvn/version "0.5.2"}
-           com.cognitect/transit-cljs  {:mvn/version "0.8.269"}}
+           com.cognitect/transit-cljs  {:mvn/version "0.8.269"}
+           re-frame/re-frame {:mvn/version "1.2.0"}}
 
  :aliases {
            :test     {:extra-paths ["test" "test/resources"]
