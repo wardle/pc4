@@ -11,7 +11,7 @@
 
 
            com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
-                                              :sha     "b9c3e00db3d6867dff436d050e29ee78014527c3"}
+                                              :sha     "46614d6701ea2a9681721f18ba989c0db1bca726"}
            com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
                                               :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
