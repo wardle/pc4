@@ -35,9 +35,9 @@
               (if-let [mutation-error (first (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
                 (do
                   (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                                :cause (:cause (Throwable->map  mutation-error))})
+                                                :cause   (:cause (Throwable->map mutation-error))})
                   (assoc ctx :response {:status 400
-                                      :body {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}}))
+                                        :body   {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}}))
                 (assoc ctx :response (ok result)))))})
 
 (def routes
