@@ -37,11 +37,3 @@
   ::timer-one-minute
   (fn [{db :db} [_]]
     {:fx [[:dispatch [::user-events/check-token]]]}))
-
-(rf/reg-sub ::active-panel
-  (fn [db]
-    (:active-panel db)))
-
-(rf/reg-sub ::current-time
-  (fn [db]
-    (:current-time db)))
