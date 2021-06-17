@@ -85,24 +85,28 @@
           {:uuid uuid})
     [:uuid]}])
 
+
+(def user-query
+  [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+   :io.jwt/token
+   :urn.oid.2.5.4/givenName
+   :urn.oid.2.5.4/surname
+   :urn.oid.0.9.2342.19200300.100.1.3
+   :urn.oid.2.5.4/commonName
+   :urn.oid.2.5.4/title
+   :urn.oid.2.5.4/telephoneNumber
+   :org.hl7.fhir.Practitioner/telecom
+   :org.hl7.fhir.Practitioner/identifier
+   {:org.hl7.fhir.Practitioner/name
+    [:org.hl7.fhir.HumanName/use
+     :org.hl7.fhir.HumanName/family
+     :org.hl7.fhir.HumanName/given]}])
+
 (defn make-login-op
   [{:keys [system value password] :as params}]
   [{(list 'pc4.users/login
           params)
-    [:urn.oid.1.2.840.113556.1.4/sAMAccountName
-     :io.jwt/token
-     :urn.oid.2.5.4/givenName
-     :urn.oid.2.5.4/surname
-     :urn.oid.0.9.2342.19200300.100.1.3
-     :urn.oid.2.5.4/commonName
-     :urn.oid.2.5.4/title
-     :urn.oid.2.5.4/telephoneNumber
-     :org.hl7.fhir.Practitioner/telecom
-     :org.hl7.fhir.Practitioner/identifier
-     {:org.hl7.fhir.Practitioner/name
-      [:org.hl7.fhir.HumanName/use
-       :org.hl7.fhir.HumanName/family
-       :org.hl7.fhir.HumanName/given]}]}])
+    user-query}])
 
 (defn make-cav-fetch-patient-op
   [{:keys [pas-identifier]}]
@@ -140,6 +144,7 @@
   [{(list 'uk.nhs.ord/search
           params)
     [:org.hl7.fhir.Organization/name
+     :org.hl7.fhir.Organization/identifier
      :org.hl7.fhir.Organization/address
      :uk.nhs.ord/active]}])
 

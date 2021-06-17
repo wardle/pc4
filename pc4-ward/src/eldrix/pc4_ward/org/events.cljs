@@ -40,13 +40,12 @@
     (js/console.log "search org failure: response " response)
     {:db (-> db
              (update-in [:organization/search-results] dissoc id)
-             (assoc-in [:errors ::search] "Failed to search for organisation: unable to connect to server. Please check your connection and retry."))}))
-
+             (assoc-in [:errors :organization/search] "Failed to search for organisation: unable to connect to server. Please check your connection and retry."))}))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
-  (rf/dispatch-sync [::search-uk :fred {:n "Castle Gate" :roles "RO72"}])
-  (rf/dispatch-sync [::search-uk :fred {:n "Univ Wales" :roles "RO148"}])
+  (rf/dispatch-sync [::search-uk :fred {:n "penylan" :roles "RO72" :limit 10 :from-location {:postcode "CF14 4XW"}}])
+  (rf/dispatch-sync [::search-uk :fred {:n "royal glam" :roles "RO148" :from-location {:postcode "NP25 3NS"}}])
   @(rf/subscribe [:eldrix.pc4-ward.org.subs/search-results :fred])
 
   (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login "wales.nhs.uk" "ma090906" "password"])

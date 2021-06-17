@@ -1,11 +1,11 @@
 (ns com.eldrix.pc4.server.api
   (:require [clojure.tools.logging.readable :as log]
             [io.pedestal.http :as http]
+            [io.pedestal.http.body-params :as body-params]
             [io.pedestal.http.route :as route]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.interceptor.error :as int-err]
-            [com.wsscode.pathom3.connect.indexes :as pci]
-            [com.wsscode.pathom3.interface.eql :as p.eql]))
+            [com.eldrix.pc4.server.users :as users]))
 
 (set! *warn-on-reflection* true)
 
@@ -22,31 +22,89 @@
 
 (def ok (partial response 200))
 
-(def pathom-api
-  "Simple interceptor that pulls out EQL from the request and responds with
-  the result of its processing."
-  {:name  ::pathom-api
+
+(def service-error-handler
+  (int-err/error-dispatch [ctx ex]
+    [{:interceptor ::login}]
+    (assoc ctx :response {:status 400 :body (ex-message ex)})
+    [{:interceptor ::attach-claims}]
+    (assoc ctx :response {:status 401 :body "Unauthenticated."})
+    :else (assoc ctx :io.pedestal.interceptor.chain/error ex)))
+
+
+(defn execute-pathom [ctx env params]
+  (let [pathom (:pathom-boundary-interface ctx)
+        result (pathom env params)
+        mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))
+        _ (log/info "api call; result:" result)]
+    (if-not mutation-error
+      (assoc ctx :response (ok result))
+      (do (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
+                                        :cause   (:cause (Throwable->map mutation-error))})
+          (assoc ctx :response {:status 400
+                                :body   {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}})))))
+
+(def login
+  "The login endpoint enforces a specific pathom call rather than permitting
+  arbitrary requests. "
+  {:name  ::login
    :enter (fn [ctx]
-            (log/debug "api auth " (get-in ctx [:request :headers "authorization"]))
-            (log/debug "api call; eql:" (get-in ctx [:request :transit-params]))
-            (let [boundary-interface (:pathom-boundary-interface ctx)
-                  result (boundary-interface (get-in ctx [:request :transit-params]))]
-              (log/info "api call; result:" result)
-              (if-let [mutation-error (first (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
-                (do
-                  (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                                :cause   (:cause (Throwable->map mutation-error))})
-                  (assoc ctx :response {:status 400
-                                        :body   {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}}))
-                (assoc ctx :response (ok result)))))})
+            (let [{:keys [system value password query] :as params} (get-in ctx [:request :transit-params])]
+              (log/info "login endpoint; parameters" (dissoc params :password))
+              (execute-pathom ctx nil [{(list 'pc4.users/login
+                                              {:system system :value value :password password})
+                                        query}])))})
+
+(def attach-claims
+  "Interceptor to check request claims and add them to the context under the key
+  :authenticated-claims."
+  {:name  ::attach-claims
+   :enter (fn [ctx]
+            (let [auth-header (get-in ctx [:request :headers "authorization"])
+                  [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
+                  login-config (:com.eldrix.pc4/login ctx)
+                  claims (when (and token login-config) (users/check-user-token token login-config))]
+              (when (and token (not login-config))
+                (log/error "no valid login configuration available in context; looked for [:com.eldrix.pc4/login :jwt-secret-key]"))
+              (if claims
+                (assoc ctx :authenticated-claims claims)
+                (throw (ex-info "Unauthorized." {:status 401})))))})
+
+(def ping
+  "A simple health check. Pass in a uuid to test the resolver backend.
+  This means the health check can potentially be extended to include additional
+  resolution."
+  {:name  :ping
+   :enter (fn [ctx]
+            (let [{:keys [uuid] :as params} (get-in ctx [:request :transit-params])]
+              (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid]}])))})
+
+(def api
+  "Interceptor that pulls out EQL from the request and responds with
+  the result of its processing.
+  The pathom boundary interface provides resolution of EQL in context as per
+  https://pathom3.wsscode.com/docs/eql/#boundary-interface
+  This is injected into the environment by integrant - under the key
+  :pathom-boundary-interface.
+  Authenticated claims are merged into the pathom environment under the key
+  :authenticated-user"
+  {:name  ::api
+   :enter (fn [ctx]
+            (log/debug "request: " (get-in ctx [:request :transit-params]))
+            (let [params (get-in ctx [:request :transit-params])
+                  claims (:authenticated-claims ctx)
+                  env (when claims {:authenticated-user (select-keys claims [:system :value])})]
+              (execute-pathom ctx env params)))})
 
 (def routes
   (route/expand-routes
-    #{["/api" :post [pathom-api]]}))
-
+    #{["/login" :post [service-error-handler body-params/body-params login]]
+      ["/ping" :post [ping]]
+      ["/api" :post [service-error-handler attach-claims api]]}))
 
 (comment
 
   ;; from command line, send some transit+json data to the API endpoint
   ;; echo '["^ ","a",1,"b",[1,2.2,200000,null]]' | http -f POST localhost:8080/api Content-Type:application/transit+json;charset=UTF-8
+
   )

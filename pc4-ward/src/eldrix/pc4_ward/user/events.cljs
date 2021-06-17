@@ -5,16 +5,26 @@
   * Token management, including refresh"
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.db :as db]
-            [eldrix.pc4-ward.server :as srv]))
+            [eldrix.pc4-ward.server :as srv]
+            [ajax.transit :as ajax-transit]
+            [com.eldrix.pc4.commons.dates :as dates]))
 
 (rf/reg-event-fx
   ::do-login []
   (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
     {:db db/default-db
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (srv/make-login-op {:system namespace :value username :password password})
-                                                :on-success [::handle-login-response]
-                                                :on-failure [::handle-login-failure]})]]}))
+     :fx [[:http-xhrio {:method          :post
+                        :uri             "http://localhost:8080/login"
+                        :timeout         1000
+                        :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
+                        :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
+                        :on-success      [::handle-login-response]
+                        :on-failure      [::handle-login-failure]
+                        :params          {:system   namespace
+                                          :value    username
+                                          :password password
+                                          :query    srv/user-query}}]]}))
 
 ;; Login success simply means the http request worked.
 ;; The pc4.users/login operation returns a user if the login was successful.
@@ -49,12 +59,15 @@
 
 (rf/reg-event-fx ::ping-server
   []
-  (fn [_ _]
-    {:http-xhrio
-     (srv/make-xhrio-request {:params     (srv/make-ping-op {:uuid (random-uuid)})
-                              :on-success [::handle-ping-response]
-                              :on-failure [::handle-ping-failure]
-                              :timeout    1000})}))
+  (fn [{db :db} _]
+    {:http-xhrio {:method          :post
+                  :uri             "http://localhost:8080/ping"
+                  :timeout         1000
+                  :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
+                  :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
+                  :on-success      [::handle-ping-response]
+                  :on-failure      [::handle-ping-failure]
+                  :params          {:uuid (random-uuid)}}}))
 
 (rf/reg-event-fx ::handle-ping-response
   []
@@ -66,7 +79,8 @@
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
     {:db (assoc-in db [:errors :ping] response)
-     :fx [[:dispatch-later [{:ms 1000 :dispatch [::ping-server]} ]]]}))
+     ;:fx [[:dispatch-later [{:ms 1000 :dispatch [::ping-server]}]]]
+     }))
 
 (rf/reg-event-db ::clear-ping-failure
   []
@@ -113,3 +127,12 @@
 
       ;; we have an active session
       :else (js/console.log "active session; token expires in " (srv/jwt-expires-seconds (get-in db [:authenticated-user :io.jwt/token])) "seconds"))))
+
+
+(comment
+  (rf/dispatch-sync [::do-login "wales.nhs.uk" "ma090906" "password"])
+  (rf/dispatch-sync [::do-logout])
+  @(rf/subscribe [:eldrix.pc4-ward.user.subs/login-error])
+  @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
+  (rf/dispatch-sync [::ping-server])
+  )

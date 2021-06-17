@@ -43,6 +43,12 @@
                          (catch Exception e (log/debug "Attempt to refresh invalid token")))]
     (make-user-token claims config)))
 
+(defn check-user-token
+  "Returns the claims from a token, if it is valid."
+  [token {:keys [jwt-secret-key]}]
+  (try (jwt/unsign token jwt-secret-key)
+       (catch Exception e nil)))
+
 (pco/defmutation refresh-token-operation
   "Refresh the user token.
   Parameters:
@@ -67,7 +73,11 @@
 
   We could make a LoginProtocol for each provider, but we still need to map to
   the keys specified here so it is simpler to use `cond` and choose the correct
-  path based on the namespace and the providers available at runtime."
+  path based on the namespace and the providers available at runtime.
+  In addition, it is more likely than we will blend data from multiple sources
+  in order to provide data resolution here; there won't be a 1:1 logical
+  mapping between our login abstraction and the backend service. This approach
+  is designed to decouple client from this complexity."
   [{:com.eldrix.pc4/keys [login] :as env} {:keys [system value password]}]
   {::pco/op-name 'pc4.users/login}
   (when-not (s/valid? ::login-configuration login)
