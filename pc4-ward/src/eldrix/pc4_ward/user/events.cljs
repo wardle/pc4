@@ -60,6 +60,7 @@
 (rf/reg-event-fx ::ping-server
   []
   (fn [{db :db} _]
+    (tap> db)
     {:http-xhrio {:method          :post
                   :uri             "http://localhost:8080/ping"
                   :timeout         1000
@@ -79,8 +80,7 @@
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
     {:db (assoc-in db [:errors :ping] response)
-     ;:fx [[:dispatch-later [{:ms 1000 :dispatch [::ping-server]}]]]
-     }))
+     :fx [[:dispatch-later [{:ms 2000 :dispatch [::ping-server]}]]]}))
 
 (rf/reg-event-db ::clear-ping-failure
   []
@@ -89,18 +89,19 @@
 
 (rf/reg-event-fx ::refresh-token
   []
-  (fn [{:keys [db]} [_ token]]
-    (js/console.log "performing token refresh" token)
-    {:fx [[:http-xhrio (srv/make-xhrio-request {:token      token
-                                                :params     (srv/make-refresh-token-op token)
-                                                :on-success [::handle-refresh-token-response]
-                                                :on-failure [::handle-refresh-token-failure]})]]}))
+  (fn [{:keys [db]} _]
+    (let [token (get-in db [:authenticated-user :io.jwt/token])]
+      (js/console.log "performing token refresh using token " token)
+      {:fx [[:http-xhrio (srv/make-xhrio-request {:token      token
+                                                  :params     (srv/make-refresh-token-op {:token token})
+                                                  :on-success [::handle-refresh-token-response]
+                                                  :on-failure [::handle-refresh-token-failure]})]]})))
 
 (rf/reg-event-fx ::handle-refresh-token-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [refresh-token]}]]
-    (js/console.log "Refresh token success: response: " refresh-token)
-    {:db (assoc-in db [:authenticated-user :io.jwt/token] refresh-token)}))
+    (js/console.log "Refresh token success: response: " (:io.jwt/token refresh-token))
+    {:db (assoc-in db [:authenticated-user :io.jwt/token] (:io.jwt/token refresh-token))}))
 
 (rf/reg-event-fx ::handle-refresh-token-failure
   []
@@ -110,23 +111,24 @@
 (rf/reg-event-fx
   ::check-token
   (fn [{db :db} [_]]
-    (cond
-      ;; no authenticated user -> explicitly do nothing... without this, the next condition will be thrown
-      (nil? (:authenticated-user db))
-      (js/console.log "no current logged in user")
+    (let [token (get-in db [:authenticated-user :io.jwt/token])]
+      (cond
+        ;; no authenticated user -> explicitly do nothing... without this, the next condition will be thrown
+        (nil? token)
+        (js/console.log "no current logged in user")
 
-      ;; user token expired - we have to force end to our session
-      (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 0)
-      (do (js/console.log "session expired for user" (get-in db [:authenticated-user :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]))
-          {:fx [[:dispatch [::do-session-expire]]]})
+        ;; user token expired - we have to force end to our session
+        (srv/jwt-expires-in-seconds? token 0)
+        (do (js/console.log "session expired for user" (get-in db [:authenticated-user :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]))
+            {:fx [[:dispatch [::do-session-expire]]]})
 
-      ;; user token expiring soon - we still have chance to refresh our token without needing to ask for credentials again
-      (srv/jwt-expires-in-seconds? (get-in db [:authenticated-user :io.jwt/token]) 90)
-      (do (js/console.log "session expiring in " (srv/jwt-expires-seconds (get-in db [:authenticated-user :io.jwt/token])) " seconds; refreshing token")
-          {:fx [[:dispatch [::refresh-token {:token (get-in db [:authenticated-user :io.jwt/token])}]]]})
+        ;; user token expiring soon - we still have chance to refresh our token without needing to ask for credentials again
+        (srv/jwt-expires-in-seconds? token 90)
+        (do (js/console.log "session expiring in " (srv/jwt-expires-seconds token) " seconds; refreshing token")
+            {:fx [[:dispatch [::refresh-token]]]})
 
-      ;; we have an active session
-      :else (js/console.log "active session; token expires in " (srv/jwt-expires-seconds (get-in db [:authenticated-user :io.jwt/token])) "seconds"))))
+        ;; we have an active session
+        :else (js/console.log "active session; token expires in " (srv/jwt-expires-seconds token) "seconds")))))
 
 
 (comment
@@ -134,5 +136,8 @@
   (rf/dispatch-sync [::do-logout])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/login-error])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
+  @(rf/subscribe [:eldrix.pc4-ward.user.subs/token])
   (rf/dispatch-sync [::ping-server])
+  (rf/dispatch-sync [::check-token])
+  (rf/dispatch-sync [::refresh-token])
   )

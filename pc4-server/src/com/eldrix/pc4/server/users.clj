@@ -53,7 +53,6 @@
   "Refresh the user token.
   Parameters:
     |- :token              : the existing token
-
   Returns a new token."
   [{:com.eldrix.pc4/keys [login] :as env} {:keys [token]}]
   {::pco/op-name 'pc4.users/refresh-token
@@ -61,7 +60,7 @@
    ::pco/output  [:io.jwt.token]}
   (when-not (s/valid? ::login-configuration login)
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
-  (refresh-user-token token login))
+  {:io.jwt/token (refresh-user-token token login)})
 
 (pco/defmutation login-operation
   "Perform a login.

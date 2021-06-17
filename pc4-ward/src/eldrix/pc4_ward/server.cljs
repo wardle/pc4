@@ -197,4 +197,6 @@
   pt
   (def a1 (first (:wales.nhs.cavuhb.Patient/ADDRESSES pt)))
   (println (:wales.nhs.cavuhb.Address/DATE_FROM a1))
+
+
   )

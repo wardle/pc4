@@ -35,8 +35,7 @@
 (defn execute-pathom [ctx env params]
   (let [pathom (:pathom-boundary-interface ctx)
         result (pathom env params)
-        mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))
-        _ (log/info "api call; result:" result)]
+        mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
     (if-not mutation-error
       (assoc ctx :response (ok result))
       (do (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
@@ -61,6 +60,7 @@
   {:name  ::attach-claims
    :enter (fn [ctx]
             (let [auth-header (get-in ctx [:request :headers "authorization"])
+                  _ (log/info "request auth:" auth-header)
                   [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
                   login-config (:com.eldrix.pc4/login ctx)
                   claims (when (and token login-config) (users/check-user-token token login-config))]
@@ -77,7 +77,7 @@
   {:name  :ping
    :enter (fn [ctx]
             (let [{:keys [uuid] :as params} (get-in ctx [:request :transit-params])]
-              (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid]}])))})
+              (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}])))})
 
 (def api
   "Interceptor that pulls out EQL from the request and responds with
@@ -90,7 +90,7 @@
   :authenticated-user"
   {:name  ::api
    :enter (fn [ctx]
-            (log/debug "request: " (get-in ctx [:request :transit-params]))
+            (log/info "api request: " (get-in ctx [:request :transit-params]))
             (let [params (get-in ctx [:request :transit-params])
                   claims (:authenticated-claims ctx)
                   env (when claims {:authenticated-user (select-keys claims [:system :value])})]

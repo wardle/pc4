@@ -5,6 +5,10 @@
   * Token management, including refresh"
   (:require [re-frame.core :as rf]))
 
+(rf/reg-sub ::token
+  (fn [db]
+    (get-in db [:authenticated-user :io.jwt/token])))
+
 (rf/reg-sub ::authenticated-user
   (fn [db]
     (get-in db [:authenticated-user :practitioner])))
