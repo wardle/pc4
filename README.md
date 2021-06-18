@@ -13,9 +13,15 @@ non-neurological disorders.
 Version 4 brings together a suite of loosely-coupled modules and a high
 degree of interoperability with other health and care systems. 
 
+It is a work-in-progress, but the much of the backend components are now complete. 
+The front-end applications are small and highly modular, while providing the 
+appearance of a single seamless system.
+
 There is a high degree of separation between user-facing applications and 
 underlying data and computing services, with adoption of a range of 
 health and care technical standards.
+
+The applications simply ask for data in the structure and format that best suits their need, and the backend services provide those data. Many of the examples use HL7 FHIR data models. 
 
 * SNOMED CT as a *lingua franca*, as provided by [hermes](https://github.com/wardle/hermes).
 * Organisational and geographical data and computing services, as provided by [clods](https://github.com/wardle/clods)
