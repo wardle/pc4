@@ -1,9 +1,12 @@
 (ns eldrix.pc4-ward.refer.views
   (:require [clojure.string :as str]
             [cljs.spec.alpha :as s]
+            [com.eldrix.pc4.commons.debounce :as debounce]
             [eldrix.pc4-ward.refer.core :as refer]
             [eldrix.pc4-ward.refer.subs :as subs]
             [eldrix.pc4-ward.refer.events :as events]
+            [eldrix.pc4-ward.org.events :as org-events]
+            [eldrix.pc4-ward.org.subs :as org-subs]
             [eldrix.pc4-ward.user.subs :as user-subs]
             [eldrix.pc4-ward.user.events :as user-events]
             [eldrix.pc4-ward.user.views :as user-views]
@@ -120,7 +123,7 @@
        [ui/ui-label :label "Hospital"]
        (case @mode
          :select
-         [:<>
+         [:div.flex
           [:select.border.bg-white.rounded.px-3.py-2.outline-none
            [:option.py-1 "University Hospital Wales, Cardiff"]
            [:option.py-1 "Prince Charles Hospital, Merthyr Tydfil"]]
@@ -128,9 +131,23 @@
            {:on-click #(reset! mode :autocomplete)} "..."]]
          :autocomplete
          [:<>
-          [:p "Autocompleting"]
+          [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+           {:id            :refer-hospital :type "text" :placeholder "Enter hospital name" :required true
+            :class         ["text-gray-700" "bg-white" "shadow"]
+            :default-value nil
+            :auto-focus    true
+            :on-change     #(let [s (-> % .-target .-value)]
+                              (if (>= (count s) 3)
+                                (debounce/dispatch-debounced [::org-events/search-uk :refer-hospital {:n s :roles ["RO148"]}])
+                                (rf/dispatch [::org-events/clear-search-results :refer-hospital])))}]
           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-           {:on-click #(reset! mode :select)} "Close"]])])))
+           {:on-click #(reset! mode :select)} "Close"]
+          [:select.w-full {:multiple true :size 5}
+           (for [result @(rf/subscribe [::org-subs/search-results :refer-hospital])]
+             [:option {:key (let [id (first (:org.hl7.fhir.Organization/identifier result))]
+                              (str (:org.hl7.fhir.Identifier/system id) "/" (:org.hl7.fhir.Identifier/value id)))}
+              (str (:org.hl7.fhir.Organization/name result) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address result))))])
+           ]])])))
 
 
 (defn patient-panel

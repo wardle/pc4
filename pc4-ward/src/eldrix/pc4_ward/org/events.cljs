@@ -17,8 +17,6 @@
 (rf/reg-event-fx
   ::search-uk []
   (fn [{db :db} [_ id params]]
-    (when-not (s/valid? ::search-parameters params)
-      (js/console.log "search uk org: invalid parameters " (s/explain-str ::search-parameters params)))
     (js/console.log "search UK organization id: " id " params: " params)
     {:db (-> db
              (update :organization/search dissoc :id)
@@ -27,6 +25,15 @@
                                                 :token      (get-in db [:authenticated-user :io.jwt/token])
                                                 :on-success [::handle-search-response id]
                                                 :on-failure [::handle-search-failure id]})]]}))
+
+
+(comment
+  (search-uk))
+
+(rf/reg-event-db
+  ::clear-search-results
+  (fn [db [_ id]]
+    (update-in db [:organization/search-results] dissoc id)))
 
 (rf/reg-event-fx ::handle-search-response
   []
