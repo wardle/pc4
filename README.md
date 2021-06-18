@@ -1,5 +1,9 @@
 # PatientCare v4
 
+
+[![Scc Count Badge](https://sloc.xyz/github/wardle/pc4)](https://github.com/wardle/pc4/)
+[![Scc Cocomo Badge](https://sloc.xyz/github/wardle/pc4?category=cocomo&avg-wage=100000)](https://github.com/wardle/pc4/)
+
 PatientCare v4 is a new type of electronic health and care patient electronic record system. 
 
 Previous versions have been in constant use within NHS Wales, UK since 2008, 
