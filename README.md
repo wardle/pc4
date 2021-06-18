@@ -13,7 +13,7 @@ non-neurological disorders.
 Version 4 brings together a suite of loosely-coupled modules and a high
 degree of interoperability with other health and care systems. 
 
-It is a work-in-progress, but the much of the backend components are now complete. 
+It is a work-in-progress, but the many of the backend components are now complete. 
 The front-end applications are small and highly modular, while providing the 
 appearance of a single seamless system.
 
