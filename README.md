@@ -37,6 +37,13 @@ lightweight, ephemeral and focused on workflow and process, providing multiple
 
 # Components
 
+A core principle is that user-facing applications should be smart in
+user interactions but dumb in terms of business logic; the latter are
+delegated to the backend server.
+
+Fetching data from the backend uses a graph API. Changes are made using
+events, sent to the server.
+
 ## pc4-server
 
 This is the main server component, providing an API for graph-like queries for reads and writes. Data is pulled into
@@ -45,4 +52,8 @@ the application, and events are streamed to the server in order to perform effec
 ## pc4-ward
 
 This repository is the first substantial user-facing component. 
-It is designed as an electronic observations application.
+It is designed to provide the workflow of making an electronic referral.
+
+
+
+

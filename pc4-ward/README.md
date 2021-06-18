@@ -1,8 +1,38 @@
 # pc4-ward 
 
-An lightweight e-observations application.
+A demonstrator application for making referrals.
 
-It has a deliberately *limited* scope, designed to support 
+It has a deliberately *limited* scope, designed to support
+
+* user login
+* patient lookup / selection from ward lists
+* completion / auto-completion of clinical details
+* sending the referral
+
+in order to:
+
+* suit a workflow on a hospital ward.
+* test a new architecture for PatientCare v4.
+
+For its main operations, it connects to `pc4-server`.
+
+A core principle is that user-facing applications should be smart in
+user interactions but dumb in terms of business logic; the latter are
+delegated to the backend server.
+
+Fetching data from the backend uses a graph API. Changes are made using
+events, sent to the server.
+
+
+# Future plans
+
+This is a small modular application. It is designed to show how a 
+suite of potentially independently developed modules can interact with
+the same server-side components to solve problems.
+
+### An lightweight e-observations application.
+
+This has a deliberately *limited* scope, designed to support 
 
 * user login
 * patient lookup / selection from ward lists
@@ -16,16 +46,10 @@ in order to:
   
 For its main operations, it connects to `pc4-server`. 
 
-A core principle is that user-facing applications should be smart in 
-user interactions but dumb in terms of business logic; the latter are 
-delegated to the backend server.
-
 Although initially components such as the SVG NEWS2 chart will be built into 
 this application, they will be put into a shared library for re-use across
 multiple user-facing applications.
 
-Fetching data from the backend uses a graph API. Changes are made using
-events, sent to the server. 
 
 ### Environment Setup
 
