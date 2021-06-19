@@ -28,9 +28,9 @@ events, sent to the server.
 
 This is a small modular application. It is designed to show how a 
 suite of potentially independently developed modules can interact with
-the same server-side components to solve problems.
+the same server-side components to solve user problems.
 
-### An lightweight e-observations application.
+### A lightweight e-observations application.
 
 This has a deliberately *limited* scope, designed to support 
 
