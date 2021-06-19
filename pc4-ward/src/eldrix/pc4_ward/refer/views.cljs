@@ -138,7 +138,7 @@
             :auto-focus    true
             :on-change     #(let [s (-> % .-target .-value)]
                               (if (>= (count s) 3)
-                                (debounce/dispatch-debounced [::org-events/search-uk :refer-hospital {:n s :roles ["RO148"]}])
+                                (debounce/dispatch-debounced [::org-events/search-uk :refer-hospital {:n s :roles ["RO150" "RO198" "RO149" "RO108"]}])
                                 (rf/dispatch [::org-events/clear-search-results :refer-hospital])))}]
           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
            {:on-click #(reset! mode :select)} "Close"]
