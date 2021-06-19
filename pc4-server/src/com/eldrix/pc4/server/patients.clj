@@ -6,8 +6,7 @@
     [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
     [com.wsscode.pathom3.connect.operation :as pco]
     [com.wsscode.pathom3.connect.indexes :as pci]
-    [clojure.string :as str]
-    [com.eldrix.pc4.server.dates :as dates])
+    [clojure.string :as str])
   (:import (java.time LocalDate)))
 
 (defn date-in-range?
@@ -251,13 +250,16 @@
                     (pbir/alias-resolver :wales.nhs.cavuhb.Patient/DATE_DEATH :org.hl7.fhir.Patient/deceased)])
 
 (comment
-  (require '[com.eldrix.pc4.server.system :as pc4-system])
+  (require '[com.eldrix.pc4.server.system :as pc4-system]
+           '[integrant.core :as ig])
   (def system (pc4-system/init :dev))
   (ig/halt! system)
+  
   (do
     (ig/halt! system)
     (def system (pc4-system/init :dev)))
-  (connect-viz (:pathom/registry system))
+  
+  ;(connect-viz (:pathom/registry system))
 
   (add-namespace-cav-patient (get fake-cav-patients "A999998"))
   (get fake-cav-patients "A999998")

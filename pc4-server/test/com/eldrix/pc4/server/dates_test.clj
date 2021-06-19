@@ -1,5 +1,5 @@
 (ns com.eldrix.pc4.server.dates-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is run-tests]]
             [com.eldrix.pc4.server.dates :as dates])
   (:import (java.time LocalDateTime ZonedDateTime ZoneId LocalDate)))
 
@@ -69,7 +69,7 @@
     :expected    nil}])
 
 (defn test-display-age
-  [{:keys [start end description expected] :as example}]
+  [{:keys [start end _description expected] :as example}]
   (when (and start end)
     (let [result (dates/age-display start end)]
       (assoc example

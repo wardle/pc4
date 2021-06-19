@@ -315,6 +315,7 @@
 
 (comment
 
+  (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 10}))
@@ -376,7 +377,6 @@
 
   (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
                                        :where  [:= :id 15]}))
-  (encounter-encounter_template {:com.eldrix.rsdb/conn conn} {:t_encounter/encounter_template_fk 15})
   (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
 
   (def ^LocalDate date (LocalDate/now))
@@ -384,5 +384,4 @@
   (address-for-date (fetch-patient-addresses conn 7382))
 
   (fetch-patient-addresses conn 119032)
-  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
-  )
+  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34}))
