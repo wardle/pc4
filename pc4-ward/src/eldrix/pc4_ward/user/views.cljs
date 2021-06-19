@@ -15,7 +15,7 @@
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
         do-login #(rf/dispatch [::user-events/do-login "wales.nhs.uk" (str/trim @username) @password])]
     (fn []
-      [:<>
+      [:form {:on-submit #(.preventDefault %)}
        [:section.p-2.mx-auto.bg-white.rounded-md.shadow-md.dark:bg-gray-800
         [:h2.text-lg.font-semibold.text-gray-700.capitalize.dark:text-white "Please login"]
         [:div.grid.grid-cols-1.gap-6.mt-4
@@ -24,6 +24,7 @@
           [:input#username.block.px-4.py-2.mt-2.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
            {:id          "login-username" :type "text" :placeholder "e.g. ma090906" :required true
             :disabled    submitting
+            :auto-complete "username"
             :auto-focus  true
             :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "login-pw"))))
             :on-change   #(reset! username (-> % .-target .-value))}]]
@@ -32,6 +33,7 @@
           [:input#password.block.px-4.py-2.mt-2.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
            {:id          "login-pw" :type "password" :placeholder "Enter password" :required true
             :disabled    submitting
+            :auto-complete "current-password"
             :on-key-down #(if (= 13 (.-which %))
                             (do (reset! password (-> % .-target .-value)) (do-login)))
             :on-change   #(reset! password (-> % .-target .-value))}]]]
