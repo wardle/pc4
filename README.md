@@ -45,6 +45,20 @@ lightweight, ephemeral and focused on workflow and process, providing multiple
   user centric views of the same data.
 * different semantics for reading data comparing to writing data; we read using a graph API across disparate federated datasets and write using an event model.
 
+### Current status
+
+This is a work-in-progress. I am principally porting functionality from 
+PatientCare v3 into this new architectural design. The immediate priorities
+are of an electronic referral system for inpatient liaison services across
+multiple organisations and an e-observations module for the identification
+of the deteriorating patient. These modules are not present in PatientCare v3,
+so complement that legacy application. The idea is to build the new application in
+parallel with the old, with both running together and newer functionality
+gradually replacing the old as time progresses. This is the Martin Fowler
+['strangler' pattern](https://martinfowler.com/bliki/StranglerFigApplication.html), 
+which suits me a lot, as a single developer working in my spare time, I cannot 
+hope to deliver a big-bang re-write. Instead, I can deliver incrementally.
+
 # Components
 
 A core principle is that user-facing applications should be smart in
