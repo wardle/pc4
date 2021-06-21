@@ -1,5 +1,6 @@
 (ns eldrix.pc4-ward.ui
   (:require [clojure.string :as str]
+            [com.eldrix.pc4.commons.dates :as dates]
             [reagent.core :as reagent]))
 
 
@@ -92,25 +93,23 @@
            [:div.px-2.pt-2.pb-3.space-y-1
             (for [item menu]
               (if (and selected (:id item) (= (:id item) selected))
-                [:a.bg-gray-900.text-white.block.px-3.py-2.rounded-md.text-base.font-medium {:key (:id item) :on-click (:on-click item) :aria-current "page"} (:title item)]
-                [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
+                [:a.bg-gray-900.text-white.block.px-3.py-2.rounded-md.text-base.font-medium 
+                 {:key (:id item) :on-click (:on-click item) :aria-current "page"} (:title item)]
+                [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium 
+                 {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
-(comment [:button.rounded.bg-white.border {:on-click on-close}
-          [:svg {:xmlns "http://www.w3.org/2000/svg" :width "18" :height "18" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]
-
-         )
 
 (defn patient-banner
   [& {:keys [name nhs-number born hospital-identifier address deceased on-close]}]
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
    (when on-close
-     [:div.absolute.-top-2.5.-right-2
-      [:button.bg-gray-100.hover:bg-gray-400.border.border-gray-400.text-xs.text-gray-900.font-bold.px-2.py-1.rounded-full
-       {:on-click on-close :title "Close patient record"} "X"]])
+     [:div.absolute.-top-2.-right-1
+      [:button.rounded.bg-white.border.hover:bg-gray-400.bg.gray-50.px-1 {:on-click on-close :title "Close patient"}
+       [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]])
    (when deceased
      [:div.grid.grid-cols-1.pb-2
       [badge (if (instance? goog.date.Date deceased)
-               (str "Died " (com.eldrix.pc4.commons.dates/format-date deceased))
+               (str "Died " (dates/format-date deceased))
                "Deceased")]])
    [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
     [:div.font-bold.text-lg.min-w-min name]
@@ -304,5 +303,5 @@
      :disabled      disabled
      :default-value value
      :auto-focus    auto-focus
-     :on-change     #(on-change (-> % .-target .-value))}]
+     :on-change     #(when on-change (on-change (-> % .-target .-value)))}]
    (when help-text [:p.text-sm.text-gray-500.italic help-text])])
