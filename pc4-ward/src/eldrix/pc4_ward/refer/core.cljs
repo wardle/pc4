@@ -73,7 +73,9 @@
 (s/def ::patient :org.hl7.fhir/Patient)
 (s/def ::mode #{:inpatient :outpatient :advice})
 (s/def ::hospital :org.hl7.fhir/Organization)
-(s/def ::location (s/keys :req [::mode]
+(s/def ::ward ::non-blank-string)
+(s/def ::consultant ::non-blank-string)
+(s/def ::location (s/keys :req [::mode ::consultant]
                           :opt [::hospital ::ward]))
 (s/def ::service string?)
 (s/def ::question string?)

@@ -216,6 +216,10 @@
                :id "pt-ward" :label "Ward" :required true :disabled false
                :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/ward] %)])
                :help-text "On which ward is the patient?"]
+              [ui/textfield-control
+               (get-in referral [::refer/location ::refer/consultant])
+               :id "pt-consultant" :label "Consultant" :required true :disabled false
+               :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/consultant] %)])]
               )))
 
 
