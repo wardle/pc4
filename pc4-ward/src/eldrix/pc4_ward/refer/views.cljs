@@ -185,23 +185,6 @@
             [:p "Selected:"]]]])])))
 
 
-(defn select-patient-hospital [referral]
-  [select-or-autocomplete {:label                "Which hospital?"
-                           :value                (get-in referral [::refer/location ::refer/hospital])
-                           :id-key               org-events/official-identifier
-                           :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
-                           :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
-                           :no-selection-string ""
-                           :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
-                           :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
-                           :clear-fn             #(rf/dispatch [::org-events/clear-search-results])
-                           :select-fn            #(do (println "selected hospital" (:org.hl7.fhir.Organization/name %) (org-events/official-identifier %))
-                                                      (rf/dispatch [::events/update-referral  (assoc-in referral [::refer/location ::refer/hospital] %)]))
-                           :placeholder          "Search for hospital"}])
-
-
-;; @(rf/subscribe [::org-subs/search-results :refer-hospital])
-
 (defn patient-panel
   [referral]
   (let [current-patient (::refer/patient referral)
@@ -216,11 +199,22 @@
               [ui/ui-label :label "Location"]
               [:select.w-full.border.bg-white.rounded.px-3.py-2.outline-none
                [:option.py-1 "Inpatient"]]
+              [select-or-autocomplete {:label                "Which hospital?"
+                                       :value                (or (get-in referral [::refer/location ::refer/hospital]) @(rf/subscribe [::user-subs/default-hospital]))
+                                       :id-key               org-events/official-identifier
+                                       :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
+                                       :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
+                                       ;  :no-selection-string ""
+                                       :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
+                                       :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
+                                       :clear-fn             #(rf/dispatch [::org-events/clear-search-results])
+                                       :select-fn            #(do (println "selected hospital" (:org.hl7.fhir.Organization/name %) (org-events/official-identifier %))
+                                                                  (rf/dispatch [::events/update-referral  (assoc-in referral [::refer/location ::refer/hospital] %)]))
+                                       :placeholder          "Search for hospital"}]
               [ui/textfield-control
-               ""
+               (get-in referral [::refer/location ::refer/ward])
                :id "pt-ward" :label "Ward" :required true :disabled false
                :help-text "On which ward is the patient?"]
-              [select-patient-hospital referral]
               )))
 
 
