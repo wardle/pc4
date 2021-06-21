@@ -107,13 +107,23 @@
   [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER HOSPITAL_ID]}]
   {::pco/input  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
                  (pco/? :wales.nhs.cavuhb.Patient/NHS_NUMBER)]
-   ::pco/output [{:org.hl7.fhir.Patient/identifiers [:org.hl7.fhir.Identifier/system :org.hl7.fhir.Identifier/value]}]}
-  {:org.hl7.fhir.Patient/identifiers
+   ::pco/output [{:org.hl7.fhir.Patient/identifier [:org.hl7.fhir.Identifier/system :org.hl7.fhir.Identifier/value]}]}
+  {:org.hl7.fhir.Patient/identifier
    (cond-> [{:org.hl7.fhir.Identifier/system :wales.nhs.cavuhb.id/pas-identifier
              :org.hl7.fhir.Identifier/value  HOSPITAL_ID}]
            (not (str/blank? NHS_NUMBER))
            (conj {:org.hl7.fhir.Identifier/system :uk.nhs.id/nhs-number
                   :org.hl7.fhir.Identifier/value  NHS_NUMBER}))})
+
+(pco/defresolver cav->fhir-names
+  [{:wales.nhs.cavuhb.Patient/keys [TITLE FIRST_NAMES LAST_NAME]}]
+  {::pco/output [{:org.hl7.fhir.Patient/name [:org.hl7.fhir.HumanName/prefix
+                                              :org.hl7.fhir.HumanName/given
+                                              :org.hl7.fhir.HumanName/family
+                                              :org.hl7.fhir.HumanName/use]}]}
+  {:org.hl7.fhir.Patient/name [{:org.hl7.fhir.HumanName/prefix TITLE
+                                :org.hl7.fhir.HumanName/given  (str/split FIRST_NAMES #" ")
+                                :org.hl7.fhir.HumanName/family LAST_NAME}]})
 
 (pco/defresolver cav->fhir-gender
   [{:wales.nhs.cavuhb.Patient/keys [SEX]}]
@@ -200,8 +210,8 @@
    CUI standard ISB1505.
    See https://webarchive.nationalarchives.gov.uk/20150107150145/http://www.isb.nhs.uk/documents/isb-1505/dscn-09-2010/"
   [env {:wales.nhs.cavuhb.Patient/keys [DATE_BIRTH DATE_DEATH]}]
-  {::pco/input [:wales.nhs.cavuhb.Patient/DATE_BIRTH
-                (pco/? :wales.nhs.cavuhb.Patient/DATE_DEATH)]
+  {::pco/input  [:wales.nhs.cavuhb.Patient/DATE_BIRTH
+                 (pco/? :wales.nhs.cavuhb.Patient/DATE_DEATH)]
    ::pco/output [:uk.nhs.cfh.isb1505/display-age]}
   (let [display-age (dates/age-display DATE_BIRTH (or (get env :date) (LocalDate/now)))]
     (when (and (not DATE_DEATH) display-age)
@@ -233,6 +243,7 @@
 
 (def all-resolvers [fetch-cav-patient
                     cav->fhir-identifiers
+                    cav->fhir-names
                     cav->fhir-gender
                     cav->fhir-deceased
                     cav->fhir-addresses
@@ -254,11 +265,11 @@
            '[integrant.core :as ig])
   (def system (pc4-system/init :dev))
   (ig/halt! system)
-  
+
   (do
     (ig/halt! system)
     (def system (pc4-system/init :dev)))
-  
+
   ;(connect-viz (:pathom/registry system))
 
   (add-namespace-cav-patient (get fake-cav-patients "A999998"))
