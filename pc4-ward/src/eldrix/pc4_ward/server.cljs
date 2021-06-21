@@ -108,24 +108,6 @@
           params)
     user-query}])
 
-(defn make-cav-fetch-patient-op
-  [{:keys [pas-identifier]}]
-  [{(list 'wales.nhs.cavuhb/fetch-patient
-          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
-    [:org.hl7.fhir.Patient/birthDate
-     :wales.nhs.cavuhb.Patient/DATE_DEATH
-     :uk.nhs.cfh.isb1505/display-age
-     :wales.nhs.cavuhb.Patient/IS_DECEASED
-     :wales.nhs.cavuhb.Patient/ADDRESSES
-     :wales.nhs.cavuhb.Patient/HOSPITAL_ID
-     :uk.nhs.cfh.isb1504/nhs-number
-     :uk.nhs.cfh.isb1506/patient-name
-     :org.hl7.fhir.Patient/identifiers
-     :wales.nhs.cavuhb.Patient/SEX
-     :org.hl7.fhir.Patient/gender
-     :org.hl7.fhir.Patient/deceased
-     :org.hl7.fhir.Patient/currentAddress]}])
-
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
@@ -133,13 +115,6 @@
 
 (defn default-error-handler [x]
   (js/console.log "error in request: " x))
-
-(defn fetch-patient
-  [s & {:keys [handler error-handler token] :or {error-handler default-error-handler}}]
-  (do! {:params        (make-cav-fetch-patient-op {:pas-identifier s})
-        :token         token
-        :handler       #(handler (get % 'wales.nhs.cavuhb/fetch-patient))
-        :error-handler error-handler}))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)

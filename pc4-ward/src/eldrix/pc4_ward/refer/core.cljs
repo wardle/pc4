@@ -5,7 +5,7 @@
 ;; these could be automatically generated from the FHIR specs, except that the
 ;; specifications often have everything as optional (e.g. cardinality 0..1).
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
-(s/def :org.hl7.fhir.Identifier/system ::non-blank-string)
+(s/def :org.hl7.fhir.Identifier/system (s/or :non-blank-string ::non-blank-string :keyword keyword?))
 (s/def :org.hl7.fhir.Identifier/value ::non-blank-string)
 (s/def :org.hl7.fhir/Identifier (s/keys :req [:org.hl7.fhir.Identifier/system :org.hl7.fhir.Identifier/value]
                                         :opt [:org.hl7.fhir.Identifier/use :org.hl7.fhir.Identifier/type

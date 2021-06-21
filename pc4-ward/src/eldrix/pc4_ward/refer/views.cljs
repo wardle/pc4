@@ -233,7 +233,8 @@
            :available      available
            :completed      completed
            :stage          stage
-           :valid-referrer (s/explain-data ::refer/referrer referral)})
+           :valid-referrer (s/explain-data ::refer/referrer (::refer/referrer referral))
+           :valid-patient (s/explain-data ::refer/patient (::refer/patient referral))})
     [:<>
      [ui/nav-bar
       :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]   :selected :refer-patient
