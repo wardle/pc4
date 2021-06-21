@@ -9,9 +9,27 @@
             [ajax.transit :as ajax-transit]
             [com.eldrix.pc4.commons.dates :as dates]))
 
+
+
+(def user-query
+  [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+   :io.jwt/token
+   :urn.oid.2.5.4/givenName
+   :urn.oid.2.5.4/surname
+   :urn.oid.0.9.2342.19200300.100.1.3
+   :urn.oid.2.5.4/commonName
+   :urn.oid.2.5.4/title
+   :urn.oid.2.5.4/telephoneNumber
+   :org.hl7.fhir.Practitioner/telecom
+   :org.hl7.fhir.Practitioner/identifier
+   {:org.hl7.fhir.Practitioner/name
+    [:org.hl7.fhir.HumanName/use
+     :org.hl7.fhir.HumanName/family
+     :org.hl7.fhir.HumanName/given]}])
+
 (rf/reg-event-fx
   ::do-login []
-  (fn [{db :db} [_ namespace username password]]
+  (fn [{_db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
     {:db db/default-db
      :fx [[:http-xhrio {:method          :post
@@ -24,7 +42,7 @@
                         :params          {:system   namespace
                                           :value    username
                                           :password password
-                                          :query    srv/user-query}}]]}))
+                                          :query    user-query}}]]}))
 
 ;; Login success simply means the http request worked.
 ;; The pc4.users/login operation returns a user if the login was successful.
@@ -105,7 +123,7 @@
 
 (rf/reg-event-fx ::handle-refresh-token-failure
   []
-  (fn [{:keys [db]} [_ response]]
+  (fn [{:keys [_db]} [_ response]]
     (js/console.log "User token refresh failure: response " response)))
 
 (rf/reg-event-fx

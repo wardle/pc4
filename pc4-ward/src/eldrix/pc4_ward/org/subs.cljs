@@ -3,4 +3,4 @@
 
 (rf/reg-sub ::search-results
   (fn [db [_ id]]
-    (get-in db [:organization/search-results id])))
+    (get-in db [:organization/search-results id :results])))

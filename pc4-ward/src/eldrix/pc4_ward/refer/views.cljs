@@ -116,43 +116,88 @@
           :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)])])))
 
 
-(defn select-or-autocomplete []
-  (let [mode (reagent/atom :select)]
-    (fn []
+(defn select-or-autocomplete
+  "A flexible select/autocompletion control.
+  Parameters:
+  - label          : label to show
+  - value          : currently selected value, if any
+  - id-key         : function to get id from a value (e.g. could be a keyword)
+  - display-key    : function to get display from value
+  - common-choices : collection of common choices to show
+  - autocomplete-fn: autocompletion function that takes one parameter
+  - clear-fn       : function to run to clear autocompletion, if required
+  - select-fn      : function to be called with a selected id
+  - minimum-chars  : minimum number of characters needed to run autocompletion
+  - autocomplete-results - results of autocompletion
+  - placeholder    : placeholder text for autocompletion."
+  [{:keys [clear-fn]}]
+  (when clear-fn (clear-fn))
+  (let [mode (reagent/atom nil)]
+    (fn [{:keys [label value id-key display-key common-choices autocomplete-fn clear-fn
+                 autocomplete-results select-fn placeholder minimum-chars]
+          :or   {minimum-chars 3}}]
       [:<>
-       [ui/ui-label :label "Hospital"]
-       (case @mode
-         :select
+       (when label [ui/ui-label :label label])
+       (cond
+         (and (seq common-choices) (= :select (or @mode :select)))
          [:div.flex
           [:select.border.bg-white.rounded.px-3.py-2.outline-none
-           [:option.py-1 "University Hospital Wales, Cardiff"]
-           [:option.py-1 "Prince Charles Hospital, Merthyr Tydfil"]]
+           {:value (id-key value) :on-change #(when select-fn (select-fn (nth common-choices (-> % .-target .-selectedIndex))))}
+           (when-not value [:option.py-1 "- Choose -"]
+           (for [choice common-choices]
+             (let [id (id-key choice)]
+               [:option.py-1 {:value id :key id}
+                (display-key choice)]))]
           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
            {:on-click #(reset! mode :autocomplete)} "..."]]
-         :autocomplete
+         (= :autocomplete @mode)
          [:<>
-          [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-           {:id            :refer-hospital :type "text" :placeholder "Enter hospital name" :required true
-            :class         ["text-gray-700" "bg-white" "shadow"]
-            :default-value nil
-            :auto-focus    true
-            :on-change     #(let [s (-> % .-target .-value)]
-                              (if (>= (count s) 3)
-                                (debounce/dispatch-debounced [::org-events/search-uk :refer-hospital {:n s :roles ["RO150" "RO198" "RO149" "RO108"]}])
-                                (rf/dispatch [::org-events/clear-search-results :refer-hospital])))}]
-          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-           {:on-click #(reset! mode :select)} "Close"]
-          [:select.w-full {:multiple true :size 5}
-           (for [result @(rf/subscribe [::org-subs/search-results :refer-hospital])]
-             [:option {:key (let [id (first (:org.hl7.fhir.Organization/identifier result))]
-                              (str (:org.hl7.fhir.Identifier/system id) "/" (:org.hl7.fhir.Identifier/value id)))}
-              (str (:org.hl7.fhir.Organization/name result) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address result))))])
-           ]])])))
+          [:div.flex
+           [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+            {:id            :refer-hospital :type "text" :placeholder placeholder :required true
+             :class         ["text-gray-700" "bg-white" "shadow"]
+             :default-value nil
+             :auto-focus    true
+             :on-change     #(let [s (-> % .-target .-value)]
+                               (if (>= (count s) minimum-chars)
+                                 (debounce/debounce (autocomplete-fn s) 200)
+                                 (when clear-fn (clear-fn))))}]
+           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+            {:on-click #(reset! mode :select)} "Close"]]
+          [:div.grid-cols-1.sm:grid-cols-2
+           [:div
+            [:select.w-full.border.border-gray-300.rounded-md
+             {:multiple  true :size 5
+              :on-change #(when select-fn (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))}
+             (for [result autocomplete-results]
+               (let [id (id-key result)]
+                 [:option {:value result :key id}
+                  (display-key result)]))]]
+           [:div
+            [:p "Selected:"]]]])])))
 
+
+(defn select-patient-hospital [referral]
+  [select-or-autocomplete {:label                "Which hospital?"
+                           :value                (get-in referral [::refer/location ::refer/hospital])
+                           :id-key               org-events/official-identifier
+                           :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
+                           :common-choices       (sort-by :org.hl7.fhir.Organization/name @(rf/subscribe [::user-subs/common-hospitals]))
+                           :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
+                           :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
+                           :clear-fn             #(rf/dispatch [::org-events/clear-search-results])
+                           :select-fn            #(do (println "selected hospital" (:org.hl7.fhir.Organization/name %) (org-events/official-identifier %))
+                                                      (tap> (assoc-in referral [:location :hospital] %))
+                                                      (rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)]))
+                           :placeholder          "Search for hospital"}])
+
+
+;; @(rf/subscribe [::org-subs/search-results :refer-hospital])
 
 (defn patient-panel
   [referral]
-  (let [current-patient (::refer/patient referral)]
+  (let [current-patient (::refer/patient referral)
+        location (::refer/location referral)]
     (ui/panel {:title         "Patient details?"
                :save-label    "Next"
                :save-disabled false                         ;;(not valid?)
@@ -167,7 +212,7 @@
                ""
                :id "pt-ward" :label "Ward" :required true :disabled false
                :help-text "On which ward is the patient?"]
-              [select-or-autocomplete]
+              [select-patient-hospital referral]
               )))
 
 
@@ -181,7 +226,7 @@
            :available      available
            :completed      completed
            :stage          stage
-           :valid-referrer (s/explain-data ::refer/valid-referrer? referral)})
+           :valid-referrer (s/explain-data ::refer/referrer referral)})
     [:<>
      [ui/nav-bar
       :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]   :selected :refer-patient

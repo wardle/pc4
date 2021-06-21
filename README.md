@@ -15,13 +15,15 @@ degree of interoperability with other health and care systems.
 
 It is a work-in-progress, but the many of the backend components are now complete. 
 The front-end applications are small and highly modular, while providing the 
-appearance of a single seamless system.
+appearance of a single seamless system. The first applications will be broken-up
+and common functionality provided in client libraries.
 
 There is a high degree of separation between user-facing applications and 
 underlying data and computing services, with adoption of a range of 
 health and care technical standards.
 
-The applications simply ask for data in the structure and format that best suits their need, and the backend services provide those data. Many of the examples use HL7 FHIR data models. 
+The applications simply ask for data in the structure and format that best suits their need, and the backend services provide those data. Many of the examples use HL7 FHIR data models at the moment, 
+but I have used the same approach to deliver the same data as openEHR archetypes.
 
 * SNOMED CT as a *lingua franca*, as provided by [hermes](https://github.com/wardle/hermes).
 * Organisational and geographical data and computing services, as provided by [clods](https://github.com/wardle/clods)

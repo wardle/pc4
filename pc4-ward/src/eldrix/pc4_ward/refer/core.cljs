@@ -10,6 +10,9 @@
 (s/def :org.hl7.fhir/Identifier (s/keys :req [:org.hl7.fhir.Identifier/system :org.hl7.fhir.Identifier/value]
                                         :opt [:org.hl7.fhir.Identifier/use :org.hl7.fhir.Identifier/type
                                               :org.hl7.fhir.Identifier/period :org.hl7.fhir.Identifier/assigner]))
+(s/def :org.hl7.fhir.Organization/identifier (s/coll-of :org.hl7.fhir/Identifier))
+(s/def :org.hl7.fhir/Organization (s/keys :req [:org.hl7.fhir.Organization/identifier]
+                                          :opt [:org.hl7.fhir.Organization/name]))
 (s/def :org.hl7.fhir.Coding/system ::non-blank-string)
 (s/def :org.hl7.fhir.Coding/code ::non-blank-string)
 (s/def :org.hl7.fhir/Coding (s/keys :req [:org.hl7.fhir.Coding/system :org.hl7.fhir.Coding/code]
@@ -69,15 +72,11 @@
                           :opt [::team-contact-details]))
 (s/def ::patient :org.hl7.fhir/Patient)
 (s/def ::mode #{:inpatient :outpatient :advice})
+(s/def ::hospital :org.hl7.fhir/Organization)
 (s/def ::location (s/keys :req [::mode]
                           :opt [::hospital ::ward]))
 (s/def ::service string?)
 (s/def ::question string?)
-(s/def ::valid-referrer? (s/keys :req [::referrer]))
-(s/def ::valid-patient? (s/keys :req [::referrer ::patient]))
-(s/def ::valid-service? (s/keys :req [::referrer ::patient ::service]))
-(s/def ::valid-question? (s/keys :req [::referrer ::patient ::service ::question]))
-(s/def ::valid-referral? (s/keys :req [::date-time ::referrer ::patient ::question ::service]))
 
 (defn prepare-referral [referral authenticated-user patient]
   (cond-> referral
@@ -119,5 +118,5 @@
                         :job-title        "Consultant Neurologist"
                         ::contact-details "02920747747"}
             ::patient  {:name "Smith"}})
-  (s/explain ::valid-referrer? ex1)
+  (s/explain ::referrer ex1)
   (available-stages ex1))

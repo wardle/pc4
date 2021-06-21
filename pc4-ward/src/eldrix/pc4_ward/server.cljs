@@ -126,28 +126,6 @@
      :org.hl7.fhir.Patient/deceased
      :org.hl7.fhir.Patient/currentAddress]}])
 
-(defn make-fetch-uk-org
-  "Fetch a UK organisation. Conceivably this could be deprecated
-  in favour of a more general approach in which we use identifier tuples
-  at the client level. At the moment, we hardcode UK, but this could
-  be a configurable option at runtime at the client."
-  [org-identifier]
-  {[:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id org-identifier]
-   [:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id
-    :org.w3.2004.02.skos.core/prefLabel]})
-
-(defn make-fetch-uk-orgs [org-identifiers]
-  (into [] (map make-fetch-uk-org org-identifiers)))
-
-(defn make-search-uk-org
-  [params]
-  [{(list 'uk.nhs.ord/search
-          params)
-    [:org.hl7.fhir.Organization/name
-     :org.hl7.fhir.Organization/identifier
-     :org.hl7.fhir.Organization/address
-     :uk.nhs.ord/active]}])
-
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
@@ -161,13 +139,6 @@
   (do! {:params        (make-cav-fetch-patient-op {:pas-identifier s})
         :token         token
         :handler       #(handler (get % 'wales.nhs.cavuhb/fetch-patient))
-        :error-handler error-handler}))
-
-(defn fetch-uk-orgs
-  [identifiers & {:keys [handler error-handler token] :or {error-handler default-error-handler}}]
-  (do! {:params        (make-fetch-uk-orgs identifiers)
-        :token         token
-        :handler       #(handler %)
         :error-handler error-handler}))
 
 (comment
