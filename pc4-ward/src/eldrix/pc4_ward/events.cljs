@@ -31,9 +31,7 @@
   (fn [{db :db} [_]]
     {:fx [[:dispatch [::user-events/ping-server]]]}))
 
-;; every minute, we check our authentication tokens are valid, and refresh if necessary
-;; we cannot refresh an expired login token ourselves, so give up and logout with a session expired notice
-(rf/reg-event-fx                                            ;; usage:  (rf/dispatch [:timer a-js-Date])
+(rf/reg-event-fx
   ::timer-one-minute
   (fn [{db :db} [_]]
     {:fx [[:dispatch [::user-events/check-token]]]}))
