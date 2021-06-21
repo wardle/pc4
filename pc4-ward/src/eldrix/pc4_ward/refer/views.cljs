@@ -129,27 +129,35 @@
   - select-fn      : function to be called with a selected id
   - minimum-chars  : minimum number of characters needed to run autocompletion
   - autocomplete-results - results of autocompletion
-  - placeholder    : placeholder text for autocompletion."
+  - placeholder    : placeholder text for autocompletion
+  - no-selection-string : label for select when nothing selected"
   [{:keys [clear-fn]}]
   (when clear-fn (clear-fn))
   (let [mode (reagent/atom nil)]
     (fn [{:keys [label value id-key display-key common-choices autocomplete-fn clear-fn
-                 autocomplete-results select-fn placeholder minimum-chars]
+                 autocomplete-results select-fn placeholder minimum-chars
+                 no-selection-string]
           :or   {minimum-chars 3}}]
       [:<>
        (when label [ui/ui-label :label label])
        (cond
          (and (seq common-choices) (= :select (or @mode :select)))
-         [:div.flex
-          [:select.border.bg-white.rounded.px-3.py-2.outline-none
-           {:value (id-key value) :on-change #(when select-fn (select-fn (nth common-choices (-> % .-target .-selectedIndex))))}
-           (when-not value [:option.py-1 "- Choose -"]
-           (for [choice common-choices]
-             (let [id (id-key choice)]
-               [:option.py-1 {:value id :key id}
-                (display-key choice)]))]
-          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-           {:on-click #(reset! mode :autocomplete)} "..."]]
+         (let [all-choices (if value (conj common-choices value) common-choices)
+               choices (zipmap (map id-key all-choices) all-choices)
+               sorted-choices (sort-by display-key (vals choices))]
+           [:div.flex
+            [:select.border.bg-white.rounded.px-3.py-2.outline-none
+             {:value (str (id-key value)) :on-change #(when select-fn
+                                                        (let [idx (-> % .-target .-selectedIndex)]
+                                                          (if (and no-selection-string (= 0 idx))
+                                                                (select-fn nil)
+                                                                (select-fn (nth sorted-choices idx)))))}
+             (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
+             (for [choice sorted-choices]
+               (let [id (id-key choice)]
+                 [:option.py-1 {:value (str id) :key id} (display-key choice)]))]
+            [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+             {:on-click #(reset! mode :autocomplete)} "..."]])
          (= :autocomplete @mode)
          [:<>
           [:div.flex
@@ -182,13 +190,13 @@
                            :value                (get-in referral [::refer/location ::refer/hospital])
                            :id-key               org-events/official-identifier
                            :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
-                           :common-choices       (sort-by :org.hl7.fhir.Organization/name @(rf/subscribe [::user-subs/common-hospitals]))
+                           :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
+                           :no-selection-string ""
                            :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
                            :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
                            :clear-fn             #(rf/dispatch [::org-events/clear-search-results])
                            :select-fn            #(do (println "selected hospital" (:org.hl7.fhir.Organization/name %) (org-events/official-identifier %))
-                                                      (tap> (assoc-in referral [:location :hospital] %))
-                                                      (rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)]))
+                                                      (rf/dispatch [::events/update-referral  (assoc-in referral [::refer/location ::refer/hospital] %)]))
                            :placeholder          "Search for hospital"}])
 
 
