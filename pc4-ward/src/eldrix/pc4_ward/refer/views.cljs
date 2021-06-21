@@ -150,8 +150,8 @@
              {:value (str (id-key value)) :on-change #(when select-fn
                                                         (let [idx (-> % .-target .-selectedIndex)]
                                                           (if (and no-selection-string (= 0 idx))
-                                                                (select-fn nil)
-                                                                (select-fn (nth sorted-choices idx)))))}
+                                                            (select-fn nil)
+                                                            (select-fn (nth sorted-choices idx)))))}
              (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
              (for [choice sorted-choices]
                (let [id (id-key choice)]
@@ -175,8 +175,9 @@
           [:div.grid-cols-1.sm:grid-cols-2
            [:div
             [:select.w-full.border.border-gray-300.rounded-md
-             {:multiple  true :size 5
-              :on-change #(when select-fn (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))}
+             {:multiple        true :size 5
+              :on-change       #(when select-fn (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
+              :on-double-click #(reset! mode :select)}
              (for [result autocomplete-results]
                (let [id (id-key result)]
                  [:option {:value result :key id}
@@ -207,9 +208,9 @@
                                        ;  :no-selection-string ""
                                        :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
                                        :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
-                                       :clear-fn             #(rf/dispatch [::org-events/clear-search-results])
+                                       :clear-fn             #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
                                        :select-fn            #(do (println "selected hospital" (:org.hl7.fhir.Organization/name %) (org-events/official-identifier %))
-                                                                  (rf/dispatch [::events/update-referral  (assoc-in referral [::refer/location ::refer/hospital] %)]))
+                                                                  (rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)]))
                                        :placeholder          "Search for hospital"}]
               [ui/textfield-control
                (get-in referral [::refer/location ::refer/ward])
