@@ -115,6 +115,28 @@
           :select-fn (fn [pt] (rf/dispatch [::patient-events/set-current-patient pt]))
           :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)])])))
 
+(defn select
+  "A select control that appears as a pop-up."
+  [{:keys [label value choices id-key display-key default-value select-fn
+           no-selection-string disabled?]}]
+  (let [all-choices (if value (conj choices value) choices)
+        choices (zipmap (map id-key all-choices) all-choices)
+        sorted-choices (sort-by display-key (vals choices))]
+    (when (and default-value (nil? value))
+      (select-fn default-value))
+    (when label [ui/ui-label :label label])
+    [:select.border.bg-white.rounded.px-3.py-2.outline-none
+     {:disabled  disabled?
+      :value     (str (id-key value))
+      :on-change #(when select-fn
+                    (let [idx (-> % .-target .-selectedIndex)]
+                      (if (and no-selection-string (= 0 idx))
+                        (select-fn nil)
+                        (select-fn (nth sorted-choices idx)))))}
+     (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
+     (for [choice sorted-choices]
+       (let [id (id-key choice)]
+         [:option.py-1 {:value (str id) :key id} (display-key choice)]))]))
 
 (defn select-or-autocomplete
   "A flexible select/autocompletion control.
@@ -130,13 +152,14 @@
   - minimum-chars  : minimum number of characters needed to run autocompletion
   - autocomplete-results - results of autocompletion
   - placeholder    : placeholder text for autocompletion
-  - no-selection-string : label for select when nothing selected"
+  - no-selection-string : label for select when nothing selected
+  - disabled?      : if disabled"
   [{:keys [clear-fn]}]
   (when clear-fn (clear-fn))
   (let [mode (reagent/atom nil)]
-    (fn [{:keys [label value id-key display-key common-choices autocomplete-fn clear-fn
-                 autocomplete-results select-fn placeholder minimum-chars
-                 no-selection-string]
+    (fn [{:keys [label value id-key display-key common-choices autocomplete-fn
+                 clear-fn autocomplete-results select-fn placeholder
+                 minimum-chars no-selection-string default-value disabled?]
           :or   {minimum-chars 3}}]
       [:<>
        (when label [ui/ui-label :label label])
@@ -145,19 +168,24 @@
          (let [all-choices (if value (conj common-choices value) common-choices)
                choices (zipmap (map id-key all-choices) all-choices)
                sorted-choices (sort-by display-key (vals choices))]
+           (when (and default-value (nil? value))
+             (select-fn default-value))
            [:div.flex
             [:select.border.bg-white.rounded.px-3.py-2.outline-none
-             {:value (str (id-key value)) :on-change #(when select-fn
-                                                        (let [idx (-> % .-target .-selectedIndex)]
-                                                          (if (and no-selection-string (= 0 idx))
-                                                            (select-fn nil)
-                                                            (select-fn (nth sorted-choices idx)))))}
+             {:disabled  disabled?
+              :value     (str (id-key value))
+              :on-change #(when select-fn
+                            (let [idx (-> % .-target .-selectedIndex)]
+                              (if (and no-selection-string (= 0 idx))
+                                (select-fn nil)
+                                (select-fn (nth sorted-choices idx)))))}
              (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
              (for [choice sorted-choices]
                (let [id (id-key choice)]
                  [:option.py-1 {:value (str id) :key id} (display-key choice)]))]
-            [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-             {:on-click #(reset! mode :autocomplete)} "..."]])
+            [:button.bg-blue-400.text-white.text-xs.py-1.px-2.rounded-full
+             {:disabled disabled? :class (if disabled? "opacity-50" "hover:bg-blue-500")
+              :on-click #(reset! mode :autocomplete)} "..."]])
          (= :autocomplete @mode)
          [:<>
           [:div.flex
@@ -165,17 +193,19 @@
             {:id            :refer-hospital :type "text" :placeholder placeholder :required true
              :class         ["text-gray-700" "bg-white" "shadow"]
              :default-value nil
+             :disabled      disabled?
              :auto-focus    true
              :on-change     #(let [s (-> % .-target .-value)]
                                (if (>= (count s) minimum-chars)
                                  (debounce/debounce (autocomplete-fn s) 200)
                                  (when clear-fn (clear-fn))))}]
            [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-            {:on-click #(reset! mode :select)} "Close"]]
+            {:disabled disabled? :on-click #(reset! mode :select)} "Close"]]
           [:div.grid-cols-1.sm:grid-cols-2
            [:div
             [:select.w-full.border.border-gray-300.rounded-md
              {:multiple        true :size 5
+              :disabled        disabled?
               :on-change       #(when select-fn (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
               :on-double-click #(reset! mode :select)}
              (for [result autocomplete-results]
@@ -187,13 +217,14 @@
 
 
 (defn patient-panel
-  [referral]
-  (let [current-patient (::refer/patient referral)
+  [referral & {:keys [on-save]}]
+  (let [valid? (contains? (refer/completed-stages referral) :patient)
+        current-patient (::refer/patient referral)
         location (::refer/location referral)]
     (ui/panel {:title         "Patient details?"
                :save-label    "Next"
-               :save-disabled false                         ;;(not valid?)
-               :on-save       #()}                          ;;#(when (and valid? on-save) (on-save))}
+               :save-disabled (not valid?)
+               :on-save       #(when (and valid? on-save) (on-save))}
               [ui/textfield-control
                (:uk.nhs.cfh.isb1506/patient-name current-patient)
                :id "pt-name" :label "Patient name" :required true :disabled true]
@@ -201,7 +232,8 @@
               [:select.w-full.border.bg-white.rounded.px-3.py-2.outline-none
                [:option.py-1 "Inpatient"]]
               [select-or-autocomplete {:label                "Which hospital?"
-                                       :value                (or (get-in referral [::refer/location ::refer/hospital]) @(rf/subscribe [::user-subs/default-hospital]))
+                                       :value                (get-in referral [::refer/location ::refer/hospital])
+                                       :default-value        @(rf/subscribe [::user-subs/default-hospital])
                                        :id-key               org-events/official-identifier
                                        :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
                                        :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
@@ -229,12 +261,13 @@
         completed @(rf/subscribe [::subs/completed-stages])
         stage (or (:current-stage referral) :clinician)
         select-stage #(rf/dispatch [::events/set-stage %])]
-    (tap> {:referral       referral
-           :available      available
-           :completed      completed
-           :stage          stage
-           :valid-referrer (s/explain-data ::refer/referrer (::refer/referrer referral))
-           :valid-patient (s/explain-data ::refer/patient (::refer/patient referral))})
+    (tap> {:referral        referral
+           :available       available
+           :completed       completed
+           :stage           stage
+           :valid-referrer  (s/explain-data ::refer/referrer (::refer/referrer referral))
+           :valid-patient   (s/explain-data ::refer/patient (::refer/patient referral))
+           ::valid-location (s/explain-data ::refer/location (::refer/location referral))})
     [:<>
      [ui/nav-bar
       :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]   :selected :refer-patient
@@ -285,7 +318,7 @@
             :patient
             (if-not (::refer/patient referral)
               [patient-select-panel referral]
-              [patient-panel referral])
+              [patient-panel referral :on-save #(select-stage :service)])
             :service
             [:p "Service"]
             :question

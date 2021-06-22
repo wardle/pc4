@@ -93,9 +93,9 @@
            [:div.px-2.pt-2.pb-3.space-y-1
             (for [item menu]
               (if (and selected (:id item) (= (:id item) selected))
-                [:a.bg-gray-900.text-white.block.px-3.py-2.rounded-md.text-base.font-medium 
+                [:a.bg-gray-900.text-white.block.px-3.py-2.rounded-md.text-base.font-medium
                  {:key (:id item) :on-click (:on-click item) :aria-current "page"} (:title item)]
-                [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium 
+                [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium
                  {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
 
@@ -254,12 +254,17 @@
          (when-not end? [:div.h-full.w-10.absolute.inset-0.flex.items-center.justify-center
                          [:div.h-full.w-1.bg-gray-200.pointer-events-none]])
          [:div.flex-shrink-0.w-10.h-10.rounded-full.inline-flex.items-center.justify-center.text-white.relative.z-10
-          {:class (cond selected? "bg-red-500"
-                        done? "bg-green-500 hover:opacity-70"
-                        active? "bg-indigo-500 hover:opacity-70"
-                        :else "bg-indigo-500 opacity-50")} svg]
+          {:class (cond
+                    (and selected? done?) "bg-green-400 shadow-x1 border border-gray-800"
+                    (and selected? (not done?)) "bg-indigo-500 shadow-xl border border-gray-800"
+                    done? "bg-green-500 hover:opacity-70"
+                    active? "bg-indigo-500 hover:opacity-70"
+                    :else "bg-red-500 opacity-50")} svg
+          (when done?
+            [:span.absolute.-top-2.-right-1.text-xl.text-black.font-bold {:dangerouslySetInnerHTML {:__html "&#x2713;"}}])]
          [:div.flex-grow.pl-4.h-10
-          [:h2.title-font.text-gray-900.mb-1.tracking-wider {:class (if selected? "font-bold" "text-sm font-medium")} title]
+          [:h2.title-font.text-gray-900.mb-1.tracking-wider
+           {:class (if selected? "font-bold" "text-sm font-medium")} title]
           [:p.leading-relaxed {:class (if selected? "font-bold underline" "font-medium")} text]]]]))
 
 (defn progress

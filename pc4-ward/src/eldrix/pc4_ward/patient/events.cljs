@@ -3,6 +3,25 @@
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.server :as srv]))
 
+(defn make-cav-fetch-patient-op
+  [{:keys [pas-identifier]}]
+  [{(list 'wales.nhs.cavuhb/fetch-patient
+          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
+    [:org.hl7.fhir.Patient/birthDate
+     :wales.nhs.cavuhb.Patient/DATE_DEATH
+     :uk.nhs.cfh.isb1505/display-age
+     :wales.nhs.cavuhb.Patient/IS_DECEASED
+     :wales.nhs.cavuhb.Patient/ADDRESSES
+     :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+     :uk.nhs.cfh.isb1504/nhs-number
+     :uk.nhs.cfh.isb1506/patient-name
+     :org.hl7.fhir.Patient/identifier
+     :org.hl7.fhir.Patient/name
+     :wales.nhs.cavuhb.Patient/SEX
+     :org.hl7.fhir.Patient/gender
+     :org.hl7.fhir.Patient/deceased
+     :org.hl7.fhir.Patient/currentAddress]}])
+
 (rf/reg-event-fx
   ::fetch []
   (fn [{db :db} [_ identifier]]
@@ -10,7 +29,7 @@
     {:db (-> db
              (dissoc :patient/search-results)
              (update-in [:errors] dissoc ::login))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (srv/make-cav-fetch-patient-op {:pas-identifier identifier})
+     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
                                                 :token      (get-in db [:authenticated-user :io.jwt/token])
                                                 :on-success [::handle-fetch-response]
                                                 :on-failure [::handle-fetch-failure]})]]}))
@@ -45,3 +64,12 @@
   (fn [db [_ patient]]
     (js/console.log "closing patient" patient)
     (dissoc db :patient/current patient)))
+
+
+
+(defn fetch-patient
+  [s & {:keys [handler error-handler token] :or {error-handler srv/default-error-handler}}]
+  (srv/do! {:params        (make-cav-fetch-patient-op {:pas-identifier s})
+            :token         token
+            :handler       #(handler (get % 'wales.nhs.cavuhb/fetch-patient))
+            :error-handler error-handler}))

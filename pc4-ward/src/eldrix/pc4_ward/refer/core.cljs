@@ -75,10 +75,10 @@
 (s/def ::hospital :org.hl7.fhir/Organization)
 (s/def ::ward ::non-blank-string)
 (s/def ::consultant ::non-blank-string)
-(s/def ::location (s/keys :req [::mode ::consultant]
-                          :opt [::hospital ::ward]))
+(s/def ::location (s/keys :req [::hospital ::ward ::consultant]))
 (s/def ::service string?)
 (s/def ::question string?)
+
 
 (defn prepare-referral [referral authenticated-user patient]
   (cond-> referral
@@ -93,7 +93,7 @@
   (cond-> #{}
           (s/valid? ::referrer (::referrer referral))
           (conj :clinician)
-          (s/valid? ::patient (::patient referral))
+          (and (s/valid? ::patient (::patient referral)) (s/valid? ::location (::location referral)))
           (conj :patient)
           (s/valid? ::service (::service referral))
           (conj :service)

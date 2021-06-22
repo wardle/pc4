@@ -78,7 +78,6 @@
 (rf/reg-event-fx ::ping-server
   []
   (fn [{db :db} _]
-    (tap> db)
     {:http-xhrio {:method          :post
                   :uri             "http://localhost:8080/ping"
                   :timeout         1000
