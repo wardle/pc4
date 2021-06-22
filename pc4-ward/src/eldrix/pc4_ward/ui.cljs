@@ -103,8 +103,8 @@
   [& {:keys [name nhs-number born hospital-identifier address deceased on-close]}]
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
    (when on-close
-     [:div.absolute.-top-2.-right-1
-      [:button.rounded.bg-white.border.hover:bg-gray-400.bg.gray-50.px-1 {:on-click on-close :title "Close patient"}
+     [:div.absolute.-top-2.5.-right-2.5
+      [:button.rounded.bg-white.border.hover:bg-gray-400.bg.gray-50.px-1.py-1 {:on-click on-close :title "Close patient"}
        [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]])
    (when deceased
      [:div.grid.grid-cols-1.pb-2
@@ -259,9 +259,7 @@
                     (and selected? (not done?)) "bg-indigo-500 shadow-xl border border-gray-800"
                     done? "bg-green-500 hover:opacity-70"
                     active? "bg-indigo-500 hover:opacity-70"
-                    :else "bg-red-500 opacity-50")} svg
-          (when done?
-            [:span.absolute.-top-2.-right-1.text-xl.text-black.font-bold {:dangerouslySetInnerHTML {:__html "&#x2713;"}}])]
+                    :else "bg-red-500 opacity-50")} svg]
          [:div.flex-grow.pl-4.h-10
           [:h2.title-font.text-gray-900.mb-1.tracking-wider
            {:class (if selected? "font-bold" "text-sm font-medium")} title]
@@ -294,7 +292,7 @@
          {:on-click on-cancel} cancel-label])
       (when save-label
         [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md
-         {:on-click on-save :disabled save-disabled :class (if save-disabled "opacity-50" "hover:bg-gray-600.focus:outline-none.focus:bg-gray-600")} save-label])])])
+         {:on-click on-save :disabled save-disabled :class (if save-disabled "opacity-50 pointer-events-none" "hover:bg-gray-600.focus:outline-none.focus:bg-gray-600")} save-label])])])
 
 
 
