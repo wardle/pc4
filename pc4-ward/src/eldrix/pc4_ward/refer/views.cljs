@@ -197,7 +197,7 @@
              :auto-focus    true
              :on-change     #(let [s (-> % .-target .-value)]
                                (if (>= (count s) minimum-chars)
-                                 (debounce/debounce (autocomplete-fn s) 200)
+                                 (autocomplete-fn s)
                                  (when clear-fn (clear-fn))))}]
            [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
             {:disabled disabled? :on-click #(reset! mode :select)} "Close"]]
@@ -238,7 +238,7 @@
                                        :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
                                        :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
                                        ;  :no-selection-string ""
-                                       :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
+                                       :autocomplete-fn      (debounce/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
                                        :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
                                        :clear-fn             #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
                                        :select-fn            #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)])
