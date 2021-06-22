@@ -259,9 +259,7 @@
                     (and selected? (not done?)) "bg-indigo-500 shadow-xl border border-gray-800"
                     done? "bg-green-500 hover:opacity-70"
                     active? "bg-indigo-500 hover:opacity-70"
-                    :else "bg-red-500 opacity-50")} svg
-          (when done?
-            [:span.absolute.-top-2.-right-1.text-xl.text-black.font-bold {:dangerouslySetInnerHTML {:__html "&#x2713;"}}])]
+                    :else "bg-red-500 opacity-50")} svg]
          [:div.flex-grow.pl-4.h-10
           [:h2.title-font.text-gray-900.mb-1.tracking-wider
            {:class (if selected? "font-bold" "text-sm font-medium")} title]
