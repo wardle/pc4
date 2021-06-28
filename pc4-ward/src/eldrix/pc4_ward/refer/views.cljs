@@ -118,11 +118,12 @@
 (defn select
   "A select control that appears as a pop-up."
   [{:keys [label value choices id-key display-key default-value select-fn
-           no-selection-string disabled?]}]
+           no-selection-string disabled?]
+    :or   {id-key identity display-key identity}}]
   (let [all-choices (if value (conj choices value) choices)
         choices (zipmap (map id-key all-choices) all-choices)
         sorted-choices (sort-by display-key (vals choices))]
-    (when (and default-value (nil? value))
+    (when (and default-value (str/blank? value))
       (select-fn default-value))
     (when label [ui/ui-label :label label])
     [:select.border.bg-white.rounded.px-3.py-2.outline-none
@@ -132,7 +133,7 @@
                     (let [idx (-> % .-target .-selectedIndex)]
                       (if (and no-selection-string (= 0 idx))
                         (select-fn nil)
-                        (select-fn (nth sorted-choices idx)))))}
+                        (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
      (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
      (for [choice sorted-choices]
        (let [id (id-key choice)]
@@ -160,7 +161,7 @@
     (fn [{:keys [label value id-key display-key common-choices autocomplete-fn
                  clear-fn autocomplete-results select-fn placeholder
                  minimum-chars no-selection-string default-value disabled?]
-          :or   {minimum-chars 3}}]
+          :or   {minimum-chars 3 id-key identity display-key identity}}]
       [:<>
        (when label [ui/ui-label :label label])
        (cond
@@ -168,7 +169,7 @@
          (let [all-choices (if value (conj common-choices value) common-choices)
                choices (zipmap (map id-key all-choices) all-choices)
                sorted-choices (sort-by display-key (vals choices))]
-           (when (and default-value (nil? value))
+           (when (and default-value (str/blank? value))
              (select-fn default-value))
            [:div.flex
             [:select.border.bg-white.rounded.px-3.py-2.outline-none
@@ -178,7 +179,7 @@
                             (let [idx (-> % .-target .-selectedIndex)]
                               (if (and no-selection-string (= 0 idx))
                                 (select-fn nil)
-                                (select-fn (nth sorted-choices idx)))))}
+                                (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
              (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
              (for [choice sorted-choices]
                (let [id (id-key choice)]
@@ -197,7 +198,7 @@
              :auto-focus    true
              :on-change     #(let [s (-> % .-target .-value)]
                                (if (>= (count s) minimum-chars)
-                                 (debounce/debounce (autocomplete-fn s) 200)
+                                 (autocomplete-fn s)
                                  (when clear-fn (clear-fn))))}]
            [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
             {:disabled disabled? :on-click #(reset! mode :select)} "Close"]]
@@ -206,7 +207,7 @@
             [:select.w-full.border.border-gray-300.rounded-md
              {:multiple        true :size 5
               :disabled        disabled?
-              :on-change       #(when select-fn (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
+              :on-change       #(when select-fn (tap> autocomplete-results) (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
               :on-double-click #(reset! mode :select)}
              (for [result autocomplete-results]
                (let [id (id-key result)]
@@ -226,6 +227,10 @@
               [ui/textfield-control
                (:uk.nhs.cfh.isb1506/patient-name current-patient)
                :id "pt-name" :label "Patient name" :required true :disabled true]
+              [select {:label     "Location"
+                       :value     (::refer/location ::refer/type)
+                       :choices   ["Inpatient" "Outpatient"]
+                       :select-fn #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/type] %)])}]
               [ui/ui-label :label "Location"]
               [:select.w-full.border.bg-white.rounded.px-3.py-2.outline-none
                [:option.py-1 "Inpatient"]]
@@ -236,7 +241,7 @@
                                        :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
                                        :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
                                        ;  :no-selection-string ""
-                                       :autocomplete-fn      #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}])
+                                       :autocomplete-fn      (debounce/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
                                        :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
                                        :clear-fn             #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
                                        :select-fn            #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)])
@@ -258,7 +263,12 @@
     (ui/panel {:title         "To which service?"
                :save-label    "Next"
                :save-disabled (not valid?)
-               :on-save       #(when (and valid? on-save) (on-save))})))
+               :on-save       #(when (and valid? on-save) (on-save))}
+              [select {:choices             (sort ["Neurology" "Gastroenterology" "Respiratory medicine"])
+                       :value               (::refer/service referral)
+                       :default-value       "Neurology"
+                       :no-selection-string ""
+                       :select-fn           #(rf/dispatch [::events/update-referral (assoc referral ::refer/service %)])}])))
 
 (defn refer-page []
   (let [referral @(rf/subscribe [::subs/referral])
