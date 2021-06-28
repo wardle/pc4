@@ -211,9 +211,7 @@
              (for [result autocomplete-results]
                (let [id (id-key result)]
                  [:option {:value result :key id}
-                  (display-key result)]))]]
-           [:div
-            [:p "Selected:"]]]])])))
+                  (display-key result)]))]]]])])))
 
 
 (defn patient-panel
@@ -254,6 +252,13 @@
                :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/consultant] %)])]
               )))
 
+(defn service-panel
+  [referral & {:keys [on-save]}]
+  (let [valid? (contains? (refer/completed-stages referral) :service)]
+    (ui/panel {:title         "To which service?"
+               :save-label    "Next"
+               :save-disabled (not valid?)
+               :on-save       #(when (and valid? on-save) (on-save))})))
 
 (defn refer-page []
   (let [referral @(rf/subscribe [::subs/referral])
@@ -320,7 +325,7 @@
               [patient-select-panel referral]
               [patient-panel referral :on-save #(select-stage :service)])
             :service
-            [:p "Service"]
+            [service-panel referral :on-save #(select-stage :question)]
             :question
             [:p "Question"]
             :send
