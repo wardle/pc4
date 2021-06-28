@@ -104,7 +104,7 @@
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
    (when on-close
      [:div.absolute.-top-2.5.-right-2.5
-      [:button.rounded.bg-white.border.hover:bg-gray-400.bg.gray-50.px-1.py-1 {:on-click on-close :title "Close patient"}
+      [:button.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1 {:on-click on-close :title "Close patient record"}
        [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]])
    (when deceased
      [:div.grid.grid-cols-1.pb-2
