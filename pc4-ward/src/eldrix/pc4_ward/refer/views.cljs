@@ -298,6 +298,7 @@
           :nhs-number (:uk.nhs.cfh.isb1504/nhs-number pt)
           :deceased deceased
           :born (str (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate pt)) " " (when-not deceased (:uk.nhs.cfh.isb1505/display-age pt)))
+          :gender (str/capitalize (name (:org.hl7.fhir.Patient/gender pt)))
           :hospital-identifier (:wales.nhs.cavuhb.Patient/HOSPITAL_ID pt) ;; TODO: switch to using whichever organisation makes sense in context
           :address (get-in pt [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])
           :on-close #(rf/dispatch [::patient-events/close-current-patient])]))

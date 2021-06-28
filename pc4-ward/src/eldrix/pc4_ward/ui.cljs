@@ -45,7 +45,7 @@
         show-user-menu? (reagent/atom false)]
     (fn [& {:keys [title menu selected user-menu show-user? full-name initials photo on-notify] :or {show-user? false}}]
       [:nav.bg-gray-800
-       [:div.max-w-7xl.mx-auto.px-2.sm:px-6.lg:px-8
+       [:div.mx-auto.px-2.sm:px-6.lg:px-8
         [:div.relative.flex.items-center.justify-between.h-16
          (when (seq menu)
            [:div.absolute.inset-y-0.left-0.flex.items-center.sm:hidden
@@ -100,10 +100,10 @@
 
 
 (defn patient-banner
-  [& {:keys [name nhs-number born hospital-identifier address deceased on-close]}]
+  [& {:keys [name nhs-number gender born hospital-identifier address deceased on-close]}]
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
    (when on-close
-     [:div.absolute.-top-2.5.-right-2.5
+     [:div.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
       [:button.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1 {:on-click on-close :title "Close patient record"}
        [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]])
    (when deceased
@@ -113,9 +113,9 @@
                "Deceased")]])
    [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
     [:div.font-bold.text-lg.min-w-min name]
-    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin.hidden.sm:inline "Gender "] [:span.font-bold "Male"]]
+    [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender [:span.text-sm.font-thin.hidden.sm:inline "Gender "] [:span.font-bold gender])]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] [:span.font-bold born]]
-    [:div.lg:hidden.text-right "Male" " " [:span.font-bold born]]
+    [:div.lg:hidden.text-right.mr-8.md:mr-0 gender " " [:span.font-bold born]]
     [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]]
     [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]]]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
