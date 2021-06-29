@@ -8,7 +8,10 @@
     [day8.re-frame.http-fx]                                 ;; required for its side-effects in registering a re-frame "effect"
     [eldrix.pc4-ward.db :as db]
     [eldrix.pc4-ward.user.events :as user-events]
-    [eldrix.pc4-ward.server :as srv]))
+    [eldrix.pc4-ward.server :as srv]
+    [reitit.frontend.controllers :as rfc]
+    [re-frame.core :as re-frame]
+    [reitit.frontend.easy :as rfe]))
 
 (rf/reg-event-db
   ::initialize-db
@@ -29,9 +32,26 @@
 (rf/reg-event-fx
   ::time-10-seconds
   (fn [{db :db} [_]]
+    (tap> db)
     {:fx [[:dispatch [::user-events/ping-server]]]}))
 
 (rf/reg-event-fx
   ::timer-one-minute
   (fn [{db :db} [_]]
     {:fx [[:dispatch [::user-events/check-token]]]}))
+
+(rf/reg-event-db
+  ::navigate
+  (fn [db [_ new-match]]
+    (let [old-match (:current-route db)
+          controllers (rfc/apply-controllers (:controllers old-match) new-match)]
+      (assoc db :current-route (assoc new-match :controllers controllers)))))
+
+(re-frame/reg-fx :push-state
+  (fn [route]
+    (apply rfe/push-state route)))
+
+(re-frame/reg-event-fx
+  ::push-state
+  (fn [db [_ & route]]
+    {:push-state route}))

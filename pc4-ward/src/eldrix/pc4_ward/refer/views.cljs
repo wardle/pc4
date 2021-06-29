@@ -282,15 +282,8 @@
            :stage           stage
            :valid-referrer  (s/explain-data ::refer/referrer (::refer/referrer referral))
            :valid-patient   (s/explain-data ::refer/patient (::refer/patient referral))
-           ::valid-location (s/explain-data ::refer/location (::refer/location referral))})
+           :valid-location (s/explain-data ::refer/location (::refer/location referral))})
     [:<>
-     [ui/nav-bar
-      :title "PatientCare v4"                               ;:menu [{:id :refer-patient :title "Refer patient"}]   :selected :refer-patient
-      :show-user? (get-in referral [::refer/referrer ::refer/practitioner])
-      :full-name (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/commonName])
-      :initials (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/initials])
-      :user-menu [{:id :logout :title "Sign out" :on-click #(rf/dispatch [::user-events/do-logout])}]]
-
      (when-let [pt (::refer/patient referral)]
        (let [deceased (:org.hl7.fhir.Patient/deceased pt)]
          [ui/patient-banner

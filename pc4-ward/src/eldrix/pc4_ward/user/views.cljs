@@ -22,21 +22,21 @@
          [:div
           [:label.text-gray-700.dark:text-gray-200 {:for "login-username"} "Username"]
           [:input#username.block.px-4.py-2.mt-2.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-           {:id          "login-username" :type "text" :placeholder "e.g. ma090906" :required true
-            :disabled    submitting
+           {:id            "login-username" :type "text" :placeholder "e.g. ma090906" :required true
+            :disabled      submitting
             :auto-complete "username"
-            :auto-focus  true
-            :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "login-pw"))))
-            :on-change   #(reset! username (-> % .-target .-value))}]]
+            :auto-focus    true
+            :on-key-down   #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "login-pw"))))
+            :on-change     #(reset! username (-> % .-target .-value))}]]
          [:div
           [:label.text-gray-700.dark:text-gray-200 {:for "password"} "Password"]
           [:input#password.block.px-4.py-2.mt-2.text-gray-700.bg-white.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-           {:id          "login-pw" :type "password" :placeholder "Enter password" :required true
-            :disabled    submitting
+           {:id            "login-pw" :type "password" :placeholder "Enter password" :required true
+            :disabled      submitting
             :auto-complete "current-password"
-            :on-key-down #(if (= 13 (.-which %))
-                            (do (reset! password (-> % .-target .-value)) (do-login)))
-            :on-change   #(reset! password (-> % .-target .-value))}]]]
+            :on-key-down   #(if (= 13 (.-which %))
+                              (do (reset! password (-> % .-target .-value)) (do-login)))
+            :on-change     #(reset! password (-> % .-target .-value))}]]]
         [:div.flex.mt-6
          [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
           {:disabled submitting

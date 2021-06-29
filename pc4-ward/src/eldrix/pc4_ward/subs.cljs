@@ -1,14 +1,9 @@
 (ns eldrix.pc4-ward.subs
     (:require [re-frame.core :as rf]))
 
-(rf/reg-sub
- ::name
- (fn [db]
-   (:name db)))
-
-(rf/reg-sub ::active-panel
+(rf/reg-sub ::current-route
   (fn [db]
-    (:active-panel db)))
+    (:current-route db)))
 
 (rf/reg-sub ::current-time
   (fn [db]

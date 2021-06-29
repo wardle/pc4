@@ -29,9 +29,9 @@
 
 (rf/reg-event-fx
   ::do-login []
-  (fn [{_db :db} [_ namespace username password]]
+  (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
-    {:db db/default-db
+    {:db (dissoc db :authenticated-user)
      :fx [[:http-xhrio {:method          :post
                         :uri             "http://localhost:8080/login"
                         :timeout         1000
