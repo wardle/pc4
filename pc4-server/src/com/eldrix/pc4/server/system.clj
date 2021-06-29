@@ -162,7 +162,6 @@
   ;; configuration can add further resolvers, depending on what is configured
   (ig/init (config profile)))
 
-
 (comment
   (config :dev)
   (config :live)
@@ -181,53 +180,88 @@
   (sort (map str (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers))))
   (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
 
-
   (keys system)
 
   ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
-                                             [:uk.gov.ons.nhspd/LSOA11
-                                              :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M
-                                              :urn.ogc.def.crs.EPSG.4326/latitude
-                                              :urn.ogc.def.crs.EPSG.4326/longitude
-                                              :uk.gov.ons.nhspd/PCT :uk.nhs.ord/name
-                                              :uk.nhs.ord.primaryRole/displayName
-                                              {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
-  ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+                                         [:uk.gov.ons.nhspd/LSOA11
+                                          :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M
+                                          :urn.ogc.def.crs.EPSG.4326/latitude
+                                          :urn.ogc.def.crs.EPSG.4326/longitude
+                                          :uk.gov.ons.nhspd/PCT :uk.nhs.ord/name
+                                          :uk.nhs.ord.primaryRole/displayName
+                                          {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}])
 
-  ((:pathom/boundary-interface system) [{'(pc4.users/login
-                                                {:system :uk.nhs.cymru :value "ma090906" :password "password"})
-                                             [:io.jwt/token
-                                              :urn.oid.2.5.4/sn
-                                              :wales.nhs.nadex/givenName
-                                              :urn.oid.2.5.4/commonName
-                                              :wales.nhs.nadex/personalTitle
-                                              :wales.nhs.nadex/mail
-                                              :wales.nhs.nadex/postOfficeBox
-                                              :org.hl7.fhir.Practitioner/identifier
-                                              :org.hl7.fhir.Practitioner/telecom
-                                              {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family
-                                                                                :org.hl7.fhir.HumanName/given]}
-                                              :wales.nhs.nadex/professionalRegistration
-                                              :uk.org.hl7.fhir.id/gmc-number]}])
+((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+
+((:pathom/boundary-interface system) [{'(pc4.users/login
+                                          {:system :uk.nhs.cymru :value "ma090906" :password "password"})
+                                       [:io.jwt/token
+                                        :urn.oid.2.5.4/sn
+                                        :wales.nhs.nadex/givenName
+                                        :urn.oid.2.5.4/commonName
+                                        :wales.nhs.nadex/personalTitle
+                                        :wales.nhs.nadex/mail
+                                        :wales.nhs.nadex/postOfficeBox
+                                        :org.hl7.fhir.Practitioner/identifier
+                                        :org.hl7.fhir.Practitioner/telecom
+                                        {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family
+                                                                          :org.hl7.fhir.HumanName/given]}
+                                        :wales.nhs.nadex/professionalRegistration
+                                        :uk.org.hl7.fhir.id/gmc-number]}])
 
   ((:pathom/boundary-interface system) [{'(pc4.users/refresh-token
-                                                {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIwOTEwNTkzfQ.7PXGgYZYeXNy4qLbCDeKdA_LGQaWbD9AHu1FFWar1os"})
-                                             [:io.jwt/token]}])
-  ((:pathom/boundary-interface system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+                                          {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIzOTYxMzc1fQ.q3O6NcIuNexVU268C2l8KoIjGQ2AT19sSn77FbwD03o"})
+                                       [:io.jwt/token]}])
 
-  ((:pathom/boundary-interface system) [{'(wales.nhs.cavuhb/fetch-patient
-                                                {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999997"})
-                                             [:wales.nhs.cavuhb.Patient/LAST_NAME
-;;                                              :wales.nhs.cavuhb.Patient/ADDRESSES
-                                              :wales.nhs.cavuhb.Patient/HOSPITAL_ID
-                                              :wales.nhs.cavuhb.Patient/NHS_NUMBER
-                                              :uk.nhs.cfh.isb1504/nhs-number
-                                              :uk.nhs.cfh.isb1506/patient-name
-                                              :wales.nhs.cavuhb.Patient/DISPLAY_AGE
-                                              :wales.nhs.cavuhb.Patient/IS_DECEASED
-                                              :org.hl7.fhir.Patient/identifiers
-                                              :wales.nhs.cavuhb.Patient/SEX
-                                              :org.hl7.fhir.Patient/gender
-                                              :org.hl7.fhir.Patient/activeAddress]}])
+((:pathom/boundary-interface system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
+
+((:pathom/boundary-interface system) [{'(wales.nhs.cavuhb/fetch-patient
+                                          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
+                                       [:org.hl7.fhir.Patient/birthDate
+                                        :wales.nhs.cavuhb.Patient/DATE_DEATH
+                                        :uk.nhs.cfh.isb1505/display-age
+                                        :wales.nhs.cavuhb.Patient/IS_DECEASED
+                                        :wales.nhs.cavuhb.Patient/ADDRESSES
+                                        :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+                                        :uk.nhs.cfh.isb1504/nhs-number
+                                        :uk.nhs.cfh.isb1506/patient-name
+                                        :org.hl7.fhir.Patient/identifier
+                                        :org.hl7.fhir.Patient/name
+                                        :wales.nhs.cavuhb.Patient/SEX
+                                        :org.hl7.fhir.Patient/gender
+                                        :org.hl7.fhir.Patient/deceased
+                                        :org.hl7.fhir.Patient/currentAddress]}])
+
+
+  ((:pathom/boundary-interface system)
+   [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+
+;; updating legacy RF1-based SNOMED in real-time based on new RF2 data:
+  ;; t_concept : concept_id
+  ;;             concept_status_code
+  ;;             ctv_id     ;; not null- but we never use it. can be ""
+  ;;             fully_specified_name
+  ;;             is_primitive ;; integer 1 or 0
+  ;;             snomed_id  ;; not null - but we never use it. can be ""
+  ;; t_cached_parent_concepts
+  ;;             child_concept_id
+  ;;             parent_concept_id
+  ;; t_description
+  ;;             concept_id
+  ;;             description_id
+  ;;             description_status_code
+  ;;             description_type_code
+  ;;             initial_capital_status
+  ;;             language_code
+  ;;             term
+  ;; t_relationship
+  ;;   characteristic_type
+  ;;   refinability
+  ;;   relationship_group
+  ;;   relationship_id
+  ;;   relationship_type_concept_id
+  ;;   source_concept_id
+  ;;   target_concept_id
+  ;;   date_updated
 
   )

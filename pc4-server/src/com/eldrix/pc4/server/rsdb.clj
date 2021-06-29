@@ -1,5 +1,5 @@
 (ns com.eldrix.pc4.server.rsdb
-  "Integratation with the rsdb backend.
+  "Integration with the rsdb backend.
   `rsdb` is the Apple WebObjects 'legacy' application that was PatientCare v1-3.
 
   Depending on real-life usage, we could pre-fetch relationships and therefore
@@ -9,8 +9,9 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
-            [honeysql.core :as sql]
-            [honeysql.helpers :as h]
+            [com.eldrix.pc4.server.rsdb.users :as users]
+            [honey.sql :as sql]
+            [honey.sql.helpers :as h]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time]
             [com.wsscode.pathom3.connect.indexes :as pci]
@@ -18,7 +19,8 @@
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate)))
+           (java.time LocalDate)
+           (java.util Base64)))
 
 (next.jdbc.date-time/read-as-local)
 
@@ -43,6 +45,8 @@
    :t_project/type                             keyword
    :t_project/date_from                        parse-local-date
    :t_project/date_to                          parse-local-date
+   :t_user/must_change_password                parse-boolean
+   :t_user/send_email_for_messages             parse-boolean
    })
 
 (defn parse-entity
@@ -52,6 +56,8 @@
       (when (or (not remove-nils?) v)
         (assoc m k (let [f (get property-parsers k)]
                      (if (and f v) (f v) v))))) {} m))
+
+
 
 (pco/defresolver patient-by-identifier
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
@@ -252,8 +258,8 @@
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
 
-(pco/defresolver user-by-identifier
-  [{conn :com.eldrix.rsdb/conn} {user-id :t_user/id}]
+(pco/defresolver user-by-username
+  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output [:t_user/username
                  :t_user/title
                  :t_user/first_names
@@ -274,7 +280,15 @@
                                         :authentication_method :professional_registration
                                         :professional_registration_authority_fk]
                                :from   [:t_user]
-                               :where  [:= :id user-id]}))))
+                               :where  [:= :username (str/lower-case username)]}))))
+
+(pco/defresolver user->photo
+  [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
+  {::pco/output [{:t_user/photo [:t_photo/data
+                                 :t_photo/mime_type]}]}
+  (when-let [photo (com.eldrix.pc4.server.rsdb.users/fetch-user-photo conn username)]
+    {:t_user/photo {:t_photo/data      (.encodeToString (Base64/getEncoder) (:data photo))
+                    :t_photo/mime_type (:mimetype photo)}}))
 
 (pco/defresolver user->full-name
   [{:t_user/keys [title first_names last_name]}]
@@ -323,7 +337,8 @@
    encounter->encounter_template
    encounter->hospital
    encounter_template->encounter_type
-   user-by-identifier
+   user-by-username
+   user->photo
    user->full-name
    user->initials
    patient->fhir-human-name
@@ -400,4 +415,16 @@
   (address-for-date (fetch-patient-addresses conn 7382))
 
   (fetch-patient-addresses conn 119032)
-  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34}))
+  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
+
+
+  (jdbc/execute! conn (sql/format {:select [:*]
+                                   :from   [:t_project]}))
+
+
+  (def user (jdbc/execute-one! conn (sql/format {:select [:*]
+                                                 :from   [:t_user]
+                                                 :where  [:= :username "system"]})))
+  user
+
+  )

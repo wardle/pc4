@@ -9,6 +9,7 @@
            ch.qos.logback/logback-classic    {:mvn/version "1.3.0-alpha5"}
            org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha1"}
 
+           wonder.core/ERExtensions          {:mvn/version "7.2"}
 
            com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
                                               :sha     "78c05d4b329539b1d07e6821e103d82195983165"}
@@ -27,13 +28,18 @@
 
            expound/expound                   {:mvn/version "0.8.9"}
            integrant/integrant               {:mvn/version "0.8.0"}
-           honeysql/honeysql                 {:mvn/version "1.0.461"}
+           com.github.seancorfield/honeysql  {:mvn/version "2.0.0-rc3"}
            io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
            io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
            org.postgresql/postgresql         {:mvn/version "42.2.20"}
            com.github.seancorfield/next.jdbc {:mvn/version "1.2.659"}}
 
+ :mvn/repos
+          {"project-wonder"
+           {:url "https://maven.wocommunity.org/content/repositories/releases/"}
+           "other"
+           {:url "https://maven.wocommunity.org/content/groups/public/"}}
  :aliases {
            :dev       {:extra-paths ["dev"]
                        :extra-deps  {com.wsscode/pathom-viz-connector {:mvn/version "2021.05.13"}
