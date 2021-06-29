@@ -22,12 +22,28 @@
 
 (next.jdbc.date-time/read-as-local)
 
+(def parse-local-date #(when % (LocalDate/from %)))
+(def parse-boolean #(Boolean/parseBoolean %))
+
 (def property-parsers
-  {:t_patient/status                 #(keyword %)
-   :t_address/ignore_invalid_address #(Boolean/parseBoolean %)
-   :t_address/date_from              #(LocalDate/from %)
-   :t_address/date_to                #(LocalDate/from %)
-   :t_encounter/is_deleted           #(Boolean/parseBoolean %)})
+  {:t_patient/status                           keyword
+   :t_address/ignore_invalid_address           parse-boolean
+   :t_address/date_from                        parse-local-date
+   :t_address/date_to                          parse-local-date
+   :t_encounter/is_deleted                     parse-boolean
+   :t_encounter_template/can_change_consultant parse-boolean
+   :t_encounter_template/is_deleted            parse-boolean
+   :t_encounter_template/mandatory             parse-boolean
+   :t_encounter_template/can_change_hospital   parse-boolean
+   :t_encounter_template/allow_multiple        parse-boolean
+   :t_project/advertise_to_all                 parse-boolean
+   :t_project/virtual                          parse-boolean
+   :t_project/is_private                       parse-boolean
+   :t_project/can_own_equipment                parse-boolean
+   :t_project/type                             keyword
+   :t_project/date_from                        parse-local-date
+   :t_project/date_to                          parse-local-date
+   })
 
 (defn parse-entity
   [m & {:keys [remove-nils?] :or {remove-nils? false}}]
@@ -68,7 +84,7 @@
 
 (pco/defresolver patient-hospital->hospital
   [{hospital_fk :t_patient_hospital/hospital_fk}]
-  {:t_patient_hospital/hospital {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
+  {:t_patient_hospital/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
@@ -273,8 +289,8 @@
                       (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
 
 (def sex->fhir-patient
-  {"MALE" :org.hl7.fhir.administrative-gender/male
-   "FEMALE" :org.hl7.fhir.administrative-gender/female
+  {"MALE"    :org.hl7.fhir.administrative-gender/male
+   "FEMALE"  :org.hl7.fhir.administrative-gender/female
    "UNKNOWN" :org.hl7.fhir.administrative-gender/unknown})
 
 (pco/defresolver patient->fhir-gender
@@ -284,7 +300,7 @@
 (pco/defresolver patient->fhir-human-name
   [{:t_patient/keys [title first_names last_name]}]
   {:org.hl7.fhir.Patient/name [{:org.hl7.fhir.HumanName/prefix (str/split title #" ")
-                                :org.hl7.fhir.HumanName/given (str/split first_names #" ")
+                                :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
 (def all-resolvers
@@ -375,8 +391,8 @@
                     {:t_patient/hospitals [:t_patient_hospital/patient_identifier
                                            :t_patient_hospital/hospital]}]}])
 
-  (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
-                                       :where  [:= :id 15]}))
+  (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
+                                                     :where  [:= :id 15]})))
   (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
 
   (def ^LocalDate date (LocalDate/now))
