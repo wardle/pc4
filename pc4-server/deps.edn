@@ -23,7 +23,7 @@
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
            cheshire/cheshire                 {:mvn/version "5.10.0"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
-                                              :sha     "8b22b47c310cd7d3b12edc5855765d9cad1125d8"}
+                                              :sha     "52ddf7cc05cbdd2cfdbed7b7092723241cd7d49c"}
            com.zaxxer/HikariCP               {:mvn/version "4.0.3"}
 
            expound/expound                   {:mvn/version "0.8.9"}
