@@ -114,8 +114,8 @@
 
 (pco/defresolver patient->surgery
   [{surgery-fk :t_patient/surgery_fk}]
-  {::pco/output [{:t_patient/surgery [:urn.oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
-  (when surgery-fk {:t_patient/surgery {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
+  {::pco/output [{:t_patient/surgery [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
+  (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -241,8 +241,8 @@
 
 (pco/defresolver encounter->hospital
   [{hospital-id :t_encounter/hospital_fk}]
-  {::pco/output [{:t_encounter/hospital [:urn.oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
-  (when hospital-id {:t_encounter/hospital {:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id}}))
+  {::pco/output [{:t_encounter/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
+  (when hospital-id {:t_encounter/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id}}))
 
 (pco/defresolver encounter->encounter_template
   [{:com.eldrix.rsdb/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
@@ -273,14 +273,7 @@
                  :t_user/authentication_method
                  :t_user/professional_registration
                  :t_user/professional_registration_authority_fk]}
-  (parse-entity (jdbc/execute-one!
-                  conn
-                  (sql/format {:select [:username :title :first_names :last_name :postnomial :t_user/custom_initials
-                                        :email :custom_job_title :job_title_fk :send_email_for_messages
-                                        :authentication_method :professional_registration
-                                        :professional_registration_authority_fk]
-                               :from   [:t_user]
-                               :where  [:= :username (str/lower-case username)]}))))
+  (parse-entity (users/fetch-user conn username)))
 
 (pco/defresolver user->photo
   [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
@@ -301,6 +294,42 @@
   {:t_user/initials (if custom_initials
                       custom_initials
                       (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
+
+(pco/defresolver user->nadex
+  "Turn RSDB-derived user data into a representation from NADEX. This means
+  other resolvers (e.g. providing a FHIR view) can work on RSDB data!"
+  [{:t_user/keys [username first_names last_name title custom_job_title email professional_registration]
+    job_title    :t_job_title/name
+    regulator    :t_professional_registration_authority/abbreviation}]
+  {::pco/output [:wales.nhs.nadex/sAMAccountName
+                 :wales.nhs.nadex/sn
+                 :wales.nhs.nadex/givenName
+                 :wales.nhs.nadex/personalTitle
+                 :wales.nhs.nadex/mail
+                 :urn:oid:2.5.4/commonName
+                 {:wales.nhs.nadex/professionalRegistration [:regulator :code]}
+                 :wales.nhs.nadex/title]}
+  {:wales.nhs.nadex/sAMAccountName           username
+   :wales.nhs.nadex/sn                       last_name
+   :wales.nhs.nadex/givenName                first_names
+   :wales.nhs.nadex/personalTitle            title
+   :urn:oid:2.5.4/commonName                 (str/join " " [title first_names last_name])
+   :wales.nhs.nadex/mail                     email
+   :wales.nhs.nadex/professionalRegistration {:regulator regulator :code professional_registration}
+   :wales.nhs.nadex/title                    (or custom_job_title job_title)})
+
+(pco/defresolver user->fhir-name
+  [{:t_user/keys [first_names last_name title postnomial]}]
+  {::pco/output [{:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/prefix
+                                                   :org.hl7.fhir.HumanName/given
+                                                   :org.hl7.fhir.HumanName/family
+                                                   :org.hl7.fhir.HumanName/suffix
+                                                   :org.hl7.fhir.HumanName/use]}]}
+  {:org.hl7.fhir.Practitioner/name [{:org.hl7.fhir.HumanName/prefix [title]
+                                     :org.hl7.fhir.HumanName/given  (str/split first_names #"\s")
+                                     :org.hl7.fhir.HumanName/family last_name
+                                     :org.hl7.fhir.HumanName/suffix (str/split postnomial #"\s")
+                                     :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -338,6 +367,8 @@
    encounter->hospital
    encounter_template->encounter_type
    user-by-username
+   user->nadex
+   user->fhir-name
    user->photo
    user->full-name
    user->initials

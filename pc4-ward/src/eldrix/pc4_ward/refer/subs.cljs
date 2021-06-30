@@ -21,8 +21,8 @@
               (and user (not (get-in ref [::refer/referrer ::refer/practitioner])))
               (->
                 (assoc-in [::refer/referrer ::refer/practitioner] user)
-                (assoc-in [::refer/referrer ::refer/job-title] (:urn.oid.2.5.4/title user))
-                (assoc-in [::refer/referrer ::refer/contact-details] (:urn.oid.2.5.4/telephoneNumber user)))))))
+                (assoc-in [::refer/referrer ::refer/job-title] (:urn:oid:2.5.4/title user))
+                (assoc-in [::refer/referrer ::refer/contact-details] (:urn:oid:2.5.4/telephoneNumber user)))))))
 
 (rf/reg-sub ::available-stages
   (fn []

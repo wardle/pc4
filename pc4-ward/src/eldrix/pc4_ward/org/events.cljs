@@ -15,8 +15,8 @@
   at the client level. At the moment, we hardcode UK, but this could
   be a configurable option at runtime at the client."
   [org-identifier]
-  {[:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id org-identifier]
-   [:urn.oid.2.16.840.1.113883.2.1.3.2.4.18.48/id
+  {[:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id org-identifier]
+   [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id
     :org.w3.2004.02.skos.core/prefLabel]})
 
 (defn make-fetch-uk-orgs [org-identifiers]

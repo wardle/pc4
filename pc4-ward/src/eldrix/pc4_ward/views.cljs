@@ -93,6 +93,6 @@
        [:h1 "Main page"]
        [ui/main-login-panel
         :on-login (fn [username password]
-                    (rf/dispatch [::user-events/do-login "wales.nhs.uk" (str/trim username) password]))
+                    (rf/dispatch [::user-events/do-login "cymru.nhs.uk" (str/trim username) password]))
         :error @(rf/subscribe [::user-subs/login-error])])]))
 

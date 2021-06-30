@@ -54,14 +54,14 @@
   (p.eql/process (:pathom/registry system)
                  [{(list 'pc4.users/login
                          {:system "wales.nhs.uk" :value "ma090906" :password "password"})
-                   [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+                   [:urn:oid:1.2.840.113556.1.4/sAMAccountName
                     :io.jwt/token
-                    :urn.oid.2.5.4/givenName
-                    :urn.oid.2.5.4/surname
-                    :urn.oid.0.9.2342.19200300.100.1.3
-                    :urn.oid.2.5.4/commonName
-                    :urn.oid.2.5.4/title
-                    :urn.oid.2.5.4/telephoneNumber
+                    :urn:oid:2.5.4/givenName
+                    :urn:oid:2.5.4/surname
+                    :urn:oid:0.9.2342.19200300.100.1.3
+                    :urn:oid:2.5.4/commonName
+                    :urn:oid:2.5.4/title
+                    :urn:oid:2.5.4/telephoneNumber
                     :org.hl7.fhir.Practitioner/telecom
                     :org.hl7.fhir.Practitioner/identifier
                     {:org.hl7.fhir.Practitioner/name

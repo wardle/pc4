@@ -78,8 +78,8 @@
              {:id :refer :title "Refer" :href (href :refer)}]
       :selected (when current-route (-> current-route :data :name))
       :show-user? authenticated-user
-      :full-name (:urn.oid.2.5.4/commonName authenticated-user)
-      :initials (:urn.oid.2.5.4/initials authenticated-user)
+      :full-name (:urn:oid:2.5.4/commonName authenticated-user)
+      :initials (:urn:oid:2.5.4/initials authenticated-user)
       :user-menu [{:id :logout :title "Sign out" :on-click #(re-frame/dispatch [::user-events/do-logout])}]]
      (if current-route
        [(-> current-route :data :view) current-route]

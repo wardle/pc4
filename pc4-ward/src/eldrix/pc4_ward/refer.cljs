@@ -332,17 +332,17 @@
 (defn initialize-referral [user]
   (-> {:active-panel ::who-are-you?}
       (assoc-in [::referrer ::practitioner] user)
-      (assoc-in [::referrer ::job-title] (:urn.oid.2.5.4/title user))
-      (assoc-in [::referrer ::contact-details] (:urn.oid.2.5.4/telephoneNumber user))))
+      (assoc-in [::referrer ::job-title] (:urn:oid:2.5.4/title user))
+      (assoc-in [::referrer ::contact-details] (:urn:oid:2.5.4/telephoneNumber user))))
 
 (defn refer-page []
   (let [referral (reagent/atom {})]
     (fn []
       (let [user @(rf/subscribe [::user-subs/authenticated-user])]
-        (when-not (= (get-in @referral [::referrer ::practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
-          (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName])
-                                        (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
-                             (js/console.log "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn.oid.1.2.840.113556.1.4/sAMAccountName user))
+        (when-not (= (get-in @referral [::referrer ::practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
+          (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName])
+                                        (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
+                             (js/console.log "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
                              (initialize-referral user))))
         [:<>
          [:nav.navbar.is-black {:role "navigation" :aria-label "main navigation"}
@@ -350,7 +350,7 @@
            [:a.navbar-item {:href "#/"} [:h1 "PatientCare v4: " [:strong "Refer a patient"]]]]
           (when user
             [:div.navbar-end
-             [:div.navbar-item (:urn.oid.2.5.4/commonName user)]
+             [:div.navbar-item (:urn:oid:2.5.4/commonName user)]
              [:a.navbar-item {:on-click #(rf/dispatch [::user-events/do-logout])} "Logout"]])]
 
          (when-let [pt @(rf/subscribe [::patient-subs/current-patient])]
@@ -371,7 +371,7 @@
               ;; TODO: make menu handle component to show in a generic fashion?
               (case (:active-panel @referral)
                 ::who-are-you?
-                [user-panel referral {:name-kp    [::referrer ::practitioner :urn.oid.2.5.4/commonName]
+                [user-panel referral {:name-kp    [::referrer ::practitioner :urn:oid:2.5.4/commonName]
                                       :title-kp   [::referrer ::job-title]
                                       :contact-kp [::referrer ::contact-details]
                                       :team-kp    [::referrer ::team-details]

@@ -5,7 +5,8 @@
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [com.eldrix.pc4.server.rsdb.users :as users])
   (:import (java.time Instant LocalDateTime)))
 
 (pco/defmutation ping-operation
@@ -76,15 +77,28 @@
   In addition, it is more likely than we will blend data from multiple sources
   in order to provide data resolution here; there won't be a 1:1 logical
   mapping between our login abstraction and the backend service. This approach
-  is designed to decouple client from this complexity."
-  [{:com.eldrix.pc4/keys [login] :as env} {:keys [system value password]}]
+  is designed to decouple client from this complexity.
+
+  For example, if the user has a registered rsdb account, we defer to that for
+  user information. The 'system' parameter is currently a placeholder;
+  it should be \"cymru.nhs.uk\" for the time being. The way login-action works
+  *will* change but this will not affect clients."
+  [{pc4-login :com.eldrix.pc4/login rsdb-conn :com.eldrix.rsdb/conn :as env}
+   {:keys [system value password]}]
   {::pco/op-name 'pc4.users/login}
-  (when-not (s/valid? ::login-configuration login)
-    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
-  (let [wales-nadex (get-in login [:providers :com.eldrix.concierge/nadex])
-        fake-login (get-in login [:providers :com.eldrix.pc4/fake-login-provider])
-        token (make-user-token {:system system :value value} login)]
+  (when-not (s/valid? ::login-configuration pc4-login)
+    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration pc4-login))))
+  (let [wales-nadex (get-in pc4-login [:providers :com.eldrix.concierge/nadex])
+        fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
+        rsdb-user? (when (and rsdb-conn (= system "cymru.nhs.uk")) (users/check-password rsdb-conn wales-nadex value password))
+        token (make-user-token {:system system :value value} pc4-login)]
     (cond
+      ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
+      rsdb-user?
+      (do
+        (log/info "login for " system value ": using rsdb backend")
+        (assoc (users/fetch-user rsdb-conn value) :io.jwt/token token))
+
       ;; do we have the NHS Wales' NADEX configured, and is it a namespace it can handle?
       (and wales-nadex (= system "cymru.nhs.uk"))
       (do
@@ -114,7 +128,7 @@
 
       ;; no login provider found for the namespace provided
       :else
-      (log/info "no login provider found for namespace" {:system system :providers (keys login)}))))
+      (log/info "no login provider found for namespace" {:system system :providers (keys pc4-login)}))))
 
 (def regulator->namespace
   {"GMC"  :uk.org.hl7.fhir.id/gmc-number
@@ -137,9 +151,9 @@
 
 (pco/defresolver x500->common-name
   "Generate an x500 common-name."
-  [{:urn.oid.2.5.4/keys [givenName surname]}]
-  {::pco/output [:urn.oid.2.5.4/commonName]}                ;; (cn)   common name - first, middle, last
-  {:urn.oid.2.5.4/commonName (str givenName " " surname)})
+  [{:urn:oid:2.5.4/keys [givenName surname]}]
+  {::pco/output [:urn:oid:2.5.4/commonName]}                ;; (cn)   common name - first, middle, last
+  {:urn:oid:2.5.4/commonName (str givenName " " surname)})
 
 (pco/defresolver fhir-practitioner-identifiers
   [{:wales.nhs.nadex/keys [sAMAccountName]}]
@@ -150,10 +164,10 @@
 
 (pco/defresolver fhir-practitioner-name
   "Generate a FHIR practitioner name from x500 data."
-  [{:urn.oid.2.5.4/keys [givenName surname personalTitle]}]
-  {::pco/input [:urn.oid.2.5.4/givenName
-                :urn.oid.2.5.4/surname
-                (pco/? :urn.oid.2.5.4/personalTitle)]}
+  [{:urn:oid:2.5.4/keys [givenName surname personalTitle]}]
+  {::pco/input [:urn:oid:2.5.4/givenName
+                :urn:oid:2.5.4/surname
+                (pco/? :urn:oid:2.5.4/personalTitle)]}
   {::pco/output [{:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/given
                                                    :org.hl7.fhir.HumanName/family
                                                    :org.hl7.fhir.HumanName/use]}]}
@@ -167,10 +181,10 @@
 
 (pco/defresolver fhir-telecom
   "Generate FHIR telecom (contact points) from x500 data."
-  [{email     :urn.oid.0.9.2342.19200300.100.1.3
-    telephone :urn.oid.2.5.4/telephoneNumber}]              ;;
-  {::pco/input  [:urn.oid.0.9.2342.19200300.100.1.3
-                 (pco/? :urn.oid.2.5.4/telephoneNumber)]
+  [{email     :urn:oid:0.9.2342.19200300.100.1.3
+    telephone :urn:oid:2.5.4/telephoneNumber}]              ;;
+  {::pco/input  [:urn:oid:0.9.2342.19200300.100.1.3
+                 (pco/? :urn:oid:2.5.4/telephoneNumber)]
    ::pco/output [{:org.hl7.fhir.Practitioner/telecom [:org.hl7.fhir.ContactPoint/system
                                                       :org.hl7.fhir.ContactPoint/value]}]}
   {:org.hl7.fhir.Practitioner/telecom
@@ -183,9 +197,9 @@
                   :org.hl7.fhir.ContactPoint/value  telephone}))})
 
 (comment
-  (fhir-telecom {:urn.oid.2.5.4/telephoneNumber "07786196137" :urn.oid.0.9.2342.19200300.100.1.3 "mark.wardle@wales.nhs.uk"})
+  (fhir-telecom {:urn:oid:2.5.4/telephoneNumber "07786196137" :urn:oid:0.9.2342.19200300.100.1.3 "mark.wardle@wales.nhs.uk"})
 
-  (fhir-practitioner-name {:urn.oid.2.5.4/surname "Wardle" :urn.oid.2.5.4/givenName "Mark" :urn.oid.2.5.4/personalTitle "Dr"})
+  (fhir-practitioner-name {:urn:oid:2.5.4/surname "Wardle" :urn:oid:2.5.4/givenName "Mark" :urn:oid:2.5.4/personalTitle "Dr"})
   )
 
 
@@ -193,17 +207,17 @@
   [ping-operation
    login-operation
    refresh-token-operation
-   (pbir/equivalence-resolver :urn.oid.2.5.4/telephoneNumber :urn.oid.2.5.4.20)
-   (pbir/equivalence-resolver :urn.oid.2.5.4/surname :urn.oid.2.5.4.4)
-   (pbir/equivalence-resolver :urn.oid.2.5.4/givenName :urn.oid.2.5.4.42)
-   (pbir/equivalence-resolver :urn.oid.2.5.4/sn :urn.oid.2.5.4/surname)
-   (pbir/alias-resolver :wales.nhs.nadex/givenName :urn.oid.2.5.4/givenName)
-   (pbir/alias-resolver :wales.nhs.nadex/sAMAccountName :urn.oid.1.2.840.113556.1.4/sAMAccountName)
-   (pbir/alias-resolver :wales.nhs.nadex/title :urn.oid.2.5.4/title)
-   (pbir/alias-resolver :wales.nhs.nadex/personalTitle :urn.oid.2.5.4/personalTitle)
-   (pbir/alias-resolver :wales.nhs.nadex/sn :urn.oid.2.5.4/sn)
-   (pbir/alias-resolver :wales.nhs.nadex/telephoneNumber :urn.oid.2.5.4/telephoneNumber)
-   (pbir/alias-resolver :wales.nhs.nadex/mail :urn.oid.0.9.2342.19200300.100.1.3)
+   (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
+   (pbir/equivalence-resolver :urn:oid:2.5.4/surname :urn:oid:2.5.4.4)
+   (pbir/equivalence-resolver :urn:oid:2.5.4/givenName :urn:oid:2.5.4.42)
+   (pbir/equivalence-resolver :urn:oid:2.5.4/sn :urn:oid:2.5.4/surname)
+   (pbir/alias-resolver :wales.nhs.nadex/givenName :urn:oid:2.5.4/givenName)
+   (pbir/alias-resolver :wales.nhs.nadex/sAMAccountName :urn:oid:1.2.840.113556.1.4/sAMAccountName)
+   (pbir/alias-resolver :wales.nhs.nadex/title :urn:oid:2.5.4/title)
+   (pbir/alias-resolver :wales.nhs.nadex/personalTitle :urn:oid:2.5.4/personalTitle)
+   (pbir/alias-resolver :wales.nhs.nadex/sn :urn:oid:2.5.4/sn)
+   (pbir/alias-resolver :wales.nhs.nadex/telephoneNumber :urn:oid:2.5.4/telephoneNumber)
+   (pbir/alias-resolver :wales.nhs.nadex/mail :urn:oid:0.9.2342.19200300.100.1.3)
    professional-regulators
    x500->common-name
    fhir-practitioner-identifiers
@@ -229,17 +243,17 @@
 
   (some true? (map qualified-keyword? (keys {:hi 1 :there 2 ::pco/op-name 'wibble})))
 
-  (def r (make-resolver {:input     [:urn.oid.2.5.4/givenName
-                                     :urn.oid.2.5.4/surname],
-                         :output    [:urn.oid.2.5.4/commonName],
+  (def r (make-resolver {:input     [:urn:oid:2.5.4/givenName
+                                     :urn:oid:2.5.4/surname],
+                         :output    [:urn:oid:2.5.4/commonName],
                          :docstring "Generate an x500 common-name.",
                          :op-name   'com.eldrix.pc4.server.users/x500->common-name
-                         :resolve   (fn [env {:urn.oid.2.5.4/keys [givenName surname]}]
-                                      {:urn.oid.2.5.4/commonName (str givenName " " surname)})}))
+                         :resolve   (fn [env {:urn:oid:2.5.4/keys [givenName surname]}]
+                                      {:urn:oid:2.5.4/commonName (str givenName " " surname)})}))
   (pco/resolver? r)
   r
   x500->common-name
-  (r {} {:urn.oid.2.5.4/givenName "Mark" :urn.oid.2.5.4/surname "Wardle"})
+  (r {} {:urn:oid:2.5.4/givenName "Mark" :urn:oid:2.5.4/surname "Wardle"})
 
   (make-mutation {:op-name   'pc4.users/login
                   :params    [:system
@@ -247,5 +261,5 @@
                               :password],
                   :docstring "This is the documentation"
                   :mutate    (fn [env params] params)})
-  (pbir/equivalence-resolver :urn.oid.2.5.4/telephoneNumber :urn.oid.2.5.4.20)
+  (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
   )

@@ -16,7 +16,7 @@
                                                          :default-bind-password #ref [:secrets :nadex-bind-password]}
                                                :dev     {}}
 
- :com.eldrix.pc4/fake-login-provider {:username "ma090906"
+ :com.eldrix.pc4/fake-login-provider {:username "ma090906'"
                                       :password "password"}
 
  :com.eldrix.pc4/login               #profile {:default {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}

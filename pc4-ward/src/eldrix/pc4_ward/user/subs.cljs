@@ -17,7 +17,7 @@
   (fn []
     (rf/subscribe [::authenticated-user]))
   (fn [user]
-    (:urn.oid.2.5.4/commonName user)))
+    (:urn:oid:2.5.4/commonName user)))
 
 (rf/reg-sub ::login-error
   (fn [db]

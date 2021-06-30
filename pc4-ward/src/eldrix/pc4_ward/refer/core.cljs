@@ -84,8 +84,8 @@
   (cond-> referral
           authenticated-user
           (-> (assoc-in [::referrer ::practitioner] authenticated-user)
-              (update-in [::referrer ::job-title] #(or % (:urn.oid.2.5.4/title authenticated-user)))
-              (update-in [::referrer ::contact-details] #(or % (:urn.oid.2.5.4/telephoneNumber authenticated-user))))
+              (update-in [::referrer ::job-title] #(or % (:urn:oid:2.5.4/title authenticated-user)))
+              (update-in [::referrer ::contact-details] #(or % (:urn:oid:2.5.4/telephoneNumber authenticated-user))))
           patient
           (assoc ::patient patient)))
 

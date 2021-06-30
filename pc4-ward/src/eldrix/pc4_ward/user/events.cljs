@@ -12,20 +12,22 @@
 
 
 (def user-query
-  [:urn.oid.1.2.840.113556.1.4/sAMAccountName
+  [:urn:oid:1.2.840.113556.1.4/sAMAccountName
    :io.jwt/token
-   :urn.oid.2.5.4/givenName
-   :urn.oid.2.5.4/surname
-   :urn.oid.0.9.2342.19200300.100.1.3
-   :urn.oid.2.5.4/commonName
-   :urn.oid.2.5.4/title
-   :urn.oid.2.5.4/telephoneNumber
+   :urn:oid:2.5.4/givenName
+   :urn:oid:2.5.4/surname
+   :urn:oid:0.9.2342.19200300.100.1.3
+   :urn:oid:2.5.4/commonName
+   :urn:oid:2.5.4/title
+   :urn:oid:2.5.4/telephoneNumber
    :org.hl7.fhir.Practitioner/telecom
    :org.hl7.fhir.Practitioner/identifier
    {:org.hl7.fhir.Practitioner/name
     [:org.hl7.fhir.HumanName/use
+     :org.hl7.fhir.HumanName/prefix
      :org.hl7.fhir.HumanName/family
-     :org.hl7.fhir.HumanName/given]}])
+     :org.hl7.fhir.HumanName/given
+     :org.hl7.fhir.HumanName/suffix]}])
 
 (rf/reg-event-fx
   ::do-login []
@@ -136,7 +138,7 @@
 
         ;; user token expired - we have to force end to our session
         (srv/jwt-expires-in-seconds? token 0)
-        (do (js/console.log "session expired for user" (get-in db [:authenticated-user :practitioner :urn.oid.1.2.840.113556.1.4/sAMAccountName]))
+        (do (js/console.log "session expired for user" (get-in db [:authenticated-user :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]))
             {:fx [[:dispatch [::do-session-expire]]]})
 
         ;; user token expiring soon - we still have chance to refresh our token without needing to ask for credentials again

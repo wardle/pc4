@@ -113,8 +113,7 @@
                 (map #(log/info "resolver: " %))))
     (p.eql/boundary-interface (merge env (-> (pci/register resolvers)
                                              (com.wsscode.pathom3.plugin/register
-                                               [;;pbip/remove-stats-plugin
-                                                (pbip/attribute-errors-plugin)]))))))
+                                               [(pbip/attribute-errors-plugin)]))))))
 
 (defmethod ig/halt-key! :pathom/boundary-interface [_ env]
   (reset! resolvers []))
@@ -181,7 +180,6 @@
   (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
 
   (keys system)
-
   ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
                                          [:uk.gov.ons.nhspd/LSOA11
                                           :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M
@@ -194,14 +192,14 @@
 ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
 
 ((:pathom/boundary-interface system) [{'(pc4.users/login
-                                          {:system :uk.nhs.cymru :value "ma090906" :password "password"})
+                                          {:system "cymru.nhs.uk" :value "ma090906'" :password "password"})
                                        [:io.jwt/token
-                                        :urn.oid.2.5.4/sn
+                                        :wales.nhs.nadex/sAMAccountName
+                                        :urn:oid:2.5.4/sn
                                         :wales.nhs.nadex/givenName
-                                        :urn.oid.2.5.4/commonName
+                                        :urn:oid:2.5.4/commonName
                                         :wales.nhs.nadex/personalTitle
                                         :wales.nhs.nadex/mail
-                                        :wales.nhs.nadex/postOfficeBox
                                         :org.hl7.fhir.Practitioner/identifier
                                         :org.hl7.fhir.Practitioner/telecom
                                         {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family

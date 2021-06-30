@@ -10,21 +10,30 @@
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)))
 
-(defn can-authenticate-with-password?
-  "Support for legacy rsdb authentication."
+(defn- can-authenticate-with-password?
+  "Support for legacy rsdb authentication.
+  For development, we temporarily use the fallback local authentication
+  available if we do not have an active LDAP connection pool."
   [pool {:t_user/keys [username credential authentication_method]} password]
-  (when-not (str/blank? password)
-    (case authentication_method
-      "LOCAL"
+  (when-not (or (str/blank? password) (str/blank? credential))
+    (cond
+      (= authentication_method "LOCAL")                     ;; TODO: force password change for these users
       (let [md (MessageDigest/getInstance "SHA")
             hash (Base64/encodeBase64String (.digest md (.getBytes password)))]
         (log/warn "warning: using outdated password check for user " username)
         (= credential hash))
-      "LOCAL17"
+
+      (= authentication_method "LOCAL17")                   ;; TODO: upgrade to more modern hash here and in rsdb codebase
       (BCrypt/checkpw password credential)
-      "NADEX"
+
+      (and pool (= authentication_method "NADEX"))
       (nadex/can-authenticate? pool username password)
-      ;; no matching method: log an error
+
+      (= authentication_method "NADEX")                     ;; TODO: remove this fallback
+      (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
+          (BCrypt/checkpw password credential))
+
+      :else                                                 ;; no matching method: log an error
       (do
         (log/error "unsupported authentication method:" authentication_method)
         false))))
@@ -42,6 +51,7 @@
                                  :from   [:t_user]
                                  :where  [:= :username (.toLowerCase username)]}))]
     (can-authenticate-with-password? nadex user password)))
+
 
 (defn- save-password!
   [conn username new-password & {:keys [update-auth-method?]}]
@@ -100,6 +110,22 @@
                                                       [:= :t_project_user/user_fk :t_user/id]
                                                       [:= :t_user/username username]]}]})))
 
+(defn fetch-user [conn username]
+  (log/info "fetching rsdb user " username)
+  (jdbc/execute-one!
+    conn
+    (sql/format {:select    [:username :title :first_names :last_name :postnomial :t_user/custom_initials
+                             :email :custom_job_title :t_job_title/name
+                             :can_be_responsible_clinician :is_clinical
+                             :send_email_for_messages
+                             :authentication_method :professional_registration
+                             :t_professional_registration_authority/name
+                             :t_professional_registration_authority/abbreviation]
+                 :from      [:t_user]
+                 :left-join [:t_job_title [:= :t_user/job_title_fk :t_job_title/id]
+                             :t_professional_registration_authority [:= :t_user/professional_registration_authority_fk :t_professional_registration_authority/id]]
+                 :where     [:= :username (str/lower-case username)]})))
+
 (defn fetch-user-photo [conn username]
   (jdbc/execute-one!
     conn
@@ -123,4 +149,6 @@
   (group-by :t_project/type (projects conn "ma090906"))
 
   (fetch-user-photo conn "rh084967")
+  (fetch-user conn "ma090906")
+  (can-authenticate-with-password? nil (fetch-user conn "system") "password")
   )
