@@ -200,6 +200,7 @@
                                         :urn:oid:2.5.4/commonName
                                         :wales.nhs.nadex/personalTitle
                                         :wales.nhs.nadex/mail
+                                        :t_user/active_projects
                                         :org.hl7.fhir.Practitioner/identifier
                                         :org.hl7.fhir.Practitioner/telecom
                                         {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family

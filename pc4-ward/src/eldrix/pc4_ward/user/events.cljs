@@ -22,6 +22,9 @@
    :urn:oid:2.5.4/telephoneNumber
    :org.hl7.fhir.Practitioner/telecom
    :org.hl7.fhir.Practitioner/identifier
+   {:t_user/active_projects                                 ;;; iff the user has an rsdb account, this will be populated
+    [:t_project/id :t_project/name :t_project/title :t_project/is_private
+     :t_project/long_description :t_project/type :t_project/virtual]}
    {:org.hl7.fhir.Practitioner/name
     [:org.hl7.fhir.HumanName/use
      :org.hl7.fhir.HumanName/prefix

@@ -9,6 +9,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
             [honey.sql.helpers :as h]
@@ -194,19 +195,22 @@
                                                         :from   [:t_episode]
                                                         :where  [:= :patient_fk patient-id]}))})
 
+(def project-properties
+  [:t_project/id :t_project/name :t_project/title
+   :t_project/long_description
+   :t_project/type :t_project/date_from :t_project/date_to
+   :t_project/exclusion_criteria :t_project/inclusion_criteria
+   :t_project/address1 :t_project/address2 :t_project/address3
+   :t_project/address4 :t_project/postcode
+   :t_project/parent_project_fk
+   :t_project/virtual :t_project/can_own_equipment
+   :t_project/specialty_concept_fk
+   :t_project/care_plan_information
+   :t_project/is_private])
+
 (pco/defresolver episode->project
   [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
-  {::pco/output [{:t_episode/project [:t_project/id :t_project/name :t_project/title
-                                      :t_project/long_description
-                                      :t_project/type :t_project/date_from :t_project/date_to
-                                      :t_project/exclusion_criteria :t_project/inclusion_criteria
-                                      :t_project/address1 :t_project/address2 :t_project/address3
-                                      :t_project/address4 :t_project/postcode
-                                      :t_project/parent_project_fk
-                                      :t_project/virtual :t_project/can_own_equipment
-                                      :t_project/specialty_concept_fk
-                                      :t_project/care_plan_information
-                                      :t_project/is_private]}]}
+  {::pco/output [{:t_episode/project project-properties}]}
   {:t_episode/project (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
                                                                          :from   [:t_project]
                                                                          :where  [:= :id project-id]})))})
@@ -258,22 +262,33 @@
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
 
+(def user-properties
+  [:t_user/username
+   :t_user/title
+   :t_user/first_names
+   :t_user/last_name
+   :t_user/postnomial
+   :t_user/custom_initials
+   :t_user/email
+   :t_user/custom_job_title
+   :t_user/job_title_fk
+   :t_user/send_email_for_messages
+   :t_user/authentication_method
+   :t_user/professional_registration])
+
 (pco/defresolver user-by-username
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
-  {::pco/output [:t_user/username
-                 :t_user/title
-                 :t_user/first_names
-                 :t_user/last_name
-                 :t_user/postnomial
-                 :t_user/custom_initials
-                 :t_user/email
-                 :t_user/custom_job_title
-                 :t_user/job_title_fk
-                 :t_user/send_email_for_messages
-                 :t_user/authentication_method
-                 :t_user/professional_registration
-                 :t_user/professional_registration_authority_fk]}
+  {::pco/output user-properties}
   (parse-entity (users/fetch-user conn username)))
+
+(pco/defresolver user-by-nadex
+  "Resolves rsdb user properties from a NADEX username if that user is
+   registered with rsdb with NADEX authentication."
+  [{conn :com.eldrix.rsdb/conn} {username :wales.nhs.nadex/sAMAccountName}]
+  {::pco/output user-properties}
+  (when-let [user (parse-entity (users/fetch-user conn username))]
+    (when (= (:t_user/authentication_method user) "NADEX")
+      user)))
 
 (pco/defresolver user->photo
   [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
@@ -331,6 +346,13 @@
                                      :org.hl7.fhir.HumanName/suffix (str/split postnomial #"\s")
                                      :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
 
+(pco/defresolver user->active-projects
+  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  {::pco/output [{:t_user/active_projects [:t_project]}]}
+  {:t_user/active_projects (->> (users/projects conn username)
+                                (filter projects/active?)
+                                (map parse-entity))})
+
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
    "FEMALE"  :org.hl7.fhir.administrative-gender/female
@@ -367,11 +389,13 @@
    encounter->hospital
    encounter_template->encounter_type
    user-by-username
+   user-by-nadex
    user->nadex
    user->fhir-name
    user->photo
    user->full-name
    user->initials
+   user->active-projects
    patient->fhir-human-name
    patient->fhir-gender])
 
@@ -456,6 +480,7 @@
   (def user (jdbc/execute-one! conn (sql/format {:select [:*]
                                                  :from   [:t_user]
                                                  :where  [:= :username "system"]})))
+  (parse-entity (users/fetch-user conn "ma090906"))
   user
 
   )
