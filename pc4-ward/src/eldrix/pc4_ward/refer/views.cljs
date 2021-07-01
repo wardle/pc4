@@ -25,7 +25,7 @@
                :save-disabled (not valid?)
                :on-save       #(when (and valid? on-save) (on-save))}
               [ui/textfield-control
-               (get-in referral [::refer/referrer ::refer/practitioner :urn.oid.2.5.4/commonName])
+               (get-in referral [::refer/referrer ::refer/practitioner :urn:oid:2.5.4/commonName])
                :id "user-name" :label "Name" :required true :disabled true]
               [ui/textfield-control (get-in referral [::refer/referrer ::refer/job-title])
                :id "user-job-title" :label "Job title / grade" :required true
