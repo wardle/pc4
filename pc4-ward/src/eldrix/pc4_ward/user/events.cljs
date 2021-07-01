@@ -9,8 +9,6 @@
             [ajax.transit :as ajax-transit]
             [com.eldrix.pc4.commons.dates :as dates]))
 
-
-
 (def user-query
   [:urn:oid:1.2.840.113556.1.4/sAMAccountName
    :io.jwt/token
@@ -70,15 +68,15 @@
 
 (rf/reg-event-db ::do-session-expire
   []
-  (fn [_ [_]]
-    (-> db/default-db
+  (fn [db [_]]
+    (-> (db/reset db)
         (assoc-in [:errors :user/login] "Your session expired. Please login again"))))
 
 (rf/reg-event-db ::do-logout
   []
-  (fn [_db [_ user]]
+  (fn [db [_ user]]
     (js/console.log "Logging out user" user)
-    db/default-db))
+    (db/reset db)))
 
 (rf/reg-event-fx ::ping-server
   []
