@@ -20,6 +20,8 @@
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
                                               :sha     "b8924df2b506f7c427a4593ebfa9eee584193707"}
            aero/aero                         {:mvn/version "1.1.6"}
+
+           buddy/buddy-core                  {:mvn/version "1.10.1"}
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
            cheshire/cheshire                 {:mvn/version "5.10.0"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"

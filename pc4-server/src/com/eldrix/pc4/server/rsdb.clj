@@ -9,12 +9,12 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.server.rsdb.parse :as parse]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
             [honey.sql.helpers :as h]
             [next.jdbc :as jdbc]
-            [next.jdbc.date-time]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -22,43 +22,6 @@
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
            (java.util Base64)))
-
-(next.jdbc.date-time/read-as-local)
-
-(def parse-local-date #(when % (LocalDate/from %)))
-(def parse-boolean #(Boolean/parseBoolean %))
-
-(def property-parsers
-  {:t_patient/status                           keyword
-   :t_address/ignore_invalid_address           parse-boolean
-   :t_address/date_from                        parse-local-date
-   :t_address/date_to                          parse-local-date
-   :t_encounter/is_deleted                     parse-boolean
-   :t_encounter_template/can_change_consultant parse-boolean
-   :t_encounter_template/is_deleted            parse-boolean
-   :t_encounter_template/mandatory             parse-boolean
-   :t_encounter_template/can_change_hospital   parse-boolean
-   :t_encounter_template/allow_multiple        parse-boolean
-   :t_project/advertise_to_all                 parse-boolean
-   :t_project/virtual                          parse-boolean
-   :t_project/is_private                       parse-boolean
-   :t_project/can_own_equipment                parse-boolean
-   :t_project/type                             keyword
-   :t_project/date_from                        parse-local-date
-   :t_project/date_to                          parse-local-date
-   :t_user/must_change_password                parse-boolean
-   :t_user/send_email_for_messages             parse-boolean
-   })
-
-(defn parse-entity
-  [m & {:keys [remove-nils?] :or {remove-nils? false}}]
-  (reduce-kv
-    (fn [m k v]
-      (when (or (not remove-nils?) v)
-        (assoc m k (let [f (get property-parsers k)]
-                     (if (and f v) (f v) v))))) {} m))
-
-
 
 (pco/defresolver patient-by-identifier
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
@@ -77,7 +40,7 @@
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
-  (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}))))
+  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}))))
 
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
@@ -87,7 +50,7 @@
   {:t_patient/hospitals (->> (jdbc/execute! conn (sql/format {:select [:*]
                                                               :from   [:t_patient_hospital]
                                                               :where  [:= :patient_fk patient-id]}))
-                             (map parse-entity))})
+                             (map parse/parse-entity))})
 
 (pco/defresolver patient-hospital->hospital
   [{hospital_fk :t_patient_hospital/hospital_fk}]
@@ -138,7 +101,7 @@
                                         :from     [:t_address]
                                         :where    [:= :patient_fk patient-id]
                                         :order-by [[:date_to :desc] [:date_from :desc]]}))
-       (map parse-entity)))
+       (map parse/parse-entity)))
 
 (defn address-for-date
   "Determine the address on a given date, the current date if none given."
@@ -211,9 +174,37 @@
 (pco/defresolver episode->project
   [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
   {::pco/output [{:t_episode/project project-properties}]}
-  {:t_episode/project (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
+  {:t_episode/project (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
                                                                          :from   [:t_project]
                                                                          :where  [:= :id project-id]})))})
+
+(pco/defresolver project-by-identifier
+  [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
+  {::pco/output project-properties}
+  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
+                                                     :from   [:t_project]
+                                                     :where  [:= :id id]}))))
+
+
+(pco/defresolver project->slug
+  [{title :t_project/title}]
+  {::pco/output [:t_project/slug]}
+  {:t_project/slug (projects/make-slug title)})
+
+(pco/defresolver project->parent
+  [{parent-id :t_project/parent_project_fk}]
+  {::pco/output [{:t_project/parent [:t_project/id]}]}
+  {:t_project/parent {:t_project/id parent-id}})
+
+(pco/defresolver project->specialty
+  [{specialty-concept-fk :t_project/specialty_concept_fk}]
+  {::pco/output [{:t_project/specialty [:info.snomed.Concept/id]}]}
+  {:t_project/specialty {:info.snomed.Concept/id specialty-concept-fk}})
+
+(pco/defresolver project->users
+  [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
+  {::pco/output [{:t_project/users [:t_user/id]}]}
+  {:t_project/users (projects/fetch-users conn id)})
 
 (pco/defresolver patient->encounters
   [{:com.eldrix.rsdb/keys [conn]} {patient-id :t_patient/id}]
@@ -279,14 +270,20 @@
 (pco/defresolver user-by-username
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output user-properties}
-  (parse-entity (users/fetch-user conn username)))
+  (parse/parse-entity (users/fetch-user conn username)))
+
+(pco/defresolver user-by-id
+  [{conn :com.eldrix.rsdb/conn} {id :t_user/id}]
+  {::pco/output user-properties}
+  (parse/parse-entity (users/fetch-user-by-id conn id)))
+
 
 (pco/defresolver user-by-nadex
   "Resolves rsdb user properties from a NADEX username if that user is
    registered with rsdb with NADEX authentication."
   [{conn :com.eldrix.rsdb/conn} {username :wales.nhs.nadex/sAMAccountName}]
   {::pco/output user-properties}
-  (when-let [user (parse-entity (users/fetch-user conn username))]
+  (when-let [user (parse/parse-entity (users/fetch-user conn username))]
     (when (= (:t_user/authentication_method user) "NADEX")
       user)))
 
@@ -311,8 +308,8 @@
                       (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))})
 
 (pco/defresolver user->nadex
-  "Turn RSDB-derived user data into a representation from NADEX. This means
-  other resolvers (e.g. providing a FHIR view) can work on RSDB data!"
+  "Turn rsdb-derived user data into a representation from NADEX. This means
+  other resolvers (e.g. providing a FHIR view) can work on rsdb data!"
   [{:t_user/keys [username first_names last_name title custom_job_title email professional_registration]
     job_title    :t_job_title/name
     regulator    :t_professional_registration_authority/abbreviation}]
@@ -351,7 +348,7 @@
   {::pco/output [{:t_user/active_projects [:t_project]}]}
   {:t_user/active_projects (->> (users/projects conn username)
                                 (filter projects/active?)
-                                (map parse-entity))})
+                                (map parse/parse-entity))})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -368,6 +365,7 @@
                                 :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
+
 (def all-resolvers
   [patient-by-identifier
    patient->hospitals
@@ -383,12 +381,18 @@
    address->housing
    patient->episodes
    episode->project
+   project-by-identifier
+   project->parent
+   project->specialty
+   project->slug
+   project->users
    patient->encounters
    encounter->users
    encounter->encounter_template
    encounter->hospital
    encounter_template->encounter_type
    user-by-username
+   user-by-id
    user-by-nadex
    user->nadex
    user->fhir-name
@@ -437,7 +441,7 @@
                                           :t_episode/project_fk
                                           {:t_episode/project [:t_project/title]}]}]}])
 
-  (p.eql/process env
+  (time (p.eql/process env
                  [{[:t_patient/patient-identifier 12182]
                    [:t_patient/id
                     :t_patient/first_names
@@ -449,7 +453,7 @@
                                             :t_encounter/hospital
                                             {:t_encounter/users [:t_user/id
                                                                  :t_user/initials
-                                                                 :t_user/full_name]}]}]}])
+                                                                 :t_user/full_name]}]}]}]))
 
   (p.eql/process env
                  [{[:t_patient/patient-identifier 12182]
@@ -472,7 +476,6 @@
   (fetch-patient-addresses conn 119032)
   (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
 
-
   (jdbc/execute! conn (sql/format {:select [:*]
                                    :from   [:t_project]}))
 
@@ -483,4 +486,11 @@
   (parse-entity (users/fetch-user conn "ma090906"))
   user
 
+
+  (time (map #(assoc % :t_project/slug (projects/make-slug (:t_project/title %)))
+             (jdbc/execute! conn (sql/format {:select [:t_project/id :t_project/title :t_project/name]
+                                              :from   [:t_project]}))))
+
+
+  (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
   )

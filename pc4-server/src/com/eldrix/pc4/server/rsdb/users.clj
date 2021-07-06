@@ -5,7 +5,8 @@
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [honey.sql.helpers :as h]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [com.eldrix.pc4.server.rsdb.parse :as parse])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)))
@@ -110,21 +111,25 @@
                                                       [:= :t_project_user/user_fk :t_user/id]
                                                       [:= :t_user/username username]]}]})))
 
+(def fetch-user-query
+  {:select    [:username :title :first_names :last_name :postnomial :custom_initials
+               :email :custom_job_title :t_job_title/name
+               :can_be_responsible_clinician :is_clinical
+               :send_email_for_messages
+               :authentication_method :professional_registration
+               :t_professional_registration_authority/name
+               :t_professional_registration_authority/abbreviation]
+   :from      [:t_user]
+   :left-join [:t_job_title [:= :t_user/job_title_fk :t_job_title/id]
+               :t_professional_registration_authority [:= :t_user/professional_registration_authority_fk :t_professional_registration_authority/id]]})
+
 (defn fetch-user [conn username]
-  (log/info "fetching rsdb user " username)
-  (jdbc/execute-one!
-    conn
-    (sql/format {:select    [:username :title :first_names :last_name :postnomial :t_user/custom_initials
-                             :email :custom_job_title :t_job_title/name
-                             :can_be_responsible_clinician :is_clinical
-                             :send_email_for_messages
-                             :authentication_method :professional_registration
-                             :t_professional_registration_authority/name
-                             :t_professional_registration_authority/abbreviation]
-                 :from      [:t_user]
-                 :left-join [:t_job_title [:= :t_user/job_title_fk :t_job_title/id]
-                             :t_professional_registration_authority [:= :t_user/professional_registration_authority_fk :t_professional_registration_authority/id]]
-                 :where     [:= :username (str/lower-case username)]})))
+  (jdbc/execute-one! conn (sql/format (assoc fetch-user-query
+                                        :where [:= :username (str/lower-case username)]))))
+
+(defn fetch-user-by-id [conn user-id]
+  (jdbc/execute-one! conn (sql/format (assoc fetch-user-query
+                                        :where [:= :t_user/id user-id]))))
 
 (defn fetch-user-photo [conn username]
   (jdbc/execute-one!
@@ -149,6 +154,6 @@
   (group-by :t_project/type (projects conn "ma090906"))
 
   (fetch-user-photo conn "rh084967")
-  (fetch-user conn "ma090906")
+  (parse/parse-entity (fetch-user conn "ma090906"))
   (can-authenticate-with-password? nil (fetch-user conn "system") "password")
   )
