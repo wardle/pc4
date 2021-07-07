@@ -11,7 +11,7 @@
    Many users are authorised to register and discharge patients from projects
    but such authorisation is on a per-project basis."
   (:require [clojure.string :as str]
-            [com.eldrix.pc4.server.rsdb.parse :as parse]
+            [com.eldrix.pc4.server.rsdb.db :as db]
             [next.jdbc :as jdbc]
             [honey.sql :as sql])
   (:import (java.time LocalDate)
@@ -75,20 +75,18 @@
    :t_patient/date_birth :t_patient/sex :t_patient/nhs_number])
 
 (defn fetch-by-global-pseudonym [conn pseudonym]
-  (parse/parse-entity
-    (jdbc/execute-one! conn (sql/format {:select fetch-pseudonym-patient-properties
-                                         :from   :t_patient
-                                         :where  [:= :stored_global_pseudonym pseudonym]}))))
+  (db/execute-one! conn (sql/format {:select fetch-pseudonym-patient-properties
+                                     :from   :t_patient
+                                     :where  [:= :stored_global_pseudonym pseudonym]})))
 
 (defn fetch-by-project-pseudonym [conn project-name pseudonym]
-  (parse/parse-entity
-    (jdbc/execute-one! conn (sql/format {:select    fetch-pseudonym-patient-properties
-                                         :from      :t_episode
-                                         :left-join [:t_project [:= :project_fk :t_project/id]
-                                                     :t_patient [:= :patient_fk :t_patient/id]]
-                                         :where     [:and
-                                                     [:= :t_project/name project-name]
-                                                     [:= :stored_pseudonym pseudonym]]}))))
+  (db/execute-one! conn (sql/format {:select    fetch-pseudonym-patient-properties
+                                     :from      :t_episode
+                                     :left-join [:t_project [:= :project_fk :t_project/id]
+                                                 :t_patient [:= :patient_fk :t_patient/id]]
+                                     :where     [:and
+                                                 [:= :t_project/name project-name]
+                                                 [:= :stored_pseudonym pseudonym]]})))
 
 (defn search-by-project-pseudonym
   "Search for a pseudonym in the specified project.
@@ -99,7 +97,7 @@
   (when (>= (count pseudonym) 3)
     (let [results (jdbc/execute!
                     conn
-                    (sql/format {:select    fetch-pseudonym-patient-properties
+                    (sql/format {:select    (conj fetch-pseudonym-patient-properties :t_episode/stored_pseudonym)
                                  :from      :t_episode
                                  :left-join [:t_project [:= :project_fk :t_project/id]
                                              :t_patient [:= :patient_fk :t_patient/id]]
@@ -108,26 +106,25 @@
                                              [:like :stored_pseudonym (str pseudonym "%")]]
                                  :limit     2}))]
       (when (= 1 (count results))
-        (first results)))))
+        (db/parse-entity (first results))))))
 
 (defn fetch-by-nhs-number [conn nnn]
-  (parse/parse-entity
-    (jdbc/execute-one! conn (sql/format {:select fetch-pseudonym-patient-properties
-                                         :from   :t_patient
-                                         :where  [:= :nhs_number nnn]}))))
+  (db/execute-one! conn (sql/format {:select fetch-pseudonym-patient-properties
+                                     :from   :t_patient
+                                     :where  [:= :nhs_number nnn]})))
 
 (defn episodes-for-patient [conn patient-id]
-  (jdbc/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :patient_fk patient-id]})))
+  (db/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :patient_fk patient-id]})))
 
 (defn fetch-episode [conn episode-id]
-  (jdbc/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :id episode-id]})))
+  (db/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :id episode-id]})))
 
 (defn episodes-for-patient-in-project
   [conn patient-id project-id]
-  (jdbc/execute! conn (sql/format {:select [:*] :from :t_episode
-                                   :where  [:and
-                                            [:= :patient_fk patient-id]
-                                            [:= :project_fk project-id]]})))
+  (db/execute! conn (sql/format {:select [:*] :from :t_episode
+                                 :where  [:and
+                                          [:= :patient_fk patient-id]
+                                          [:= :project_fk project-id]]})))
 
 (defn ^:deprecated find-legacy-pseudonymous-patient
   "Attempts to identify a patient using the legacy rsdb pseudonym registration.
@@ -155,31 +152,31 @@
   Returns the updated episode.
   We do not worry about optimistic locking here, by design."
   [conn user-id {episode-id :t_episode/id}]
-  (jdbc/execute-one! conn
-                     (sql/format {:update :t_episode
-                                  :set    {:t_episode/date_registration    (LocalDate/now)
-                                           :t_episode/registration_user_fk user-id}
-                                  :where  [:= :t_episode/id episode-id]})
-                     {:return-keys true}))
+  (db/execute-one! conn
+                   (sql/format {:update :t_episode
+                                :set    {:t_episode/date_registration    (LocalDate/now)
+                                         :t_episode/registration_user_fk user-id}
+                                :where  [:= :t_episode/id episode-id]})
+                   {:return-keys true}))
 
 (defn discharge-episode!
   "Sets the episode specified as discharged. Returns the updated episode.
   We do not worry about optimistic locking here, by design."
   [conn user-id {episode-id :t_episode/id}]
-  (jdbc/execute-one! conn
-                     (sql/format {:update :t_episode
-                                  :set    {:t_episode/date_discharge    (LocalDate/now)
-                                           :t_episode/discharge_user_fk user-id}
-                                  :where  [:= :t_episode/id episode-id]})
-                     {:return-keys true}))
+  (db/execute-one! conn
+                   (sql/format {:update :t_episode
+                                :set    {:t_episode/date_discharge    (LocalDate/now)
+                                         :t_episode/discharge_user_fk user-id}
+                                :where  [:= :t_episode/id episode-id]})
+                   {:return-keys true}))
 
 (defn create-episode!
   "Create a new episode, returning the data."
   [conn episode]
-  (jdbc/execute-one! conn
-                     (sql/format {:insert-into [:t_episode]
-                                  :values      [episode]})
-                     {:return-keys true}))
+  (db/execute-one! conn
+                   (sql/format {:insert-into [:t_episode]
+                                :values      [episode]})
+                   {:return-keys true}))
 
 (defn create-patient!
   "Creates a patient.
@@ -200,10 +197,10 @@
     (jdbc/execute-one! conn (sql/format {:insert-into [:t_family]
                                          :values      [{:t_family/family_identifier (str family-id)
                                                         :t_family/id                family-id}]}))
-    (jdbc/execute-one! conn
-                       (sql/format {:insert-into [:t_patient]
-                                    :values      [patient']})
-                       {:return-keys true})))
+    (db/execute-one! conn
+                     (sql/format {:insert-into [:t_patient]
+                                  :values      [patient']})
+                     {:return-keys true})))
 
 (defn register-patient-project
   "Register a patient to a project. Safe to use if patient already registered.
@@ -300,7 +297,7 @@
   "Fetch users for the project specified. An individual may be listed more than
   once if they have more than one 'role' within the project."
   [conn project-id]
-  (jdbc/execute!
+  (db/execute!
     conn
     (sql/format
       {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
@@ -310,6 +307,47 @@
                    :t_job_title [:= :job_title_fk :t_job_title/id]]
        :where     [:= :project_fk project-id]
        :order-by  [:last_name :first_names]})))
+
+
+(defn fetch-project-sql [project-id]
+  (sql/format {:select :* :from :t_project :where [:= :id project-id]}))
+
+(defn fetch-projects-sql [ids]
+  (sql/format {:select :* :from :t_project :where [:in :id ids]}))
+
+(defn all-children-sql [project-id]
+  (sql/format {:with-recursive
+                       [[:children
+                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :where  [:= :id project-id]}
+                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
+               :select :children/id
+               :from   :children
+               :where [:!= :id project-id]}))
+
+(defn all-parents-sql [project-id]
+  (sql/format {:with-recursive
+                       [[:parents
+                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :where  [:= :id project-id]}
+                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
+               :select :parents/id
+               :from   :parents
+               :where [:!= :id project-id]}))
+
+(defn all-children-ids [conn project-id]
+  (map :id (db/execute! conn (all-children-sql project-id))))
+
+(defn all-parents-ids [conn project-id]
+  (map :id (db/execute! conn (all-parents-sql project-id))))
+
+(defn all-children [conn project-id]
+  (db/execute! conn (fetch-projects-sql (all-children-ids conn project-id))))
+
+(defn all-parents [conn project-id]
+  (db/execute! conn (fetch-projects-sql (all-parents-ids conn project-id))))
 
 (comment
   (require '[next.jdbc.connection])
@@ -321,6 +359,11 @@
                                                                              :maximumPoolSize 10}))
 
   (make-slug "MND Cwm Taf")
+
+  (group-by :t_project/type (all-children conn 5))
+  (all-parents conn 5)
+  (time (all-children conn 5))
+  (into #{} (map :id (db/execute! conn (all-children-sql 5))))
 
   ;; check we have legacy implementation compatibility.
   (= "c2f5699061566a5e6ab05c169848435028568f7eb87e098c5a740c28720bb52a"
@@ -343,7 +386,7 @@
                                          :sex          "MALE"
                                          :date-birth   (LocalDate/of 1973 10 1)})
 
-  (search-by-project-pseudonym conn 124 "2ff")
+  (search-by-project-pseudonym conn 124 "e657")
 
   (let [episodes (episodes-for-patient conn 14032)
         statuses (map episode-status (episodes-for-patient conn 14032))]
@@ -357,4 +400,17 @@
                          :t_episode/patient_fk       14031
                          :t_episode/referral_user_fk 1
                          :t_episode/date_referral    (LocalDate/now)})
+
+
+  (jdbc/execute!
+    conn
+    (sql/format
+      {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
+                   :t_job_title/name :custom_job_title]
+       :from      [:t_project_user]
+       :left-join [:t_user [:= :user_fk :t_user/id]
+                   :t_job_title [:= :job_title_fk :t_job_title/id]]
+       :where     [:= :project_fk 1]
+       :order-by  [:last_name :first_names]}))
+
   )

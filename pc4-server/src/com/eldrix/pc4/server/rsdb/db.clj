@@ -1,5 +1,6 @@
-(ns com.eldrix.pc4.server.rsdb.parse
-  (:require [next.jdbc.date-time])
+(ns com.eldrix.pc4.server.rsdb.db
+  (:require [next.jdbc.date-time]
+            [next.jdbc :as jdbc])
   (:import (java.time LocalDate)))
 
 (next.jdbc.date-time/read-as-local)
@@ -29,6 +30,9 @@
    :t_project/type                             keyword
    :t_project/date_from                        parse-local-date
    :t_project/date_to                          parse-local-date
+   :t_project_user/role                        keyword
+   :t_role/is_system                           parse-boolean
+   :t_user/authentication_method               keyword
    :t_user/must_change_password                parse-boolean
    :t_user/send_email_for_messages             parse-boolean
    })
@@ -48,4 +52,14 @@
           (assoc m k (let [f (get property-parsers k)]
                        (if (and f v) (f v) v))))) {} m)))
 
+(defn execute!
+  ([connectable sql-params]
+   (map parse-entity (jdbc/execute! connectable sql-params)))
+  ([connectable sql-params opts]
+   (map parse-entity (jdbc/execute! connectable sql-params opts))))
 
+(defn execute-one!
+  ([connectable sql-params]
+   (parse-entity (jdbc/execute-one! connectable sql-params)))
+  ([connectable sql-params opts]
+   (parse-entity (jdbc/execute-one! connectable sql-params opts))))

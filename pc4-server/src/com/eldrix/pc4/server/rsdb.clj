@@ -9,7 +9,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.pc4.server.rsdb.parse :as parse]
+            [com.eldrix.pc4.server.rsdb.db :as parse]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
@@ -196,6 +196,16 @@
   {::pco/output [{:t_project/parent [:t_project/id]}]}
   {:t_project/parent {:t_project/id parent-id}})
 
+(pco/defresolver project->all-parents
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [{:t_project/all-parents [:t_project/id]}]}
+  {:t_project/all-parents (projects/all-parents conn project-id)})
+
+(pco/defresolver project->all-children
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [{:t_project/all-children [:t_project/id]}]}
+  {:t_project/all-parents (projects/all-children conn project-id)})
+
 (pco/defresolver project->specialty
   [{specialty-concept-fk :t_project/specialty_concept_fk}]
   {::pco/output [{:t_project/specialty [:info.snomed.Concept/id]}]}
@@ -270,12 +280,12 @@
 (pco/defresolver user-by-username
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output user-properties}
-  (parse/parse-entity (users/fetch-user conn username)))
+  (users/fetch-user conn username))
 
 (pco/defresolver user-by-id
   [{conn :com.eldrix.rsdb/conn} {id :t_user/id}]
   {::pco/output user-properties}
-  (parse/parse-entity (users/fetch-user-by-id conn id)))
+  (users/fetch-user-by-id conn id))
 
 
 (pco/defresolver user-by-nadex
@@ -283,8 +293,8 @@
    registered with rsdb with NADEX authentication."
   [{conn :com.eldrix.rsdb/conn} {username :wales.nhs.nadex/sAMAccountName}]
   {::pco/output user-properties}
-  (when-let [user (parse/parse-entity (users/fetch-user conn username))]
-    (when (= (:t_user/authentication_method user) "NADEX")
+  (when-let [user (users/fetch-user conn username)]
+    (when (= (:t_user/authentication_method user) :NADEX)
       user)))
 
 (pco/defresolver user->photo
@@ -386,6 +396,8 @@
    project->specialty
    project->slug
    project->users
+   project->all-children
+   project->all-parents
    patient->encounters
    encounter->users
    encounter->encounter_template
@@ -476,14 +488,10 @@
   (fetch-patient-addresses conn 119032)
   (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
 
-  (jdbc/execute! conn (sql/format {:select [:*]
-                                   :from   [:t_project]}))
-
-
   (def user (jdbc/execute-one! conn (sql/format {:select [:*]
                                                  :from   [:t_user]
                                                  :where  [:= :username "system"]})))
-  (parse-entity (users/fetch-user conn "ma090906"))
+  (users/fetch-user conn "ma090906")
   user
 
 
@@ -493,4 +501,5 @@
 
 
   (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
+  (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 124})
   )
