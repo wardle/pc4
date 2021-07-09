@@ -13,7 +13,7 @@
     "dependencies": {
         "@headlessui/react": "^1.2.0",
         "@tailwindcss/forms": "^0.3.3",
-        "highlight.js": "^11.0.1",
+        "highlight.js": "^11.1.0",
         "react": "^17.0.2",
         "react-dom": "^17.0.2"
     }
