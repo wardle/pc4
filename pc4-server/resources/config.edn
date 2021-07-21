@@ -9,7 +9,7 @@
  :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
                                       :nhspd-path "/var/tmp/nhspd"}
 
- :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-04-12.db"}
+ :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-07-05.db"}
 
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
@@ -38,15 +38,20 @@
  :wales.nhs/empi                     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                                       :processing-id "P"}
 
- :pathom/boundary-interface          {:env {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
-                                            :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
-                                            :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
-                                            :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
-                                            :com.eldrix.rsdb/conn        #ig/ref :com.eldrix/rsdb
-                                            :com.eldrix.rsdb/config      #ig/ref :com.eldrix.rsdb/config}}
+ :pathom/env                         {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
+                                      :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
+                                      :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
+                                      :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
+                                      :com.eldrix.rsdb/conn        #ig/ref :com.eldrix/rsdb
+                                      :com.eldrix.rsdb/config      #ig/ref :com.eldrix.rsdb/config}
+
+ :pathom/boundary-interface          {:config #profile {:default {}
+                                                        :dev     {:connect-viz true}}
+                                      :env    #ig/ref :pathom/env}
 
  :http/server                        {:port            8080
                                       :allowed-origins "*"
                                       :host            "0.0.0.0"
                                       :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix/rsdb
                                                         :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}

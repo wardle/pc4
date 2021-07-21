@@ -13,15 +13,22 @@
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
-            [honey.sql.helpers :as h]
             [next.jdbc :as jdbc]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql])
+            [com.wsscode.pathom3.interface.eql :as p.eql]
+            [com.eldrix.pc4.server.rsdb.auth :as auth])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
-           (java.util Base64)))
+           (java.util Base64)
+           (org.jsoup Jsoup)
+           (org.jsoup.safety Safelist)))
+
+(defn html->text
+  "Convert a string containing HTML to plain text."
+  [^String html]
+  (Jsoup/clean html (Safelist.)))
 
 (pco/defresolver patient-by-identifier
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
@@ -35,7 +42,7 @@
                  :t_patient/country_of_birth_concept_fk
                  :t_patient/date_birth
                  :t_patient/date_death
-                 :t_patient/nhs-number
+                 :t_patient/nhs_number
                  :t_patient/surgery_fk
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
@@ -175,21 +182,44 @@
   [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
   {::pco/output [{:t_episode/project project-properties}]}
   {:t_episode/project (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
-                                                                         :from   [:t_project]
-                                                                         :where  [:= :id project-id]})))})
+                                                                               :from   [:t_project]
+                                                                               :where  [:= :id project-id]})))})
 
 (pco/defresolver project-by-identifier
-  [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
-  {::pco/output project-properties}
-  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
-                                                     :from   [:t_project]
-                                                     :where  [:= :id id]}))))
-
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [:t_project/id :t_project/name
+                 :t_project/title :t_project/long_description
+                 :t_project/type
+                 :t_project/date_from :t_project/date_to
+                 :t_project/exclusion_criteria :t_project/inclusion_criteria
+                 {:t_project/administrator_user [:t_user/id]}
+                 :t_project/address1 :t_project/address2
+                 :t_project/address3 :t_project/address4
+                 :t_project/postcode
+                 :t_project/ethics
+                 {:t_project/parent_project [:t_project/id]}
+                 :t_project/virtual
+                 :t_project/can_own_equipment
+                 {:t_project/specialty [:info.snomed.Concept/id]}
+                 :t_project/advertise_to_all
+                 :t_project/care_plan_information
+                 :t_project/is_private]}
+  (when-let [p (projects/fetch-project conn project-id)]
+    (cond-> p
+            (:t_project/administrator_user_fk p)
+            (assoc :t_project/administrator_user {:t_user/id (:t_project/administrator_user_fk p)})
+            (:t_project/parent_project_fk p)
+            (assoc :t_project/parent_project {:t_project/id (:t_project/parent_project_fk p)}))))
 
 (pco/defresolver project->slug
   [{title :t_project/title}]
   {::pco/output [:t_project/slug]}
   {:t_project/slug (projects/make-slug title)})
+
+(pco/defresolver project->long-description-text
+  [{desc :t_project/long_description}]
+  {::pco.output [:t_project/long_description_text]}
+  {:t_project/long_description_text (html->text desc)})
 
 (pco/defresolver project->parent
   [{parent-id :t_project/parent_project_fk}]
@@ -355,10 +385,9 @@
 
 (pco/defresolver user->active-projects
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
-  {::pco/output [{:t_user/active_projects [:t_project]}]}
-  {:t_user/active_projects (->> (users/projects conn username)
-                                (filter projects/active?)
-                                (map parse/parse-entity))})
+  {::pco/output [{:t_user/active_projects [:t_project/id]}]}
+  {:t_user/active_projects (filter projects/active? (users/projects conn username))})
+
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -395,6 +424,7 @@
    project->parent
    project->specialty
    project->slug
+   project->long-description-text
    project->users
    project->all-children
    project->all-parents
@@ -454,18 +484,18 @@
                                           {:t_episode/project [:t_project/title]}]}]}])
 
   (time (p.eql/process env
-                 [{[:t_patient/patient-identifier 12182]
-                   [:t_patient/id
-                    :t_patient/first_names
-                    :t_patient/last_name
-                    :t_patient/status
-                    :t_patient/surgery
-                    {:t_patient/encounters [:t_encounter/date_time
-                                            :t_encounter/is_deleted
-                                            :t_encounter/hospital
-                                            {:t_encounter/users [:t_user/id
-                                                                 :t_user/initials
-                                                                 :t_user/full_name]}]}]}]))
+                       [{[:t_patient/patient-identifier 12182]
+                         [:t_patient/id
+                          :t_patient/first_names
+                          :t_patient/last_name
+                          :t_patient/status
+                          :t_patient/surgery
+                          {:t_patient/encounters [:t_encounter/date_time
+                                                  :t_encounter/is_deleted
+                                                  :t_encounter/hospital
+                                                  {:t_encounter/users [:t_user/id
+                                                                       :t_user/initials
+                                                                       :t_user/full_name]}]}]}]))
 
   (p.eql/process env
                  [{[:t_patient/patient-identifier 12182]
@@ -501,5 +531,14 @@
 
 
   (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
-  (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 124})
+  (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
+
+  (def project-ids (com.eldrix.pc4.server.rsdb.patients/active-project-identifiers conn 14032))
+  (def manager (users/make-authorization-manager conn "ma090906"))
+  (def sys-manager (users/make-authorization-manager conn "system"))
+  (def unk-manager (users/make-authorization-manager conn "unknown"))
+  (auth/authorized? manager project-ids :PATIENT_VIEW)
+  (auth/authorized? sys-manager project-ids :PATIENT_VIEW)
+  (auth/authorized? unk-manager project-ids :PATIENT_VIEW)
+  (auth/authorized? manager project-ids :BIOBANK_CREATE_LOCATION)
   )

@@ -83,10 +83,22 @@
                             :BIOBANK_UPLOAD}})
 
 (defprotocol AuthorizationManager
-  (can-for-project? [this project-id permission]
-    "Does the user have the 'permission' specified for the project?")
-  (can-for-any? [this permission]
-    "Does the user have the 'permission' for any project?")
-  (can-for-patient? [this patient permission]
-    "Does the user have the 'permission' for the patient specified?"))
+  "Finely-grained authorization, based upon users, roles and projects.
+  Given a set of project-ids, for example, representing the set of patient's
+  project identifiers, determine whether the user has the permission specified."
+  (authorized? [this project-ids permission]
+    "Is there authorization for the `permission` for at least one of the
+    projects, as specified by a set `project-ids`?")
+  (authorized-any? [this permission]
+    "Does the user have the 'permission' for any project?"))
+
+
+(def public-authorization-manager
+  "An authorization manager that is used for authenticated users without any
+  means of authorization - e.g. users not registered to the rsdb backend.
+
+  Currently, this gives no permission."
+  (reify AuthorizationManager
+    (authorized? [_ _ _] false)
+    (authorized-any? [_ _ _] false)))
 

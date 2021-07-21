@@ -12,30 +12,30 @@
   (p.connector/connect-env registry {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4}))
 
 (comment
-
+  (pc4-system/prep :dev)
   (def system (pc4-system/init :dev))
   (ig/halt! system)
   (do
     (ig/halt! system)
     (def system (pc4-system/init :dev)))
-  (connect-viz (:pathom/registry system))
+
+  (def process (:pathom/boundary-interface system))
+  (connect-viz (:pathom/env system))
 
   (keys system)
-  (keys (:pathom/registry system))
-  (p.eql/process (:pathom/registry system)
-                 [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
-                   [:uk.gov.ons.nhspd/LSOA11
-                    :uk.gov.ons.nhspd/OSNRTH1M
-                    :uk.gov.ons.nhspd/OSEAST1M
-                    {:uk.gov.ons.nhspd/PCT_ORG [:uk.nhs.ord/name :uk.nhs.ord.primaryRole/displayName {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}]}])
+  (process [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
+             [:uk.gov.ons.nhspd/LSOA11
+              :uk.gov.ons.nhspd/OSNRTH1M
+              :uk.gov.ons.nhspd/OSEAST1M
+              {:uk.gov.ons.nhspd/PCT_ORG [:uk.nhs.ord/name :uk.nhs.ord.primaryRole/displayName {:uk.nhs.ord/predecessors [:uk.nhs.ord/name]}]}]}])
 
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{[:info.snomed.Concept/id 108537001]
                    [:info.snomed.Concept/id
                     :info.snomed.Concept/preferredDescription
                     :uk.nhs.dmd/NM]}])
 
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{[:info.snomed.Concept/id 108537001]
                    [:uk.nhs.dmd/VTMID
                     :uk.nhs.dmd/NM
@@ -51,9 +51,9 @@
 
   (com.eldrix.dmd.store/fetch-product (get-in system [:pathom/registry :com.eldrix.dmd.graph/store]) 108537001)
 
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{(list 'pc4.users/login
-                         {:system "wales.nhs.uk" :value "ma090906" :password "password"})
+                         {:system "wales.nhs.uk" :value "ma090906'" :password "password"})
                    [:urn:oid:1.2.840.113556.1.4/sAMAccountName
                     :io.jwt/token
                     :urn:oid:2.5.4/givenName
@@ -69,12 +69,12 @@
                       :org.hl7.fhir.HumanName/family
                       :org.hl7.fhir.HumanName/given]}]}])
 
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{(list 'pc4.users/ping
                          {:uuid "hi there"})
                    [:uuid]}])
 
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{[:t_patient/patient-identifier 12182]
                    [:t_patient/id
                     :t_patient/first_names
@@ -89,7 +89,7 @@
                                                                  :t_user/initials
                                                                  :t_user/full_name]}]}]}])
   (require '[com.eldrix.hermes.snomed :as snomed])
-  (p.eql/process (:pathom/registry system)
+  (p.eql/process (:pathom/env system)
                  [{[:t_patient/patient-identifier 81253]
                    [:t_patient/last_name
                     ]}

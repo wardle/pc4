@@ -6,7 +6,7 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [clojure.string :as str]
-            [com.eldrix.pc4.server.rsdb.users :as users])
+            [com.eldrix.pc4.server.rsdb.users :as rsdb-users])
   (:import (java.time Instant LocalDateTime)))
 
 (pco/defmutation ping-operation
@@ -62,6 +62,16 @@
   (when-not (s/valid? ::login-configuration login)
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
   {:io.jwt/token (refresh-user-token token login)})
+
+
+(defn is-rsdb-user? [conn system value]
+  (rsdb-users/is-rsdb-user? conn system value))
+
+(defn make-authorization-manager [conn namespace username]
+  (when (not= namespace "cymru.nhs.uk")
+    (throw (ex-info "cannot make authorization manager for user"
+                    {:namespace namespace :username username})))
+  (rsdb-users/make-authorization-manager conn username))
 
 (pco/defmutation login-operation
   "Perform a login.

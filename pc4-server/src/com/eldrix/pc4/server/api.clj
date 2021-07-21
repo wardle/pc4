@@ -86,21 +86,39 @@
   https://pathom3.wsscode.com/docs/eql/#boundary-interface
   This is injected into the environment by integrant - under the key
   :pathom-boundary-interface.
+
   Authenticated claims are merged into the pathom environment under the key
-  :authenticated-user"
+  :authenticated-user.
+
+  An authorization manager is merged into the pathom environment under the key
+  :authorization-manager, if the user is valid *and* an rsdb user."
   {:name  ::api
    :enter (fn [ctx]
             (log/info "api request: " (get-in ctx [:request :transit-params]))
             (let [params (get-in ctx [:request :transit-params])
+                  rsdb-conn (:com.eldrix.rsdb/conn ctx)
                   claims (:authenticated-claims ctx)
-                  env (when claims {:authenticated-user (select-keys claims [:system :value])})]
+                  rsdb-user? (when claims
+                               ;; TODO: should this be cached as it will run frequently?
+                               (users/is-rsdb-user? rsdb-conn (:system claims) (:value claims)))
+                  env (cond-> {}
+                              claims
+                              (assoc :authenticated-user (select-keys claims [:system :value]))
+                              rsdb-user?
+                              (assoc :authorization-manager (users/make-authorization-manager rsdb-conn
+                                                                                              (:system claims)
+                                                                                              (:value claims))))]
               (execute-pathom ctx env params)))})
 
 (def routes
   (route/expand-routes
-    #{["/login" :post [service-error-handler body-params/body-params login]]
+    #{["/login" :post [service-error-handler
+                       body-params/body-params
+                       login]]
       ["/ping" :post [ping]]
-      ["/api" :post [service-error-handler attach-claims api]]}))
+      ["/api" :post [service-error-handler
+                     attach-claims
+                     api]]}))
 
 (comment
 
