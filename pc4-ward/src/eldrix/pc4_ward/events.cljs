@@ -53,5 +53,5 @@
 
 (re-frame/reg-event-fx
   ::push-state
-  (fn [db [_ & route]]
+  (fn [_ [_ & route]]
     {:push-state route}))

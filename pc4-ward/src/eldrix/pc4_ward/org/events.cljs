@@ -8,7 +8,6 @@
             [re-frame.core :as rf]
             [eldrix.pc4-ward.server :as srv]))
 
-
 (defn make-fetch-uk-org
   "Fetch a UK organisation. Conceivably this could be deprecated
   in favour of a more general approach in which we use identifier tuples

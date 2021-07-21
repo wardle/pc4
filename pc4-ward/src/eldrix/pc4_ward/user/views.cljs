@@ -43,3 +43,34 @@
            :on-click do-login} "Login"]]]
        (when-not (str/blank? @error) [ui/box-error-message :message @error])
        (when @ping-error [ui/box-error-message :message "Warning: connection error; unable to connect to server. Will retry automatically."])])))
+
+
+(defn project-panel
+  "A simple panel to show the user's own projects."
+  [& {:keys [on-choose]}]
+  (let [active-projects @(rf/subscribe [::user-subs/active-projects])
+        grouped (group-by :t_project/type active-projects)
+        has-clinical (seq (:NHS grouped))
+        has-research (seq (:RESEARCH grouped))]
+    [:div.border-solid.border-gray-800.bg-gray-50.border.rounded.shadow-lg
+     [:div.bg-gray-800.text-white.px-2.py-2.border-solid.border-grey-800 "My projects / services"]
+     (when has-clinical
+       [:<>
+        [:div
+         [:span.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-yellow-200.uppercase.last:mr-0.mr-1 "clinical"]]
+        (for [project (sort-by :t_project/title (:NHS grouped))]
+          [:a.cursor-default {:key      (:t_project/id project)
+                              :on-click #(when on-choose (on-choose project))}
+           [:div.px-3.py-1.text-sm.bg-yellow-50.hover:bg-yellow-100.border
+            (:t_project/title project)]])])
+     (when (and has-clinical has-research)
+       [:hr])
+     (when has-research
+       [:<>
+        [:div
+         [:span.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"]]
+        (for [project (sort-by :t_project/title (:RESEARCH grouped))]
+          [:a.cursor-default {:key      (:t_project/id project)
+                              :on-click #(when on-choose (on-choose project))}
+           [:div.px-3.py-1.text-sm.bg-pink-50.hover:bg-pink-100.border
+            (:t_project/title project)]])])]))

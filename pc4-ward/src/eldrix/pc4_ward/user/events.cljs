@@ -21,7 +21,8 @@
    :org.hl7.fhir.Practitioner/telecom
    :org.hl7.fhir.Practitioner/identifier
    {:t_user/active_projects                                 ;;; iff the user has an rsdb account, this will be populated
-    [:t_project/id :t_project/name :t_project/title :t_project/is_private
+    [:t_project/id :t_project/name :t_project/title :t_project/slug
+     :t_project/is_private
      :t_project/long_description :t_project/type :t_project/virtual]}
    {:org.hl7.fhir.Practitioner/name
     [:org.hl7.fhir.HumanName/use
@@ -66,17 +67,19 @@
              (dissoc :authenticated-user)
              (assoc-in [:errors :user/login] "Failed to login: unable to connect to server. Please check your connection and retry."))}))
 
-(rf/reg-event-db ::do-session-expire
+(rf/reg-event-fx ::do-session-expire
   []
-  (fn [db [_]]
-    (-> (db/reset db)
-        (assoc-in [:errors :user/login] "Your session expired. Please login again"))))
+  (fn [{db :db} [_]]
+    {:db         (-> (db/reset-database db)
+                     (assoc-in [:errors :user/login] "Your session expired. Please login again"))
+     :push-state [:home]}))
 
-(rf/reg-event-db ::do-logout
+(rf/reg-event-fx ::do-logout
   []
-  (fn [db [_ user]]
+  (fn [{db :db} [_ user]]
     (js/console.log "Logging out user" user)
-    (db/reset db)))
+    {:db         (db/reset-database db)
+     :push-state [:home]}))
 
 (rf/reg-event-fx ::ping-server
   []

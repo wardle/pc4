@@ -12,6 +12,8 @@
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.views :as views]
             [eldrix.pc4-ward.refer.views :as refer]
+            [eldrix.pc4-ward.project.events :as project-events]
+            [eldrix.pc4-ward.project.views :as project]
             [eldrix.pc4-ward.config :as config]
             [eldrix.pc4-ward.ui :as ui]))
 
@@ -47,7 +49,20 @@
     {:name      :refer
      :title     "Refer"
      :view      refer/refer-page
-     :link-text "Refer"}]])
+     :link-text "Refer"}]
+
+   ["/projects/:id/:slug"
+    {:name        :projects
+     :title       "Projects"
+     :view        project/project-home-page
+     :params      {:path {:id int? :slug string?}}
+     :controllers [{:parameters {:path [:id :slug]}
+                    :start (fn [{:keys [path]}]
+                             (println "entering project page" (:id path))
+                             (re-frame/dispatch [::project-events/set-current-project (:id path)]))
+                    :stop  (fn [{:keys [path]}]
+                             (println "leaving project page" (:id path))
+                             (re-frame/dispatch [::project-events/clear-current-project]))}]}]])
 
 (defn on-navigate [new-match]
   (when new-match
@@ -64,7 +79,7 @@
   (rfe/start!
     router
     on-navigate
-    {:use-fragment false}))
+    {:use-fragment true}))
 
 (defn router-component
   [{:keys [router]}]
@@ -81,9 +96,7 @@
       :full-name (:urn:oid:2.5.4/commonName authenticated-user)
       :initials (:urn:oid:2.5.4/initials authenticated-user)
       :user-menu [{:id :logout :title "Sign out" :on-click #(re-frame/dispatch [::user-events/do-logout])}]]
-     (if current-route
-       [(-> current-route :data :view) current-route]
-       [:p "No current route"])]))
+     [(-> current-route :data :view) current-route]]))
 
 (defn dev-setup []
   (when config/debug?
@@ -91,6 +104,7 @@
 
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
+  (init-routes!)
   (rdom/render [router-component {:router router}] (.getElementById js/document "app"))
   ;;(rdom/render [refer3/refer-page] (.getElementById js/document "app"))
   )
@@ -101,7 +115,7 @@
   (init-routes!)                                            ;; Reset routes on reload
   (mount-root))
 
-(init)
-
 (comment
+  (init-routes!)
+  (rfe/href :projects {:project-name "NINFLAMMCARDIFF"})
   )

@@ -86,11 +86,19 @@
                 [:a.text-gray-300.hover:bg-gray-700.hover:text-white.block.px-3.py-2.rounded-md.text-base.font-medium
                  {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
+(defn home-panel []
+  [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+   [:div.md:mr-2
+    [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:id (:t_project/id %)
+                                                                                          :slug (:t_project/slug %)})]]
+   [:div.col-span-3 "This will be the news feed"]])
+
+
 (defn main-page []
   (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])]
     [:<>
      (if authenticated-user
-       [:h1 "Main page"]
+       [home-panel]
        [ui/main-login-panel
         :on-login (fn [username password]
                     (rf/dispatch [::user-events/do-login "cymru.nhs.uk" (str/trim username) password]))
