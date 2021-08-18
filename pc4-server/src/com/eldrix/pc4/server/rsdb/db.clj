@@ -9,10 +9,9 @@
 (def parse-boolean #(Boolean/parseBoolean %))
 
 (def property-parsers
-  {:t_patient/status                           keyword
-   :t_address/ignore_invalid_address           parse-boolean
-   :t_address/date_from                        parse-local-date
+  {:t_address/date_from                        parse-local-date
    :t_address/date_to                          parse-local-date
+   :t_address/ignore_invalid_address           parse-boolean
    :t_encounter/is_deleted                     parse-boolean
    :t_encounter_template/can_change_consultant parse-boolean
    :t_encounter_template/is_deleted            parse-boolean
@@ -21,15 +20,23 @@
    :t_encounter_template/allow_multiple        parse-boolean
    :t_job_title/can_be_responsible_clinician   parse-boolean
    :t_job_title/is_clinical                    parse-boolean
+   :t_medication/date_from                     parse-local-date
+   :t_medication/date_to                       parse-local-date
+   :t_medication/as_required                   parse-boolean
+   :t_medication/frequency                     keyword
+   :t_medication/reason_for_stopping           keyword
+   :t_medication/route                         keyword
    :t_patient/date_birth                       parse-local-date
    :t_patient/date_death                       parse-local-date
+   :t_patient/sex                              keyword
+   :t_patient/status                           keyword
    :t_project/advertise_to_all                 parse-boolean
-   :t_project/virtual                          parse-boolean
-   :t_project/is_private                       parse-boolean
    :t_project/can_own_equipment                parse-boolean
-   :t_project/type                             keyword
    :t_project/date_from                        parse-local-date
    :t_project/date_to                          parse-local-date
+   :t_project/is_private                       parse-boolean
+   :t_project/type                             keyword
+   :t_project/virtual                          parse-boolean
    :t_project_user/role                        keyword
    :t_role/is_system                           parse-boolean
    :t_user/authentication_method               keyword

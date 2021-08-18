@@ -33,13 +33,44 @@
   - include-parents?    : (optional, default true) - include transitive parents."
   ([conn patient-identifier] (active-project-identifiers conn patient-identifier true))
   ([conn patient-identifier include-parents?]
-  (let [active-projects (set (map :t_episode/project_fk (active-episodes conn patient-identifier)))]
-    (if-not include-parents?
-      active-projects
-      (into active-projects (flatten (map #(projects/all-parents-ids conn %) active-projects)))))))
+   (let [active-projects (set (map :t_episode/project_fk (active-episodes conn patient-identifier)))]
+     (if-not include-parents?
+       active-projects
+       (into active-projects (flatten (map #(projects/all-parents-ids conn %) active-projects)))))))
+
+(defn patients-in-projects-sql
+  [project-ids on-date]
+  (sql/format {:select-distinct :patient_fk
+               :from            :t_episode
+               :where           [:and
+                                 [:in :project_fk project-ids]
+                                 [:or
+                                  [:is :t_episode/date_discharge nil]
+                                  [:> :date_discharge on-date]]
+                                 [:or
+                                  [:is :date_registration nil]
+                                  [:< :date_registration on-date]
+                                  [:= :date_registration on-date]]]}))
+
+(defn patients-in-projects
+  "Return a set of patients in the projects specified, on the date `on-date`.
+  Parameters:
+  - conn        : database connection, or pool
+  - project-ids : collection of project identifiers
+  - on-date     : (optional, default now), date on which to determine membership
+
+  Returns a set of patient identifiers."
+  ([conn project-ids] (patients-in-projects conn project-ids (LocalDate/now)))
+  ([conn project-ids ^LocalDate on-date]
+   (transduce
+     (map :t_episode/patient_fk)
+     conj
+     #{}
+     (jdbc/plan conn (patients-in-projects-sql project-ids on-date)))))
 
 (comment
-
+  (patients-in-projects-sql [1 3 32] (LocalDate/now))
+  (patients-in-projects conn #{1 3 32})
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"

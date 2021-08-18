@@ -92,13 +92,3 @@
   (authorized-any? [this permission]
     "Does the user have the 'permission' for any project?"))
 
-
-(def public-authorization-manager
-  "An authorization manager that is used for authenticated users without any
-  means of authorization - e.g. users not registered to the rsdb backend.
-
-  Currently, this gives no permission."
-  (reify AuthorizationManager
-    (authorized? [_ _ _] false)
-    (authorized-any? [_ _ _] false)))
-

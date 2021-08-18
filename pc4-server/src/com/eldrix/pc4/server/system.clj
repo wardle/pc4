@@ -28,6 +28,7 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
             [com.wsscode.pathom3.connect.runner :as pcr]
+            [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [integrant.core :as ig]
             [io.pedestal.http :as http]
@@ -50,6 +51,15 @@
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
 
+(defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [path]}]
+  (log/info "opening deprivate index: " path)
+  (let [svc (com.eldrix.deprivare.core/open path)]
+    (swap! resolvers into (com.eldrix.deprivare.graph/make-all-resolvers svc))
+    svc))
+
+(defmethod ig/halt-key! :com.eldrix/deprivare [_ svc]
+  (com.eldrix.deprivare.core/close svc))
+
 (defmethod ig/init-key :com.eldrix/dmd [_ {:keys [path]}]
   (log/info "opening UK NHS dm+d index: " path)
   (swap! resolvers into com.eldrix.dmd.graph/all-resolvers)
@@ -67,13 +77,13 @@
 (defmethod ig/halt-key! :com.eldrix.concierge/nadex [_ {:keys [connection-pool]}]
   (when connection-pool (.close connection-pool)))
 
-(defmethod ig/init-key :com.eldrix/rsdb
+(defmethod ig/init-key :com.eldrix.rsdb/conn
   [_ params]
-  (log/info "registering PatientCare EPR [rsdb]" params)
+  (log/info "registering PatientCare EPR [rsdb] connection" params)
   (swap! resolvers into com.eldrix.pc4.server.rsdb/all-resolvers)
   (connection/->pool HikariDataSource params))
 
-(defmethod ig/halt-key! :com.eldrix/rsdb
+(defmethod ig/halt-key! :com.eldrix.rsdb/conn
   [_ conn]
   (.close conn))
 
@@ -116,9 +126,8 @@
                 sort
                 (map #(log/info "resolver: " %))))
     (merge env
-           (-> (pci/register resolvers)
-               (com.wsscode.pathom3.plugin/register
-                 [(pbip/attribute-errors-plugin)])))))
+           (-> (pci/register {::p.error/lenient-mode? true}
+                             resolvers)))))
 
 (defmethod ig/halt-key! :pathom/env [_ env]
   (reset! resolvers []))

@@ -1,5 +1,20 @@
 (ns com.eldrix.pc4.server.rsdb.users
-  "Support for legacy RSDB application; user management."
+  "Support for legacy RSDB application; user management.
+
+  Legacy user management is based upon a unique username, rather than a tuple
+  of namespace and username. This is unfortunate, but understandable in
+  retrospect.
+
+  The mitigation is that each rsdb user has an authentication method. This
+  means that we know :NADEX users *must* be part of the cymru.nhs.uk domain.
+  We know :LOCAL/:LOCAL17 users' usernames *cannot clash* with cymru usernames
+  as a result of the unique structure of NADEX usernames while local users will
+  always be given usernames that do not fit that pattern.
+
+  As such, we can quite easily treat rsdb users, currently, as a single
+  namespace. That means we can safely allow rsdb to resolve existing users
+  against the cymru.nhs.uk namespace - until there is an explicit namespace
+  listed for each user. "
   (:require [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [next.jdbc :as jdbc]
@@ -18,7 +33,7 @@
   "Support for legacy rsdb authentication.
   For development, we temporarily use the fallback local authentication
   available if we do not have an active LDAP connection pool."
-  [pool {:t_user/keys [username credential authentication_method]} password]
+  [nadex-pool {:t_user/keys [username credential authentication_method]} password]
   (when-not (or (str/blank? password) (str/blank? credential))
     (cond
       (= authentication_method :LOCAL)                      ;; TODO: force password change for these users
@@ -30,8 +45,8 @@
       (= authentication_method :LOCAL17)                    ;; TODO: upgrade to more modern hash here and in rsdb codebase
       (BCrypt/checkpw password credential)
 
-      (and pool (= authentication_method :NADEX))
-      (nadex/can-authenticate? pool username password)
+      (and nadex-pool (= authentication_method :NADEX))
+      (nadex/can-authenticate? nadex-pool username password)
 
       (= authentication_method :NADEX)                      ;; TODO: remove this fallback
       (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
@@ -56,6 +71,13 @@
                                  :where  [:= :username (.toLowerCase username)]}))]
     (can-authenticate-with-password? nadex user password)))
 
+(defn is-rsdb-user?
+  [conn namespace username]
+  (when (and conn (= "cymru.nhs.uk" namespace))
+    (jdbc/execute-one!
+      conn (sql/format {:select :id :from :t_user
+                        :where  [:= :username (.toLowerCase username)]}))))
+
 (defn- save-password!
   [conn username new-password & {:keys [update-auth-method?]}]
   (let [hash (BCrypt/hashpw new-password (BCrypt/gensalt))]
@@ -78,7 +100,6 @@
     (save-password! conn username new-password)
     :NADEX
     (save-password! conn username new-password)))
-
 
 (defn count-unread-messages
   [conn username]
@@ -114,6 +135,13 @@
                                                       [:= :t_project_user/user_fk :t_user/id]
                                                       [:= :t_user/username username]]}]})))
 
+(defn all-projects-and-children-identifiers
+  "Returns identifiers for all projects to which user is registered, together
+  with any sub-projects. In general, "
+  [conn username]
+  (let [project-ids (set (map :t_project/id (projects conn username)))]
+    (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
+
 (defn role-active?
   "Determine the status of the role as of now, or on the specified date."
   ([role] (role-active? role (LocalDate/now)))
@@ -127,6 +155,8 @@
 (defn roles-for-user
   "Return the roles for the given user, each flattened and pre-fetched to
   include keys from the 't_project_user' and related 't_project' tables.
+
+  In essence, a user will have roles as defined by `t_project_user` rows.
 
   For convenience, the following properties are included:
   - :t_project_user/active?     - whether the role is active
@@ -157,7 +187,7 @@
                       :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %))))))
 
 (defn permissions-for-project
-  "Given a sequence of roles for a user, derive a list of permissions for the
+  "Given a sequence of roles for a user, derive a set of permissions for the
   project specified.
   Parameters:
   - roles       : the result of calling function 'roles-for-user' for the user
@@ -169,24 +199,36 @@
        (map :t_project_user/permissions)
        (apply clojure.set/union)))
 
-(defn ^AuthorizationManager make-authorization-manager
+(defn projects-with-permission
+  "Given a sequence of roles for a user, derive a list of projects to which
+  the user has the specified permission.
+  Parameters:
+  - roles      : the result of calling function 'roles-for-user' for the user
+  - permission : the permission to test."
+  [roles permission]
+  (->> roles
+       (filter #(contains? (:t_project_user/permissions %) permission))))
+
+(defn- ^AuthorizationManager make-authorization-manager'
   "Create an authorization manager for the user specified, providing subsequent
   decisions on authorization for a given action via an open-ended permission
-  system."
+  system. The manager is an immutable service; it closes over the permissions
+  at the time of creation. The manager is principally designed for use in a
+  single request-response cycle."
+  [roles]
+  (if (:t_role/is_system (first roles))
+    (reify auth/AuthorizationManager                        ;; system user: can do everything...
+      (authorized? [_ patient-project-ids permission] true)
+      (authorized-any? [_ permission] true))
+    (reify auth/AuthorizationManager                        ;; non-system users defined by project roles
+      (authorized? [_ project-ids permission]
+        (some #(contains? (permissions-for-project roles %) permission) project-ids))
+      (authorized-any? [_ permission]
+        (some #(contains? (:t_project_user/permissions %) permission) roles)))))
+
+(defn ^AuthorizationManager make-authorization-manager
   [conn username]
-  (let [roles (roles-for-user conn username)]
-    (if (:t_role/is_system (first roles))
-      (reify auth/AuthorizationManager                      ;; system user: can do everything...
-        (can-for-project? [_ project-id permission] true)
-        (can-for-any? [_ permission] true)
-        (can-for-patient? [_ patient permission] true))
-      (reify auth/AuthorizationManager                      ;; non-system users defined by project roles
-        (can-for-project? [_ project-id permission]
-          (contains? (permissions-for-project roles project-id) permission))
-        (can-for-any? [_ permission]
-          (some #(contains? (:t_project_user/permissions %) permission) roles))
-        (can-for-patient? [_ patient permission]
-          (throw (ex-info "not yet implemented" {})))))))
+  (make-authorization-manager' (roles-for-user conn username)))
 
 (def fetch-user-query
   {:select    [:username :title :first_names :last_name :postnomial :custom_initials
@@ -219,6 +261,8 @@
                 [:= :erattachment/id :t_user/photo_fk]
                 [:= :t_user/username username]]})))
 
+
+
 (comment
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
@@ -239,8 +283,15 @@
   (filter #(= 15 (:t_project/id %)) (roles conn "ma090906"))
   (permissions-for-project (roles-for-user conn "ma090906") 15)
   (:t_role/is_system (first (roles-for-user conn "ma090906")))
+  (roles-for-user conn "ma090906")
   (def manager (make-authorization-manager conn "ma090906"))
-  (auth/can-for-any? manager :PATIENT_EDIT)
-  (auth/can-for-project? manager 15 :PATIENT_EDIT)
-  (auth/can-for-project? manager 1 :PATIENT_EDIT)
+  (auth/authorized-any? manager :PATIENT_EDIT)
+  (auth/authorized? manager #{1 32 14} :NEWS_CREATE)
+  (map :t_project/title (map #(projects/fetch-project conn %) [1 32 14]))
+  (auth/authorized? manager #{1} :PATIENT_VIEW)
+  (map #(select-keys % [:t_project_user/role :t_project/id :t_project/title])
+       (roles-for-user conn "ma090906"))
+  (def sys-manager (make-authorization-manager conn "system"))
+  (auth/authorized? sys-manager #{1} :PATIENT_VIEW)
+  (is-rsdb-user? conn "cymru.nhs.uk" "ma090906")
   )

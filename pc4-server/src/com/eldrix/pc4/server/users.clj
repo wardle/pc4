@@ -6,6 +6,7 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [clojure.string :as str]
+            [com.eldrix.pc4.server.rsdb.auth]
             [com.eldrix.pc4.server.rsdb.users :as rsdb-users])
   (:import (java.time Instant LocalDateTime)))
 
@@ -100,14 +101,14 @@
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration pc4-login))))
   (let [wales-nadex (get-in pc4-login [:providers :com.eldrix.concierge/nadex])
         fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
-        rsdb-user? (when (and rsdb-conn (= system "cymru.nhs.uk")) (users/check-password rsdb-conn wales-nadex value password))
+        rsdb-user? (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
         token (make-user-token {:system system :value value} pc4-login)]
     (cond
       ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
       rsdb-user?
       (do
         (log/info "login for " system value ": using rsdb backend")
-        (assoc (users/fetch-user rsdb-conn value) :io.jwt/token token))
+        (assoc (rsdb-users/fetch-user rsdb-conn value) :io.jwt/token token))
 
       ;; do we have the NHS Wales' NADEX configured, and is it a namespace it can handle?
       (and wales-nadex (= system "cymru.nhs.uk"))

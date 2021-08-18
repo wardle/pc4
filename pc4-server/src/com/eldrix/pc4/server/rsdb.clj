@@ -18,7 +18,8 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql]
-            [com.eldrix.pc4.server.rsdb.auth :as auth])
+            [com.eldrix.pc4.server.rsdb.auth :as auth]
+            [com.eldrix.pc4.server.rsdb.db :as db])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
            (java.util Base64)
@@ -31,10 +32,11 @@
   (Jsoup/clean html (Safelist.)))
 
 (pco/defresolver patient-by-identifier
-  [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient-identifier}]
+  [{:com.eldrix.rsdb/keys [conn]} {patient_identifier :t_patient/patient_identifier}]
   {::pco/output [:t_patient/id
-                 :t_patient/patient-identifier
+                 :t_patient/patient_identifier
                  :t_patient/sex
+                 :t_patient/status
                  :t_patient/title
                  :t_patient/first_names
                  :t_patient/last_name
@@ -47,7 +49,7 @@
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
-  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}))))
+  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]}))))
 
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
@@ -87,6 +89,32 @@
   [{surgery-fk :t_patient/surgery_fk}]
   {::pco/output [{:t_patient/surgery [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
+
+
+(pco/defresolver patient->medications
+  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  {::pco/output [{:t_patient/medications [:t_medication/date_from
+                                         :t_medication/date_to
+                                         :t_medication/date_from_accuracy
+                                         :t_medication/date_to_accuracy
+                                         :t_medication/indication
+                                         :t_medication/medication_concept_fk
+                                         {:t_medication/medication [:info.snomed.Concept/id]}
+                                         :t_medication/more_information
+                                         :t_medication/temporary_stop
+                                         :t_medication/reason_for_stopping
+                                         :t_medication/dose
+                                         :t_medication/frequency
+                                         :t_medication/units
+                                         :t_medication/as_required
+                                         :t_medication/route
+                                         :t_medication/type
+                                         :t_medication/prescriptions]}]}
+  (let [medication (db/execute! conn (sql/format {:select  [:*]
+                                                    :from  [:t_medication]
+                                                    :where [:= :patient_fk patient-id]}))]
+    {:t_patient/medications
+     (map #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -164,6 +192,7 @@
   {:t_patient/episodes (jdbc/execute! conn (sql/format {:select [:*]
                                                         :from   [:t_episode]
                                                         :where  [:= :patient_fk patient-id]}))})
+
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -414,6 +443,7 @@
    patient->racial-group
    patient->occupation
    patient->surgery
+   patient->medications
    patient->addresses
    patient->address
    (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
@@ -461,8 +491,8 @@
 
   (def env (-> (pci/register all-resolvers)
                (assoc :com.eldrix.rsdb/conn conn)))
-  (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient-identifier 12999})
-  (p.eql/process env [{[:t_patient/patient-identifier 17371] [:t_patient/id
+  (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
+  (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
                                                               :t_patient/email
                                                               :t_patient/first_names
                                                               :t_patient/last_name
@@ -472,7 +502,7 @@
                                                               `(:t_patient/address {:date ~"2010-06-01"})]}])
 
   (p.eql/process env
-                 [{[:t_patient/patient-identifier 17371]
+                 [{[:t_patient/patient_identifier 17371]
                    [:t_patient/id
                     :t_patient/first_names
                     :t_patient/last_name
@@ -484,7 +514,7 @@
                                           {:t_episode/project [:t_project/title]}]}]}])
 
   (time (p.eql/process env
-                       [{[:t_patient/patient-identifier 12182]
+                       [{[:t_patient/patient_identifier 12182]
                          [:t_patient/id
                           :t_patient/first_names
                           :t_patient/last_name
@@ -498,7 +528,7 @@
                                                                        :t_user/full_name]}]}]}]))
 
   (p.eql/process env
-                 [{[:t_patient/patient-identifier 12182]
+                 [{[:t_patient/patient_identifier 12182]
                    [:t_patient/id
                     :t_patient/first_names
                     :t_patient/last_name

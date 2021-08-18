@@ -6,7 +6,6 @@
            org.clojure/data.zip              {:mvn/version "1.0.0"}
            org.clojure/tools.cli             {:mvn/version "1.0.206"}
            org.clojure/tools.logging         {:mvn/version "1.1.0"}
-           ch.qos.logback/logback-classic    {:mvn/version "1.3.0-alpha5"}
            org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha2"}
 
            wonder.core/ERExtensions          {:mvn/version "7.2"}
@@ -15,23 +14,25 @@
                                               :sha     "78c05d4b329539b1d07e6821e103d82195983165"}
            com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
                                               :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
+           com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
+                                              :sha     "caa4c45cf4bab42507e80a9988caa9823520f64e"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                              :sha     "cbbeebc4e390c723d609dc7de9312c4b187bb20e"}
+                                              :sha     "cdff42d71a834802214f6a5aa01ce9f8b31d230f"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "19d1e3e7e207f89d674cfcaac4959acc1247a4e7"}
+                                              :sha     "e0b5819f6f12a19204e9db8fb90997c5ecc32907"}
            aero/aero                         {:mvn/version "1.1.6"}
 
            buddy/buddy-core                  {:mvn/version "1.10.1"}
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
-           cheshire/cheshire                 {:mvn/version "5.10.0"}
+           cheshire/cheshire                 {:mvn/version "5.10.1"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
-                                              :sha     "95488209432a4319cd092169a63ff4fbd3a00544"}
-           com.wsscode/pathom-viz-connector  {:mvn/version "2021.07.04"}
+                                              :sha     "ee459b2330bff93ed70abef572000fa204f3b7f1"}
+           com.wsscode/pathom-viz-connector  {:mvn/version "2021.07.15-1"}
            com.zaxxer/HikariCP               {:mvn/version "4.0.3"}
 
            expound/expound                   {:mvn/version "0.8.9"}
            integrant/integrant               {:mvn/version "0.8.0"}
-           com.github.seancorfield/honeysql  {:mvn/version "2.0.0-rc3"}
+           com.github.seancorfield/honeysql  {:mvn/version "2.0.0-rc5"}
            io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
            io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
@@ -51,10 +52,8 @@
 
            :test      {:extra-paths ["test" "test/resources"]
                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                :sha     "f597341b6ca7bb4cf027e0a34a6710ca9cb969da"}}
+                                                                :sha     "4e7e1c0dfd5291fa2134df052443dc29695d8cbe"}}
                        :main-opts   ["-m" "cognitect.test-runner"]}
-
-           :log       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.2.3"}}}
 
            :outdated  {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
                        :main-opts  ["-m" "antq.core"]}
@@ -79,7 +78,7 @@
                        :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
 
            ;; build a utility uberjar - just the command-line tools
-           :uberjar   {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.245"}}
+           :uberjar   {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.267"}}
                        :exec-fn      hf.depstar/uberjar
                        :exec-args    {:jar        "target/pc4-server.jar"
                                       :aot        true

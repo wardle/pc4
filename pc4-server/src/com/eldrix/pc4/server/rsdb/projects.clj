@@ -30,7 +30,15 @@
             (.isBefore date date_to)))))
 
 (defn episode-status
-  "Determine the status of the episode as of now, or on the specified date."
+  "Determine the status of the episode as of now, or on the specified date.
+  Parameters:
+  - episode - a map containing:
+      :t_episode/date_referral
+      :t_episode/date_registration
+      :t_episode/date_discharge
+  - on-date : (optional) the date on which to derive status, default `now`
+
+  Result one of :discharged :registered :referred or nil"
   ([episode] (episode-status episode (LocalDate/now)))
   ([{:t_episode/keys [^LocalDate date_referral date_registration date_discharge]} ^LocalDate on-date]
    (cond
@@ -40,6 +48,12 @@
      :registered
      (and date_referral (or (.isEqual on-date date_referral) (.isAfter on-date date_referral)))
      :referred)))
+
+(defn active-episode?
+  "Is the episode active?"
+  ([episode] (active-episode? episode (LocalDate/now)))
+  ([episode ^LocalDate on-date]
+  (contains? #{:registered :referred} (episode-status episode on-date))))
 
 (defn make-hash-pseudonym
   "Create a legacy-compatible pseudonym using the identifiers specified.
@@ -113,17 +127,19 @@
                                      :from   :t_patient
                                      :where  [:= :nhs_number nnn]})))
 
-(defn episodes-for-patient [conn patient-id]
-  (db/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :patient_fk patient-id]})))
-
 (defn fetch-episode [conn episode-id]
   (db/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :id episode-id]})))
 
 (defn episodes-for-patient-in-project
-  [conn patient-id project-id]
+  "Returns episodes for patient related to the specific project.
+  Parameters:
+  - conn        : database connection or pool
+  - patient-pk  : patient primary key (NB: not the same as `patient-identifier`)
+  - project-id  : project id"
+  [conn patient-pk project-id]
   (db/execute! conn (sql/format {:select [:*] :from :t_episode
                                  :where  [:and
-                                          [:= :patient_fk patient-id]
+                                          [:= :patient_fk patient-pk]
                                           [:= :project_fk project-id]]})))
 
 (defn ^:deprecated find-legacy-pseudonymous-patient
@@ -310,7 +326,8 @@
 
 
 (defn fetch-project-sql [project-id]
-  (sql/format {:select :* :from :t_project :where [:= :id project-id]}))
+  (sql/format {:select :* :from :t_project
+               :where  [:= :t_project/id project-id]}))
 
 (defn fetch-projects-sql [ids]
   (sql/format {:select :* :from :t_project :where [:in :id ids]}))
@@ -324,7 +341,7 @@
                                        :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
                :select :children/id
                :from   :children
-               :where [:!= :id project-id]}))
+               :where  [:!= :id project-id]}))
 
 (defn all-parents-sql [project-id]
   (sql/format {:with-recursive
@@ -335,7 +352,7 @@
                                        :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
                :select :parents/id
                :from   :parents
-               :where [:!= :id project-id]}))
+               :where  [:!= :id project-id]}))
 
 (defn all-children-ids [conn project-id]
   (map :id (db/execute! conn (all-children-sql project-id))))
@@ -344,10 +361,15 @@
   (map :id (db/execute! conn (all-parents-sql project-id))))
 
 (defn all-children [conn project-id]
-  (db/execute! conn (fetch-projects-sql (all-children-ids conn project-id))))
+  (when-let [children-ids (seq (all-children-ids conn project-id))]
+    (db/execute! conn (fetch-projects-sql children-ids))))
 
 (defn all-parents [conn project-id]
-  (db/execute! conn (fetch-projects-sql (all-parents-ids conn project-id))))
+  (when-let [parent-ids (seq (all-parents-ids conn project-id))]
+    (db/execute! conn (fetch-projects-sql parent-ids))))
+
+(defn fetch-project [conn project-id]
+  (db/execute-one! conn (fetch-project-sql project-id)))
 
 (comment
   (require '[next.jdbc.connection])
@@ -363,6 +385,7 @@
   (group-by :t_project/type (all-children conn 5))
   (all-parents conn 5)
   (time (all-children conn 5))
+  (all-children conn 2)
   (into #{} (map :id (db/execute! conn (all-children-sql 5))))
 
   ;; check we have legacy implementation compatibility.
@@ -388,8 +411,8 @@
 
   (search-by-project-pseudonym conn 124 "e657")
 
-  (let [episodes (episodes-for-patient conn 14032)
-        statuses (map episode-status (episodes-for-patient conn 14032))]
+  (let [episodes (episodes-for-patient-by-pk conn 14032)
+        statuses (map episode-status (episodes-for-patient-by-pk conn 14032))]
     )
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient conn 43518)))
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 14031 18)))
@@ -413,4 +436,6 @@
        :where     [:= :project_fk 1]
        :order-by  [:last_name :first_names]}))
 
+  (fetch-project-sql 1)
+  (jdbc/execute! conn (fetch-project-sql 2))
   )
