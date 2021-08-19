@@ -6,8 +6,10 @@
 
  :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
-                                      :nhspd-path "/var/tmp/nhspd"}
+ :com.eldrix/clods                   {:ods-path   "/Users/mark/Dev/clods/ods-2021-06-25"
+                                      :nhspd-path "/Users/mark/Dev/nhspd/nhspd-2021-05-17"}
+
+ :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
 
  :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-08-12.db"}
 
