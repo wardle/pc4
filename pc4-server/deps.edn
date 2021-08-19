@@ -11,20 +11,22 @@
            wonder.core/ERExtensions          {:mvn/version "7.2"}
 
            com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
-                                              :sha     "78c05d4b329539b1d07e6821e103d82195983165"}
+                                              :sha     "86a5944cc5ce9dca973618d5f5f05fbf921f0e83"}
            com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
                                               :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
            com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
-                                              :sha     "caa4c45cf4bab42507e80a9988caa9823520f64e"}
+                                              :sha     "5f1b1b3f435e2d121db0566d34d4d89f0aa4d5b7"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                               :sha     "cdff42d71a834802214f6a5aa01ce9f8b31d230f"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
                                               :sha     "e0b5819f6f12a19204e9db8fb90997c5ecc32907"}
-           aero/aero                         {:mvn/version "1.1.6"}
 
+           aero/aero                         {:mvn/version "1.1.6"}
            buddy/buddy-core                  {:mvn/version "1.10.1"}
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
            cheshire/cheshire                 {:mvn/version "5.10.1"}
+           com.github.seancorfield/honeysql  {:mvn/version "2.0.783"}
+           com.github.seancorfield/next.jdbc {:mvn/version "1.2.689"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
                                               :sha     "ee459b2330bff93ed70abef572000fa204f3b7f1"}
            com.wsscode/pathom-viz-connector  {:mvn/version "2021.07.15-1"}
@@ -32,13 +34,11 @@
 
            expound/expound                   {:mvn/version "0.8.9"}
            integrant/integrant               {:mvn/version "0.8.0"}
-           com.github.seancorfield/honeysql  {:mvn/version "2.0.0-rc5"}
            io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
            io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
-           org.jsoup/jsoup                   {:mvn/version "1.14.1"}
-           org.postgresql/postgresql         {:mvn/version "42.2.23"}
-           com.github.seancorfield/next.jdbc {:mvn/version "1.2.674"}}
+           org.jsoup/jsoup                   {:mvn/version "1.14.2"}
+           org.postgresql/postgresql         {:mvn/version "42.2.23"}}
 
  :mvn/repos
           {"project-wonder"
