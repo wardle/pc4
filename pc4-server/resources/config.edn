@@ -1,6 +1,6 @@
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
- :com.eldrix/rsdb                    {:dbtype          "postgresql"
+ :com.eldrix.rsdb/conn               {:dbtype          "postgresql"
                                       :dbname          "rsdb"
                                       :maximumPoolSize 10}
 
@@ -9,7 +9,9 @@
  :com.eldrix/clods                   {:ods-path   "/var/tmp/ods"
                                       :nhspd-path "/var/tmp/nhspd"}
 
- :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-07-05.db"}
+ :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-08-12.db"}
+
+ :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
 
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
@@ -38,12 +40,13 @@
  :wales.nhs/empi                     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                                       :processing-id "P"}
 
- :pathom/env                         {:com.eldrix.clods.graph/svc  #ig/ref :com.eldrix/clods
-                                      :com.eldrix.dmd.graph/store  #ig/ref :com.eldrix/dmd
-                                      :com.eldrix.hermes.graph/svc #ig/ref :com.eldrix/hermes
-                                      :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
-                                      :com.eldrix.rsdb/conn        #ig/ref :com.eldrix/rsdb
-                                      :com.eldrix.rsdb/config      #ig/ref :com.eldrix.rsdb/config}
+ :pathom/env                         {:com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
+                                      :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
+                                      :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
+                                      :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
+                                      :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
+                                      :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
+                                      :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config}
 
  :pathom/boundary-interface          {:config #profile {:default {}
                                                         :dev     {:connect-viz true}}
@@ -53,5 +56,5 @@
                                       :allowed-origins "*"
                                       :host            "0.0.0.0"
                                       :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
-                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix/rsdb
+                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
                                                         :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}

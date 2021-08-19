@@ -15,6 +15,8 @@
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.clods.graph]
+            [com.eldrix.deprivare.core :as deprivare]
+            [com.eldrix.deprivare.graph]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.dmd.graph]
             [com.eldrix.hermes.core :as hermes]
@@ -52,8 +54,8 @@
   (.close clods))
 
 (defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [path]}]
-  (log/info "opening deprivate index: " path)
-  (let [svc (com.eldrix.deprivare.core/open path)]
+  (log/info "opening deprivare index: " path)
+  (let [svc (deprivare/open path)]
     (swap! resolvers into (com.eldrix.deprivare.graph/make-all-resolvers svc))
     svc))
 
@@ -199,11 +201,15 @@
   (:pathom/env system)
 
   (keys system)
-  ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
+  ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "b30 1hl"]
                                          [:uk.gov.ons.nhspd/LSOA11
                                           :uk.gov.ons.nhspd/OSNRTH1M :uk.gov.ons.nhspd/OSEAST1M
                                           :urn.ogc.def.crs.EPSG.4326/latitude
                                           :urn.ogc.def.crs.EPSG.4326/longitude
+                                          {:uk.gov.ons.nhspd/LSOA-2011 [:uk.gov.ons/lsoa
+                                                                        :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+                                          :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile
+                                          :uk-composite-imd-2020-mysoc/UK_IMD_E_rank
                                           {:uk.gov.ons.nhspd/PCT_ORG [:uk.nhs.ord/name :uk.nhs.ord/active :uk.nhs.ord/orgId]}]}])
 
   ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
