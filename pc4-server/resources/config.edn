@@ -12,9 +12,7 @@
  :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
 
  :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-08-12.db"}
-
- :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
-
+ 
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
  :com.eldrix.concierge/nadex         #profile {:default {:connection-pool-size  5
