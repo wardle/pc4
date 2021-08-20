@@ -35,7 +35,7 @@
   (pc4/prep :dev)
   (def system (pc4/init :dev))
   (integrant.core/halt! system)
-
+  (tap> system)
   (keys system)
   ;; get the denominator patient population here....
   (def rsdb-conn (:com.eldrix.rsdb/conn system))
@@ -51,18 +51,22 @@
 
   (def pathom (:pathom/boundary-interface system))
   (:pathom/env system)
-  (pathom [{[:t_patient/patient_identifier 12182]
+  (pathom [{[:t_patient/patient_identifier 17490]
             [:t_patient/id
              :t_patient/date_birth
              :t_patient/date_death
+             {`(:t_patient/address {:date ~"2010-06-01"}) [:t_address/date_from
+                                                           :t_address/date_to
+                                                           {:uk.gov.ons.nhspd/LSOA-2011 [:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+                                                           :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+             {:t_patient/addresses [:t_address/date_from :t_address/date_to :uk.gov.ons/lsoa :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
              :t_patient/sex
              :t_patient/status
-             :t_patient/surgery
+             {:t_patient/surgery [:uk.nhs.ord/name]}
              {:t_patient/medications [:t_medication/date_from
                                       :t_medication/date_to
                                       {:t_medication/medication [:info.snomed.Concept/id
-                                                                 :uk.nhs.dmd/NM]}]}
-             ]}])
+                                                                 :uk.nhs.dmd/NM]}]}]}])
 
   (pathom [{[:info.snomed.Concept/id 9246601000001104]
             [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
