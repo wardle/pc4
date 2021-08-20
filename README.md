@@ -75,6 +75,14 @@ events, sent to the server.
 This is the main server component, providing an API for graph-like queries for reads and writes. Data is pulled into
 the application, and events are streamed to the server in order to perform effects such as login or recording new data.
 
+At the moment, this component does not initialise or create any database, expecting a fully initialised database for usual
+operation as part of module 'rsdb'. This is because it is designed to 'wrap' the legacy PatientCare v3 application which
+currently is responsiblefor database structure and migration. pc4-server can be used without 'rsdb', but at least currently
+service and project membership relies on legacy rsdb information. 
+
+Once pc4 provides most of the functionality available in rsdb, and I am happy that all new development will use pc4 and not
+rsdb, I will switch the database initialisation and migration to pc4. 
+
 ## pc4-ward
 
 This repository is the first substantial user-facing component. 
