@@ -37,7 +37,9 @@
         result (pathom env params)
         mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
     (if-not mutation-error
-      (assoc ctx :response (ok result))
+      (do (log/debug "mutation success: " {:request params
+                                           :result result})
+          (assoc ctx :response (ok result)))
       (do (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
                                         :cause   (:cause (Throwable->map mutation-error))})
           (assoc ctx :response {:status 400
