@@ -38,7 +38,8 @@
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector])
+            [com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector]
+            [cognitect.transit :as transit])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
@@ -155,7 +156,8 @@
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
-                                             {:handlers dates/transit-writers}))
+                                             {:handlers (merge dates/transit-writers
+                                                               {clojure.lang.ExceptionInfo (transit/write-handler "ex-info" ex-data)})}))
       (http/create-server)
       (http/start)))
 
@@ -216,20 +218,26 @@
 
   ((:pathom/boundary-interface system) [{'(pc4.users/login
                                             {:system "cymru.nhs.uk" :value "ma090906'" :password "password"})
-                                         [:io.jwt/token
-                                          :wales.nhs.nadex/sAMAccountName
-                                          :urn:oid:2.5.4/sn
-                                          :wales.nhs.nadex/givenName
+                                         [:urn:oid:1.2.840.113556.1.4/sAMAccountName
+                                          :io.jwt/token
+                                          :urn:oid:2.5.4/givenName
+                                          :urn:oid:2.5.4/surname
+                                          :urn:oid:0.9.2342.19200300.100.1.3
                                           :urn:oid:2.5.4/commonName
-                                          :wales.nhs.nadex/personalTitle
-                                          :wales.nhs.nadex/mail
-                                          :t_user/active_projects
-                                          :org.hl7.fhir.Practitioner/identifier
+                                          :urn:oid:2.5.4/title
+                                          :urn:oid:2.5.4/telephoneNumber
                                           :org.hl7.fhir.Practitioner/telecom
-                                          {:org.hl7.fhir.Practitioner/name [:org.hl7.fhir.HumanName/family
-                                                                            :org.hl7.fhir.HumanName/given]}
-                                          :wales.nhs.nadex/professionalRegistration
-                                          :uk.org.hl7.fhir.id/gmc-number]}])
+                                          :org.hl7.fhir.Practitioner/identifier
+                                          {:t_user/active_projects                                 ;;; iff the user has an rsdb account, this will be populated
+                                           [:t_project/id :t_project/name :t_project/title :t_project/slug
+                                            :t_project/is_private
+                                            :t_project/long_description :t_project/type :t_project/virtual]}
+                                          {:org.hl7.fhir.Practitioner/name
+                                           [:org.hl7.fhir.HumanName/use
+                                            :org.hl7.fhir.HumanName/prefix
+                                            :org.hl7.fhir.HumanName/family
+                                            :org.hl7.fhir.HumanName/given
+                                            :org.hl7.fhir.HumanName/suffix]}]}])
 
   ((:pathom/boundary-interface system) [{'(pc4.users/refresh-token
                                             {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIzOTYxMzc1fQ.q3O6NcIuNexVU268C2l8KoIjGQ2AT19sSn77FbwD03o"})
