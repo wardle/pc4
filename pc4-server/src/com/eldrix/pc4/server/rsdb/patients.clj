@@ -38,7 +38,7 @@
        active-projects
        (into active-projects (flatten (map #(projects/all-parents-ids conn %) active-projects)))))))
 
-(defn patients-in-projects-sql
+(defn patient-pks-in-projects-sql
   [project-ids on-date]
   (sql/format {:select-distinct :patient_fk
                :from            :t_episode
@@ -52,21 +52,51 @@
                                   [:< :date_registration on-date]
                                   [:= :date_registration on-date]]]}))
 
-(defn patients-in-projects
+(defn patient-pks-in-projects
   "Return a set of patients in the projects specified, on the date `on-date`.
   Parameters:
   - conn        : database connection, or pool
   - project-ids : collection of project identifiers
   - on-date     : (optional, default now), date on which to determine membership
 
-  Returns a set of patient identifiers."
-  ([conn project-ids] (patients-in-projects conn project-ids (LocalDate/now)))
+  Returns a set of patient primary keys."
+  ([conn project-ids] (patient-pks-in-projects conn project-ids (LocalDate/now)))
   ([conn project-ids ^LocalDate on-date]
    (transduce
      (map :t_episode/patient_fk)
      conj
      #{}
-     (jdbc/plan conn (patients-in-projects-sql project-ids on-date)))))
+     (jdbc/plan conn (patient-pks-in-projects-sql project-ids on-date)))))
+
+(defn pks->identifiers
+  "Turn patient primary keys into identifiers."
+  [conn pks]
+  (transduce
+    (map :t_patient/patient_identifier)
+    conj
+    #{}
+    (jdbc/plan conn (sql/format {:select :patient_identifier :from :t_patient :where [:in :id pks]}))))
+
+(defn patient-pks-on-medications-sql
+  [medication-concept-ids]
+  (sql/format {:select-distinct :patient_fk
+               :from            :t_medication
+               :where           [:in :medication_concept_fk medication-concept-ids]}))
+
+(defn patient-pks-on-medications
+  "Return a set of patient primary keys who are recorded as ever being on one of the
+  medications specified.
+  Parameters:
+  - conn       : database connection, or pool
+  - medication-concept=ids : a collection of concept identifiers.
+
+  Returns a set of patient primary keys, not patient_identifier."
+  [conn medication-concept-ids]
+  (transduce
+    (map :t_medication/patient_fk)
+    conj
+    #{}
+    (jdbc/plan conn (patient-pks-on-medications-sql medication-concept-ids))))
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))

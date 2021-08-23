@@ -136,10 +136,12 @@
   - conn        : database connection or pool
   - patient-pk  : patient primary key (NB: not the same as `patient-identifier`)
   - project-id  : project id"
-  [conn patient-pk project-id]
-  (db/execute! conn (sql/format {:select [:*] :from :t_episode
+  [conn patient-identifier project-id]
+  (db/execute! conn (sql/format {:select [:t_episode/*]
+                                 :from :t_episode
+                                 :inner-join [:t_patient [:= :t_patient/id :t_episode/patient_fk]]
                                  :where  [:and
-                                          [:= :patient_fk patient-pk]
+                                          [:= :patient_identifier patient-identifier]
                                           [:= :project_fk project-id]]})))
 
 (defn ^:deprecated find-legacy-pseudonymous-patient
@@ -371,6 +373,10 @@
 (defn fetch-project [conn project-id]
   (db/execute-one! conn (fetch-project-sql project-id)))
 
+(defn project-with-name [conn nm]
+  (db/execute-one! conn (sql/format {:select :* :from :t_project
+                                     :where  [:= :t_project/name nm]})))
+
 (comment
   (require '[next.jdbc.connection])
   (require '[next.jdbc.date-time])
@@ -410,12 +416,10 @@
                                          :date-birth   (LocalDate/of 1973 10 1)})
 
   (search-by-project-pseudonym conn 124 "e657")
+  (map episode-status (com.eldrix.pc4.server.rsdb.patients/fetch-episodes conn 14032))
 
-  (let [episodes (episodes-for-patient-by-pk conn 14032)
-        statuses (map episode-status (episodes-for-patient-by-pk conn 14032))]
-    )
-  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient conn 43518)))
-  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 14031 18)))
+  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (com.eldrix.pc4.server.rsdb.patients/fetch-episodes conn 43518)))
+  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 43518 37)))
   (discharge-episode! conn 1 {:t_episode/id 46540})
   (register-patient-project conn 18 2 {:t_patient/id 14031})
   (register-episode! conn 1 {:t_episode/id 46538})
@@ -438,4 +442,5 @@
 
   (fetch-project-sql 1)
   (jdbc/execute! conn (fetch-project-sql 2))
+
   )

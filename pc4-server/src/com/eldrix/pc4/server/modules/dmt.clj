@@ -6,11 +6,13 @@
     [clojure.set :as set]
     [com.eldrix.pc4.server.system :as pc4]
     [com.eldrix.pc4.server.rsdb.patients :as patients]
+    [com.eldrix.pc4.server.rsdb.projects :as projects]
     [com.eldrix.pc4.server.rsdb.users :as users]
     [com.wsscode.pathom3.interface.eql :as p.eql]
     [com.eldrix.hermes.snomed :as snomed]
     [com.eldrix.hermes.core :as hermes]
-    [clojure.string :as str]))
+    [clojure.string :as str]
+    [com.eldrix.pc4.server.rsdb.db :as db]))
 
 (def multiple-sclerosis-dmts
   "A list of disease modifying drugs in multiple sclerosis.
@@ -27,17 +29,19 @@
     :uk.nhs.dmd/ATC "L04AX07"}
    {:id             :glatiramer
     :description    "Glatiramer acetate"
-    :brand-names    ["Copaxone"]
+    :brand-names    ["Copaxone" "Brabio"]
     :class          :platform
     :concepts       {:info.snomed/ECL
-                     "<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|"}
+                     "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
+                     OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"}
     :uk.nhs.dmd/ATC "L03AX13"}
    {:id             :ifn-beta-1a
     :description    "Interferon beta 1-a"
     :brand-names    ["Avonex" "Rebif"]
     :class          :platform
     :concepts       {:info.snomed/ECL
-                     "(<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|)
+                     "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
+                     (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))
                      MINUS <<12222201000001108|PLEGRIDY|"}
     :uk.nhs.dmd/ATC "L03AB07"}
    {:id             :ifn-beta-1b
@@ -45,7 +49,7 @@
     :brand-names    ["Betaferon®" "Extavia®"]
     :class          :platform
     :concepts       {:info.snomed/ECL "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
-    (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"}
+                     (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"}
     :uk.nhs.dmd/ATC "L03AB08"}
    {:id             :peg-ifn-beta-1a
     :description    "Peginterferon beta 1-a"
@@ -81,7 +85,7 @@
     :description    "Cladribine"
     :brand-names    ["Mavenclad"]
     :class          :highly-efficacious
-    :concepts       {:info.snomed/ECL "<<108800000 OR <<13083101000001100"}
+    :concepts       {:info.snomed/ECL "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"}
     :uk.nhs.dmd/ATC "L04AA40"}
    {:id             :mitoxantrone
     :description    "Mitoxantrone"
@@ -108,6 +112,8 @@
     :concepts       {:info.snomed/ECL "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"}
     :uk.nhs.dmd/ATC "L04AA34"}])
 
+
+
 (defn disjoint?
   "Are sets disjoint, so that no set shares a member with any other set?
   Note this is different to determining the intersection between the sets.
@@ -122,6 +128,16 @@
         (when-not (seq (set/intersection s1 (apply set/union (rest sets'))))
           (recur (rest sets')))))))
 
+(defn all-ms-dmts
+  "Returns a set of concept identifiers representing all MS disease-modifying
+  therapies. Checks that each logical set of concepts is disjoint."
+  [svc]
+  (let [sets (map #(when-let [ecl (get-in % [:concepts :info.snomed/ECL])]
+                     (into #{} (map :conceptId (hermes/expand-ecl-historic svc ecl)))) multiple-sclerosis-dmts)]
+    (if (disjoint? sets)
+      (apply set/union sets)
+      (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
+
 (comment
 
   (set/intersection #{1 2} #{2 3} #{4 5})
@@ -131,9 +147,50 @@
   (disjoint? [#{1 2 3} #{4 5 6} #{5 7 8}])
 
   (def svc (:com.eldrix/hermes system))
-  (hermes/expand-ecl-historic svc)
+  (def conn (:com.eldrix.rsdb/conn system))
+  (def all-dmts (all-ms-dmts svc))
+  (count all-dmts)
+  all-dmts
+  ;; get a list of patients who have received one of the disease-modifying treatments:
+  (def dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmts))
+  (count dmt-patients)
+  ;; get a list of projects from which we will select patients
+  (def project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))]
+                     (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id)))
+  (def cardiff-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids))
+  (count cardiff-patient-pks)
+
+  ;; and now it is simple to derive identifiers for all patients known to service who have received DMT:
+  (def study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks))
+  (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
+  (take 4 study-patient-identifiers)
+  (com.eldrix.pc4.server.rsdb.db/execute! (:com.eldrix.rsdb/conn system)
+                                          (honey.sql/format {:select :* :from :t_medication :where [:in :patient_fk study-patient-pks]}))
+  (def pathom (:pathom/boundary-interface system))
+
+  (tap> (pathom [{[:t_patient/patient_identifier 94967]
+            [:t_patient/id
+             :t_patient/date_birth
+             :t_patient/date_death
+             {`(:t_patient/address {:date ~"2000-06-01"}) [:t_address/date_from
+                                                           :t_address/date_to
+                                                           {:uk.gov.ons.nhspd/LSOA-2011 [:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+                                                           :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+             ;{:t_patient/addresses [:t_address/date_from :t_address/date_to :uk.gov.ons/lsoa :uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile]}
+             :t_patient/sex
+             :t_patient/status
+             {:t_patient/surgery [:uk.nhs.ord/name]}
+             {:t_patient/medications [:t_medication/date_from
+                                      :t_medication/date_to
+                                      {:t_medication/medication [:info.snomed.Concept/id
+                                                                 {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                                                                 :uk.nhs.dmd/NM]}]}]}]))
+
+
+
+
   (def dmts (apply merge (map #(when-let [ecl (get-in % [:concepts :info.snomed/ECL])]
-                    (hash-map (:id %) (hermes/expand-ecl-historic svc ecl))) multiple-sclerosis-dmts)))
+                                 (hash-map (:id %) (hermes/expand-ecl-historic svc ecl))) multiple-sclerosis-dmts)))
   dmts
   (set (map :conceptId (:alemtuzumab dmts)))
   (set (map :conceptId (:rituximab dmts)))

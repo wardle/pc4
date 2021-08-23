@@ -278,7 +278,7 @@
   (fetch-user-photo conn "rh084967")
   (fetch-user conn "ma090906")
   (can-authenticate-with-password? nil (fetch-user conn "system") "password")
-  (group-by :t_project_user/role (roles conn "ma090906"))
+  (group-by :t_project_user/role (roles-for-user conn "ma090906"))
   (map :t_project/id (roles-for-user conn "ma090906"))
   (filter #(= 15 (:t_project/id %)) (roles conn "ma090906"))
   (permissions-for-project (roles-for-user conn "ma090906") 15)

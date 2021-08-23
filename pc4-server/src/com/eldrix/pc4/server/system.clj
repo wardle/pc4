@@ -34,6 +34,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [integrant.core :as ig]
             [io.pedestal.http :as http]
+            [io.pedestal.http.body-params]
             [io.pedestal.interceptor :as intc]
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
