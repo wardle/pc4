@@ -119,7 +119,7 @@
     (clojure.set/intersection #{1 2} #{2 3} #{4 5})  => #{}   ; no intersection
     (disjoint? #{1 2} #{2 3} #{4 5})                 => false ; not disjoint."
   [& sets]
-  (reduce (fn [s1 s2] (if (seq (set/intersection s1 s2)) (reduced false) (set/union s1 s2))) sets))
+  (apply distinct? (apply concat sets)))
 
 (defn all-ms-dmts
   "Returns a set of concept identifiers representing all MS disease-modifying
