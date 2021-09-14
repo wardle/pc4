@@ -168,13 +168,38 @@
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
+(defn patient-dmt-medications
+  "Returns medications grouped by patient, annotated with DMT information.
+  Medications are sorted in ascending date order."
+  [{conn :com.eldrix.rsdb/conn :as system}
+   patient-pks]
+  (let [dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat (vector (:class dmt) (:id dmt))))) (all-ms-dmts system)))]
+    (->> (db/execute! conn
+                      (honey.sql/format {:select [:t_patient/patient_identifier
+                                                  :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
+                                         :from   [:t_medication :t_patient]
+                                         :where  [:and
+                                                  [:= :t_medication/patient_fk :t_patient/id]
+                                                  [:in :patient_fk patient-pks]]}))
+         (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
+        ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
+         (map #(assoc % :dmt (get dmt-lookup (:t_medication/medication_concept_fk %))))
+         ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
+         (filter :dmt)
+         (partition-by (juxt :t_patient/patient_identifier :dmt))
+         (map first)
+         (group-by :t_patient/patient_identifier))))
+
 (comment
   (def system (pc4/init :dev [:pathom/env]))
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))
-  (def all-dmt-identifiers (set (apply concat (map :codes all-dmts))))
-  all-dmt-identifiers
+  (def all-he-dmt-identifiers (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) all-dmts)))))
+  all-he-dmt-identifiers
+  (def dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat (vector (:class dmt) (:id dmt))))) all-dmts)))
+
+  (first all-dmts)
   (count all-dmt-identifiers)
   all-dmts
   ;; get a list of patients who have received one of the disease-modifying treatments:
@@ -191,6 +216,9 @@
   (def study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks))
   (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
   (take 4 study-patient-identifiers)
+
+  (patient-dmt-medications system study-patient-pks)
+
   (def patient-medications (com.eldrix.pc4.server.rsdb.db/execute! (:com.eldrix.rsdb/conn system)
                                                                    (honey.sql/format {:select [:t_patient/patient_identifier :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
                                                                                       :from   [:t_medication :t_patient]
@@ -201,6 +229,19 @@
   (group-by :t_patient/patient_identifier patient-medications)
 
 
+
+
+
+  ;; this takes all medications since the study master date
+  (->> patient-medications
+       (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
+       (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
+       (map #(assoc % :dmt (get dmt-lookup (:t_medication/medication_concept_fk %))))
+       ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
+       (filter :dmt)
+       (partition-by (juxt :t_patient/patient_identifier :dmt))
+       (map first)
+       (group-by :t_patient/patient_identifier))
 
   (def pathom (:pathom/boundary-interface system))
 
