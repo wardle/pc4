@@ -28,6 +28,10 @@ In both cases, it provides a prism through which to view the more general
 health and care record; a prism that carefully makes the right data available
 at the right time in the context of multiple sclerosis.
 
+It is designed as a separate module simply because it can provide a standalone
+version of the wider PatientCare application but for a limited purpose to solve
+a specific need.
+
 A core goal is to provide the same user-facing application that is configured
 at runtime to operate in one of the two ways.
 
