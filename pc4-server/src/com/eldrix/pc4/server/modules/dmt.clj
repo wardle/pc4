@@ -13,140 +13,160 @@
     [com.eldrix.dmd.core :as dmd]
     [com.eldrix.hermes.core :as hermes]
     [clojure.string :as str]
-    [com.eldrix.pc4.server.rsdb.db :as db]))
+    [com.eldrix.pc4.server.rsdb.db :as db])
+  (:import (java.time LocalDate)))
 
-(def multiple-sclerosis-dmts
-  "A list of disease modifying drugs in multiple sclerosis.
+(def study-master-date
+  (LocalDate/of 2014 05 01))
+
+(def study-medications
+  "A list of interesting drugs for studies of multiple sclerosis.
   They are classified as either platform DMTs or highly efficacious DMTs.
   We define by the use of the SNOMED CT expression constraint language, usually
   on the basis of active ingredients together with ATC codes. "
   [{:id          :dmf
     :description "Dimethyl fumarate"
     :brand-names ["Tecfidera"]
-    :class       :platform
-    :codelist    {:info.snomed/ECL
-                                "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
-                                (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
-                  :no.whocc/ATC "L04AX07"}}
+    :class       :platform-dmt
+    :codelist    {:ecl
+                       "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
+                       (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
+                  :atc "L04AX07"}}
    {:id          :glatiramer
     :description "Glatiramer acetate"
     :brand-names ["Copaxone" "Brabio"]
-    :class       :platform
-    :codelist    {:info.snomed/ECL
-                                "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
-                                OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
-                  :no.whocc/ATC "L03AX13"}}
+    :class       :platform-dmt
+    :codelist    {:ecl
+                       "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
+                       OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
+                  :atc "L03AX13"}}
    {:id          :ifn-beta-1a
     :description "Interferon beta 1-a"
     :brand-names ["Avonex" "Rebif"]
-    :class       :platform
-    :codelist    {:inclusions {:info.snomed/ECL
-                                             "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
-                                             (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
-                               :no.whocc/ATC "L03AB07"}
-                  :exclusions {:info.snomed/ECL "<<12222201000001108|PLEGRIDY|"
-                               :no.whocc/ATC    "L03AB13"}}}
+    :class       :platform-dmt
+    :codelist    {:inclusions {:ecl
+                                    "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
+                                    (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
+                               :atc "L03AB07"}
+                  :exclusions {:ecl "<<12222201000001108|PLEGRIDY|"
+                               :atc "L03AB13"}}}
    {:id          :ifn-beta-1b
     :description "Interferon beta 1-b"
     :brand-names ["Betaferon®" "Extavia®"]
-    :class       :platform
-    :codelist    {:info.snomed/ECL "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
+    :class       :platform-dmt
+    :codelist    {:ecl "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
                      (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
-                  :no.whocc/ATC    "L03AB08"}}
+                  :atc "L03AB08"}}
    {:id          :peg-ifn-beta-1a
     :description "Peginterferon beta 1-a"
     :brand-names ["Plegridy®"]
-    :class       :platform
-    :codelist    {:info.snomed/ECL "<<12222201000001108|Plegridy|"
-                  :no.whocc/ATC    "L03AB13"}}
+    :class       :platform-dmt
+    :codelist    {:ecl "<<12222201000001108|Plegridy|"
+                  :atc "L03AB13"}}
    {:id          :teriflunomide
     :description "Teriflunomide"
     :brand-names ["Aubagio®"]
-    :class       :platform
-    :codelist    {:info.snomed/ECL "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
-                  :no.whocc/ATC    "L04AA31"}}
+    :class       :platform-dmt
+    :codelist    {:ecl "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
+                  :atc "L04AA31"}}
    {:id          :rituximab
     :description "Rituximab"
     :brand-names ["MabThera®" "Rixathon®" "Riximyo" "Blitzima" "Ritemvia" "Rituneza" "Ruxience" "Truxima"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL
-                                (str/join " "
-                                          ["(<<108809004|Rituximab product|)"
-                                           "OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
-                                           "OR (<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
-                                           "OR (<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
-                  :no.whocc/ATC "L01XC02"}}
+    :class       :he-dmt
+    :codelist    {:ecl
+                       (str/join " "
+                                 ["(<<108809004|Rituximab product|)"
+                                  "OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
+                                  "OR (<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
+                                  "OR (<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
+                  :atc "L01XC02"}}
    {:id          :ocrelizumab
     :description "Ocrelizumab"
     :brand-names ["Ocrevus"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
-                  :no.whocc/ATC    "L04AA36"}}
+    :class       :he-dmt
+    :codelist    {:ecl "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
+                  :atc "L04AA36"}}
    {:id          :cladribine
     :description "Cladribine"
     :brand-names ["Mavenclad"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
-                  :no.whocc/ATC    "L04AA40"}}
+    :class       :he-dmt
+    :codelist    {:ecl "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
+                  :atc "L04AA40"}}
    {:id          :mitoxantrone
     :description "Mitoxantrone"
     :brand-names ["Novantrone"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "<<108791001 OR <<9482901000001102"
-                  :no.whocc/ATC    "L01DB07"}}
+    :class       :he-dmt
+    :codelist    {:ecl "<<108791001 OR <<9482901000001102"
+                  :atc "L01DB07"}}
    {:id          :fingolimod
     :description "Fingolimod"
     :brand-names ["Gilenya"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "<<715640009 OR <<10975301000001100"
-                  :no.whocc/ATC    "L04AA27"}}
+    :class       :he-dmt
+    :codelist    {:ecl "<<715640009 OR <<10975301000001100"
+                  :atc "L04AA27"}}
    {:id          :natalizumab
     :description "Natalizumab"
     :brand-names ["Tysabri"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "<<414804006 OR <<9375201000001103"
-                  :no.whocc/ATC    "L04AA23"}}
+    :class       :he-dmt
+    :codelist    {:ecl "<<414804006 OR <<9375201000001103"
+                  :atc "L04AA23"}}
    {:id          :alemtuzumab
     :description "Alemtuzumab"
     :brand-names ["Lemtrada"]
-    :class       :highly-efficacious
-    :codelist    {:info.snomed/ECL "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"
-                  :no.whocc/ATC    "L04AA34"}}])
+    :class       :he-dmt
+    :codelist    {:ecl "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"
+                  :atc "L04AA34"}}
+   {:id          :statins
+    :description "Statins"
+    :class       :other
+    :codelist    {:atc #"C10AA.*"}}
+   {:id          :anti-hypertensives
+    :description "Anti-hypertensive"
+    :class       :other
+    :codelist    {:atc #"C02.*"}}
+   {:id          :anti-platelets
+    :description "Anti-platelets"
+    :class       :other
+    :codelist    {:atc #"B01AC.*"}}
+   {:id          :proton-pump-inhibitors
+    :description "Proton pump inhibitors"
+    :class       :other
+    :codelist    {:atc #"A02BC.*"}}
+   {:id          :immunosuppressants
+    :description "Immunosuppressants"
+    :class       :other
+    :codelist    {:inclusions {:atc [#"L04AA.*" #"L04AB.*" #"L04AC.*" #"L04AD.*" #"L04AX.*"]}
+                  :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
+   {:id          :antidepressants
+    :description "Anti-depressants"
+    :class       :other
+    :codelist    {:atc #"N06A.*"}}
+   {:id          :benzodiazepines
+    :description "Benzodiazepines"
+    :class       :other
+    :codelist    {:atc [#"N03AE.*" #"N05BA.*"]}}
+   {:id          :antiepileptics
+    :description "Anti-epileptics"
+    :class       :other
+    :codelist    {:atc #"N03A.*"}}
+   {:id          :antidiabetic
+    :description "Anti-diabetic"
+    :class       :other
+    :codelist    {:atc #"A10.*"}}
+   {:id          :nutritional
+    :description "Nutritional supplements and vitamins"
+    :class       :other
+    :codelist    {:atc [#"A11.*" #"B02B.*" #"B03C.*"]}}])
 
 (defn all-ms-dmts
-  "Returns a collection of MS disease-modifying therapies with a set of SNOMED
+  "Returns a collection of multiple sclerosis disease modifying medications with
   identifiers included. For basic validation, checks that each logical set of
   concepts is disjoint."
   [{:com.eldrix/keys [hermes dmd] :as system}]
-  (let [result (map #(assoc % :codes (codelists/make-codelist system (:codelist %))) multiple-sclerosis-dmts)]
-    (if (apply codelists/disjoint? (map :codes result))
+  (let [result (map #(assoc % :codes (codelists/make-codelist system (:codelist %))) (remove #(= :other (:class %)) study-medications))]
+    (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
-
-(def non-dmt-medications
-  [{:id          :statins
-    :description "Statins"
-    :codelist    {:no.whocc/ATC #"C10AA.*"}}
-   {:id          :anti-hypertensives
-    :description "Anti-hypertensive"
-    :codelist    {:no.whocc/ATC #"C02.*"}}
-   {:id          :anti-platelets
-    :description "Anti-platelets"
-    :codelist    {:no.whocc/ATC #"B01AC.*"}}
-   {:id          :proton-pump-inhibitors
-    :description "Proton pump inhibitors"
-    :codelist    {:no.whocc/ATC #"A02BC.*"}}
-   {:id           :immunosuppressants
-    :description  "Immunosuppressants"
-    :no.whocc/ATC {:include {:no.whocc/ATC [#"L04AA.*" #"L04AB.*" #"L04AC.*" #"L04AD.*" #"L04AX.*"]}
-                   :exclude {:no.whocc/ATC ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}
-    }])
-
-(defn parse-atc [x]
-  (cond
-    (string? x) {:include [x]}
-    (vector? x) {:include x}
-    :else x))
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
@@ -171,8 +191,17 @@
   (def study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks))
   (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
   (take 4 study-patient-identifiers)
-  (com.eldrix.pc4.server.rsdb.db/execute! (:com.eldrix.rsdb/conn system)
-                                          (honey.sql/format {:select :* :from :t_medication :where [:in :patient_fk study-patient-pks]}))
+  (def patient-medications (com.eldrix.pc4.server.rsdb.db/execute! (:com.eldrix.rsdb/conn system)
+                                                                   (honey.sql/format {:select [:t_patient/patient_identifier :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
+                                                                                      :from   [:t_medication :t_patient]
+                                                                                      :where  [:and
+                                                                                               [:= :t_medication/patient_fk :t_patient/id]
+                                                                                               [:in :patient_fk study-patient-pks]]})))
+  (take 4 patient-medications)
+  (group-by :t_patient/patient_identifier patient-medications)
+
+
+
   (def pathom (:pathom/boundary-interface system))
 
   (tap> (pathom [{[:t_patient/patient_identifier 94967]
@@ -258,13 +287,13 @@
                      (pathom [{[:info.snomed.Concept/id 36030311000001108]
                                [:uk.nhs.dmd/TYPE
                                 :uk.nhs.dmd/NM
-                                :no.whocc/ATC
+                                :uk.nhs.dmd/ATC
                                 :uk.nhs.dmd/VPID
                                 :info.snomed.Concept/parentRelationshipIds
                                 {:uk.nhs.dmd/VMPS [:info.snomed.Concept/id
                                                    :uk.nhs.dmd/VPID
                                                    :uk.nhs.dmd/NM
-                                                   :no.whocc/ATC
+                                                   :uk.nhs.dmd/ATC
                                                    :uk.nhs.dmd/BNF]}]}])
                      [:info.snomed.Concept/id 36030311000001108]))
   (def all-rels (apply clojure.set/union (vals (:info.snomed.Concept/parentRelationshipIds natalizumab))))

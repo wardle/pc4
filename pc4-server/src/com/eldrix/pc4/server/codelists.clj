@@ -1,8 +1,15 @@
 (ns com.eldrix.pc4.server.codelists
-  (:require [com.eldrix.dmd.core :as dmd]
-            [com.eldrix.hermes.core :as hermes]
-            [clojure.set :as set]))
+  (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
+            [com.eldrix.dmd.core :as dmd]
+            [com.eldrix.hermes.core :as hermes])
+  (:import (java.util.regex Pattern)))
 
+(s/def ::ecl string?)
+(s/def ::atc-code (s/or :pattern #(instance? Pattern %) :string string?))
+(s/def ::atc (s/or :atc-codes (s/coll-of ::atc-code) :atc-code ::atc-code))
+(s/def ::codelist (s/keys :req-un [(or ::ecl ::atc)]))
+(s/valid? ::codelist {:ecl #"djdjd"})
 
 (defn disjoint?
   "Are sets disjoint, so that no set shares a member with any other set?
@@ -16,6 +23,8 @@
 (defn expand-atc
   "Expands ATC codes into a set of identifiers."
   [{:com.eldrix/keys [dmd hermes]} & atc-codes]
+  (when-not (s/valid? ::atc atc-codes)
+    (throw (ex-info "invalid ATC codes:" (s/explain-data ::atc-codes atc-codes))))
   (->> atc-codes
        (map #(dmd/atc->snomed-ecl dmd %))
        (remove #(= "" %))
@@ -30,7 +39,9 @@
   - :no.whocc/ATC    : A vector of ATC code regexps.
 
   A codelist will be created from the union of the results of any definitions."
-  [{:com.eldrix/keys [hermes dmd] :as system} {ecl :info.snomed/ECL atc :no.whocc/ATC}]
+  [{:com.eldrix/keys [hermes dmd] :as system} {:keys [ecl atc] :as codelist}]
+  (when-not (s/valid? ::codelist codelist)
+    (throw (ex-info "invalid codelist" (s/explain-data ::codelist codelist))))
   (set/union (when ecl (into #{} (map :conceptId (hermes/expand-ecl-historic hermes ecl))))
              (when atc (if (coll? atc) (apply expand-atc system atc)
                                        (expand-atc system atc)))))
