@@ -112,21 +112,14 @@
     :concepts       {:info.snomed/ECL "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"}
     :uk.nhs.dmd/ATC "L04AA34"}])
 
-
-
 (defn disjoint?
   "Are sets disjoint, so that no set shares a member with any other set?
   Note this is different to determining the intersection between the sets.
   e.g.
     (clojure.set/intersection #{1 2} #{2 3} #{4 5})  => #{}   ; no intersection
-    (disjoint? [#{1 2} #{2 3} #{4 5}])               => false ; not disjoint."
-  [sets]
-  (loop [sets' sets]
-    (let [s1 (first sets')]
-      (if-not s1
-        true
-        (when-not (seq (set/intersection s1 (apply set/union (rest sets'))))
-          (recur (rest sets')))))))
+    (disjoint? #{1 2} #{2 3} #{4 5})                 => false ; not disjoint."
+  [& sets]
+  (reduce (fn [s1 s2] (if (seq (set/intersection s1 s2)) (reduced false) (set/union s1 s2))) sets))
 
 (defn all-ms-dmts
   "Returns a set of concept identifiers representing all MS disease-modifying
