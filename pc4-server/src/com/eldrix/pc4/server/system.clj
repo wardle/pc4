@@ -177,11 +177,13 @@
 (defn prep [profile]
   (ig/load-namespaces (config profile)))
 
-(defn init [profile]
-  ;; start with a default set of resolvers
-  (reset! resolvers [])
-  ;; configuration can add further resolvers, depending on what is configured
-  (ig/init (config profile)))
+(defn init
+  ([profile]
+   (reset! resolvers [])
+   (ig/init (config profile)))
+  ([profile keys]
+   (reset! resolvers [])
+   (ig/init (config profile) keys)))
 
 (comment
   (config :dev)
@@ -229,7 +231,7 @@
                                           :urn:oid:2.5.4/telephoneNumber
                                           :org.hl7.fhir.Practitioner/telecom
                                           :org.hl7.fhir.Practitioner/identifier
-                                          {:t_user/active_projects                                 ;;; iff the user has an rsdb account, this will be populated
+                                          {:t_user/active_projects ;;; iff the user has an rsdb account, this will be populated
                                            [:t_project/id :t_project/name :t_project/title :t_project/slug
                                             :t_project/is_private
                                             :t_project/long_description :t_project/type :t_project/virtual]}

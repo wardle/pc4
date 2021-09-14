@@ -17,9 +17,9 @@
            com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
                                               :sha     "5f1b1b3f435e2d121db0566d34d4d89f0aa4d5b7"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                              :sha     "cdff42d71a834802214f6a5aa01ce9f8b31d230f"}
+                                              :sha     "3922dbb1efec18d7eed1ed7a60ae780e32a1f74c"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "e0b5819f6f12a19204e9db8fb90997c5ecc32907"}
+                                              :sha     "63742e7e7eff545669fdd0dc335cab981d66da84"}
 
            aero/aero                         {:mvn/version "1.1.6"}
            buddy/buddy-core                  {:mvn/version "1.10.1"}
@@ -50,8 +50,10 @@
                        :extra-deps  {com.wsscode/pathom-viz-connector {:mvn/version "2021.07.04"}
                                      org.clojure/test.check           {:mvn/version "1.1.0"}}}
 
+           :portal    {:extra-deps {djblue/portal {:mvn/version "0.14.0"}}}
+
            :reveal    {:extra-deps {vlaaad/reveal {:mvn/version "1.3.212"}}
-                       :main-opts ["-m" "vlaaad.reveal" "repl"]}
+                       :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
            :test      {:extra-paths ["test" "test/resources"]
                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
