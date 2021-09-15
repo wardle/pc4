@@ -2,19 +2,21 @@
   "Experimental approach to data downloads, suitable for short-term
    requirements for multiple sclerosis disease modifying drug
    post-marketing surveillance."
-  (:require
-    [clojure.set :as set]
-    [com.eldrix.pc4.server.codelists :as codelists]
-    [com.eldrix.pc4.server.system :as pc4]
-    [com.eldrix.pc4.server.rsdb.patients :as patients]
-    [com.eldrix.pc4.server.rsdb.projects :as projects]
-    [com.eldrix.pc4.server.rsdb.users :as users]
-    [com.wsscode.pathom3.interface.eql :as p.eql]
-    [com.eldrix.dmd.core :as dmd]
-    [com.eldrix.hermes.core :as hermes]
-    [clojure.string :as str]
-    [com.eldrix.pc4.server.rsdb.db :as db])
-  (:import (java.time LocalDate)))
+  (:require [clojure.data.csv :as csv]
+            [clojure.java.io :as io]
+            [clojure.set :as set]
+            [com.eldrix.pc4.server.codelists :as codelists]
+            [com.eldrix.pc4.server.system :as pc4]
+            [com.eldrix.pc4.server.rsdb.patients :as patients]
+            [com.eldrix.pc4.server.rsdb.projects :as projects]
+            [com.eldrix.pc4.server.rsdb.users :as users]
+            [com.wsscode.pathom3.interface.eql :as p.eql]
+            [com.eldrix.dmd.core :as dmd]
+            [com.eldrix.hermes.core :as hermes]
+            [clojure.string :as str]
+            [com.eldrix.pc4.server.rsdb.db :as db])
+  (:import (java.time LocalDate)
+           (java.time.temporal ChronoUnit Temporal)))
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
@@ -168,27 +170,70 @@
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
+(defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
+  (->> (db/execute! conn
+                    (honey.sql/format {:select [:t_patient/patient_identifier
+                                                :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
+                                       :from   [:t_medication :t_patient]
+                                       :where  [:and
+                                                [:= :t_medication/patient_fk :t_patient/id]
+                                                [:in :t_patient/id patient-ids]]}))
+       (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))))
+
+(defn first-he-dmt-after-date
+  "Given a list of medications for a single patient, return the first
+  highly-effective medication given after the date specified."
+  [medications ^LocalDate date]
+  (->> medications
+       (filter #(= :he-dmt (:dmt-class %)))
+       (filter #(or (nil? (:t_medication/date_from %)) (.isAfter (:t_medication/date_from %) date)))
+       (sort-by :t_medication/date_from)
+       first))
+
+(defn count-dmts-before
+  "Returns counts of the specified class of DMT used before the date specified."
+  ([medications ^LocalDate date] (count-dmts-before medications date nil))
+  ([medications ^LocalDate date dmt-class]
+   (when date
+     (let [prior-meds (filter #(or (nil? (:t_medication/date_from %)) (.isBefore (:t_medication/date_from %) date)) medications)]
+       (if-not dmt-class
+         (count (filter :dmt prior-meds))                   ;; return any DMT
+         (count (filter #(= dmt-class (:dmt-class %)) prior-meds)))))))
+
+(defn days-between
+  "Return number of days between dates, or nil or when-invalid if one date nil."
+  ([^Temporal d1 ^Temporal d2] (days-between d1 d2 nil))
+  ([^Temporal d1 ^Temporal d2 when-invalid]
+   (if (and d1 d2)
+     (.between ChronoUnit/DAYS d1 d2)
+     when-invalid)))
+
+(defn process-dmts [medications]
+  (->> medications
+       (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
+                                                (> i 0) (assoc :switch? true :switch-from (:dmt (get medications (dec i)))))))
+       (map #(assoc %
+               :exposure-days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
+               :n-prior-dmts (count-dmts-before medications (:t_medication/date_from %))
+               :n-prior-platform-dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
+               :n-prior-he-dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)))))
+
 (defn patient-dmt-medications
-  "Returns medications grouped by patient, annotated with DMT information.
-  Medications are sorted in ascending date order."
-  [{conn :com.eldrix.rsdb/conn :as system}
-   patient-pks]
-  (let [dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat (vector (:class dmt) (:id dmt))))) (all-ms-dmts system)))]
-    (->> (db/execute! conn
-                      (honey.sql/format {:select [:t_patient/patient_identifier
-                                                  :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
-                                         :from   [:t_medication :t_patient]
-                                         :where  [:and
-                                                  [:= :t_medication/patient_fk :t_patient/id]
-                                                  [:in :patient_fk patient-pks]]}))
-         (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
-        ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
-         (map #(assoc % :dmt (get dmt-lookup (:t_medication/medication_concept_fk %))))
+  "Returns DMT medications grouped by patient, annotated with additional DMT
+  information. Medications are sorted in ascending date order."
+  [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
+  (let [dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat {:dmt-class (:class dmt) :dmt (:id dmt)}))) (all-ms-dmts system)))]
+    (->> (medications-for-patients system patient-ids)
+         ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
+         (map #(merge % (get dmt-lookup (:t_medication/medication_concept_fk %))))
          ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
          (filter :dmt)
          (partition-by (juxt :t_patient/patient_identifier :dmt))
          (map first)
-         (group-by :t_patient/patient_identifier))))
+         (group-by :t_patient/patient_identifier)
+         (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
+         (into {}))))
+
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
@@ -217,31 +262,32 @@
   (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
   (take 4 study-patient-identifiers)
 
-  (patient-dmt-medications system study-patient-pks)
+  (def pt-dmts (patient-dmt-medications system study-patient-pks))
+  (def columns {:t_patient/patient_identifier       :patient_id
+                :t_medication/medication_concept_fk :medication_id
+                :t_medication/date_from             :date_from
+                :t_medication/date_to               :date_to
+                :dmt                                :dmt
+                :dmt-class                          :class
+                :switch?                            :switch?
+                :n-prior-platform-dmts              :n-prior-platform-dmts
+                :n-prior-he-dmts                    :n-prior-he-dmts})
+  (def headers (mapv name (vals columns)))
+  headers
 
-  (def patient-medications (com.eldrix.pc4.server.rsdb.db/execute! (:com.eldrix.rsdb/conn system)
-                                                                   (honey.sql/format {:select [:t_patient/patient_identifier :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
-                                                                                      :from   [:t_medication :t_patient]
-                                                                                      :where  [:and
-                                                                                               [:= :t_medication/patient_fk :t_patient/id]
-                                                                                               [:in :patient_fk study-patient-pks]]})))
-  (take 4 patient-medications)
-  (group-by :t_patient/patient_identifier patient-medications)
+  (clojure.pprint/print-table (get pt-dmts 12314))
+  (def rows (mapcat identity (vals pt-dmts)))
+  (into [headers] (mapv #(mapv % (keys columns)) rows))
+  (with-open [writer (io/writer "out-file.csv")]
+    (csv/write-csv writer
+                   (into [headers] (mapv #(mapv % (keys columns)) rows))))
 
 
 
 
 
-  ;; this takes all medications since the study master date
-  (->> patient-medications
-       (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
-       (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
-       (map #(assoc % :dmt (get dmt-lookup (:t_medication/medication_concept_fk %))))
-       ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
-       (filter :dmt)
-       (partition-by (juxt :t_patient/patient_identifier :dmt))
-       (map first)
-       (group-by :t_patient/patient_identifier))
+
+
 
   (def pathom (:pathom/boundary-interface system))
 
