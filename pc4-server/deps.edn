@@ -19,7 +19,7 @@
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                               :sha     "dbd2ff4138653d93da86f8eb560a576bfa8618b2"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "63742e7e7eff545669fdd0dc335cab981d66da84"}
+                                              :sha     "27ef638d2204fb44a63f08cb1dfd052ee9c06d3a"}
 
            aero/aero                         {:mvn/version "1.1.6"}
            buddy/buddy-core                  {:mvn/version "1.10.1"}

@@ -5,15 +5,17 @@
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
             [clojure.set :as set]
+            [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.codelists :as codelists]
             [com.eldrix.pc4.server.system :as pc4]
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
+            [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
-            [clojure.string :as str]
             [com.eldrix.pc4.server.rsdb.db :as db])
   (:import (java.time LocalDate)
            (java.time.temporal ChronoUnit Temporal)))
@@ -28,6 +30,7 @@
   on the basis of active ingredients together with ATC codes. "
   [{:id          :dmf
     :description "Dimethyl fumarate"
+    :atc         "L04AX07"
     :brand-names ["Tecfidera"]
     :class       :platform-dmt
     :codelist    {:ecl
@@ -37,6 +40,7 @@
    {:id          :glatiramer
     :description "Glatiramer acetate"
     :brand-names ["Copaxone" "Brabio"]
+    :atc         "L03AX13"
     :class       :platform-dmt
     :codelist    {:ecl
                        "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
@@ -45,6 +49,7 @@
    {:id          :ifn-beta-1a
     :description "Interferon beta 1-a"
     :brand-names ["Avonex" "Rebif"]
+    :atc         "L03AB07 NOT L03AB13"
     :class       :platform-dmt
     :codelist    {:inclusions {:ecl
                                     "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
@@ -55,6 +60,7 @@
    {:id          :ifn-beta-1b
     :description "Interferon beta 1-b"
     :brand-names ["Betaferon®" "Extavia®"]
+    :atc         "L03AB08"
     :class       :platform-dmt
     :codelist    {:ecl "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
                      (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
@@ -62,18 +68,21 @@
    {:id          :peg-ifn-beta-1a
     :description "Peginterferon beta 1-a"
     :brand-names ["Plegridy®"]
+    :atc         "L03AB13"
     :class       :platform-dmt
     :codelist    {:ecl "<<12222201000001108|Plegridy|"
                   :atc "L03AB13"}}
    {:id          :teriflunomide
     :description "Teriflunomide"
     :brand-names ["Aubagio®"]
+    :atc         "L04AA31"
     :class       :platform-dmt
     :codelist    {:ecl "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
                   :atc "L04AA31"}}
    {:id          :rituximab
     :description "Rituximab"
     :brand-names ["MabThera®" "Rixathon®" "Riximyo" "Blitzima" "Ritemvia" "Rituneza" "Ruxience" "Truxima"]
+    :atc         "L01XC02"
     :class       :he-dmt
     :codelist    {:ecl
                        (str/join " "
@@ -85,36 +94,42 @@
    {:id          :ocrelizumab
     :description "Ocrelizumab"
     :brand-names ["Ocrevus"]
+    :atc         "L04AA36"
     :class       :he-dmt
     :codelist    {:ecl "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
                   :atc "L04AA36"}}
    {:id          :cladribine
     :description "Cladribine"
     :brand-names ["Mavenclad"]
+    :atc         "L04AA40"
     :class       :he-dmt
     :codelist    {:ecl "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
                   :atc "L04AA40"}}
    {:id          :mitoxantrone
     :description "Mitoxantrone"
     :brand-names ["Novantrone"]
+    :atc         "L01DB07"
     :class       :he-dmt
     :codelist    {:ecl "<<108791001 OR <<9482901000001102"
                   :atc "L01DB07"}}
    {:id          :fingolimod
     :description "Fingolimod"
     :brand-names ["Gilenya"]
+    :atc         "L04AA27"
     :class       :he-dmt
     :codelist    {:ecl "<<715640009 OR <<10975301000001100"
                   :atc "L04AA27"}}
    {:id          :natalizumab
     :description "Natalizumab"
     :brand-names ["Tysabri"]
+    :atc         "L04AA23"
     :class       :he-dmt
     :codelist    {:ecl "<<414804006 OR <<9375201000001103"
                   :atc "L04AA23"}}
    {:id          :alemtuzumab
     :description "Alemtuzumab"
     :brand-names ["Lemtrada"]
+    :atc         "L04AA34"
     :class       :he-dmt
     :codelist    {:ecl "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"
                   :atc "L04AA34"}}
@@ -160,15 +175,40 @@
     :class       :other
     :codelist    {:atc [#"A11.*" #"B02B.*" #"B03C.*"]}}])
 
+
+(defn make-atc-regexps [{:keys [codelist] :as med}]
+  (when-let [atc (or (:atc codelist) (get-in codelist [:inclusions :atc]))]
+    (if (coll? atc)
+      (mapv #(vector (if (string? %) (re-pattern %) %) (dissoc med :codelist)) atc)
+      (vector (vector (if (string? atc) (re-pattern atc) atc) (dissoc med :codelist))))))
+
+(def study-medication-atc
+  "A sequence containing ATC code regexp and study medication class information."
+  (mapcat make-atc-regexps study-medications))
+
+(defn get-study-classes [atc]
+  (keep identity (map (fn [[re-atc med]] (when (re-matches re-atc atc) med)) study-medication-atc)))
+
+(comment
+  study-medication-atc
+  (first (get-study-classes "N05BA"))
+  )
+
 (defn all-ms-dmts
   "Returns a collection of multiple sclerosis disease modifying medications with
-  identifiers included. For basic validation, checks that each logical set of
-  concepts is disjoint."
+  SNOMED CT (dm+d) identifiers included. For validation, checks that each
+  logical set of concepts is disjoint."
   [{:com.eldrix/keys [hermes dmd] :as system}]
   (let [result (map #(assoc % :codes (codelists/make-codelist system (:codelist %))) (remove #(= :other (:class %)) study-medications))]
     (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
+
+(defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
+  (into #{} (map :t_medication/medication_concept_fk)
+        (next.jdbc/plan conn
+                        (honey.sql/format {:select-distinct :t_medication/medication_concept_fk
+                                           :from            :t_medication}))))
 
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (->> (db/execute! conn
@@ -180,12 +220,44 @@
                                                 [:in :t_patient/id patient-ids]]}))
        (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))))
 
+(defn make-dmt-lookup [system]
+  (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat {:dmt_class (:class dmt) :dmt (:id dmt) :atc (:atc dmt)}))) (all-ms-dmts system))))
+
+(defn infer-atc-for-non-dmd
+  "Try to reach a dmd product from a non-dmd product to infer an ATC code.
+  TODO: improve"
+  [{:com.eldrix/keys [hermes dmd]} concept-id]
+  (or (first (keep identity (map #(dmd/atc-for-product dmd %) (hermes/get-child-relationships-of-type hermes concept-id 116680003))))
+      (first (keep identity (map #(dmd/atc-for-product dmd %) (hermes/get-parent-relationships-of-type hermes concept-id 116680003))))))
+
+(defn fetch-drug
+  "Return basic information about a drug.
+  Most products are in the UK dm+d, but not all, so we supplement with data
+  from SNOMED when possible."
+  [{:com.eldrix/keys [hermes dmd] :as system} concept-id]
+  (if-let [product (dmd/fetch-product dmd concept-id)]
+    (let [atc (or (com.eldrix.dmd.store2/atc-code dmd product)
+                  (infer-atc-for-non-dmd system concept-id))
+          category (when atc (first (get-study-classes atc)))]
+      (cond-> {:nm (or (:VTM/NM product) (:VMP/NM product) (:AMP/NM product) (:VMPP/NM product) (:AMPP/NM product))}
+              atc (assoc :atc atc)
+              category (assoc :category (:id category)
+                              :class (:class category))))
+    (let [atc (infer-atc-for-non-dmd system concept-id)
+          term (:term (hermes/get-preferred-synonym hermes concept-id "en-GB"))
+          category (when atc (first (get-study-classes atc)))]
+      (cond-> {:nm term}
+              atc (assoc :atc atc)
+              category (assoc :category (:id category) :class (:class category))))))
+
+(def fetch-drug2 (memoize fetch-drug))
+
 (defn first-he-dmt-after-date
   "Given a list of medications for a single patient, return the first
   highly-effective medication given after the date specified."
   [medications ^LocalDate date]
   (->> medications
-       (filter #(= :he-dmt (:dmt-class %)))
+       (filter #(= :he-dmt (:dmt_class %)))
        (filter #(or (nil? (:t_medication/date_from %)) (.isAfter (:t_medication/date_from %) date)))
        (sort-by :t_medication/date_from)
        first))
@@ -198,10 +270,10 @@
      (let [prior-meds (filter #(or (nil? (:t_medication/date_from %)) (.isBefore (:t_medication/date_from %) date)) medications)]
        (if-not dmt-class
          (count (filter :dmt prior-meds))                   ;; return any DMT
-         (count (filter #(= dmt-class (:dmt-class %)) prior-meds)))))))
+         (count (filter #(= dmt-class (:dmt_class %)) prior-meds)))))))
 
 (defn days-between
-  "Return number of days between dates, or nil or when-invalid if one date nil."
+  "Return number of days between dates, or nil, or when-invalid if one date nil."
   ([^Temporal d1 ^Temporal d2] (days-between d1 d2 nil))
   ([^Temporal d1 ^Temporal d2 when-invalid]
    (if (and d1 d2)
@@ -211,18 +283,18 @@
 (defn process-dmts [medications]
   (->> medications
        (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
-                                                (> i 0) (assoc :switch? true :switch-from (:dmt (get medications (dec i)))))))
+                                                (> i 0) (assoc :switch? true :switch_from (:dmt (get medications (dec i)))))))
        (map #(assoc %
-               :exposure-days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
-               :n-prior-dmts (count-dmts-before medications (:t_medication/date_from %))
-               :n-prior-platform-dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
-               :n-prior-he-dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)))))
+               :exposure_days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
+               :n_prior_dmts (count-dmts-before medications (:t_medication/date_from %))
+               :n_prior_platform_dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
+               :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)))))
 
 (defn patient-dmt-medications
   "Returns DMT medications grouped by patient, annotated with additional DMT
   information. Medications are sorted in ascending date order."
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
-  (let [dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat {:dmt-class (:class dmt) :dmt (:id dmt)}))) (all-ms-dmts system)))]
+  (let [dmt-lookup (make-dmt-lookup system)]
     (->> (medications-for-patients system patient-ids)
          ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
          (map #(merge % (get dmt-lookup (:t_medication/medication_concept_fk %))))
@@ -234,16 +306,76 @@
          (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
          (into {}))))
 
+(defn cohort-entry-dates
+  "Generate cohort entry dates for each patient.
+  This is defined as date of first prescription of a HE-DMT after the
+  defined study date."
+  [system patient-ids study-date]
+  (->> (patient-dmt-medications system patient-ids)
+       vals
+       (map (fn [medications] (first-he-dmt-after-date medications study-date)))
+       (keep identity)))
+
+(defn write-rows-csv
+  "Write a collection of maps ('rows') to a CSV file. Parameters:
+  - out      : anything coercible by clojure.java.io/writer such as a filename
+  - rows     : a sequence of maps
+  - columns  : a vector of columns to write; optional.
+  - title-fn : a function (or map) to convert each column key for output; optional, default: 'name'
+
+  e.g.
+  (write-rows-csv \"wibble.csv\" [{:one 1 :two 2 :three 3}] :columns [:one :two] :title {:one \"UN\" :two \"DEUX\"})"
+  [out rows & {:keys [columns title-fn] :or {title-fn name}}]
+  (let [columns' (or columns (keys (first rows)))
+        headers (mapv #(or (title-fn %) (name %)) columns')]
+    (with-open [writer (io/writer out)]
+      (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
+
+(defn write-data [system]
+  (log/info "initialising data extract")
+  (let [all-dmt-identifiers (set (apply concat (map :codes (all-ms-dmts system)))) ;; a set of identifiers for all interesting DMTs
+        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmt-identifiers) ;; get all patients on these drugs
+        project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
+                      (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
+        cardiff-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
+        study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks)
+        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
+        dmt-medications (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
+        pt-cohort-entry-dates (cohort-entry-dates system study-patient-identifiers study-master-date)]
+
+    (log/info "writing non-dmt medications")
+    (write-rows-csv "patient-non-dmt-medications.csv"
+                    (->> (medications-for-patients system study-patient-identifiers)
+                         (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
+                         (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+                    :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
+                              :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
+                    :title-fn {:t_patient/patient_identifier "patient_id"})
+    (log/info "writing dmt medications")
+    (write-rows-csv "patient-dmt-medications.csv" dmt-medications
+                    :columns [:t_patient/patient_identifier
+                              :t_medication/medication_concept_fk
+                              :atc :dmt :dmt_class
+                              :t_medication/date_from :t_medication/date_to :exposure_days
+                              :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+                    :title-fn {:t_patient/patient_identifier "patient_id"})
+    (log/info "writing cohort entry dates")
+    (write-rows-csv "patient-cohort-entry-dates.csv" pt-cohort-entry-dates
+                    :columns [:t_patient/patient_identifier :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
+                    :title-fn {:t_patient/patient_identifier "patient_id"
+                               :t_medication/date_from       "cohort_entry_date"})))
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
+
+  (time (write-data system))
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))
   (def all-he-dmt-identifiers (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) all-dmts)))))
   all-he-dmt-identifiers
   (def dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat (vector (:class dmt) (:id dmt))))) all-dmts)))
-
+  (apply concat (map :codes all-dmts))
   (first all-dmts)
   (count all-dmt-identifiers)
   all-dmts
@@ -263,24 +395,42 @@
   (take 4 study-patient-identifiers)
 
   (def pt-dmts (patient-dmt-medications system study-patient-pks))
-  (def columns {:t_patient/patient_identifier       :patient_id
-                :t_medication/medication_concept_fk :medication_id
-                :t_medication/date_from             :date_from
-                :t_medication/date_to               :date_to
-                :dmt                                :dmt
-                :dmt-class                          :class
-                :switch?                            :switch?
-                :n-prior-platform-dmts              :n-prior-platform-dmts
-                :n-prior-he-dmts                    :n-prior-he-dmts})
-  (def headers (mapv name (vals columns)))
+  pt-dmts
+
+  (defn rows->csv
+    [header rows])
+
+  (def columns [:t_patient/patient_identifier
+                :t_medication/medication_concept_fk
+                :atc
+                :dmt
+                :dmt_class
+                :t_medication/date_from
+                :t_medication/date_to
+                :exposure_days
+                :switch_from
+                :n_prior_platform_dmts
+                :n_prior_he_dmts])
+  (def headers (mapv name columns))
   headers
 
   (clojure.pprint/print-table (get pt-dmts 12314))
   (def rows (mapcat identity (vals pt-dmts)))
-  (into [headers] (mapv #(mapv % (keys columns)) rows))
+  (take 4 rows)
+  (into [headers] (mapv #(mapv % columns) rows))
   (with-open [writer (io/writer "out-file.csv")]
     (csv/write-csv writer
-                   (into [headers] (mapv #(mapv % (keys columns)) rows))))
+                   (into [headers] (mapv #(mapv % columns) rows))))
+
+
+
+  (write-cohort-entry-dates system study-patient-identifiers study-master-date "cohort2.csv")
+
+
+
+  (take 5 (into [headers] (mapv (fn [[patient-id medications]] (into [patient-id] (when-let [dmt (first-he-dmt-after-date medications study-master-date)]
+                                                                                    [(:t_medication/date_from dmt) (:dmt dmt) (:dmt_class dmt)
+                                                                                     (:n_prior_platform_dmts dmt) (:n_prior_he_dmts dmt)]))) pt-dmts)))
 
 
 
