@@ -229,7 +229,7 @@
   specified, or today.
 
   Parameters:
-  - system
+  - system      : a pc4 'system' containing clods, deprivare and rsdb modules.
   - patient-ids : a sequence of patient identifiers for the cohort in question
   - on-date     : a date to use for all patients, or a map, or function, to
                   return a date for each patient-id.
@@ -388,12 +388,13 @@
         study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)
         study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
         cohort-entry-meds (cohort-entry-meds system study-patient-identifiers study-master-date)
-        cohort-entry-dates (into {} (map #(vector (:t_patient/patient_identifier %) (:t_medication/date_from %)) cohort-entry-meds))]
+        cohort-entry-dates (into {} (map #(vector (:t_patient/patient_identifier %) (:t_medication/date_from %)) cohort-entry-meds))
+        deprivation (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)]
     {:all-dmt-identifiers       all-dmt-identifiers
      :study-patient-identifiers study-patient-identifiers
-     :deprivation               (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)
+     :deprivation               deprivation
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
-     :cohort-entry-meds         cohort-entry-meds}))
+     :cohort-entry-meds         (map #(assoc % :deprivation-decile (get deprivation (:t_patient/patient_identifier %))) cohort-entry-meds)}))
 
 
 (defn write-data [system {:keys [study-patient-identifiers all-dmt-identifiers dmt-medications cohort-entry-meds]}]
@@ -414,8 +415,10 @@
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"})
   (log/info "writing cohort entry medications")
-  (write-rows-csv "patient-cohort-entry-dates.csv" cohort-entry-meds
-                  :columns [:t_patient/patient_identifier :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
+  (write-rows-csv "patient-cohort-entry.csv" cohort-entry-meds
+                  :columns [:t_patient/patient_identifier
+                            :deprivation-decile
+                            :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_medication/date_from       "cohort_entry_date"}))
 
