@@ -7,16 +7,17 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.pc4.server.codelists :as codelists]
-            [com.eldrix.pc4.server.system :as pc4]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [com.eldrix.pc4.server.rsdb.users :as users]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.server.rsdb.db :as db]
+            [com.eldrix.pc4.server.codelists :as codelists]
+            [com.eldrix.pc4.server.system :as pc4]
+            [com.eldrix.pc4.server.rsdb :as rsdb]
+            [com.eldrix.pc4.server.rsdb.patients :as patients]
+            [com.eldrix.pc4.server.rsdb.projects :as projects]
+            [com.eldrix.pc4.server.rsdb.users :as users]
+            [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql])
   (:import (java.time LocalDate)
            (java.time.temporal ChronoUnit Temporal)))
@@ -222,14 +223,33 @@
 (defn deprivation-decile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
   (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile (deprivare/fetch-lsoa deprivare lsoa)))
 
-(defn deprivation-deciles-for-patients [system patient-ids]
-  (let [addresses (addresses-for-patients system patient-ids)]
-    (zipmap (keys addresses)
-            (->> (vals addresses)
-                 (map #(com.eldrix.pc4.server.rsdb/address-for-date % (LocalDate/now)))
-                 (map :t_address/postcode_raw)
-                 (map #(lsoa-for-postcode system %))
-                 (map #(deprivation-decile-for-lsoa system %))))))
+(defn deprivation-deciles-for-patients
+  "Determine deprivation decile for the patients specified.
+  Deprivation indices are calculated based on address history, on the date
+  specified, or today.
+
+  Parameters:
+  - system
+  - patient-ids : a sequence of patient identifiers for the cohort in question
+  - on-date     : a date to use for all patients, or a map, or function, to
+                  return a date for each patient-id.
+
+  If 'on-date' is provided but no date is returned for a given patient-id, no
+  decile will be returned by design.
+
+  Examples:
+   (deprivation-deciles-for-patients system [17497 22776] (LocalDate/of 2010 1 1)
+   (deprivation-deciles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
+  ([system patient-ids] (deprivation-deciles-for-patients system patient-ids (LocalDate/now)))
+  ([system patient-ids on-date]
+   (let [date-fn (if (ifn? on-date) on-date (constantly on-date))
+         addresses (addresses-for-patients system patient-ids)]
+     (zipmap (keys addresses)
+             (->> (vals addresses)
+                  (map #(when-let [date (date-fn (:t_patient/patient_identifier (first %)))] (rsdb/address-for-date % date)))
+                  (map :t_address/postcode_raw)
+                  (map #(lsoa-for-postcode system %))
+                  (map #(deprivation-decile-for-lsoa system %)))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
@@ -333,8 +353,8 @@
          (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
          (into {}))))
 
-(defn cohort-entry-dates
-  "Generate cohort entry dates for each patient.
+(defn cohort-entry-meds
+  "Return a cohort entry medication for each patient.
   This is defined as date of first prescription of a HE-DMT after the
   defined study date."
   [system patient-ids study-date]
@@ -366,15 +386,17 @@
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
         project-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
         study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)
-        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)]
+        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
+        cohort-entry-meds (cohort-entry-meds system study-patient-identifiers study-master-date)
+        cohort-entry-dates (into {} (map #(vector (:t_patient/patient_identifier %) (:t_medication/date_from %)) cohort-entry-meds))]
     {:all-dmt-identifiers       all-dmt-identifiers
      :study-patient-identifiers study-patient-identifiers
-     :deprivation               (deprivation-deciles-for-patients system study-patient-identifiers)
+     :deprivation               (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
-     :cohort-entry-dates        (cohort-entry-dates system study-patient-identifiers study-master-date)}))
+     :cohort-entry-meds         cohort-entry-meds}))
 
 
-(defn write-data [system {:keys [study-patient-identifiers all-dmt-identifiers dmt-medications cohort-entry-dates]}]
+(defn write-data [system {:keys [study-patient-identifiers all-dmt-identifiers dmt-medications cohort-entry-meds]}]
   (log/info "writing non-dmt medications")
   (write-rows-csv "patient-non-dmt-medications.csv"
                   (->> (medications-for-patients system study-patient-identifiers)
@@ -391,14 +413,15 @@
                             :t_medication/date_from :t_medication/date_to :exposure_days
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"})
-  (log/info "writing cohort entry dates")
-  (write-rows-csv "patient-cohort-entry-dates.csv" cohort-entry-dates
+  (log/info "writing cohort entry medications")
+  (write-rows-csv "patient-cohort-entry-dates.csv" cohort-entry-meds
                   :columns [:t_patient/patient_identifier :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_medication/date_from       "cohort_entry_date"}))
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
+  (def patient-ids [])
   (time (def data (make-study-data system)))
   (keys data)
   (time (write-data system data))
