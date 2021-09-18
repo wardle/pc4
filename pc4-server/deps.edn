@@ -26,7 +26,7 @@
            buddy/buddy-sign                  {:mvn/version "3.4.1"}
            cheshire/cheshire                 {:mvn/version "5.10.1"}
            com.github.seancorfield/honeysql  {:mvn/version "2.0.783"}
-           com.github.seancorfield/next.jdbc {:mvn/version "1.2.689"}
+           com.github.seancorfield/next.jdbc {:mvn/version "1.2.709"}
            com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
                                               :sha     "6e8fa24b6efcdb24c062aa3e736ad1f7e73b9fdb"}
            com.wsscode/pathom-viz-connector  {:mvn/version "2021.07.15-1"}
