@@ -270,14 +270,13 @@
    (deprivation-deciles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
   ([system patient-ids] (deprivation-deciles-for-patients system patient-ids (LocalDate/now)))
   ([system patient-ids on-date]
-   (let [date-fn (if (ifn? on-date) on-date (constantly on-date))
-         addresses (addresses-for-patients system patient-ids)]
-     (zipmap (keys addresses)
-             (->> (vals addresses)
-                  (map #(when-let [date (date-fn (:t_patient/patient_identifier (first %)))] (rsdb/address-for-date % date)))
-                  (map :t_address/postcode_raw)
-                  (map #(lsoa-for-postcode system %))
-                  (map #(deprivation-decile-for-lsoa system %)))))))
+   (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
+         (update-vals (addresses-for-patients system patient-ids)
+                  #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
+                          (rsdb/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
+                        :t_address/postcode_raw
+                        (lsoa-for-postcode system)
+                        (deprivation-decile-for-lsoa system))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
