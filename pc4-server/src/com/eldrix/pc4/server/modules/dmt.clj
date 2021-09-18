@@ -16,7 +16,8 @@
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.pc4.server.rsdb.db :as db])
+            [com.eldrix.pc4.server.rsdb.db :as db]
+            [honey.sql :as sql])
   (:import (java.time LocalDate)
            (java.time.temporal ChronoUnit Temporal)))
 
@@ -204,20 +205,46 @@
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
+
+(defn addresses-for-patients
+  "Returns a map of patient identifiers to a collection of sorted addresses."
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (group-by :t_patient/patient_identifier
+            (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier :t_address/date_from :t_address/date_to :t_address/postcode_raw]
+                                           :from     [:t_address]
+                                           :order-by [[:t_patient/patient_identifier :asc] [:date_to :desc] [:date_from :desc]]
+                                           :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
+                                           :where    [:in :t_patient/id patient-ids]}))))
+
+(defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
+  (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
+
+(defn deprivation-decile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
+  (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile (deprivare/fetch-lsoa deprivare lsoa)))
+
+(defn deprivation-deciles-for-patients [system patient-ids]
+  (let [addresses (addresses-for-patients system patient-ids)]
+    (zipmap (keys addresses)
+            (->> (vals addresses)
+                 (map #(com.eldrix.pc4.server.rsdb/address-for-date % (LocalDate/now)))
+                 (map :t_address/postcode_raw)
+                 (map #(lsoa-for-postcode system %))
+                 (map #(deprivation-decile-for-lsoa system %))))))
+
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
         (next.jdbc/plan conn
-                        (honey.sql/format {:select-distinct :t_medication/medication_concept_fk
-                                           :from            :t_medication}))))
+                        (sql/format {:select-distinct :t_medication/medication_concept_fk
+                                     :from            :t_medication}))))
 
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (->> (db/execute! conn
-                    (honey.sql/format {:select [:t_patient/patient_identifier
-                                                :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
-                                       :from   [:t_medication :t_patient]
-                                       :where  [:and
-                                                [:= :t_medication/patient_fk :t_patient/id]
-                                                [:in :t_patient/id patient-ids]]}))
+                    (sql/format {:select [:t_patient/patient_identifier
+                                          :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
+                                 :from   [:t_medication :t_patient]
+                                 :where  [:and
+                                          [:= :t_medication/patient_fk :t_patient/id]
+                                          [:in :t_patient/id patient-ids]]}))
        (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))))
 
 (defn make-dmt-lookup [system]
@@ -331,44 +358,50 @@
     (with-open [writer (io/writer out)]
       (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
 
-(defn write-data [system]
-  (log/info "initialising data extract")
+
+(defn make-study-data [system]
   (let [all-dmt-identifiers (set (apply concat (map :codes (all-ms-dmts system)))) ;; a set of identifiers for all interesting DMTs
         dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmt-identifiers) ;; get all patients on these drugs
         project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
-        cardiff-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
-        study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks)
-        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
-        dmt-medications (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
-        pt-cohort-entry-dates (cohort-entry-dates system study-patient-identifiers study-master-date)]
+        project-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
+        study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)
+        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)]
+    {:all-dmt-identifiers       all-dmt-identifiers
+     :study-patient-identifiers study-patient-identifiers
+     :deprivation               (deprivation-deciles-for-patients system study-patient-identifiers)
+     :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
+     :cohort-entry-dates        (cohort-entry-dates system study-patient-identifiers study-master-date)}))
 
-    (log/info "writing non-dmt medications")
-    (write-rows-csv "patient-non-dmt-medications.csv"
-                    (->> (medications-for-patients system study-patient-identifiers)
-                         (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                         (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
-                    :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
-                              :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
-                    :title-fn {:t_patient/patient_identifier "patient_id"})
-    (log/info "writing dmt medications")
-    (write-rows-csv "patient-dmt-medications.csv" dmt-medications
-                    :columns [:t_patient/patient_identifier
-                              :t_medication/medication_concept_fk
-                              :atc :dmt :dmt_class
-                              :t_medication/date_from :t_medication/date_to :exposure_days
-                              :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
-                    :title-fn {:t_patient/patient_identifier "patient_id"})
-    (log/info "writing cohort entry dates")
-    (write-rows-csv "patient-cohort-entry-dates.csv" pt-cohort-entry-dates
-                    :columns [:t_patient/patient_identifier :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
-                    :title-fn {:t_patient/patient_identifier "patient_id"
-                               :t_medication/date_from       "cohort_entry_date"})))
+
+(defn write-data [system {:keys [study-patient-identifiers all-dmt-identifiers dmt-medications cohort-entry-dates]}]
+  (log/info "writing non-dmt medications")
+  (write-rows-csv "patient-non-dmt-medications.csv"
+                  (->> (medications-for-patients system study-patient-identifiers)
+                       (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
+                       (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+                  :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
+                            :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
+                  :title-fn {:t_patient/patient_identifier "patient_id"})
+  (log/info "writing dmt medications")
+  (write-rows-csv "patient-dmt-medications.csv" dmt-medications
+                  :columns [:t_patient/patient_identifier
+                            :t_medication/medication_concept_fk
+                            :atc :dmt :dmt_class
+                            :t_medication/date_from :t_medication/date_to :exposure_days
+                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+                  :title-fn {:t_patient/patient_identifier "patient_id"})
+  (log/info "writing cohort entry dates")
+  (write-rows-csv "patient-cohort-entry-dates.csv" cohort-entry-dates
+                  :columns [:t_patient/patient_identifier :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_medication/date_from       "cohort_entry_date"}))
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
-
-  (time (write-data system))
+  (time (def data (make-study-data system)))
+  (keys data)
+  (time (write-data system data))
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))
