@@ -208,10 +208,10 @@
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
 (defn fetch-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (db/execute! conn (sql/format {:select [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
-               :from :t_patient
-               :left-join [:t_death_certificate [:= :patient_fk :t_patient/id]]
-               :where [:in :t_patient/patient_identifier patient-ids]})))
+  (db/execute! conn (sql/format {:select    [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
+                                 :from      :t_patient
+                                 :left-join [:t_death_certificate [:= :patient_fk :t_patient/id]]
+                                 :where     [:in :t_patient/patient_identifier patient-ids]})))
 
 (defn validate-only-one-death-certificate
   [{conn :com.eldrix.rsdb/conn}]
@@ -271,7 +271,7 @@
   ([system patient-ids] (deprivation-deciles-for-patients system patient-ids (LocalDate/now)))
   ([system patient-ids on-date]
    (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
-         (update-vals (addresses-for-patients system patient-ids)
+     (update-vals (addresses-for-patients system patient-ids)
                   #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
                           (rsdb/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
                         :t_address/postcode_raw
