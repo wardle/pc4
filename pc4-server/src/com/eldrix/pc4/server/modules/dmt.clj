@@ -18,7 +18,8 @@
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
-            [honey.sql :as sql])
+            [honey.sql :as sql]
+            [next.jdbc.plan :as plan])
   (:import (java.time LocalDate)
            (java.time.temporal ChronoUnit Temporal)))
 
@@ -206,6 +207,19 @@
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
+(defn fetch-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (db/execute! conn (sql/format {:select [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
+               :from :t_patient
+               :left-join [:t_death_certificate [:= :patient_fk :t_patient/id]]
+               :where [:in :t_patient/patient_identifier patient-ids]})))
+
+(defn validate-only-one-death-certificate
+  [{conn :com.eldrix.rsdb/conn}]
+  (when-let [patients (seq (plan/select! conn :patient_fk (sql/format {:select   [:patient_fk]
+                                                                       :from     [:t_death_certificate]
+                                                                       :group-by [:patient_fk]
+                                                                       :having   [:> :%count.patient_fk 1]})))]
+    (throw (ex-info "validation failure: patients with more than one death certificate" {:patients patients}))))
 
 (defn addresses-for-patients
   "Returns a map of patient identifiers to a collection of sorted addresses."
@@ -216,6 +230,20 @@
                                            :order-by [[:t_patient/patient_identifier :asc] [:date_to :desc] [:date_from :desc]]
                                            :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
                                            :where    [:in :t_patient/id patient-ids]}))))
+(defn active-encounters-for-patients
+  "Returns a map of patient identifiers to a collection of sorted, active encounters.
+  Encounters are sorted in descending date order."
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (group-by :t_patient/patient_identifier
+            (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier
+                                                      :t_encounter/id
+                                                      :t_encounter/date_time]
+                                           :from     [:t_encounter]
+                                           :join     [:t_patient [:= :t_patient/id :t_encounter/patient_fk]]
+                                           :order-by [[:t_encounter/date_time :desc]]
+                                           :where    [:and
+                                                      [:in :t_patient/id patient-ids]
+                                                      [:= :t_encounter/is_deleted "false"]]}))))
 
 (defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
   (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
@@ -380,7 +408,8 @@
 
 
 (defn make-study-data [system]
-  (let [all-dmt-identifiers (set (apply concat (map :codes (all-ms-dmts system)))) ;; a set of identifiers for all interesting DMTs
+  (let [_ (validate-only-one-death-certificate system)
+        all-dmt-identifiers (set (apply concat (map :codes (all-ms-dmts system)))) ;; a set of identifiers for all interesting DMTs
         dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmt-identifiers) ;; get all patients on these drugs
         project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
