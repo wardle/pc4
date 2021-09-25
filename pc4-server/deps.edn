@@ -49,9 +49,9 @@
                        :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
                                      org.clojure/test.check           {:mvn/version "1.1.0"}}}
 
-           :portal    {:extra-deps {djblue/portal {:mvn/version "0.14.0"}}}
+           :portal    {:extra-deps {djblue/portal {:mvn/version "0.15.1"}}}
 
-           :reveal    {:extra-deps {vlaaad/reveal {:mvn/version "1.3.214"}}
+           :reveal    {:extra-deps {vlaaad/reveal {:mvn/version "1.3.217"}}
                        :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
            :test      {:extra-paths ["test" "test/resources"]
