@@ -39,7 +39,6 @@
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.wsscode.pathom.viz.ws-connector.pathom3 :as p.connector]
             [cognitect.transit :as transit])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
