@@ -669,7 +669,6 @@
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-diagnostic-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
-         (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
          (map #(assoc % :icd10 (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))))
 
 (defn write-rows-csv
@@ -736,7 +735,7 @@
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
      :non-dmt-medications       (->> (medications-for-patients system study-patient-identifiers)
                                      (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                                     (pmap #(m(:t_diagnosis/concept_fk %)erge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+                                     (map #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
      :edss                      (mapcat identity (vals edss))
      :ms-events                 (mapcat identity (vals ms-events))
      :diagnoses                 (all-patient-diagnoses system study-patient-identifiers)}))
@@ -786,8 +785,7 @@
                   :title-fn {:t_patient/patient_identifier "patient_id"})
   (log/info "writing diagnoses")
   (write-rows-csv "patient-diagnoses.csv" diagnoses
-                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10
-                            :cardiovascular :other :connective-tissue :respiratory-disease :endocrine :mood :cancer :gastrointestinal :hair-and-skin :epilepsy]
+                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 (comment
