@@ -385,6 +385,20 @@
                                               ;; use first recorded event as onset, or date onset in diagnosis, or date of diagnosis failing that.
                                               :calculated-onset (or first-event (:t_diagnosis/date_onset diag) (:t_diagnosis/date_diagnosis diag))))))))
 
+
+(defn fetch-patient-diagnoses
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (db/execute! conn (sql/format {:select [:t_patient/patient_identifier
+                                          :t_diagnosis/concept_fk
+                                          :t_diagnosis/date_diagnosis
+                                          :t_diagnosis/date_onset
+                                          :t_diagnosis/date_to]
+                                 :from   [:t_diagnosis]
+                                 :join   [:t_patient [:= :t_diagnosis/patient_fk :t_patient/id]]
+                                 :where  [:and
+                                          [:in :t_diagnosis/status ["ACTIVE" "INACTIVE_RESOLVED"]]
+                                          [:in :t_patient/patient_identifier patient-ids]]})))
+
 (defn fetch-form-ms-relapse
   "Get a longitudinal record of MS disease activity, results keyed by patient identifier."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
@@ -651,6 +665,13 @@
        (map #(vector (:t_patient/patient_identifier %) %))
        (into {})))
 
+
+(defn all-patient-diagnoses [system patient-ids]
+  (let [diag-fn (make-diagnostic-category-fn system study-diagnosis-categories)]
+    (->> (fetch-patient-diagnoses system patient-ids)
+         (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
+         (map #(assoc % :icd10 (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))))
+
 (defn write-rows-csv
   "Write a collection of maps ('rows') to a CSV file. Parameters:
   - out      : anything coercible by clojure.java.io/writer such as a filename
@@ -715,11 +736,12 @@
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
      :non-dmt-medications       (->> (medications-for-patients system study-patient-identifiers)
                                      (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                                     (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+                                     (pmap #(m(:t_diagnosis/concept_fk %)erge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
      :edss                      (mapcat identity (vals edss))
-     :ms-events                 (mapcat identity (vals ms-events))}))
+     :ms-events                 (mapcat identity (vals ms-events))
+     :diagnoses                 (all-patient-diagnoses system study-patient-identifiers)}))
 
-(defn write-data [system {:keys [patients ms-events edss dmt-medications non-dmt-medications]}]
+(defn write-data [system {:keys [patients ms-events edss dmt-medications non-dmt-medications diagnoses]}]
   (log/info "writing patient core data")
   (write-rows-csv "patients.csv" patients
                   :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :age_death
@@ -742,7 +764,7 @@
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_ms_event_type/abbreviation "type"
                              :t_ms_event_type/name         "description"})
-  (log/info "writing EDSS scores")
+  (log/info "writing edss scores")
   (write-rows-csv "edss.csv" edss
                   :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score :t_ms_disease_course/name :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
                   :title-fn {:t_patient/patient_identifier "patient_id"
@@ -753,7 +775,7 @@
                             :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
                   :title-fn {:t_patient/patient_identifier
 
- "patient_id"})
+                             "patient_id"})
   (log/info "writing dmt medications")
   (write-rows-csv "patient-dmt-medications.csv" dmt-medications
                   :columns [:t_patient/patient_identifier
@@ -761,6 +783,11 @@
                             :atc :dmt :dmt_class
                             :t_medication/date_from :t_medication/date_to :exposure_days
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+                  :title-fn {:t_patient/patient_identifier "patient_id"})
+  (log/info "writing diagnoses")
+  (write-rows-csv "patient-diagnoses.csv" diagnoses
+                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10
+                            :cardiovascular :other :connective-tissue :respiratory-disease :endocrine :mood :cancer :gastrointestinal :hair-and-skin :epilepsy]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 (comment
