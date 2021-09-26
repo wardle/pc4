@@ -12,6 +12,9 @@
   {:t_address/date_from                        parse-local-date
    :t_address/date_to                          parse-local-date
    :t_address/ignore_invalid_address           parse-boolean
+   :t_diagnosis/date_diagnosis                 parse-local-date
+   :t_diagnosis/date_onset                     parse-local-date
+   :t_diagnosis/date_to                        parse-local-date
    :t_encounter/is_deleted                     parse-boolean
    :t_encounter_template/can_change_consultant parse-boolean
    :t_encounter_template/is_deleted            parse-boolean
@@ -26,6 +29,8 @@
    :t_medication/frequency                     keyword
    :t_medication/reason_for_stopping           keyword
    :t_medication/route                         keyword
+   :t_ms_event/date                            parse-local-date
+   :t_form_ms_relapse/in_relapse               parse-boolean
    :t_patient/date_birth                       parse-local-date
    :t_patient/date_death                       parse-local-date
    :t_patient/sex                              keyword
