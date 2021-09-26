@@ -17,9 +17,9 @@
            com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
                                               :sha     "5f1b1b3f435e2d121db0566d34d4d89f0aa4d5b7"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                              :sha     "dbd2ff4138653d93da86f8eb560a576bfa8618b2"}
+                                              :sha     "292ff180ed7e766d50b63e3557e66c5bc993fb61"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "d7fbbade441211a0a94c6bffcf0fba4d19164e23"}
+                                              :sha     "637c7cb4a1c479ebf0860cbaaa168eaa27965d1a"}
 
            aero/aero                         {:mvn/version "1.1.6"}
            buddy/buddy-core                  {:mvn/version "1.10.1"}
