@@ -179,6 +179,7 @@
     :codelist    {:atc ["A11" "B02B" "B03C"]}}])
 
 (def study-diagnosis-categories
+  "These are project specific criteria for diagnostic classification."
   {:cardiovascular
    {:description "Cardiovascular disorders"
     :codelist    {:icd10 ["I"]}}
@@ -198,10 +199,24 @@
 
    :gastrointestinal
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
+
    :respiratory-disease
-   {:codelist {:icd10 ["J"]}}     ;; note I'm using different ICD-10 codes to that specified!
+   {:codelist {:icd10 ["J"]}}                               ;; note I'm using different ICD-10 codes to that specified!
 
+   :hair-and-skin
+   {:codelist {:icd10 ["L63." "L10.9" "L40." "L80.0"]}}
 
+   :mood
+   {:codelist {:icd10 ["F3"]}}
+
+   :epilepsy
+   {:codelist {:icd10 ["G40"]}}
+
+   :other
+   {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68.8" "D68.9"
+                       "N02.8" "M31.0" "D76.1"
+                       "M05.3" "I01.2" "I40.8" "I40.9" "I09.0" "G04.0"
+                       "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}
    })
 
 
@@ -223,8 +238,9 @@
 
 
   (def diag-cats (make-diagnostic-category-fn system study-diagnosis-categories))
-  (diag-cats [9631008 12295008 46635009 34000006])
-
+  (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
+  (diag-cats [6204001])
+  
   (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
   codelists
   (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
