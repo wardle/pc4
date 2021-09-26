@@ -20,7 +20,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc.plan :as plan])
-  (:import (java.time LocalDate)
+  (:import (java.time LocalDate LocalDateTime)
            (java.time.temporal ChronoUnit Temporal)))
 
 (def study-master-date
@@ -139,44 +139,76 @@
    {:id          :statins
     :description "Statins"
     :class       :other
-    :codelist    {:atc #"C10AA.*"}}
+    :codelist    {:atc "C10AA"}}
    {:id          :anti-hypertensives
     :description "Anti-hypertensive"
     :class       :other
-    :codelist    {:atc #"C02.*"}}
+    :codelist    {:atc "C02"}}
    {:id          :anti-platelets
     :description "Anti-platelets"
     :class       :other
-    :codelist    {:atc #"B01AC.*"}}
+    :codelist    {:atc "B01AC"}}
    {:id          :proton-pump-inhibitors
     :description "Proton pump inhibitors"
     :class       :other
-    :codelist    {:atc #"A02BC.*"}}
+    :codelist    {:atc "A02BC"}}
    {:id          :immunosuppressants
     :description "Immunosuppressants"
     :class       :other
-    :codelist    {:inclusions {:atc [#"L04AA.*" #"L04AB.*" #"L04AC.*" #"L04AD.*" #"L04AX.*"]}
+    :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
                   :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
    {:id          :antidepressants
     :description "Anti-depressants"
     :class       :other
-    :codelist    {:atc #"N06A.*"}}
+    :codelist    {:atc "N06A"}}
    {:id          :benzodiazepines
     :description "Benzodiazepines"
     :class       :other
-    :codelist    {:atc [#"N03AE.*" #"N05BA.*"]}}
+    :codelist    {:atc ["N03AE" "N05BA"]}}
    {:id          :antiepileptics
     :description "Anti-epileptics"
     :class       :other
-    :codelist    {:atc #"N03A.*"}}
+    :codelist    {:atc "N03A"}}
    {:id          :antidiabetic
     :description "Anti-diabetic"
     :class       :other
-    :codelist    {:atc #"A10.*"}}
+    :codelist    {:atc "A10"}}
    {:id          :nutritional
     :description "Nutritional supplements and vitamins"
     :class       :other
-    :codelist    {:atc [#"A11.*" #"B02B.*" #"B03C.*"]}}])
+    :codelist    {:atc ["A11" "B02B" "B03C"]}}])
+
+(def study-diagnosis-categories
+  {:cardiovascular
+   {:description "Cardiovascular disorders"
+    :codelist    {:icd10 ["I"]}}
+   :connective-tissue
+   {:description "Connective tissue disorders"
+    :codelist    {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
+                          "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
+                          "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
+                          "M06.1" "E85.0" "D86."]}}})
+
+
+
+
+(defn has-diagnoses? [{:com.eldrix/keys [hermes] :as system} concept-ids {:keys [icd10 ecl]}]
+  (let [concepts-by-icd (when (seq icd10) (codelists/expand-icd10 system icd10))
+        concepts-by-ecl (when-not (str/blank? ecl) (hermes/expand-ecl-historic hermes ecl))
+        all-concepts (set/union concepts-by-icd concepts-by-ecl)]
+    (hermes/are-any? hermes concept-ids all-concepts)))
+
+(comment
+  31541009
+  (get-in study-diagnosis-categories [:connective-tissue :codelist])
+
+  (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (set (map :referencedComponentId (hermes/reverse-map-range (:com.eldrix/hermes system) 447562003 "C44"))))
+  (has-diagnoses? system [24700007 24700007] (get-in study-diagnosis-categories [:connective-tissue :codelist]))
+
+
+  (vals (hermes/source-historical-associations (:com.eldrix/hermes system) 24700007))
+
+  (hermes/get-preferred-synonym (:com.eldrix/hermes system) 445130008 "en-GB"))
 
 
 (defn make-atc-regexps [{:keys [codelist] :as med}]
@@ -192,6 +224,7 @@
 (defn get-study-classes [atc]
   (keep identity (map (fn [[re-atc med]] (when (re-matches re-atc atc) med)) study-medication-atc)))
 
+
 (comment
   study-medication-atc
   (first (get-study-classes "N05BA"))
@@ -202,7 +235,7 @@
   SNOMED CT (dm+d) identifiers included. For validation, checks that each
   logical set of concepts is disjoint."
   [{:com.eldrix/keys [hermes dmd] :as system}]
-  (let [result (map #(assoc % :codes (codelists/make-codelist system (:codelist %))) (remove #(= :other (:class %)) study-medications))]
+  (let [result (map #(assoc % :codes (codelists/expand (codelists/make-codelist system (:codelist %)))) (remove #(= :other (:class %)) study-medications))]
     (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
@@ -244,6 +277,16 @@
                                            :where    [:and
                                                       [:in :t_patient/id patient-ids]
                                                       [:= :t_encounter/is_deleted "false"]]}))))
+
+(defn ms-events-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (sql/format {:select [:patient_fk :date :source :impact
+                        [:abbreviation :type]]
+               :from   [:t_ms_event]
+               :join   [:t_summary_multiple_sclerosis [:= :summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis.id]
+                        :t_ms_event_type [:= :ms_event_type_fk :t_ms_event_type.id]]
+               :where  [:in :patient_fk patient-ids]}))
+
+
 
 (defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
   (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
@@ -381,14 +424,16 @@
          (into {}))))
 
 (defn cohort-entry-meds
-  "Return a cohort entry medication for each patient.
+  "Return a map of patient id to cohort entry medication.
   This is defined as date of first prescription of a HE-DMT after the
   defined study date."
   [system patient-ids study-date]
   (->> (patient-dmt-medications system patient-ids)
        vals
        (map (fn [medications] (first-he-dmt-after-date medications study-date)))
-       (keep identity)))
+       (keep identity)
+       (map #(vector (:t_patient/patient_identifier %) %))
+       (into {})))
 
 (defn write-rows-csv
   "Write a collection of maps ('rows') to a CSV file. Parameters:
@@ -405,6 +450,14 @@
     (with-open [writer (io/writer out)]
       (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
 
+(defmulti to-local-date class)
+
+(defmethod to-local-date LocalDateTime [^LocalDateTime x]
+  (.toLocalDate x))
+
+(defmethod to-local-date LocalDate [x] x)
+
+(defmethod to-local-date nil [_] nil)
 
 (defn make-study-data [system]
   (let [_ (validate-only-one-death-certificate system)
@@ -416,21 +469,39 @@
         study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)
         study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
         cohort-entry-meds (cohort-entry-meds system study-patient-identifiers study-master-date)
-        cohort-entry-dates (into {} (map #(vector (:t_patient/patient_identifier %) (:t_medication/date_from %)) cohort-entry-meds))
-        deprivation (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)]
+        cohort-entry-dates (update-vals cohort-entry-meds :t_medication/date_from)
+        deprivation (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)
+        active-encounters (active-encounters-for-patients system study-patient-identifiers)
+        earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
+        latest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
+        patients (->> (fetch-patients system study-patient-identifiers)
+                      (map #(let [patient-id (:t_patient/patient_identifier %)]
+                              (-> (merge % (get cohort-entry-meds patient-id))
+                                  (assoc :depriv_decile (get deprivation patient-id)
+                                         :start-follow-up (to-local-date (get earliest-contacts patient-id))
+                                         :end-follow-up (or (:t_patient/date_death %) (to-local-date (get latest-contacts patient-id))))))))]
     {:all-dmt-identifiers       all-dmt-identifiers
      :study-patient-identifiers study-patient-identifiers
-     :deprivation               deprivation
+     :patients                  patients
+     :active-encounters         active-encounters
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
-     :cohort-entry-meds         (map #(assoc % :deprivation-decile (get deprivation (:t_patient/patient_identifier %))) cohort-entry-meds)}))
+     :non-dmt-medications       (->> (medications-for-patients system study-patient-identifiers)
+                                     (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
+                                     (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))}))
 
-
-(defn write-data [system {:keys [study-patient-identifiers all-dmt-identifiers dmt-medications cohort-entry-meds]}]
+(defn write-data [system {:keys [patients dmt-medications non-dmt-medications]}]
+  (log/info "writing patient core data")
+  (write-rows-csv "patients.csv" patients
+                  :columns [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth :t_patient/date_death
+                            :depriv_decile :start-follow-up :end-follow-up
+                            :part1a :part1b :part1c :part2
+                            :atc :dmt :dmt_class :t_medication/date_from
+                            :exposure_days
+                            :n_prior_he_dmts :n_prior_platform_dmts :switch?]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_medication/date_from       "cohort_entry_date"})
   (log/info "writing non-dmt medications")
-  (write-rows-csv "patient-non-dmt-medications.csv"
-                  (->> (medications-for-patients system study-patient-identifiers)
-                       (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                       (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+  (write-rows-csv "patient-non-dmt-medications.csv" non-dmt-medications
                   :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
                             :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
                   :title-fn {:t_patient/patient_identifier "patient_id"})
@@ -441,20 +512,15 @@
                             :atc :dmt :dmt_class
                             :t_medication/date_from :t_medication/date_to :exposure_days
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
-                  :title-fn {:t_patient/patient_identifier "patient_id"})
-  (log/info "writing cohort entry medications")
-  (write-rows-csv "patient-cohort-entry.csv" cohort-entry-meds
-                  :columns [:t_patient/patient_identifier
-                            :deprivation-decile
-                            :t_medication/date_from :dmt :dmt_class :n_prior_dmts :n_prior_platform_dmts :n_prior_he_dmts]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_medication/date_from       "cohort_entry_date"}))
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
-  (def patient-ids [])
   (time (def data (make-study-data system)))
   (keys data)
+  (def patient-ids (take 10 (:study-patient-identifiers data)))
+  (take 4 (:patients data))
+  (:patients data)
   (time (write-data system data))
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
