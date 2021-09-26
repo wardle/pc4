@@ -240,7 +240,7 @@
   (def diag-cats (make-diagnostic-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
   (diag-cats [6204001])
-  
+
   (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
   codelists
   (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
@@ -319,7 +319,7 @@
                                            :from     [:t_address]
                                            :order-by [[:t_patient/patient_identifier :asc] [:date_to :desc] [:date_from :desc]]
                                            :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
-                                           :where    [:in :t_patient/id patient-ids]}))))
+                                           :where    [:in :t_patient/patient_identifier patient-ids]}))))
 (defn active-encounters-for-patients
   "Returns a map of patient identifiers to a collection of sorted, active encounters.
   Encounters are sorted in descending date order."
@@ -332,18 +332,40 @@
                                            :join     [:t_patient [:= :t_patient/id :t_encounter/patient_fk]]
                                            :order-by [[:t_encounter/date_time :desc]]
                                            :where    [:and
-                                                      [:in :t_patient/id patient-ids]
+                                                      [:in :t_patient/patient_identifier patient-ids]
                                                       [:= :t_encounter/is_deleted "false"]]}))))
 
-(defn ms-events-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (sql/format {:select [:patient_fk :date :source :impact
-                        [:abbreviation :type]]
-               :from   [:t_ms_event]
-               :join   [:t_summary_multiple_sclerosis [:= :summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis.id]
-                        :t_ms_event_type [:= :ms_event_type_fk :t_ms_event_type.id]]
-               :where  [:in :patient_fk patient-ids]}))
+(defn ms-events-for-patients
+  "Returns MS events (e.g. relapses) grouped by patient identifier, sorted in descending date order."
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (group-by :t_patient/patient_identifier
+            (db/execute! conn (sql/format
+                                {:select    [:t_patient/patient_identifier
+                                             :date :source :impact :abbreviation :name]
+                                 :from      [:t_ms_event]
+                                 :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
+                                             :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
+                                 :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
+                                 :order-by  [[:t_ms_event/date :desc]]
+                                 :where     [:in :t_patient/patient_identifier patient-ids]}))))
 
 
+
+(defn relapses-between-dates
+  "Filter the event list for a patient to only include relapse-type events between the two dates specified, inclusive."
+  [events ^LocalDate from-date ^LocalDate to-date]
+  (let [relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"}]
+    (->> events
+         (filter #(relapse-types (:t_ms_event_type/abbreviation %)))
+         (filter #(let [date (:t_ms_event/date %)]
+                    (and (or (.isEqual date from-date) (.isAfter date from-date))
+                         (or (.isEqual date to-date) (.isBefore date to-date))))))))
+
+(comment
+  (get (ms-events-for-patients system [5506]) 5506)
+  (def d1 (LocalDate/of 2014 1 1))
+  (relapses-between-dates (get (ms-events-for-patients system [5506]) 5506) (.minusMonths d1 24) d1)
+  )
 
 (defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
   (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
@@ -391,7 +413,7 @@
                                  :from   [:t_medication :t_patient]
                                  :where  [:and
                                           [:= :t_medication/patient_fk :t_patient/id]
-                                          [:in :t_patient/id patient-ids]]}))
+                                          [:in :t_patient/patient_identifier patient-ids]]}))
        (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))))
 
 (defn make-dmt-lookup [system]
@@ -529,8 +551,9 @@
         cohort-entry-dates (update-vals cohort-entry-meds :t_medication/date_from)
         deprivation (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)
         active-encounters (active-encounters-for-patients system study-patient-identifiers)
-        earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
-        latest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
+        earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
+        latest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
+        ms-events (ms-events-for-patients system study-patient-identifiers)
         patients (->> (fetch-patients system study-patient-identifiers)
                       (map #(let [patient-id (:t_patient/patient_identifier %)]
                               (-> (merge % (get cohort-entry-meds patient-id))
@@ -544,9 +567,10 @@
      :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
      :non-dmt-medications       (->> (medications-for-patients system study-patient-identifiers)
                                      (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                                     (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))}))
+                                     (pmap #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
+     :ms-events                 (mapcat identity (vals ms-events))}))
 
-(defn write-data [system {:keys [patients dmt-medications non-dmt-medications]}]
+(defn write-data [system {:keys [patients ms-events dmt-medications non-dmt-medications]}]
   (log/info "writing patient core data")
   (write-rows-csv "patients.csv" patients
                   :columns [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth :t_patient/date_death
@@ -557,6 +581,12 @@
                             :n_prior_he_dmts :n_prior_platform_dmts :switch?]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_medication/date_from       "cohort_entry_date"})
+  (log/info "writing ms events")
+  (write-rows-csv "ms-events.csv" ms-events
+                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event_type/name]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_ms_event_type/abbreviation "type"
+                             :t_ms_event_type/name         "description"})
   (log/info "writing non-dmt medications")
   (write-rows-csv "patient-non-dmt-medications.csv" non-dmt-medications
                   :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
@@ -577,6 +607,7 @@
   (keys data)
   (def patient-ids (take 10 (:study-patient-identifiers data)))
   (take 4 (:patients data))
+
   (:patients data)
   (time (write-data system data))
   (def conn (:com.eldrix.rsdb/conn system))
