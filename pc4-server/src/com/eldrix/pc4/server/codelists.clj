@@ -197,10 +197,10 @@
         concept-ids' (set/difference (set concept-ids) exclusions)
         atc-codes (to-atc system concept-ids')
         icd10-codes (to-icd10 system concept-ids')]
-    (or (match-codes (:atc inclusions) atc-codes)
+    (boolean (or (match-codes (:atc inclusions) atc-codes)
         (match-codes (:icd10 inclusions) icd10-codes)
         (when-let [ecl (:ecl inclusions)]
-          (hermes/ecl-contains? hermes (hermes/with-historical hermes concept-ids') ecl)))))
+          (hermes/ecl-contains? hermes (hermes/with-historical hermes concept-ids') ecl))))))
 
 (deftype LazyCodeList [system codelist]
   CodeList

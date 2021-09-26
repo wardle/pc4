@@ -182,26 +182,67 @@
   {:cardiovascular
    {:description "Cardiovascular disorders"
     :codelist    {:icd10 ["I"]}}
+
+   :cancer
+   {:description "Cancer, except skin cancers"
+    :codelist    {:inclusions {:icd10 "C"} :exclusions {:icd10 "C44"}}}
+
    :connective-tissue
    {:description "Connective tissue disorders"
     :codelist    {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
                           "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
                           "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
-                          "M06.1" "E85.0" "D86."]}}})
+                          "M06.1" "E85.0" "D86."]}}
+   :endocrine
+   {:codelist {:icd10 ["E27.4" "E10" "E06.3" "E05.0"]}}
+
+   :gastrointestinal
+   {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
+   :respiratory-disease
+   {:codelist {:icd10 ["J"]}}     ;; note I'm using different ICD-10 codes to that specified!
 
 
+   })
 
 
-(defn has-diagnoses? [{:com.eldrix/keys [hermes] :as system} concept-ids {:keys [icd10 ecl]}]
-  (let [concepts-by-icd (when (seq icd10) (codelists/expand-icd10 system icd10))
-        concepts-by-ecl (when-not (str/blank? ecl) (hermes/expand-ecl-historic hermes ecl))
-        all-concepts (set/union concepts-by-icd concepts-by-ecl)]
-    (hermes/are-any? hermes concept-ids all-concepts)))
+(defn make-diagnostic-category-fn
+  "Returns a function that will test a collection of concept identifiers against the diagnostic categories specified."
+  [system categories]
+  (let [codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v))))
+                             {}
+                             categories)]
+    (fn [concept-ids]
+      (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v concept-ids))) {} codelists))))
 
 (comment
-  31541009
+  (def ct-disorders (codelists/make-codelist system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
+                                                             "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
+                                                             "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
+                                                             "M06.1" "E85.0" "D86."]}))
+  (codelists/member? ct-disorders [9631008])
+
+
+  (def diag-cats (make-diagnostic-category-fn system study-diagnosis-categories))
+  (diag-cats [9631008 12295008 46635009 34000006])
+
+  (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
+  codelists
+  (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
+
+
+
+  (def calcium-channel-blockers (codelists/make-codelist system {:atc "C08" :exclusions {:atc "C08CA01"}}))
+  (codelists/member? calcium-channel-blockers [108537001])
+  (take 2 (map #(:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) %)) (codelists/expand calcium-channel-blockers)))
+  (codelists/expand (codelists/make-codelist system {:icd10 "G37.3"}))
+  (codelists/member? (codelists/make-codelist system {:icd10 "I"}) [22298006])
+  (count (codelists/expand (codelists/make-codelist system {:icd10 "I"})))
   (get-in study-diagnosis-categories [:connective-tissue :codelist])
 
+  (def cancer (codelists/make-codelist system {:inclusions {:icd10 "C"} :exclusions {:icd10 "C44"}}))
+  (codelists/disjoint? (codelists/expand cancer) (codelists/expand (codelists/make-codelist system {:icd10 "C44"})))
+  (map ps (codelists/expand cancer))
+  (defn ps [id] (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB")))
   (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (set (map :referencedComponentId (hermes/reverse-map-range (:com.eldrix/hermes system) 447562003 "C44"))))
   (has-diagnoses? system [24700007 24700007] (get-in study-diagnosis-categories [:connective-tissue :codelist]))
 
