@@ -47,7 +47,7 @@
  :aliases {
            :dev       {:extra-paths ["dev"]
                        :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
-                                     org.clojure/test.check           {:mvn/version "1.1.0"}}}
+                                     org.clojure/test.check {:mvn/version "1.1.0"}}}
 
            :portal    {:extra-deps {djblue/portal {:mvn/version "0.15.1"}}}
 
