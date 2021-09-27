@@ -104,7 +104,7 @@
        (map :conceptId)
        (into #{})))
 
-(defn expand-icd10 [{:com.eldrix/keys [hermes]} icd10-codes]
+(defn expand-icd10 [{:com.eldrix/keys [hermes]}  & icd10-codes]
   (->> icd10-codes
        (map #(map :referencedComponentId (hermes/reverse-map-range hermes 447562003 %)))
        (map set)
@@ -125,8 +125,8 @@
   (set/union (when ecl (into #{} (map :conceptId (hermes/expand-ecl-historic hermes ecl))))
              (when atc (if (coll? atc) (apply expand-atc system atc)
                                        (expand-atc system atc)))
-             (when icd10 (if (coll? icd10) (expand-icd10 system icd10)
-                                           (expand-icd10 system [icd10])))))
+             (when icd10 (if (coll? icd10) (apply expand-icd10 system icd10)
+                                           (expand-icd10 system icd10)))))
 
 (defn expand-codelist
   "Expand a codelist from the inclusions and exclusions specified.
@@ -236,6 +236,7 @@
 
   (def hermes (:com.eldrix/hermes system))
   (def dmd (:com.eldrix/dmd system))
+  (defn ps [id] (:term (hermes/get-preferred-synonym hermes id "en-GB")))
   (def ace-inhibitors (make-codelist system {:atc "C09A"}))
   (def calcium-channel-blockers (make-codelist system {:atc "C08"}))
   (expand calcium-channel-blockers)
@@ -244,11 +245,17 @@
   (member? calcium-channel-blockers [7304611000001104])
   (def multiple-sclerosis (make-codelist system {:icd10 "G35"}))
   (expand multiple-sclerosis)
-  (def os-calchan (set (map #(get % 1) (rest (clojure.data.csv/read-csv (clojure.java.io/reader "https://www.opencodelists.org/codelist/opensafely/calcium-channel-blockers/2020-05-19/download.csv"))))))
+  (def os-calchan (set (map #(Long/parseLong (get % 1)) (rest (clojure.data.csv/read-csv (clojure.java.io/reader "https://www.opencodelists.org/codelist/opensafely/calcium-channel-blockers/2020-05-19/download.csv"))))))
+  os-calchan
   (def calchan (expand calcium-channel-blockers))
-  (set/difference calchan os-calchan)
+  (map ps (set/difference os-calchan calchan ))
+
+  (map ps (set/difference calchan os-calchan))
   (hermes/expand-ecl-historic hermes (dmd/atc->snomed-ecl dmd #"C09A.*"))
   (dmd/atc->products-for-ecl dmd #"C09A.*")
   (hermes/subsumed-by? hermes 10441211000001106 9191801000001103)
+
+
+
   )
 
