@@ -669,7 +669,7 @@
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-diagnostic-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
-         (map #(assoc % :icd10 (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))))
+         (map #(assoc % :icd10 (first (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)])))))))
 
 (defn write-rows-csv
   "Write a collection of maps ('rows') to a CSV file. Parameters:
