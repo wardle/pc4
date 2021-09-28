@@ -216,8 +216,7 @@
    {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68.8" "D68.9"
                        "N02.8" "M31.0" "D76.1"
                        "M05.3" "I01.2" "I40.8" "I40.9" "I09.0" "G04.0"
-                       "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}
-   })
+                       "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}})
 
 
 (defn make-diagnostic-category-fn
@@ -398,6 +397,22 @@
                                  :where  [:and
                                           [:in :t_diagnosis/status ["ACTIVE" "INACTIVE_RESOLVED"]]
                                           [:in :t_patient/patient_identifier patient-ids]]})))
+
+(defn fetch-smoking-status
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (-> (group-by :t_patient/patient_identifier
+                (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier
+                                                          :t_encounter/date_time
+                                                          :t_smoking_history/status]
+                                               :from     [:t_smoking_history]
+                                               :join     [:t_encounter [:= :t_encounter/id :t_smoking_history/encounter_fk]
+                                                          :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
+                                               :order-by [[:t_encounter/date_time :desc]]
+                                               :where    [:and
+                                                          [:<> :t_smoking_history/is_deleted "true"]
+                                                          [:<> :t_encounter/is_deleted "true"]
+                                                          [:in :t_patient/patient_identifier patient-ids]]})))
+      (update-vals first)))
 
 (defn fetch-form-ms-relapse
   "Get a longitudinal record of MS disease activity, results keyed by patient identifier."
@@ -597,8 +612,6 @@
               atc (assoc :atc atc)
               category (assoc :category (:id category) :class (:class category))))))
 
-(def fetch-drug2 (memoize fetch-drug))
-
 (defn first-he-dmt-after-date
   "Given a list of medications for a single patient, return the first
   highly-effective medication given after the date specified."
@@ -660,26 +673,29 @@
   to be grouped by a unique, and likely manually curated unique identifier
   for the regimen. It also does not take into account gaps within the treatment
   course. If a patient is listed as having nataluzimab on one date, and another
-  dose on another date, this will show the date from and to as those two dates."
+  dose on another date, this will show the date from and to as those two dates.
+  If the medication date-to is nil, then the last active contact of the patient is used."
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
-  (update-vals
-    (patient-dmt-medications system patient-ids)
-    (fn [v]
-      (->> v
-           (partition-by :dmt)                ;; this partitions every time :dmt changes, which gives us sequential groups of medications
-           (map #(let [start (first %)      ;; we then simply look at the first, and the last in that group.
-                       end (last %)
-                       to (:t_medication/date_to end)]
-                   (if to
-                     (assoc start :t_medication/date_to to)     ;; return a single entry with start date from the first and end date from the last
-                     start)))))))
+  (let [active-encounters (active-encounters-for-patients system patient-ids)
+        last-contact-dates (update-vals active-encounters #(:t_encounter/date_time (first %)))]
+    (update-vals
+      (patient-dmt-medications system patient-ids)
+      (fn [v]
+        (->> v
+             (partition-by :dmt)                            ;; this partitions every time :dmt changes, which gives us sequential groups of medications
+             (map #(let [start (first %)                    ;; we then simply look at the first, and the last in that group.
+                         end (last %)
+                         date-to (or (:t_medication/date_to end) (to-local-date (get last-contact-dates (:t_patient/patient_identifier (first %)))))]
+                     (if date-to
+                       (assoc start :t_medication/date_to date-to) ;; return a single entry with start date from the first and end date from the last
+                       start))))))))
 
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
   This is defined as date of first prescription of a HE-DMT after the
   defined study date."
   [system patient-ids study-date]
-  (->> (patient-dmt-medications system patient-ids)
+  (->> (patient-dmt-sequential-regimens system patient-ids)
        vals
        (map (fn [medications] (first-he-dmt-after-date medications study-date)))
        (keep identity)
@@ -707,117 +723,187 @@
     (with-open [writer (io/writer out)]
       (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
 
-(defn make-study-data [system]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+;;;;;;;
+
+(defn all-dmt-identifiers
+  "Return a set of identifiers for all interesting DMTs"
+  [system]
+  (set (apply concat (map :codes (all-ms-dmts system)))))
+
+(defn fetch-study-patient-identifiers
+  "Returns a collection of patient identifiers for the DMT study."
+  [system]
   (let [_ (validate-only-one-death-certificate system)
-        all-dmt-identifiers (set (apply concat (map :codes (all-ms-dmts system)))) ;; a set of identifiers for all interesting DMTs
-        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmt-identifiers) ;; get all patients on these drugs
+        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) (all-dmt-identifiers system)) ;; get all patients on any of these DMTs
         project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
         project-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
-        study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)
-        study-patient-identifiers (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)
-        cohort-entry-meds (cohort-entry-meds system study-patient-identifiers study-master-date)
+        study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)]
+    (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-patients-table
+  [system]
+  (let [patient-ids (fetch-study-patient-identifiers system)
+        onsets (multiple-sclerosis-onset system patient-ids)
+        cohort-entry-meds (cohort-entry-meds system patient-ids study-master-date)
         cohort-entry-dates (update-vals cohort-entry-meds :t_medication/date_from)
-        deprivation (deprivation-deciles-for-patients system study-patient-identifiers cohort-entry-dates)
-        active-encounters (active-encounters-for-patients system study-patient-identifiers)
+        deprivation (deprivation-deciles-for-patients system patient-ids cohort-entry-dates)
+        active-encounters (active-encounters-for-patients system patient-ids)
         earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
         latest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
-        ms-events (ms-events-for-patients system study-patient-identifiers)
-        edss (edss-scores system study-patient-identifiers)
-        onsets (multiple-sclerosis-onset system study-patient-identifiers)
-        patients (->> (fetch-patients system study-patient-identifiers)
-                      (map #(let [patient-id (:t_patient/patient_identifier %)
-                                  cohort-entry-med (get cohort-entry-meds patient-id)
-                                  onset-date (:calculated-onset (get onsets patient-id))]
-                              (-> (merge % cohort-entry-med)
-                                  (assoc :depriv_decile (get deprivation patient-id)
-                                         :start-follow-up (to-local-date (get earliest-contacts patient-id))
-                                         :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
-                                         :age_death (when (and (:t_patient/date_birth %) (:t_patient/date_death %)) (.getYears (Period/between ^LocalDate (:t_patient/date_birth %) ^LocalDate (:t_patient/date_death %))))
-                                         :onset onset-date
-                                         :disease-duration (when (and (:t_medication/date_from cohort-entry-med) onset-date)
-                                                             (.getYears (Period/between ^LocalDate onset-date ^LocalDate (:t_medication/date_from cohort-entry-med))))
-                                         :most-recent-edss (when (:t_medication/date_from cohort-entry-med) ;; calculate most recent non-relapsing EDSS at cohort entry date
-                                                             (:t_form_edss/edss_score (get-most-recent (remove :t_form_ms_relapse/in_relapse (get edss patient-id)) :t_encounter/date (:t_medication/date_from cohort-entry-med))))
-                                         :date-edss-4 (when (:t_medication/date_from cohort-entry-med)
-                                                        (to-local-date (date-at-edss-4 (get edss patient-id))))
-                                         :nc-time-edss-4 (when (:t_medication/date_from cohort-entry-med)
-                                                           (when-let [date (to-local-date (date-at-edss-4 (get edss patient-id)))]
-                                                             (when onset-date
-                                                               (.between ChronoUnit/DAYS onset-date date))))
-                                         :nc-relapses (when (:t_medication/date_from cohort-entry-med)
-                                                        (count (relapses-between-dates (get ms-events patient-id) (.minusYears (:t_medication/date_from cohort-entry-med) 1) (:t_medication/date_from cohort-entry-med))))
-                                         :end-follow-up (or (:t_patient/date_death %) (to-local-date (get latest-contacts patient-id))))
-                                  (dissoc :t_patient/date_birth :t_patient/date_death)))))]
-    {:all-dmt-identifiers       all-dmt-identifiers
-     :study-patient-identifiers study-patient-identifiers
-     :patients                  patients
-     :active-encounters         active-encounters
-     :dmt-medications           (mapcat identity (vals (patient-dmt-medications system study-patient-identifiers)))
-     :non-dmt-medications       (->> (medications-for-patients system study-patient-identifiers)
-                                     (remove #(all-dmt-identifiers (:t_medication/medication_concept_fk %)))
-                                     (map #(merge % (fetch-drug2 system (:t_medication/medication_concept_fk %)))))
-     :edss                      (mapcat identity (vals edss))
-     :ms-events                 (mapcat identity (vals ms-events))
-     :diagnoses                 (all-patient-diagnoses system study-patient-identifiers)}))
+        edss (edss-scores system patient-ids)
+        smoking (fetch-smoking-status system patient-ids)
+        ms-events (ms-events-for-patients system patient-ids)]
+    (->> (fetch-patients system patient-ids)
+         (map #(let [patient-id (:t_patient/patient_identifier %)
+                     cohort-entry-med (get cohort-entry-meds patient-id)
+                     onset-date (:calculated-onset (get onsets patient-id))]
+                 (-> (merge % cohort-entry-med)
+                     (assoc :depriv_decile (get deprivation patient-id)
+                            :start_follow_up (to-local-date (get earliest-contacts patient-id))
+                            :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
+                            :age_death (when (and (:t_patient/date_birth %) (:t_patient/date_death %)) (.getYears (Period/between ^LocalDate (:t_patient/date_birth %) ^LocalDate (:t_patient/date_death %))))
+                            :onset onset-date
+                            :smoking (get-in smoking [patient-id :t_smoking_history/status])
+                            :disease_duration_years (when (and (:t_medication/date_from cohort-entry-med) onset-date)
+                                                      (.getYears (Period/between ^LocalDate onset-date ^LocalDate (:t_medication/date_from cohort-entry-med))))
+                            :most_recent_edss (when (:t_medication/date_from cohort-entry-med) ;; calculate most recent non-relapsing EDSS at cohort entry date
+                                                (:t_form_edss/edss_score (get-most-recent (remove :t_form_ms_relapse/in_relapse (get edss patient-id)) :t_encounter/date (:t_medication/date_from cohort-entry-med))))
+                            :date_edss_4 (when (:t_medication/date_from cohort-entry-med)
+                                           (to-local-date (date-at-edss-4 (get edss patient-id))))
+                            :nc_time_edss_4 (when (:t_medication/date_from cohort-entry-med)
+                                              (when-let [date (to-local-date (date-at-edss-4 (get edss patient-id)))]
+                                                (when onset-date
+                                                  (.between ChronoUnit/DAYS onset-date date))))
+                            :nc_relapses (when (:t_medication/date_from cohort-entry-med)
+                                           (count (relapses-between-dates (get ms-events patient-id) (.minusYears (:t_medication/date_from cohort-entry-med) 1) (:t_medication/date_from cohort-entry-med))))
+                            :end_follow_up (or (:t_patient/date_death %) (to-local-date (get latest-contacts patient-id))))
+                     (dissoc :t_patient/date_birth :t_patient/date_death)))))))
 
-(defn write-data [system {:keys [patients ms-events edss dmt-medications non-dmt-medications diagnoses]}]
-  (log/info "writing patient core data")
-  (write-rows-csv "patients.csv" patients
+(defn write-patients-table [system]
+  (write-rows-csv "patients.csv" (make-patients-table system)
                   :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :age_death
-                            :depriv_decile :start-follow-up :end-follow-up
+                            :depriv_decile :start_follow_up :end_follow_up
                             :part1a :part1b :part1c :part2
                             :atc :dmt :dmt_class :t_medication/date_from
                             :exposure_days
+                            :smoking
                             :most_recent_edss
                             :onset
-                            :date-edss-4
-                            :ns-time-edss-4
-                            :disease-duration
-                            :nc-relapses
+                            :date_edss_4
+                            :nc_time_edss_4
+                            :disease_duration_years
+                            :nc_relapses
                             :n_prior_he_dmts :n_prior_platform_dmts :switch?]
                   :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_medication/date_from       "cohort_entry_date"})
-  (log/info "writing ms events")
-  (write-rows-csv "ms-events.csv" ms-events
-                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event_type/name]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_ms_event_type/abbreviation "type"
-                             :t_ms_event_type/name         "description"})
-  (log/info "writing edss scores")
-  (write-rows-csv "edss.csv" edss
-                  :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score :t_ms_disease_course/name :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_ms_disease_course          "disease_status"})
-  (log/info "writing non-dmt medications")
-  (write-rows-csv "patient-non-dmt-medications.csv" non-dmt-medications
-                  :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
-                            :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
-                  :title-fn {:t_patient/patient_identifier
+                             :t_medication/date_from       "cohort_entry_date"}))
 
-                             "patient_id"})
-  (log/info "writing dmt medications")
-  (write-rows-csv "patient-dmt-medications.csv" dmt-medications
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-dmt-medications-table
+  [system]
+  (let [patient-ids (fetch-study-patient-identifiers system)]
+    (mapcat identity (vals (patient-dmt-medications system patient-ids)))))
+
+(defn write-dmt-medications-table
+  [system]
+  (write-rows-csv "patient-dmt-medications.csv" (make-dmt-medications-table system)
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt_class
                             :t_medication/date_from :t_medication/date_to :exposure_days
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
-                  :title-fn {:t_patient/patient_identifier "patient_id"})
-  (log/info "writing diagnoses")
-  (write-rows-csv "patient-diagnoses.csv" diagnoses
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-dmt-regimens-table
+  [system]
+  (mapcat identity (vals (patient-dmt-sequential-regimens system (fetch-study-patient-identifiers system)))))
+(defn write-dmt-regimens-table
+  [system]
+  (write-rows-csv "patient-dmt-regimens.csv" (make-dmt-regimens-table system)
+                  :columns [:t_patient/patient_identifier
+                            :t_medication/medication_concept_fk
+                            :atc :dmt :dmt-class
+                            :t_medication/date_from :t_medication/date_to :exposure_days
+                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-non-dmt-medications
+  [system]
+  (let [patient-ids (fetch-study-patient-identifiers system)
+        all-dmts (all-dmt-identifiers system)
+        fetch-drug' (memoize fetch-drug)]
+    (->> (medications-for-patients system patient-ids)
+         (remove #(all-dmts (:t_medication/medication_concept_fk %)))
+         (map #(merge % (fetch-drug' system (:t_medication/medication_concept_fk %)))))))
+
+(defn write-non-dmt-medications [system]
+  (write-rows-csv "patient-non-dmt-medications.csv" (make-non-dmt-medications system)
+                  :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
+                            :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-ms-events-table [system]
+  (mapcat identity (vals (ms-events-for-patients system (fetch-study-patient-identifiers system)))))
+
+(defn write-ms-events
+  [system]
+  (write-rows-csv "ms-events.csv" (make-ms-events-table system)
+                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event_type/name]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_ms_event_type/abbreviation "type"
+                             :t_ms_event_type/name         "description"}))
+
+(defn make-diagnoses-table [system]
+  (all-patient-diagnoses system (fetch-study-patient-identifiers system)))
+
+(defn write-diagnoses [system]
+  (write-rows-csv "patient-diagnoses.csv" (make-diagnoses-table system)
                   :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
+(defn make-edss-table [system]
+  (mapcat identity (vals (edss-scores system (fetch-study-patient-identifiers system)))))
+
+(defn write-edss [system]
+  (write-rows-csv "edss.csv" (make-edss-table system)
+                  :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score :t_ms_disease_course/name :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_ms_disease_course          "disease_status"}))
+(defn write-data [system]
+  (log/info "writing patient core data")
+  (write-patients-table system)
+  (log/info "writing ms events")
+  (write-ms-events system)
+  (log/info "writing dmt medications")
+  (write-dmt-medications-table system)
+  (log/info "writing dmt regimens")
+  (write-dmt-regimens-table system)
+  (log/info "writing non dmt medications")
+  (write-non-dmt-medications system)
+  (log/info "writing diagnoses")
+  (write-diagnoses system)
+  (log/info "writing edss scores")
+  (write-edss system)
+  )
+
 (comment
   (def system (pc4/init :dev [:pathom/env]))
-  (time (def data (make-study-data system)))
-  (keys data)
-  (def patient-ids (take 10 (:study-patient-identifiers data)))
-  (take 4 (:patients data))
+  (time (write-data system))
 
-  (:patients data)
-  (time (write-data system data))
+
+
+
+
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))
