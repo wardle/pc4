@@ -653,6 +653,27 @@
          (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
          (into {}))))
 
+(defn patient-dmt-sequential-regimens
+  "Returns DMT medications grouped by patient, organised by *regimen*.
+  For simplicity, the regimen is defined as a sequential group of treatments
+  of the same DMT. This does not work for overlapping regimens, which would need
+  to be grouped by a unique, and likely manually curated unique identifier
+  for the regimen. It also does not take into account gaps within the treatment
+  course. If a patient is listed as having nataluzimab on one date, and another
+  dose on another date, this will show the date from and to as those two dates."
+  [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
+  (update-vals
+    (patient-dmt-medications system patient-ids)
+    (fn [v]
+      (->> v
+           (partition-by :dmt)                ;; this partitions every time :dmt changes, which gives us sequential groups of medications
+           (map #(let [start (first %)      ;; we then simply look at the first, and the last in that group.
+                       end (last %)
+                       to (:t_medication/date_to end)]
+                   (if to
+                     (assoc start :t_medication/date_to to)     ;; return a single entry with start date from the first and end date from the last
+                     start)))))))
+
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
   This is defined as date of first prescription of a HE-DMT after the
