@@ -346,16 +346,18 @@
 (defn ms-events-for-patients
   "Returns MS events (e.g. relapses) grouped by patient identifier, sorted in descending date order."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (group-by :t_patient/patient_identifier
-            (db/execute! conn (sql/format
-                                {:select    [:t_patient/patient_identifier
-                                             :date :source :impact :abbreviation :name]
-                                 :from      [:t_ms_event]
-                                 :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
-                                             :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
-                                 :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
-                                 :order-by  [[:t_ms_event/date :desc]]
-                                 :where     [:in :t_patient/patient_identifier patient-ids]}))))
+  (let [relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"}]
+    (group-by :t_patient/patient_identifier
+              (->> (db/execute! conn (sql/format
+                                       {:select    [:t_patient/patient_identifier
+                                                    :date :source :impact :abbreviation :name]
+                                        :from      [:t_ms_event]
+                                        :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
+                                                    :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
+                                        :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
+                                        :order-by  [[:t_ms_event/date :desc]]
+                                        :where     [:in :t_patient/patient_identifier patient-ids]}))
+                   (map #(assoc % :t_ms_event/is_relapse (boolean (relapse-types (:t_ms_event_type/abbreviation %)))))))))
 
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
@@ -414,6 +416,28 @@
                                                           [:in :t_patient/patient_identifier patient-ids]]})))
       (update-vals first)))
 
+(defn fetch-weight-height
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (let [results (-> (group-by :t_patient/patient_identifier
+                              (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier
+                                                                        :t_encounter/date_time
+                                                                        :t_form_weight_height/weight_kilogram
+                                                                        :t_form_weight_height/height_metres]
+                                                             :from     [:t_form_weight_height]
+                                                             :join     [:t_encounter [:= :t_encounter/id :t_form_weight_height/encounter_fk]
+                                                                        :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
+                                                             :order-by [[:t_encounter/date_time :desc]]
+                                                             :where    [:and
+                                                                        [:<> :t_form_weight_height/is_deleted "true"]
+                                                                        [:<> :t_encounter/is_deleted "true"]
+                                                                        [:in :t_patient/patient_identifier patient-ids]]}))))]
+    (update-vals results (fn [forms]
+                           (let [default-ht (first (map :t_form_weight_height/height_metres forms))]
+                             (map #(let [wt (:t_form_weight_height/weight_kilogram %)
+                                         ht (or (:t_form_weight_height/height_metres %) default-ht)]
+                                     (if (and wt ht) (assoc % :body_mass_index (with-precision 2 (/ wt (* ht ht))))
+                                                     %)) forms))))))
+
 (defn fetch-form-ms-relapse
   "Get a longitudinal record of MS disease activity, results keyed by patient identifier."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
@@ -470,6 +494,16 @@
         reverse
         first)))
 
+(def simplify-ms-disease-course
+  {"Secondary progressive with relapses" "SPMS"
+   "Unknown"                             "UK"
+   "Primary progressive"                 "PPMS"
+   "Secondary progressive"               "SPMS"
+   "Primary progressive with relapses"   "PPMS"
+   "Clinically isolated syndrome"        "CIS"
+   "Relapsing with sequelae"             "RRMS"
+   "Relapsing remitting"                 "RRMS"})
+
 (defn edss-scores
   "EDSS scores for the patients specified, grouped by patient identifier and ordered by date ascending."
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
@@ -500,16 +534,20 @@
          (map #(update-keys % {:patient_identifier :t_patient/patient_identifier
                                :date_time          :t_encounter/date_time
                                :edss_score         :t_form_edss/edss_score}))
-         (map #(assoc % :t_form_edss/edss_score (convert-edss-score (:t_form_edss/edss_score %))
-                        :t_encounter/date (to-local-date (:t_encounter/date_time %))))
          (map #(if-let [form-relapse (get-most-recent (get form-relapses (:t_patient/patient_identifier %)) :t_encounter/date_time (to-local-date (:t_encounter/date_time %)) (Period/ofWeeks 12))]
                  (merge form-relapse % {:t_form_ms_relapse/date_status_recorded (to-local-date (:t_encounter/date_time form-relapse))})
                  %))
+         (map #(assoc % :t_form_edss/edss_score (convert-edss-score (:t_form_edss/edss_score %))
+                        :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
+                        :t_encounter/date (to-local-date (:t_encounter/date_time %))))
          (group-by :t_patient/patient_identifier)
          (reduce-kv (fn [acc k v] (assoc acc k (sort-by :date_time v))) {}))))
 
 
-(defn date-at-edss-4 [edss]
+(defn date-at-edss-4
+  "Given an ordered sequence of EDSS scores, identify the first that is 4 or
+  above and not in relapse."
+  [edss]
   (->> edss
        (remove :t_form_ms_relapse/in_relapse)
        (filter #(number? (:t_form_edss/edss_score %)))
@@ -517,15 +555,15 @@
        first
        :t_encounter/date_time))
 
+
 (defn relapses-between-dates
   "Filter the event list for a patient to only include relapse-type events between the two dates specified, inclusive."
   [events ^LocalDate from-date ^LocalDate to-date]
-  (let [relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"}]
-    (->> events
-         (filter #(relapse-types (:t_ms_event_type/abbreviation %)))
-         (filter #(let [date (:t_ms_event/date %)]
-                    (and (or (.isEqual date from-date) (.isAfter date from-date))
-                         (or (.isEqual date to-date) (.isBefore date to-date))))))))
+  (->> events
+       (filter :t_ms_event/is_relapse)
+       (filter #(let [date (:t_ms_event/date %)]
+                  (and (or (.isEqual date from-date) (.isAfter date from-date))
+                       (or (.isEqual date to-date) (.isBefore date to-date)))))))
 
 (comment
   (get (ms-events-for-patients system [5506]) 5506)
@@ -623,14 +661,17 @@
        first))
 
 (defn count-dmts-before
-  "Returns counts of the specified class of DMT used before the date specified."
-  ([medications ^LocalDate date] (count-dmts-before medications date nil))
-  ([medications ^LocalDate date dmt-class]
+  "Returns counts of the specified DMT, or class of DMT, or any DMT, used before the date specified."
+  ([medications ^LocalDate date] (count-dmts-before medications date nil nil))
+  ([medications ^LocalDate date dmt-class] (count-dmts-before medications date dmt-class nil))
+  ([medications ^LocalDate date dmt-class dmt]
    (when date
      (let [prior-meds (filter #(or (nil? (:t_medication/date_from %)) (.isBefore (:t_medication/date_from %) date)) medications)]
        (if-not dmt-class
          (count (filter :dmt prior-meds))                   ;; return any DMT
-         (count (filter #(= dmt-class (:dmt_class %)) prior-meds)))))))
+         (if-not dmt
+           (count (filter #(= dmt-class (:dmt_class %)) prior-meds)) ;; return any DMT of same class HE vs platform
+           (count (filter #(= dmt (:dmt %)) prior-meds)))))))) ;; return same DMT
 
 (defn days-between
   "Return number of days between dates, or nil, or when-invalid if one date nil."
@@ -648,7 +689,8 @@
                :exposure_days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
                :n_prior_dmts (count-dmts-before medications (:t_medication/date_from %))
                :n_prior_platform_dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
-               :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)))))
+               :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
+               :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
 (defn patient-dmt-medications
   "Returns DMT medications grouped by patient, annotated with additional DMT
@@ -769,6 +811,9 @@
                      cohort-entry-med (get cohort-entry-meds patient-id)
                      onset-date (:calculated-onset (get onsets patient-id))]
                  (-> (merge % cohort-entry-med)
+                     (update :t_patient/sex (fnil name ""))
+                     (update :dmt (fnil name ""))
+                     (update :dmt_class (fnil name ""))
                      (assoc :depriv_decile (get deprivation patient-id)
                             :start_follow_up (to-local-date (get earliest-contacts patient-id))
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
@@ -804,9 +849,11 @@
                             :nc_time_edss_4
                             :disease_duration_years
                             :nc_relapses
-                            :n_prior_he_dmts :n_prior_platform_dmts :switch?]
+                            :n_prior_he_dmts :n_prior_platform_dmts
+                            :first_use :switch?]
                   :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_medication/date_from       "cohort_entry_date"}))
+                             :t_medication/date_from       "cohort_entry_date"
+                             :switch?                      "switch"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-medications-table
@@ -863,6 +910,7 @@
                              :t_ms_event_type/abbreviation "type"
                              :t_ms_event_type/name         "description"}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-diagnoses-table [system]
   (all-patient-diagnoses system (fetch-study-patient-identifiers system)))
 
@@ -871,14 +919,29 @@
                   :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-edss-table [system]
   (mapcat identity (vals (edss-scores system (fetch-study-patient-identifiers system)))))
 
 (defn write-edss [system]
   (write-rows-csv "edss.csv" (make-edss-table system)
-                  :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score :t_ms_disease_course/name :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
+                  :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score
+                            :t_ms_disease_course/type :t_ms_disease_course/name
+                            :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
                   :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_ms_disease_course          "disease_status"}))
+                             :t_ms_disease_course/type     "disease_status"}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-weight-height-table [system]
+  (->> (mapcat identity (vals (fetch-weight-height system (fetch-study-patient-identifiers system))))
+       (map #(update % :t_encounter/date_time to-local-date))))
+
+(defn write-weight-height [system]
+  (write-rows-csv "weight-height.csv" (make-weight-height-table system)
+                  :columns [:t_patient/patient_identifier :t_encounter/date_time :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres :body_mass_index]))
+
+
+
 (defn write-data [system]
   (log/info "writing patient core data")
   (write-patients-table system)
@@ -894,13 +957,14 @@
   (write-diagnoses system)
   (log/info "writing edss scores")
   (write-edss system)
+  (log/info "writing adiposity")
+  (write-weight-height system)
   )
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
   (time (write-data system))
-
-
+  (write-weight-height system)
 
 
 
