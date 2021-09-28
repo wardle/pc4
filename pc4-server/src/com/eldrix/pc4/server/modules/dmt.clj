@@ -904,7 +904,7 @@
 
 (defn write-ms-events
   [system]
-  (write-rows-csv "ms-events.csv" (make-ms-events-table system)
+  (write-rows-csv "patient-ms-events.csv" (make-ms-events-table system)
                   :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event_type/name]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_ms_event_type/abbreviation "type"
@@ -924,7 +924,7 @@
   (mapcat identity (vals (edss-scores system (fetch-study-patient-identifiers system)))))
 
 (defn write-edss [system]
-  (write-rows-csv "edss.csv" (make-edss-table system)
+  (write-rows-csv "patient-edss.csv" (make-edss-table system)
                   :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score
                             :t_ms_disease_course/type :t_ms_disease_course/name
                             :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
@@ -937,7 +937,7 @@
        (map #(update % :t_encounter/date_time to-local-date))))
 
 (defn write-weight-height [system]
-  (write-rows-csv "weight-height.csv" (make-weight-height-table system)
+  (write-rows-csv "patient-weight.csv" (make-weight-height-table system)
                   :columns [:t_patient/patient_identifier :t_encounter/date_time :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres :body_mass_index]))
 
 
