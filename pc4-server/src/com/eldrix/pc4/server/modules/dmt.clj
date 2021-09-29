@@ -577,8 +577,21 @@
 (defn deprivation-decile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
   (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile (deprivare/fetch-lsoa deprivare lsoa)))
 
-(defn deprivation-deciles-for-patients
-  "Determine deprivation decile for the patients specified.
+(def fetch-max-depriv-rank (memoize deprivare/fetch-max))
+
+(defn deprivation-quartile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
+  (when-let [data (deprivare/fetch-lsoa deprivare lsoa)]
+    (let [rank (:uk-composite-imd-2020-mysoc/UK_IMD_E_rank data)
+          max-rank (fetch-max-depriv-rank deprivare :uk-composite-imd-2020-mysoc/UK_IMD_E_rank)
+          x (/ rank max-rank)]
+      (cond
+        (>= x 3/4) 4
+        (>= x 2/4) 3
+        (>= x 1/4) 2
+        :else 1))))
+
+(defn deprivation-quartiles-for-patients
+  "Determine deprivation quartile for the patients specified.
   Deprivation indices are calculated based on address history, on the date
   specified, or today.
 
@@ -592,9 +605,9 @@
   decile will be returned by design.
 
   Examples:
-   (deprivation-deciles-for-patients system [17497 22776] (LocalDate/of 2010 1 1)
-   (deprivation-deciles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
-  ([system patient-ids] (deprivation-deciles-for-patients system patient-ids (LocalDate/now)))
+   (deprivation-quartiles-for-patients system [17497 22776] (LocalDate/of 2010 1 1)
+   (deprivation-quartiles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
+  ([system patient-ids] (deprivation-quartiles-for-patients system patient-ids (LocalDate/now)))
   ([system patient-ids on-date]
    (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
      (update-vals (addresses-for-patients system patient-ids)
@@ -602,7 +615,7 @@
                           (rsdb/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
                         :t_address/postcode_raw
                         (lsoa-for-postcode system)
-                        (deprivation-decile-for-lsoa system))))))
+                        (deprivation-quartile-for-lsoa system))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
@@ -799,7 +812,7 @@
         onsets (multiple-sclerosis-onset system patient-ids)
         cohort-entry-meds (cohort-entry-meds system patient-ids study-master-date)
         cohort-entry-dates (update-vals cohort-entry-meds :t_medication/date_from)
-        deprivation (deprivation-deciles-for-patients system patient-ids cohort-entry-dates)
+        deprivation (deprivation-quartiles-for-patients system patient-ids cohort-entry-dates)
         active-encounters (active-encounters-for-patients system patient-ids)
         earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
         latest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
@@ -814,7 +827,7 @@
                      (update :t_patient/sex (fnil name ""))
                      (update :dmt (fnil name ""))
                      (update :dmt_class (fnil name ""))
-                     (assoc :depriv_decile (get deprivation patient-id)
+                     (assoc :depriv_quartile (get deprivation patient-id)
                             :start_follow_up (to-local-date (get earliest-contacts patient-id))
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
                             :age_death (when (and (:t_patient/date_birth %) (:t_patient/date_death %)) (.getYears (Period/between ^LocalDate (:t_patient/date_birth %) ^LocalDate (:t_patient/date_death %))))
@@ -838,7 +851,7 @@
 (defn write-patients-table [system]
   (write-rows-csv "patients.csv" (make-patients-table system)
                   :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :age_death
-                            :depriv_decile :start_follow_up :end_follow_up
+                            :depriv_quartile :start_follow_up :end_follow_up
                             :part1a :part1b :part1c :part2
                             :atc :dmt :dmt_class :t_medication/date_from
                             :exposure_days
@@ -964,6 +977,7 @@
 (comment
   (def system (pc4/init :dev [:pathom/env]))
   (time (write-data system))
+  (write-patients-table system)
   (write-weight-height system)
 
 
