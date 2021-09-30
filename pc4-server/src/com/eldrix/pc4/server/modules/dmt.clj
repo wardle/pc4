@@ -200,7 +200,7 @@
    :gastrointestinal
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
 
-   :respiratory-disease
+   :respiratory
    {:codelist {:icd10 ["J"]}}                               ;; note I'm using different ICD-10 codes to that specified!
 
    :hair-and-skin
@@ -227,6 +227,17 @@
                              categories)]
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v concept-ids))) {} codelists))))
+
+(defn expand-diagnostic-categories [system categories]
+  (update-vals categories
+               (fn [{codelist :codelist :as v}]
+                 (assoc v :codes (codelists/expand (codelists/make-codelist system codelist))))))
+
+(defn make-diagnostic-category-fn2
+  [system categories]
+  (let [cats' (expand-diagnostic-categories system categories)]
+    (fn [concept-ids]
+      (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
 
 (comment
   (def ct-disorders (codelists/make-codelist system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
@@ -304,6 +315,10 @@
     (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
+
+(defn fetch-most-recent-encounter-date-time [{conn :com.eldrix.rsdb/conn}]
+  (db/execute-one! conn (sql/format {:select [[:%max.date_time :most_recent_encounter_date_time]]
+                                     :from :t_encounter})))
 
 (defn fetch-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
   (db/execute! conn (sql/format {:select    [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
@@ -755,9 +770,11 @@
 
 
 (defn all-patient-diagnoses [system patient-ids]
-  (let [diag-fn (make-diagnostic-category-fn system study-diagnosis-categories)]
+  (let [diag-fn (make-diagnostic-category-fn2 system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
-         (map #(assoc % :icd10 (first (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)])))))))
+         (map #(assoc % :icd10 (first (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))
+         (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
+         (map #(assoc % :term (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) (:t_diagnosis/concept_fk %) "en-GB")))))))
 
 (defn write-rows-csv
   "Write a collection of maps ('rows') to a CSV file. Parameters:
@@ -786,15 +803,20 @@
 ;;;;;;;
 
 (defn all-dmt-identifiers
-  "Return a set of identifiers for all interesting DMTs"
+  "Return a set of identifiers for all DMTs"
   [system]
   (set (apply concat (map :codes (all-ms-dmts system)))))
+
+(defn all-he-dmt-identifiers
+  "Returns a set of identifiers for all highly-efficacious DMTs"
+  [system]
+  (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) (all-ms-dmts system))))))
 
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
   [system]
   (let [_ (validate-only-one-death-certificate system)
-        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) (all-dmt-identifiers system)) ;; get all patients on any of these DMTs
+        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) (all-he-dmt-identifiers system)) ;; get all patients who have received any HE-DMT
         project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
         project-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
@@ -925,7 +947,20 @@
 
 (defn write-diagnoses [system]
   (write-rows-csv "patient-diagnoses.csv" (make-diagnoses-table system)
-                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to :icd10]
+                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk
+                            :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
+                            :icd10
+                            :term
+                            :cardiovascular
+                            :respiratory
+                            :connective-tissue
+                            :endocrine
+                            :mood
+                            :cancer
+                            :gastrointestinal
+                            :hair-and-skin
+                            :epilepsy
+                            :other]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
