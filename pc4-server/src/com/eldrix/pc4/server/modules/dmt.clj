@@ -935,7 +935,7 @@
 (defn write-ms-events
   [system]
   (write-rows-csv "patient-ms-events.csv" (make-ms-events-table system)
-                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event_type/name]
+                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event/is_relapse :t_ms_event_type/name]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_ms_event_type/abbreviation "type"
                              :t_ms_event_type/name         "description"}))
@@ -1009,6 +1009,7 @@
   (time (write-data system))
   (write-patients-table system)
   (write-weight-height system)
+  (write-ms-events system)
 
 
 
