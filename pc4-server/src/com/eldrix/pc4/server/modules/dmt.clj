@@ -898,8 +898,7 @@
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt_class
-                            :t_medication/date_from :t_medication/date_to :exposure_days
-                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+                            :t_medication/date_from :t_medication/date_to]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-regimens-table
