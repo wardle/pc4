@@ -705,25 +705,6 @@
                :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
                :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
-(defn ^:deprecated patient-dmt-medications
-  "Returns DMT medications grouped by patient, annotated with additional DMT
-  information. Medications are sorted in ascending date order.
-  This incorrectly coelesces consecutive doses of the same DMT but does not
-  correctly set the to_end time to the last in that sequence.
-  Use `patient-dmt-sequential-regimens` instead. "
-  [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
-  (let [dmt-lookup (make-dmt-lookup system)]
-    (->> (medications-for-patients system patient-ids)
-         ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
-         (map #(merge % (get dmt-lookup (:t_medication/medication_concept_fk %))))
-         ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
-         (filter :dmt)
-         (partition-by (juxt :t_patient/patient_identifier :dmt))
-         (map first)
-         (group-by :t_patient/patient_identifier)
-         (map (fn [[patient-id dmts]] (vector patient-id (count-dmts dmts))))
-         (into {}))))
-
 (defn patient-raw-dmt-medications
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (let [dmt-lookup (make-dmt-lookup system)]
