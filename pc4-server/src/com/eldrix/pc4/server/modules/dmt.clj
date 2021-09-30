@@ -577,8 +577,21 @@
 (defn deprivation-decile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
   (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile (deprivare/fetch-lsoa deprivare lsoa)))
 
-(defn deprivation-deciles-for-patients
-  "Determine deprivation decile for the patients specified.
+(def fetch-max-depriv-rank (memoize deprivare/fetch-max))
+
+(defn deprivation-quartile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
+  (when-let [data (deprivare/fetch-lsoa deprivare lsoa)]
+    (let [rank (:uk-composite-imd-2020-mysoc/UK_IMD_E_rank data)
+          max-rank (fetch-max-depriv-rank deprivare :uk-composite-imd-2020-mysoc/UK_IMD_E_rank)
+          x (/ rank max-rank)]
+      (cond
+        (>= x 3/4) 4
+        (>= x 2/4) 3
+        (>= x 1/4) 2
+        :else 1))))
+
+(defn deprivation-quartiles-for-patients
+  "Determine deprivation quartile for the patients specified.
   Deprivation indices are calculated based on address history, on the date
   specified, or today.
 
@@ -592,9 +605,9 @@
   decile will be returned by design.
 
   Examples:
-   (deprivation-deciles-for-patients system [17497 22776] (LocalDate/of 2010 1 1)
-   (deprivation-deciles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
-  ([system patient-ids] (deprivation-deciles-for-patients system patient-ids (LocalDate/now)))
+   (deprivation-quartiles-for-patients system [17497 22776] (LocalDate/of 2010 1 1)
+   (deprivation-quartiles-for-patients system [17497 22776] {17497 (LocalDate/of 2004 1 1)}"
+  ([system patient-ids] (deprivation-quartiles-for-patients system patient-ids (LocalDate/now)))
   ([system patient-ids on-date]
    (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
      (update-vals (addresses-for-patients system patient-ids)
@@ -602,7 +615,7 @@
                           (rsdb/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
                         :t_address/postcode_raw
                         (lsoa-for-postcode system)
-                        (deprivation-decile-for-lsoa system))))))
+                        (deprivation-quartile-for-lsoa system))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
@@ -681,7 +694,7 @@
      (.between ChronoUnit/DAYS d1 d2)
      when-invalid)))
 
-(defn process-dmts [medications]
+(defn count-dmts [medications]
   (->> medications
        (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
                                                 (> i 0) (assoc :switch? true :switch_from (:dmt (get medications (dec i)))))))
@@ -692,9 +705,12 @@
                :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
                :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
-(defn patient-dmt-medications
+(defn ^:deprecated patient-dmt-medications
   "Returns DMT medications grouped by patient, annotated with additional DMT
-  information. Medications are sorted in ascending date order."
+  information. Medications are sorted in ascending date order.
+  This incorrectly coelesces consecutive doses of the same DMT but does not
+  correctly set the to_end time to the last in that sequence.
+  Use `patient-dmt-sequential-regimens` instead. "
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (let [dmt-lookup (make-dmt-lookup system)]
     (->> (medications-for-patients system patient-ids)
@@ -705,8 +721,18 @@
          (partition-by (juxt :t_patient/patient_identifier :dmt))
          (map first)
          (group-by :t_patient/patient_identifier)
-         (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
+         (map (fn [[patient-id dmts]] (vector patient-id (count-dmts dmts))))
          (into {}))))
+
+(defn patient-raw-dmt-medications
+  [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
+  (let [dmt-lookup (make-dmt-lookup system)]
+    (->> (medications-for-patients system patient-ids)
+         ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
+         (map #(merge % (get dmt-lookup (:t_medication/medication_concept_fk %))))
+         ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
+         (filter :dmt)
+         (group-by :t_patient/patient_identifier))))
 
 (defn patient-dmt-sequential-regimens
   "Returns DMT medications grouped by patient, organised by *regimen*.
@@ -716,12 +742,13 @@
   for the regimen. It also does not take into account gaps within the treatment
   course. If a patient is listed as having nataluzimab on one date, and another
   dose on another date, this will show the date from and to as those two dates.
-  If the medication date-to is nil, then the last active contact of the patient is used."
+  If the medication date-to is nil, then the last active contact of the patient
+  is used."
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (let [active-encounters (active-encounters-for-patients system patient-ids)
         last-contact-dates (update-vals active-encounters #(:t_encounter/date_time (first %)))]
     (update-vals
-      (patient-dmt-medications system patient-ids)
+      (patient-raw-dmt-medications system patient-ids)
       (fn [v]
         (->> v
              (partition-by :dmt)                            ;; this partitions every time :dmt changes, which gives us sequential groups of medications
@@ -730,7 +757,8 @@
                          date-to (or (:t_medication/date_to end) (to-local-date (get last-contact-dates (:t_patient/patient_identifier (first %)))))]
                      (if date-to
                        (assoc start :t_medication/date_to date-to) ;; return a single entry with start date from the first and end date from the last
-                       start))))))))
+                       start)))
+             count-dmts)))))
 
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
@@ -799,7 +827,7 @@
         onsets (multiple-sclerosis-onset system patient-ids)
         cohort-entry-meds (cohort-entry-meds system patient-ids study-master-date)
         cohort-entry-dates (update-vals cohort-entry-meds :t_medication/date_from)
-        deprivation (deprivation-deciles-for-patients system patient-ids cohort-entry-dates)
+        deprivation (deprivation-quartiles-for-patients system patient-ids cohort-entry-dates)
         active-encounters (active-encounters-for-patients system patient-ids)
         earliest-contacts (update-vals active-encounters #(:t_encounter/date_time (last %)))
         latest-contacts (update-vals active-encounters #(:t_encounter/date_time (first %)))
@@ -814,7 +842,7 @@
                      (update :t_patient/sex (fnil name ""))
                      (update :dmt (fnil name ""))
                      (update :dmt_class (fnil name ""))
-                     (assoc :depriv_decile (get deprivation patient-id)
+                     (assoc :depriv_quartile (get deprivation patient-id)
                             :start_follow_up (to-local-date (get earliest-contacts patient-id))
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
                             :age_death (when (and (:t_patient/date_birth %) (:t_patient/date_death %)) (.getYears (Period/between ^LocalDate (:t_patient/date_birth %) ^LocalDate (:t_patient/date_death %))))
@@ -838,7 +866,7 @@
 (defn write-patients-table [system]
   (write-rows-csv "patients.csv" (make-patients-table system)
                   :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :age_death
-                            :depriv_decile :start_follow_up :end_follow_up
+                            :depriv_quartile :start_follow_up :end_follow_up
                             :part1a :part1b :part1c :part2
                             :atc :dmt :dmt_class :t_medication/date_from
                             :exposure_days
@@ -859,7 +887,7 @@
 (defn make-dmt-medications-table
   [system]
   (let [patient-ids (fetch-study-patient-identifiers system)]
-    (mapcat identity (vals (patient-dmt-medications system patient-ids)))))
+    (mapcat identity (vals (patient-raw-dmt-medications system patient-ids)))))
 
 (defn write-dmt-medications-table
   [system]
@@ -964,6 +992,7 @@
 (comment
   (def system (pc4/init :dev [:pathom/env]))
   (time (write-data system))
+  (write-patients-table system)
   (write-weight-height system)
 
 
@@ -993,8 +1022,6 @@
   (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
   (take 4 study-patient-identifiers)
 
-  (def pt-dmts (patient-dmt-medications system study-patient-pks))
-  pt-dmts
 
   (defn rows->csv
     [header rows])
