@@ -712,7 +712,7 @@
 (defn count-dmts [medications]
   (->> medications
        (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
-                                                (> i 0) (assoc :switch? true :switch_from (:dmt (get medications (dec i)))))))
+                                                (> i 0) (assoc :switch? true :switch_from (:dmt (nth medications (dec i)))))))
        (map #(assoc %
                :exposure_days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
                :n_prior_dmts (count-dmts-before medications (:t_medication/date_from %))
