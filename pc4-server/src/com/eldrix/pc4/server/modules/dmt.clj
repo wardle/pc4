@@ -694,7 +694,7 @@
      (.between ChronoUnit/DAYS d1 d2)
      when-invalid)))
 
-(defn process-dmts [medications]
+(defn count-dmts [medications]
   (->> medications
        (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
                                                 (> i 0) (assoc :switch? true :switch_from (:dmt (get medications (dec i)))))))
@@ -705,9 +705,12 @@
                :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
                :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
-(defn patient-dmt-medications
+(defn ^:deprecated patient-dmt-medications
   "Returns DMT medications grouped by patient, annotated with additional DMT
-  information. Medications are sorted in ascending date order."
+  information. Medications are sorted in ascending date order.
+  This incorrectly coelesces consecutive doses of the same DMT but does not
+  correctly set the to_end time to the last in that sequence.
+  Use `patient-dmt-sequential-regimens` instead. "
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (let [dmt-lookup (make-dmt-lookup system)]
     (->> (medications-for-patients system patient-ids)
@@ -718,8 +721,18 @@
          (partition-by (juxt :t_patient/patient_identifier :dmt))
          (map first)
          (group-by :t_patient/patient_identifier)
-         (map (fn [[patient-id dmts]] (vector patient-id (process-dmts dmts))))
+         (map (fn [[patient-id dmts]] (vector patient-id (count-dmts dmts))))
          (into {}))))
+
+(defn patient-raw-dmt-medications
+  [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
+  (let [dmt-lookup (make-dmt-lookup system)]
+    (->> (medications-for-patients system patient-ids)
+         ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
+         (map #(merge % (get dmt-lookup (:t_medication/medication_concept_fk %))))
+         ;   (filter #(all-he-dmt-identifiers (:t_medication/medication_concept_fk %)))
+         (filter :dmt)
+         (group-by :t_patient/patient_identifier))))
 
 (defn patient-dmt-sequential-regimens
   "Returns DMT medications grouped by patient, organised by *regimen*.
@@ -729,12 +742,13 @@
   for the regimen. It also does not take into account gaps within the treatment
   course. If a patient is listed as having nataluzimab on one date, and another
   dose on another date, this will show the date from and to as those two dates.
-  If the medication date-to is nil, then the last active contact of the patient is used."
+  If the medication date-to is nil, then the last active contact of the patient
+  is used."
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (let [active-encounters (active-encounters-for-patients system patient-ids)
         last-contact-dates (update-vals active-encounters #(:t_encounter/date_time (first %)))]
     (update-vals
-      (patient-dmt-medications system patient-ids)
+      (patient-raw-dmt-medications system patient-ids)
       (fn [v]
         (->> v
              (partition-by :dmt)                            ;; this partitions every time :dmt changes, which gives us sequential groups of medications
@@ -743,7 +757,8 @@
                          date-to (or (:t_medication/date_to end) (to-local-date (get last-contact-dates (:t_patient/patient_identifier (first %)))))]
                      (if date-to
                        (assoc start :t_medication/date_to date-to) ;; return a single entry with start date from the first and end date from the last
-                       start))))))))
+                       start)))
+             count-dmts)))))
 
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
@@ -872,7 +887,7 @@
 (defn make-dmt-medications-table
   [system]
   (let [patient-ids (fetch-study-patient-identifiers system)]
-    (mapcat identity (vals (patient-dmt-medications system patient-ids)))))
+    (mapcat identity (vals (patient-raw-dmt-medications system patient-ids)))))
 
 (defn write-dmt-medications-table
   [system]
@@ -1007,8 +1022,6 @@
   (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
   (take 4 study-patient-identifiers)
 
-  (def pt-dmts (patient-dmt-medications system study-patient-pks))
-  pt-dmts
 
   (defn rows->csv
     [header rows])
