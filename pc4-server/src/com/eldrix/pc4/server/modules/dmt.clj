@@ -19,9 +19,11 @@
             [com.eldrix.pc4.server.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
-            [next.jdbc.plan :as plan])
+            [next.jdbc.plan :as plan]
+            [clojure.data.json :as json])
   (:import (java.time LocalDate LocalDateTime Period Duration)
-           (java.time.temporal ChronoUnit Temporal)))
+           (java.time.temporal ChronoUnit Temporal)
+           (java.time.format DateTimeFormatter)))
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
@@ -239,7 +241,25 @@
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
 
+
+(defn make-metadata [system]
+  {:hermes    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
+   :dmd       (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))
+   :codelists {:study-medications study-medications
+               :study-diagnoses   study-diagnosis-categories}})
+
+(def formatters
+  {LocalDate #(.format (DateTimeFormatter/ISO_DATE) %)})
+
+(defn write-json [m]
+  (json/write-str m
+                  :value-fn (fn [k v]
+                              (if-let [formatter (get formatters (type v))]
+                                (formatter v)
+                                v))))
+
 (comment
+
   (def ct-disorders (codelists/make-codelist system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
                                                              "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
                                                              "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
@@ -256,7 +276,7 @@
   (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
 
 
-
+  (map #(hash-map :title (:term %) :release-date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
   (def calcium-channel-blockers (codelists/make-codelist system {:atc "C08" :exclusions {:atc "C08CA01"}}))
   (codelists/member? calcium-channel-blockers [108537001])
   (take 2 (map #(:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) %)) (codelists/expand calcium-channel-blockers)))
@@ -318,7 +338,7 @@
 
 (defn fetch-most-recent-encounter-date-time [{conn :com.eldrix.rsdb/conn}]
   (db/execute-one! conn (sql/format {:select [[:%max.date_time :most_recent_encounter_date_time]]
-                                     :from :t_encounter})))
+                                     :from   :t_encounter})))
 
 (defn fetch-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
   (db/execute! conn (sql/format {:select    [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
@@ -1002,6 +1022,8 @@
   (write-edss system)
   (log/info "writing adiposity")
   (write-weight-height system)
+  (log/info "writing metadata")
+  (spit "metadata.json" (write-json (make-metadata system)))
   )
 
 (comment
@@ -1010,6 +1032,7 @@
   (write-patients-table system)
   (write-weight-height system)
   (write-ms-events system)
+  (spit "metadatqa.json" (write-json (make-metadata system)))
 
 
 

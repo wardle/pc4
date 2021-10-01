@@ -17,7 +17,7 @@
            com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
                                               :sha     "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"}
            com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                              :sha     "292ff180ed7e766d50b63e3557e66c5bc993fb61"}
+                                              :sha     "8ba2f9d1a0c4a363016be5034523b1f4b1239d94"}
            com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
                                               :sha     "637c7cb4a1c479ebf0860cbaaa168eaa27965d1a"}
 
