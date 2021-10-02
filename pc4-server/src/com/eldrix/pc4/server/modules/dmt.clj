@@ -417,14 +417,25 @@
                    (map #(assoc % :t_ms_event/is_relapse (boolean (relapse-types (:t_ms_event_type/abbreviation %)))))))))
 
 (defn jc-virus-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (db/execute! conn (sql/format
-                      {:select    [:t_patient/patient_identifier
-                                   :date :jc_virus :titre]
-                       :from      [:t_result_jc_virus]
-                       :join      [:t_patient [:= :t_result_jc_virus/patient_fk :t_patient/id]]
-                       :where     [:and
-                                   [:<> :t_result_jc_virus/is_deleted "true"]
-                                   [:in :t_patient/patient_identifier patient-ids]]})))
+  (->> (db/execute! conn (sql/format
+                           {:select [:t_patient/patient_identifier
+                                     :date :jc_virus :titre]
+                            :from   [:t_result_jc_virus]
+                            :join   [:t_patient [:= :t_result_jc_virus/patient_fk :t_patient/id]]
+                            :where  [:and
+                                     [:<> :t_result_jc_virus/is_deleted "true"]
+                                     [:in :t_patient/patient_identifier patient-ids]]}))
+       (map #(update % :t_result_jc_virus/date to-local-date))))
+
+(defn mri-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (->> (db/execute! conn (sql/format
+                           {:select [:t_patient/patient_identifier :date]
+                            :from   [:t_result_mri_brain]
+                            :join   [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]]
+                            :where  [:and
+                                     [:<> :t_result_mri_brain/is_deleted "true"]
+                                     [:in :t_patient/patient_identifier patient-ids]]}))
+       (map #(update % :t_result_mri_brain/date to-local-date))))
 
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
@@ -931,16 +942,22 @@
 
 (defn make-metadata [system]
   {:data      (fetch-most-recent-encounter-date-time system)
-   :hermes    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
-   :dmd       {:title "UK Dictionary of Medicines and Devices (dm+d)"
-               :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}
+   :pc4       {:url "https://github.com/wardle/pc4"
+               :sha (str/trim (:out (clojure.java.shell/sh "/bin/sh" "-c" "git rev-parse HEAD")))}
+   :hermes    {:url  "https://github.com/wardle/hermes"
+               :data (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))}
+   :dmd       {:url  "https://github.com/wardle/dmd"
+               :data {:title "UK Dictionary of Medicines and Devices (dm+d)"
+                      :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}}
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}
    :validation-errors
-              {:more-than-one-death-certificate     (or (patients-with-more-than-one-death-certificate system) [])
-               :patients-with-dmts-as-product-packs (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))}})
-
-
+              {:more-than-one-death-certificate
+               (or (patients-with-more-than-one-death-certificate system) [])
+               :patients-with-dmts-as-product-packs
+               (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
+               :misidentified-patients
+               (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1112,6 +1129,12 @@
                             :t_result_jc_virus/titre]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
+(defn write-mri [system]
+  (write-rows-csv "patient-mri.csv" (mri-for-patients system (fetch-study-patient-identifiers system))
+                  :columns [:t_patient/patient_identifier
+                            :t_result_mri_brain/date]
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+
 (defn write-data [system]
   (log/info "writing patient core data")
   (write-patients-table system)
@@ -1131,6 +1154,8 @@
   (write-weight-height system)
   (log/info "writing JC virus")
   (write-jc-virus system)
+  (log/info "writing MRI")
+  (write-mri system)
   (log/info "writing metadata")
   (spit "metadata.json" (write-json (make-metadata system)))
   )
@@ -1143,6 +1168,7 @@
   (write-ms-events system)
   (write-non-dmt-medications system)
   (spit "metadata.json" (write-json (make-metadata system)))
+  (write-mri system)
 
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
