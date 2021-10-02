@@ -416,6 +416,16 @@
                                         :where     [:in :t_patient/patient_identifier patient-ids]}))
                    (map #(assoc % :t_ms_event/is_relapse (boolean (relapse-types (:t_ms_event_type/abbreviation %)))))))))
 
+(defn jc-virus-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (db/execute! conn (sql/format
+                      {:select    [:t_patient/patient_identifier
+                                   :date :jc_virus :titre]
+                       :from      [:t_result_jc_virus]
+                       :join      [:t_patient [:= :t_result_jc_virus/patient_fk :t_patient/id]]
+                       :where     [:and
+                                   [:<> :t_result_jc_virus/is_deleted "true"]
+                                   [:in :t_patient/patient_identifier patient-ids]]})))
+
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
   of diagnosis."
@@ -927,7 +937,7 @@
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}
    :validation-errors
-              {:more-than-one-death-certificate (patients-with-more-than-one-death-certificate system)
+              {:more-than-one-death-certificate     (or (patients-with-more-than-one-death-certificate system) [])
                :patients-with-dmts-as-product-packs (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))}})
 
 
@@ -1088,8 +1098,19 @@
 
 (defn write-weight-height [system]
   (write-rows-csv "patient-weight.csv" (make-weight-height-table system)
-                  :columns [:t_patient/patient_identifier :t_encounter/date_time :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres :body_mass_index]))
+                  :columns [:t_patient/patient_identifier :t_encounter/date_time
+                            :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
+                            :body_mass_index]
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
 
+
+(defn write-jc-virus [system]
+  (write-rows-csv "patient-jc-virus.csv" (jc-virus-for-patients system (fetch-study-patient-identifiers system))
+                  :columns [:t_patient/patient_identifier
+                            :t_result_jc_virus/date
+                            :t_result_jc_virus/jc_virus
+                            :t_result_jc_virus/titre]
+                  :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 (defn write-data [system]
   (log/info "writing patient core data")
@@ -1108,6 +1129,8 @@
   (write-edss system)
   (log/info "writing adiposity")
   (write-weight-height system)
+  (log/info "writing JC virus")
+  (write-jc-virus system)
   (log/info "writing metadata")
   (spit "metadata.json" (write-json (make-metadata system)))
   )
