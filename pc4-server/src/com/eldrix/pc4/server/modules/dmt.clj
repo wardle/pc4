@@ -267,15 +267,9 @@
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
 
-(defn make-metadata [system]
-  {:hermes    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
-   :dmd       {:title "UK Dictionary of Medicines and Devices (dm+d)"
-               :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}
-   :codelists {:study-medications study-medications
-               :study-diagnoses   study-diagnosis-categories}})
-
 (def formatters
-  {LocalDate #(.format (DateTimeFormatter/ISO_DATE) %)})
+  {LocalDate     #(.format (DateTimeFormatter/ISO_DATE) %)
+   LocalDateTime #(.format (DateTimeFormatter/ISO_DATE_TIME) %)})
 
 (defn write-json [m]
   (json/write-str m
@@ -381,14 +375,6 @@
                                  :from      :t_patient
                                  :left-join [:t_death_certificate [:= :patient_fk :t_patient/id]]
                                  :where     [:in :t_patient/patient_identifier patient-ids]})))
-
-(defn validate-only-one-death-certificate
-  [{conn :com.eldrix.rsdb/conn}]
-  (when-let [patients (seq (plan/select! conn :patient_fk (sql/format {:select   [:patient_fk]
-                                                                       :from     [:t_death_certificate]
-                                                                       :group-by [:patient_fk]
-                                                                       :having   [:> :%count.patient_fk 1]})))]
-    (throw (ex-info "validation failure: patients with more than one death certificate" {:patients patients}))))
 
 (defn addresses-for-patients
   "Returns a map of patient identifiers to a collection of sorted addresses."
@@ -700,8 +686,10 @@
   (if (or (hermes/subsumed-by? hermes concept-id 8653601000001108)
           (hermes/subsumed-by? hermes concept-id 10364001000001104))
     (if-let [vmp (first (hermes/get-parent-relationships-of-type hermes concept-id 10362601000001103))]
-      (assoc medication :t_medication/medication_concept_fk vmp)
-      (throw (ex-info "unable to convert product pack" medication)))
+      (assoc medication :t_medication/medication_concept_fk vmp :t_medication/converted_from_pp concept-id)
+      (if-let [amp (first (hermes/get-parent-relationships-of-type hermes concept-id 10362701000001108))]
+        (assoc medication :t_medication/medication_concept_fk amp :t_medication/converted_from_pp concept-id)
+        (throw (ex-info "unable to convert product pack" medication))))
     medication))
 
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
@@ -863,6 +851,7 @@
     (with-open [writer (io/writer out)]
       (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;
@@ -873,18 +862,76 @@
 ;;;;;;;
 ;;;;;;;
 ;;;;;;;
+
+(defn fetch-project-patient-identifiers
+  "Returns patient identifiers for those registered to one of the projects
+  specified. Discharged patients are *not* included."
+  [{conn :com.eldrix.rsdb/conn} project-names]
+  (let [project-ids (set (map #(:t_project/id (projects/project-with-name conn %)) project-names))
+        child-project-ids (set (mapcat #(projects/all-children-ids conn %) project-ids))
+        all-project-ids (set/union project-ids child-project-ids)
+        all-patients-pks (patients/patient-pks-in-projects conn all-project-ids)]
+    (patients/pks->identifiers conn all-patients-pks)))
+
 
 
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
   [system]
-  (let [_ (validate-only-one-death-certificate system)
-        dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) (all-he-dmt-identifiers system)) ;; get all patients who have received any HE-DMT
+  (let [dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) (all-he-dmt-identifiers system)) ;; get all patients who have received any HE-DMT
         project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))] ;; get Cardiff cohort identifiers
                       (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id))
         project-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids) ;; get patients in those cohorts
         study-patient-pks (set/intersection dmt-patient-pks project-patient-pks)]
     (patients/pks->identifiers (:com.eldrix.rsdb/conn system) study-patient-pks)))
+
+(defn fetch-study-patient-identifiers2
+  "Returns a collection of patient identifiers for the DMT study.
+  This is a better approach as it maps medications to VMPs/AMPs"
+  [system]
+  (let [all-dmts (all-he-dmt-identifiers system)]
+    (->> (fetch-project-patient-identifiers system ["NINFLAMMCARDIFF"])
+         (medications-for-patients system)
+         (filter #(all-dmts (:t_medication/medication_concept_fk %)))
+         (map :t_patient/patient_identifier)
+         set)))
+
+
+
+(defn patients-with-more-than-one-death-certificate
+  [{conn :com.eldrix.rsdb/conn}]
+  (when-let [patient-fks (seq (plan/select! conn :patient_fk (sql/format {:select   [:patient_fk]
+                                                                          :from     [:t_death_certificate]
+                                                                          :group-by [:patient_fk]
+                                                                          :having   [:> :%count.patient_fk 1]})))]
+    (patients/pks->identifiers conn patient-fks)))
+
+(defn dmts-recorded-as-product-packs
+  "Return a sequence of medications in which a DMT has been recorded as a
+  product pack, rather than VTM, VMP or AMP. "
+  [system]
+  (let [patient-ids (fetch-study-patient-identifiers2 system)
+        all-dmts (all-he-dmt-identifiers system)
+        all-meds (medications-for-patients system patient-ids)]
+    (->> all-meds
+         (filter :t_medication/converted_from_pp)
+         (filter #(all-dmts (:t_medication/medication_concept_fk %))))))
+
+
+
+(defn make-metadata [system]
+  {:data      (fetch-most-recent-encounter-date-time system)
+   :hermes    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
+   :dmd       {:title "UK Dictionary of Medicines and Devices (dm+d)"
+               :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}
+   :codelists {:study-medications study-medications
+               :study-diagnoses   study-diagnosis-categories}
+   :validation-errors
+              {:more-than-one-death-certificate (patients-with-more-than-one-death-certificate system)
+               :patients-with-dmts-as-product-packs (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))}})
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-patients-table
@@ -1044,7 +1091,6 @@
                   :columns [:t_patient/patient_identifier :t_encounter/date_time :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres :body_mass_index]))
 
 
-
 (defn write-data [system]
   (log/info "writing patient core data")
   (write-patients-table system)
@@ -1074,8 +1120,6 @@
   (write-ms-events system)
   (write-non-dmt-medications system)
   (spit "metadata.json" (write-json (make-metadata system)))
-
-
 
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
