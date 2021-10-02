@@ -33,8 +33,8 @@
   They are classified as either platform DMTs or highly efficacious DMTs.
   We define by the use of the SNOMED CT expression constraint language, usually
   on the basis of active ingredients together with ATC codes. "
-  [{:id          :dmf
-    :description "Dimethyl fumarate"
+  {:dmf
+   {:description "Dimethyl fumarate"
     :atc         "L04AX07"
     :brand-names ["Tecfidera"]
     :class       :platform-dmt
@@ -42,8 +42,9 @@
                        "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
                        (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
                   :atc "L04AX07"}}
-   {:id          :glatiramer
-    :description "Glatiramer acetate"
+
+   :glatiramer
+   {:description "Glatiramer acetate"
     :brand-names ["Copaxone" "Brabio"]
     :atc         "L03AX13"
     :class       :platform-dmt
@@ -51,8 +52,9 @@
                        "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
                        OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
                   :atc "L03AX13"}}
-   {:id          :ifn-beta-1a
-    :description "Interferon beta 1-a"
+
+   :ifn-beta-1a
+   {:description "Interferon beta 1-a"
     :brand-names ["Avonex" "Rebif"]
     :atc         "L03AB07 NOT L03AB13"
     :class       :platform-dmt
@@ -62,30 +64,34 @@
                                :atc "L03AB07"}
                   :exclusions {:ecl "<<12222201000001108|PLEGRIDY|"
                                :atc "L03AB13"}}}
-   {:id          :ifn-beta-1b
-    :description "Interferon beta 1-b"
+
+   :ifn-beta-1b
+   {:description "Interferon beta 1-b"
     :brand-names ["Betaferon®" "Extavia®"]
     :atc         "L03AB08"
     :class       :platform-dmt
     :codelist    {:ecl "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
                      (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
                   :atc "L03AB08"}}
-   {:id          :peg-ifn-beta-1a
-    :description "Peginterferon beta 1-a"
+
+   :peg-ifn-beta-1a
+   {:description "Peginterferon beta 1-a"
     :brand-names ["Plegridy®"]
     :atc         "L03AB13"
     :class       :platform-dmt
     :codelist    {:ecl "<<12222201000001108|Plegridy|"
                   :atc "L03AB13"}}
-   {:id          :teriflunomide
-    :description "Teriflunomide"
+
+   :teriflunomide
+   {:description "Teriflunomide"
     :brand-names ["Aubagio®"]
     :atc         "L04AA31"
     :class       :platform-dmt
     :codelist    {:ecl "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
                   :atc "L04AA31"}}
-   {:id          :rituximab
-    :description "Rituximab"
+
+   :rituximab
+   {:description "Rituximab"
     :brand-names ["MabThera®" "Rixathon®" "Riximyo" "Blitzima" "Ritemvia" "Rituneza" "Ruxience" "Truxima"]
     :atc         "L01XC02"
     :class       :he-dmt
@@ -96,89 +102,107 @@
                                   "OR (<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
                                   "OR (<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
                   :atc "L01XC02"}}
-   {:id          :ocrelizumab
-    :description "Ocrelizumab"
+
+   :ocrelizumab
+   {:description "Ocrelizumab"
     :brand-names ["Ocrevus"]
     :atc         "L04AA36"
     :class       :he-dmt
     :codelist    {:ecl "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
                   :atc "L04AA36"}}
-   {:id          :cladribine
-    :description "Cladribine"
+
+   :cladribine
+   {:description "Cladribine"
     :brand-names ["Mavenclad"]
     :atc         "L04AA40"
     :class       :he-dmt
     :codelist    {:ecl "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
                   :atc "L04AA40"}}
-   {:id          :mitoxantrone
-    :description "Mitoxantrone"
+
+   :mitoxantrone
+   {:description "Mitoxantrone"
     :brand-names ["Novantrone"]
     :atc         "L01DB07"
     :class       :he-dmt
     :codelist    {:ecl "<<108791001 OR <<9482901000001102"
                   :atc "L01DB07"}}
-   {:id          :fingolimod
-    :description "Fingolimod"
+
+   :fingolimod
+   {:description "Fingolimod"
     :brand-names ["Gilenya"]
     :atc         "L04AA27"
     :class       :he-dmt
     :codelist    {:ecl "<<715640009 OR <<10975301000001100"
                   :atc "L04AA27"}}
-   {:id          :natalizumab
-    :description "Natalizumab"
+
+   :natalizumab
+   {:description "Natalizumab"
     :brand-names ["Tysabri"]
     :atc         "L04AA23"
     :class       :he-dmt
     :codelist    {:ecl "<<414804006 OR <<9375201000001103"
                   :atc "L04AA23"}}
-   {:id          :alemtuzumab
-    :description "Alemtuzumab"
+   :alemtuzumab
+   {:description "Alemtuzumab"
     :brand-names ["Lemtrada"]
     :atc         "L04AA34"
     :class       :he-dmt
     :codelist    {:ecl "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"
                   :atc "L04AA34"}}
-   {:id          :statins
-    :description "Statins"
+   :statin
+   {:description "Statins"
     :class       :other
     :codelist    {:atc "C10AA"}}
-   {:id          :anti-hypertensives
-    :description "Anti-hypertensive"
+
+   :anti-hypertensive
+   {:description "Anti-hypertensive"
     :class       :other
     :codelist    {:atc "C02"}}
-   {:id          :anti-platelets
-    :description "Anti-platelets"
+
+   :anti-platelet
+   {:description "Anti-platelets"
     :class       :other
     :codelist    {:atc "B01AC"}}
-   {:id          :proton-pump-inhibitors
-    :description "Proton pump inhibitors"
+
+   :proton-pump-inhibitor
+   {:description "Proton pump inhibitors"
     :class       :other
     :codelist    {:atc "A02BC"}}
-   {:id          :immunosuppressants
-    :description "Immunosuppressants"
+
+   :immunosuppressant
+   {:description "Immunosuppressants"
     :class       :other
     :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
                   :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
-   {:id          :antidepressants
-    :description "Anti-depressants"
+
+   :antidepressant
+   {:description "Anti-depressants"
     :class       :other
     :codelist    {:atc "N06A"}}
-   {:id          :benzodiazepines
-    :description "Benzodiazepines"
+
+   :benzodiazepine
+   {:description "Benzodiazepines"
     :class       :other
     :codelist    {:atc ["N03AE" "N05BA"]}}
-   {:id          :antiepileptics
-    :description "Anti-epileptics"
+
+   :antiepileptic
+   {:description "Anti-epileptics"
     :class       :other
     :codelist    {:atc "N03A"}}
-   {:id          :antidiabetic
-    :description "Anti-diabetic"
+
+   :antidiabetic
+   {:description "Anti-diabetic"
     :class       :other
     :codelist    {:atc "A10"}}
-   {:id          :nutritional
-    :description "Nutritional supplements and vitamins"
+
+   :nutritional
+   {:description "Nutritional supplements and vitamins"
     :class       :other
-    :codelist    {:atc ["A11" "B02B" "B03C"]}}])
+    :codelist    {:atc ["A11" "B02B" "B03C"]}}})
+
+(def flattened-study-medications
+  "A flattened sequence of study medications for convenience."
+  (reduce-kv (fn [acc k v] (conj acc (assoc v :id k))) [] study-medications))
 
 (def study-diagnosis-categories
   "These are project specific criteria for diagnostic classification."
@@ -221,7 +245,7 @@
                        "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}})
 
 
-(defn make-diagnostic-category-fn
+(defn ^:deprecated make-diagnostic-category-fn
   "Returns a function that will test a collection of concept identifiers against the diagnostic categories specified."
   [system categories]
   (let [codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v))))
@@ -230,21 +254,23 @@
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v concept-ids))) {} codelists))))
 
-(defn expand-diagnostic-categories [system categories]
+(defn expand-codelists [system categories]
   (update-vals categories
                (fn [{codelist :codelist :as v}]
                  (assoc v :codes (codelists/expand (codelists/make-codelist system codelist))))))
 
-(defn make-diagnostic-category-fn2
+(defn make-codelist-category-fn
+  "Creates a function that will return a map of category to boolean, for each
+  category. "
   [system categories]
-  (let [cats' (expand-diagnostic-categories system categories)]
+  (let [cats' (expand-codelists system categories)]
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
 
-
 (defn make-metadata [system]
   {:hermes    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
-   :dmd       (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))
+   :dmd       {:title "UK Dictionary of Medicines and Devices (dm+d)"
+               :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}})
 
@@ -267,7 +293,7 @@
   (codelists/member? ct-disorders [9631008])
 
 
-  (def diag-cats (make-diagnostic-category-fn system study-diagnosis-categories))
+  (def diag-cats (make-codelist-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
   (diag-cats [6204001])
 
@@ -306,7 +332,7 @@
 
 (def study-medication-atc
   "A sequence containing ATC code regexp and study medication class information."
-  (mapcat make-atc-regexps study-medications))
+  (mapcat make-atc-regexps flattened-study-medications))
 
 (defn get-study-classes [atc]
   (keep identity (map (fn [[re-atc med]] (when (re-matches re-atc atc) med)) study-medication-atc)))
@@ -331,10 +357,20 @@
   SNOMED CT (dm+d) identifiers included. For validation, checks that each
   logical set of concepts is disjoint."
   [{:com.eldrix/keys [hermes dmd] :as system}]
-  (let [result (map #(assoc % :codes (codelists/expand (codelists/make-codelist system (:codelist %)))) (remove #(= :other (:class %)) study-medications))]
+  (let [result (map #(assoc % :codes (codelists/expand (codelists/make-codelist system (:codelist %)))) (remove #(= :other (:class %)) flattened-study-medications))]
     (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
+
+(defn all-dmt-identifiers
+  "Return a set of identifiers for all DMTs"
+  [system]
+  (set (apply concat (map :codes (all-ms-dmts system)))))
+
+(defn all-he-dmt-identifiers
+  "Returns a set of identifiers for all highly-efficacious DMTs"
+  [system]
+  (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) (all-ms-dmts system))))))
 
 (defn fetch-most-recent-encounter-date-time [{conn :com.eldrix.rsdb/conn}]
   (db/execute-one! conn (sql/format {:select [[:%max.date_time :most_recent_encounter_date_time]]
@@ -658,6 +694,16 @@
                         (sql/format {:select-distinct :t_medication/medication_concept_fk
                                      :from            :t_medication}))))
 
+(defn convert-product-pack
+  "Convert a medication that is a type of product pack to the corresponding VMP."
+  [{:com.eldrix/keys [dmd hermes]} {concept-id :t_medication/medication_concept_fk :as medication}]
+  (if (or (hermes/subsumed-by? hermes concept-id 8653601000001108)
+          (hermes/subsumed-by? hermes concept-id 10364001000001104))
+    (if-let [vmp (first (hermes/get-parent-relationships-of-type hermes concept-id 10362601000001103))]
+      (assoc medication :t_medication/medication_concept_fk vmp)
+      (throw (ex-info "unable to convert product pack" medication)))
+    medication))
+
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (->> (db/execute! conn
                     (sql/format {:select [:t_patient/patient_identifier
@@ -666,7 +712,8 @@
                                  :where  [:and
                                           [:= :t_medication/patient_fk :t_patient/id]
                                           [:in :t_patient/patient_identifier patient-ids]]}))
-       (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))))
+       (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
+       (map #(convert-product-pack system %))))
 
 (defn make-dmt-lookup [system]
   (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat {:dmt_class (:class dmt) :dmt (:id dmt) :atc (:atc dmt)}))) (all-ms-dmts system))))
@@ -685,18 +732,13 @@
   [{:com.eldrix/keys [hermes dmd] :as system} concept-id]
   (if-let [product (dmd/fetch-product dmd concept-id)]
     (let [atc (or (com.eldrix.dmd.store2/atc-code dmd product)
-                  (infer-atc-for-non-dmd system concept-id))
-          category (when atc (first (get-study-classes atc)))]
+                  (infer-atc-for-non-dmd system concept-id))]
       (cond-> {:nm (or (:VTM/NM product) (:VMP/NM product) (:AMP/NM product) (:VMPP/NM product) (:AMPP/NM product))}
-              atc (assoc :atc atc)
-              category (assoc :category (:id category)
-                              :class (:class category))))
+              atc (assoc :atc atc)))
     (let [atc (infer-atc-for-non-dmd system concept-id)
-          term (:term (hermes/get-preferred-synonym hermes concept-id "en-GB"))
-          category (when atc (first (get-study-classes atc)))]
+          term (:term (hermes/get-preferred-synonym hermes concept-id "en-GB"))]
       (cond-> {:nm term}
-              atc (assoc :atc atc)
-              category (assoc :category (:id category) :class (:class category))))))
+              atc (assoc :atc atc)))))
 
 (defn first-he-dmt-after-date
   "Given a list of medications for a single patient, return the first
@@ -790,11 +832,21 @@
 
 
 (defn all-patient-diagnoses [system patient-ids]
-  (let [diag-fn (make-diagnostic-category-fn2 system study-diagnosis-categories)]
+  (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
          (map #(assoc % :icd10 (first (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))
          (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
          (map #(assoc % :term (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) (:t_diagnosis/concept_fk %) "en-GB")))))))
+
+(defn fetch-non-dmt-medications [system patient-ids]
+  (let [drug-fn (make-codelist-category-fn system study-medications)
+        all-dmts (all-dmt-identifiers system)
+        fetch-drug' (memoize fetch-drug)]
+    (->> (medications-for-patients system patient-ids)
+         (remove #(all-dmts (:t_medication/medication_concept_fk %)))
+         (map #(merge %
+                      (fetch-drug' system (:t_medication/medication_concept_fk %))
+                      (drug-fn [(:t_medication/medication_concept_fk %)]))))))
 
 (defn write-rows-csv
   "Write a collection of maps ('rows') to a CSV file. Parameters:
@@ -822,15 +874,6 @@
 ;;;;;;;
 ;;;;;;;
 
-(defn all-dmt-identifiers
-  "Return a set of identifiers for all DMTs"
-  [system]
-  (set (apply concat (map :codes (all-ms-dmts system)))))
-
-(defn all-he-dmt-identifiers
-  "Returns a set of identifiers for all highly-efficacious DMTs"
-  [system]
-  (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) (all-ms-dmts system))))))
 
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
@@ -935,17 +978,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
   [system]
-  (let [patient-ids (fetch-study-patient-identifiers system)
-        all-dmts (all-dmt-identifiers system)
-        fetch-drug' (memoize fetch-drug)]
-    (->> (medications-for-patients system patient-ids)
-         (remove #(all-dmts (:t_medication/medication_concept_fk %)))
-         (map #(merge % (fetch-drug' system (:t_medication/medication_concept_fk %)))))))
+  (fetch-non-dmt-medications system (fetch-study-patient-identifiers system)))
 
 (defn write-non-dmt-medications [system]
   (write-rows-csv "patient-non-dmt-medications.csv" (make-non-dmt-medications system)
                   :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
-                            :t_medication/date_from :t_medication/date_to :nm :atc :category :class]
+                            :t_medication/date_from :t_medication/date_to :nm :atc
+                            :anti-hypertensive :antidepressant :statin :anti-platelet :immunosuppressant
+                            :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1032,7 +1072,8 @@
   (write-patients-table system)
   (write-weight-height system)
   (write-ms-events system)
-  (spit "metadatqa.json" (write-json (make-metadata system)))
+  (write-non-dmt-medications system)
+  (spit "metadata.json" (write-json (make-metadata system)))
 
 
 
