@@ -4,6 +4,7 @@
     [re-frame.core :as rf]
     [eldrix.pc4-ward.user.events :as user-events]
     [eldrix.pc4-ward.user.subs :as user-subs]
+    [eldrix.pc4-ward.snomed.views]
     [reagent.core :as reagent]
     [eldrix.pc4-ward.ui :as ui]
     [reitit.frontend.easy :as rfe]))
@@ -87,11 +88,24 @@
                  {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
 (defn home-panel []
-  [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-   [:div.md:mr-2
-    [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:id (:t_project/id %)
-                                                                                          :slug (:t_project/slug %)})]]
-   [:div.col-span-3 "This will be the news feed"]])
+  (let [selected-diagnosis (reagent/atom nil)]
+    (fn []
+      [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+       [:div.md:mr-2
+        [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:id   (:t_project/id %)
+                                                                                         :slug (:t_project/slug %)})]]
+       [:div.col-span-3
+        [:<>
+         [eldrix.pc4-ward.snomed.views/select-snomed
+          :id :example
+          :label "Enter diagnosis"
+          :constraint "<404684003"
+        ;  :common-choices  @(rf/subscribe [::user-subs/common-diagnoses])
+          :max-hits 100
+          :value @selected-diagnosis
+          :select-fn #(do (tap> %)
+                          (println "views/select snomed " %)
+                          (reset! selected-diagnosis %))]]]])))
 
 
 (defn main-page []

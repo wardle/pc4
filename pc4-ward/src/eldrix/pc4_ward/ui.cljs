@@ -78,7 +78,7 @@
                             (do (reset! password (-> % .-target .-value))
                                 (when on-login (on-login @username @password))))}]]]
         (when error
-          [box-error-message :title "Login error:" :message error])
+          [box-error-message :message error])
         [:div
          [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
           {:type "submit" :on-click #(when on-login (on-login @username @password)) :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
@@ -235,3 +235,108 @@
      :auto-focus    auto-focus
      :on-change     #(when on-change (on-change (-> % .-target .-value)))}]
    (when help-text [:p.text-sm.text-gray-500.italic help-text])])
+
+(defn select
+  "A select control that appears as a pop-up."
+  [{:keys [label value choices id-key display-key default-value select-fn
+           no-selection-string disabled?]
+    :or   {id-key identity display-key identity}}]
+  (let [all-choices (if value (conj choices value) choices)
+        choices (zipmap (map id-key all-choices) all-choices)
+        sorted-choices (sort-by display-key (vals choices))]
+    (when (and default-value (str/blank? value))
+      (select-fn default-value))
+    (when label [ui-label :label label])
+    [:select.border.bg-white.rounded.px-3.py-2.outline-none
+     {:disabled  disabled?
+      :value     (str (id-key value))
+      :on-change #(when select-fn
+                    (let [idx (-> % .-target .-selectedIndex)]
+                      (if (and no-selection-string (= 0 idx))
+                        (select-fn nil)
+                        (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
+     (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
+     (for [choice sorted-choices]
+       (let [id (id-key choice)]
+         [:option.py-1 {:value (str id) :key id} (display-key choice)]))]))
+
+(defn select-or-autocomplete
+  "A flexible select/autocompletion control.
+  Parameters:
+  - id             : identifier to use
+  - label          : label to show
+  - value          : currently selected value, if any
+  - id-key         : function to get id from a value (e.g. could be a keyword)
+  - display-key    : function to get display from value
+  - select-display-key : function to get display from value in the select
+  - common-choices : collection of common choices to show
+  - autocomplete-fn: autocompletion function that takes one parameter
+  - clear-fn       : function to run to clear autocompletion, if required
+  - select-fn      : function to be called with a selected id
+  - minimum-chars  : minimum number of characters needed to run autocompletion
+  - autocomplete-results - results of autocompletion
+  - placeholder    : placeholder text for autocompletion
+  - no-selection-string : label for select when nothing selected
+  - size           : size of the select box, default 5
+  - disabled?      : if disabled"
+  [& {:keys [id clear-fn]}]
+  (when clear-fn (clear-fn))
+  (let [mode (reagent/atom nil)]
+    (fn [{:keys [label value id-key display-key select-display-key common-choices autocomplete-fn
+                 clear-fn autocomplete-results select-fn placeholder
+                 minimum-chars no-selection-string default-value size disabled?]
+          :or   {minimum-chars 3 id-key identity display-key identity size 5}}]
+      [:<>
+       (when label [ui-label :label label])
+       (cond
+         (and (= :select (or @mode :select)) (or value (seq common-choices)))
+         (let [all-choices (if value (conj common-choices value) common-choices)
+               choices (zipmap (map id-key all-choices) all-choices)
+               sorted-choices (sort-by display-key (vals choices))
+               _ (println "value of select: " value)]
+           (when (and default-value (str/blank? value))
+             (select-fn default-value))
+           [:div.flex
+            [:select.border.bg-white.rounded.px-3.py-2.outline-none
+             {:disabled  disabled?
+              :value     (str (id-key value))
+              :on-change #(when select-fn
+                            (let [idx (-> % .-target .-selectedIndex)]
+                              (if (and no-selection-string (= 0 idx))
+                                (select-fn nil)
+                                (select-fn (nth sorted-choices (if no-selection-string (dec idx) idx))))))}
+             (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
+             (for [choice sorted-choices]
+               (let [id (id-key choice)]
+                 [:option.py-1 {:value (str id) :key id} (if select-display-key (select-display-key choice) (display-key choice))]))]
+            [:button.bg-blue-400.text-white.text-xs.py-1.px-2.rounded-full
+             {:disabled disabled? :class (if disabled? "opacity-50" "hover:bg-blue-500")
+              :on-click #(reset! mode :autocomplete)} "..."]])
+         (= :autocomplete (or @mode :autocomplete))
+         [:<>
+          [:div.flex
+           [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+            {:id            id
+             :type          "text" :placeholder placeholder :required true
+             :class         ["text-gray-700" "bg-white" "shadow"]
+             :default-value nil
+             :disabled      disabled?
+             :auto-focus    true
+             :on-change     #(let [s (-> % .-target .-value)]
+                               (if (>= (count s) minimum-chars)
+                                 (autocomplete-fn s)
+                                 (when clear-fn (clear-fn))))}]
+           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+            {:disabled disabled? :on-click #(reset! mode :select)} "Close"]]
+          [:div.grid-cols-1.sm:grid-cols-2
+           [:div
+            [:select.w-full.border.border-gray-300.rounded-md
+             {:multiple        true
+              :size            size
+              :disabled        disabled?
+              :on-change       #(when select-fn (tap> autocomplete-results) (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
+              :on-double-click #(reset! mode :select)}
+             (for [result autocomplete-results]
+               (let [id (id-key result)]
+                 [:option {:value result :key id}
+                  (display-key result)]))]]]])])))

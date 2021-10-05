@@ -30,6 +30,27 @@
                                                 :on-failure [::handle-search-failure id]})]]}))
 
 
+(rf/reg-event-db ::clear-search-results
+  (fn [db [_ id]]
+    (update-in db [:snomed/search-results] dissoc id)))
+
+(rf/reg-event-fx ::handle-search-response
+  []
+  (fn [{db :db} [_ id date {results 'info.snomed.Search/search :as response}]]
+    (js/console.log "search snomed response: " results)
+    ;; be careful to not overwrite results from later autocompletion, which may be returned more quickly
+    (let [existing (get-in db [:snomed/search-results id :date])]
+      (when (or (not existing) (> date existing))
+        {:db (assoc-in db [:snomed/search-results id] {:date date :results results})}))))
+
+(rf/reg-event-fx ::handle-search-failure
+  []
+  (fn [{:keys [db]} [_ id response]]
+    (js/console.log "search snomed failure: response " response)
+    {:db (-> db
+             (update-in [:snomed/search-results] dissoc id)
+             (assoc-in [:errors :snomed/search] "Failed to search for SNOMED: unable to connect to server. Please check your connection and retry."))}))
+
 
 
 (comment
@@ -37,14 +58,10 @@
   (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login "wales.nhs.uk" "ma090906'" "password"])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
   (make-search {:s "Multi Sclerosis"})
-  (rf/dispatch-sync [::search :wibble {:s "Mult sclero"}])
+  (rf/dispatch-sync [::search :wibble {:s "kenya"}])
+  (tap> @(rf/subscribe [:eldrix.pc4-ward.snomed.subs/search-results :wibble]))
 
 
-  (rf/dispatch-sync [::search-uk :fred {:n "penylan" :roles "RO72" :limit 10 :from-location {:postcode "CF14 4XW"}}])
-  (rf/dispatch-sync [::search-uk :fred {:n "royal glam" :roles "RO148" :from-location {:postcode "CF14 4XW"}}])
-  (def result @(rf/subscribe [:eldrix.pc4-ward.org.subs/search-results :fred]))
-  (tap> result)
-  (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login "wales.nhs.uk" "ma090906" "password"])
-  @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
+
   )
 
