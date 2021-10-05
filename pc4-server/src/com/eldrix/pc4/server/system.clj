@@ -217,6 +217,15 @@
                                           {:uk.gov.ons.nhspd/PCT_ORG [:uk.nhs.ord/name :uk.nhs.ord/active :uk.nhs.ord/orgId]}]}])
 
   ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+  ((:pathom/boundary-interface system) [{'(info.snomed.Search/search
+                                            {:s          "mult scl"
+                                             :constraint "<404684003"
+                                             :max-hits   10})
+                                         [:info.snomed.Concept/id
+                                          :info.snomed.Description/id
+                                          :info.snomed.Description/term
+                                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                                          :info.snomed.Concept/active]}])
 
   ((:pathom/boundary-interface system) [{'(pc4.users/login
                                             {:system "cymru.nhs.uk" :value "ma090906'" :password "password"})
