@@ -11,7 +11,7 @@
 
  :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
 
- :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-09-06.db"}
+ :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-09-27.db"}
 
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
 
