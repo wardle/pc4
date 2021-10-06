@@ -353,7 +353,7 @@
   [{conn :com.eldrix.rsdb/conn} {username :wales.nhs.nadex/sAMAccountName}]
   {::pco/output user-properties}
   (when-let [user (users/fetch-user conn username)]
-    (when (= (:t_user/authentication_method user) :NADEX)
+    (when (= (:t_user/authentication_method user) "NADEX")
       user)))
 
 (pco/defresolver user->photo
@@ -563,6 +563,7 @@
   (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
   (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
 
+  (require '[com.eldrix.pc4.server.rsdb.patients])
   (def project-ids (com.eldrix.pc4.server.rsdb.patients/active-project-identifiers conn 14032))
   (def manager (users/make-authorization-manager conn "ma090906"))
   (def sys-manager (users/make-authorization-manager conn "system"))
