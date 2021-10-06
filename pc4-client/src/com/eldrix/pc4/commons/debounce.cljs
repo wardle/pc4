@@ -6,6 +6,7 @@
 ;; Thank you to Martin Klepsch for this code
 ;;  https://martinklepsch.org/posts/simple-debouncing-in-clojurescript.html
 (defn debounce [f interval]
+  "Returns a function that will debounce with the interval specified."
   (let [dbnc (goog.async.Debouncer. f interval)]
     (fn [& args] (.apply (.-fire dbnc) dbnc (to-array args)))))
 
