@@ -103,6 +103,7 @@
         fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
         rsdb-user? (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
         token (make-user-token {:system system :value value} pc4-login)]
+    (log/info "login-operation:" {:system system :value value :rsdb-user? rsdb-user?})
     (cond
       ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
       rsdb-user?
@@ -123,19 +124,19 @@
       ;; do we have a fake login provider configured?
       fake-login
       (do
-        (log/info "performing fake login for " system value)
+        (log/info "attempting fake login for " system value)
         (when (and (= (:username fake-login) value) (= (:password fake-login) password))
           (log/info "successful fake login")
-          (assoc (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {}
-                            {:sAMAccountName           value
-                             :sn                       "Wardle"
-                             :givenName                "Mark"
-                             :personalTitle            "Dr."
-                             :mail                     "mark@wardle.org"
-                             :telephoneNumber          "02920747747"
-                             :professionalRegistration {:regulator "GMC" :code "4624000"}
-                             :title                    "Consultant Neurologist"})
-            :io.jwt/token token)))
+          (-> {:sAMAccountName           value
+               :sn                       "Wardle"
+               :givenName                "Mark"
+               :personalTitle            "Dr."
+               :mail                     "mark@wardle.org"
+               :telephoneNumber          "02920747747"
+               :professionalRegistration {:regulator "GMC" :code "4624000"}
+               :title                    "Consultant Neurologist"}
+              (update-keys #(keyword "wales.nhs.nadex" (name %)))
+              (assoc :io.jwt/token token))))
 
       ;; no login provider found for the namespace provided
       :else
