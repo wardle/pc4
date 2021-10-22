@@ -1,5 +1,6 @@
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
+
  :com.eldrix.rsdb/conn               {:dbtype          "postgresql"
                                       :dbname          "rsdb"
                                       :maximumPoolSize 10}
@@ -14,6 +15,10 @@
  :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-09-27.db"}
 
  :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
+
+ :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
+                                      :access-key-id     #ref [:secrets :aws-access-key-id]
+                                      :secret-access-key #ref [:secrets :aws-secret-access-key]}
 
  :com.eldrix.concierge/nadex         #profile {:default {:connection-pool-size  5
                                                          :default-bind-username #ref [:secrets :nadex-bind-username]
@@ -44,6 +49,7 @@
                                       :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
                                       :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
                                       :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
+                                      :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
                                       :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
                                       :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
                                       :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config}

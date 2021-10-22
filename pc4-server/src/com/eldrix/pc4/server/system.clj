@@ -15,6 +15,7 @@
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.clods.graph]
+            [com.eldrix.comprehend.core :as comprehend]
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.deprivare.graph]
             [com.eldrix.dmd.core :as dmd]
@@ -22,6 +23,7 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
             [com.eldrix.pc4.server.api :as api]
+            [com.eldrix.pc4.server.dates :as dates]
             [com.eldrix.pc4.server.rsdb :as rsdb]
             [com.eldrix.pc4.server.users :as users]
             [com.eldrix.pc4.server.patients :as patients]
@@ -38,7 +40,6 @@
             [io.pedestal.interceptor :as intc]
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
-            [com.eldrix.pc4.server.dates :as dates]
             [cognitect.transit :as transit])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
@@ -111,6 +112,11 @@
 (defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
   (.close svc))
 
+(defmethod ig/init-key :com.eldrix/comprehend [_ config]
+  (log/info "registering comprehend service")
+  (swap! resolvers into [com.eldrix.comprehend.core/parse])
+  (com.eldrix.comprehend.core/open config))
+
 (defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
   config)
 
@@ -138,9 +144,9 @@
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env] :as config}]
   (p.eql/boundary-interface env))
 
-(defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env]}]
+(defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env join?] :or {join? false}}]
   (-> {::http/type            :jetty
-       ::http/join?           false
+       ::http/join?           join?
        ::http/routes          api/routes
        ::http/port            (or port 8080)
        ::http/allowed-origins (cond
@@ -221,6 +227,14 @@
                                             {:s          "mult scl"
                                              :constraint "<404684003"
                                              :max-hits   10})
+                                         [:info.snomed.Concept/id
+                                          :info.snomed.Description/id
+                                          :info.snomed.Description/term
+                                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
+                                          :info.snomed.Concept/active]}])
+
+  ((:pathom/boundary-interface system) [{'(info.snomed/parse
+                                            {:s "He has multiple sclerosis."})
                                          [:info.snomed.Concept/id
                                           :info.snomed.Description/id
                                           :info.snomed.Description/term

@@ -4,3 +4,5 @@
 *.iml
 *.log
 pc4-client/out
+pc4-server/*.csv
+pc4-server/*.zip
