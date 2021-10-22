@@ -1,90 +1,81 @@
-{:paths   ["src" "resources"]
- :deps    {org.clojure/clojure               {:mvn/version "1.11.0-alpha2"}
-           org.clojure/core.async            {:mvn/version "1.3.622"}
-           org.clojure/data.csv              {:mvn/version "1.0.0"}
-           org.clojure/data.xml              {:mvn/version "0.2.0-alpha6"}
-           org.clojure/data.zip              {:mvn/version "1.0.0"}
-           org.clojure/tools.cli             {:mvn/version "1.0.206"}
-           org.clojure/tools.logging         {:mvn/version "1.1.0"}
-           org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha5"}
+{:paths     ["src" "resources"]
+ :deps      {org.clojure/clojure               {:mvn/version "1.11.0-alpha2"}
+             org.clojure/core.async            {:mvn/version "1.3.622"}
+             org.clojure/data.csv              {:mvn/version "1.0.0"}
+             org.clojure/data.xml              {:mvn/version "0.2.0-alpha6"}
+             org.clojure/data.zip              {:mvn/version "1.0.0"}
+             org.clojure/tools.cli             {:mvn/version "1.0.206"}
+             org.clojure/tools.logging         {:mvn/version "1.1.0"}
+             org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha5"}
 
-           wonder.core/ERExtensions          {:mvn/version "7.2"}
+             wonder.core/ERExtensions          {:mvn/version "7.2"}
 
-           com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
-                                              :sha     "168de00f083c5b6c538375a37cc1a9ec523283ea"}
-           com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
-                                              :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
-           com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
-                                              :sha     "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"}
-           com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                              :sha     "8ba2f9d1a0c4a363016be5034523b1f4b1239d94"}
-           com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                              :sha     "3ab0dabc655ed76e101cd0ade138c65d3fb4a74b"}
+             com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
+                                                :sha     "168de00f083c5b6c538375a37cc1a9ec523283ea"}
+             com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
+                                                :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
+             com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
+                                                :sha     "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"}
+             com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
+                                                :sha     "65f748394901bb5fed65c44651fc50ed773994fe"}
+             com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
+                                                :sha     "3ab0dabc655ed76e101cd0ade138c65d3fb4a74b"}
+             com.eldrix/comprehend             {:git/url "https://github.com/wardle/comprehend.git"
+                                                :sha     "b89181942c9e68a638e35102c7f1eae073b978f1"}
 
-           aero/aero                         {:mvn/version "1.1.6"}
-           buddy/buddy-core                  {:mvn/version "1.10.1"}
-           buddy/buddy-sign                  {:mvn/version "3.4.1"}
-           cheshire/cheshire                 {:mvn/version "5.10.1"}
-           com.github.seancorfield/honeysql  {:mvn/version "2.0.783"}
-           com.github.seancorfield/next.jdbc {:mvn/version "1.2.709"}
-           com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
-                                              :sha     "6e8fa24b6efcdb24c062aa3e736ad1f7e73b9fdb"}
-           com.zaxxer/HikariCP               {:mvn/version "4.0.3"}
+             aero/aero                         {:mvn/version "1.1.6"}
+             buddy/buddy-core                  {:mvn/version "1.10.1"}
+             buddy/buddy-sign                  {:mvn/version "3.4.1"}
+             cheshire/cheshire                 {:mvn/version "5.10.1"}
+             com.github.seancorfield/honeysql  {:mvn/version "2.1.818"}
+             com.github.seancorfield/next.jdbc {:mvn/version "1.2.737"}
+             com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
+                                                :sha     "fbeef9c032038bdd3073dde1b7975ae671aad0d7"}
+             com.zaxxer/HikariCP               {:mvn/version "5.0.0"}
 
-           expound/expound                   {:mvn/version "0.8.10"}
-           integrant/integrant               {:mvn/version "0.8.0"}
-           io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
-           io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
+             expound/expound                   {:mvn/version "0.8.10"}
+             integrant/integrant               {:mvn/version "0.8.0"}
+             io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
+             io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
-           org.jsoup/jsoup                   {:mvn/version "1.14.2"}
-           org.postgresql/postgresql         {:mvn/version "42.2.23"}}
+             org.jsoup/jsoup                   {:mvn/version "1.14.3"}
+             org.postgresql/postgresql         {:mvn/version "42.3.0"}}
 
- :mvn/repos
-          {"project-wonder"
-           {:url "https://maven.wocommunity.org/content/repositories/releases/"}
-           "other"
-           {:url "https://maven.wocommunity.org/content/groups/public/"}}
- :aliases {
-           :dev       {:extra-paths ["dev"]
-                       :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
-                                     org.clojure/test.check {:mvn/version "1.1.0"}}}
+ :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
+             "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
-           :portal    {:extra-deps {djblue/portal {:mvn/version "0.15.1"}}}
+ :aliases   {:run      {:exec-fn com.eldrix.pc4.server.core/run
+                        :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                                      "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                                      "--illegal-access=permit"]}
 
-           :reveal    {:extra-deps {vlaaad/reveal {:mvn/version "1.3.217"}}
-                       :main-opts  ["-m" "vlaaad.reveal" "repl"]}
+             :dev      {:extra-paths ["dev"]
+                        :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
+                                      org.clojure/test.check {:mvn/version "1.1.0"}}}
 
-           :test      {:extra-paths ["test" "test/resources"]
-                       :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
-                       :main-opts   ["-m" "cognitect.test-runner"]}
+             :portal   {:extra-deps {djblue/portal {:mvn/version "0.16.3"}}}
 
-           :outdated  {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
-                       :main-opts  ["-m" "antq.core"]}
+             :reveal   {:extra-deps {vlaaad/reveal {:mvn/version "1.3.224"}}
+                        :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
-           :check     {:extra-deps {athos/clj-check
-                                    {:git/url "https://github.com/athos/clj-check.git"
-                                     :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-                       :main-opts  ["-m" "clj-check.check" "src"]}
+             :test     {:extra-paths ["test" "test/resources"]
+                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                 :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                        :main-opts   ["-m" "cognitect.test-runner"]}
 
-           ;; run with clj -M:serve:fhir-r4:check-all to test all codepaths
-           :check-all {:extra-deps {athos/clj-check
-                                    {:git/url "https://github.com/athos/clj-check.git"
-                                     :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-                       :main-opts  ["-m" "clj-check.check" "src" "fhir_r4" "serve"]}
+             :outdated {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+                        :main-opts  ["-m" "antq.core"]}
 
-           :lint/kondo
-                      {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
-                       :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
+             :check    {:extra-deps {athos/clj-check
+                                     {:git/url "https://github.com/athos/clj-check.git"
+                                      :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                        :main-opts  ["-m" "clj-check.check" "src"]}
 
-           :lint/eastwood
-                      {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
-                       :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}
+             :lint/kondo
+                       {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
+                        :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
-           ;; build a utility uberjar - just the command-line tools
-           :uberjar   {:replace-deps {com.github.seancorfield/depstar {:mvn/version "2.1.267"}}
-                       :exec-fn      hf.depstar/uberjar
-                       :exec-args    {:jar        "target/pc4-server.jar"
-                                      :aot        true
-                                      :main-class com.eldrix.clods.core}}}}
+             :lint/eastwood
+                       {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
+                        :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
 
