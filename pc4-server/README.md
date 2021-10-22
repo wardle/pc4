@@ -9,7 +9,7 @@ events via an endpoint `/api` once authenticated.
 
 It provides the following integrations:
 
-* legacy rsdb (PatientCare v3)
+* legacy rsdb ([PatientCare v3](https://github.com/wardle/rsdb))
 * SNOMED CT (via [hermes](https://github.com/wardle/hermes))
 * UK dictionary of medicines and devices (via [dmd](https://github.com/wardle/dmd))
 * Deprivation indices (via [deprivare](https://github.com/wardle/deprivare))
