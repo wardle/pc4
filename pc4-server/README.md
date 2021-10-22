@@ -5,7 +5,7 @@ a graph API provided by [pathom3](https://github.com/wilkerlucio/pathom3),
 composing multiple backend libraries.
 
 It is designed to support lightweight client applications which send declarative 
-events via an endpoint /api once authenticated.
+events via an endpoint `/api` once authenticated.
 
 It provides the following integrations:
 
@@ -21,7 +21,9 @@ The core abstraction is a property graph.
 
 The services are loosely-coupled and configured by [resources/config.edn](resources/config.edn). 
 This essentially injects the dependencies of different subsystems making their
-services available in other modules. 
+services available in other modules via [integrant](https://github.com/weavejester/integrant).
+
+Secrets are expected to be in ~/.secrets.edn
 
 # Runnning a server
 
