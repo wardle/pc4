@@ -48,3 +48,10 @@ To run in a production environment (this uses :cav)
 clj -X:run :profile :cav
 ```
 
+Some configuration options are customisable at runtime using environmental
+variables. For example:
+
+```shell
+PORT=9000 clj -X:run :profile :dev
+```
+
