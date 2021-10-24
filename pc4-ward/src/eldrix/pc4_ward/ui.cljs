@@ -60,8 +60,7 @@
       [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
        [:div.max-w-md.w-full.space-y-8
         [:div
-         [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]
-         [:h2.mt-6.text-center.text-2xl.md:text-3xl.font-extrabold.text-gray-900 "Please sign in to your account"]]
+         [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]]
         [:div.rounded-md.shadow-sm.-space-y-px
          [:div
           [:label.sr-only {:for "username"} "username"]
