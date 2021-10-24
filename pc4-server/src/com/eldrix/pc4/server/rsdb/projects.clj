@@ -224,6 +224,8 @@
 (defn register-patient-project
   "Register a patient to a project. Safe to use if patient already registered.
 
+  Returns the new, or existing episode.
+
   Does not check that the given user has permission to register users against
   the project in question.
 
@@ -276,31 +278,35 @@
   - salt         : a salt to be used for global pseudonym generation
   - user-id      : id of the user performing the registration
   - project-name : name of the project
-  - nhs-number   : NHS number of the patient
-  - sex          : sex, \"MALE\", \"FEMALE\" or \"UNKNOWN\"   [legacy enumeration]
+  - nhs-number   : NHS number of the patient; must be valid.
+  - sex          : sex, :MALE, :FEMALE, :UNKNOWN, \"MALE\", \"FEMALE\" or \"UNKNOWN\"
   - date-birth   : java.time.LocalDate representing date of birth
 
   If a patient exists, the month and year of birth, as well as sex, must match.
   If the existing record has an NHS number, then that must match as well."
   [conn & {:keys [_salt user-id project-name nhs-number sex date-birth] :as registration}]
-  (if-let [{project-id :t_project/id} (jdbc/execute-one! conn (sql/format {:select [:id] :from :t_project :where [:= :name project-name]}))]
-    (let [existing (find-legacy-pseudonymous-patient conn registration)]
-      (if (:t_patient/id existing)
-        ;; existing patient - so check matching core demographics, and proceed
-        (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
-                 (= sex (:t_patient/sex existing))
-                 (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
-          (register-patient-project conn project-id user-id existing :pseudonym (:project-pseudonym existing))
-          (throw (ex-info "mismatch in patient demographics" {:expected registration :existing existing})))
-        ;; no existing patient, so register a new patient and proceed
-        (let [patient (create-patient! conn {:t_patient/sex                     sex
-                                             :t_patient/date_birth              (.withDayOfMonth date-birth 1)
-                                             :t_patient/first_names             "******"
-                                             :t_patient/last_name               "******"
-                                             :t_patient/title                   "**"
-                                             :t_patient/stored_global_pseudonym (:global-pseudonym existing)
-                                             :t_patient/status                  "PSEUDONYMOUS"})]
-          (register-patient-project conn project-id user-id patient :pseudonym (:project-pseudonym existing)))))))
+  (if-not (com.eldrix.concierge.nhs-number/valid? nhs-number)
+    (throw (ex-info "Invalid NHS number" registration))
+    (if-let [{project-id :t_project/id} (jdbc/execute-one! conn (sql/format {:select [:id] :from :t_project :where [:= :name project-name]}))]
+      (let [existing (find-legacy-pseudonymous-patient conn registration)]
+        (if (:t_patient/id existing)
+          ;; existing patient - so check matching core demographics, and proceed
+          (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
+                   (= sex (:t_patient/sex existing))
+                   (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
+            (do (register-patient-project conn project-id user-id existing :pseudonym (:project-pseudonym existing))
+                existing)
+            (throw (ex-info "mismatch in patient demographics" {:expected registration :existing existing})))
+          ;; no existing patient, so register a new patient and proceed
+          (let [patient (create-patient! conn {:t_patient/sex                     (name sex)
+                                               :t_patient/date_birth              (.withDayOfMonth date-birth 1)
+                                               :t_patient/first_names             "******"
+                                               :t_patient/last_name               "******"
+                                               :t_patient/title                   "**"
+                                               :t_patient/stored_global_pseudonym (:global-pseudonym existing)
+                                               :t_patient/status                  "PSEUDONYMOUS"})]
+            (register-patient-project conn project-id user-id patient :pseudonym (:project-pseudonym existing))
+            patient))))))
 
 (defn make-slug
   [s]
