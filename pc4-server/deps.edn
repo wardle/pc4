@@ -44,10 +44,10 @@
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
- :aliases   {:run      {:exec-fn com.eldrix.pc4.server.core/run
-                        :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                                      "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                                      "--illegal-access=permit"]}
+ :aliases   {:run      {:exec-fn  com.eldrix.pc4.server.core/run
+                        :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                                   "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                                   "--illegal-access=permit"]}
 
              :dev      {:extra-paths ["dev"]
                         :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
