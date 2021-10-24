@@ -9,3 +9,4 @@
 /pc4-server/*.csv
 /pc4-server/*.zip
 /pc4-server/target/
+/pc4-ward/resources/public/css/site.css
