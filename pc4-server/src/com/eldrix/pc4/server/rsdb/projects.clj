@@ -53,7 +53,7 @@
   "Is the episode active?"
   ([episode] (active-episode? episode (LocalDate/now)))
   ([episode ^LocalDate on-date]
-  (contains? #{:registered :referred} (episode-status episode on-date))))
+   (contains? #{:registered :referred} (episode-status episode on-date))))
 
 (defn make-hash-pseudonym
   "Create a legacy-compatible pseudonym using the identifiers specified.
@@ -137,12 +137,12 @@
   - patient-pk  : patient primary key (NB: not the same as `patient-identifier`)
   - project-id  : project id"
   [conn patient-identifier project-id]
-  (db/execute! conn (sql/format {:select [:t_episode/*]
-                                 :from :t_episode
+  (db/execute! conn (sql/format {:select     [:t_episode/*]
+                                 :from       :t_episode
                                  :inner-join [:t_patient [:= :t_patient/id :t_episode/patient_fk]]
-                                 :where  [:and
-                                          [:= :patient_identifier patient-identifier]
-                                          [:= :project_fk project-id]]})))
+                                 :where      [:and
+                                              [:= :patient_identifier patient-identifier]
+                                              [:= :project_fk project-id]]})))
 
 (defn ^:deprecated find-legacy-pseudonymous-patient
   "Attempts to identify a patient using the legacy rsdb pseudonym registration.
