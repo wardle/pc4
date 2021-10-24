@@ -94,25 +94,25 @@
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/medications [:t_medication/date_from
-                                         :t_medication/date_to
-                                         :t_medication/date_from_accuracy
-                                         :t_medication/date_to_accuracy
-                                         :t_medication/indication
-                                         :t_medication/medication_concept_fk
-                                         {:t_medication/medication [:info.snomed.Concept/id]}
-                                         :t_medication/more_information
-                                         :t_medication/temporary_stop
-                                         :t_medication/reason_for_stopping
-                                         :t_medication/dose
-                                         :t_medication/frequency
-                                         :t_medication/units
-                                         :t_medication/as_required
-                                         :t_medication/route
-                                         :t_medication/type
-                                         :t_medication/prescriptions]}]}
-  (let [medication (db/execute! conn (sql/format {:select  [:*]
-                                                    :from  [:t_medication]
-                                                    :where [:= :patient_fk patient-id]}))]
+                                          :t_medication/date_to
+                                          :t_medication/date_from_accuracy
+                                          :t_medication/date_to_accuracy
+                                          :t_medication/indication
+                                          :t_medication/medication_concept_fk
+                                          {:t_medication/medication [:info.snomed.Concept/id]}
+                                          :t_medication/more_information
+                                          :t_medication/temporary_stop
+                                          :t_medication/reason_for_stopping
+                                          :t_medication/dose
+                                          :t_medication/frequency
+                                          :t_medication/units
+                                          :t_medication/as_required
+                                          :t_medication/route
+                                          :t_medication/type
+                                          :t_medication/prescriptions]}]}
+  (let [medication (db/execute! conn (sql/format {:select [:*]
+                                                  :from   [:t_medication]
+                                                  :where  [:= :patient_fk patient-id]}))]
     {:t_patient/medications
      (map #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
 
