@@ -201,10 +201,10 @@
   (reset! resolvers [])
   (ig/halt! system)
 
-  (do
+  (defn reload []
     (ig/halt! system)
     (def system (init :dev)))
-
+  (reload)
   (count @resolvers)
   (sort (map str (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers))))
   (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
@@ -287,6 +287,30 @@
                                           :org.hl7.fhir.Patient/gender
                                           :org.hl7.fhir.Patient/deceased
                                           :org.hl7.fhir.Patient/currentAddress]}])
+  (reload)
+  ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/register-patient-by-pseudonym
+                                               {:user-id      1
+                                                :project-name "COVIDDREAMS"
+                                                :nhs-number   "2222222222"
+                                                :sex          :FEMALE
+                                                :date-birth   (java.time.LocalDate/of 1973 10 5)})
+                                         [:t_patient/id
+                                          :t_patient/patient_identifier
+                                          :t_patient/first_names
+                                          :t_patient/last_name
+                                          :t_patient/date_birth]}])
+
+  ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/search-patient-by-pseudonym
+                                               {:project-name "COVIDDREAMS"
+                                                :pseudonym    "e65"})
+                                         [:t_patient/id
+                                          :t_patient/patient_identifier
+                                          :t_patient/first_names
+                                          :t_patient/last_name
+                                          :t_patient/date_birth
+                                          :t_patient/status
+                                          :t_patient/date_death]}])
+
 
 
   ((:pathom/boundary-interface system)
