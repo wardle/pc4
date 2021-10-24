@@ -19,7 +19,8 @@
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
-            [com.eldrix.pc4.server.rsdb.db :as db])
+            [com.eldrix.pc4.server.rsdb.db :as db]
+            [malli.core :as m])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
            (java.util Base64)
@@ -434,6 +435,38 @@
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
 
+(def ^:private register-patient-by-pseudonym-params
+  (m/schema [:map
+             [:user-id int?]
+             [:project-name string?]
+             [:nhs-number string?]
+             [:sex [:enum :MALE :FEMALE :UNKNOWN]]
+             [:date-birth [:fn #(instance? LocalDate %)]]]))
+
+(pco/defmutation register-patient-by-pseudonym
+  "Register a legacy pseudonymous patient. This will be deprecated in the
+  future."
+  [{conn :com.eldrix.rsdb/conn config :com.eldrix.rsdb/config} {:keys [user-id project-name nhs-number sex date-birth] :as params}]
+  {::pco/op-name 'pc4.rsdb/register-patient-by-pseudonym
+   ::pco/output  [:t_patient/patient_identifier]}
+  (if-let [global-salt (:legacy-global-pseudonym-salt config)]
+    (if (m/validate register-patient-by-pseudonym-params params)
+      (projects/register-legacy-pseudonymous-patient conn (assoc params :salt global-salt))
+      (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params)))
+    (log/error "unable to register patient by pseudonym; missing global salt"
+               {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
+                :config   config})))
+
+(pco/defmutation search-patient-by-pseudonym
+  "Search for a patient using a pseudonymous project-specific identifier.
+  This uses the legacy approach, which *will* be deprecated."
+  [{conn :com.eldrix.rsdb/conn} {:keys [project-name pseudonym] :as params}]
+  {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
+   ::pco/output  [:t_patient/patient_identifier]}
+  (log/info "search-patient-by-pseudonym" params)
+  (when-let [project (projects/project-with-name conn project-name)]
+    (projects/search-by-project-pseudonym conn (:t_project/id project) pseudonym)))
+
 (def all-resolvers
   [patient-by-identifier
    patient->hospitals
@@ -473,7 +506,9 @@
    user->initials
    user->active-projects
    patient->fhir-human-name
-   patient->fhir-gender])
+   patient->fhir-gender
+   register-patient-by-pseudonym
+   search-patient-by-pseudonym])
 
 (comment
 
