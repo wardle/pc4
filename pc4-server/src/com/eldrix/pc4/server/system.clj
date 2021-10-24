@@ -144,11 +144,12 @@
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env] :as config}]
   (p.eql/boundary-interface env))
 
-(defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env join?] :or {join? false}}]
+(defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env join?] :or {port 8080 join? false} :as config}]
+  (log/info "Running server" (dissoc config :env))
   (-> {::http/type            :jetty
        ::http/join?           join?
        ::http/routes          api/routes
-       ::http/port            (or port 8080)
+       ::http/port            port
        ::http/allowed-origins (cond
                                 (= "*" allowed-origins)
                                 (constantly true)
