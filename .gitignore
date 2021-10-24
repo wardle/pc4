@@ -3,6 +3,9 @@
 .nrepl-port
 *.iml
 *.log
-pc4-client/out
-pc4-server/*.csv
-pc4-server/*.zip
+.lsp
+.calva
+/pc4-client/out
+/pc4-server/*.csv
+/pc4-server/*.zip
+/pc4-server/target/
