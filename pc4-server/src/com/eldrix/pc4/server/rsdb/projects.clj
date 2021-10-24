@@ -85,7 +85,7 @@
   (make-hash-pseudonym salt nhs-number (.format date-birth (DateTimeFormatter/ISO_LOCAL_DATE))))
 
 (def fetch-pseudonym-patient-properties
-  [:t_patient/id :t_patient/first_names :t_patient/last_name
+  [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
    :t_patient/date_birth :t_patient/sex :t_patient/nhs_number])
 
 (defn fetch-by-global-pseudonym [conn pseudonym]
@@ -404,6 +404,8 @@
                                     :project-name "NINFLAMMCARDIFF"
                                     :nhs-number "4965575768"
                                     :date-birth (LocalDate/of 1975 1 1))
+
+  (search-by-project-pseudonym conn 124 "e657")
 
   (fetch-by-nhs-number conn "4965575768")
 
