@@ -38,6 +38,7 @@
              io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
              io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
+             metosin/malli                     {:mvn/version "0.6.2"}
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
              org.postgresql/postgresql         {:mvn/version "42.3.0"}}
 
