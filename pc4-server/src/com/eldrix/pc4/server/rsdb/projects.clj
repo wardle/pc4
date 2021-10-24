@@ -162,8 +162,9 @@
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
                       (fetch-by-global-pseudonym conn global-pseudonym)
                       (fetch-by-nhs-number conn nhs-number))]
-      (merge patient {:project-pseudonym project-pseudonym
-                      :global-pseudonym  global-pseudonym}))))
+      (merge (db/parse-entity patient)
+             {:project-pseudonym project-pseudonym
+              :global-pseudonym  global-pseudonym}))))
 
 (defn register-episode!
   "Sets the episode specified as registered as of now, by the user specified.
