@@ -35,7 +35,28 @@
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_pending_referrals project)]]
      ]]])
 
+(defn search-by-pseudonym-panel []
+  )
 
+
+(defn list-users [users]
+  [:div.flex.flex-col
+   [:div.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
+     [:div.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
+      [:table.min-w-full.divide-y.divide-gray-200
+       [:thead.bg-gray-50
+        [:tr
+         [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Name"]
+         [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Title"]
+         [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Email"]]]
+       [:tbody.bg-white.divide-y.divide-gray-200
+        (for [user (sort-by (juxt :t_user/last_name :t_user/first_names) (reduce-kv (fn [acc k v] (conj acc (first v))) [] (group-by :t_user/id users)))
+              :let [id (:t_user/id user)]]
+          [:tr {:key id}
+           [:td.px-6.py-4.whitespace-nowrap.text-sm.font-medium.text-gray-900 (str/join " " [(:t_user/title user) (:t_user/first_names user) (:t_user/last_name user)])]
+           [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (or (:t_user/custom_job_title user) (:t_job_title/name user))]
+           [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (:t_user/email user)]])]]]]]])
 
 (defn project-home-page []
   (let [selected-page (reagent.core/atom :home)]
@@ -51,8 +72,13 @@
             [:ul.flex
              [:div.font-bold.text-lg.min-w-min.mr-6.py-1 (:t_project/title current-project)]
              [ui/flat-menu [{:title "Home" :id :home}
-                            {:title "Search" :id :search-patient}
-                            {:title "Register" :id :register-patient}]
+                            {:title "Search" :id :search}
+                            {:title "Register" :id :register}
+                            {:title "Users" :id :users}]
               :selected-id @selected-page
               :select-fn #(reset! selected-page %)]]]
-           [inspect-project current-project]])))))
+           (case @selected-page
+             :home [inspect-project current-project]
+             :search [search-by-pseudonym-panel]
+             :register nil
+             :users [list-users (:t_project/users current-project)])])))))
