@@ -241,10 +241,30 @@
             (:t_project/parent_project_fk p)
             (assoc :t_project/parent_project {:t_project/id (:t_project/parent_project_fk p)}))))
 
+(pco/defresolver project->count_registered_patients   ;; TODO: should include child projects?
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [:t_project/count_registered_patients]}
+  {:t_project/count_registered_patients (projects/count-registered-patients conn [project-id])})
+
+(pco/defresolver project->count_pending_referrals  ;; TODO: should include child projects?
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [:t_project/count_pending_referrals]}
+  {:t_project/count_pending_referrals (projects/count-pending-referrals conn [project-id])})
+
+(pco/defresolver project->count_discharged_episodes   ;; TODO: should include child projects?
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [:t_project/count_registered_patients]}
+  {:t_project/count_discharged_episodes (projects/count-discharged-episodes conn [project-id])})
+
 (pco/defresolver project->slug
   [{title :t_project/title}]
   {::pco/output [:t_project/slug]}
   {:t_project/slug (projects/make-slug title)})
+
+(pco/defresolver project->active?
+  [{date-from :t_project/date_from date-to :t_project/date_to :as project}]
+  {::pco/output [:t_project/active?]}
+  {:t_project/active? (projects/active? project)})
 
 (pco/defresolver project->long-description-text
   [{desc :t_project/long_description}]
@@ -489,9 +509,13 @@
    project-by-identifier
    project->parent
    project->specialty
+   project->active?
    project->slug
    project->long-description-text
    project->users
+   project->count_registered_patients
+   project->count_pending_referrals
+   project->count_discharged_episodes
    project->all-children
    project->all-parents
    patient->encounters
