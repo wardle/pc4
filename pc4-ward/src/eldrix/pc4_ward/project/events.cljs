@@ -8,17 +8,22 @@
     [:t_project/name
      :t_project/title
      :t_project/type
+     :t_project/active?
      :t_project/virtual
      :t_project/slug
      :t_project/parent
      :t_project/specialty
      :t_project/users
-     :t_project/date_from :t_project/date_to
+     :t_project/date_from
+     :t_project/date_to
      :t_project/exclusion_criteria :t_project/inclusion_criteria
      :t_project/address1 :t_project/address2 :t_project/address3
      :t_project/address4 :t_project/postcode
      :t_project/care_plan_information
-     :t_project/is_private]}])
+     :t_project/is_private
+     :t_project/count_registered_patients
+     :t_project/count_discharged_episodes
+     :t_project/count_pending_referrals]}])
 
 (rf/reg-event-fx ::set-current-project
   []
