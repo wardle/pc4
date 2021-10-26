@@ -114,7 +114,6 @@
 
 (defmethod ig/init-key :com.eldrix/comprehend [_ config]
   (log/info "registering comprehend service")
-  (swap! resolvers into [com.eldrix.comprehend.core/simple-parse])
   (com.eldrix.comprehend.core/open config))
 
 (defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
