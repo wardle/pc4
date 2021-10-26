@@ -280,7 +280,7 @@
   * t_patient/sex
   * t_patient/nhs_number"
   [conn & {:keys [salt project-id project-name nhs-number date-birth]}]
-  (let [project-name (if project-name project-name (:t_project/id (fetch-project conn project-id)))
+  (let [project-name (if project-name project-name (:t_project/name (fetch-project conn project-id)))
         project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth)
         global-pseudonym (calculate-global-pseudonym salt nhs-number date-birth)]
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)

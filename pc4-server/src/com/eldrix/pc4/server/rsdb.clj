@@ -483,12 +483,11 @@
 (pco/defmutation search-patient-by-pseudonym
   "Search for a patient using a pseudonymous project-specific identifier.
   This uses the legacy approach, which *will* be deprecated."
-  [{conn :com.eldrix.rsdb/conn} {:keys [project-name pseudonym] :as params}]
+  [{conn :com.eldrix.rsdb/conn} {:keys [project-id pseudonym] :as params}]
   {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
    ::pco/output  [:t_patient/patient_identifier]}
   (log/debug "search-patient-by-pseudonym" params)
-  (when-let [project (projects/project-with-name conn project-name)]
-    (projects/search-by-project-pseudonym conn (:t_project/id project) pseudonym)))
+  (projects/search-by-project-pseudonym conn project-id pseudonym))
 
 (def all-resolvers
   [patient-by-identifier
