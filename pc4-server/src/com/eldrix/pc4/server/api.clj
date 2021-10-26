@@ -72,6 +72,20 @@
                 (assoc ctx :authenticated-claims claims)
                 (throw (ex-info "Unauthorized." {:status 401})))))})
 
+(defn make-authenticated-env
+  "Given claims containing `system` and `value`, create an environment.
+  - conn   : rsdb database connection
+  - system : namespace
+  - value  : username."
+  [conn {:keys [system value] :as claims}]
+  (let [rsdb-user? (when claims (users/is-rsdb-user? conn system value))]
+    (cond-> {}
+            claims
+            (assoc :authenticated-user (select-keys claims [:system :value]))
+            rsdb-user?
+            (assoc :authorization-manager (users/make-authorization-manager conn system value)))))
+
+
 (def ping
   "A simple health check. Pass in a uuid to test the resolver backend.
   This means the health check can potentially be extended to include additional
@@ -93,23 +107,16 @@
   :authenticated-user.
 
   An authorization manager is merged into the pathom environment under the key
-  :authorization-manager, if the user is valid *and* an rsdb user."
+  :authorization-manager, if the user is valid *and* an rsdb user. In the future
+  an authorization manager may be injected even if not an rsdb user, because
+  authorization information may be sourced from another system of record."
   {:name  ::api
    :enter (fn [ctx]
             (log/info "api request: " (get-in ctx [:request :transit-params]))
             (let [params (get-in ctx [:request :transit-params])
                   rsdb-conn (:com.eldrix.rsdb/conn ctx)
                   claims (:authenticated-claims ctx)
-                  rsdb-user? (when claims
-                               ;; TODO: should this be cached as it will run frequently?
-                               (users/is-rsdb-user? rsdb-conn (:system claims) (:value claims)))
-                  env (cond-> {}
-                              claims
-                              (assoc :authenticated-user (select-keys claims [:system :value]))
-                              rsdb-user?
-                              (assoc :authorization-manager (users/make-authorization-manager rsdb-conn
-                                                                                              (:system claims)
-                                                                                              (:value claims))))]
+                  env (make-authenticated-env rsdb-conn claims)]
               (execute-pathom ctx env params)))})
 
 (def routes
