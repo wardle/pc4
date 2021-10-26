@@ -458,156 +458,155 @@
         (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params)))
       (log/error "unable to register patient by pseudonym; missing global salt"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
-                  :config   config})))
+                  :config   config}))))
 
-  (pco/defmutation search-patient-by-pseudonym
-    "Search for a patient using a pseudonymous project-specific identifier.
-    This uses the legacy approach, which *will* be deprecated."
-    [{conn :com.eldrix.rsdb/conn} {:keys [project-name pseudonym] :as params}]
-    {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
-     ::pco/output  [:t_patient/patient_identifier]}
-    (log/debug "search-patient-by-pseudonym" params)
-    (when-let [project (projects/project-with-name conn project-name)]
-      (projects/search-by-project-pseudonym conn (:t_project/id project) pseudonym)))
+(pco/defmutation search-patient-by-pseudonym
+  "Search for a patient using a pseudonymous project-specific identifier.
+  This uses the legacy approach, which *will* be deprecated."
+  [{conn :com.eldrix.rsdb/conn} {:keys [project-name pseudonym] :as params}]
+  {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
+   ::pco/output  [:t_patient/patient_identifier]}
+  (log/debug "search-patient-by-pseudonym" params)
+  (when-let [project (projects/project-with-name conn project-name)]
+    (projects/search-by-project-pseudonym conn (:t_project/id project) pseudonym)))
 
-  (def all-resolvers
-    [patient-by-identifier
-     patient->hospitals
-     patient-hospital->hospital
-     patient->country-of-birth
-     patient->ethnic-origin
-     patient->racial-group
-     patient->occupation
-     patient->surgery
-     patient->medications
-     patient->addresses
-     patient->address
-     (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
-     address->housing
-     patient->episodes
-     episode->project
-     project-by-identifier
-     project->parent
-     project->specialty
-     project->slug
-     project->long-description-text
-     project->users
-     project->all-children
-     project->all-parents
-     patient->encounters
-     encounter->users
-     encounter->encounter_template
-     encounter->hospital
-     encounter_template->encounter_type
-     user-by-username
-     user-by-id
-     user-by-nadex
-     user->nadex
-     user->fhir-name
-     user->photo
-     user->full-name
-     user->initials
-     user->active-projects
-     patient->fhir-human-name
-     patient->fhir-gender
-     register-patient-by-pseudonym
-     search-patient-by-pseudonym])
+(def all-resolvers
+  [patient-by-identifier
+   patient->hospitals
+   patient-hospital->hospital
+   patient->country-of-birth
+   patient->ethnic-origin
+   patient->racial-group
+   patient->occupation
+   patient->surgery
+   patient->medications
+   patient->addresses
+   patient->address
+   (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
+   address->housing
+   patient->episodes
+   episode->project
+   project-by-identifier
+   project->parent
+   project->specialty
+   project->slug
+   project->long-description-text
+   project->users
+   project->all-children
+   project->all-parents
+   patient->encounters
+   encounter->users
+   encounter->encounter_template
+   encounter->hospital
+   encounter_template->encounter_type
+   user-by-username
+   user-by-id
+   user-by-nadex
+   user->nadex
+   user->fhir-name
+   user->photo
+   user->full-name
+   user->initials
+   user->active-projects
+   patient->fhir-human-name
+   patient->fhir-gender
+   register-patient-by-pseudonym
+   search-patient-by-pseudonym])
 
-  (comment
+(comment
+  (require '[next.jdbc.connection])
+  (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
+                                                           :dbname          "rsdb"
+                                                           :maximumPoolSize 10}))
+  (jdbc/execute! conn ["select id from t_encounter where patient_fk=?" 1726])
+  (jdbc/execute! conn
+                 ["select t_form_edss.*,t_encounter.date_time,t_encounter.is_deleted from t_form_edss,t_encounter where t_form_edss.encounter_fk=t_encounter.id and encounter_fk in (select id from t_encounter where patient_fk=?);" 1726])
 
-    (require '[next.jdbc.connection])
-    (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
-                                                             :dbname          "rsdb"
-                                                             :maximumPoolSize 10}))
-    (jdbc/execute! conn ["select id from t_encounter where patient_fk=?" 1726])
-    (jdbc/execute! conn
-                   ["select t_form_edss.*,t_encounter.date_time,t_encounter.is_deleted from t_form_edss,t_encounter where t_form_edss.encounter_fk=t_encounter.id and encounter_fk in (select id from t_encounter where patient_fk=?);" 1726])
+  (jdbc/execute! conn (sql/format {:select [:*]
+                                   :from   [:t_patient]
+                                   :where  [:= :id 14232]}))
 
-    (jdbc/execute! conn (sql/format {:select [:*]
-                                     :from   [:t_patient]
-                                     :where  [:= :id 14232]}))
+  (def env (-> (pci/register all-resolvers)
+               (assoc :com.eldrix.rsdb/conn conn)))
+  (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
+  (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
+                                                              :t_patient/email
+                                                              :t_patient/first_names
+                                                              :t_patient/last_name
+                                                              :t_patient/status
+                                                              :t_patient/surgery
+                                                              :t_patient/alerts
+                                                              `(:t_patient/address {:date ~"2010-06-01"})]}])
 
-    (def env (-> (pci/register all-resolvers)
-                 (assoc :com.eldrix.rsdb/conn conn)))
-    (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
-    (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
-                                                                :t_patient/email
-                                                                :t_patient/first_names
-                                                                :t_patient/last_name
-                                                                :t_patient/status
-                                                                :t_patient/surgery
-                                                                :t_patient/alerts
-                                                                `(:t_patient/address {:date ~"2010-06-01"})]}])
+  (p.eql/process env
+                 [{[:t_patient/patient_identifier 17371]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    :t_patient/surgery
+                    {:t_patient/episodes [:t_episode/date_registration
+                                          :t_episode/date_discharge
+                                          :t_episode/project_fk
+                                          {:t_episode/project [:t_project/title]}]}]}])
 
-    (p.eql/process env
-                   [{[:t_patient/patient_identifier 17371]
-                     [:t_patient/id
-                      :t_patient/first_names
-                      :t_patient/last_name
-                      :t_patient/status
-                      :t_patient/surgery
-                      {:t_patient/episodes [:t_episode/date_registration
-                                            :t_episode/date_discharge
-                                            :t_episode/project_fk
-                                            {:t_episode/project [:t_project/title]}]}]}])
+  (time (p.eql/process env
+                       [{[:t_patient/patient_identifier 12182]
+                         [:t_patient/id
+                          :t_patient/first_names
+                          :t_patient/last_name
+                          :t_patient/status
+                          :t_patient/surgery
+                          {:t_patient/encounters [:t_encounter/date_time
+                                                  :t_encounter/is_deleted
+                                                  :t_encounter/hospital
+                                                  {:t_encounter/users [:t_user/id
+                                                                       :t_user/initials
+                                                                       :t_user/full_name]}]}]}]))
 
-    (time (p.eql/process env
-                         [{[:t_patient/patient_identifier 12182]
-                           [:t_patient/id
-                            :t_patient/first_names
-                            :t_patient/last_name
-                            :t_patient/status
-                            :t_patient/surgery
-                            {:t_patient/encounters [:t_encounter/date_time
-                                                    :t_encounter/is_deleted
-                                                    :t_encounter/hospital
-                                                    {:t_encounter/users [:t_user/id
-                                                                         :t_user/initials
-                                                                         :t_user/full_name]}]}]}]))
+  (p.eql/process env
+                 [{[:t_patient/patient_identifier 12182]
+                   [:t_patient/id
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/status
+                    :t_patient/surgery
+                    {:t_patient/hospitals [:t_patient_hospital/patient_identifier
+                                           :t_patient_hospital/hospital]}]}])
 
-    (p.eql/process env
-                   [{[:t_patient/patient_identifier 12182]
-                     [:t_patient/id
-                      :t_patient/first_names
-                      :t_patient/last_name
-                      :t_patient/status
-                      :t_patient/surgery
-                      {:t_patient/hospitals [:t_patient_hospital/patient_identifier
-                                             :t_patient_hospital/hospital]}]}])
+  (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
+                                                     :where  [:= :id 15]})))
+  (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
 
-    (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
-                                                       :where  [:= :id 15]})))
-    (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
+  (def ^LocalDate date (LocalDate/now))
+  (fetch-patient-addresses conn 119032)
+  (address-for-date (fetch-patient-addresses conn 7382))
 
-    (def ^LocalDate date (LocalDate/now))
-    (fetch-patient-addresses conn 119032)
-    (address-for-date (fetch-patient-addresses conn 7382))
+  (fetch-patient-addresses conn 119032)
+  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
 
-    (fetch-patient-addresses conn 119032)
-    (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
-
-    (def user (jdbc/execute-one! conn (sql/format {:select [:*]
-                                                   :from   [:t_user]
-                                                   :where  [:= :username "system"]})))
-    (users/fetch-user conn "ma090906")
-    user
-
-
-    (time (map #(assoc % :t_project/slug (projects/make-slug (:t_project/title %)))
-               (jdbc/execute! conn (sql/format {:select [:t_project/id :t_project/title :t_project/name]
-                                                :from   [:t_project]}))))
+  (def user (jdbc/execute-one! conn (sql/format {:select [:*]
+                                                 :from   [:t_user]
+                                                 :where  [:= :username "system"]})))
+  (users/fetch-user conn "ma090906")
+  user
 
 
-    (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
-    (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
+  (time (map #(assoc % :t_project/slug (projects/make-slug (:t_project/title %)))
+             (jdbc/execute! conn (sql/format {:select [:t_project/id :t_project/title :t_project/name]
+                                              :from   [:t_project]}))))
 
-    (require '[com.eldrix.pc4.server.rsdb.patients])
-    (def project-ids (com.eldrix.pc4.server.rsdb.patients/active-project-identifiers conn 14032))
-    (def manager (users/make-authorization-manager conn "ma090906"))
-    (def sys-manager (users/make-authorization-manager conn "system"))
-    (def unk-manager (users/make-authorization-manager conn "unknown"))
-    (auth/authorized? manager project-ids :PATIENT_VIEW)
-    (auth/authorized? sys-manager project-ids :PATIENT_VIEW)
-    (auth/authorized? unk-manager project-ids :PATIENT_VIEW)
-    (auth/authorized? manager project-ids :BIOBANK_CREATE_LOCATION)
-    )
+
+  (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
+  (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
+
+  (require '[com.eldrix.pc4.server.rsdb.patients])
+  (def project-ids (com.eldrix.pc4.server.rsdb.patients/active-project-identifiers conn 14032))
+  (def manager (users/make-authorization-manager conn "ma090906"))
+  (def sys-manager (users/make-authorization-manager conn "system"))
+  (def unk-manager (users/make-authorization-manager conn "unknown"))
+  (auth/authorized? manager project-ids :PATIENT_VIEW)
+  (auth/authorized? sys-manager project-ids :PATIENT_VIEW)
+  (auth/authorized? unk-manager project-ids :PATIENT_VIEW)
+  (auth/authorized? manager project-ids :BIOBANK_CREATE_LOCATION)
+  )
