@@ -241,17 +241,17 @@
             (:t_project/parent_project_fk p)
             (assoc :t_project/parent_project {:t_project/id (:t_project/parent_project_fk p)}))))
 
-(pco/defresolver project->count_registered_patients   ;; TODO: should include child projects?
+(pco/defresolver project->count_registered_patients         ;; TODO: should include child projects?
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
   {::pco/output [:t_project/count_registered_patients]}
   {:t_project/count_registered_patients (projects/count-registered-patients conn [project-id])})
 
-(pco/defresolver project->count_pending_referrals  ;; TODO: should include child projects?
+(pco/defresolver project->count_pending_referrals           ;; TODO: should include child projects?
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
   {::pco/output [:t_project/count_pending_referrals]}
   {:t_project/count_pending_referrals (projects/count-pending-referrals conn [project-id])})
 
-(pco/defresolver project->count_discharged_episodes   ;; TODO: should include child projects?
+(pco/defresolver project->count_discharged_episodes         ;; TODO: should include child projects?
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
   {::pco/output [:t_project/count_registered_patients]}
   {:t_project/count_discharged_episodes (projects/count-discharged-episodes conn [project-id])})
