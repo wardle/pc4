@@ -88,6 +88,53 @@
                                      :where  [:= :t_project/name nm]})))
 
 
+(defn count-registered-patients
+  ([conn project-ids] (count-registered-patients conn project-ids (LocalDate/now)))
+  ([conn project-ids on-date]
+   (:count (db/execute-one! conn
+                            (sql/format {:select [[[:count [:distinct :patient_fk]]]]
+                                         :from   :t_episode
+                                         :where  [:and
+                                                  [:in :project_fk project-ids]
+                                                  [:or
+                                                   [:is :t_episode/date_discharge nil]
+                                                   [:> :date_discharge on-date]]
+                                                  [:or
+                                                   [:is :date_registration nil]
+                                                   [:< :date_registration on-date]
+                                                   [:= :date_registration on-date]]]})))))
+(defn count-discharged-episodes
+  "Return a count of discharged episodes.
+  Note: this is not the same as number of discharged patients."
+  ([conn project-ids] (count-discharged-episodes conn project-ids (LocalDate/now)))
+  ([conn project-ids on-date]
+   (:count (db/execute-one! conn
+                            (sql/format {:select [:%count.id]
+                                         :from   :t_episode
+                                         :where  [:and
+                                                  [:in :project_fk project-ids]
+                                                  [:or
+                                                   [:= :t_episode/date_discharge on-date]
+                                                   [:< :date_discharge on-date]]]})))))
+(defn count-pending-referrals
+  "Returns the number of referrals pending for the project"
+  ([conn project-ids] (count-pending-referrals conn project-ids (LocalDate/now)))
+  ([conn project-ids on-date]
+   (:count (db/execute-one! conn
+                            (sql/format {:select [[[:count [:distinct :patient_fk]]]]
+                                         :from   :t_episode
+                                         :where  [:and
+                                                  [:in :project_fk project-ids]
+                                                  [:or
+                                                   [:is :t_episode/date_discharge nil]
+                                                   [:> :date_discharge on-date]]
+                                                  [:or
+                                                   [:= :date_referral on-date]
+                                                   [:< :date_referral on-date]]
+                                                  [:or
+                                                   [:is :date_registration nil]
+                                                   [:> :date_registration on-date]]]})))))
+
 (defn active?
   "Is this project active?"
   ([project] (active? project (LocalDate/now)))
@@ -412,6 +459,7 @@
   (all-children conn 2)
   (into #{} (map :id (db/execute! conn (all-children-sql 5))))
 
+  (count-registered-patients conn [5])
   ;; check we have legacy implementation compatibility.
   (= "c2f5699061566a5e6ab05c169848435028568f7eb87e098c5a740c28720bb52a"
      (calculate-project-pseudonym "CAMBRIDGEMS" "1111111111" (LocalDate/of 1975 1 1)))
