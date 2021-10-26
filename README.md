@@ -4,7 +4,7 @@
 [![Scc Count Badge](https://sloc.xyz/github/wardle/pc4)](https://github.com/wardle/pc4/)
 [![Scc Cocomo Badge](https://sloc.xyz/github/wardle/pc4?category=cocomo&avg-wage=100000)](https://github.com/wardle/pc4/)
 
-PatientCare v4 is a new type of electronic health and care patient electronic record system. 
+PatientCare v4 is an electronic health and care patient electronic record system. 
 
 Previous versions have been in constant use within NHS Wales, UK since 2008, 
 helping support the care of a range of patients with both neurological and 
@@ -49,7 +49,9 @@ lightweight, ephemeral and focused on workflow and process, providing multiple
 
 ### Current status
 
-This is a work-in-progress. I am principally porting functionality from 
+This is a work-in-progress. 
+
+I am principally porting functionality from 
 PatientCare v3 into this new architectural design. The immediate priorities
 are of an electronic referral system for inpatient liaison services across
 multiple organisations and an e-observations module for the identification
@@ -86,7 +88,26 @@ rsdb, I will switch the database initialisation and migration to pc4.
 ## pc4-ward
 
 This repository is the first substantial user-facing component. 
-It is designed to provide the workflow of making an electronic referral.
+
+At the moment, this is an experiment. 
+
+Over time, common components will be factored out into a library, so that there may be
+multiple user-facing applications
+all sharing the same codebase. It is likely this will adopt a micro-front-end 
+architecture, but that makes no sense at this point. However, the current architecture is 
+designed to evolve gracefully to this model as functionality is added. 
+
+It may be that a framework type approach is best, but I've not made any strong decisions
+about that at the moment. 
+
+The current development strands are:
+* workflow to make an electronic referral
+* multiple sclerosis disease modifying therapy record system
+* electronic observations
+
+*Mark*
+
+
 
 
 
