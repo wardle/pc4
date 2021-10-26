@@ -198,6 +198,9 @@
   (prep :dev)
 
   (def system (init :dev))
+  ;; this creates a fake authenticated environment and injects it into our system
+  (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
+  (def system (update system :pathom/env merge authenticated-env))
   (reset! resolvers [])
   (ig/halt! system)
 
@@ -224,6 +227,13 @@
                                           {:uk.gov.ons.nhspd/PCT_ORG [:uk.nhs.ord/name :uk.nhs.ord/active :uk.nhs.ord/orgId]}]}])
 
   ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
+  (time (second (first ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 80146002]
+                                         [:info.snomed.Concept/id
+                                          :info.snomed.Concept/active
+                                          '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})
+                                          {:info.snomed.Concept/descriptions
+                                           [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}]}]))))
+
   ((:pathom/boundary-interface system) [{'(info.snomed.Search/search
                                             {:s          "mult scl"
                                              :constraint "<404684003"
@@ -291,8 +301,8 @@
   ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/register-patient-by-pseudonym
                                                {:user-id      1
                                                 :project-name "COVIDDREAMS"
-                                                :nhs-number   "2222222222"
-                                                :sex          :FEMALE
+                                                :nhs-number   "1111111111"
+                                                :sex          :MALE
                                                 :date-birth   (java.time.LocalDate/of 1973 10 5)})
                                          [:t_patient/id
                                           :t_patient/patient_identifier
