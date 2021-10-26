@@ -5,7 +5,8 @@
 (defn make-fetch-project-op
   [{:keys [id]}]
   [{[:t_project/id (int id)]
-    [:t_project/name
+    [:t_project/id
+     :t_project/name
      :t_project/title
      :t_project/type
      :t_project/active?
