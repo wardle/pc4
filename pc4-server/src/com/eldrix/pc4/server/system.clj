@@ -199,7 +199,8 @@
   (def system (init :dev))
   ;; this creates a fake authenticated environment and injects it into our system
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
-  (def system (update system :pathom/env merge authenticated-env))
+  (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
+
   (reset! resolvers [])
   (ig/halt! system)
 
@@ -297,9 +298,12 @@
                                           :org.hl7.fhir.Patient/deceased
                                           :org.hl7.fhir.Patient/currentAddress]}])
   (reload)
-  ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/register-patient-by-pseudonym
+
+  ((:pathom/boundary-interface system)    ;here we have to include an authenticated environment in order to do this action
+   authenticated-env
+   [{(list 'pc4.rsdb/register-patient-by-pseudonym
                                                {:user-id      1
-                                                :project-name "COVIDDREAMS"
+                                                :project-id 124
                                                 :nhs-number   "1111111111"
                                                 :sex          :MALE
                                                 :date-birth   (java.time.LocalDate/of 1973 10 5)})
@@ -310,8 +314,8 @@
                                           :t_patient/date_birth]}])
 
   ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/search-patient-by-pseudonym
-                                               {:project-name "COVIDDREAMS"
-                                                :pseudonym    "e65"})
+                                               {:project-id 124
+                                                :pseudonym    "686"})
                                          [:t_patient/id
                                           :t_patient/patient_identifier
                                           :t_patient/first_names
