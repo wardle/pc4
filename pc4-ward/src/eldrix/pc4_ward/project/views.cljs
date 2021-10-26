@@ -1,6 +1,8 @@
 (ns eldrix.pc4-ward.project.views
   (:require [reitit.frontend.easy :as rfe]
             [re-frame.core :as rf]
+            [eldrix.pc4-ward.patient.events :as patient-events]
+            [eldrix.pc4-ward.patient.subs :as patient-subs]
             [eldrix.pc4-ward.project.subs :as project-subs]
             [eldrix.pc4-ward.user.subs :as user-subs]
             [eldrix.pc4-ward.user.events :as user-events]
@@ -35,7 +37,8 @@
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_pending_referrals project)]]
      ]]])
 
-(defn search-by-pseudonym-panel []
+(defn search-by-pseudonym-panel
+  [project-id]
   [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
    [:div.px-4.py-6.sm:p-6
     [:form.divide-y.divide-gray-200
@@ -47,7 +50,9 @@
        [:div
         [:label.sr-only {:for "pseudonym"} "Pseudonym"]
         [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-         {:type "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true}]]]]]]])
+         {:type      "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
+          :on-change #(let [s (-> % .-target .-value)]
+                        (rf/dispatch [::patient-events/search-legacy-pseudonym project-id s]))}]]]]]]])
 
 
 (defn list-users [users]
@@ -90,6 +95,6 @@
               :select-fn #(reset! selected-page %)]]]
            (case @selected-page
              :home [inspect-project current-project]
-             :search [search-by-pseudonym-panel]
+             :search [search-by-pseudonym-panel (:t_project/id current-project)]
              :register nil
              :users [list-users (:t_project/users current-project)])])))))
