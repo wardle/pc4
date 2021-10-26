@@ -10,7 +10,7 @@
             [clojure.string :as str]
             [com.eldrix.pc4.commons.dates :as dates]))
 
-(defn inspect-project [project]
+(defn inspect-project [project]                             ;;TODO: create from data instead - this is egregious
   [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
    [:div.border-t.border-gray-200
     [:dl
@@ -39,20 +39,35 @@
 
 (defn search-by-pseudonym-panel
   [project-id]
-  [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
-   [:div.px-4.py-6.sm:p-6
-    [:form.divide-y.divide-gray-200
-     [:div.divide-y.divide-gray-200.sm:space-y-5
-      [:div
-       [:div
-        [:h3.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"]
-        [:p.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."]]
-       [:div
-        [:label.sr-only {:for "pseudonym"} "Pseudonym"]
-        [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-         {:type      "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
-          :on-change #(let [s (-> % .-target .-value)]
-                        (rf/dispatch [::patient-events/search-legacy-pseudonym project-id s]))}]]]]]]])
+  (let [patient @(rf/subscribe [::patient-subs/search-by-legacy-pseudonym-result])]
+    [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
+     [:div.px-4.py-6.sm:p-6
+      [:form.divide-y.divide-gray-200
+       [:div.divide-y.divide-gray-200.sm:space-y-5
+        [:div
+         [:div
+          [:h3.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"]
+          [:p.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."]]
+         [:div.mt-4
+          [:label.sr-only {:for "pseudonym"} "Pseudonym"]
+          [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+           {:type      "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
+            :on-change #(let [s (-> % .-target .-value)]
+                          (rf/dispatch [::patient-events/search-legacy-pseudonym project-id s]))}]]
+         (when patient
+           [:div.bg-white.shadow.sm:rounded-lg.mt-4
+            [:div.px-4.py-5.sm:p-6
+             [:h3.text-lg.leading-6.font-medium.text-gray-900
+              (str (name (:t_patient/sex patient))
+                   " "
+                   "born: " (.getYear (:t_patient/date_birth patient)))]
+             [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
+              [:div.max-w-xl.text-sm.text-gray-500
+               [:p (:t_episode/stored_pseudonym patient)]]
+              [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
+               [:button.inline-flex.items-center.px-4.py-2.border.border-transparent.shadow-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:text-sm
+                {:type "button"}
+                "View patient record"]]]]])]]]]]))
 
 
 (defn list-users [users]
@@ -92,7 +107,8 @@
                             {:title "Register" :id :register}
                             {:title "Users" :id :users}]
               :selected-id @selected-page
-              :select-fn #(reset! selected-page %)]]]
+              :select-fn #(do (reset! selected-page %)
+                              (rf/dispatch [::patient-events/search-legacy-pseudonym (:t_project/id current-project) ""]))]]]
            (case @selected-page
              :home [inspect-project current-project]
              :search [search-by-pseudonym-panel (:t_project/id current-project)]
