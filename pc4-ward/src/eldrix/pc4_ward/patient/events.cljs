@@ -77,6 +77,7 @@
      :t_patient/patient_identifier
      :t_patient/first_names
      :t_patient/last_name
+     :t_patient/sex
      :t_patient/date_birth
      :t_patient/status
      :t_patient/date_death
@@ -107,9 +108,6 @@
     {:db (-> db
              (dissoc :patient/search-legacy-pseudonym)
              (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
-
-
-
 
 
 
