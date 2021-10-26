@@ -18,12 +18,12 @@
             [eldrix.pc4-ward.ui :as ui]))
 
 (re-frame/reg-fx :push-state
-  (fn [route]
-    (apply rfe/push-state route)))
+                 (fn [route]
+                   (apply rfe/push-state route)))
 
 (re-frame/reg-event-fx ::push-state
-  (fn [db [_ & route]]
-    {:push-state route}))
+                       (fn [db [_ & route]]
+                         {:push-state route}))
 
 (defn href
   "Return relative url for given route. Url can be used in HTML links."
@@ -34,7 +34,12 @@
   ([k params query]
    (rfe/href k params query)))
 
-(defn routes []
+(defn routes
+  "Routes define the high-level URLs for the application.
+  A route contains additional configuration including:
+
+  - auth  - a function that will be given the current authenticated user"
+  []
   [["/"
     {:name      :home
      :view      views/main-page
@@ -55,14 +60,15 @@
     {:name        :projects
      :title       "Projects"
      :view        project/project-home-page
+     :auth        identity                                  ;; we need a logged in user to view a project
      :params      {:path {:id int? :slug string?}}
      :controllers [{:parameters {:path [:id :slug]}
-                    :start (fn [{:keys [path]}]
-                             (println "entering project page" (:id path))
-                             (re-frame/dispatch [::project-events/set-current-project (:id path)]))
-                    :stop  (fn [{:keys [path]}]
-                             (println "leaving project page" (:id path))
-                             (re-frame/dispatch [::project-events/clear-current-project]))}]}]])
+                    :start      (fn [{:keys [path]}]
+                                  (println "entering project page" (:id path))
+                                  (re-frame/dispatch [::project-events/set-current-project (:id path)]))
+                    :stop       (fn [{:keys [path]}]
+                                  (println "leaving project page" (:id path))
+                                  (re-frame/dispatch [::project-events/clear-current-project]))}]}]])
 
 (defn on-navigate [new-match]
   (when new-match
@@ -81,10 +87,14 @@
     on-navigate
     {:use-fragment true}))
 
+
+
+
 (defn router-component
   [{:keys [router]}]
   (let [authenticated-user @(re-frame/subscribe [::user-subs/authenticated-user])
-        current-route (or @(re-frame/subscribe [::subs/current-route]) (r/match-by-path router "/"))]
+        current-route (or @(re-frame/subscribe [::subs/current-route]) (r/match-by-path router "/"))
+        auth (get-in current-route [:data :auth])]
     [:div
      [views/nav-bar
       :route current-route
@@ -96,7 +106,11 @@
       :full-name (:urn:oid:2.5.4/commonName authenticated-user)
       :initials (:urn:oid:2.5.4/initials authenticated-user)
       :user-menu [{:id :logout :title "Sign out" :on-click #(re-frame/dispatch [::user-events/do-logout])}]]
-     [(-> current-route :data :view) current-route]]))
+     (if (or (nil? auth) (auth authenticated-user))
+       [(-> current-route :data :view) current-route]
+       [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
+        [:div.max-w-md.w-full.space-y-8
+         [ui/box-error-message :title "Not authorized" :message (str "You are not authorized to view this page. " (when-not authenticated-user "Please login."))]]])]))
 
 (defn dev-setup []
   (when config/debug?
