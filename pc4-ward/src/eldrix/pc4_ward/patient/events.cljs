@@ -28,7 +28,7 @@
     (js/console.log "fetch patient " identifier)
     {:db (-> db
              (dissoc :patient/search-results)
-             (update-in [:errors] dissoc ::login))
+             (update-in [:errors] dissoc ::fetch))
      :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
                                                 :token      (get-in db [:authenticated-user :io.jwt/token])
                                                 :on-success [::handle-fetch-response]
@@ -64,6 +64,52 @@
   (fn [db [_ patient]]
     (js/console.log "closing patient" patient)
     (dissoc db :patient/current patient)))
+
+
+
+
+(defn make-search-by-legacy-pseudonym
+  [project-id pseudonym]
+  [{(list 'pc4.rsdb/search-patient-by-pseudonym
+          {:project-id project-id
+           :pseudonym  pseudonym})
+    [:t_patient/id
+     :t_patient/patient_identifier
+     :t_patient/first_names
+     :t_patient/last_name
+     :t_patient/date_birth
+     :t_patient/status
+     :t_patient/date_death
+     :t_episode/stored_pseudonym]}])
+
+(rf/reg-event-fx ::search-legacy-pseudonym
+  (fn [{db :db} [_ project-id pseudonym]]
+    (js/console.log "search by pseudonym" project-id pseudonym)
+    (cond-> {:db (-> db
+                     (dissoc :patient/search-legacy-pseudonym)
+                     (update-in [:errors] dissoc ::search-legacy-pseudonym))}
+            (>= (count pseudonym) 3)
+            (assoc :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-search-by-legacy-pseudonym project-id pseudonym)
+                                                              :token      (get-in db [:authenticated-user :io.jwt/token])
+                                                              :on-success [::handle-search-pseudonym-response]
+                                                              :on-failure [::handle-search-pseudonym-failure]})]]))))
+
+(rf/reg-event-fx ::handle-search-pseudonym-response
+  []
+  (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
+    (js/console.log "search by pseudonym response: " result)
+    {:db (assoc db :patient/search-legacy-pseudonym result)}))
+
+(rf/reg-event-fx ::handle-search-pseudonym-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "fetch patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/search-legacy-pseudonym)
+             (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
+
+
+
 
 
 
