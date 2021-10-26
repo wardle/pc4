@@ -68,7 +68,7 @@
                                   (re-frame/dispatch [::project-events/set-current-project (:id path)]))
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving project page" (:id path))
-                                  (re-frame/dispatch [::project-events/clear-current-project]))}]}]])
+                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]])
 
 (defn on-navigate [new-match]
   (when new-match
