@@ -99,8 +99,7 @@
      [views/nav-bar
       :route current-route
       :title "PatientCare v4"
-      :menu [{:id :home :title "Home" :href (href :home)}
-             {:id :refer :title "Refer" :href (href :refer)}]
+      :menu [] ;[{:id :home :title "Home" :href (href :home)}  {:id :refer :title "Refer" :href (href :refer)}]
       :selected (when current-route (-> current-route :data :name))
       :show-user? authenticated-user
       :full-name (:urn:oid:2.5.4/commonName authenticated-user)
