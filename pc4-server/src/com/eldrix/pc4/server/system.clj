@@ -144,7 +144,7 @@
   (p.eql/boundary-interface env))
 
 (defmethod ig/init-key :http/server [_ {:keys [port allowed-origins host env join?] :or {port 8080 join? false} :as config}]
-  (log/info "Running server" (dissoc config :env))
+  (log/info "Running HTTP server" (dissoc config :env))
   (-> {::http/type            :jetty
        ::http/join?           join?
        ::http/routes          api/routes
