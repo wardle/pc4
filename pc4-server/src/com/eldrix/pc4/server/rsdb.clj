@@ -476,7 +476,7 @@
       (if (m/validate register-patient-by-pseudonym-params params)
         (projects/register-legacy-pseudonymous-patient conn (assoc params :salt global-salt))
         (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params)))
-      (log/error "unable to register patient by pseudonym; missing global salt"
+      (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
                   :config   config}))))
 
