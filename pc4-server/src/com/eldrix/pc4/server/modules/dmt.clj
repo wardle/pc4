@@ -977,7 +977,8 @@
     (->> (fetch-patients system patient-ids)
          (map #(let [patient-id (:t_patient/patient_identifier %)
                      cohort-entry-med (get cohort-entry-meds patient-id)
-                     onset-date (:calculated-onset (get onsets patient-id))]
+                     onset-date (:calculated-onset (get onsets patient-id))
+                     date-death (when-let [d (:t_patient/date_death %)] (.withDayOfMonth d 15))]
                  (-> (merge % cohort-entry-med)
                      (update :t_patient/sex (fnil name ""))
                      (update :dmt (fnil name ""))
@@ -985,7 +986,7 @@
                      (assoc :depriv_quartile (get deprivation patient-id)
                             :start_follow_up (to-local-date (get earliest-contacts patient-id))
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
-                            :age_death (when (and (:t_patient/date_birth %) (:t_patient/date_death %)) (.getYears (Period/between ^LocalDate (:t_patient/date_birth %) ^LocalDate (:t_patient/date_death %))))
+                            :date_death date-death
                             :onset onset-date
                             :smoking (get-in smoking [patient-id :t_smoking_history/status])
                             :disease_duration_years (when (and (:t_medication/date_from cohort-entry-med) onset-date)
@@ -1000,12 +1001,12 @@
                                                   (.between ChronoUnit/DAYS onset-date date))))
                             :nc_relapses (when (:t_medication/date_from cohort-entry-med)
                                            (count (relapses-between-dates (get ms-events patient-id) (.minusYears (:t_medication/date_from cohort-entry-med) 1) (:t_medication/date_from cohort-entry-med))))
-                            :end_follow_up (or (:t_patient/date_death %) (to-local-date (get latest-contacts patient-id))))
-                     (dissoc :t_patient/date_birth :t_patient/date_death)))))))
+                            :end_follow_up (or date-death (to-local-date (get latest-contacts patient-id))))
+                     (dissoc :t_patient/date_birth)))))))
 
 (defn write-patients-table [system]
   (write-rows-csv "patients.csv" (make-patients-table system)
-                  :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :age_death
+                  :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :date_death
                             :depriv_quartile :start_follow_up :end_follow_up
                             :part1a :part1b :part1c :part2
                             :atc :dmt :dmt_class :t_medication/date_from
