@@ -36,7 +36,18 @@
      ]]])
 
 (defn search-by-pseudonym-panel []
-  )
+  [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
+   [:div.px-4.py-6.sm:p-6
+    [:form.divide-y.divide-gray-200
+     [:div.divide-y.divide-gray-200.sm:space-y-5
+      [:div
+       [:div
+        [:h3.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"]
+        [:p.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."]]
+       [:div
+        [:label.sr-only {:for "pseudonym"} "Pseudonym"]
+        [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+         {:type "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true}]]]]]]])
 
 
 (defn list-users [users]
