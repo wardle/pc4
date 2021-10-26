@@ -10,6 +10,10 @@
   (fn [db]
     (:patient/search-results db)))
 
+(rf/reg-sub ::search-by-legacy-pseudonym-result
+  (fn [db]
+    (:patient/search-legacy-pseudonym db)))
+
 ;; return the hospital in which the patient is currently admitted
 ;; as our backend services do not yet know this information, we return nil
 (rf/reg-sub ::hospital
