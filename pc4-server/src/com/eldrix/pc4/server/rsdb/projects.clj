@@ -19,6 +19,74 @@
            (java.time.format DateTimeFormatter)
            (org.apache.commons.codec.digest DigestUtils)))
 
+
+(defn fetch-users
+  "Fetch users for the project specified. An individual may be listed more than
+  once if they have more than one 'role' within the project."
+  [conn project-id]
+  (db/execute!
+    conn
+    (sql/format
+      {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
+                   :t_job_title/name :custom_job_title]
+       :from      [:t_project_user]
+       :left-join [:t_user [:= :user_fk :t_user/id]
+                   :t_job_title [:= :job_title_fk :t_job_title/id]]
+       :where     [:= :project_fk project-id]
+       :order-by  [:last_name :first_names]})))
+
+
+(defn fetch-project-sql [project-id]
+  (sql/format {:select :* :from :t_project
+               :where  [:= :t_project/id project-id]}))
+
+(defn fetch-projects-sql [ids]
+  (sql/format {:select :* :from :t_project :where [:in :id ids]}))
+
+(defn all-children-sql [project-id]
+  (sql/format {:with-recursive
+                       [[:children
+                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :where  [:= :id project-id]}
+                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
+               :select :children/id
+               :from   :children
+               :where  [:!= :id project-id]}))
+
+(defn all-parents-sql [project-id]
+  (sql/format {:with-recursive
+                       [[:parents
+                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :where  [:= :id project-id]}
+                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                                       :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
+               :select :parents/id
+               :from   :parents
+               :where  [:!= :id project-id]}))
+
+(defn all-children-ids [conn project-id]
+  (map :id (db/execute! conn (all-children-sql project-id))))
+
+(defn all-parents-ids [conn project-id]
+  (map :id (db/execute! conn (all-parents-sql project-id))))
+
+(defn all-children [conn project-id]
+  (when-let [children-ids (seq (all-children-ids conn project-id))]
+    (db/execute! conn (fetch-projects-sql children-ids))))
+
+(defn all-parents [conn project-id]
+  (when-let [parent-ids (seq (all-parents-ids conn project-id))]
+    (db/execute! conn (fetch-projects-sql parent-ids))))
+
+(defn fetch-project [conn project-id]
+  (db/execute-one! conn (fetch-project-sql project-id)))
+
+(defn project-with-name [conn nm]
+  (db/execute-one! conn (sql/format {:select :* :from :t_project
+                                     :where  [:= :t_project/name nm]})))
+
+
 (defn active?
   "Is this project active?"
   ([project] (active? project (LocalDate/now)))
@@ -146,6 +214,13 @@
 
 (defn ^:deprecated find-legacy-pseudonymous-patient
   "Attempts to identify a patient using the legacy rsdb pseudonym registration.
+  Parameters:
+  - conn - rsdb database connection
+  - salt - salt to use for global pseudonym
+  - project-id / project-name - specify either for project
+  - nhs-number - NHS number
+  - date-birth - java.time.LocalDate of date of birth
+
   Returns a patient record with keys:
   * global-pseudonym
   * project-pseudonym
@@ -156,8 +231,9 @@
   * t_patient/date_birth
   * t_patient/sex
   * t_patient/nhs_number"
-  [conn & {:keys [salt project-name nhs-number date-birth]}]
-  (let [project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth)
+  [conn & {:keys [salt project-id project-name nhs-number date-birth]}]
+  (let [project-name (if project-name project-name (:t_project/id (fetch-project conn project-id)))
+        project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth)
         global-pseudonym (calculate-global-pseudonym salt nhs-number date-birth)]
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
                       (fetch-by-global-pseudonym conn global-pseudonym)
@@ -221,7 +297,7 @@
                                   :values      [patient']})
                      {:return-keys true})))
 
-(defn register-patient-project
+(defn register-patient-project!
   "Register a patient to a project. Safe to use if patient already registered.
 
   Returns the new, or existing episode.
@@ -277,36 +353,36 @@
   - conn         : database connection or connection pool
   - salt         : a salt to be used for global pseudonym generation
   - user-id      : id of the user performing the registration
-  - project-name : name of the project
+  - project-id   : id of the project to which to register
   - nhs-number   : NHS number of the patient; must be valid.
   - sex          : sex, :MALE, :FEMALE, :UNKNOWN, \"MALE\", \"FEMALE\" or \"UNKNOWN\"
   - date-birth   : java.time.LocalDate representing date of birth
 
   If a patient exists, the month and year of birth, as well as sex, must match.
   If the existing record has an NHS number, then that must match as well."
-  [conn & {:keys [_salt user-id project-name nhs-number sex date-birth] :as registration}]
+  [conn & {:keys [_salt user-id project-id nhs-number sex date-birth] :as registration}]
   (if-not (com.eldrix.concierge.nhs-number/valid? nhs-number)
     (throw (ex-info "Invalid NHS number" registration))
-    (if-let [{project-id :t_project/id} (jdbc/execute-one! conn (sql/format {:select [:id] :from :t_project :where [:= :name project-name]}))]
-      (let [existing (find-legacy-pseudonymous-patient conn registration)]
-        (if (:t_patient/id existing)
-          ;; existing patient - so check matching core demographics, and proceed
-          (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
-                   (= sex (:t_patient/sex existing))
-                   (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
-            (do (register-patient-project conn project-id user-id existing :pseudonym (:project-pseudonym existing))
-                existing)
-            (throw (ex-info "mismatch in patient demographics" {:expected registration :existing existing})))
-          ;; no existing patient, so register a new patient and proceed
-          (let [patient (create-patient! conn {:t_patient/sex                     (name sex)
-                                               :t_patient/date_birth              (.withDayOfMonth date-birth 1)
-                                               :t_patient/first_names             "******"
-                                               :t_patient/last_name               "******"
-                                               :t_patient/title                   "**"
-                                               :t_patient/stored_global_pseudonym (:global-pseudonym existing)
-                                               :t_patient/status                  "PSEUDONYMOUS"})]
-            (register-patient-project conn project-id user-id patient :pseudonym (:project-pseudonym existing))
-            patient))))))
+
+    (let [existing (find-legacy-pseudonymous-patient conn registration)]
+      (if (:t_patient/id existing)
+        ;; existing patient - so check matching core demographics, and proceed
+        (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
+                 (= sex (:t_patient/sex existing))
+                 (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
+          (do (register-patient-project! conn project-id user-id existing :pseudonym (:project-pseudonym existing))
+              existing)
+          (throw (ex-info "mismatch in patient demographics" {:expected registration :existing existing})))
+        ;; no existing patient, so register a new patient and proceed
+        (let [patient (create-patient! conn {:t_patient/sex                     (name sex)
+                                             :t_patient/date_birth              (.withDayOfMonth date-birth 1)
+                                             :t_patient/first_names             "******"
+                                             :t_patient/last_name               "******"
+                                             :t_patient/title                   "**"
+                                             :t_patient/stored_global_pseudonym (:global-pseudonym existing)
+                                             :t_patient/status                  "PSEUDONYMOUS"})]
+          (register-patient-project! conn project-id user-id patient :pseudonym (:project-pseudonym existing))
+          patient)))))
 
 (defn make-slug
   [s]
@@ -317,72 +393,6 @@
                     str/trim
                     str/lower-case
                     (str/split #"[\p{Space}\p{P}]+"))))
-
-(defn fetch-users
-  "Fetch users for the project specified. An individual may be listed more than
-  once if they have more than one 'role' within the project."
-  [conn project-id]
-  (db/execute!
-    conn
-    (sql/format
-      {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
-                   :t_job_title/name :custom_job_title]
-       :from      [:t_project_user]
-       :left-join [:t_user [:= :user_fk :t_user/id]
-                   :t_job_title [:= :job_title_fk :t_job_title/id]]
-       :where     [:= :project_fk project-id]
-       :order-by  [:last_name :first_names]})))
-
-
-(defn fetch-project-sql [project-id]
-  (sql/format {:select :* :from :t_project
-               :where  [:= :t_project/id project-id]}))
-
-(defn fetch-projects-sql [ids]
-  (sql/format {:select :* :from :t_project :where [:in :id ids]}))
-
-(defn all-children-sql [project-id]
-  (sql/format {:with-recursive
-                       [[:children
-                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :where  [:= :id project-id]}
-                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
-               :select :children/id
-               :from   :children
-               :where  [:!= :id project-id]}))
-
-(defn all-parents-sql [project-id]
-  (sql/format {:with-recursive
-                       [[:parents
-                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :where  [:= :id project-id]}
-                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
-               :select :parents/id
-               :from   :parents
-               :where  [:!= :id project-id]}))
-
-(defn all-children-ids [conn project-id]
-  (map :id (db/execute! conn (all-children-sql project-id))))
-
-(defn all-parents-ids [conn project-id]
-  (map :id (db/execute! conn (all-parents-sql project-id))))
-
-(defn all-children [conn project-id]
-  (when-let [children-ids (seq (all-children-ids conn project-id))]
-    (db/execute! conn (fetch-projects-sql children-ids))))
-
-(defn all-parents [conn project-id]
-  (when-let [parent-ids (seq (all-parents-ids conn project-id))]
-    (db/execute! conn (fetch-projects-sql parent-ids))))
-
-(defn fetch-project [conn project-id]
-  (db/execute-one! conn (fetch-project-sql project-id)))
-
-(defn project-with-name [conn nm]
-  (db/execute-one! conn (sql/format {:select :* :from :t_project
-                                     :where  [:= :t_project/name nm]})))
 
 (comment
   (require '[next.jdbc.connection])
@@ -430,7 +440,7 @@
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (com.eldrix.pc4.server.rsdb.patients/fetch-episodes conn 43518)))
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 43518 37)))
   (discharge-episode! conn 1 {:t_episode/id 46540})
-  (register-patient-project conn 18 2 {:t_patient/id 14031})
+  (register-patient-project! conn 18 2 {:t_patient/id 14031})
   (register-episode! conn 1 {:t_episode/id 46538})
   (insert-episode! conn {:t_episode/project_fk       18
                          :t_episode/patient_fk       14031
