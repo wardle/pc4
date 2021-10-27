@@ -4,6 +4,8 @@
             [eldrix.pc4-ward.server :as srv]))
 
 (defn make-cav-fetch-patient-op
+  "This is a Cardiff and Vale specific operation to fetch patient data directly
+  from PMS. This is a leaky abstraction that will be removed in the future."
   [{:keys [pas-identifier]}]
   [{(list 'wales.nhs.cavuhb/fetch-patient
           {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
@@ -22,10 +24,57 @@
      :org.hl7.fhir.Patient/deceased
      :org.hl7.fhir.Patient/currentAddress]}])
 
-(rf/reg-event-fx
+(def core-patient-properties
+  [:t_patient/id
+   :t_patient/patient_identifier
+   :t_patient/first_names
+   :t_patient/last_name
+   :t_patient/sex
+   :t_patient/date_birth
+   :t_patient/status
+   :t_patient/date_death
+   :t_patient/current_address])
+
+(def full-patient-properties
+  (into
+    core-patient-properties
+    [:t_patient/diagnoses
+     :t_patient/medications
+     :t_patient/encounters
+     :t_patient/episodes]))
+
+(defn make-search-by-legacy-pseudonym
+  [project-id pseudonym]
+  [{(list 'pc4.rsdb/search-patient-by-pseudonym
+          {:project-id project-id
+           :pseudonym  pseudonym})
+    (conj core-patient-properties
+          :t_episode/stored_pseudonym)}])
+
+(defn make-fetch-pseudonymous-patient
+  "Create an operation to fetch a patient via project-specific pseudonym."
+  [project-id pseudonym]
+  [{(list 'pc4.rsdb/search-patient-by-pseudonym
+          {:project-id project-id
+           :pseudonym  pseudonym})
+    (conj full-patient-properties
+          :t_episode/stored_pseudonym)}])
+
+(defn make-fetch-patient
+  "Create an operation to fetch a full patient record with the
+  patient-identifier specified."
+  [patient-identifier]
+  [{[:t_patient/patient_identifier patient-identifier]
+    full-patient-properties}])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(rf/reg-event-fx   ;;; DEPRECATED
   ::fetch []
   (fn [{db :db} [_ identifier]]
-    (js/console.log "fetch patient " identifier)
+    (js/console.log "WARNING: LEGACY DEPRECATED fetch patient " identifier)
     {:db (-> db
              (dissoc :patient/search-results)
              (update-in [:errors] dissoc ::fetch))
@@ -34,13 +83,13 @@
                                                 :on-success [::handle-fetch-response]
                                                 :on-failure [::handle-fetch-failure]})]]}))
 
-(rf/reg-event-fx ::handle-fetch-response
+(rf/reg-event-fx ::handle-fetch-response  ;;DEPRECATED
   []
   (fn [{db :db} [_ {pt 'wales.nhs.cavuhb/fetch-patient}]]
     (js/console.log "fetch patient response: " pt)
     {:db (assoc db :patient/search-results (if pt [pt] []))}))
 
-(rf/reg-event-fx ::handle-fetch-failure
+(rf/reg-event-fx ::handle-fetch-failure   ;;DEPRECATED
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "fetch patient failure: response " response)
@@ -68,21 +117,10 @@
 
 
 
-(defn make-search-by-legacy-pseudonym
-  [project-id pseudonym]
-  [{(list 'pc4.rsdb/search-patient-by-pseudonym
-          {:project-id project-id
-           :pseudonym  pseudonym})
-    [:t_patient/id
-     :t_patient/patient_identifier
-     :t_patient/first_names
-     :t_patient/last_name
-     :t_patient/sex
-     :t_patient/date_birth
-     :t_patient/status
-     :t_patient/date_death
-     :t_episode/stored_pseudonym]}])
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Search by legacy pseudonym
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rf/reg-event-fx ::search-legacy-pseudonym
   (fn [{db :db} [_ project-id pseudonym]]
     (js/console.log "search by pseudonym" project-id pseudonym)
@@ -104,14 +142,44 @@
 (rf/reg-event-fx ::handle-search-pseudonym-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
+    (js/console.log "search by pseudonym failure: response " response)
     {:db (-> db
              (dissoc :patient/search-legacy-pseudonym)
              (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Open and close a pseudonymous patient record
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(rf/reg-event-fx ::open-pseudonymous-patient
+  (fn [{db :db} [_ project-id pseudonym]]
+    (js/console.log "opening pseudonymous patient record:" project-id pseudonym)
+    {:db (-> db
+             (dissoc :patient/current)
+             (update-in [:errors] dissoc ::open-patient))
+     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
+                                                :token      (get-in db [:authenticated-user :io.jwt/token])
+                                                :on-success [::handle-fetch-pseudonymous-patient-response]
+                                                :on-failure [::handle-fetch-pseudonymous-patient-failure]})]]}))
+
+(rf/reg-event-fx ::handle-fetch-pseudonymous-patient-response
+  []
+  (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
+    (js/console.log "fetch pseudonymous patient response: " result)
+    {:db (assoc db :patient/current result)}))
+
+(rf/reg-event-fx ::handle-fetch-pseudonymous-patient-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "fetch pseudonymous patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/current)
+             (assoc-in [:errors ::open-patient] "Failed to fetch pseudonymous patient: unable to connect to server. Please check your connection and retry."))}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defn fetch-patient
+(defn ^:deprecated fetch-patient
   [s & {:keys [handler error-handler token] :or {error-handler srv/default-error-handler}}]
   (srv/do! {:params        (make-cav-fetch-patient-op {:pas-identifier s})
             :token         token

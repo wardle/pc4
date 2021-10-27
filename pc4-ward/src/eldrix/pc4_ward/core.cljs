@@ -7,10 +7,11 @@
             [reitit.frontend.easy :as rfe]
             [re-frame.core :as re-frame]
             [eldrix.pc4-ward.subs :as subs]
-            [eldrix.pc4-ward.user.subs :as user-subs]
-            [eldrix.pc4-ward.user.events :as user-events]
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.views :as views]
+            [eldrix.pc4-ward.patient.events :as patient-events]
+            [eldrix.pc4-ward.user.subs :as user-subs]
+            [eldrix.pc4-ward.user.events :as user-events]
             [eldrix.pc4-ward.refer.views :as refer]
             [eldrix.pc4-ward.project.events :as project-events]
             [eldrix.pc4-ward.project.views :as project]
@@ -67,15 +68,14 @@
      :title       "Patient"
      :view        project/view-pseudonymous-patient
      :auth        identity                                  ;; we need a logged in user to view a patient
-     :params      {:path {:id int? :pseudonym string?}}
-     :controllers [{:parameters {:path [:id :pseudonym]}
+     :parameters  {:path {:project-id int? :pseudonym string?}}
+     :controllers [{:parameters {:path [:project-id :pseudonym]}
                     :start      (fn [{:keys [path]}]
-                                  (println "viewing patient by pseudonym page" (:pseudonym path))
-                                  (re-frame/dispatch [::project-events/set-current-project (:id path)])
-                                  (re-frame/dispatch [::project-events/set-pseudonymous-patient (:pseudonym path)]))
+                                  (println "viewing patient by pseudonym page" (:project-id path) (:pseudonym path))
+                                  (re-frame/dispatch [::patient-events/open-pseudonymous-patient (:project-id path) (:pseudonym path)]))
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving pseudonymous patient page" (:pseudonym path))
-                                  (re-frame/dispatch [::project-events/close-pseudonymous-patient]))}]}]
+                                  (re-frame/dispatch [::patient-events/close-pseudonymous-patient]))}]}]
 
    ])
 
@@ -86,8 +86,7 @@
 (def router
   (rf/router
     (routes)
-    {:data {:coercion rss/coercion}}
-    ))
+    {:data {:coercion rss/coercion}}))
 
 (defn init-routes! []
   (js/console.log "initializing routes")
@@ -108,7 +107,7 @@
      [views/nav-bar
       :route current-route
       :title "PatientCare v4"
-      :menu [] ;[{:id :home :title "Home" :href (href :home)}  {:id :refer :title "Refer" :href (href :refer)}]
+      :menu []                                              ;[{:id :home :title "Home" :href (href :home)}  {:id :refer :title "Refer" :href (href :refer)}]
       :selected (when current-route (-> current-route :data :name))
       :show-user? authenticated-user
       :full-name (:urn:oid:2.5.4/commonName authenticated-user)

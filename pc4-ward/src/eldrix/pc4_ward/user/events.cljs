@@ -35,7 +35,9 @@
   ::do-login []
   (fn [{db :db} [_ namespace username password]]
     (js/console.log "performing login " username)
-    {:db (dissoc db :authenticated-user)
+    {:db (-> db
+             (dissoc :authenticated-user)
+             (update-in [:errors] dissoc :user/login))
      :fx [[:http-xhrio {:method          :post
                         :uri             "http://localhost:8080/login"
                         :timeout         1000
