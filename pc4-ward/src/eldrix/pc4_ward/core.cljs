@@ -53,7 +53,7 @@
      :title       "Projects"
      :view        project/project-home-page
      :auth        identity                                  ;; we need a logged in user to view a project
-     :params      {:path {:project-id int? :slug string?}}
+     :parameters  {:path {:project-id int? :slug string?}}
      :controllers [{:parameters {:path [:project-id :slug]}
                     :start      (fn [{:keys [path]}]
                                   (println "entering project page" (:project-id path))
