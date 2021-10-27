@@ -17,14 +17,6 @@
             [eldrix.pc4-ward.config :as config]
             [eldrix.pc4-ward.ui :as ui]))
 
-(re-frame/reg-fx :push-state
-                 (fn [route]
-                   (apply rfe/push-state route)))
-
-(re-frame/reg-event-fx ::push-state
-                       (fn [db [_ & route]]
-                         {:push-state route}))
-
 (defn href
   "Return relative url for given route. Url can be used in HTML links."
   ([k]
