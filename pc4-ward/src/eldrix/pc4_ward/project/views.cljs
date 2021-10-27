@@ -20,7 +20,7 @@
      [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
       [:dt.text-sm.font-medium.text-gray-500 "Type"]
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (str/upper-case (name (:t_project/type project)))]]
-     [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
       [:dt.text-sm.font-medium.text-gray-500 "Date from"]
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (dates/format-date (:t_project/date_from project))]]
      [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
@@ -29,7 +29,7 @@
      [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
       [:dt.text-sm.font-medium.text-gray-500 "Registered patients"]
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_registered_patients project)]]
-     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+     [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
       [:dt.text-sm.font-medium.text-gray-500 "Discharged episodes"]
       [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_discharged_episodes project)]]
      [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
@@ -42,7 +42,7 @@
   (let [patient @(rf/subscribe [::patient-subs/search-by-legacy-pseudonym-result])]
     [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
      [:div.px-4.py-6.sm:p-6
-      [:form.divide-y.divide-gray-200
+      [:form.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
        [:div.divide-y.divide-gray-200.sm:space-y-5
         [:div
          [:div
