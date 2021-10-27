@@ -92,15 +92,15 @@
     (fn []
       [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
        [:div.md:mr-2
-        [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:id   (:t_project/id %)
-                                                                                         :slug (:t_project/slug %)})]]
+        [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:project-id (:t_project/id %)
+                                                                                         :slug       (:t_project/slug %)})]]
        [:div.col-span-3
         [:<>
          [eldrix.pc4-ward.snomed.views/select-snomed
           :id :example
           :label "Enter diagnosis"
           :constraint "<404684003"
-        ;  :common-choices  @(rf/subscribe [::user-subs/common-diagnoses])
+          ;  :common-choices  @(rf/subscribe [::user-subs/common-diagnoses])
           :max-hits 100
           :value @selected-diagnosis
           :select-fn #(do (tap> %)

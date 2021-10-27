@@ -56,19 +56,36 @@
      :view      refer/refer-page
      :link-text "Refer"}]
 
-   ["/projects/:id/:slug"
+   ["/projects/:project-id/:slug"
     {:name        :projects
      :title       "Projects"
      :view        project/project-home-page
      :auth        identity                                  ;; we need a logged in user to view a project
-     :params      {:path {:id int? :slug string?}}
-     :controllers [{:parameters {:path [:id :slug]}
+     :params      {:path {:project-id int? :slug string?}}
+     :controllers [{:parameters {:path [:project-id :slug]}
                     :start      (fn [{:keys [path]}]
-                                  (println "entering project page" (:id path))
-                                  (re-frame/dispatch [::project-events/set-current-project (:id path)]))
+                                  (println "entering project page" (:project-id path))
+                                  (re-frame/dispatch [::project-events/set-current-project (:project-id path)]))
                     :stop       (fn [{:keys [path]}]
-                                  (println "leaving project page" (:id path))
-                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]])
+                                  (println "leaving project page" (:project-id path))
+                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]
+
+   ["/projects/:project-id/patients/pseudonym/:pseudonym"
+    {:name        :patient-by-project-pseudonym
+     :title       "Patient"
+     :view        project/view-pseudonymous-patient
+     :auth        identity                                  ;; we need a logged in user to view a patient
+     :params      {:path {:id int? :pseudonym string?}}
+     :controllers [{:parameters {:path [:id :pseudonym]}
+                    :start      (fn [{:keys [path]}]
+                                  (println "viewing patient by pseudonym page" (:pseudonym path))
+                                  (re-frame/dispatch [::project-events/set-current-project (:id path)])
+                                  (re-frame/dispatch [::project-events/set-pseudonymous-patient (:pseudonym path)]))
+                    :stop       (fn [{:keys [path]}]
+                                  (println "leaving pseudonymous patient page" (:pseudonym path))
+                                  (re-frame/dispatch [::project-events/close-pseudonymous-patient]))}]}]
+
+   ])
 
 (defn on-navigate [new-match]
   (when new-match
