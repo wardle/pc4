@@ -66,9 +66,13 @@
                [:p (:t_episode/stored_pseudonym patient)]]
               [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
                [:button.inline-flex.items-center.px-4.py-2.border.border-transparent.shadow-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:text-sm
-                {:type "button"}
+                {:type "button"
+                 :on-click #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})}
                 "View patient record"]]]]])]]]]]))
 
+
+(defn view-pseudonymous-patient []
+  [:div [:h1 "Pseudonymous patient page"]])
 
 (defn list-users [users]
   [:div.flex.flex-col
@@ -91,6 +95,7 @@
 
 (defn project-home-page []
   (let [selected-page (reagent.core/atom :home)]
+    (rf/dispatch [::patient-events/search-legacy-pseudonym nil ""])
     (fn []
       (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
