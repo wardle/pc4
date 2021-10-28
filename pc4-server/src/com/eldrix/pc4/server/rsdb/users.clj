@@ -36,19 +36,19 @@
   [nadex-pool {:t_user/keys [username credential authentication_method]} password]
   (when-not (or (str/blank? password) (str/blank? credential))
     (cond
-      (= authentication_method "LOCAL")                      ;; TODO: force password change for these users
+      (= authentication_method "LOCAL")                     ;; TODO: force password change for these users
       (let [md (MessageDigest/getInstance "SHA")
             hash (Base64/encodeBase64String (.digest md (.getBytes password)))]
         (log/warn "warning: using outdated password check for user " username)
         (= credential hash))
 
-      (= authentication_method "LOCAL17")                    ;; TODO: upgrade to more modern hash here and in rsdb codebase
+      (= authentication_method "LOCAL17")                   ;; TODO: upgrade to more modern hash here and in rsdb codebase
       (BCrypt/checkpw password credential)
 
       (and nadex-pool (= authentication_method "NADEX"))
       (nadex/can-authenticate? nadex-pool username password)
 
-      (= authentication_method "NADEX")                      ;; TODO: remove this fallback
+      (= authentication_method "NADEX")                     ;; TODO: remove this fallback
       (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
           (BCrypt/checkpw password credential))
 
@@ -260,7 +260,6 @@
                 [:= :erattachment/attachmentdataid :erattachmentdata/id]
                 [:= :erattachment/id :t_user/photo_fk]
                 [:= :t_user/username username]]})))
-
 
 (defn fetch-latest-news
   "Returns the latest news items for this user. Note: each news item can be
