@@ -29,7 +29,8 @@
      :org.hl7.fhir.HumanName/prefix
      :org.hl7.fhir.HumanName/family
      :org.hl7.fhir.HumanName/given
-     :org.hl7.fhir.HumanName/suffix]}])
+     :org.hl7.fhir.HumanName/suffix]}
+   :t_user/latest_news])
 
 (rf/reg-event-fx
   ::do-login []
