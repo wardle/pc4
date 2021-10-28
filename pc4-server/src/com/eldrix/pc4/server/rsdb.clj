@@ -485,7 +485,9 @@
   This uses the legacy approach, which *will* be deprecated."
   [{conn :com.eldrix.rsdb/conn} {:keys [project-id pseudonym] :as params}]
   {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
-   ::pco/output  [:t_patient/patient_identifier]}
+   ::pco/output  [:t_patient/patient_identifier
+                  :t_episode/stored_pseudonym
+                  :t_episode/project_fk]}
   (log/debug "search-patient-by-pseudonym" params)
   (projects/search-by-project-pseudonym conn project-id pseudonym))
 

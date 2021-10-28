@@ -227,7 +227,7 @@
   (when (>= (count pseudonym) 3)
     (let [results (jdbc/execute!
                     conn
-                    (sql/format {:select    (conj fetch-pseudonym-patient-properties :t_episode/stored_pseudonym)
+                    (sql/format {:select    (into fetch-pseudonym-patient-properties [:t_episode/stored_pseudonym :t_episode/project_fk])
                                  :from      :t_episode
                                  :left-join [:t_project [:= :project_fk :t_project/id]
                                              :t_patient [:= :patient_fk :t_patient/id]]
