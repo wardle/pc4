@@ -88,25 +88,42 @@
                  {:key (:id item) :on-click (:on-click item)} (:title item)]))]])]])))
 
 (defn home-panel []
-  (let [selected-diagnosis (reagent/atom nil)]
-    (fn []
-      [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-       [:div.md:mr-2
-        [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:project-id (:t_project/id %)
-                                                                                         :slug       (:t_project/slug %)})]]
-       [:div.col-span-3
-        [:<>
-         [eldrix.pc4-ward.snomed.views/select-snomed
-          :id :example
-          :label "Enter diagnosis"
-          :constraint "<404684003"
-          ;  :common-choices  @(rf/subscribe [::user-subs/common-diagnoses])
-          :max-hits 100
-          :value @selected-diagnosis
-          :select-fn #(do (tap> %)
-                          (println "views/select snomed " %)
-                          (reset! selected-diagnosis %))]]]])))
+  (let [latest-news @(rf/subscribe [::user-subs/latest-news])
+        _ (tap> latest-news)]
+    [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+     [:div.md:mr-2
+      [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:project-id (:t_project/id %)
+                                                                                       :slug       (:t_project/slug %)})]]
+     [:div.col-span-3
+      (for [article latest-news]
+        [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
+         [:ul.divide-y.divide-gray-200 {:role "list"}
+          [:li
+           [:div.px-4.py-4.sm:px-6
+            [:div.flex.items-center.justify-between
+             [:p.text-lg.font-medium.text-indigo-600.truncate (:t_news/title article)]
+             [:div.ml-2.flex-shrink-0.flex
+              [:p.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800 [:time {:datetime (:t_news/date_time article)} (com.eldrix.pc4.commons.dates/format-date (:t_news/date_time article))]]]]
+            [:div.sm:flex.sm:justify-between
+             [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
+              [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
+            [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]]]])]]))
 
+
+
+(defn test-snomed []
+  (let [selected-diagnosis (reagent/atom nil)]
+    [:<>
+     [eldrix.pc4-ward.snomed.views/select-snomed
+      :id :example
+      :label "Enter diagnosis"
+      :constraint "<404684003"
+      ;  :common-choices  @(rf/subscribe [::user-subs/common-diagnoses])
+      :max-hits 100
+      :value @selected-diagnosis
+      :select-fn #(do (tap> %)
+                      (println "views/select snomed " %)
+                      (reset! selected-diagnosis %))]]))
 
 (defn main-page []
   (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])]
