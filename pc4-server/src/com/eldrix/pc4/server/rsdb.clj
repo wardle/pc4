@@ -438,6 +438,13 @@
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
   {:t_user/active_projects (filter projects/active? (users/projects conn username))})
 
+(pco/defresolver user->latest-news
+  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  {::pco/output [{:t_user/latest_news [:t_news/id
+                                       :t_news/title
+                                       :t_news/body
+                                       {:t_news/author [:t_user/id]}]}]}
+  {:t_user/latest_news (users/fetch-latest-news conn username)})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -533,6 +540,7 @@
    user->full-name
    user->initials
    user->active-projects
+   user->latest-news
    patient->fhir-human-name
    patient->fhir-gender
    register-patient-by-pseudonym
