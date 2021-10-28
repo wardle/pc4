@@ -5,8 +5,10 @@
             [eldrix.pc4-ward.user.events :as user-events]
             [eldrix.pc4-ward.patient.events :as patient-events]
             [eldrix.pc4-ward.patient.subs :as patient-subs]
+            [eldrix.pc4-ward.patient.views :as patient-views]
             [reagent.core :as reagent]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [eldrix.pc4-ward.ui :as ui]))
 
 ;; these could be automatically generated from the FHIR specs, except that the
 ;; specifications often have everything as optional (e.g. cardinality 0..1).
@@ -193,27 +195,6 @@
            [:td (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]
            [:td "A123456 " [:br] "M1234567"]]))]]))
 
-(defn patient-banner [patient & {:keys [on-close]}]
-  [:div.card
-   [:header.card-header
-    [:p.card-header-title.level
-     [:div.level-left
-      [:div.level-item (:uk.nhs.cfh.isb1506/patient-name patient)]
-      [:div.level-item
-       [:span.has-text-weight-light "NHS No:"]
-       (:uk.nhs.cfh.isb1504/nhs-number patient)]
-      [:div.level-item
-       [:span.has-text-weight-light "Gender:"]
-       (str/upper-case (name (:org.hl7.fhir.Patient/gender patient)))]
-      [:div.level-item
-        (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]]
-     [:div.level-right
-      [:div.level-item [:span.has-text-weight-light "Born:"]
-       (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
-      [:div.level-item [:span.has-text-weight-light "Age:"]
-       (:uk.nhs.cfh.isb1505/display-age patient)]
-      (when on-close [:div.level-item [:button.delete {:on-click on-close}]])]]]])
-
 (defn patient-panel
   [patient]
   [:div.box
@@ -354,7 +335,7 @@
              [:a.navbar-item {:on-click #(rf/dispatch [::user-events/do-logout])} "Logout"]])]
 
          (when-let [pt @(rf/subscribe [::patient-subs/current-patient])]
-           [patient-banner pt :on-close #(rf/dispatch [::patient-events/close-current-patient])])
+           [ui/patient-banner pt :on-close #(rf/dispatch [::patient-events/close-current-patient])])
 
          [:section.section
           [:div.columns
