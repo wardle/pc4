@@ -10,32 +10,42 @@
             [clojure.string :as str]
             [com.eldrix.pc4.commons.dates :as dates]))
 
-(defn inspect-project [project]                             ;;TODO: create from data instead - this is egregious
+(defn inspect-project [project]
   [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
-   [:div.border-t.border-gray-200
-    [:dl
-     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+   [:div.px-4.py-5.sm:px-6
+    [:h3.text-lg.leading-6.font-medium.text-gray-900 (:t_project/title project)]
+    [:p.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html (:t_project/long_description project)}}]]
+   [:div.border-t.border-gray-200.px-4.py-5.sm:px-6
+    [:dl.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Status"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (if (:t_project/active? project) "Active" "Inactive")]]
-     [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+      [:dd.mt-1.text-sm.text-gray-900 (if (:t_project/active? project) "Active" "Inactive")]]
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Type"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (str/upper-case (name (:t_project/type project)))]]
-     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+      [:dd.mt-1.text-sm.text-gray-900 (str/upper-case (name (:t_project/type project))) " " (when (:t_project/virtual project) "VIRTUAL")]]
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Date from"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (dates/format-date (:t_project/date_from project))]]
-     [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+      [:dd.mt-1.text-sm.text-gray-900 (dates/format-date (:t_project/date_from project))]]
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Date to"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (dates/format-date (:t_project/date_to project))]]
-     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+      [:dd.mt-1.text-sm.text-gray-900 (dates/format-date (:t_project/date_to project))]]
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Registered patients"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_registered_patients project)]]
-     [:div.bg-white.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+      [:dd.mt-1.text-sm.text-gray-900 (:t_project/count_registered_patients project)]]
+     [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Discharged episodes"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_discharged_episodes project)]]
-     [:div.bg-gray-50.px-4.py-2.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
-      [:dt.text-sm.font-medium.text-gray-500 "Pending referrals"]
-      [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 (:t_project/count_pending_referrals project)]]
-     ]]])
+      [:dd.mt-1.text-sm.text-gray-900 (:t_project/count_discharged_episodes project)]]
+
+     (when (:t_project/inclusion_criteria project)
+       [:div.sm:col-span-2
+        [:dt.text-sm.font-medium.text-gray-500 "Inclusion criteria"]
+        [:dd.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html (:t_project/inclusion_criteria project)}} ]])
+     (when (:t_project/exclusion_criteria project)
+       [:div.sm:col-span-2
+        [:dt.text-sm.font-medium.text-gray-500 "Exclusion criteria"]
+        [:dd.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html (:t_project/exclusion_criteria project)}}]])]]])
+
+
 
 (defn search-by-pseudonym-panel
   [project-id]
