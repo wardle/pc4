@@ -78,5 +78,12 @@
   (fn [user]
     ))
 
+(rf/reg-sub ::latest-news
+  (fn []
+    (rf/subscribe [::authenticated-user]))
+  (fn [user]
+    (:t_user/latest_news user)))
+
+
 (comment
   )
