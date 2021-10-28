@@ -74,7 +74,17 @@
 
 
 (defn view-pseudonymous-patient []
-  [:div [:h1 "Pseudonymous patient page"]])
+  (let [patient @(rf/subscribe [::patient-subs/current])
+        authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
+        _ (tap> {:patient patient :user authenticated-user})]
+    [:div
+     [ui/patient-banner
+      :name (:t_patient/sex patient)
+      :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
+      :address (:t_episode/stored_pseudonym patient)
+      :on-close #(when-let [project-id (:t_episode/project_fk patient)]
+                   (println "opening project page for project" project-id)
+                   (rfe/push-state :projects {:project-id project-id :slug "home"}))]]))
 
 (defn list-users [users]
   [:div.flex.flex-col

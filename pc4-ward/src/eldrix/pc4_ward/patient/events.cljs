@@ -49,7 +49,8 @@
           {:project-id project-id
            :pseudonym  pseudonym})
     (conj core-patient-properties
-          :t_episode/stored_pseudonym)}])
+          :t_episode/stored_pseudonym
+          :t_episode/project_fk)}])
 
 (defn make-fetch-pseudonymous-patient
   "Create an operation to fetch a patient via project-specific pseudonym."
@@ -58,7 +59,8 @@
           {:project-id project-id
            :pseudonym  pseudonym})
     (conj full-patient-properties
-          :t_episode/stored_pseudonym)}])
+          :t_episode/stored_pseudonym
+          :t_episode/project_fk)}])
 
 (defn make-fetch-patient
   "Create an operation to fetch a full patient record with the
@@ -165,7 +167,7 @@
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
     (js/console.log "fetch pseudonymous patient response: " result)
-    {:db (assoc db :patient/current result)}))
+    {:db (assoc-in db [:patient/current :patient] result)}))
 
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-failure
   []

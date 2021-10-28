@@ -75,7 +75,7 @@
                                   (re-frame/dispatch [::patient-events/open-pseudonymous-patient (:project-id path) (:pseudonym path)]))
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving pseudonymous patient page" (:pseudonym path))
-                                  (re-frame/dispatch [::patient-events/close-pseudonymous-patient]))}]}]
+                                  (re-frame/dispatch [::patient-events/close-current-patient]))}]}]
 
    ])
 

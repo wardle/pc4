@@ -39,12 +39,12 @@
                (str "Died " (dates/format-date deceased))
                "Deceased")]])
    [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
-    [:div.font-bold.text-lg.min-w-min name]
+    (when name [:div.font-bold.text-lg.min-w-min name])
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender [:span.text-sm.font-thin.hidden.sm:inline "Gender "] [:span.font-bold gender])]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] [:span.font-bold born]]
     [:div.lg:hidden.text-right.mr-8.md:mr-0 gender " " [:span.font-bold born]]
-    [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]]
-    [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]]]
+    (when nhs-number [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]])
+    (when hospital-identifier [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]])]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
     [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]])
 
@@ -330,7 +330,7 @@
           [:div.grid-cols-1.sm:grid-cols-2
            [:div
             [:select.w-full.border.border-gray-300.rounded-md
-             {:multiple        true
+             {:multiple        false
               :size            size
               :disabled        disabled?
               :on-change       #(when select-fn (tap> autocomplete-results) (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
