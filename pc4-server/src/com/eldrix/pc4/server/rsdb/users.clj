@@ -262,6 +262,20 @@
                 [:= :t_user/username username]]})))
 
 
+(defn fetch-latest-news
+  "Returns the latest news items for this user. Note: each news item can be
+  linked to a specific project, but we've never used that functionality. At
+  the moment, all recent news is returned."
+  [conn username]
+  (db/execute! conn (sql/format
+                      {:select    [:t_news/id :date_time :t_news/title :body
+                                   :username :t_user/title :first_names :last_name :postnomial :custom_initials
+                                   :email :custom_job_title :t_job_title/name]
+                       :from      [:t_news]
+                       :left-join [:t_user [:= :author_fk :t_user/id]
+                                   :t_job_title [:= :job_title_fk :t_job_title/id]]
+                       :order-by [[:date_time :desc]]
+                       :limit     5})))
 
 (comment
   (require '[next.jdbc.connection])
@@ -270,6 +284,7 @@
                                                                              :maximumPoolSize 10}))
   (count-incomplete-messages conn "ma090906")
   (count-unread-messages conn "ma090906")
+  (fetch-latest-news conn "ma090906")
   (projects conn "ma090906")
   (sort (map :t_project/title (filter com.eldrix.pc4.server.rsdb.projects/active? (projects conn "ma090906"))))
 
