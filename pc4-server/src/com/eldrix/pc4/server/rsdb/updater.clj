@@ -147,7 +147,7 @@
 (defn update-concepts
   "Update the legacy rsdb concepts from the data available in hermes.
   * Streams all concepts from hermes
-  * Maps to an RF1 representation
+  * Maps each to an RF1 representation
   * Turns into batches of values
   * Upserts each batch.
   Returns a count of concepts processed."
@@ -161,7 +161,7 @@
 (defn update-descriptions
   "Update the legacy rsdb descriptions from the data available in hermes.
   * Streams all concepts from hermes
-  * Maps each to RF1 representation of each concept's descriptions
+  * Maps each to a sequence of RF1 representations for each concept's descriptions
   * Upserts each batch
   Returns a count of descriptions processed."
   [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
@@ -174,7 +174,7 @@
   "Update the legacy rsdb relationships from the data available in hermes.
   * Delete all existing relationships
   * Streams all concepts from hermes
-  * Maps each to RF1 representation of each concept's relationships
+  * Maps each to a sequence of RF1 representations for each concept's relationships
   * Inserts each batch
   Returns a count of relationships processed."
   [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
@@ -185,6 +185,12 @@
     (a/<!! (a/reduce (fn [acc batch] (+ acc (apply + (execute-batch conn insert-relationships-sql (apply concat batch))))) 0 ch2))))
 
 (defn build-cached-parents
+  "Builds a cache parent index.
+  * Delete existing cache
+  * Streams all concepts from hermes
+  * Maps each to a sequence of vectors representing source and target concepts
+  * Inserts each batch.
+  Returns a count of rows processed."
   [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
   (jdbc/execute-one! conn ["truncate t_cached_parent_concepts"])
   (let [ch (stream-extended-concepts hermes)
@@ -204,7 +210,7 @@
   (update-relationships conn hermes)
   (println "Building legacy parent cache")
   (build-cached-parents conn hermes)
-  (println "Now use legacy index creator to build a lucene6 index: https://github.com/wardle/rsterminology/releases/tag/v1.1"))
+  (println "Now use legacy index creator to build a lucene6 index:\nSee https://github.com/wardle/rsterminology/releases/tag/v1.1\nRun using:\njava -jar target/rsterminology-server-1.1-SNAPSHOT.jar --config run.yml --build-index wibble"))
 
 
 (defn update-snomed
