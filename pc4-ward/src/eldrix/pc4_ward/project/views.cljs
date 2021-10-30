@@ -39,7 +39,7 @@
      (when (:t_project/inclusion_criteria project)
        [:div.sm:col-span-2
         [:dt.text-sm.font-medium.text-gray-500 "Inclusion criteria"]
-        [:dd.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html (:t_project/inclusion_criteria project)}} ]])
+        [:dd.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html (:t_project/inclusion_criteria project)}}]])
      (when (:t_project/exclusion_criteria project)
        [:div.sm:col-span-2
         [:dt.text-sm.font-medium.text-gray-500 "Exclusion criteria"]
@@ -82,6 +82,31 @@
                  :on-click #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})}
                 "View patient record"]]]]])]]]]]))
 
+(defn register-pseudonymous-patient
+  [project-id]
+  [:div.space-y-6
+   [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+    [:div.md:grid.md:grid-cols-3.md:gap-6
+     [:div.md:col-span-1
+      [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]
+      [:p.mt-1.mr-12.text-sm.text-gray-500 "Enter your patient details."
+       [:p "This is safe even if patient already registered"]]]
+     [:div.mt-5.md:mt-0.md:col-span-2
+      [:form {:action "#" :method "POST"}
+       [:div.grid.grid-cols-6.gap-6
+        [:div.col-span-6.sm:col-span-3.space-y-6
+         [:div [ui/textfield-control "" :label "NHS number" :auto-focus true]]
+         [:div
+          [ui/ui-label :for "date-birth" :label "Date of birth"]
+          [:input.pb-4 {:name "date-birth" :type "date"}]]
+         [ui/select :name "gender" :label "Gender" :choices ["Male" "Female" "Unknown"] :no-selection-string ""]
+         [ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
+
+         ]
+        ]]]]]
+   [:div.flex.justify-end.mr-8
+    [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500
+     {:type "submit"} "Register patient..."]]])
 
 (defn view-pseudonymous-patient []
   (let [patient @(rf/subscribe [::patient-subs/current])
@@ -116,7 +141,7 @@
            [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (:t_user/email user)]])]]]]]])
 
 (defn project-home-page []
-  (let [selected-page (reagent.core/atom :home)]
+  (let [selected-page (reagent.core/atom :register)]
     (rf/dispatch [::patient-events/search-legacy-pseudonym nil ""])
     (fn []
       (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])
@@ -139,5 +164,5 @@
            (case @selected-page
              :home [inspect-project current-project]
              :search [search-by-pseudonym-panel (:t_project/id current-project)]
-             :register nil
+             :register [register-pseudonymous-patient (:t_project/id current-project)]
              :users [list-users (:t_project/users current-project)])])))))

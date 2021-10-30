@@ -90,10 +90,10 @@
   [:<> [:input.mt-1.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.shadow-sm.sm:text-sm.border-2.rounded-md.p-1
         {:type  field-type :name name :autocomplete autocomplete
          :class (if-not error "border-gray-200" "border-red-600")}]
-   (if (string? error) [:span.text-red-600.text-sm "Please enter your email"])])
+   (if (string? error) [:span.text-red-600.text-sm error])])
 
 (defn ui-label [& {:keys [for label]}]
-  [:label.text-gray-700.dark:text-gray-200 {:for for} label])
+  [:label.block.text-sm.font-medium.text-gray-700 {:for for} label])
 
 (defn example-form
   "This is simply an experiment in styling a form with some help text
@@ -221,43 +221,54 @@
          {:on-click on-save :disabled save-disabled :class (if save-disabled "opacity-50 pointer-events-none" "hover:bg-gray-600.focus:outline-none.focus:bg-gray-600")} save-label])])])
 
 
-
 (defn textfield-control
-  [value & {:keys [id label type placeholder required auto-focus disabled on-change help-text]}]
-  [:div.mb-4
-   (when label [:label.text-gray-700.dark:text-gray-200 {:for id} label])
-   [:input.block.w-full.px-4.py-1..border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-    {:id            id :type type :placeholder placeholder :required required
+  [value & {:keys [name label placeholder required auto-focus disabled on-change help-text]}]
+  [:div
+   (when label [:label.block.text-sm.font-medium.text-gray-700 {:for name} label])
+   [:div.mt-1
+   [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+    {:name name :type "text" :placeholder placeholder :required required
      :class         (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
      :disabled      disabled
      :default-value value
      :auto-focus    auto-focus
      :on-change     #(when on-change (on-change (-> % .-target .-value)))}]
-   (when help-text [:p.text-sm.text-gray-500.italic help-text])])
+   (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn select
   "A select control that appears as a pop-up."
-  [{:keys [label value choices id-key display-key default-value select-fn
-           no-selection-string disabled?]
-    :or   {id-key identity display-key identity}}]
-  (let [all-choices (if value (conj choices value) choices)
+  [& {:keys [name label value choices id-key display-key default-value select-fn
+             no-selection-string disabled?]
+      :or   {id-key identity display-key identity}}]
+  (let [all-choices (if (and value (not (some #(= value %) choices)))
+                      (conj choices value) choices)
         choices (zipmap (map id-key all-choices) all-choices)
         sorted-choices (sort-by display-key (vals choices))]
     (when (and default-value (str/blank? value))
       (select-fn default-value))
-    (when label [ui-label :label label])
-    [:select.border.bg-white.rounded.px-3.py-2.outline-none
-     {:disabled  disabled?
-      :value     (str (id-key value))
-      :on-change #(when select-fn
-                    (let [idx (-> % .-target .-selectedIndex)]
-                      (if (and no-selection-string (= 0 idx))
-                        (select-fn nil)
-                        (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
-     (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
-     (for [choice sorted-choices]
-       (let [id (id-key choice)]
-         [:option.py-1 {:value (str id) :key id} (display-key choice)]))]))
+    [:div
+     (when label [ui-label :for name :label label])
+     [:select#location.mt-1.block.w-full.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+      {:name        name
+       :disabled  disabled?
+       :value     (str (id-key value))
+       :on-change #(when select-fn
+                     (let [idx (-> % .-target .-selectedIndex)]
+                       (if (and no-selection-string (= 0 idx))
+                         (select-fn nil)
+                         (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
+      (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
+      (for [choice sorted-choices]
+        (let [id (id-key choice)]
+          [:option.py-1 {:value (str id) :key id} (display-key choice)]))]]))
+
+[:div
+ [:label.block.text-sm.font-medium.text-gray-700 {:for "location"} "Location"]
+ [:select#location.mt-1.block.w-full.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md {:name "location"}
+  [:option "United States"]
+  [:option {:selected "true"} "Canada"]
+  [:option "Mexico"]]]
+
 
 (defn select-or-autocomplete
   "A flexible select/autocompletion control.
@@ -289,7 +300,8 @@
        (when label [ui-label :label label])
        (cond
          (and (= :select (or @mode :select)) (or value (seq common-choices)))
-         (let [all-choices (if value (conj common-choices value) common-choices)
+         (let [value-in-choices? (some #(= % value) common-choices)
+               all-choices (if (and value (not value-in-choices?)) (conj common-choices value) common-choices)
                choices (zipmap (map id-key all-choices) all-choices)
                sorted-choices (sort-by display-key (vals choices))
                _ (println "value of select: " value)]
