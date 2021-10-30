@@ -100,13 +100,12 @@
           [ui/ui-label :for "date-birth" :label "Date of birth"]
           [:input.pb-4 {:name "date-birth" :type "date"}]]
          [ui/select :name "gender" :label "Gender" :choices ["Male" "Female" "Unknown"] :no-selection-string ""]
-         [ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
-
+         ;[ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
          ]
         ]]]]]
    [:div.flex.justify-end.mr-8
     [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500
-     {:type "submit"} "Register patient..."]]])
+     {:type "submit"} "Search or register patient »"]]])
 
 (defn view-pseudonymous-patient []
   (let [patient @(rf/subscribe [::patient-subs/current])
