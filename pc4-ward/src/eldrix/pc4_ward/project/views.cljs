@@ -182,6 +182,7 @@
 (defn project-home-page []
   (let [selected-page (reagent.core/atom :home)]
     (rf/dispatch [::patient-events/search-legacy-pseudonym nil ""])
+    (rf/dispatch [::patient-events/clear-open-patient-error])
     (fn []
       (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])

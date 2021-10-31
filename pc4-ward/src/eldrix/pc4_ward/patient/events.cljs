@@ -124,8 +124,14 @@
   []
   (fn [db [_ patient]]
     (js/console.log "closing patient" patient)
-    (dissoc db :patient/current patient)))
+    (-> db
+        (dissoc :patient/current))))
 
+(rf/reg-event-db ::clear-open-patient-error
+  []
+  (fn [db [_ patient]]
+    (-> db
+        (update-in [:errors] dissoc :open-patient))))
 
 
 
