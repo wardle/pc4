@@ -406,7 +406,7 @@
 
 (defn list-entities-fixed
   "A fixed list of entities."
-  [& {:keys [items headings id-key value-keys on-edit] :or {id-key identity} :as params}]
+  [& {:keys [items headings width-classes id-key value-keys on-edit] :or {id-key identity} :as params}]
   (when-not (= (count headings) (count value-keys))
     (throw (ex-info "Number of headings must be the same as the number of value-keys" params)))
   [:div.flex.flex-col
@@ -414,10 +414,13 @@
     [:div.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
      [:div.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
       [:table.min-w-full.divide-y.divide-gray-200
+       (when (seq width-classes) {:class "table-fixed"})
        [:thead.bg-gray-50
         [:tr
          (for [heading headings]
-           [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col" :key heading} heading])
+           [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider
+            (cond-> {:scope "col" :key heading}
+                    (get width-classes heading) (assoc :class (get width-classes heading))) heading])
          (when on-edit
            [:th.relative.px-6.py-3 {:scope "col"}
             [:span.sr-only "Edit"]])]]
