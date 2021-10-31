@@ -400,6 +400,10 @@
         [:a.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:on-click #(when select-fn (select-fn id))} title])])])
 
 
+(defn section-heading [title]
+  [:div.pb-5.border-b.border-gray-200
+   [:h3.text-lg.leading-6.font-medium.text-gray-900 title]])
+
 (defn list-entities-fixed
   "A fixed list of entities."
   [& {:keys [items headings id-key value-keys on-edit] :or {id-key identity} :as params}]
