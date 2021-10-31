@@ -38,12 +38,14 @@
         mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
     (if-not mutation-error
       (do (log/debug "mutation success: " {:request params
-                                           :result result})
+                                           :result  result})
           (assoc ctx :response (ok result)))
-      (do (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                        :cause   (:cause (Throwable->map mutation-error))})
-          (assoc ctx :response {:status 400
-                                :body   {:message (str "Mutation error:" (:cause (Throwable->map mutation-error)))}})))))
+      (let [error (Throwable->map mutation-error)]
+        (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
+                                      :cause   (:cause error)})
+        (assoc ctx :response {:status 400
+                              :body   {:message (:cause error)
+                                       :error error}})))))
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
