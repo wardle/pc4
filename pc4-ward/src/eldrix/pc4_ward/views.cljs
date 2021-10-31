@@ -95,19 +95,19 @@
       [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:project-id (:t_project/id %)
                                                                                        :slug       (:t_project/slug %)})]]
      [:div.col-span-3
-      (for [article latest-news]
-        [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
-         [:ul.divide-y.divide-gray-200 {:role "list"}
-          [:li
+      [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
+       [:ul.divide-y.divide-gray-200 {:role "list"}
+        (for [article latest-news]
+          [:li {:key (:t_news/id article)}
            [:div.px-4.py-4.sm:px-6
             [:div.flex.items-center.justify-between
              [:p.text-lg.font-medium.text-indigo-600.truncate (:t_news/title article)]
              [:div.ml-2.flex-shrink-0.flex
-              [:p.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800 [:time {:datetime (:t_news/date_time article)} (com.eldrix.pc4.commons.dates/format-date (:t_news/date_time article))]]]]
+              [:p.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800 [:time {:date-time (:t_news/date_time article)} (com.eldrix.pc4.commons.dates/format-date (:t_news/date_time article))]]]]
             [:div.sm:flex.sm:justify-between
              [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
               [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
-            [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]]]])]]))
+            [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]]]]))
 
 
 
