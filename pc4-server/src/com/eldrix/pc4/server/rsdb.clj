@@ -472,17 +472,31 @@
 
 (pco/defmutation register-patient-by-pseudonym
   "Register a legacy pseudonymous patient. This will be deprecated in the
-  future."
-  [{conn :com.eldrix.rsdb/conn config :com.eldrix.rsdb/config manager :authorization-manager}
-   {:keys [user-id project-id nhs-number sex date-birth] :as params}]
+  future.
+  TODO: switch to more pluggable and routine coercion of data, rather than
+  managing by hand
+  TODO: fix :authenticated-user so it includes a fuller dataset for each request
+  - we are already fetching user once, so just include properties and pass along"
+  [{conn    :com.eldrix.rsdb/conn
+    config  :com.eldrix.rsdb/config
+    manager :authorization-manager
+    user    :authenticated-user}
+   {:keys [project-id nhs-number gender date-birth] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient-by-pseudonym
-   ::pco/output  [:t_patient/patient_identifier]}
+   ::pco/output  [:t_patient/patient_identifier
+                  :t_episode/stored_pseudonym
+                  :t_episode/project_fk]}
+  (log/info "register patient by pseudonym: " {:user user :params params})
   (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {:authorization-manager manager}))
     (if-let [global-salt (:legacy-global-pseudonym-salt config)]
-      (if (m/validate register-patient-by-pseudonym-params params)
-        (projects/register-legacy-pseudonymous-patient conn (assoc params :salt global-salt))
-        (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params)))
+      (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user)))  ;; TODO: remove fetch
+                                  :salt global-salt
+                                  :nhs-number (str/replace nhs-number #"\s" "")   ;; TODO: better automated coercion
+                                  :date-birth (LocalDate/parse date-birth))]  ;; TODO: better automated coercion
+        (if (m/validate register-patient-by-pseudonym-params params')
+          (projects/register-legacy-pseudonymous-patient conn params')
+          (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params'))))
       (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
                   :config   config}))))
