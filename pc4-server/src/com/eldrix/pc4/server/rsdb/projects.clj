@@ -14,7 +14,8 @@
             [com.eldrix.concierge.nhs-number :as nhs-number]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [next.jdbc :as jdbc]
-            [honey.sql :as sql])
+            [honey.sql :as sql]
+            [clojure.tools.logging.readable :as log])
   (:import (java.time LocalDate)
            (java.text Normalizer Normalizer$Form)
            (java.time.format DateTimeFormatter)
@@ -287,8 +288,10 @@
                       (fetch-by-global-pseudonym conn global-pseudonym)
                       (fetch-by-nhs-number conn nhs-number))]
       (merge (db/parse-entity patient)
-             {:project-pseudonym project-pseudonym
-              :global-pseudonym  global-pseudonym}))))
+             {:project-pseudonym          project-pseudonym
+              :t_episode/stored_pseudonym project-pseudonym
+              :t_episode/project_fk       project-id
+              :global-pseudonym           global-pseudonym}))))
 
 (defn register-episode!
   "Sets the episode specified as registered as of now, by the user specified.
@@ -413,6 +416,7 @@
   (when-not (nhs-number/valid? nhs-number)
     (throw (ex-info "Invalid NHS number" registration)))
   (let [existing (find-legacy-pseudonymous-patient conn registration)]
+    (log/error "existing patient:" existing)
     (if (:t_patient/id existing)
       ;; existing patient - so check matching core demographics, and proceed
       (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
@@ -420,17 +424,20 @@
                (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
         (do (register-patient-project! conn project-id user-id existing :pseudonym (:project-pseudonym existing))
             existing)
-        (throw (ex-info "mismatch in patient demographics" {:expected registration :existing existing})))
+        (throw (ex-info "Mismatch in patient demographics" {:expected registration :existing existing})))
       ;; no existing patient, so register a new patient and proceed
       (let [patient (create-patient! conn {:t_patient/sex                     (name sex)
                                            :t_patient/date_birth              (.withDayOfMonth date-birth 1)
                                            :t_patient/first_names             "******"
                                            :t_patient/last_name               "******"
                                            :t_patient/title                   "**"
+                                           :t_patient/nhs_number              nhs-number
                                            :t_patient/stored_global_pseudonym (:global-pseudonym existing)
                                            :t_patient/status                  "PSEUDONYMOUS"})]
         (register-patient-project! conn project-id user-id patient :pseudonym (:project-pseudonym existing))
-        patient))))
+        (assoc patient
+          :t_episode/project_fk project-id
+          :t_episode/stored_pseudonym (:project-pseudonym existing))))))
 
 (defn make-slug
   [s]

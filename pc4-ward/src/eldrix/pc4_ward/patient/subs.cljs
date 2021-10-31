@@ -14,6 +14,10 @@
   (fn [db]
     (:patient/search-legacy-pseudonym db)))
 
+(rf/reg-sub ::open-patient-error
+  (fn [db]
+    (get-in db [:errors :open-patient])))
+
 ;; return the hospital in which the patient is currently admitted
 ;; as our backend services do not yet know this information, we return nil
 (rf/reg-sub ::hospital

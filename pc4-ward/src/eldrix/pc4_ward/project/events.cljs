@@ -27,7 +27,7 @@
      :t_project/count_discharged_episodes
      :t_project/count_pending_referrals]}])
 
-(rf/reg-event-fx ::set-current-project
+(rf/reg-event-fx ::set-current-project    ;; TODO: rename to open-project
   []
   (fn [{db :db} [_ project-id]]
     (js/console.log "selecting project " project-id)
@@ -57,7 +57,6 @@
   (fn [db [_]]
     (js/console.log "closing project")
     (dissoc db :project/current)))
-
 
 (comment
   (rf/dispatch [::set-current-project 21]))

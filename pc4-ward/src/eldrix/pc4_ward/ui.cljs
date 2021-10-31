@@ -222,23 +222,24 @@
 
 
 (defn textfield-control
-  [value & {:keys [name label placeholder required auto-focus disabled on-change help-text]}]
+  [value & {:keys [name label placeholder required auto-focus disabled on-change on-blur help-text]}]
   [:div
    (when label [:label.block.text-sm.font-medium.text-gray-700 {:for name} label])
    [:div.mt-1
-   [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
-    {:name name :type "text" :placeholder placeholder :required required
-     :class         (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
-     :disabled      disabled
-     :default-value value
-     :auto-focus    auto-focus
-     :on-change     #(when on-change (on-change (-> % .-target .-value)))}]
-   (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
+    [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+     {:name          name :type "text" :placeholder placeholder :required required
+      :class         (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+      :disabled      disabled
+      :default-value value
+      :auto-focus    auto-focus
+      :on-change     #(when on-change (on-change (-> % .-target .-value)))
+      :on-blur       #(when on-blur (on-blur))}]
+    (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn select
   "A select control that appears as a pop-up."
   [& {:keys [name label value choices id-key display-key default-value select-fn
-             no-selection-string disabled?]
+             no-selection-string on-key-down disabled?]
       :or   {id-key identity display-key identity}}]
   (let [all-choices (if (and value (not (some #(= value %) choices)))
                       (conj choices value) choices)
@@ -250,13 +251,14 @@
      (when label [ui-label :for name :label label])
      [:select#location.mt-1.block.w-full.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
       {:name        name
-       :disabled  disabled?
-       :value     (str (id-key value))
-       :on-change #(when select-fn
-                     (let [idx (-> % .-target .-selectedIndex)]
-                       (if (and no-selection-string (= 0 idx))
-                         (select-fn nil)
-                         (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
+       :disabled    disabled?
+       :value       (str (id-key value))
+       :on-key-down #(when on-key-down (on-key-down (.-which %)))
+       :on-change   #(when select-fn
+                       (let [idx (-> % .-target .-selectedIndex)]
+                         (if (and no-selection-string (= 0 idx))
+                           (select-fn nil)
+                           (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
       (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
       (for [choice sorted-choices]
         (let [id (id-key choice)]

@@ -8,7 +8,16 @@
             [eldrix.pc4-ward.user.events :as user-events]
             [eldrix.pc4-ward.ui :as ui]
             [clojure.string :as str]
-            [com.eldrix.pc4.commons.dates :as dates]))
+            [com.eldrix.pc4.commons.dates :as dates]
+            [malli.core :as m]
+            [clojure.string :as s]))
+
+(defn valid-nhs-number?
+  "Very crude validation of NHS number. We could implement in cljs, but the
+  server will flag if we send it an invalid number, so this is just for the
+  purposes of the UI enabling the 'register' button."
+  [s]
+  (= 10 (count (s/replace s #"\s" ""))))
 
 (defn inspect-project [project]
   [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
@@ -45,8 +54,6 @@
         [:dt.text-sm.font-medium.text-gray-500 "Exclusion criteria"]
         [:dd.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html (:t_project/exclusion_criteria project)}}]])]]])
 
-
-
 (defn search-by-pseudonym-panel
   [project-id]
   (let [patient @(rf/subscribe [::patient-subs/search-by-legacy-pseudonym-result])]
@@ -82,30 +89,63 @@
                  :on-click #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})}
                 "View patient record"]]]]])]]]]]))
 
-(defn register-pseudonymous-patient
+
+(def patient-registration-schema
+  (m/schema [:map
+             [:project-id int?]
+             [:nhs-number [:fn valid-nhs-number?]]
+             [:date-birth some?]
+             [:sex [:enum :MALE :FEMALE :UNKNOWN]]]))
+
+(defn register-pseudonymous-patient                         ;; TODO: create re-usable components from this example form
   [project-id]
-  [:div.space-y-6
-   [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-    [:div.md:grid.md:grid-cols-3.md:gap-6
-     [:div.md:col-span-1
-      [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]
-      [:p.mt-1.mr-12.text-sm.text-gray-500 "Enter your patient details."
-       [:p "This is safe even if patient already registered"]]]
-     [:div.mt-5.md:mt-0.md:col-span-2
-      [:form {:action "#" :method "POST"}
-       [:div.grid.grid-cols-6.gap-6
-        [:div.col-span-6.sm:col-span-3.space-y-6
-         [:div [ui/textfield-control "" :label "NHS number" :auto-focus true]]
-         [:div
-          [ui/ui-label :for "date-birth" :label "Date of birth"]
-          [:input.pb-4 {:name "date-birth" :type "date"}]]
-         [ui/select :name "gender" :label "Gender" :choices ["Male" "Female" "Unknown"] :no-selection-string ""]
-         ;[ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
-         ]
-        ]]]]]
-   [:div.flex.justify-end.mr-8
-    [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500
-     {:type "submit"} "Search or register patient »"]]])
+  (let [data (reagent.core/atom {:project-id project-id})
+        visited (reagent.core/atom #{})]
+    (fn []
+      (let [error @(rf/subscribe [::patient-subs/open-patient-error])
+            valid? (m/validate patient-registration-schema @data)
+            submit-fn #(when valid?
+                         (rf/dispatch [::patient-events/register-pseudonymous-patient @data]))
+            _ (tap> {:values @data
+                     :error error
+                     :valid? valid? :explain (m/explain patient-registration-schema @data) :visited @visited})]
+        [:div.space-y-6
+         [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+          [:div.md:grid.md:grid-cols-3.md:gap-6
+           [:div.md:col-span-1
+            [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]
+            [:p.mt-1.mr-12.text-sm.text-gray-500 "Enter your patient details."
+             [:p "This is safe even if patient already registered"]
+             [:p.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."]]]
+           [:div.mt-5.md:mt-0.md:col-span-2
+            [:form {:on-submit #(do (.preventDefault %) (submit-fn))}
+             [:div.grid.grid-cols-6.gap-6
+              [:div.col-span-6.sm:col-span-3.space-y-6
+               [:div [ui/textfield-control (:nhs-number @data) :label "NHS number" :auto-focus true
+                      :on-change #(swap! data assoc :nhs-number %)
+                      :on-blur #(swap! visited conj :nhs-number)]]
+               [:div
+                [ui/ui-label :for "date-birth" :label "Date of birth"]
+                [:input.pb-4 {:name      "date-birth" :value (:date-birth @data) ;; TODO: spin out into own component
+                              :type      "date"
+                              :on-blur   #(swap! visited conj :date-birth)
+                              :on-change #(swap! data assoc :date-birth (-> % .-target .-value))}]]
+               [ui/select :name "gender"
+                :value (:sex @data)
+                :label "Gender"
+                :choices [:MALE :FEMALE :UNKNOWN]
+                :no-selection-string ""
+                :on-key-down #(when (and (= 13 %) valid? (submit-fn)))
+                :select-fn #(swap! data assoc :sex %)]
+               ;[ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
+
+              (when error [ui/box-error-message :message error])]]]]]]
+         [:div.flex.justify-end.mr-8
+          [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+           {:type     "submit"
+            :class    (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
+            :on-click #(when valid? (submit-fn))
+            } "Search or register patient »"]]]))))
 
 (defn view-pseudonymous-patient []
   (let [patient @(rf/subscribe [::patient-subs/current])
@@ -140,7 +180,7 @@
            [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (:t_user/email user)]])]]]]]])
 
 (defn project-home-page []
-  (let [selected-page (reagent.core/atom :register)]
+  (let [selected-page (reagent.core/atom :home)]
     (rf/dispatch [::patient-events/search-legacy-pseudonym nil ""])
     (fn []
       (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])

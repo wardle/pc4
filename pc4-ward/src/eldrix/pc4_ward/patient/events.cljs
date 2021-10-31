@@ -1,6 +1,7 @@
 (ns eldrix.pc4-ward.patient.events
   "Events relating to patients."
   (:require [re-frame.core :as rf]
+            [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.server :as srv]))
 
 (defn make-cav-fetch-patient-op
@@ -62,6 +63,15 @@
           :t_episode/stored_pseudonym
           :t_episode/project_fk)}])
 
+(defn make-register-pseudonymous-patient
+  "Register or fetch a patient with the details specified."
+  [{:keys [project-id nhs-number date-birth sex] :as params}]
+  [{(list 'pc4.rsdb/register-patient-by-pseudonym
+          params)
+    (conj full-patient-properties
+          :t_episode/stored_pseudonym
+          :t_episode/project_fk)}])
+
 (defn make-fetch-patient
   "Create an operation to fetch a full patient record with the
   patient-identifier specified."
@@ -73,7 +83,7 @@
 ;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(rf/reg-event-fx   ;;; DEPRECATED
+(rf/reg-event-fx                                            ;;; DEPRECATED
   ::fetch []
   (fn [{db :db} [_ identifier]]
     (js/console.log "WARNING: LEGACY DEPRECATED fetch patient " identifier)
@@ -85,13 +95,13 @@
                                                 :on-success [::handle-fetch-response]
                                                 :on-failure [::handle-fetch-failure]})]]}))
 
-(rf/reg-event-fx ::handle-fetch-response  ;;DEPRECATED
+(rf/reg-event-fx ::handle-fetch-response                    ;;DEPRECATED
   []
   (fn [{db :db} [_ {pt 'wales.nhs.cavuhb/fetch-patient}]]
     (js/console.log "fetch patient response: " pt)
     {:db (assoc db :patient/search-results (if pt [pt] []))}))
 
-(rf/reg-event-fx ::handle-fetch-failure   ;;DEPRECATED
+(rf/reg-event-fx ::handle-fetch-failure                     ;;DEPRECATED
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "fetch patient failure: response " response)
@@ -157,7 +167,7 @@
     (js/console.log "opening pseudonymous patient record:" project-id pseudonym)
     {:db (-> db
              (dissoc :patient/current)
-             (update-in [:errors] dissoc ::open-patient))
+             (update-in [:errors] dissoc :open-patient))
      :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
                                                 :token      (get-in db [:authenticated-user :io.jwt/token])
                                                 :on-success [::handle-fetch-pseudonymous-patient-response]
@@ -169,13 +179,45 @@
     (js/console.log "fetch pseudonymous patient response: " result)
     {:db (assoc-in db [:patient/current :patient] result)}))
 
+;; #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-failure
   []
   (fn [{:keys [db]} [_ response]]
     (js/console.log "fetch pseudonymous patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current)
-             (assoc-in [:errors ::open-patient] "Failed to fetch pseudonymous patient: unable to connect to server. Please check your connection and retry."))}))
+             (assoc-in [:errors :open-patient] "Failed to fetch pseudonymous patient: unable to connect to server. Please check your connection and retry."))}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Search or register a pseudonymous patient
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(rf/reg-event-fx ::register-pseudonymous-patient
+  (fn [{db :db} [_ {:keys [project-id nhs-number date-birth sex] :as params}]]
+    (js/console.log "searching or registering pseudonymous patient record:" params)
+    {:db (-> db
+             (dissoc :patient/current)
+             (update-in [:errors] dissoc :open-patient))
+     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-register-pseudonymous-patient params)
+                                                :token      (get-in db [:authenticated-user :io.jwt/token])
+                                                :on-success [::handle-register-pseudonymous-patient-response]
+                                                :on-failure [::handle-register-pseudonymous-patient-failure]})]]}))
+
+(rf/reg-event-fx ::handle-register-pseudonymous-patient-response
+  []
+  (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
+    (js/console.log "register pseudonymous patient response: " result)
+    {:db (assoc-in db [:patient/current :patient] result)
+     :fx [[:dispatch [::events/push-state
+                      :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
+                                                     :pseudonym  (:t_episode/stored_pseudonym result)}]]]}))
+
+(rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "register pseudonymous patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/current)
+             (assoc-in [:errors :open-patient] (or (get-in response [:response :message]) (:status-text response))))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

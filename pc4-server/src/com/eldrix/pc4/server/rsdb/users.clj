@@ -231,7 +231,7 @@
   (make-authorization-manager' (roles-for-user conn username)))
 
 (def fetch-user-query
-  {:select    [:username :title :first_names :last_name :postnomial :custom_initials
+  {:select    [:t_user/id :username :title :first_names :last_name :postnomial :custom_initials
                :email :custom_job_title :t_job_title/name
                :can_be_responsible_clinician :is_clinical
                :send_email_for_messages
