@@ -264,12 +264,40 @@
         (let [id (id-key choice)]
           [:option.py-1 {:value (str id) :key id} (display-key choice)]))]]))
 
-[:div
- [:label.block.text-sm.font-medium.text-gray-700 {:for "location"} "Location"]
- [:select#location.mt-1.block.w-full.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md {:name "location"}
-  [:option "United States"]
-  [:option {:selected "true"} "Canada"]
-  [:option "Mexico"]]]
+(defn tabbed-menu
+  "A simple tabbed menu that appears as a select control when on mobile and as a
+  tabbed menu with underline for selected option on wider screens.
+  Parameters:
+  - name        : name of the control
+  - value       : current value
+  - choices     : a sequence of choices
+  - display-key : key, or function to get what to display from each choice
+  - value-key   : key, or function, to get value from each choice
+  - on-change   : called with new value when changed."
+  [& {:keys [name value choices display-key value-key on-change] :or {name "tabs" display-key identity value-key identity}}]
+  [:div
+   [:div.sm:hidden
+    [:label.sr-only {:for name} "Select a tab"]
+    [:select#tabs.block.w-full.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+     {:name      name
+      :value     value
+      :on-change #(when on-change
+                    (let [idx (-> % .-target .-selectedIndex)]
+                      (on-change (nth choices (- idx 1)))))}
+     (for [choice choices]
+       [:option {:key (value-key choice)} (display-key choice)])]]
+   [:div.hidden.sm:block
+    [:div.border-b.border-gray-200
+     [:nav.-mb-px.flex.space-x-8 {:aria-label "Tabs"}
+      (for [choice choices]
+        (if (= value (value-key choice))
+          [:a.border-indigo-500.text-indigo-600.whitespace-nowrap.py-4.px-1.border-b-2.font-medium.text-sm
+           {:key (value-key choice)} (display-key choice)]
+          [:a.border-transparent.cursor-pointer.text-gray-500.hover:text-gray-700.hover:border-gray-300.whitespace-nowrap.py-4.px-1.border-b-2.font-medium.text-sm
+           {:key (value-key choice)
+            :on-click #(when on-change
+                         (on-change choice))}
+           (display-key choice)]))]]]])
 
 
 (defn select-or-autocomplete
