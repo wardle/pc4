@@ -340,6 +340,7 @@
                    :t_patient/id patient-id
                    :t_patient/patient-identifier patient-id
                    :t_patient/family_fk family-id)]
+    ;; TODO: put into a transaction
     (jdbc/execute-one! conn (sql/format {:insert-into [:t_family]
                                          :values      [{:t_family/family_identifier (str family-id)
                                                         :t_family/id                family-id}]}))
