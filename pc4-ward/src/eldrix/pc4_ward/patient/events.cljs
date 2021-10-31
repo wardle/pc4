@@ -39,9 +39,19 @@
 (def full-patient-properties
   (into
     core-patient-properties
-    [:t_patient/diagnoses
+    [{:t_patient/diagnoses [:t_diagnosis/id
+                            :t_diagnosis/date_onset
+                            :t_diagnosis/date_diagnosis
+                            :t_diagnosis/date_to
+                            :t_diagnosis/status
+                            :t_diagnosis/date_onset_accuracy
+                            :t_diagnosis/date_diagnosis_accuracy
+                            :t_diagnosis/date_to_accuracy
+                            {:t_diagnosis/diagnosis [:info.snomed.Concept/preferredDescription
+                                                     :info.snomed.Concept/parentRelationshipIds]}]}
      :t_patient/medications
      :t_patient/encounters
+     :t_patients/summary_multiple_sclerosis
      :t_patient/episodes]))
 
 (defn make-search-by-legacy-pseudonym

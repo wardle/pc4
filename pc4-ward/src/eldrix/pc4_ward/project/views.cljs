@@ -107,7 +107,7 @@
             submit-fn #(when valid?
                          (rf/dispatch [::patient-events/register-pseudonymous-patient @data]))
             _ (tap> {:values @data
-                     :error error
+                     :error  error
                      :valid? valid? :explain (m/explain patient-registration-schema @data) :visited @visited})]
         [:div.space-y-6
          [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
@@ -139,7 +139,7 @@
                 :select-fn #(swap! data assoc :sex %)]
                ;[ui/textfield-control "" :label "Postal code" :disabled true :help-text "You will only need to enter this if a patient isn't already registered"]
 
-              (when error [ui/box-error-message :message error])]]]]]]
+               (when error [ui/box-error-message :message error])]]]]]]
          [:div.flex.justify-end.mr-8
           [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
            {:type     "submit"
@@ -147,18 +147,64 @@
             :on-click #(when valid? (submit-fn))
             } "Search or register patient »"]]]))))
 
-(defn view-pseudonymous-patient []
-  (let [patient @(rf/subscribe [::patient-subs/current])
-        authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
-        _ (tap> {:patient patient :user authenticated-user})]
-    [:div
-     [ui/patient-banner
-      :name (:t_patient/sex patient)
-      :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
-      :address (:t_episode/stored_pseudonym patient)
-      :on-close #(when-let [project-id (:t_episode/project_fk patient)]
-                   (println "opening project page for project" project-id)
-                   (rfe/push-state :projects {:project-id project-id :slug "home"}))]]))
+(defn list-diagnoses [patient]
+  (ui/list-entities-fixed
+    :items (:t_patient/diagnoses patient)
+    :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
+    :id-key :t_diagnosis/id
+    :value-keys [(fn [diagnosis] (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                 #(dates/format-date (:t_diagnosis/date_onset %))
+                 #(dates/format-date (:t_diagnosis/date_diagnosis %))
+                 #(dates/format-date (:t_diagnosis/date_to %))
+                 :t_diagnosis/status]))
+
+(def neuro-inflammatory-menus
+  [{:id    :main
+    :title "Main"}
+   {:id        :diagnoses
+    :title     "Diagnoses"
+    :component list-diagnoses}
+   {:id    :treatment
+    :title "Treatment"}
+   {:id    :relapses
+    :title "Relapses"}
+   {:id    :disability
+    :title "Disability"}
+   {:id    :admissions
+    :title "Admissions"}
+   {:id    :registration
+    :title "Registration"}])
+
+(def menu-by-id (reduce (fn [acc v] (assoc acc (:id v) v)) {} neuro-inflammatory-menus))
+
+(defn view-pseudonymous-patient
+  "This is a neuro-inflammatory 'view' of the patient record.
+  TODO: split out common functionality and components into libraries"
+  []
+  (let [menu (reagent.core/atom :registration)]
+    (fn []
+      (let [patient @(rf/subscribe [::patient-subs/current])
+            authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
+            _ (tap> {:patient patient :user authenticated-user})]
+        [:div
+         [ui/patient-banner
+          :name (:t_patient/sex patient)
+          :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
+          :address (:t_episode/stored_pseudonym patient)
+          :on-close #(when-let [project-id (:t_episode/project_fk patient)]
+                       (println "opening project page for project" project-id)
+                       (rfe/push-state :projects {:project-id project-id :slug "home"}))
+          :content [ui/tabbed-menu
+                    :name "patient-menu"
+                    :value @menu
+                    :on-change #(do (println "chosen" %) (reset! menu %))
+                    :choices neuro-inflammatory-menus
+                    :value-key :id
+                    :display-key :title]]
+         [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+          [:div.px-4.py-5.sm:p-6
+           (when-let [component (:component (menu-by-id @menu))]
+             [component patient])]]]))))
 
 (defn list-users [users]
   [:div.flex.flex-col

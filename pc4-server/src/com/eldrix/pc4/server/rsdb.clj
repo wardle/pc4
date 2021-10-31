@@ -91,6 +91,23 @@
   {::pco/output [{:t_patient/surgery [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
 
+(pco/defresolver patient->diagnoses
+  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  {::pco/output [{:t_patient/diagnoses [:t_diagnosis/concept_fk
+                                        {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
+                                        :t_diagnosis/date_diagnosis
+                                        :t_diagnosis/date_diagnosis_accuracy
+                                        :t_diagnosis/date_onset
+                                        :t_diagnosis/date_onset_accuracy
+                                        :t_diagnosis/date_to
+                                        :t_diagnosis/date_to_accuracy
+                                        :t_diagnosis/status
+                                        :t_diagnosis/full_description]}]}
+  (let [diagnoses (db/execute! conn (sql/format {:select [:*]
+                                                  :from   [:t_diagnosis]
+                                                  :where  [:= :patient_fk patient-id]}))]
+    {:t_patient/diagnoses
+     (map #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
 
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
@@ -521,6 +538,7 @@
    patient->racial-group
    patient->occupation
    patient->surgery
+   patient->diagnoses
    patient->medications
    patient->addresses
    patient->address
