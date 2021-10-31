@@ -147,16 +147,40 @@
             :on-click #(when valid? (submit-fn))
             } "Search or register patient »"]]]))))
 
+(defn preferred-synonym [diagnosis]
+  (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+
 (defn list-diagnoses [patient]
-  (ui/list-entities-fixed
-    :items (:t_patient/diagnoses patient)
-    :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
-    :id-key :t_diagnosis/id
-    :value-keys [(fn [diagnosis] (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                 #(dates/format-date (:t_diagnosis/date_onset %))
-                 #(dates/format-date (:t_diagnosis/date_diagnosis %))
-                 #(dates/format-date (:t_diagnosis/date_to %))
-                 :t_diagnosis/status]))
+  (let [sorted-diagnoses (sort-by preferred-synonym (:t_patient/diagnoses patient))
+        active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) sorted-diagnoses)
+        resolved-diagnoses (filter #(= "INACTIVE_RESOLVED" (:t_diagnosis/status %)) sorted-diagnoses)
+        incorrect-diagnoses (filter #(#{"INACTIVE_REVISED" "INACTIVE_IN_ERROR"} (:t_diagnosis/status %)) sorted-diagnoses)]
+    [:<>
+     [ui/section-heading "Active diagnoses"]
+     [ui/list-entities-fixed
+      :items active-diagnoses
+      :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
+      :width-classes {"Diagnosis" "w-2/6" "Date onset" "w-1/6" "Date diagnosis" "w-1/6" "Date to" "w-1/6" "Status" "w-1/6"}
+      :id-key :t_diagnosis/id
+      :value-keys [preferred-synonym
+                   #(dates/format-date (:t_diagnosis/date_onset %))
+                   #(dates/format-date (:t_diagnosis/date_diagnosis %))
+                   #(dates/format-date (:t_diagnosis/date_to %))
+                   :t_diagnosis/status]]
+     (when (seq resolved-diagnoses)
+       [:div.mt-8
+       [ui/section-heading "Inactive diagnoses"]
+        [ui/list-entities-fixed
+         :items resolved-diagnoses
+         :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
+         :width-classes {"Diagnosis" "w-2/6" "Date onset" "w-1/6" "Date diagnosis" "w-1/6" "Date to" "w-1/6" "Status" "w-1/6"}
+
+         :id-key :t_diagnosis/id
+         :value-keys [preferred-synonym
+                      #(dates/format-date (:t_diagnosis/date_onset %))
+                      #(dates/format-date (:t_diagnosis/date_diagnosis %))
+                      #(dates/format-date (:t_diagnosis/date_to %))
+                      :t_diagnosis/status]]])]))
 
 (def neuro-inflammatory-menus
   [{:id    :main
