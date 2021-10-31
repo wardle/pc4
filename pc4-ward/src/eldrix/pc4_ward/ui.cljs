@@ -396,3 +396,28 @@
       (if (= selected-id id)
         [:a.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title]
         [:a.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:on-click #(when select-fn (select-fn id))} title])])])
+(defn list-entities-fixed
+  "A fixed list of entities."
+  [& {:keys [items headings id-key value-keys on-edit] :or {id-key identity} :as params}]
+  (when-not (= (count headings) (count value-keys))
+    (throw (ex-info "Number of headings must be the same as the number of value-keys" params)))
+  [:div.flex.flex-col
+   [:div.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
+     [:div.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
+      [:table.min-w-full.divide-y.divide-gray-200
+       [:thead.bg-gray-50
+        [:tr
+         (for [heading headings]
+           [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col" :key heading} heading])
+         (when on-edit
+           [:th.relative.px-6.py-3 {:scope "col"}
+            [:span.sr-only "Edit"]])]]
+       [:tbody
+        (for [item items]
+          [:tr.bg-white
+           {:key (id-key item)}
+           (for [value-key value-keys]
+             [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500  (value-key item)])
+           (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
+                          [:a.text-indigo-600.hover:text-indigo-900 {:href "#"} "Edit"]])])]]]]]])
