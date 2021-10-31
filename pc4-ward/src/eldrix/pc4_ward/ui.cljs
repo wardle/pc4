@@ -27,7 +27,7 @@
 
 
 (defn patient-banner
-  [& {:keys [name nhs-number gender born hospital-identifier address deceased on-close]}]
+  [& {:keys [name nhs-number gender born hospital-identifier address deceased on-close content]}]
   [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
    (when on-close
      [:div.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
@@ -46,7 +46,9 @@
     (when nhs-number [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]])
     (when hospital-identifier [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]])]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
-    [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]])
+    [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]
+   (when content
+     [:div content])])
 
 (defn main-login-panel
   "PatientCare main login panel with hero title, and parameters:
