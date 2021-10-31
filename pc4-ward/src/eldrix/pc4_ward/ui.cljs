@@ -285,7 +285,7 @@
       :value     value
       :on-change #(when on-change
                     (let [idx (-> % .-target .-selectedIndex)]
-                      (on-change (nth choices (- idx 1)))))}
+                      (on-change (value-key (nth choices (- idx 1))))))}
      (for [choice choices]
        [:option {:key (value-key choice)} (display-key choice)])]]
    [:div.hidden.sm:block
@@ -296,9 +296,9 @@
           [:a.border-indigo-500.text-indigo-600.whitespace-nowrap.py-4.px-1.border-b-2.font-medium.text-sm
            {:key (value-key choice)} (display-key choice)]
           [:a.border-transparent.cursor-pointer.text-gray-500.hover:text-gray-700.hover:border-gray-300.whitespace-nowrap.py-4.px-1.border-b-2.font-medium.text-sm
-           {:key (value-key choice)
+           {:key      (value-key choice)
             :on-click #(when on-change
-                         (on-change choice))}
+                         (on-change (value-key choice)))}
            (display-key choice)]))]]]])
 
 
@@ -398,6 +398,8 @@
       (if (= selected-id id)
         [:a.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title]
         [:a.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:on-click #(when select-fn (select-fn id))} title])])])
+
+
 (defn list-entities-fixed
   "A fixed list of entities."
   [& {:keys [items headings id-key value-keys on-edit] :or {id-key identity} :as params}]
