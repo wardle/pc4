@@ -19,7 +19,7 @@
              com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                                 :sha     "eb953eb8c3f211de4af3d4461a7ec2fc6b2ef8aa"}
              com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                                :sha     "c900a177945e2e2e02190b75558f641f68876f88"}
+                                                :sha     "14a393d3934cf5f6b746fb215dde797c094c89f0"}
              com.eldrix/comprehend             {:git/url "https://github.com/wardle/comprehend.git"
                                                 :sha     "b89181942c9e68a638e35102c7f1eae073b978f1"}
 
@@ -38,7 +38,6 @@
              io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
              io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
-             metosin/malli                     {:mvn/version "0.6.2"}
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
              org.postgresql/postgresql         {:mvn/version "42.3.0"}}
 

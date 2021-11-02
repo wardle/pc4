@@ -20,7 +20,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [malli.core :as m])
+            [clojure.spec.alpha :as s])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
            (java.util Base64)
@@ -104,8 +104,8 @@
                                         :t_diagnosis/status
                                         :t_diagnosis/full_description]}]}
   (let [diagnoses (db/execute! conn (sql/format {:select [:*]
-                                                  :from   [:t_diagnosis]
-                                                  :where  [:= :patient_fk patient-id]}))]
+                                                 :from   [:t_diagnosis]
+                                                 :where  [:= :patient_fk patient-id]}))]
     {:t_patient/diagnoses
      (map #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
 
@@ -478,16 +478,22 @@
                                 :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
+(s/def ::user-id int?)
+(s/def ::project-id int?)
+(s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
+(s/def ::sex #{:MALE :FEMALE :UNKNOWN})
+(s/def ::date-birth #(instance? LocalDate %))
+(s/def ::register-patient-by-pseudonym (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
 
-(def ^:private register-patient-by-pseudonym-params
-  (m/schema [:map
-             [:user-id int?]
-             [:project-id int?]
-             [:nhs-number string?]
-             [:sex [:enum :MALE :FEMALE :UNKNOWN]]
-             [:date-birth [:fn #(instance? LocalDate %)]]]))
+(comment
+  (s/explain-data ::register-patient-by-pseudonym {:user-id    5
+                                                   :project-id 1
+                                                   :nhs-number "111 111 1111"
+                                                   :sex        :MALE
+                                                   :date-birth (LocalDate/of 1970 1 1)})
+  )
 
-(pco/defmutation register-patient-by-pseudonym
+(pco/defmutation register-patient-by-pseudonym!
   "Register a legacy pseudonymous patient. This will be deprecated in the
   future.
   TODO: switch to more pluggable and routine coercion of data, rather than
@@ -507,13 +513,13 @@
   (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {:authorization-manager manager}))
     (if-let [global-salt (:legacy-global-pseudonym-salt config)]
-      (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user)))  ;; TODO: remove fetch
+      (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch
                                   :salt global-salt
-                                  :nhs-number (str/replace nhs-number #"\s" "")   ;; TODO: better automated coercion
-                                  :date-birth (LocalDate/parse date-birth))]  ;; TODO: better automated coercion
-        (if (m/validate register-patient-by-pseudonym-params params')
+                                  :nhs-number (str/replace nhs-number #"\s" "") ;; TODO: better automated coercion
+                                  :date-birth (LocalDate/parse date-birth))] ;; TODO: better automated coercion
+        (if (s/valid? ::register-patient-by-pseudonym params')
           (projects/register-legacy-pseudonymous-patient conn params')
-          (log/error "invalid call" (m/explain register-patient-by-pseudonym-params params'))))
+          (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))
       (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
                   :config   config}))))
@@ -575,7 +581,7 @@
    user->latest-news
    patient->fhir-human-name
    patient->fhir-gender
-   register-patient-by-pseudonym
+   register-patient-by-pseudonym!
    search-patient-by-pseudonym])
 
 (comment
