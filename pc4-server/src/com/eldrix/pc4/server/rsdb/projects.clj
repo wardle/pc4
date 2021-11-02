@@ -280,13 +280,16 @@
   * t_patient/date_birth
   * t_patient/sex
   * t_patient/nhs_number"
-  [conn & {:keys [salt project-id project-name nhs-number date-birth]}]
+  [conn & {:keys [salt project-id project-name nhs-number date-birth] :as params}]
   (let [project-name (if project-name project-name (:t_project/name (fetch-project conn project-id)))
         project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth)
         global-pseudonym (calculate-global-pseudonym salt nhs-number date-birth)]
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
-                      (fetch-by-global-pseudonym conn global-pseudonym)
-                      (fetch-by-nhs-number conn nhs-number))]
+                      (fetch-by-global-pseudonym conn global-pseudonym))]
+      (when (and (not patient) (fetch-by-nhs-number conn nhs-number))
+        (throw (ex-info "NHS number match but other details do not." {:params            params
+                                                                      :global-pseudonym  global-pseudonym
+                                                                      :project-pseudonym project-pseudonym})))
       (merge (db/parse-entity patient)
              {:project-pseudonym          project-pseudonym
               :t_episode/stored_pseudonym project-pseudonym
@@ -435,7 +438,9 @@
                                            :t_patient/nhs_number              nhs-number
                                            :t_patient/stored_global_pseudonym (:global-pseudonym existing)
                                            :t_patient/status                  "PSEUDONYMOUS"})]
-        (register-patient-project! conn project-id user-id patient :pseudonym (:project-pseudonym existing))
+        (log/info "created patient " patient)
+        (let [episode (register-patient-project! conn project-id user-id patient :pseudonym (:project-pseudonym existing))]
+          (log/info "created episode for patient" episode))
         (assoc patient
           :t_episode/project_fk project-id
           :t_episode/stored_pseudonym (:project-pseudonym existing))))))
