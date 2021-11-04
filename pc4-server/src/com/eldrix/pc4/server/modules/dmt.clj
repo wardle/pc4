@@ -1025,14 +1025,14 @@
                              :switch?                      "switch"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn make-dmt-medications-table
+(defn make-raw-dmt-medications-table
   [system]
   (let [patient-ids (fetch-study-patient-identifiers system)]
     (mapcat identity (vals (patient-raw-dmt-medications system patient-ids)))))
 
-(defn write-dmt-medications-table
+(defn write-raw-dmt-medications-table
   [system]
-  (write-rows-csv "patient-dmt-medications.csv" (make-dmt-medications-table system)
+  (write-rows-csv "patient-raw-dmt-medications.csv" (make-raw-dmt-medications-table system)
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt_class
@@ -1142,7 +1142,7 @@
   (log/info "writing ms events")
   (write-ms-events system)
   (log/info "writing dmt medications")
-  (write-dmt-medications-table system)
+  (write-raw-dmt-medications-table system)
   (log/info "writing dmt regimens")
   (write-dmt-regimens-table system)
   (log/info "writing non dmt medications")
