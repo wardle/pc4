@@ -1049,7 +1049,9 @@
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt-class
                             :t_medication/date_from :t_medication/date_to :exposure_days
-                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]))
+                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :dmt-class "dmt_class"}))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
   [system]
