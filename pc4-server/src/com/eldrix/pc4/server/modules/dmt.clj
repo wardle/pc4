@@ -1121,7 +1121,8 @@
                   :columns [:t_patient/patient_identifier :t_encounter/date_time
                             :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
                             :body_mass_index]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_encounter/date_time "date"}))
 
 
 (defn write-jc-virus [system]
