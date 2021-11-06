@@ -18,6 +18,13 @@ The front-end applications are small and highly modular, while providing the
 appearance of a single seamless system. The first applications will be broken-up
 and common functionality provided in client libraries.
 
+As a result, this is still in an exploratory phase. The division of the project
+into different repositories and the responsibilities of each repository are 
+not finalised. I expect these to change. 
+
+Even though I expect many of the implementation details to change, the 
+basic principles will not.
+
 There is a high degree of separation between user-facing applications and 
 underlying data and computing services, with adoption of a range of 
 health and care technical standards.
