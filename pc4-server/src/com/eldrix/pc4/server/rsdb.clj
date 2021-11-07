@@ -308,6 +308,21 @@
   {::pco/output [{:t_project/specialty [:info.snomed.Concept/id]}]}
   {:t_project/specialty {:info.snomed.Concept/id specialty-concept-fk}})
 
+(pco/defresolver project->common-concepts
+  "Resolve common concepts for the project, optionally filtering by a SNOMED
+  expression (ECL)."
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {:t_project/keys [id]}]
+  {::pco/input  [:t_project/id]
+   ::pco/output [{:t_project/common_concepts [:info.snomed.Concept/id]}]}
+  (let [concept-ids (projects/common-concepts conn id)
+        ecl (:ecl (pco/params env))]
+    (when (seq concept-ids)
+      (if (str/blank? ecl)
+        (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
+        (let [concepts (str/join " OR " concept-ids)]
+          (->> (com.eldrix.hermes.core/expand-ecl hermes (str "(" concepts ") AND " ecl))
+               (map #(hash-map :info.snomed.Concept/id (:conceptId %)))))))))
+
 (pco/defresolver project->users
   [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
   {::pco/output [{:t_project/users [:t_user/id]}]}
@@ -555,6 +570,7 @@
    project-by-identifier
    project->parent
    project->specialty
+   project->common-concepts
    project->active?
    project->slug
    project->long-description-text
