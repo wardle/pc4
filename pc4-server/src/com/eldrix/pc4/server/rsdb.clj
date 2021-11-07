@@ -20,12 +20,77 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [clojure.spec.alpha :as s])
+            [clojure.spec.alpha :as s]
+            [com.eldrix.pc4.server.rsdb.patients :as patients]
+            [com.eldrix.hermes.core :as hermes])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)
            (java.util Base64)
            (org.jsoup Jsoup)
-           (org.jsoup.safety Safelist)))
+           (org.jsoup.safety Safelist)
+           (com.eldrix.pc4.server.rsdb.auth AuthorizationManager)))
+
+(s/def :t_patient/id int?)
+(s/def :t_patient/patient_identifier int?)
+(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :info.snomed.Concept/id (s/and int? com.eldrix.hermes.verhoeff/valid?))
+(s/def :t_diagnosis/id int?)
+(s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
+(s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
+
+(s/def ::user-id int?)
+(s/def ::project-id int?)
+(s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
+(s/def ::sex #{:MALE :FEMALE :UNKNOWN})
+(s/def ::date-birth #(instance? LocalDate %))
+
+(s/def ::register-patient-by-pseudonym
+  (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
+
+(defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
+  (and
+    (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
+    (or (nil? date_onset) (nil? date_to) (.isBefore date_onset date_to) (.equals date_onset date_to))
+    (or (nil? date_diagnosis) (nil? date_to) (.isBefore date_diagnosis date_to) (.equals date_diagnosis date_to))))
+
+(defn valid-diagnosis-status? [{:t_diagnosis/keys [status date_to]}]
+  (case status
+    "ACTIVE" (nil? date_to)
+    "INACTIVE_IN_ERROR" date_to
+    "INACTIVE_RESOLVED" date_to
+    "INACTIVE_REVISED" date_to
+    false))
+
+(s/def ::create-diagnosis
+  (s/and
+    (s/keys :req [::user-id
+                  :t_patient/patient_identifier
+                  :t_diagnosis/diagnosis
+                  :t_diagnosis/status]
+            :opt [:t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_onset_accuracy
+                  :t_diagnosis/date_diagnosis_accuracy
+                  :t_diagnosis/date_to
+                  :t_diagnosis/date_to_accuracy])
+    valid-diagnosis-status?
+    ordered-diagnostic-dates?))
+
+(s/def ::update-diagnosis
+  (s/and
+    (s/keys :req [:t_diagnosis/id
+                  :t_diagnosis/status]
+            :opt [:t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_onset_accuracy
+                  :t_diagnosis/date_diagnosis_accuracy
+                  :t_diagnosis/date_to
+                  :t_diagnosis/date_to_accuracy])
+    valid-diagnosis-status?
+    ordered-diagnostic-dates?))
 
 (defn html->text
   "Convert a string containing HTML to plain text."
@@ -493,13 +558,6 @@
                                 :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
-(s/def ::user-id int?)
-(s/def ::project-id int?)
-(s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
-(s/def ::sex #{:MALE :FEMALE :UNKNOWN})
-(s/def ::date-birth #(instance? LocalDate %))
-(s/def ::register-patient-by-pseudonym (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
-
 (comment
   (s/explain-data ::register-patient-by-pseudonym {:user-id    5
                                                    :project-id 1
@@ -550,6 +608,31 @@
   (log/debug "search-patient-by-pseudonym" params)
   (projects/search-by-project-pseudonym conn project-id pseudonym))
 
+(defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
+  [{conn :com.eldrix.rsdb/conn manager :authorization-manager} patient-identifier permission]
+  (let [project-ids (patients/active-project-identifiers conn patient-identifier)]
+    (when-not (auth/authorized? manager project-ids permission)
+      (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
+                                                                          :permission         permission})))))
+
+
+(pco/defmutation save-diagnosis!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-diagnosis}
+  (log/info "save diagnosis request: " params "user: " user)
+  (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
+                              :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
+    (if-not (s/valid? ::create-diagnosis params')
+      (log/error "invalid call" (s/explain-data ::create-diagnosis params'))
+      (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
+          (if (:t_diagnosis/id params')
+            (patients/update-diagnosis conn params')
+            (patients/create-diagnosis conn params'))))))
+
+
 (def all-resolvers
   [patient-by-identifier
    patient->hospitals
@@ -598,7 +681,8 @@
    patient->fhir-human-name
    patient->fhir-gender
    register-patient-by-pseudonym!
-   search-patient-by-pseudonym])
+   search-patient-by-pseudonym
+   save-diagnosis!])
 
 (comment
   (require '[next.jdbc.connection])
