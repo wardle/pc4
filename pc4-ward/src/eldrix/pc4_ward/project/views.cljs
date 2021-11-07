@@ -154,6 +154,10 @@
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
 
+(defn multiple-sclerosis-main []
+  (let [current-patient @(rf/subscribe [::patient-subs/current])]
+    [ui/section-heading "Summary : Multiple sclerosis"]))
+
 (defn list-diagnoses []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
         current-diagnosis @(rf/subscribe [::patient-subs/current-diagnosis])
@@ -242,8 +246,9 @@
          :on-edit (fn [diagnosis] (js/console.log "edt diag") (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
 
 (def neuro-inflammatory-menus
-  [{:id    :main
-    :title "Main"}
+  [{:id        :main
+    :title     "Main"
+    :component multiple-sclerosis-main}
    {:id        :diagnoses
     :title     "Diagnoses"
     :component list-diagnoses}
