@@ -335,8 +335,7 @@
          (let [value-in-choices? (some #(= % value) common-choices)
                all-choices (if (and value (not value-in-choices?)) (conj common-choices value) common-choices)
                choices (zipmap (map id-key all-choices) all-choices)
-               sorted-choices (sort-by display-key (vals choices))
-               _ (println "value of select: " value)]
+               sorted-choices (sort-by display-key (vals choices))]
            (when (and default-value (str/blank? value))
              (select-fn default-value))
            [:div.flex
