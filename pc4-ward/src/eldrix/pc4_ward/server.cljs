@@ -116,6 +116,19 @@
 (defn default-error-handler [x]
   (js/console.log "error in request: " x))
 
+
+;;;;
+;;;;
+
+(defmulti handle-response (fn [[k _]] k))
+(defmulti handle-error (fn [[k _]] k))
+
+(defmethod handle-response :default [[k v]]
+  (js/console.log "ERROR: no response handler found for :" k))
+
+(defmethod handle-error :default [[k v]]
+  (js/console.log "ERROR: no error handler found for:" k))
+
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
   (make-login-op {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
