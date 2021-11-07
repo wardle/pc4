@@ -398,9 +398,15 @@
         [:a.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:on-click #(when select-fn (select-fn id))} title])])])
 
 
-(defn section-heading [title]
-  [:div.pb-5.border-b.border-gray-200
-   [:h3.text-lg.leading-6.font-medium.text-gray-900 title]])
+
+(defn section-heading [title & {:keys [buttons]}]
+  [:div.bg-white.px-4.py-5.border-b.border-gray-200.sm:px-6
+   [:div.-ml-4.-mt-2.flex.items-center.justify-between.flex-wrap.sm:flex-nowrap
+    [:div.ml-4.mt-2
+     [:h3.text-lg.leading-6.font-medium.text-gray-900 title]]
+    (when buttons
+      [:div.ml-4.mt-2.flex-shrink-0
+       buttons])]])
 
 (defn list-entities-fixed
   "A fixed list of entities."
