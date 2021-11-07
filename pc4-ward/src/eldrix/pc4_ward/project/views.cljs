@@ -314,25 +314,26 @@
       (let [patient @(rf/subscribe [::patient-subs/current])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
-        [:div
-         [ui/patient-banner
-          :name (:t_patient/sex patient)
-          :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
-          :address (:t_episode/stored_pseudonym patient)
-          :on-close #(when-let [project-id (:t_episode/project_fk patient)]
-                       (println "opening project page for project" project-id)
-                       (rfe/push-state :projects {:project-id project-id :slug "home"}))
-          :content [ui/tabbed-menu
-                    :name "patient-menu"
-                    :value @menu
-                    :on-change #(do (println "chosen" %) (reset! menu %))
-                    :choices neuro-inflammatory-menus
-                    :value-key :id
-                    :display-key :title]]
-         [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
-          [:div.px-4.py-5.sm:p-6
-           (when-let [component (:component (menu-by-id @menu))]
-             [component])]]]))))
+        (if patient
+          [:div
+           [ui/patient-banner
+            :name (:t_patient/sex patient)
+            :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
+            :address (:t_episode/stored_pseudonym patient)
+            :on-close #(when-let [project-id (:t_episode/project_fk patient)]
+                         (println "opening project page for project" project-id)
+                         (rfe/push-state :projects {:project-id project-id :slug "home"}))
+            :content [ui/tabbed-menu
+                      :name "patient-menu"
+                      :value @menu
+                      :on-change #(do (println "chosen" %) (reset! menu %))
+                      :choices neuro-inflammatory-menus
+                      :value-key :id
+                      :display-key :title]]
+           [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+            [:div.px-4.py-5.sm:p-6
+             (when-let [component (:component (menu-by-id @menu))]
+               [component])]]])))))
 
 (defn list-users [users]
   [:div.flex.flex-col
