@@ -34,7 +34,7 @@
     [{:t_patient/diagnoses patient-diagnosis-properties}
      :t_patient/medications
      :t_patient/encounters
-     :t_patients/summary_multiple_sclerosis
+     :t_patient/summary_multiple_sclerosis
      :t_patient/episodes]))
 
 (defn make-search-by-legacy-pseudonym
@@ -110,6 +110,7 @@
 (rf/reg-event-fx ::search-legacy-pseudonym
   (fn [{db :db} [_ project-id pseudonym]]
     (js/console.log "search by pseudonym" project-id pseudonym)
+    (tap> {:db db})
     (cond-> {:db (-> db
                      (dissoc :patient/search-legacy-pseudonym)
                      (update-in [:errors] dissoc ::search-legacy-pseudonym))}
