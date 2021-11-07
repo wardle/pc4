@@ -11,11 +11,12 @@
    Many users are authorised to register and discharge patients from projects
    but such authorisation is on a per-project basis."
   (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.nhs-number :as nhs-number]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [next.jdbc :as jdbc]
             [honey.sql :as sql]
-            [clojure.tools.logging.readable :as log])
+            [next.jdbc :as jdbc]
+            [next.jdbc.plan])
   (:import (java.time LocalDate)
            (java.text Normalizer Normalizer$Form)
            (java.time.format DateTimeFormatter)
@@ -83,6 +84,15 @@
 
 (defn fetch-project [conn project-id]
   (db/execute-one! conn (fetch-project-sql project-id)))
+
+(defn common-concepts
+  "Return a vector of common concepts for the project and its ancestors."
+  [conn project-id]
+  (let [project-ids (conj (all-parents-ids conn project-id) project-id)]
+    (next.jdbc.plan/select! conn :conceptconceptid
+                            (sql/format {:select-distinct :conceptconceptid
+                                         :from            :t_project_concept
+                                         :where           [:in :projectid project-ids]}))))
 
 (defn project-with-name [conn nm]
   (db/execute-one! conn (sql/format {:select :* :from :t_project
@@ -462,7 +472,7 @@
 
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
-                                                                             :maximumPoolSize 10}))
+                                                                             :maximumPoolSize 2}))
 
   (make-slug "MND Cwm Taf")
 
