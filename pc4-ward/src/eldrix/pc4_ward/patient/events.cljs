@@ -114,10 +114,10 @@
                      (dissoc :patient/search-legacy-pseudonym)
                      (update-in [:errors] dissoc ::search-legacy-pseudonym))}
             (>= (count pseudonym) 3)
-            (assoc :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-search-by-legacy-pseudonym project-id pseudonym)
-                                                              :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                              :on-success [::handle-search-pseudonym-response]
-                                                              :on-failure [::handle-search-pseudonym-failure]})]]))))
+            (assoc :fx [[:pathom {:params     (make-search-by-legacy-pseudonym project-id pseudonym)
+                                  :token      (get-in db [:authenticated-user :io.jwt/token])
+                                  :on-success [::handle-search-pseudonym-response]
+                                  :on-failure [::handle-search-pseudonym-failure]}]]))))
 
 (rf/reg-event-fx ::handle-search-pseudonym-response
   []
@@ -134,7 +134,7 @@
              (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Open and close a pseudonymous patient record
+;;;; Open, refresh and close a pseudonymous patient record
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rf/reg-event-fx ::open-pseudonymous-patient
   (fn [{db :db} [_ project-id pseudonym]]
@@ -142,10 +142,42 @@
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-fetch-pseudonymous-patient-response]
-                                                :on-failure [::handle-fetch-pseudonymous-patient-failure]})]]}))
+     :fx [[:pathom {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-fetch-pseudonymous-patient-response]
+                    :on-failure [::handle-fetch-pseudonymous-patient-failure]}]]}))
+
+;; refresh current patient
+;; this has to do things differently based on whether patient is a full record
+;; or a pseudonymous patient
+(rf/reg-event-fx ::refresh-current-patient
+  (fn [{db :db} _]
+    (let [patient-identifier (get-in db [:patient/current :patient :t_patient/patient_identifier])
+          project-id (get-in db [:patient/current :patient :t_episode/project_fk])
+          pseudonym (get-in db [:patient/current :patient :t_episode/stored_pseudonym])]
+      (if (and project-id pseudonym)
+        {:fx [[:pathom {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
+                        :token      (get-in db [:authenticated-user :io.jwt/token])
+                        :on-success [::handle-fetch-pseudonymous-patient-response]
+                        :on-failure [::handle-fetch-pseudonymous-patient-failure]}]]}
+        {:fx [[:pathom {:params     (make-fetch-patient patient-identifier)
+                        :token      (get-in db [:authenticated-user :io.jwt/token])
+                        :on-success [::handle-fetch-patient-response]
+                        :on-failure [::handle-fetch-patient-failure]}]]}))))
+
+(rf/reg-event-fx ::handle-fetch-patient-response
+  []
+  (fn [{db :db} [_ response]]
+    (js/console.log "fetch  patient response: " response)
+    {:db (assoc-in db [:patient/current :patient] (first (vals response)))}))
+
+(rf/reg-event-fx ::handle-fetch-patient-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "fetch patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/current)
+             (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
 
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-response
   []
@@ -171,19 +203,18 @@
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-register-pseudonymous-patient params)
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-register-pseudonymous-patient-response]
-                                                :on-failure [::handle-register-pseudonymous-patient-failure]})]]}))
+     :fx [[:pathom {:params     (make-register-pseudonymous-patient params)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-register-pseudonymous-patient-response]
+                    :on-failure [::handle-register-pseudonymous-patient-failure]}]]}))
 
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
     (js/console.log "register pseudonymous patient response: " result)
     {:db (assoc-in db [:patient/current :patient] result)
-     :fx [[:dispatch [::events/push-state
-                      :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
-                                                     :pseudonym  (:t_episode/stored_pseudonym result)}]]]}))
+     :fx [[:dispatch [::events/push-state :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
+                                                                         :pseudonym  (:t_episode/stored_pseudonym result)}]]]}))
 
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
   []
@@ -212,28 +243,17 @@
   (fn [{db :db} [_ params]]
     {:db (-> db
              (update-in [:errors] dissoc ::save-diagnosis))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-save-diagnosis params)
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-success-response]
-                                                :on-failure [::handle-failure-response]})]]}))
+     :fx [[:pathom {:params     (make-save-diagnosis params)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
 
-(defmethod eldrix.pc4-ward.server/handle-response 'pc4.rsdb/save-diagnosis [[k v]]
-  (js/console.log "woo hoo : save diagnosis response" v))
-
-
-(rf/reg-event-fx ::handle-success-response
+(rf/reg-event-fx ::handle-save-diagnosis
   []
-  (fn [{:keys [db] :as cofx} [_ responses]]
-    (doseq [response responses]
-      (eldrix.pc4-ward.server/handle-response response))))
-
-(rf/reg-event-fx ::handle-failure-response
-  []
-  (fn [{:keys [db] :as cofx} event]
-    (js/console.log "failure for event " event)))
-
-
-
+  (fn [{db :db} [_ {result 'pc4.rsdb/save-diagnosis}]]
+    (js/console.log "save diagnosis response: " result)
+    {:fx [[:dispatch-n [[::refresh-current-patient]
+                        [::clear-diagnosis]]]]}))
 
 
 
@@ -260,6 +280,7 @@
      :org.hl7.fhir.Patient/gender
      :org.hl7.fhir.Patient/deceased
      :org.hl7.fhir.Patient/currentAddress]}])
+
 (rf/reg-event-fx                                            ;;; DEPRECATED
   ::fetch []
   (fn [{db :db} [_ identifier]]
@@ -267,10 +288,10 @@
     {:db (-> db
              (dissoc :patient/search-results)
              (update-in [:errors] dissoc ::fetch))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-fetch-response]
-                                                :on-failure [::handle-fetch-failure]})]]}))
+     :fx [[:pathom {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-fetch-response]
+                    :on-failure [::handle-fetch-failure]}]]}))
 
 (rf/reg-event-fx ::handle-fetch-response                    ;;DEPRECATED
   []

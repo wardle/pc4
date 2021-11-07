@@ -27,15 +27,15 @@
      :t_project/count_discharged_episodes
      :t_project/count_pending_referrals]}])
 
-(rf/reg-event-fx ::set-current-project    ;; TODO: rename to open-project
+(rf/reg-event-fx ::set-current-project                      ;; TODO: rename to open-project
   []
   (fn [{db :db} [_ project-id]]
     (js/console.log "selecting project " project-id)
     {:db (dissoc db :project/current)
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-fetch-project-op {:id project-id})
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-fetch-response]
-                                                :on-failure [::handle-fetch-failure]})]]}))
+     :fx [[:pathom {:params     (make-fetch-project-op {:id project-id})
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-fetch-response]
+                    :on-failure [::handle-fetch-failure]}]]}))
 
 (rf/reg-event-fx ::handle-fetch-response
   []

@@ -118,10 +118,10 @@
   (fn [{:keys [db]} _]
     (let [token (get-in db [:authenticated-user :io.jwt/token])]
       (js/console.log "performing token refresh using token " token)
-      {:fx [[:http-xhrio (srv/make-xhrio-request {:token      token
-                                                  :params     (srv/make-refresh-token-op {:token token})
-                                                  :on-success [::handle-refresh-token-response]
-                                                  :on-failure [::handle-refresh-token-failure]})]]})))
+      {:fx [[:pathom {:token      token
+                      :params     (srv/make-refresh-token-op {:token token})
+                      :on-success [::handle-refresh-token-response]
+                      :on-failure [::handle-refresh-token-failure]}]]})))
 
 (rf/reg-event-fx ::handle-refresh-token-response
   []

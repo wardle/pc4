@@ -13,7 +13,9 @@
             [ajax.core :as ajax]
             [ajax.transit :as ajax-transit]
             [goog.crypt.base64 :as b64]
-            [cljs.core.async :refer [<!]])
+            [goog.net.ErrorCode :as errors]
+            [cljs.core.async :refer [<!]]
+            [re-frame.core :as rf])
   (:import [goog.date UtcDateTime]))
 
 (defn jwt-token-payload
@@ -120,14 +122,53 @@
 ;;;;
 ;;;;
 
-(defmulti handle-response (fn [[k _]] k))
-(defmulti handle-error (fn [[k _]] k))
+(defn make-ajax-xhrio-handler
+  "Create a xhrio handler."
+  [& {:keys [on-success on-failure xhrio]}]
+  (fn [[success? response]]                                 ; see http://docs.closure-library.googlecode.com/git/class_goog_net_XhrIo.html
+    (if success?
+      (on-success response)
+      (let [details (merge
+                      {:uri             (.getLastUri xhrio)
+                       :last-method     (.-lastMethod_ xhrio)
+                       :last-error      (.getLastError xhrio)
+                       :last-error-code (.getLastErrorCode xhrio)
+                       :debug-message   (-> xhrio .getLastErrorCode (errors/getDebugMessage))}
+                      response)]
+        (on-failure details)))))
 
-(defmethod handle-response :default [[k v]]
-  (js/console.log "ERROR: no response handler found for :" k))
+(defn request->xhrio-options
+  [{:keys [on-success on-failure timeout token] :or {timeout 300} :as request}]
+  (let [xhrio (new goog.net.XhrIo)]
+    (-> (merge {:method          :post
+                :uri             "http://localhost:8080/api"
+                :timeout         timeout
+                :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
+                :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
+                :headers         (when token {:Authorization (str "Bearer " token)})}
+               request)
+        (assoc
+          :api xhrio
+          :handler (make-ajax-xhrio-handler
+                     :on-success #(rf/dispatch (conj on-success %))
+                     :on-failure #(rf/dispatch (conj on-failure %))
+                     :xhrio xhrio))
+        (dissoc :on-success :on-failure :on-request))))
 
-(defmethod handle-error :default [[k v]]
-  (js/console.log "ERROR: no error handler found for:" k))
+(defn pathom-effect
+  "This is an effect handler that sends a pathom API request to the server.
+  This currently uses an AJAX request."
+  [{:keys [on-request] :as request}]
+  (let [xhrio (-> request
+                  request->xhrio-options
+                  ajax/ajax-request)]
+    (when on-request
+      (rf/dispatch (conj on-request xhrio)))))
+
+(re-frame.core/reg-fx
+  :pathom
+  (fn [request]
+    (pathom-effect request)))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
@@ -156,6 +197,5 @@
   pt
   (def a1 (first (:wales.nhs.cavuhb.Patient/ADDRESSES pt)))
   (println (:wales.nhs.cavuhb.Address/DATE_FROM a1))
-
 
   )

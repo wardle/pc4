@@ -32,10 +32,10 @@
     {:db (-> db
              (update :snomed/search dissoc id)
              (update-in [:errors] dissoc :snomed/search))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-search params)
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-search-response id (js/Date.)]
-                                                :on-failure [::handle-search-failure id]})]]}))
+     :fx [[:pathom {:params     (make-search params)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-search-response id (js/Date.)]
+                    :on-failure [::handle-search-failure id]}]]}))
 
 (rf/reg-event-db ::clear-search-results
   (fn [db [_ id]]

@@ -186,8 +186,8 @@
             [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
              [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date onset"]
              [:div.mt-1.sm:mt-0.sm:col-span-2
-               [ui/html-date-picker :name "date-onset" :value (:t_diagnosis/date_onset current-diagnosis)
-                :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_onset %)])]]]
+              [ui/html-date-picker :name "date-onset" :value (:t_diagnosis/date_onset current-diagnosis)
+               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_onset %)])]]]
             [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
              [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-diagnosis"} "Date diagnosis"]
              [:div.mt-1.sm:mt-0.sm:col-span-2
@@ -225,7 +225,7 @@
                    #(dates/format-date (:t_diagnosis/date_diagnosis %))
                    #(dates/format-date (:t_diagnosis/date_to %))
                    :t_diagnosis/status]
-      :on-edit (fn [diagnosis] (js/console.log "edt diag")(rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]
+      :on-edit (fn [diagnosis] (js/console.log "edt diag") (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]
      (when (seq resolved-diagnoses)
        [:div.mt-8
         [ui/section-heading "Inactive diagnoses"]
@@ -239,7 +239,7 @@
                       #(dates/format-date (:t_diagnosis/date_diagnosis %))
                       #(dates/format-date (:t_diagnosis/date_to %))
                       :t_diagnosis/status]
-         :on-edit (fn [diagnosis] (js/console.log "edt diag")(rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
+         :on-edit (fn [diagnosis] (js/console.log "edt diag") (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
 
 (def neuro-inflammatory-menus
   [{:id    :main
@@ -264,7 +264,7 @@
   "This is a neuro-inflammatory 'view' of the patient record.
   TODO: split out common functionality and components into libraries"
   []
-  (let [menu (reagent.core/atom :registration)]
+  (let [menu (reagent.core/atom :diagnoses)]
     (fn []
       (let [patient @(rf/subscribe [::patient-subs/current])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
