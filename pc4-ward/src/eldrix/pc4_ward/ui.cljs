@@ -1,7 +1,8 @@
 (ns eldrix.pc4-ward.ui
   (:require [clojure.string :as str]
             [com.eldrix.pc4.commons.dates :as dates]
-            [reagent.core :as reagent]))
+            [reagent.core :as reagent])
+  (:import [goog.date Date]))
 
 
 (defn icon-bell []
@@ -437,4 +438,14 @@
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
                           [:a.text-indigo-600.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
 
+
+(defn html-date-picker [& {:keys [name value on-change]}]
+  [:input#max-w-lg.block.w-full.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.sm:max-w-xs.sm:text-sm.border-gray-300.rounded-md
+   {:type          "date"
+    :name          name
+    :default-value (cond (instance? goog.date.Date value)
+                         (.toIsoString ^goog.date.Date value true)
+                         :else value)
+    :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
+                      (when (and d on-change) (on-change d)))}])
 
