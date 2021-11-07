@@ -92,6 +92,11 @@
     valid-diagnosis-status?
     ordered-diagnostic-dates?))
 
+(s/def ::save-ms-diagnosis
+  (s/keys :req [:t_user/id
+                :t_ms_diagnosis/id
+                :t_patient/patient_identifier]))
+
 (defn html->text
   "Convert a string containing HTML to plain text."
   [^String html]
@@ -173,6 +178,15 @@
                                                  :where  [:= :patient_fk patient-id]}))]
     {:t_patient/diagnoses
      (map #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
+
+(pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
+  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
+  {::pco/output [{:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
+                                                         :t_summary_multiple_sclerosis/ms_diagnosis_fk
+                                                         :t_ms_diagnosis/id
+                                                         :t_ms_diagnosis/name]}]}
+  (let [sms (patients/fetch-summary-multiple-sclerosis conn patient-identifier)]
+    {:t_patient/summary_multiple_sclerosis sms}))
 
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
@@ -634,6 +648,28 @@
                        (patients/create-diagnosis conn params'))]
             (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
+(pco/defmutation save-patient-ms-diagnosis!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} {patient-identifier :t_patient/patient_identifier :as params}]
+  {::pco/op-name 'pc4.rsdb/save-ms-diagnosis}
+  (log/info "save ms diagnosis:" params " user:" user)
+  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))]
+    (if-not (s/valid? ::save-ms-diagnosis params')
+      (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
+          (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
+      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+          (patients/save-ms-diagnosis! conn params)
+          (patient->summary-multiple-sclerosis conn patient-identifier)))))
+
+(pco/defresolver multiple-sclerosis-diagnoses
+  [{conn :com.eldrix.rsdb/conn} _]
+  {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
+                                                     :t_ms_diagnosis/name]}]}
+  {:com.eldrix.rsdb/all-ms-diagnoses (db/execute! conn
+                                                  (sql/format {:select [:id :name]
+                                                               :from   [:t_ms_diagnosis]}))})
 
 (def all-resolvers
   [patient-by-identifier
@@ -645,6 +681,7 @@
    patient->occupation
    patient->surgery
    patient->diagnoses
+   patient->summary-multiple-sclerosis
    patient->medications
    patient->addresses
    patient->address
@@ -682,9 +719,12 @@
    user->latest-news
    patient->fhir-human-name
    patient->fhir-gender
+   multiple-sclerosis-diagnoses
+   ;; mutations - VERBS
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
-   save-diagnosis!])
+   save-diagnosis!
+   save-patient-ms-diagnosis!])
 
 (comment
   (require '[next.jdbc.connection])
@@ -701,6 +741,9 @@
 
   (def env (-> (pci/register all-resolvers)
                (assoc :com.eldrix.rsdb/conn conn)))
+  (p.eql/process env [{[:t_patient/id 6175]
+                       [:t_patient/summary_multiple_sclerosis]}])
+  (p.eql/process env [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
   (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
   (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
                                                               :t_patient/email

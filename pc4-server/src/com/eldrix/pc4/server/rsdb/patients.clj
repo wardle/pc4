@@ -1,11 +1,12 @@
 (ns com.eldrix.pc4.server.rsdb.patients
   (:require [clojure.tools.logging.readable :as log]
             [next.jdbc :as jdbc]
+            [next.jdbc.sql]
             [honey.sql :as sql]
             [clojure.string :as str]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.projects :as projects])
-  (:import (java.time LocalDate)))
+  (:import (java.time LocalDate LocalDateTime)))
 
 (defn fetch-episodes
   "Return the episodes for the given patient."
@@ -103,17 +104,17 @@
                               patient-identifier :t_patient/patient_identifier}]
   (db/execute-one! conn
                    (sql/format {:insert-into [:t_diagnosis]
-                                     :values      [{:date_onset              date_onset
-                                                    :date_onset_accuracy     date_onset_accuracy
-                                                    :date_diagnosis          date_diagnosis
-                                                    :date_diagnosis_accuracy date_diagnosis_accuracy
-                                                    :date_to                 date_to
-                                                    :date_to_accuracy        date_to_accuracy
-                                                    :status                  (name status)
-                                                    :concept_fk              concept_fk
-                                                    :patient_fk              {:select :t_patient/id
-                                                                              :from   [:t_patient]
-                                                                              :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
+                                :values      [{:date_onset              date_onset
+                                               :date_onset_accuracy     date_onset_accuracy
+                                               :date_diagnosis          date_diagnosis
+                                               :date_diagnosis_accuracy date_diagnosis_accuracy
+                                               :date_to                 date_to
+                                               :date_to_accuracy        date_to_accuracy
+                                               :status                  (name status)
+                                               :concept_fk              concept_fk
+                                               :patient_fk              {:select :t_patient/id
+                                                                         :from   [:t_patient]
+                                                                         :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
                    {:return-keys true}))
 
 (defn update-diagnosis
@@ -132,6 +133,45 @@
                                          [:= :t_diagnosis/id id]]})
                    {:return-keys true}))
 
+(defn fetch-summary-multiple-sclerosis
+  [conn patient-identifier]
+  (let [sms (db/execute! conn (sql/format {:select    [:t_summary_multiple_sclerosis/id
+                                                       :t_ms_diagnosis/id :t_ms_diagnosis/name
+                                                       :t_patient/patient_identifier
+                                                       :t_summary_multiple_sclerosis/ms_diagnosis_fk]
+                                           :from      [:t_summary_multiple_sclerosis]
+                                           :join      [:t_patient [:= :patient_fk :t_patient/id]]
+                                           :left-join [:t_ms_diagnosis [:= :ms_diagnosis_fk :t_ms_diagnosis/id]]
+                                           :where     [:and
+                                                       [:= :t_patient/patient_identifier patient-identifier]
+                                                       [:= :t_summary_multiple_sclerosis/is_deleted "false"]]
+                                           :order-by  [[:t_summary_multiple_sclerosis/date_created :desc]]}))]
+    (when (> (count sms) 1)
+      (log/error "Found more than one t_summary_multiple_sclerosis for patient" {:patient-identifier patient-identifier :results sms}))
+    (first sms)))
+
+(defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
+                                patient-identifier :t_patient/patient_identifier
+                                user-id            :t_user/id}]
+  (jdbc/with-transaction
+    [tx conn {:isolation :serializable}]
+    (if-let [sms (fetch-summary-multiple-sclerosis tx patient-identifier)]
+      (next.jdbc.sql/update! tx :t_summary_multiple_sclerosis
+                             {:t_summary_multiple_sclerosis/ms_diagnosis_fk ms-diagnosis-id
+                              :t_summary_multiple_sclerosis/user_fk user-id}
+                             {:id (:t_summary_multiple_sclerosis/id sms)})
+      (jdbc/execute-one! tx (sql/format
+                              {:insert-into [:t_summary_multiple_sclerosis]
+                               :values      [{:t_summary_multiple_sclerosis/written_information ""
+                                              :t_summary_multiple_sclerosis/under_active_review "true"
+                                              :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
+                                              :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
+                                              :t_summary_multiple_sclerosis/user_fk             user-id
+                                              :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
+                                                                                                 :from   [:t_patient]
+                                                                                                 :where  [:= :t_patient/patient_identifier patient-identifier]}}]})))))
+
+
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
   (patients-in-projects conn #{1 3 32})
@@ -139,6 +179,8 @@
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
                                                                              :maximumPoolSize 2}))
+  (fetch-summary-multiple-sclerosis conn 1)
+  (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 1})
   (fetch-episodes conn 15203)
   (active-episodes conn 15203)
   (active-project-identifiers conn 15203)
