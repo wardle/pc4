@@ -626,11 +626,13 @@
   (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
                               :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
     (if-not (s/valid? ::create-diagnosis params')
-      (log/error "invalid call" (s/explain-data ::create-diagnosis params'))
+      (do (log/error "invalid call" (s/explain-data ::create-diagnosis params'))
+          (throw (ex-info "Invalid data" (s/explain-data ::create-diagnosis params'))))
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-          (if (:t_diagnosis/id params')
-            (patients/update-diagnosis conn params')
-            (patients/create-diagnosis conn params'))))))
+          (let [diag (if (:t_diagnosis/id params')
+                       (patients/update-diagnosis conn params')
+                       (patients/create-diagnosis conn params'))]
+            (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
 
 (def all-resolvers
