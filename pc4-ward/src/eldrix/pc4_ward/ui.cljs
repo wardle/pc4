@@ -338,8 +338,8 @@
                sorted-choices (sort-by display-key (vals choices))]
            (when (and default-value (str/blank? value))
              (select-fn default-value))
-           [:div.flex
-            [:select.border.bg-white.rounded.px-3.py-2.outline-none
+           [:<>
+            [:select.border.bg-white.rounded.px-3.py-2.outline-none.w-full
              {:disabled  disabled?
               :value     (str (id-key value))
               :on-change #(when select-fn
