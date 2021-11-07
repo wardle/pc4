@@ -4,28 +4,7 @@
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.server :as srv]))
 
-(defn make-cav-fetch-patient-op
-  "This is a Cardiff and Vale specific operation to fetch patient data directly
-  from PMS. This is a leaky abstraction that will be removed in the future."
-  [{:keys [pas-identifier]}]
-  [{(list 'wales.nhs.cavuhb/fetch-patient
-          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
-    [:org.hl7.fhir.Patient/birthDate
-     :wales.nhs.cavuhb.Patient/DATE_DEATH
-     :uk.nhs.cfh.isb1505/display-age
-     :wales.nhs.cavuhb.Patient/IS_DECEASED
-     :wales.nhs.cavuhb.Patient/ADDRESSES
-     :wales.nhs.cavuhb.Patient/HOSPITAL_ID
-     :uk.nhs.cfh.isb1504/nhs-number
-     :uk.nhs.cfh.isb1506/patient-name
-     :org.hl7.fhir.Patient/identifier
-     :org.hl7.fhir.Patient/name
-     :wales.nhs.cavuhb.Patient/SEX
-     :org.hl7.fhir.Patient/gender
-     :org.hl7.fhir.Patient/deceased
-     :org.hl7.fhir.Patient/currentAddress]}])
-
-(def core-patient-properties
+(def core-patient-properties                                ;; TODO: these properties to be generic properties not rsdb.
   [:t_patient/id
    :t_patient/patient_identifier
    :t_patient/first_names
@@ -36,19 +15,23 @@
    :t_patient/date_death
    :t_patient/current_address])
 
+(def patient-diagnosis-properties
+  [:t_diagnosis/id
+   :t_diagnosis/date_onset
+   :t_diagnosis/date_diagnosis
+   :t_diagnosis/date_to
+   :t_diagnosis/status
+   :t_diagnosis/date_onset_accuracy
+   :t_diagnosis/date_diagnosis_accuracy
+   :t_diagnosis/date_to_accuracy
+   {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                            :info.snomed.Concept/preferredDescription
+                            :info.snomed.Concept/parentRelationshipIds]}])
+
 (def full-patient-properties
   (into
     core-patient-properties
-    [{:t_patient/diagnoses [:t_diagnosis/id
-                            :t_diagnosis/date_onset
-                            :t_diagnosis/date_diagnosis
-                            :t_diagnosis/date_to
-                            :t_diagnosis/status
-                            :t_diagnosis/date_onset_accuracy
-                            :t_diagnosis/date_diagnosis_accuracy
-                            :t_diagnosis/date_to_accuracy
-                            {:t_diagnosis/diagnosis [:info.snomed.Concept/preferredDescription
-                                                     :info.snomed.Concept/parentRelationshipIds]}]}
+    [{:t_patient/diagnoses patient-diagnosis-properties}
      :t_patient/medications
      :t_patient/encounters
      :t_patients/summary_multiple_sclerosis
@@ -89,35 +72,10 @@
   [{[:t_patient/patient_identifier patient-identifier]
     full-patient-properties}])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(rf/reg-event-fx                                            ;;; DEPRECATED
-  ::fetch []
-  (fn [{db :db} [_ identifier]]
-    (js/console.log "WARNING: LEGACY DEPRECATED fetch patient " identifier)
-    {:db (-> db
-             (dissoc :patient/search-results)
-             (update-in [:errors] dissoc ::fetch))
-     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
-                                                :token      (get-in db [:authenticated-user :io.jwt/token])
-                                                :on-success [::handle-fetch-response]
-                                                :on-failure [::handle-fetch-failure]})]]}))
-
-(rf/reg-event-fx ::handle-fetch-response                    ;;DEPRECATED
-  []
-  (fn [{db :db} [_ {pt 'wales.nhs.cavuhb/fetch-patient}]]
-    (js/console.log "fetch patient response: " pt)
-    {:db (assoc db :patient/search-results (if pt [pt] []))}))
-
-(rf/reg-event-fx ::handle-fetch-failure                     ;;DEPRECATED
-  []
-  (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
-    {:db (-> db
-             (dissoc :patient/search-results)
-             (assoc-in [:errors ::fetch] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
+(defn make-save-diagnosis
+  [params]
+  [{(list 'pc4.rsdb/save-diagnosis params)
+    patient-diagnosis-properties}])
 
 (rf/reg-event-db ::clear-search-results
   []
@@ -238,6 +196,95 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(rf/reg-event-db ::set-current-diagnosis
+  []
+  (fn [db [_ diagnosis]]
+    (-> db
+        (assoc-in [:patient/current :current-diagnosis] diagnosis))))
+
+(rf/reg-event-db ::clear-diagnosis
+  []
+  (fn [db _]
+    (-> db
+        (update-in [:patient/current] dissoc :current-diagnosis))))
+
+(rf/reg-event-fx ::save-diagnosis
+  (fn [{db :db} [_ params]]
+    {:db (-> db
+             (update-in [:errors] dissoc ::save-diagnosis))
+     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-save-diagnosis params)
+                                                :token      (get-in db [:authenticated-user :io.jwt/token])
+                                                :on-success [::handle-success-response]
+                                                :on-failure [::handle-failure-response]})]]}))
+
+(defmethod eldrix.pc4-ward.server/handle-response 'pc4.rsdb/save-diagnosis [[k v]]
+  (js/console.log "woo hoo : save diagnosis response" v))
+
+
+(rf/reg-event-fx ::handle-success-response
+  []
+  (fn [{:keys [db] :as cofx} [_ responses]]
+    (doseq [response responses]
+      (eldrix.pc4-ward.server/handle-response response))))
+
+(rf/reg-event-fx ::handle-failure-response
+  []
+  (fn [{:keys [db] :as cofx} event]
+    (js/console.log "failure for event " event)))
+
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-cav-fetch-patient-op
+  "This is a Cardiff and Vale specific operation to fetch patient data directly
+  from PMS. This is a leaky abstraction that will be removed in the future."
+  [{:keys [pas-identifier]}]
+  [{(list 'wales.nhs.cavuhb/fetch-patient
+          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value pas-identifier})
+    [:org.hl7.fhir.Patient/birthDate
+     :wales.nhs.cavuhb.Patient/DATE_DEATH
+     :uk.nhs.cfh.isb1505/display-age
+     :wales.nhs.cavuhb.Patient/IS_DECEASED
+     :wales.nhs.cavuhb.Patient/ADDRESSES
+     :wales.nhs.cavuhb.Patient/HOSPITAL_ID
+     :uk.nhs.cfh.isb1504/nhs-number
+     :uk.nhs.cfh.isb1506/patient-name
+     :org.hl7.fhir.Patient/identifier
+     :org.hl7.fhir.Patient/name
+     :wales.nhs.cavuhb.Patient/SEX
+     :org.hl7.fhir.Patient/gender
+     :org.hl7.fhir.Patient/deceased
+     :org.hl7.fhir.Patient/currentAddress]}])
+(rf/reg-event-fx                                            ;;; DEPRECATED
+  ::fetch []
+  (fn [{db :db} [_ identifier]]
+    (js/console.log "WARNING: LEGACY DEPRECATED fetch patient " identifier)
+    {:db (-> db
+             (dissoc :patient/search-results)
+             (update-in [:errors] dissoc ::fetch))
+     :fx [[:http-xhrio (srv/make-xhrio-request {:params     (make-cav-fetch-patient-op {:pas-identifier identifier})
+                                                :token      (get-in db [:authenticated-user :io.jwt/token])
+                                                :on-success [::handle-fetch-response]
+                                                :on-failure [::handle-fetch-failure]})]]}))
+
+(rf/reg-event-fx ::handle-fetch-response                    ;;DEPRECATED
+  []
+  (fn [{db :db} [_ {pt 'wales.nhs.cavuhb/fetch-patient}]]
+    (js/console.log "fetch patient response: " pt)
+    {:db (assoc db :patient/search-results (if pt [pt] []))}))
+
+(rf/reg-event-fx ::handle-fetch-failure                     ;;DEPRECATED
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "fetch patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/search-results)
+             (assoc-in [:errors ::fetch] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
 
 (defn ^:deprecated fetch-patient
   [s & {:keys [handler error-handler token] :or {error-handler srv/default-error-handler}}]

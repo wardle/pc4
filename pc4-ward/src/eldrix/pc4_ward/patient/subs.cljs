@@ -29,3 +29,12 @@
   (fn [db]
     (get-in db [:patient/current :loading])))
 
+(rf/reg-sub ::diagnoses
+  (fn []
+    (rf/subscribe [::current]))
+  (fn [current-patient]
+    (:t_patient/diagnoses current-patient)))
+
+(rf/reg-sub ::current-diagnosis
+  (fn [db]
+    (get-in db [:patient/current :current-diagnosis])))
