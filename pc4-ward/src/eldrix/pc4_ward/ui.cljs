@@ -356,32 +356,31 @@
               :on-click #(reset! mode :autocomplete)} "..."]])
          :else
          [:<>
-          [:div.flex
-           [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-            {:id            id
-             :type          "text" :placeholder placeholder :required true
-             :class         ["text-gray-700" "bg-white" "shadow"]
-             :default-value nil
-             :disabled      disabled?
-             :auto-focus    true
-             :on-change     #(let [s (-> % .-target .-value)]
-                               (if (>= (count s) minimum-chars)
-                                 (autocomplete-fn s)
-                                 (when clear-fn (clear-fn))))}]
-           [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
-            {:disabled disabled? :on-click #(reset! mode :select)} "Close"]]
-          [:div.grid-cols-1.sm:grid-cols-2
-           [:div
-            [:select.w-full.border.border-gray-300.rounded-md
-             {:multiple        false
-              :size            size
-              :disabled        disabled?
-              :on-change       #(when select-fn (tap> autocomplete-results) (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
-              :on-double-click #(reset! mode :select)}
-             (for [result autocomplete-results]
-               (let [id (id-key result)]
-                 [:option {:value result :key id}
-                  (display-key result)]))]]]])])))
+          [:input.block.w-full.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+           {:id            id
+            :type          "text" :placeholder placeholder :required true
+            :class         ["text-gray-700" "bg-white" "shadow"]
+            :default-value nil
+            :disabled      disabled?
+            :auto-focus    true
+            :on-change     #(let [s (-> % .-target .-value)]
+                              (if (>= (count s) minimum-chars)
+                                (autocomplete-fn s)
+                                (when clear-fn (clear-fn))))}]
+          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+           {:disabled disabled? :on-click #(reset! mode :select)} "Close"]
+
+          [:div.w-full
+           [:select.w-full.border.border-gray-300.rounded-md
+            {:multiple        false
+             :size            size
+             :disabled        disabled?
+             :on-change       #(when select-fn (tap> autocomplete-results) (select-fn (nth autocomplete-results (-> % .-target .-selectedIndex))))
+             :on-double-click #(reset! mode :select)}
+            (for [result autocomplete-results]
+              (let [id (id-key result)]
+                [:option {:value result :key id}
+                 (display-key result)]))]]])])))
 
 (defn flat-menu
   "A simple flat menu.
