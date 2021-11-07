@@ -138,7 +138,7 @@
         (on-failure details)))))
 
 (defn request->xhrio-options
-  [{:keys [on-success on-failure timeout token] :or {timeout 300} :as request}]
+  [{:keys [on-success on-failure timeout token] :or {timeout 2000} :as request}]
   (let [xhrio (new goog.net.XhrIo)]
     (-> (merge {:method          :post
                 :uri             "http://localhost:8080/api"
