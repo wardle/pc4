@@ -427,6 +427,8 @@
           [:tr.bg-white
            {:key (id-key item)}
            (for [value-key value-keys]
-             [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500  (value-key item)])
+             [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 {:key value-key} (value-key item)])
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
-                          [:a.text-indigo-600.hover:text-indigo-900 {:href "#"} "Edit"]])])]]]]]])
+                          [:a.text-indigo-600.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
+
+
