@@ -436,7 +436,7 @@
            (for [value-key value-keys]
              [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 {:key value-key} (value-key item)])
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
-                          [:a.text-indigo-600.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
+                          [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
 
 
 (defn html-date-picker [& {:keys [name value on-change]}]
