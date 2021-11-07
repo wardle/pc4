@@ -158,6 +158,53 @@
   (let [current-patient @(rf/subscribe [::patient-subs/current])]
     [ui/section-heading "Summary : Multiple sclerosis"]))
 
+
+(defn edit-diagnosis
+  "Edit diagnosis form.
+  TODO: this should generate itself from a schema, including client side
+  validation...."
+  [diagnosis]
+   [:form.space-y-8.divide-y.divide-gray-200
+    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+     [:div
+      [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+       [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Diagnosis"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [:div.w-full.rounded-md.shadow-sm.space-y-2
+          (if (:t_diagnosis/id diagnosis)      ;; if we already have a saved diagnosis, don't allow user to change
+            [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+            [eldrix.pc4-ward.snomed.views/select-snomed
+             :id ::choose-diagnosis
+             :common-choices []
+             :value (:t_diagnosis/diagnosis diagnosis)
+             :constraint "<404684003"
+             :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/diagnosis %)])])]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date onset"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/html-date-picker :name "date-onset" :value (:t_diagnosis/date_onset diagnosis)
+          :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/date_onset %)])]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-diagnosis"} "Date diagnosis"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/html-date-picker :name "date-diagnosis" :value (:t_diagnosis/date_diagnosis diagnosis)
+          :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/date_diagnosis %)])]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date to"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/html-date-picker :name "date-to" :value (:t_diagnosis/date_to diagnosis)
+          :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/date_to %)])]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "status"} "Status"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/select
+          :name "status"
+          :value (:t_diagnosis/status diagnosis)
+          :default-value "ACTIVE"
+          :choices ["INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+          :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/status %)])]]]]]]])
+
 (defn list-diagnoses []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
         current-diagnosis @(rf/subscribe [::patient-subs/current-diagnosis])
@@ -168,49 +215,8 @@
         _ (tap> @db/app-db)]
     [:<>
      (when current-diagnosis
-       (tap> current-diagnosis)
        [ui/modal :disabled? false
-        :content
-        [:form.space-y-8.divide-y.divide-gray-200
-         [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
-          [:div
-           [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
-            [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Diagnosis"]
-             [:div.mt-1.sm:mt-0.sm:col-span-2
-              [:div.w-full.rounded-md.shadow-sm.space-y-2
-               (if (:t_diagnosis/id current-diagnosis)      ;; if we already have a saved diagnosis, don't allow user to change
-                 [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in current-diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-                 [eldrix.pc4-ward.snomed.views/select-snomed
-                  :id ::choose-diagnosis
-                  :common-choices []
-                  :value (:t_diagnosis/diagnosis current-diagnosis)
-                  :constraint "<404684003"
-                  :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/diagnosis %)])])]]]
-            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date onset"]
-             [:div.mt-1.sm:mt-0.sm:col-span-2
-              [ui/html-date-picker :name "date-onset" :value (:t_diagnosis/date_onset current-diagnosis)
-               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_onset %)])]]]
-            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-diagnosis"} "Date diagnosis"]
-             [:div.mt-1.sm:mt-0.sm:col-span-2
-              [ui/html-date-picker :name "date-diagnosis" :value (:t_diagnosis/date_diagnosis current-diagnosis)
-               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_diagnosis %)])]]]
-            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date to"]
-             [:div.mt-1.sm:mt-0.sm:col-span-2
-              [ui/html-date-picker :name "date-to" :value (:t_diagnosis/date_to current-diagnosis)
-               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_to %)])]]]
-            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "status"} "Status"]
-             [:div.mt-1.sm:mt-0.sm:col-span-2
-              [ui/select
-               :name "status"
-               :value (:t_diagnosis/status current-diagnosis)
-               :default-value "ACTIVE"
-               :choices ["INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
-               :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/status %)])]]]]]]]
+        :content [edit-diagnosis current-diagnosis]
         :actions [{:id       ::save-action :title "Save" :is-primary true
                    :on-click #(rf/dispatch [::patient-events/save-diagnosis
                                             (assoc current-diagnosis
