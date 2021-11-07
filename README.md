@@ -20,7 +20,9 @@ and common functionality provided in client libraries.
 
 As a result, this is still in an exploratory phase. The division of the project
 into different repositories and the responsibilities of each repository are 
-not finalised. I expect these to change. 
+not finalised. I expect these to change. The most mature product is pc4-server. 
+It provides a graph-like API for read operations, with 'commands' (mutations) used
+for write operations. pc4-ward is an experimental front-end.
 
 Even though I expect many of the implementation details to change, the 
 basic principles will not.
