@@ -40,7 +40,8 @@
             [io.pedestal.interceptor :as intc]
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
-            [cognitect.transit :as transit])
+            [cognitect.transit :as transit]
+            [io.pedestal.http.body-params :as body-params])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
@@ -158,7 +159,7 @@
       (http/default-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (api/inject env))
-              (io.pedestal.http.body-params/body-params)
+              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
@@ -357,4 +358,9 @@
   ;;   target_concept_id
   ;;   date_updated
 
+  (com.eldrix.pc4.server.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
+                                                                        {:salt (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
+                                                                         :project-id 124
+                                                                         :nhs-number "3333333333"
+                                                                         :date-birth (java.time.LocalDate/of 1975 5 1)})
   )
