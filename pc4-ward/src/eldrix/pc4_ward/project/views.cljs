@@ -3,6 +3,8 @@
     [clojure.spec.alpha :as s]
     [reitit.frontend.easy :as rfe]
     [re-frame.core :as rf]
+    [eldrix.pc4-ward.lookups.events :as lookup-events]
+    [eldrix.pc4-ward.lookups.subs :as lookup-subs]
     [eldrix.pc4-ward.patient.events :as patient-events]
     [eldrix.pc4-ward.patient.subs :as patient-subs]
     [eldrix.pc4-ward.project.subs :as project-subs]
@@ -154,9 +156,41 @@
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
 
+(defn select-multiple-sclerosis-diagnosis [& {:keys [name value disabled? on-change]}]
+  (let [v (reagent.core/atom {:status :view
+                              :value  value})
+        choices (rf/subscribe [::lookup-subs/all-ms-diagnoses])]
+    (fn [& {:keys [name value disabled? on-change]}]
+      (let [choices @choices]
+        [ui/select :name name :value value :disabled? disabled?
+         :choices choices
+         :no-selection-string "< Choose diagnosis >"
+         :id-key :t_ms_diagnosis/id
+         :display-key :t_ms_diagnosis/name
+         :select-fn #(swap! v assoc :value %)]))))
+
+
 (defn multiple-sclerosis-main []
   (let [current-patient @(rf/subscribe [::patient-subs/current])]
-    [ui/section-heading "Summary : Multiple sclerosis"]))
+    [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
+     [ui/section-heading "Neuro-inflammatory disease"]
+     [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
+      [:dl.sm:divide-y.sm:divide-gray-200
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "Diagnosis"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 [select-multiple-sclerosis-diagnosis :name "ms-diagnosis" :value nil :disabled false]]]
+
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "Most recent EDSS"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
+
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "Number of relapses in last 2 years"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
+
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "Number of relapses in last year"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]]]]))
 
 (defn list-diagnoses []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
@@ -317,6 +351,7 @@
   (let [selected-page (reagent.core/atom :home)]
     (rf/dispatch [::patient-events/search-legacy-pseudonym nil ""])
     (rf/dispatch [::patient-events/clear-open-patient-error])
+    (rf/dispatch [::lookup-events/fetch])
     (fn []
       (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
