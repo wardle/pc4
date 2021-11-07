@@ -634,6 +634,13 @@
                        (patients/create-diagnosis conn params'))]
             (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
+(pco/defresolver multiple-sclerosis-diagnoses
+  [{conn :com.eldrix.rsdb/conn} _]
+  {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
+                                                     :t_ms_diagnosis/name]}]}
+  {:com.eldrix.rsdb/all-ms-diagnoses (db/execute! conn
+                                                  (sql/format {:select [:id :name]
+                                                               :from   [:t_ms_diagnosis]}))})
 
 (def all-resolvers
   [patient-by-identifier
@@ -684,7 +691,8 @@
    patient->fhir-gender
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
-   save-diagnosis!])
+   save-diagnosis!
+   multiple-sclerosis-diagnoses])
 
 (comment
   (require '[next.jdbc.connection])
@@ -701,6 +709,7 @@
 
   (def env (-> (pci/register all-resolvers)
                (assoc :com.eldrix.rsdb/conn conn)))
+  (p.eql/process env [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
   (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
   (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
                                                               :t_patient/email
