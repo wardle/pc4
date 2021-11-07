@@ -1,9 +1,7 @@
 (ns com.eldrix.pc4.server.api
   (:require [clojure.tools.logging.readable :as log]
             [io.pedestal.http :as http]
-            [io.pedestal.http.body-params :as body-params]
             [io.pedestal.http.route :as route]
-            [io.pedestal.interceptor :as intc]
             [io.pedestal.interceptor.error :as int-err]
             [com.eldrix.pc4.server.users :as users]))
 
@@ -45,7 +43,7 @@
                                       :cause   (:cause error)})
         (assoc ctx :response {:status 400
                               :body   {:message (:cause error)
-                                       :error error}})))))
+                                       :error   error}})))))
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
@@ -124,7 +122,6 @@
 (def routes
   (route/expand-routes
     #{["/login" :post [service-error-handler
-                       body-params/body-params
                        login]]
       ["/ping" :post [ping]]
       ["/api" :post [service-error-handler
