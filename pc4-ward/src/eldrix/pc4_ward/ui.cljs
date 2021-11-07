@@ -354,7 +354,7 @@
             [:button.bg-blue-400.text-white.text-xs.py-1.px-2.rounded-full
              {:disabled disabled? :class (if disabled? "opacity-50" "hover:bg-blue-500")
               :on-click #(reset! mode :autocomplete)} "..."]])
-         (= :autocomplete (or @mode :autocomplete))
+         :else
          [:<>
           [:div.flex
            [:input.block.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
