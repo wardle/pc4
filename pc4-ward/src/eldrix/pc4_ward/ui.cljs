@@ -447,7 +447,7 @@
                          (.toIsoString ^goog.date.Date value true)
                          :else value)
     :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
-                      (when (and d on-change) (on-change d)))}])
+                      (when on-change (on-change d)))}])
 
 (defn modal [& {:keys [disabled? title content actions]}]
   [:div.fixed.z-10.inset-0.overflow-y-auto
