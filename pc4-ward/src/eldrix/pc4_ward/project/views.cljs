@@ -1,23 +1,27 @@
 (ns eldrix.pc4-ward.project.views
-  (:require [reitit.frontend.easy :as rfe]
-            [re-frame.core :as rf]
-            [eldrix.pc4-ward.patient.events :as patient-events]
-            [eldrix.pc4-ward.patient.subs :as patient-subs]
-            [eldrix.pc4-ward.project.subs :as project-subs]
-            [eldrix.pc4-ward.user.subs :as user-subs]
-            [eldrix.pc4-ward.user.events :as user-events]
-            [eldrix.pc4-ward.ui :as ui]
-            [clojure.string :as str]
-            [com.eldrix.pc4.commons.dates :as dates]
-            [malli.core :as m]
-            [clojure.string :as s]))
+  (:require
+    [clojure.spec.alpha :as s]
+    [reitit.frontend.easy :as rfe]
+    [re-frame.core :as rf]
+    [eldrix.pc4-ward.patient.events :as patient-events]
+    [eldrix.pc4-ward.patient.subs :as patient-subs]
+    [eldrix.pc4-ward.project.subs :as project-subs]
+    [eldrix.pc4-ward.user.subs :as user-subs]
+    [eldrix.pc4-ward.user.events :as user-events]
+    [eldrix.pc4-ward.snomed.views :as snomed]
+    [eldrix.pc4-ward.ui :as ui]
+    [clojure.string :as str]
+    [com.eldrix.pc4.commons.dates :as dates]
+    [malli.core :as m]
+    [clojure.string :as str]
+    [re-frame.db :as db]))
 
 (defn valid-nhs-number?
   "Very crude validation of NHS number. We could implement in cljs, but the
   server will flag if we send it an invalid number, so this is just for the
   purposes of the UI enabling the 'register' button."
   [s]
-  (= 10 (count (s/replace s #"\s" ""))))
+  (= 10 (count (str/replace s #"\s" ""))))
 
 (defn inspect-project [project]
   [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
@@ -150,13 +154,67 @@
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
 
-(defn list-diagnoses [patient]
-  (let [sorted-diagnoses (sort-by preferred-synonym (:t_patient/diagnoses patient))
+(defn list-diagnoses []
+  (let [current-patient @(rf/subscribe [::patient-subs/current])
+        current-diagnosis @(rf/subscribe [::patient-subs/current-diagnosis])
+        sorted-diagnoses (sort-by preferred-synonym @(rf/subscribe [::patient-subs/diagnoses]))
         active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) sorted-diagnoses)
         resolved-diagnoses (filter #(= "INACTIVE_RESOLVED" (:t_diagnosis/status %)) sorted-diagnoses)
-        incorrect-diagnoses (filter #(#{"INACTIVE_REVISED" "INACTIVE_IN_ERROR"} (:t_diagnosis/status %)) sorted-diagnoses)]
+        incorrect-diagnoses (filter #(#{"INACTIVE_REVISED" "INACTIVE_IN_ERROR"} (:t_diagnosis/status %)) sorted-diagnoses)
+        _ (tap> @db/app-db)]
     [:<>
-     [ui/section-heading "Active diagnoses"]
+     (when current-diagnosis
+       (tap> current-diagnosis)
+       [ui/modal :disabled? false
+        :content
+        [:form.space-y-8.divide-y.divide-gray-200
+         [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+          [:div
+           [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+            [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Diagnosis"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [:div.w-full.rounded-md.shadow-sm.space-y-2
+               (if (:t_diagnosis/id current-diagnosis)      ;; if we already have a saved diagnosis, don't allow user to change
+                 [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in current-diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+                 [eldrix.pc4-ward.snomed.views/select-snomed
+                  :id ::choose-diagnosis
+                  :common-choices []
+                  :value (:t_diagnosis/diagnosis current-diagnosis)
+                  :constraint "<404684003"
+                  :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/diagnosis %)])])]]]
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date onset"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+               [ui/html-date-picker :name "date-onset" :value (:t_diagnosis/date_onset current-diagnosis)
+                :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_onset %)])]]]
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-diagnosis"} "Date diagnosis"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [ui/html-date-picker :name "date-diagnosis" :value (:t_diagnosis/date_diagnosis current-diagnosis)
+               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_diagnosis %)])]]]
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date to"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [ui/html-date-picker :name "date-to" :value (:t_diagnosis/date_to current-diagnosis)
+               :on-change #(rf/dispatch-sync [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/date_to %)])]]]
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "status"} "Status"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [ui/select
+               :name "status"
+               :value (:t_diagnosis/status current-diagnosis)
+               :default-value "ACTIVE"
+               :choices ["INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+               :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc current-diagnosis :t_diagnosis/status %)])]]]]]]]
+        :actions [{:id       ::save-action :title "Save" :is-primary true
+                   :on-click #(rf/dispatch [::patient-events/save-diagnosis
+                                            (assoc current-diagnosis
+                                              :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
+                  {:id ::cancel-action :title "Cancel" :on-click #(rf/dispatch [::patient-events/clear-diagnosis])}]])
+     [ui/section-heading "Active diagnoses"
+      :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                {:on-click #(rf/dispatch [::patient-events/set-current-diagnosis {}])} "Add diagnosis"]]
      [ui/list-entities-fixed
       :items active-diagnoses
       :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
@@ -166,21 +224,22 @@
                    #(dates/format-date (:t_diagnosis/date_onset %))
                    #(dates/format-date (:t_diagnosis/date_diagnosis %))
                    #(dates/format-date (:t_diagnosis/date_to %))
-                   :t_diagnosis/status]]
+                   :t_diagnosis/status]
+      :on-edit (fn [diagnosis] (js/console.log "edt diag")(rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]
      (when (seq resolved-diagnoses)
        [:div.mt-8
-       [ui/section-heading "Inactive diagnoses"]
+        [ui/section-heading "Inactive diagnoses"]
         [ui/list-entities-fixed
          :items resolved-diagnoses
          :headings ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"]
          :width-classes {"Diagnosis" "w-2/6" "Date onset" "w-1/6" "Date diagnosis" "w-1/6" "Date to" "w-1/6" "Status" "w-1/6"}
-
          :id-key :t_diagnosis/id
          :value-keys [preferred-synonym
                       #(dates/format-date (:t_diagnosis/date_onset %))
                       #(dates/format-date (:t_diagnosis/date_diagnosis %))
                       #(dates/format-date (:t_diagnosis/date_to %))
-                      :t_diagnosis/status]]])]))
+                      :t_diagnosis/status]
+         :on-edit (fn [diagnosis] (js/console.log "edt diag")(rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
 
 (def neuro-inflammatory-menus
   [{:id    :main
@@ -228,7 +287,7 @@
          [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
           [:div.px-4.py-5.sm:p-6
            (when-let [component (:component (menu-by-id @menu))]
-             [component patient])]]]))))
+             [component])]]]))))
 
 (defn list-users [users]
   [:div.flex.flex-col
