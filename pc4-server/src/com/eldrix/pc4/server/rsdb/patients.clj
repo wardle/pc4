@@ -152,17 +152,22 @@
 
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
-                                user-id            :t_user/id}]
+                                user-id            :t_user/id
+                                :as                params}]
   (jdbc/with-transaction
     [tx conn {:isolation :serializable}]
     (if-let [sms (fetch-summary-multiple-sclerosis tx patient-identifier)]
-      (next.jdbc.sql/update! tx :t_summary_multiple_sclerosis
-                             {:t_summary_multiple_sclerosis/ms_diagnosis_fk ms-diagnosis-id
-                              :t_summary_multiple_sclerosis/user_fk user-id}
-                             {:id (:t_summary_multiple_sclerosis/id sms)})
+      (do
+        (next.jdbc.sql/update! tx :t_summary_multiple_sclerosis
+                               {:ms_diagnosis_fk ms-diagnosis-id
+                                :user_fk         user-id}
+                               {:id (:t_summary_multiple_sclerosis/id sms)}))
+
       (jdbc/execute-one! tx (sql/format
                               {:insert-into [:t_summary_multiple_sclerosis]
-                               :values      [{:t_summary_multiple_sclerosis/written_information ""
+                               ;; note as this table uses legacy WO horizontal inheritance, we use t_summary_seq to generate identifiers manually.
+                               :values      [{:t_summary_multiple_sclerosis/id                  {:select [[[:nextval "t_summary_seq"]]]}
+                                              :t_summary_multiple_sclerosis/written_information ""
                                               :t_summary_multiple_sclerosis/under_active_review "true"
                                               :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
                                               :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
@@ -179,8 +184,11 @@
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
                                                                              :maximumPoolSize 2}))
+
+  (next.jdbc/execute-one! conn (sql/format {:select [[[:nextval "t_summary_seq"]]]}))
+  (sql/format {:select [[[:nextval "t_summary_seq"]]]})
   (fetch-summary-multiple-sclerosis conn 1)
-  (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 1})
+  (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 3 :t_user/id 1})
   (fetch-episodes conn 15203)
   (active-episodes conn 15203)
   (active-project-identifiers conn 15203)
