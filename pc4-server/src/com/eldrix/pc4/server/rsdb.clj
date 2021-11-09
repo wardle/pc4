@@ -660,8 +660,8 @@
       (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (patients/save-ms-diagnosis! conn params)
-          (patient->summary-multiple-sclerosis conn patient-identifier)))))
+          (patients/save-ms-diagnosis! conn params')
+          (patient->summary-multiple-sclerosis env params)))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
