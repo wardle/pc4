@@ -311,7 +311,7 @@
   "This is a neuro-inflammatory 'view' of the patient record.
   TODO: split out common functionality and components into libraries"
   []
-  (let [menu (reagent.core/atom :diagnoses)]
+  (let [menu (reagent.core/atom :main)]
     (fn []
       (let [patient @(rf/subscribe [::patient-subs/current])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
