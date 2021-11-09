@@ -156,9 +156,8 @@
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
 
-(defn select-multiple-sclerosis-diagnosis [& {:keys [name value disabled? on-change]}]
-  (let [v (reagent.core/atom {:status :view
-                              :value  value})
+(defn select-multiple-sclerosis-diagnosis [& {:keys [_name _value _disabled? _on-change]}]
+  (let [v (reagent.core/atom {:status :view})
         choices (rf/subscribe [::lookup-subs/all-ms-diagnoses])]
     (fn [& {:keys [name value disabled? on-change]}]
       (let [choices @choices]
@@ -167,7 +166,7 @@
          :no-selection-string "< Choose diagnosis >"
          :id-key :t_ms_diagnosis/id
          :display-key :t_ms_diagnosis/name
-         :select-fn #(swap! v assoc :value %)]))))
+         :select-fn on-change]))))
 
 
 (defn multiple-sclerosis-main []
@@ -176,9 +175,14 @@
      [ui/section-heading "Neuro-inflammatory disease"]
      [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
       [:dl.sm:divide-y.sm:divide-gray-200
+
        [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
-        [:dt.text-sm.font-medium.text-gray-500 "Diagnosis"]
-        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 [select-multiple-sclerosis-diagnosis :name "ms-diagnosis" :value nil :disabled false]]]
+        [:dt.text-sm.font-medium.text-gray-500 "Diagnostic criteria"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2
+         [select-multiple-sclerosis-diagnosis :name "ms-diagnosis" :value (get-in current-patient [:t_patient/summary_multiple_sclerosis]) :disabled false
+          :on-change #(do (println "changed diagnosis to " %)
+                          (rf/dispatch [::patient-events/save-ms-diagnosis {:t_patient/patient_identifier (:t_patient/patient_identifier current-patient)
+                                                                            :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)}]))]]]
 
        [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Most recent EDSS"]
