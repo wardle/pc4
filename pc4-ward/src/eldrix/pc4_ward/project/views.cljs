@@ -298,6 +298,8 @@
     :title "Relapses"}
    {:id    :disability
     :title "Disability"}
+   {:id    :investigations
+    :title "Investigations"}
    {:id    :admissions
     :title "Admissions"}
    {:id    :registration
