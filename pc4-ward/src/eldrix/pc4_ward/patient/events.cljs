@@ -29,6 +29,9 @@
                             :info.snomed.Concept/parentRelationshipIds]}])
 
 (def full-patient-properties
+  ;; at the moment we download all of the data in one go - this should be replaced by
+  ;; fetches that are made when a specific panel is opened. Simpler, more current information
+  ;; TODO: break up into modules instead for specific purposes
   (into
     core-patient-properties
     [{:t_patient/diagnoses patient-diagnosis-properties}
@@ -76,6 +79,12 @@
   [params]
   [{(list 'pc4.rsdb/save-diagnosis params)
     patient-diagnosis-properties}])
+
+(defn make-save-ms-diagnosis
+  [patient-identifier ms-diagnosis-id]
+  [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient-identifier
+                                       :t_ms_diagnosis/id            ms-diagnosis-id})
+    ['*]}])
 
 (rf/reg-event-db ::clear-search-results
   []
@@ -256,6 +265,13 @@
     {:fx [[:dispatch-n [[::refresh-current-patient]
                         [::clear-diagnosis]]]]}))
 
+(rf/reg-event-fx ::save-ms-diagnosis
+  []
+  (fn [{db :db} [_ {patient-identifier :t_patient/patient_identifier ms-diagnosis-id :t_ms_diagnosis/id}]]
+    {:fx [[:pathom {:params     (make-save-ms-diagnosis patient-identifier ms-diagnosis-id)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
