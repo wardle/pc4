@@ -1,0 +1,16 @@
+{
+  "name": "pc4-ms",
+  "version": "1.0.0",
+  "description": "A fulcro-based single page application to act as a neuro-inflammatory  prism through to an electronic health record.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "shadow-cljs": "^2.16.2"
+  }
+}

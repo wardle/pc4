@@ -1,0 +1,9 @@
+{:deps     {:aliases [:dev]}
+ :dev-http {8000 "classpath:public"}
+ :builds   {:main {:target     :browser
+                   :output-dir "resources/public/js/main"
+                   :asset-path "/js/main"
+                   :modules    {:main {:init-fn pc4.client/init
+                                       :entries [pc4.client]}}
+                   :devtools   {:after-load pc4.client/refresh
+                                :preloads   [com.fulcrologic.fulcro.inspect.preload]}}}}
