@@ -58,9 +58,17 @@
                                                         :dev     {:connect-viz true}}
                                       :env    #ig/ref :pathom/env}
 
- :http/server                        {:port            #long #or [#env PORT 8080]
-                                      :allowed-origins "*"
-                                      :host            "0.0.0.0"
-                                      :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
-                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                                                        :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}
+ #_:http/server #_{:port            #long #or [#env PORT 8080]
+                   :allowed-origins "*"
+                   :host            "0.0.0.0"
+                   :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+                                     :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+                                     :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+
+ :http/handler                       {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+                                      :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+                                      :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}
+
+ :http/server2                       {:port          #long #or [#env PORT 8080]
+                                      :host          "0.0.0.0"
+                                      :handler       #ig/ref :http/handler}}

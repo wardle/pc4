@@ -41,7 +41,12 @@
             [next.jdbc.connection :as connection]
             [buddy.sign.jwt :as jwt]
             [cognitect.transit :as transit]
-            [io.pedestal.http.body-params :as body-params])
+            [io.pedestal.http.body-params :as body-params]
+
+            [com.fulcrologic.fulcro.server.api-middleware :as server]
+            [org.httpkit.server]
+            [ring.middleware.content-type]
+            [ring.middleware.cors])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (def resolvers (atom []))
@@ -164,12 +169,52 @@
                                              "application/transit+json;charset=UTF-8"
                                              :json
                                              {:handlers (merge dates/transit-writers
-                                                               {clojure.lang.ExceptionInfo (transit/write-handler "ex-info" ex-data)})}))
+                                                               {clojure.lang.ExceptionInfo (transit/write-handler "ex-info" ex-data)
+                                                                Throwable                  (transit/write-handler "java.lang.Exception" Throwable->map)})}))
       (http/create-server)
       (http/start)))
 
 (defmethod ig/halt-key! :http/server [_ service-map]
   (http/stop service-map))
+
+(def ^:private not-found-handler
+  (fn [req]
+    {:status  404
+     :headers {"Content-Type" "text/plain"}
+     :body    "Not Found"}))
+
+(defmethod ig/init-key :http/handler [_ {:keys [pathom-boundary-interface]}]
+  (com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
+    (com.fulcrologic.fulcro.algorithms.transit/type-handler
+      java.time.LocalDate "LocalDate"
+      (fn [^java.time.LocalDate date]
+        (.format date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
+      (fn [s]
+        (java.time.LocalDate/parse s))))
+  (-> not-found-handler
+
+      (com.fulcrologic.fulcro.server.api-middleware/wrap-api {:uri    "/api"
+                                                              :parser pathom-boundary-interface})
+      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-params)
+      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-response)
+      (ring.middleware.content-type/wrap-content-type)
+      (ring.middleware.cors/wrap-cors
+        :access-control-allow-origin [#".*"]
+        :access-control-allow-headers ["Content-Type"]
+        :access-control-allow-methods [:get :put :post :delete :options])))
+
+(defmethod ig/init-key :http/server2 [_ {:keys [port allowed-origins host handler] :as config}]
+  (log/info "running HTTP server" (dissoc config :handler))
+  (when-not handler
+    (throw (ex-info "invalid http server configuration: expected 'handler' key" config)))
+  (org.httpkit.server/run-server handler (cond-> config     ;; TODO: support allowed-origins
+                                                 true (assoc :legal-origins #".*")
+                                                 host (assoc :ip host))))
+
+(defmethod ig/halt-key! :http/server2 [_ stop-server-fn]
+  (stop-server-fn))
+
+
 
 (defmethod aero/reader 'ig/ref [_ _ value]
   (ig/ref value))
@@ -215,6 +260,7 @@
 
   (:pathom/env system)
 
+  (clods/fetch-postcode (:com.eldrix/clods system) "CF14 4XW")
   (keys system)
   ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "b30 1hl"]
                                          [:uk.gov.ons.nhspd/LSOA11
@@ -229,11 +275,11 @@
 
   ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
   (time (second (first ((:pathom/boundary-interface system) [{[:info.snomed.Concept/id 80146002]
-                                         [:info.snomed.Concept/id
-                                          :info.snomed.Concept/active
-                                          '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})
-                                          {:info.snomed.Concept/descriptions
-                                           [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}]}]))))
+                                                              [:info.snomed.Concept/id
+                                                               :info.snomed.Concept/active
+                                                               '(:info.snomed.Concept/preferredDescription {:accept-language "en-GB"})
+                                                               {:info.snomed.Concept/descriptions
+                                                                [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}]}]))))
 
   ((:pathom/boundary-interface system) [{'(info.snomed.Search/search
                                             {:s          "mult scl"
@@ -300,23 +346,23 @@
                                           :org.hl7.fhir.Patient/currentAddress]}])
   (reload)
 
-  ((:pathom/boundary-interface system)    ;here we have to include an authenticated environment in order to do this action
+  ((:pathom/boundary-interface system)                      ;here we have to include an authenticated environment in order to do this action
    authenticated-env
    [{(list 'pc4.rsdb/register-patient-by-pseudonym
-                                               {:user-id      1
-                                                :project-id 124
-                                                :nhs-number   "1111111111"
-                                                :sex          :MALE
-                                                :date-birth   (java.time.LocalDate/of 1973 10 5)})
-                                         [:t_patient/id
-                                          :t_patient/patient_identifier
-                                          :t_patient/first_names
-                                          :t_patient/last_name
-                                          :t_patient/date_birth]}])
+           {:user-id    1
+            :project-id 124
+            :nhs-number "1111111111"
+            :sex        :MALE
+            :date-birth (java.time.LocalDate/of 1973 10 5)})
+     [:t_patient/id
+      :t_patient/patient_identifier
+      :t_patient/first_names
+      :t_patient/last_name
+      :t_patient/date_birth]}])
 
   ((:pathom/boundary-interface system) [{(list 'pc4.rsdb/search-patient-by-pseudonym
                                                {:project-id 124
-                                                :pseudonym    "686"})
+                                                :pseudonym  "686"})
                                          [:t_patient/id
                                           :t_patient/patient_identifier
                                           :t_patient/first_names
@@ -359,7 +405,7 @@
   ;;   date_updated
 
   (com.eldrix.pc4.server.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
-                                                                        {:salt (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
+                                                                        {:salt       (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
                                                                          :project-id 124
                                                                          :nhs-number "3333333333"
                                                                          :date-birth (java.time.LocalDate/of 1975 5 1)})
