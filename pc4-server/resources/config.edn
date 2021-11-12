@@ -58,17 +58,35 @@
                                                         :dev     {:connect-viz true}}
                                       :env    #ig/ref :pathom/env}
 
- #_:http/server #_{:port            #long #or [#env PORT 8080]
-                   :allowed-origins "*"
-                   :host            "0.0.0.0"
-                   :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
-                                     :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                                     :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+ :http/server                        {:port            #long #or [#env PORT 8080]
+                                      :allowed-origins "*"
+                                      :host            "0.0.0.0"
+                                      :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+                                                        :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
 
- :http/handler                       {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+ :http/handler                       {:login-config              #ig/ref :com.eldrix.pc4/login
+                                      :pathom-boundary-interface #ig/ref :pathom/boundary-interface
                                       :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                                      :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}
+                                      :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login
+                                      :ring-defaults             {:params    {:keywordize true
+                                                                              :multipart  true
+                                                                              :nested     true
+                                                                              :urlencoded true}
+                                                                  :cookies   true
+                                                                  :responses {:absolute-redirects     true
+                                                                              :content-types          true
+                                                                              :default-charset        "utf-8"
+                                                                              :not-modified-responses true}
+                                                                  :session   true
+                                                                  :static    {:resources "public"}
+                                                                  :security  {:anti-forgery   false
+                                                                              :hsts           true
+                                                                              :ssl-redirect   false
+                                                                              :frame-options  :sameorigin
+                                                                              :xss-protection {:enable? true
+                                                                                               :mode    :block}}}}
 
- :http/server2                       {:port          #long #or [#env PORT 8080]
-                                      :host          "0.0.0.0"
-                                      :handler       #ig/ref :http/handler}}
+ :http/server2                       {:port    #long #or [#env PORT 8080]
+                                      :host    "0.0.0.0"
+                                      :handler #ig/ref :http/handler}}
