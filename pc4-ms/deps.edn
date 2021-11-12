@@ -19,9 +19,10 @@
            ;; See https://github.com/clojure-emacs/cider-nrepl/blob/master/deps.edn for Emacs support
            :dev       {:extra-paths ["src/test" "src/dev" "src/workspaces"]
                        :jvm-opts    ["-XX:-OmitStackTraceInFastThrow"]
-                       :extra-deps  {org.clojure/clojurescript   {:mvn/version "1.10.773"}
-                                     thheller/shadow-cljs        {:mvn/version "2.11.8"}
-                                     fulcrologic/fulcro-spec     {:mvn/version "3.1.8"}
-                                     binaryage/devtools          {:mvn/version "1.0.0"}
-                                     com.github.awkay/workspaces {:mvn/version "1.0.2"},
-                                     org.clojure/tools.namespace {:mvn/version "1.0.0"}}}}}
+                       :extra-deps  {org.clojure/clojurescript           {:mvn/version "1.10.773"}
+                                     thheller/shadow-cljs                {:mvn/version "2.11.8"}
+                                     fulcrologic/fulcro-spec             {:mvn/version "3.1.8"}
+                                     binaryage/devtools                  {:mvn/version "1.0.0"}
+                                     com.github.awkay/workspaces         {:mvn/version "1.0.2"}
+                                     com.teknql/shadow-cljs-tailwind-jit {:mvn/version "0.2.2"}
+                                     org.clojure/tools.namespace         {:mvn/version "1.0.0"}}}}}
