@@ -1,1 +1,0 @@
-{:taoensso.timbre/logging-config {:min-level :debug}}
