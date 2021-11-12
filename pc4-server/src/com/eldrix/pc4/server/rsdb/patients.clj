@@ -5,8 +5,30 @@
             [honey.sql :as sql]
             [clojure.string :as str]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.projects :as projects])
+            [com.eldrix.pc4.server.rsdb.projects :as projects]
+            [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.clods.core :as clods])
   (:import (java.time LocalDate LocalDateTime)))
+
+
+
+(defn fetch-patient-addresses
+  "Returns patient addresses."
+  [conn patient-id]
+  (db/execute! conn (sql/format {:select   [:id :address1 :address2 :address3 :address4 [:postcode_raw :postcode]
+                                            :date_from :date_to :housing_concept_fk :ignore_invalid_address]
+                                 :from     [:t_address]
+                                 :where    [:= :patient_fk patient-id]
+                                 :order-by [[:date_to :desc] [:date_from :desc]]})))
+
+(defn address-for-date
+  "Determine the address on a given date, the current date if none given."
+  ([sorted-addresses]
+   (address-for-date sorted-addresses nil))
+  ([sorted-addresses ^LocalDate date]
+   (->> sorted-addresses
+        (filter #(dates/in-range? (:t_address/date_from %) (:t_address/date_to %) date))
+        first)))
 
 (defn fetch-episodes
   "Return the episodes for the given patient."
@@ -176,6 +198,33 @@
                                                                                                  :from   [:t_patient]
                                                                                                  :where  [:= :t_patient/patient_identifier patient-identifier]}}]})))))
 
+(defn save-pseudonymous-patient-lsoa!
+  "Special function to store LSOA11 code in place of postal code when working
+  with pseudonymous patients. We know LSOA11 represents 1000-1500 members of the
+  population. We don't keep an address history, so simply write an address with
+  no dates which is the 'current'."
+  [conn {patient-identifier :t_patient/patient_identifier lsoa11 :uk.gov.ons.nhspd/LSOA11 :as params}]
+  (when-let [patient (db/execute-one! conn (sql/format {:select [:id :patient_identifier :status] :from :t_patient :where [:= :patient_identifier patient-identifier]}))]
+    (if-not (= :PSEUDONYMOUS (:t_patient/status patient))
+      (throw (ex-info "Invalid operation: cannot save LSOA for non-pseudonymous patient" params))
+      (jdbc/with-transaction
+        [tx conn {:isolation :serializable}]
+        (let [addresses (fetch-patient-addresses tx (:t_patient/id patient))
+              current-address (address-for-date addresses)]
+          ;; we currently do not support an address history for pseudonymous patients, so either edit or create
+          ;; current address
+          (if current-address
+            (next.jdbc.sql/update! tx :t_address
+                                   {:t_address/date_to                nil :t_address/date_from nil
+                                    :t_address/address1               lsoa11
+                                    :t_address/postcode_raw           nil :t_address/postcode_fk nil
+                                    :t_address/ignore_invalid_address "true"
+                                    :t_address/address2               nil :t_address/address3 nil :t_address/address4 nil}
+                                   {:t_address/id (:t_address/id current-address)})
+            (next.jdbc.sql/insert! tx :t_address {:t_address/address1               lsoa11
+                                                  :t_address/ignore_invalid_address "true"
+                                                  :t_address/patient_fk             (:t_patient/id patient)})))))))
+
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
@@ -190,6 +239,9 @@
   (fetch-summary-multiple-sclerosis conn 1)
   (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 3 :t_user/id 1})
   (fetch-episodes conn 15203)
+  (save-pseudonymous-patient-postal-code! conn {:t_patient/patient_identifier 124018
+                                                :uk.gov.ons.nhspd/LSOA11      "E01008956"})
+  (fetch-patient-addresses conn 124018)
   (active-episodes conn 15203)
   (active-project-identifiers conn 15203)
   (map :t_episode/project_fk (active-episodes conn 15203))

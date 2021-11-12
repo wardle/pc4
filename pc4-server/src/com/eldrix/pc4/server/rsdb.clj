@@ -9,7 +9,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.pc4.server.rsdb.db :as parse]
+            [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
@@ -33,6 +33,7 @@
 (s/def :t_patient/id int?)
 (s/def :t_patient/patient_identifier int?)
 (s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :uk.gov.ons.nhspd/PCD2 string?)
 (s/def :info.snomed.Concept/id (s/and int? com.eldrix.hermes.verhoeff/valid?))
 (s/def :t_diagnosis/id int?)
 (s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
@@ -46,7 +47,6 @@
 (s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
 (s/def ::sex #{:MALE :FEMALE :UNKNOWN})
 (s/def ::date-birth #(instance? LocalDate %))
-
 (s/def ::register-patient-by-pseudonym
   (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
 
@@ -97,6 +97,10 @@
                 :t_ms_diagnosis/id
                 :t_patient/patient_identifier]))
 
+(s/def ::save-pseudonymous-postal-code
+  (s/keys :req [:t_patient/patient_identifier
+                :uk.gov.ons.nhspd/PCD2]))
+
 (defn html->text
   "Convert a string containing HTML to plain text."
   [^String html]
@@ -120,17 +124,16 @@
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
-  (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]}))))
+  (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]})))
 
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
                                         :t_patient_hospital/patient_identifier
                                         :t_patient_hospital/authoritative]}]}
-  {:t_patient/hospitals (->> (jdbc/execute! conn (sql/format {:select [:*]
-                                                              :from   [:t_patient_hospital]
-                                                              :where  [:= :patient_fk patient-id]}))
-                             (map parse/parse-entity))})
+  {:t_patient/hospitals (db/execute! conn (sql/format {:select [:*]
+                                                       :from   [:t_patient_hospital]
+                                                       :where  [:= :patient_fk patient-id]}))})
 
 (pco/defresolver patient-hospital->hospital
   [{hospital_fk :t_patient_hospital/hospital_fk}]
@@ -223,31 +226,10 @@
                          :t_address/postcode
                          :t_address/ignore_invalid_address])
 
-(defn fetch-patient-addresses
-  "Returns patient addresses.
-  The backend database stores the from and to dates as timestamps without
-  timezones, so we convert to instances of java.time.LocalDate."
-  [conn patient-id]
-  (->> (jdbc/execute! conn (sql/format {:select   [:address1 :address2 :address3 :address4 [:postcode_raw :postcode]
-                                                   :date_from :date_to :housing_concept_fk :ignore_invalid_address]
-                                        :from     [:t_address]
-                                        :where    [:= :patient_fk patient-id]
-                                        :order-by [[:date_to :desc] [:date_from :desc]]}))
-       (map parse/parse-entity)))
-
-(defn address-for-date
-  "Determine the address on a given date, the current date if none given."
-  ([sorted-addresses]
-   (address-for-date sorted-addresses nil))
-  ([sorted-addresses ^LocalDate date]
-   (->> sorted-addresses
-        (filter #(dates/in-range? (:t_address/date_from %) (:t_address/date_to %) date))
-        first)))
-
 (pco/defresolver patient->addresses
   [{:com.eldrix.rsdb/keys [conn]} {id :t_patient/id}]
   {::pco/output [{:t_patient/addresses address-properties}]}
-  {:t_patient/addresses (fetch-patient-addresses conn id)})
+  {:t_patient/addresses (patients/fetch-patient-addresses conn id)})
 
 (pco/defresolver patient->address
   "Returns the current address, or the address for the specified date.
@@ -265,8 +247,26 @@
         date' (cond (nil? date) nil
                     (string? date) (LocalDate/parse date)
                     :else date)
-        addresses' (or addresses (fetch-patient-addresses conn id))]
-    {:t_patient/address (address-for-date addresses' date')}))
+        addresses' (or addresses (patients/fetch-patient-addresses conn id))]
+    {:t_patient/address (patients/address-for-date addresses' date')}))
+
+(def lsoa-re #"^[a-zA-Z]\d{8}$")
+
+(pco/defresolver address->stored-lsoa
+  "Returns a stored LSOA for the address specified.
+
+  In general, LSOA should be determined by navigating to the PCD2 postal code
+  and then to the LSOA wanted, such as LSOA11.
+
+  This resolver returns an LSOA if one is stored in the address itself.
+  Currently, we simply look in the address1 field for a match, as we cannot
+  currently make database schema changes from this application. In the future,
+  this resolver could also use a dedicated stored LSOA field without clients
+  needing to know about the implementation change."
+  [{:t_address/keys [address1]}]
+  {::pco/output [:t_address/lsoa]}
+  (when (re-matches lsoa-re address1)
+    {:t_address/lsoa address1}))
 
 (pco/defresolver address->housing
   [{concept-id :t_address/housing_concept_fk}]
@@ -307,9 +307,9 @@
 (pco/defresolver episode->project
   [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
   {::pco/output [{:t_episode/project project-properties}]}
-  {:t_episode/project (parse/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*]
-                                                                               :from   [:t_project]
-                                                                               :where  [:= :id project-id]})))})
+  {:t_episode/project (db/execute-one! conn (sql/format {:select [:*]
+                                                         :from   [:t_project]
+                                                         :where  [:= :id project-id]}))})
 
 (pco/defresolver project-by-identifier
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
@@ -648,7 +648,7 @@
                        (patients/create-diagnosis conn params'))]
             (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
-(pco/defmutation save-patient-ms-diagnosis!
+(pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
     user    :authenticated-user
@@ -662,6 +662,23 @@
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
           (patients/save-ms-diagnosis! conn params')
           (patient->summary-multiple-sclerosis env params)))))
+
+(pco/defmutation save-pseudonymous-patient-postal-code!
+  [{conn :com.eldrix.rsdb/conn
+    ods  :com.eldrix/clods
+    user :authenticated-user}
+   {patient-identifier :t_patient/patient_identifier
+    postcode           :uk.gov.ons.nhspd/PCD2 :as params}]
+  {::pco/op-name 'pc4.rsdb/save-pseudonymous-patient-postal-code}
+  (log/info "saving pseudonymous postal code" {:params params :ods ods})
+  (if-not (s/valid? ::save-pseudonymous-postal-code params)
+    (throw (ex-info "invalid request" (s/explain-data ::save-pseudonymous-postal-code params)))
+    (if (str/blank? postcode)
+      (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
+                                                      :uk.gov.ons.nhspd/LSOA11      ""})
+      (when-let [pc (com.eldrix.clods.core/fetch-postcode ods postcode)]
+        (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
+                                                        :uk.gov.ons.nhspd/LSOA11      (:uk.gov.ons.nhspd/LSOA11 pc)})))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
@@ -687,6 +704,7 @@
    patient->address
    (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
    address->housing
+   address->stored-lsoa
    patient->episodes
    episode->project
    project-by-identifier
@@ -724,13 +742,14 @@
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
    save-diagnosis!
-   save-patient-ms-diagnosis!])
+   save-patient-ms-diagnosis!
+   save-pseudonymous-patient-postal-code!])
 
 (comment
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
-                                                           :maximumPoolSize 10}))
+                                                           :maximumPoolSize 1}))
   (jdbc/execute! conn ["select id from t_encounter where patient_fk=?" 1726])
   (jdbc/execute! conn
                  ["select t_form_edss.*,t_encounter.date_time,t_encounter.is_deleted from t_form_edss,t_encounter where t_form_edss.encounter_fk=t_encounter.id and encounter_fk in (select id from t_encounter where patient_fk=?);" 1726])
@@ -741,9 +760,10 @@
 
   (def env (-> (pci/register all-resolvers)
                (assoc :com.eldrix.rsdb/conn conn)))
-  (p.eql/process env [{[:t_patient/id 6175]
+  (p.eql/process env [{[:t_patient/patient_identifier 6175]
                        [:t_patient/summary_multiple_sclerosis]}])
   (p.eql/process env [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
+  (p.eql/process env [{}])
   (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
   (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
                                                               :t_patient/email
@@ -761,6 +781,7 @@
                     :t_patient/last_name
                     :t_patient/status
                     :t_patient/surgery
+                    {:t_patient/address [:uk.gov.ons.nhspd/PCDS]}
                     {:t_patient/episodes [:t_episode/date_registration
                                           :t_episode/date_discharge
                                           :t_episode/project_fk
@@ -790,8 +811,8 @@
                     {:t_patient/hospitals [:t_patient_hospital/patient_identifier
                                            :t_patient_hospital/hospital]}]}])
 
-  (parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
-                                                     :where  [:= :id 15]})))
+  (db/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
+                                                        :where  [:= :id 15]})))
   (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
 
   (def ^LocalDate date (LocalDate/now))
