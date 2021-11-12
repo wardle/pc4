@@ -8,7 +8,6 @@
 (def secured-request-middleware
   ;; The CSRF token is embedded via server_components/html.clj
   (->
-    (net/wrap-csrf-token (or js/fulcro_network_csrf_token "TOKEN-NOT-IN-HTML!"))
     (net/wrap-fulcro-request)))
 
 (defn global-eql-transform

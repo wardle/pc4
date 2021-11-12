@@ -1,11 +1,12 @@
-# pc4-ms
 
-A fulcro-based single page application to act as a neuro-inflammatory 
-prism through to an electronic health record.
 
-This is experimental and is a counter-experiment to a re-frame based
-front end pc4-ward.
 
-They both talk to pc4-server. 
+This app was based on the [Fulcro template application](https://github.com/fulcrologic/fulcro-template)
+(commit 75367939f196eb591f712a2618d55b9a231f0cef from 19th September 2021).
 
+To start standalone client:
+
+```shell
+shadow-cljs watch main
+```
 

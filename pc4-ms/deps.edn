@@ -10,15 +10,7 @@
            com.fulcrologic/guardrails          {:mvn/version "0.0.12"}
            garden/garden                       {:mvn/version "1.3.9"}
            hiccup/hiccup                       {:mvn/version "1.0.5"}
-           http-kit/http-kit                   {:mvn/version "2.5.0"}
-           mount/mount                         {:mvn/version "0.1.16"}
-           org.clojure/core.async              {:mvn/version "1.3.610"}
-
-           ;; To simulate Datomic on the back-end
-           datascript/datascript               {:mvn/version "0.18.7"}
-
-           ring/ring-core                      {:mvn/version "1.8.1"}
-           ring/ring-defaults                  {:mvn/version "0.3.2"}}
+           org.clojure/core.async              {:mvn/version "1.3.610"}}
 
  :aliases {:clj-tests {:extra-paths ["src/test"]
                        :main-opts   ["-m" "kaocha.runner"]

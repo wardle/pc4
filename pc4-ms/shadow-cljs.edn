@@ -9,25 +9,10 @@
                        :dev        {:compiler-options
                                     {:external-config {:guardrails {}}}}
 
-                       :devtools   {:after-load app.client/refresh
+                       :devtools   {:http-port  8022
+                                    :http-root  "resources/public"
+                                    :after-load app.client/refresh
                                     :preloads   [com.fulcrologic.fulcro.inspect.preload app.development-preload]}}
-
-          :test       {:target           :browser-test
-                       :test-dir         "resources/public/js/test"
-                       :ns-regexp        "-test$"
-                       ;; static required for mocking to work
-                       :compiler-options {:static-fns      false
-                                          :external-config {:guardrails {:throw? true}}}
-                       :devtools         {:http-port          8022
-                                          :http-resource-root "public"
-                                          :http-root          "resources/public/js/test"}}
-
-          :ci-tests   {:target           :karma
-                       :js-options       {:js-provider :shadow}
-                       :compiler-options {:static-fns      false
-                                          :external-config {:guardrails {:throw? true}}}
-                       :output-to        "target/ci.js"
-                       :ns-regexp        "-test$"}
 
           :workspaces {:target     nubank.workspaces.shadow-cljs.target
                        :ns-regexp  "-(test|ws)$"
