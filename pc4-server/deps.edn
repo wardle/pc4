@@ -39,8 +39,9 @@
              io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
              com.fulcrologic/fulcro            {:mvn/version "3.4.14"}
-             ring/ring-core                    {:mvn/version "1.6.3"}
+             ring/ring-core                    {:mvn/version "1.9.4"}
              ring-cors/ring-cors               {:mvn/version "0.1.13"}
+             ring/ring-defaults                {:mvn/version "0.3.2"}
              http-kit/http-kit                 {:mvn/version "2.5.3"}
 
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
