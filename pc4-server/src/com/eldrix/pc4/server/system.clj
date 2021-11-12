@@ -46,8 +46,10 @@
             [com.fulcrologic.fulcro.server.api-middleware :as server]
             [org.httpkit.server]
             [ring.middleware.content-type]
-            [ring.middleware.cors])
-  (:import (com.zaxxer.hikari HikariDataSource)))
+            [ring.middleware.cors]
+            [ring.middleware.defaults])
+  (:import (com.zaxxer.hikari HikariDataSource)
+           (java.time LocalDate)))
 
 (def resolvers (atom []))
 
@@ -183,32 +185,124 @@
      :headers {"Content-Type" "text/plain"}
      :body    "Not Found"}))
 
-(defmethod ig/init-key :http/handler [_ {:keys [pathom-boundary-interface]}]
-  (com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
-    (com.fulcrologic.fulcro.algorithms.transit/type-handler
-      java.time.LocalDate "LocalDate"
-      (fn [^java.time.LocalDate date]
-        (.format date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
-      (fn [s]
-        (java.time.LocalDate/parse s))))
-  (-> not-found-handler
+(defn wrap-claims
+  "Middleware that attaches valid claims to the request ':authenticated-claims'
+  and returns 401 if no valid bearer token found."
+  [handler login-config]
+  (fn [request]
+    (let [auth-header (get-in request [:headers "authorization"])
+          _ (log/info "request auth:" auth-header)
+          [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
+          claims (when (and token login-config) (users/check-user-token token login-config))]
+      (when (and token (not login-config))
+        (log/error "no valid login configuration available"))
+      (if claims
+        (handler (assoc request :authenticated-claims claims))
+        {:status  401
+         :headers {"Content-Type" "text/plain"}
+         :body    "Unauthorized. Request missing valid Bearer token."}))))
 
-      (com.fulcrologic.fulcro.server.api-middleware/wrap-api {:uri    "/api"
-                                                              :parser pathom-boundary-interface})
-      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-params)
-      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-response)
-      (ring.middleware.content-type/wrap-content-type)
+(defn wrap-login [handler {uri :uri pathom :pathom}]
+  (fn [req]
+    (if (= uri (:uri req))
+      (let [{:keys [system value password query] :as params} (:transit-params req)]
+        (clojure.pprint/pprint req)
+        (log/info "login endpoint; parameters" (dissoc params :password))
+        (com.fulcrologic.fulcro.server.api-middleware/handle-api-request
+          [{(list 'pc4.users/login {:system system :value value :password password}) query}] pathom))
+      (handler req))))
+
+(defn wrap-authenticated-pathom
+  "Attach an authenticated environment into the request, if possible."
+  [handler {conn :com.eldrix.rsdb/conn pathom-boundary-interface :pathom-boundary-interface}]
+  (fn [{claims :authenticated-claims :as req}]
+    (let [{:keys [system value]} claims
+          rsdb-user? (when claims (users/is-rsdb-user? conn system value))
+          env (cond-> {}
+                      claims
+                      (assoc :authenticated-user (select-keys claims [:system :value]))
+                      rsdb-user?
+                      (assoc :authorization-manager (users/make-authorization-manager conn system value)))]
+      (handler (assoc req :pathom (partial pathom-boundary-interface env))))))
+
+(defn wrap-api
+  [handler {:keys [uri]}]
+  (when-not (string? uri)
+    (throw (ex-info "Invalid parameters to `wrap-api`. :uri required." {})))
+  (fn [req]
+    (if (= uri (:uri req))
+      (do
+        (log/info "processing API call " req)
+        (clojure.pprint/pprint req)
+        (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
+      (handler req))))
+
+(defn wrap-ping [handler {:keys [uri pathom]}]
+  (fn [req]
+    (if (= uri (:uri req))
+      (let [{:keys [uuid] :as params} (:transit-params req)]
+        (pathom [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}]))
+      (handler req))))
+
+(defn wrap-log-response [handler]
+  (fn [req]
+    (log/info "request:" req)
+    (log/info "response:" (handler req))
+    (handler req)))
+
+(defn wrap-hello [handler uri]
+  (fn [req]
+    (if (= uri (:uri req))
+      {:status  200
+       :body    "Hello World"
+       :headers {"Content-Type" "text/plain"}}
+      (handler req))))
+
+(defmethod ig/init-key :http/handler [_ {:keys [ring-defaults login-config pathom-boundary-interface] :as config}]
+  #_(com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
+      (com.fulcrologic.fulcro.algorithms.transit/type-handler
+        java.time.LocalDate "LocalDate"
+        (fn [^java.time.LocalDate date]
+          (.format date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
+        (fn [s]
+          (java.time.LocalDate/parse s))))
+  #_(com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
+      (com.fulcrologic.fulcro.algorithms.transit/type-handler
+        java.time.LocalDateTime "LocalDateTime"
+        (fn [^java.time.LocalDateTime date-time]
+          (.format date-time java.time.format.DateTimeFormatter/ISO_LOCAL_DATE_TIME))
+        (fn [s]
+          (java.time.LocalDateTime/parse s))))
+  (-> not-found-handler
+      (wrap-api {:uri "/api"})
+      (wrap-authenticated-pathom config)
+      (wrap-claims login-config)
+      (wrap-ping {:pathom pathom-boundary-interface :uri "/ping"})
+      (wrap-login {:pathom pathom-boundary-interface :uri "/login"})
+      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-params {:opts {:handlers dates/transit-readers}})
+      (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-response {:opts {:handlers dates/transit-writers}})
+      ; (wrap-hello "/hello")
+      (ring.middleware.defaults/wrap-defaults ring-defaults)
       (ring.middleware.cors/wrap-cors
         :access-control-allow-origin [#".*"]
         :access-control-allow-headers ["Content-Type"]
-        :access-control-allow-methods [:get :put :post :delete :options])))
+        :access-control-allow-methods [:post]
+        :access-control-allow-headers #{"accept"
+                                        "accept-encoding"
+                                        "accept-language"
+                                        "authorization"
+                                        "content-type"
+                                        "origin"})
+      (wrap-log-response)
+      ))
 
 (defmethod ig/init-key :http/server2 [_ {:keys [port allowed-origins host handler] :as config}]
   (log/info "running HTTP server" (dissoc config :handler))
   (when-not handler
     (throw (ex-info "invalid http server configuration: expected 'handler' key" config)))
   (org.httpkit.server/run-server handler (cond-> config     ;; TODO: support allowed-origins
-                                                 true (assoc :legal-origins #".*")
+                                                 (= "*" allowed-origins) (assoc :legal-origins #".*")
+                                                 (seq allowed-origins) (assoc :legal-origins allowed-origins)
                                                  host (assoc :ip host))))
 
 (defmethod ig/halt-key! :http/server2 [_ stop-server-fn]
@@ -242,7 +336,17 @@
 
   (prep :dev)
 
-  (def system (init :dev))
+  ;; start a server for re-frame front-end
+  (def system (init :dev [:http/server]))
+  (ig/halt! system)
+
+  ;; start a server for fulcro front-end
+  (def system (init :dev [:http/server2]))
+  (ig/halt! system)
+
+
+  (transit/reader (:body response))
+
   ;; this creates a fake authenticated environment and injects it into our system
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
@@ -252,7 +356,7 @@
 
   (defn reload []
     (ig/halt! system)
-    (def system (init :dev)))
+    (def system (init :dev [:http/server])))
   (reload)
   (count @resolvers)
   (sort (map str (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten default-resolvers))))
@@ -353,7 +457,7 @@
             :project-id 124
             :nhs-number "1111111111"
             :sex        :MALE
-            :date-birth (java.time.LocalDate/of 1973 10 5)})
+            :date-birth (LocalDate/of 1973 10 5)})
      [:t_patient/id
       :t_patient/patient_identifier
       :t_patient/first_names
@@ -408,5 +512,5 @@
                                                                         {:salt       (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
                                                                          :project-id 124
                                                                          :nhs-number "3333333333"
-                                                                         :date-birth (java.time.LocalDate/of 1975 5 1)})
+                                                                         :date-birth (LocalDate/of 1975 5 1)})
   )
