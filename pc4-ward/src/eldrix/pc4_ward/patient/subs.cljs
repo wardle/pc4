@@ -48,3 +48,9 @@
 (rf/reg-sub ::current-medication
   (fn [db]
     (get-in db [:patient/current :current-medication])))
+
+(rf/reg-sub ::ms-events
+  (fn []
+    (rf/subscribe [::current]))
+  (fn [current-patient]
+    (get-in current-patient [:t_patient/summary_multiple_sclerosis :t_summary_multiple_sclerosis/events])))

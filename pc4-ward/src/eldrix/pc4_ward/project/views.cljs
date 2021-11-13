@@ -396,6 +396,45 @@
       :on-edit (fn [medication] (rf/dispatch [::patient-events/set-current-medication medication]))]]))
 
 
+(defn list-ms-events []
+  (let [current-patient @(rf/subscribe [::patient-subs/current])
+        sorted-events (sort-by #(if-let [date (:t_ms_event/date %)] (.valueOf date) 0)
+                               @(rf/subscribe [::patient-subs/ms-events]))
+        _ (tap> @db/app-db)]
+    [:<>
+     [ui/section-heading "Relapses and disease events"
+      :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                {:on-click #(rf/dispatch [::patient-events/set-current-medication {}])} "Add event"]]
+     [ui/list-entities-fixed
+      :items sorted-events
+      :headings ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"]
+      :width-classes {"Medication" "w-4/6" "From" "w-1/6" "To" "w-1/6"
+                      "UK"         "w-8"
+                      "UE"         "w-8" "LE" "w-8" "SS" "w-8" "SP" "w-8" "SX" "w-8" "FM" "w-8" "FS" "w-8" "OM" "w-8" "VE" "w-8" "BB" "w-8" "CB" "w-8" "ON" "w-8" "PS" "w-8" "OT" "w-8" "MT" "w-8"}
+      :id-key :t_ms_event/id
+      :value-keys [#(dates/format-date (:t_ms_event/date %))
+                   ;;UK:unknown. UE:arm motor. LE:leg motor. SS:limb sensory. SP:sphincter. SX:sexual. FM:face motor. FS:face sensory. OM:diplopia.
+                   ;; VE:vestibular. BB:bulbar. CB:ataxia. ON:optic nerve. PS:psychiatric. OT:other. MT:cognitive.
+                   :t_ms_event_type/abbreviation
+                   :t_ms_event/impact
+                   #(if (:t_ms_event/site_unknown %) "UK" )
+                   #(if (:t_ms_event/site_upper_limb %) "UE")
+                   #(if (:t_ms_event/site_lower_limb %) "LE")
+                   #(if (:t_ms_event/site_limb_sensory %) "SS")
+                   #(if (:t_ms_event/site_sphincter %) "SP")
+                   #(if (:t_ms_event/site_sexual %) "SX")
+                   #(if (:t_ms_event/site_face_motor %) "FM")
+                   #(if (:t_ms_event/site_face_sensory %) "FS")
+                   #(if (:t_ms_event/site_diplopia %) "OM")
+                   #(if (:t_ms_event/site_vestibular %) "VE")
+                   #(if (:t_ms_event/site_bulbar %) "BB")
+                   #(if (:t_ms_event/site_ataxia %) "CB")
+                   #(if (:t_ms_event/site_optic_nerve %) "ON")
+                   #(if (:t_ms_event/site_psychiatric %) "PS")
+                   #(if (:t_ms_event/site_other %) "OT")
+                   #(if (:t_ms_event/site_cognitive %) "MT")]
+      :on-edit (fn [medication] (rf/dispatch [::patient-events/set-current-medication medication]))]]))
+
 (def neuro-inflammatory-menus
   [{:id        :main
     :title     "Main"
@@ -406,8 +445,9 @@
    {:id        :treatment
     :title     "Treatment"
     :component list-medications}
-   {:id    :relapses
-    :title "Relapses"}
+   {:id        :relapses
+    :title     "Relapses"
+    :component list-ms-events}
    {:id    :disability
     :title "Disability"}
    {:id    :investigations
