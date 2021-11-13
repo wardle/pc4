@@ -155,6 +155,36 @@
                                          [:= :t_diagnosis/id id]]})
                    {:return-keys true}))
 
+(defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to]
+                               patient-identifier :t_patient/patient_identifier}]
+  (db/execute-one! conn
+                   (sql/format {:insert-into [:t_medication]
+                                :values      [{:medication_concept_fk medication_concept_fk
+                                               :date_from             date_from
+                                               :date_to               date_to
+                                               :patient_fk            {:select :t_patient/id
+                                                                       :from   [:t_patient]
+                                                                       :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
+                   {:return-keys true}))
+
+(defn update-medication
+  [conn {:t_medication/keys [medication_concept_fk id date_from date_to]}]
+  (db/execute-one! conn
+                   (sql/format {:update [:t_medication]
+                                :set    {:medication_concept_fk medication_concept_fk
+                                         :date_from             date_from
+                                         :date_to               date_to}
+                                :where  [:and
+                                         [:= :t_medication/medication_concept_fk medication_concept_fk]
+                                         [:= :t_medication/id id]]})
+                   {:return-keys true}))
+
+(defn delete-medication
+  [conn {:t_medication/keys [id]}]
+  (db/execute-one! conn
+                   (sql/format {:delete-from [:t_medication]
+                                :where [:= :t_medication/id id]})))
+
 (defn fetch-summary-multiple-sclerosis
   [conn patient-identifier]
   (let [sms (db/execute! conn (sql/format {:select    [:t_summary_multiple_sclerosis/id

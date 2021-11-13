@@ -41,6 +41,9 @@
 (s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
 (s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
+(s/def :t_medication/id int?)
+(s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
+(s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
 
 (s/def ::user-id int?)
 (s/def ::project-id int?)
@@ -91,6 +94,15 @@
                   :t_diagnosis/date_to_accuracy])
     valid-diagnosis-status?
     ordered-diagnostic-dates?))
+
+(s/def ::save-medication
+  (s/and
+    (s/keys :req [::user-id
+                  :t_patient/patient_identifier]
+            :opt [:t_medication/id
+                  :t_medication/medication
+                  :t_medication/date_from
+                  :t_medication/date_to])))
 
 (s/def ::save-ms-diagnosis
   (s/keys :req [:t_user/id
@@ -648,6 +660,27 @@
                        (patients/create-diagnosis conn params'))]
             (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
+
+(pco/defmutation save-medication!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-medication}
+  (log/info "save medication request: " params "user: " user)
+  (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
+                              :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))]
+    (if-not (s/valid? ::save-medication params')
+      (do (log/error "invalid call" (s/explain-data ::save-medication params'))
+          (throw (ex-info "Invalid data" (s/explain-data ::save-medication params'))))
+      (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
+          (let [med (if (:t_medication/id params')
+                      (if (:t_medication/medication_concept_fk params')
+                        (patients/update-medication conn params')
+                        (patients/delete-medication conn params'))
+                      (patients/create-medication conn params'))]
+            (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
+
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
@@ -742,6 +775,7 @@
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
    save-diagnosis!
+   save-medication!
    save-patient-ms-diagnosis!
    save-pseudonymous-patient-postal-code!])
 
