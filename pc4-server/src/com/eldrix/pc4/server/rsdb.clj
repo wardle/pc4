@@ -198,10 +198,30 @@
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
   {::pco/output [{:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
                                                          :t_summary_multiple_sclerosis/ms_diagnosis_fk
-                                                         :t_ms_diagnosis/id
+                                                         :t_ms_diagnosis/id ; we flatten this to-one attribute
                                                          :t_ms_diagnosis/name]}]}
   (let [sms (patients/fetch-summary-multiple-sclerosis conn patient-identifier)]
     {:t_patient/summary_multiple_sclerosis sms}))
+
+(pco/defresolver summary-multiple-sclerosis->events
+  [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
+  {::pco/output [{:t_summary_multiple_sclerosis/events
+                  [:t_ms_event/id
+                   :t_ms_event/date
+                   :t_ms_event/is_relapse
+                   :t_ms_event/site_arm_motor :t_ms_event/site_ataxia
+                   :t_ms_event/site_bulbar :t_ms_event/site_cognitive
+                   :t_ms_event/site_diplopia :t_ms_event/site_face_motor
+                   :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor
+                   :t_ms_event/site_limb_sensory :t_ms_event/site_optic_nerve
+                   :t_ms_event/site_other :t_ms_event/site_psychiatric
+                   :t_ms_event/site_sexual :t_ms_event/site_sphincter
+                   :t_ms_event/site_unknown :t_ms_event/site_vestibular
+                   :t_ms_event_type/id      ;; the event type is a to-one relationship, so we flatten this
+                   :t_ms_event_type/name
+                   :t_ms_event_type/abbreviation]}]}
+  (let [events (patients/fetch-ms-events conn sms-id)]
+    {:t_summary_multiple_sclerosis/events events}))
 
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
@@ -732,6 +752,7 @@
    patient->surgery
    patient->diagnoses
    patient->summary-multiple-sclerosis
+   summary-multiple-sclerosis->events
    patient->medications
    patient->addresses
    patient->address

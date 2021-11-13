@@ -47,6 +47,22 @@
    :t_user/authentication_method               keyword
    :t_user/must_change_password                parse-boolean
    :t_user/send_email_for_messages             parse-boolean
+   :t_ms_event/site_arm_motor parse-boolean
+   :t_ms_event/site_ataxia parse-boolean
+   :t_ms_event/site_bulbar parse-boolean
+   :t_ms_event/site_cognitive parse-boolean
+   :t_ms_event/site_diplopia parse-boolean
+   :t_ms_event/site_face_motor parse-boolean
+   :t_ms_event/site_face_sensory parse-boolean
+   :t_ms_event/site_leg_motor parse-boolean
+   :t_ms_event/site_limb_sensory parse-boolean
+   :t_ms_event/site_optic_nerve parse-boolean
+   :t_ms_event/site_other parse-boolean
+   :t_ms_event/site_psychiatric parse-boolean
+   :t_ms_event/site_sexual parse-boolean
+   :t_ms_event/site_sphincter parse-boolean
+   :t_ms_event/site_unknown parse-boolean
+   :t_ms_event/site_vestibular parse-boolean
    })
 
 (defn parse-entity
