@@ -168,6 +168,28 @@
          :display-key :t_ms_diagnosis/name
          :select-fn on-change]))))
 
+(defn inspect-edit-lsoa [& params]
+  (let [mode (reagent.core/atom :inspect)
+        postcode (reagent.core/atom "")]
+    (fn [& {:keys [value on-change]}]
+      (let [save-fn #(do (on-change @postcode)
+                         (reset! mode :inspect))]
+        (case @mode
+          :inspect [:a.cursor-pointer.underline
+                    {:class    (if (str/blank? value) "text-red-600 hover:text-red-800" "text-red-600.hover:text-red-800")
+                     :on-click #(do
+                                  (reset! postcode "")
+                                  (reset! mode :edit))} (if (str/blank? value) "Not set" value)]
+          :edit [:span
+                 [ui/textfield-control @postcode :auto-focus true :label "Enter postal code:"
+                  :on-change #(reset! postcode %)
+                  :on-enter save-fn
+                  :help-text "This postal code will not be stored but mapped to a larger geographical region instead."]
+                 [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded-full
+                  {:on-click save-fn} "Save"]
+                 [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
+                  {:on-click #(do (reset! mode :inspect) (reset! postcode ""))}
+                  "Cancel"]])))))
 
 (defn multiple-sclerosis-main []
   (let [current-patient @(rf/subscribe [::patient-subs/current])]
@@ -194,7 +216,17 @@
 
        [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Number of relapses in last year"]
-        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]]]]))
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
+
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "LSOA (geography)"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2
+         [inspect-edit-lsoa
+          :value (or (get-in current-patient [:t_patient/address :uk.gov.ons.nhspd/LSOA11])
+                     (get-in current-patient [:t_patient/address :t_address/lsoa]))
+          :on-change #(do (println "Setting LSOA to " %)
+                          (rf/dispatch [::patient-events/save-pseudonymous-postcode {:t_patient/patient_identifier (:t_patient/patient_identifier current-patient)
+                                                                                     :uk.gov.ons.nhspd/PCD2        %}]))]]]]]]))
 
 
 (defn edit-diagnosis
@@ -320,7 +352,7 @@
       (let [patient @(rf/subscribe [::patient-subs/current])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
-        (if patient
+        (when patient
           [:div
            [ui/patient-banner
             :name (:t_patient/sex patient)
