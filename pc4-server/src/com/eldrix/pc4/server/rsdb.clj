@@ -665,7 +665,7 @@
 
 (pco/defmutation save-pseudonymous-patient-postal-code!
   [{conn :com.eldrix.rsdb/conn
-    ods  :com.eldrix/clods
+    ods  :com.eldrix.clods.graph/svc
     user :authenticated-user}
    {patient-identifier :t_patient/patient_identifier
     postcode           :uk.gov.ons.nhspd/PCD2 :as params}]
@@ -676,9 +676,9 @@
     (if (str/blank? postcode)
       (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
                                                       :uk.gov.ons.nhspd/LSOA11      ""})
-      (when-let [pc (com.eldrix.clods.core/fetch-postcode ods postcode)]
+      (let [pc (com.eldrix.clods.core/fetch-postcode ods postcode)]
         (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
-                                                        :uk.gov.ons.nhspd/LSOA11      (:uk.gov.ons.nhspd/LSOA11 pc)})))))
+                                                        :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
