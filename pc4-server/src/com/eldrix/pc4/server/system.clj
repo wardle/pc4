@@ -351,6 +351,7 @@
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
 
+  (rsdb/delete-ms-event! (merge (:pathom/env system) authenticated-env) {:t_ms_event/id 1381})
   (reset! resolvers [])
   (ig/halt! system)
 

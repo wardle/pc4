@@ -44,6 +44,7 @@
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
+(s/def :t_ms_event/id int?)
 
 (s/def ::user-id int?)
 (s/def ::project-id int?)
@@ -108,6 +109,10 @@
   (s/keys :req [:t_user/id
                 :t_ms_diagnosis/id
                 :t_patient/patient_identifier]))
+
+(s/def ::delete-ms-event
+  (s/keys :req [:t_user/id
+                :t_ms_event/id]))
 
 (s/def ::save-pseudonymous-postal-code
   (s/keys :req [:t_patient/patient_identifier
@@ -217,7 +222,7 @@
                    :t_ms_event/site_other :t_ms_event/site_psychiatric
                    :t_ms_event/site_sexual :t_ms_event/site_sphincter
                    :t_ms_event/site_unknown :t_ms_event/site_vestibular
-                   :t_ms_event_type/id      ;; the event type is a to-one relationship, so we flatten this
+                   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we flatten this
                    :t_ms_event_type/name
                    :t_ms_event_type/abbreviation]}]}
   (let [events (patients/fetch-ms-events conn sms-id)]
@@ -733,6 +738,23 @@
         (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
                                                         :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
 
+(pco/defmutation delete-ms-event!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} {ms-event-id :t_ms_event/id :as params}]
+  {::pco/op-name 'pc4.rsdb/delete-ms-event}
+  (log/info "delete ms event:" params " user:" user)
+  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))]   ;; TODO: need a better way than this...
+    (if-not (s/valid? ::delete-ms-event params')
+      (do (log/error "invalid call" (s/explain-data ::delete-ms-event params'))
+          (throw (ex-info "Invalid data" (s/explain-data ::delete-ms-event params'))))
+      (when-let [patient-identifier (patients/patient-identifier-for-ms-event conn params')]
+        (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+          (patients/delete-ms-event! conn params')))))
+
+
+
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
@@ -740,6 +762,14 @@
   {:com.eldrix.rsdb/all-ms-diagnoses (db/execute! conn
                                                   (sql/format {:select [:id :name]
                                                                :from   [:t_ms_diagnosis]}))})
+(pco/defresolver all-ms-event-types
+  [{conn :com.eldrix.rsdb/conn} _]
+  {::pco/output [{:com.eldrix.rsdb/all-ms-event-types [:t_ms_event_type/id
+                                                       :t_ms_event_type/abbreviation
+                                                       :t_ms_event_type/name]}]}
+  {:com.eldrix.rsdb/all-ms-event-types (db/execute! conn
+                                                    (sql/format {:select [:id :abbreviation :name]
+                                                                 :from   [:t_ms_event_type]}))})
 
 (def all-resolvers
   [patient-by-identifier
@@ -792,13 +822,15 @@
    patient->fhir-human-name
    patient->fhir-gender
    multiple-sclerosis-diagnoses
+   all-ms-event-types
    ;; mutations - VERBS
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
    save-diagnosis!
    save-medication!
    save-patient-ms-diagnosis!
-   save-pseudonymous-patient-postal-code!])
+   save-pseudonymous-patient-postal-code!
+   delete-ms-event!])
 
 (comment
   (require '[next.jdbc.connection])

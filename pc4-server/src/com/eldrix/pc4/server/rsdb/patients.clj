@@ -183,7 +183,7 @@
   [conn {:t_medication/keys [id]}]
   (db/execute-one! conn
                    (sql/format {:delete-from [:t_medication]
-                                :where [:= :t_medication/id id]})))
+                                :where       [:= :t_medication/id id]})))
 
 (defn fetch-summary-multiple-sclerosis
   [conn patient-identifier]
@@ -215,11 +215,24 @@
   based on whether the event is a type to be counted as a 'relapse' rather than
   another kind of event, such as onset of progressive disease."
   [conn sms-id]
-  (->> (db/execute! conn (sql/format {:select [:t_ms_event/* :t_ms_event_type/*]
-                                 :from [:t_ms_event]
-                                 :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
-                                 :where [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
+  (->> (db/execute! conn (sql/format {:select    [:t_ms_event/* :t_ms_event_type/*]
+                                      :from      [:t_ms_event]
+                                      :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
+                                      :where     [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
        (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)))))
+
+(defn patient-identifier-for-ms-event
+  "Returns the patient identifier for a given MS event"
+  [conn {ms-event-id :t_ms_event/id :as _event}]
+  (:t_patient/patient_identifier (db/execute-one! conn (sql/format {:select [:patient_identifier]
+                                                                    :from   [:t_patient]
+                                                                    :join   [:t_summary_multiple_sclerosis [:= :t_summary_multiple_sclerosis/patient_fk :t_patient/id]
+                                                                             :t_ms_event [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]]
+                                                                    :where  [:= :t_ms_event/id ms-event-id]}))))
+
+(defn delete-ms-event! [conn {ms-event-id :t_ms_event/id}]
+  (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
+                                     :where [:= :t_ms_event/id ms-event-id]})))
 
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
@@ -277,6 +290,7 @@
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
+  (patient-identifier-for-ms-event conn 7563)
   (patients-in-projects conn #{1 3 32})
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
