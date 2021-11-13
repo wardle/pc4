@@ -13,7 +13,8 @@
    :t_patient/date_birth
    :t_patient/status
    :t_patient/date_death
-   :t_patient/current_address])
+   {:t_patient/address [:uk.gov.ons.nhspd/LSOA11
+                        :t_address/lsoa]}])
 
 (def patient-diagnosis-properties
   [:t_diagnosis/id
@@ -270,6 +271,15 @@
   (fn [{db :db} [_ {patient-identifier :t_patient/patient_identifier ms-diagnosis-id :t_ms_diagnosis/id}]]
     {:fx [[:pathom {:params     (make-save-ms-diagnosis patient-identifier ms-diagnosis-id)
                     :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
+(rf/reg-event-fx ::save-pseudonymous-postcode
+  []
+  (fn [{db :db} [_ {patient-identifier :t_patient/patient_identifier postcode :uk.gov.ons.nhspd/PCD2 :as params}]]
+    {:fx [[:pathom {:params [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code params)
+                              ['*]}]
+                    :token (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
