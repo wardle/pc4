@@ -38,3 +38,11 @@
 (rf/reg-sub ::current-diagnosis
   (fn [db]
     (get-in db [:patient/current :current-diagnosis])))
+
+(rf/reg-sub ::medications
+  (fn []
+    (rf/subscribe [::current]))
+  (fn [current-patient]
+    (:t_patient/medications current-patient)))
+
+(rf/reg-sub ::current-medication
