@@ -1,3 +1,12 @@
+;;
+;; This is an integrant configuration file
+;;
+;; There are two main profiles currently:
+;; - :dev            : this profile is used during development
+;; - :cvx-neuro01    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro01)
+;;
+;;
+
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
 
@@ -20,30 +29,31 @@
                                       :access-key-id     #ref [:secrets :aws-access-key-id]
                                       :secret-access-key #ref [:secrets :aws-secret-access-key]}
 
- :com.eldrix.concierge/nadex         #profile {:default {:connection-pool-size  5
-                                                         :default-bind-username #ref [:secrets :nadex-bind-username]
-                                                         :default-bind-password #ref [:secrets :nadex-bind-password]}
-                                               :dev     {}}
+ :com.eldrix.concierge/nadex         #profile {:cvx-neuro01 {:connection-pool-size  5
+                                                             :default-bind-username #ref [:secrets :nadex-bind-username]
+                                                             :default-bind-password #ref [:secrets :nadex-bind-password]}
+                                               :default     {}}
 
  :com.eldrix.pc4/fake-login-provider {:username "ma090906'"
                                       :password "password"}
 
- :com.eldrix.pc4/login               #profile {:default {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                                                         :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                         :jwt-expiry-seconds 300}
-                                               :dev     {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
-                                                         :jwt-secret-key     "secret"
-                                                         :jwt-expiry-seconds 300}}
+ :com.eldrix.pc4/login               #profile {:cvx-neuro01 {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
+                                                           :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                                                           :jwt-expiry-seconds 300}
+                                               :dev       {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
+                                                           :jwt-secret-key     "secret"
+                                                           :jwt-expiry-seconds 300}}
 
- :wales.nhs.cavuhb/pms               #profile {:default {:username    #ref [:secrets :cav-pms-username]
-                                                         :password    #ref [:secrets :cav-pms-password]
-                                                         :database    "vpmslive.world"
-                                                         :user-string "patientcare-concierge"}
-                                               :dev     {}}
+ :wales.nhs.cavuhb/pms               #profile {:cvx-neuro01 {:username    #ref [:secrets :cav-pms-username]
+                                                             :password    #ref [:secrets :cav-pms-password]
+                                                             :database    "vpmslive.world"
+                                                             :user-string "patientcare-concierge"}
+                                               :default     {}}
 
 
- :wales.nhs/empi                     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
-                                      :processing-id "P"}
+ :wales.nhs/empi                     #profile {:cvx-neuro01 {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+                                                             :processing-id "P"}
+                                               :default     {}}
 
  :pathom/env                         {:com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
                                       :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
