@@ -1,5 +1,7 @@
 (ns eldrix.pc4-ward.patient.events
-  "Events relating to patients."
+  "Events relating to patients.
+
+  Data would be better fetched as required on a per-component level cf. fulcro."
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.events :as events]
             [eldrix.pc4-ward.server :as srv]))
@@ -47,7 +49,10 @@
     [{:t_patient/diagnoses patient-diagnosis-properties}
      {:t_patient/medications patient-medication-properties}
      :t_patient/encounters
-     :t_patient/summary_multiple_sclerosis
+     {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
+                                             :t_summary_multiple_sclerosis/events
+                                             :t_ms_diagnosis/id ; we flatten this to-one attribute
+                                             :t_ms_diagnosis/name]}
      :t_patient/episodes]))
 
 (defn make-search-by-legacy-pseudonym
