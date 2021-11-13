@@ -245,12 +245,12 @@
 (defn select
   "A select control that appears as a pop-up."
   [& {:keys [name label value choices id-key display-key default-value select-fn
-             no-selection-string on-key-down disabled?]
-      :or   {id-key identity display-key identity}}]
+             no-selection-string on-key-down disabled? sort? sort-fn]
+      :or   {id-key identity display-key identity sort? true}}]
   (let [all-choices (if (and value (not (some #(= value %) choices)))
                       (conj choices value) choices)
         choices (zipmap (map id-key all-choices) all-choices)
-        sorted-choices (sort-by display-key (vals choices))]
+        sorted-choices (if-not sort? (vals choices) (sort-by (or sort-fn display-key) (vals choices)))]
     (when (and default-value (str/blank? value))
       (select-fn default-value))
     [:div
