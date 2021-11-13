@@ -26,6 +26,8 @@
      (when title [:span.strong.font-bold.mr-4 title])
      [:span.block.sm:inline message]]))
 
+(defn show-boolean [x]
+  (when x "✔️"))
 
 (defn patient-banner
   [& {:keys [name nhs-number gender born hospital-identifier address deceased on-close content]}]
