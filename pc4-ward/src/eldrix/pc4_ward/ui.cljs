@@ -450,12 +450,14 @@
     :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
                       (when on-change (on-change d)))}])
 
-(defn modal [& {:keys [disabled? title content actions]}]
+(defn modal [& {:keys [disabled? title content actions on-close]}]
   [:div.fixed.z-10.inset-0.overflow-y-auto
    {:aria-labelledby title :role "dialog" :aria-modal "true"
     :class           (when disabled? "hidden")}
    [:div.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
-    [:div.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity {:aria-hidden "true"}]
+    [:div.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
+     {:aria-hidden "true"
+      :on-click #(when on-close (on-close))}]
     [:span.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} "&#8203;"]
     [:div.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
      [:div
@@ -472,7 +474,7 @@
               :key      (:id action)
               :on-click #(when-let [f (:on-click action)] (f))}
              (:title action)]
-            [:button.mt-3.w-full.inline-flex.justify-center.rounded-md.border.border-gray-300.shadow-sm.px-4.py-2.bg-white.text-base.font-medium.text-gray-700.hover:text-gray-500.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:mt-0.sm:w-auto.sm:text-sm
+            [:button.mt-3.w-full.inline-flex.justify-center.rounded-md.border.border-gray-300.shadow-sm.px-4.py-2.bg-white.text-base.font-medium.text-gray-700.hover:text-gray-500.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:mt-0.ml-1.sm:w-auto.sm:text-sm
              {:type     "button"
               :key      (:id action)
               :on-click #(when-let [f (:on-click action)] (f))}
