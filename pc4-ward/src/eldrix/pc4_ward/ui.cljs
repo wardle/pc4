@@ -225,9 +225,9 @@
 
 
 (defn textfield-control
-  [value & {:keys [name label placeholder required auto-focus disabled on-change on-blur help-text]}]
+  [value & {:keys [name label placeholder required auto-focus disabled on-change on-blur on-enter help-text]}]
   [:div
-   (when label [:label.block.text-sm.font-medium.text-gray-700 {:for name} label])
+   (when label [:label.block.text-sm.font-medium.text-gray-600 {:for name} label])
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
      {:name          name :type "text" :placeholder placeholder :required required
@@ -236,7 +236,8 @@
       :default-value value
       :auto-focus    auto-focus
       :on-change     #(when on-change (on-change (-> % .-target .-value)))
-      :on-blur       #(when on-blur (on-blur))}]
+      :on-blur       #(when on-blur (on-blur))
+      :on-key-down   #(when (and on-enter (= 13 (.-which %))) (on-enter))}]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn select
