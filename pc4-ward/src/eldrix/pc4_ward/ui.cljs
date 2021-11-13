@@ -481,3 +481,33 @@
               :key      (:id action)
               :on-click #(when-let [f (:on-click action)] (f))}
              (:title action)]))])]]])
+
+
+(defn checkbox [& {:keys [name label description checked on-change]}]
+  [:div.relative.flex.items-start
+   [:div.flex.items-center.h-5
+    [:input#comments.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300.rounded
+     {:name      name :type "checkbox"
+      :checked   checked
+      :on-change (when on-change #(on-change (-> % .-target .-checked)))}]]
+   [:div.ml-3.text-sm
+    [:label.font-medium.text-gray-700 {:for name} label]
+    (when description [:p#comments-description.text-gray-500 description])]])
+
+(defn multiple-checkboxes
+  "A convenient way of presenting multiple checkboxes.
+  Parameters:
+  - legend      : a legend to be used for screenreaders
+  - m           : a map containing all values
+  - keys        : a sequence of keys to be set to true or false
+  - display-key : a function such as a keyword, a map or function to derive display"
+  [m & {:keys [legend keys display-key on-change] :or {display-key name}}]
+  [:fieldset.space-y-5
+   (when legend [:legend.sr-only legend])
+   (for [item keys]
+     ^{:key item} [checkbox
+                   :name (name item)
+                   :label (display-key item)
+                   :checked (or (item m) false)
+                   :on-change #(when on-change (on-change (assoc m item %)))])])
+
