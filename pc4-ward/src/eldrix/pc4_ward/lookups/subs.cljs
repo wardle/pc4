@@ -4,3 +4,7 @@
 (rf/reg-sub ::all-ms-diagnoses
   (fn [db]
     (get-in db [:lookups :com.eldrix.rsdb/all-ms-diagnoses])))
+
+(rf/reg-sub ::all-ms-event-types
+  (fn [db]
+    (get-in db [:lookups :com.eldrix.rsdb/all-ms-event-types])))

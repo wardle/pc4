@@ -2,7 +2,10 @@
   (:require [re-frame.core :as rf]))
 
 (def all-lookups
-  [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
+  [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}
+   {:com.eldrix.rsdb/all-ms-event-types [:t_ms_event_type/id
+                                         :t_ms_event_type/abbreviation
+                                         :t_ms_event_type/name]}])
 
 
 ;; need to trigger this on login eventually, as there are not that many
