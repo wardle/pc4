@@ -202,11 +202,24 @@
       (log/error "Found more than one t_summary_multiple_sclerosis for patient" {:patient-identifier patient-identifier :results sms}))
     (first sms)))
 
-(defn fetch-ms-events [conn sms-id]
-  (db/execute! conn (sql/format {:select [:t_ms_event/* :t_ms_event_type/*]
+(def ^:private ms-event-relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"})
+
+(defn ms-event-is-relapse?
+  "Is the given MS event a type of relapse?"
+  [{code :t_ms_event_type/abbreviation}]
+  (boolean (ms-event-relapse-types code)))
+
+(defn fetch-ms-events
+  "Return the MS events for the given summary multiple sclerosis.
+  Each event includes an additional :t_ms_event/is_relapse boolean property
+  based on whether the event is a type to be counted as a 'relapse' rather than
+  another kind of event, such as onset of progressive disease."
+  [conn sms-id]
+  (->> (db/execute! conn (sql/format {:select [:t_ms_event/* :t_ms_event_type/*]
                                  :from [:t_ms_event]
                                  :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
-                                 :where [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]})))
+                                 :where [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
+       (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)))))
 
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
@@ -273,7 +286,7 @@
   (next.jdbc/execute-one! conn (sql/format {:select [[[:nextval "t_summary_seq"]]]}))
   (sql/format {:select [[[:nextval "t_summary_seq"]]]})
   (fetch-summary-multiple-sclerosis conn 1)
-  (fetch-ms-events conn 4708)
+  (count (fetch-ms-events conn 4708))
   (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 3 :t_user/id 1})
   (fetch-episodes conn 15203)
   (save-pseudonymous-patient-postal-code! conn {:t_patient/patient_identifier 124018

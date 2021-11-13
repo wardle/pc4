@@ -63,6 +63,7 @@
    :t_ms_event/site_sphincter parse-boolean
    :t_ms_event/site_unknown parse-boolean
    :t_ms_event/site_vestibular parse-boolean
+   :t_ms_events/is_relapse parse-boolean
    })
 
 (defn parse-entity

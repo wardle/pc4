@@ -363,8 +363,11 @@
   (sort (map #(get-in % [:config :com.wsscode.pathom3.connect.operation/op-name]) (flatten [@resolvers default-resolvers])))
 
   (:pathom/env system)
-
+  (rsdb/save-pseudonymous-patient-postal-code! (:pathom/env
+                                                 system) {:t_patient/patient_identifier 124018
+                                                          :uk.gov.ons.nhspd/PCD2 "CF14 4XW"})
   (clods/fetch-postcode (:com.eldrix/clods system) "CF14 4XW")
+  (save)
   (keys system)
   ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "b30 1hl"]
                                          [:uk.gov.ons.nhspd/LSOA11

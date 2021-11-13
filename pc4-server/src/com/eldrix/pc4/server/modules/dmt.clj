@@ -403,18 +403,18 @@
 (defn ms-events-for-patients
   "Returns MS events (e.g. relapses) grouped by patient identifier, sorted in descending date order."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (let [relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"}]
-    (group-by :t_patient/patient_identifier
-              (->> (db/execute! conn (sql/format
-                                       {:select    [:t_patient/patient_identifier
-                                                    :date :source :impact :abbreviation :name]
-                                        :from      [:t_ms_event]
-                                        :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
-                                                    :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
-                                        :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
-                                        :order-by  [[:t_ms_event/date :desc]]
-                                        :where     [:in :t_patient/patient_identifier patient-ids]}))
-                   (map #(assoc % :t_ms_event/is_relapse (boolean (relapse-types (:t_ms_event_type/abbreviation %)))))))))
+
+  (group-by :t_patient/patient_identifier
+            (->> (db/execute! conn (sql/format
+                                     {:select    [:t_patient/patient_identifier
+                                                  :date :source :impact :abbreviation :name]
+                                      :from      [:t_ms_event]
+                                      :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
+                                                  :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
+                                      :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
+                                      :order-by  [[:t_ms_event/date :desc]]
+                                      :where     [:in :t_patient/patient_identifier patient-ids]}))
+                 (map #(assoc % :t_ms_event/is_relapse (patients/ms-event-is-relapse? %))))))
 
 (defn jc-virus-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
   (->> (db/execute! conn (sql/format
@@ -1051,7 +1051,7 @@
                             :t_medication/date_from :t_medication/date_to :exposure_days
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"
-                             :dmt-class "dmt_class"}))
+                             :dmt-class                    "dmt_class"}))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
   [system]
@@ -1122,7 +1122,7 @@
                             :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
                             :body_mass_index]
                   :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_encounter/date_time "date"}))
+                             :t_encounter/date_time        "date"}))
 
 
 (defn write-jc-virus [system]
@@ -1163,6 +1163,13 @@
   (log/info "writing metadata")
   (spit "metadata.json" (write-json (make-metadata system)))
   )
+
+
+
+;;;
+;;; Write out data
+;;; zip all csv files with the metadata.json
+;;; zip
 
 (comment
   (def system (pc4/init :dev [:pathom/env]))
