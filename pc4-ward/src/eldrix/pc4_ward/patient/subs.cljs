@@ -46,3 +46,5 @@
     (:t_patient/medications current-patient)))
 
 (rf/reg-sub ::current-medication
+  (fn [db]
+    (get-in db [:patient/current :current-medication])))

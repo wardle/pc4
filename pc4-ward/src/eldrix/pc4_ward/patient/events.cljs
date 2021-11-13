@@ -90,6 +90,11 @@
   [{(list 'pc4.rsdb/save-diagnosis params)
     patient-diagnosis-properties}])
 
+(defn make-save-medication
+  [params]
+  [{(list 'pc4.rsdb/save-medication params)
+    patient-medication-properties}])
+
 (defn make-save-ms-diagnosis
   [patient-identifier ms-diagnosis-id]
   [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient-identifier
@@ -259,6 +264,12 @@
     (-> db
         (update-in [:patient/current] dissoc :current-diagnosis))))
 
+(rf/reg-event-db ::clear-medication
+  []
+  (fn [db _]
+    (-> db
+        (update-in [:patient/current] dissoc :current-medication))))
+
 (rf/reg-event-fx ::save-diagnosis
   (fn [{db :db} [_ params]]
     {:db (-> db
@@ -268,12 +279,23 @@
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
+(rf/reg-event-fx ::save-medication
+  (fn [{db :db} [_ params]]
+    {:db (-> db
+             (update-in [:errors] dissoc ::save-medication))
+     :fx [[:pathom {:params     (make-save-medication params)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
 (rf/reg-event-fx ::handle-save-diagnosis
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/save-diagnosis}]]
     (js/console.log "save diagnosis response: " result)
     {:fx [[:dispatch-n [[::refresh-current-patient]
-                        [::clear-diagnosis]]]]}))
+                        [::clear-diagnosis]
+                        [::clear-medication]]]]}))
+
 
 (rf/reg-event-fx ::save-ms-diagnosis
   []
@@ -282,6 +304,23 @@
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
+
+
+
+(rf/reg-event-db ::set-current-medication
+  []
+  (fn [db [_ medication]]
+    (-> db
+        (assoc-in [:patient/current :current-medication] medication))))
+
+(rf/reg-event-db ::clear-medication
+  []
+  (fn [db _]
+    (-> db
+        (update-in [:patient/current] dissoc :current-medication))))
+
+
+
 
 (rf/reg-event-fx ::save-pseudonymous-postcode
   []

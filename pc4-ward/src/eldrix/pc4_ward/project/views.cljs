@@ -273,7 +273,11 @@
          :value (:t_diagnosis/status diagnosis)
          :default-value "ACTIVE"
          :choices ["INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
-         :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/status %)])]]]]]]])
+         :select-fn #(rf/dispatch [::patient-events/set-current-diagnosis (assoc diagnosis :t_diagnosis/status %)])]]]
+      (when (:t_diagnosis/id diagnosis)
+        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+         [:div.mt-1.sm:mt-0.sm:col-span-2.text-gray-700
+          [:p "To delete a diagnosis, record a 'to' date and update the status as appropriate."]]])]]]])
 
 (defn list-diagnoses []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
@@ -291,7 +295,8 @@
                    :on-click #(rf/dispatch [::patient-events/save-diagnosis
                                             (assoc current-diagnosis
                                               :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
-                  {:id ::cancel-action :title "Cancel" :on-click #(rf/dispatch [::patient-events/clear-diagnosis])}]])
+                  {:id ::cancel-action :title "Cancel" :on-click #(rf/dispatch [::patient-events/clear-diagnosis])}]
+        :on-close #(rf/dispatch [::patient-events/clear-diagnosis])])
      [ui/section-heading "Active diagnoses"
       :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
                 {:on-click #(rf/dispatch [::patient-events/set-current-diagnosis {}])} "Add diagnosis"]]
@@ -319,7 +324,77 @@
                       #(dates/format-date (:t_diagnosis/date_diagnosis %))
                       #(dates/format-date (:t_diagnosis/date_to %))
                       :t_diagnosis/status]
-         :on-edit (fn [diagnosis] (js/console.log "edt diag") (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
+         :on-edit (fn [diagnosis] (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
+
+(defn edit-medication
+  "Edit medication form.
+  TODO: this should generate itself from a schema, including client side
+  validation...."
+  [medication]
+  [:form.space-y-8.divide-y.divide-gray-200
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-medication} "Medication"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         (if (:t_medication/id medication)                  ;; if we already have a saved diagnosis, don't allow user to change
+           [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+           [eldrix.pc4-ward.snomed.views/select-snomed
+            :id ::choose-medication
+            :common-choices []
+            :value (:t_medication/medication medication)
+            :constraint "(<10363601000001109 MINUS <<10363901000001102)"
+            :select-fn #(rf/dispatch [::patient-events/set-current-medication (assoc medication :t_medication/medication %)])])]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-onset"} "Date from"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date-from" :value (:t_medication/date_from medication)
+         :on-change #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/date_from %)])]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-to"} "Date to"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date-to" :value (:t_medication/date_to medication)
+         :on-change #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/date_to %)])]]]]]]])
+
+(defn list-medications []
+  (let [current-patient @(rf/subscribe [::patient-subs/current])
+        current-medication @(rf/subscribe [::patient-subs/current-medication]) ;; currently edited medication
+        sorted-medications (sort-by #(if-let [date-from (:t_medication/date_from %)] (.valueOf date-from) 0)
+                                    @(rf/subscribe [::patient-subs/medications]))
+        _ (tap> @db/app-db)]
+    [:<>
+     (when current-medication
+       [ui/modal
+        :disabled? false
+        :content [edit-medication current-medication]
+        :actions [{:id       ::save-action :title "Save" :is-primary true
+                   :on-click #(rf/dispatch [::patient-events/save-medication
+                                            (assoc current-medication
+                                              :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
+                  {:id ::delete-action :title "Delete" :on-click #(if (:t_medication/id current-medication)
+                                                                    (rf/dispatch [::patient-events/save-medication
+                                                                                  (-> current-medication
+                                                                                      (dissoc :t_medication/medication)
+                                                                                      (assoc :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)))])
+                                                                    (rf/dispatch [::patient-events/clear-medication]))}
+                  {:id ::cancel-action :title "Cancel" :on-click #(rf/dispatch [::patient-events/clear-medication])}]
+        :on-close #(rf/dispatch [::patient-events/clear-medication])])
+     [ui/section-heading "Medications"
+      :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                {:on-click #(rf/dispatch [::patient-events/set-current-medication {}])} "Add medication"]]
+     [ui/list-entities-fixed
+      :items sorted-medications
+      :headings ["Medication" "From" "To"]
+      :width-classes {"Medication" "w-4/6" "From" "w-1/6" "To" "w-1/6"}
+
+      :id-key :t_medication/id
+      :value-keys [#(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+                   #(dates/format-date (:t_medication/date_from %))
+                   #(dates/format-date (:t_medication/date_to %))]
+      :on-edit (fn [medication] (rf/dispatch [::patient-events/set-current-medication medication]))]]))
+
 
 (def neuro-inflammatory-menus
   [{:id        :main
@@ -328,8 +403,9 @@
    {:id        :diagnoses
     :title     "Diagnoses"
     :component list-diagnoses}
-   {:id    :treatment
-    :title "Treatment"}
+   {:id        :treatment
+    :title     "Treatment"
+    :component list-medications}
    {:id    :relapses
     :title "Relapses"}
    {:id    :disability
