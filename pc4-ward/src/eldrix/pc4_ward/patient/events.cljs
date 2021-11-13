@@ -29,6 +29,15 @@
                             :info.snomed.Concept/preferredDescription
                             :info.snomed.Concept/parentRelationshipIds]}])
 
+(def patient-medication-properties
+  [:t_medication/id
+   :t_medication/date_from
+   :t_medication/date_to
+   :t_medication/more_information
+   {:t_medication/medication [:info.snomed.Concept/id
+                              :info.snomed.Concept/preferredDescription
+                              :info.snomed.Concept/parentRelationshipIds]}])
+
 (def full-patient-properties
   ;; at the moment we download all of the data in one go - this should be replaced by
   ;; fetches that are made when a specific panel is opened. Simpler, more current information
@@ -36,7 +45,7 @@
   (into
     core-patient-properties
     [{:t_patient/diagnoses patient-diagnosis-properties}
-     :t_patient/medications
+     {:t_patient/medications patient-medication-properties}
      :t_patient/encounters
      :t_patient/summary_multiple_sclerosis
      :t_patient/episodes]))
