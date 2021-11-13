@@ -416,15 +416,15 @@
   (when-not (= (count headings) (count value-keys))
     (throw (ex-info "Number of headings must be the same as the number of value-keys" params)))
   [:div.flex.flex-col
-   [:div.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
-    [:div.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
+   [:div.my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.py-2.align-middle.inline-block.min-w-full.sm:px-2.lg:px-2
      [:div.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
       [:table.min-w-full.divide-y.divide-gray-200
        (when (seq width-classes) {:class "table-fixed"})
        [:thead.bg-gray-50
         [:tr
          (for [heading headings]
-           [:th.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider
+           [:th.px-2.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider
             (cond-> {:scope "col" :key heading}
                     (get width-classes heading) (assoc :class (get width-classes heading))) heading])
          (when on-edit
@@ -435,7 +435,7 @@
           [:tr.bg-white
            {:key (id-key item)}
            (for [value-key value-keys]
-             [:td.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 {:key value-key} (value-key item)])
+             [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500 {:key value-key} (value-key item)])
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
                           [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
 
