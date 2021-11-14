@@ -45,6 +45,9 @@
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
 (s/def :t_ms_event/id int?)
+(s/def :t_ms_event/date #(instance? LocalDate %))
+(s/def :t_ms_event/impact string?)
+(s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
 
 (s/def ::user-id int?)
 (s/def ::project-id int?)
@@ -67,56 +70,6 @@
     "INACTIVE_RESOLVED" date_to
     "INACTIVE_REVISED" date_to
     false))
-
-(s/def ::create-diagnosis
-  (s/and
-    (s/keys :req [::user-id
-                  :t_patient/patient_identifier
-                  :t_diagnosis/diagnosis
-                  :t_diagnosis/status]
-            :opt [:t_diagnosis/date_onset
-                  :t_diagnosis/date_diagnosis
-                  :t_diagnosis/date_onset_accuracy
-                  :t_diagnosis/date_diagnosis_accuracy
-                  :t_diagnosis/date_to
-                  :t_diagnosis/date_to_accuracy])
-    valid-diagnosis-status?
-    ordered-diagnostic-dates?))
-
-(s/def ::update-diagnosis
-  (s/and
-    (s/keys :req [:t_diagnosis/id
-                  :t_diagnosis/status]
-            :opt [:t_diagnosis/date_onset
-                  :t_diagnosis/date_diagnosis
-                  :t_diagnosis/date_onset_accuracy
-                  :t_diagnosis/date_diagnosis_accuracy
-                  :t_diagnosis/date_to
-                  :t_diagnosis/date_to_accuracy])
-    valid-diagnosis-status?
-    ordered-diagnostic-dates?))
-
-(s/def ::save-medication
-  (s/and
-    (s/keys :req [::user-id
-                  :t_patient/patient_identifier]
-            :opt [:t_medication/id
-                  :t_medication/medication
-                  :t_medication/date_from
-                  :t_medication/date_to])))
-
-(s/def ::save-ms-diagnosis
-  (s/keys :req [:t_user/id
-                :t_ms_diagnosis/id
-                :t_patient/patient_identifier]))
-
-(s/def ::delete-ms-event
-  (s/keys :req [:t_user/id
-                :t_ms_event/id]))
-
-(s/def ::save-pseudonymous-postal-code
-  (s/keys :req [:t_patient/patient_identifier
-                :uk.gov.ons.nhspd/PCD2]))
 
 (defn html->text
   "Convert a string containing HTML to plain text."
@@ -666,6 +619,19 @@
       (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
                                                                           :permission         permission})))))
 
+(s/def ::save-diagnosis
+  (s/and
+    (s/keys :req [:t_patient/patient_identifier
+                  :t_diagnosis/diagnosis
+                  :t_diagnosis/status]
+            :opt [:t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_onset_accuracy
+                  :t_diagnosis/date_diagnosis_accuracy
+                  :t_diagnosis/date_to
+                  :t_diagnosis/date_to_accuracy])
+    valid-diagnosis-status?
+    ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
   [{conn    :com.eldrix.rsdb/conn
@@ -676,7 +642,7 @@
   (log/info "save diagnosis request: " params "user: " user)
   (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
                               :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
-    (if-not (s/valid? ::create-diagnosis params')
+    (if-not (s/valid? ::save-diagnosis params')
       (do (log/error "invalid call" (s/explain-data ::create-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::create-diagnosis params'))))
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
@@ -685,6 +651,15 @@
                        (patients/create-diagnosis conn params'))]
             (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
 
+
+(s/def ::save-medication
+  (s/and
+    (s/keys :req [::user-id
+                  :t_patient/patient_identifier]
+            :opt [:t_medication/id
+                  :t_medication/medication
+                  :t_medication/date_from
+                  :t_medication/date_to])))
 
 (pco/defmutation save-medication!
   [{conn    :com.eldrix.rsdb/conn
@@ -706,6 +681,11 @@
                       (patients/create-medication conn params'))]
             (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
 
+(s/def ::save-ms-diagnosis
+  (s/keys :req [:t_user/id
+                :t_ms_diagnosis/id
+                :t_patient/patient_identifier]))
+
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
@@ -720,6 +700,10 @@
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
           (patients/save-ms-diagnosis! conn params')
           (patient->summary-multiple-sclerosis env params)))))
+
+(s/def ::save-pseudonymous-postal-code
+  (s/keys :req [:t_patient/patient_identifier
+                :uk.gov.ons.nhspd/PCD2]))
 
 (pco/defmutation save-pseudonymous-patient-postal-code!
   [{conn :com.eldrix.rsdb/conn
@@ -738,6 +722,37 @@
         (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
                                                         :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
 
+(s/def ::save-ms-event
+  (s/keys :req [:t_ms_event/date
+                :t_ms_event_type/id
+                :t_ms_event/impact
+                :t_ms_event/summary_multiple_sclerosis_fk]))
+
+(pco/defmutation save-ms-event!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-ms-event}
+  (log/info "save ms event request: " params "user: " user)
+  (if-not (s/valid? ::save-ms-event params)
+    (do (log/error "invalid call" (s/explain-data ::save-ms-event params))
+        (throw (ex-info "Invalid data" (s/explain-data ::save-ms-event params))))
+    (let [patient-identifier (or (:t_patient/patient-identifier params)
+                                 (patients/patient-identifier-for-ms-event conn params))]
+      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+          (patients/save-ms-event! conn (-> params
+                                            (dissoc :t_patient/patient_identifier
+                                                    :t_ms_event_type/id
+                                                    :t_ms_event_type/abbreviation
+                                                    :t_ms_event_type/name
+                                                    :t_ms_event/is_relapse)
+                                            (assoc :t_ms_event/ms_event_type_fk (:t_ms_event_type/id params))))))))
+
+(s/def ::delete-ms-event
+  (s/keys :req [:t_user/id
+                :t_ms_event/id]))
+
 (pco/defmutation delete-ms-event!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
@@ -745,13 +760,13 @@
     :as     env} {ms-event-id :t_ms_event/id :as params}]
   {::pco/op-name 'pc4.rsdb/delete-ms-event}
   (log/info "delete ms event:" params " user:" user)
-  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))]   ;; TODO: need a better way than this...
+  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
     (if-not (s/valid? ::delete-ms-event params')
       (do (log/error "invalid call" (s/explain-data ::delete-ms-event params'))
           (throw (ex-info "Invalid data" (s/explain-data ::delete-ms-event params'))))
       (when-let [patient-identifier (patients/patient-identifier-for-ms-event conn params')]
         (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (patients/delete-ms-event! conn params')))))
+        (patients/delete-ms-event! conn params')))))
 
 
 
@@ -830,6 +845,7 @@
    save-medication!
    save-patient-ms-diagnosis!
    save-pseudonymous-patient-postal-code!
+   save-ms-event!
    delete-ms-event!])
 
 (comment

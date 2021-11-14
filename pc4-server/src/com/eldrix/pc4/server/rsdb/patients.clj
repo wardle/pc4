@@ -232,7 +232,7 @@
 
 (defn delete-ms-event! [conn {ms-event-id :t_ms_event/id}]
   (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
-                                     :where [:= :t_ms_event/id ms-event-id]})))
+                                     :where       [:= :t_ms_event/id ms-event-id]})))
 
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
@@ -259,6 +259,31 @@
                                               :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
                                                                                                  :from   [:t_patient]
                                                                                                  :where  [:= :t_patient/patient_identifier patient-identifier]}}]})))))
+(def default-ms-event
+  {:t_ms_event/site_arm_motor    false
+   :t_ms_event/site_ataxia       false
+   :t_ms_event/site_bulbar       false
+   :t_ms_event/site_cognitive    false
+   :t_ms_event/site_diplopia     false
+   :t_ms_event/site_face_motor   false
+   :t_ms_event/site_face_sensory false
+   :t_ms_event/site_leg_motor    false
+   :t_ms_event/site_limb_sensory false
+   :t_ms_event/site_optic_nerve  false
+   :t_ms_event/site_other        false
+   :t_ms_event/site_psychiatric  false
+   :t_ms_event/site_sexual       false
+   :t_ms_event/site_sphincter    false
+   :t_ms_event/site_unknown      false
+   :t_ms_event/site_vestibular   false})
+
+(defn save-ms-event! [conn event]
+  (if (:t_ms_event/id event)
+    (next.jdbc.sql/update! conn
+                           :t_ms_event
+                           (merge default-ms-event event)
+                           {:t_ms_event/id (:t_ms_event/id event)})
+    (next.jdbc.sql/insert! conn :t_ms_event (merge default-ms-event event))))
 
 (defn save-pseudonymous-patient-lsoa!
   "Special function to store LSOA11 code in place of postal code when working
@@ -296,6 +321,10 @@
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
                                                                              :maximumPoolSize 2}))
+
+  (save-ms-event! conn {:t_ms_event/ms_event_type_fk              1
+                        :t_ms_event/date                          (LocalDate/now)
+                        :t_ms_event/summary_multiple_sclerosis_fk 4711})
 
   (next.jdbc/execute-one! conn (sql/format {:select [[[:nextval "t_summary_seq"]]]}))
   (sql/format {:select [[[:nextval "t_summary_seq"]]]})
