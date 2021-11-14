@@ -452,6 +452,14 @@
     :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
                       (when on-change (on-change d)))}])
 
+
+(defn button [& {:keys [disabled? role on-click label]}]
+  [:button.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:w-auto.sm:text-sm
+   {:type     "button"
+    :class    [(case role :primary "border-transparent text-white bg-red-600" "bg-white") (when disabled? "opacity-50")]
+    :disabled disabled?
+    :on-click #(when (not disabled?) (on-click))} label])
+
 (defn modal [& {:keys [disabled? title content actions on-close]}]
   [:div.fixed.z-10.inset-0.overflow-y-auto
    {:aria-labelledby title :role "dialog" :aria-modal "true"
@@ -459,7 +467,7 @@
    [:div.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
     [:div.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
      {:aria-hidden "true"
-      :on-click #(when on-close (on-close))}]
+      :on-click    #(when on-close (on-close))}]
     [:span.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} "&#8203;"]
     [:div.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
      [:div
@@ -469,18 +477,13 @@
        content]]
      (when (seq actions)
        [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
-        (for [action actions]
-          (if (:is-primary action)
-            [:button.w-full.inline-flex.justify-center.rounded-md.border.border-transparent.shadow-sm.px-4.py-2.bg-red-600.text-base.font-medium.text-white.hover:bg-red-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:w-auto.sm:text-sm
-             {:type     "button"
-              :key      (:id action)
-              :on-click #(when-let [f (:on-click action)] (f))}
-             (:title action)]
-            [:button.mt-3.w-full.inline-flex.justify-center.rounded-md.border.border-gray-300.shadow-sm.px-4.py-2.bg-white.text-base.font-medium.text-gray-700.hover:text-gray-500.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:mt-0.ml-1.sm:w-auto.sm:text-sm
-             {:type     "button"
-              :key      (:id action)
-              :on-click #(when-let [f (:on-click action)] (f))}
-             (:title action)]))])]]])
+        (for [action actions
+              :when (not (:hidden? action))]
+          ^{:key (:id action)} [button
+                                :role (:role action)
+                                :label (:title action)
+                                :disabled? (:disabled? action)
+                                :on-click #(when-let [f (:on-click action)] (f))])])]]])
 
 
 (defn checkbox [& {:keys [name label description checked on-change]}]
