@@ -291,7 +291,9 @@
      (when current-diagnosis
        [ui/modal :disabled? false
         :content [edit-diagnosis current-diagnosis]
-        :actions [{:id       ::save-action :title "Save" :is-primary true
+        :actions [{:id       ::save-action
+                   :title    "Save"
+                   :role     :primary
                    :on-click #(rf/dispatch [::patient-events/save-diagnosis
                                             (assoc current-diagnosis
                                               :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
@@ -369,17 +371,22 @@
        [ui/modal
         :disabled? false
         :content [edit-medication current-medication]
-        :actions [{:id       ::save-action :title "Save" :is-primary true
+        :actions [{:id       ::save-action
+                   :title    "Save" :role :primary
                    :on-click #(rf/dispatch [::patient-events/save-medication
                                             (assoc current-medication
                                               :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
-                  {:id ::delete-action :title "Delete" :on-click #(if (:t_medication/id current-medication)
-                                                                    (rf/dispatch [::patient-events/save-medication
-                                                                                  (-> current-medication
-                                                                                      (dissoc :t_medication/medication)
-                                                                                      (assoc :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)))])
-                                                                    (rf/dispatch [::patient-events/clear-medication]))}
-                  {:id ::cancel-action :title "Cancel" :on-click #(rf/dispatch [::patient-events/clear-medication])}]
+                  {:id       ::delete-action
+                   :title    "Delete"
+                   :on-click #(if (:t_medication/id current-medication)
+                                (rf/dispatch [::patient-events/save-medication
+                                              (-> current-medication
+                                                  (dissoc :t_medication/medication)
+                                                  (assoc :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)))])
+                                (rf/dispatch [::patient-events/clear-medication]))}
+                  {:id       ::cancel-action
+                   :title    "Cancel"
+                   :on-click #(rf/dispatch [::patient-events/clear-medication])}]
         :on-close #(rf/dispatch [::patient-events/clear-medication])])
      [ui/section-heading "Medications"
       :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
@@ -426,15 +433,15 @@
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "impact"} "Impact"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
          [ui/select :name "impact"
-          :value (:t_ms_event/impact event) :choices impact-choices :sort? false]]]
+          :value (:t_ms_event/impact event) :choices impact-choices :sort? false
+          :select-fn #(on-change (assoc event :t_ms_event/impact %))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 "Site(s)"]
-
         [:div.mt-4.sm:grid.sm:grid-cols-2.sm:gap-4
          [:div.mt-1.sm:mt-0:sm:col-span-1
           ;"UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"
           [ui/multiple-checkboxes event
-           :keys [:t_ms_event/site_unknown :t_ms_event/site_upper_limb :t_ms_event/site_lower_limb
+           :keys [:t_ms_event/site_unknown :t_ms_event/site_arm_motor :t_ms_event/site_leg_motor
                   :t_ms_event/site_limb_sensory :t_ms_event/site_sphincter :t_ms_event/site_sexual
                   :t_ms_event/site_face_motor :t_ms_event/site_face_sensory]
            :display-key ms-event-site-to-string
@@ -442,11 +449,16 @@
          [:div.mt-1.sm:mt-0:sm:col-span-1
           [ui/multiple-checkboxes event
            :keys [:t_ms_event/site_diplopia :t_ms_event/site_vestibular :t_ms_event/site_bulbar
-                  :t_ms_event/site_cerebellar :t_ms_event/site_optic_nerve :t_ms_event/site_psychiatric
+                  :t_ms_event/site_ataxia :t_ms_event/site_optic_nerve :t_ms_event/site_psychiatric
                   :t_ms_event/site_other :t_ms_event/site_cognitive]
            :display-key ms-event-site-to-string
            :on-change on-change]]]]
        ]]]))
+
+
+(s/def :t_ms_event/date #(instance? goog.date.Date %))
+(s/def ::ms-event
+  (s/keys :req [:t_ms_event/date]))
 
 (defn list-ms-events []
   (let [editing-event (reagent.core/atom nil)]
@@ -455,52 +467,67 @@
             sorted-events (sort-by #(if-let [date (:t_ms_event/date %)] (.valueOf date) 0)
                                    @(rf/subscribe [::patient-subs/ms-events]))
             editing-event' @editing-event
-            _ (tap> {:editing-event editing-event'})]
-        [:<>
-         (when editing-event'
-           [ui/modal
-            :disabled? false
-            :content [edit-event editing-event' :on-change #(reset! editing-event %)]
-            :actions [{:id       ::save-action :title "Save" :is-primary true
-                       :on-click #(rf/dispatch [::patient-events/save-ms-event
-                                                (assoc editing-event'
-                                                  :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
-                      {:id ::delete-action :title "Delete" :on-click #(do (when (:t_ms_event/id editing-event')
-                                                                            (rf/dispatch [::patient-events/delete-ms-event editing-event']))
-                                                                          (reset! editing-event nil))}
-                      {:id ::cancel-action :title "Cancel" :on-click #(reset! editing-event nil)}]
-            :on-close #(reset! editing-event nil)])
-         [ui/section-heading "Relapses and disease events"
-          :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
-                    {:on-click #(reset! editing-event {})} "Add event"]]
-         [ui/list-entities-fixed
-          :items sorted-events
-          :headings ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"]
-          :width-classes {"UK" "w-8"
-                          "UE" "w-8" "LE" "w-8" "SS" "w-8" "SP" "w-8" "SX" "w-8" "FM" "w-8" "FS" "w-8" "OM" "w-8" "VE" "w-8" "BB" "w-8" "CB" "w-8" "ON" "w-8" "PS" "w-8" "OT" "w-8" "MT" "w-8"}
-          :id-key :t_ms_event/id
-          :value-keys [#(dates/format-date (:t_ms_event/date %))
-                       ;;UK:unknown. UE:arm motor. LE:leg motor. SS:limb sensory. SP:sphincter. SX:sexual. FM:face motor. FS:face sensory. OM:diplopia.
-                       ;; VE:vestibular. BB:bulbar. CB:ataxia. ON:optic nerve. PS:psychiatric. OT:other. MT:cognitive.
-                       :t_ms_event_type/abbreviation
-                       :t_ms_event/impact
-                       #(if (:t_ms_event/site_unknown %) "UK")
-                       #(if (:t_ms_event/site_upper_limb %) "UE")
-                       #(if (:t_ms_event/site_lower_limb %) "LE")
-                       #(if (:t_ms_event/site_limb_sensory %) "SS")
-                       #(if (:t_ms_event/site_sphincter %) "SP")
-                       #(if (:t_ms_event/site_sexual %) "SX")
-                       #(if (:t_ms_event/site_face_motor %) "FM")
-                       #(if (:t_ms_event/site_face_sensory %) "FS")
-                       #(if (:t_ms_event/site_diplopia %) "OM")
-                       #(if (:t_ms_event/site_vestibular %) "VE")
-                       #(if (:t_ms_event/site_bulbar %) "BB")
-                       #(if (:t_ms_event/site_ataxia %) "CB")
-                       #(if (:t_ms_event/site_optic_nerve %) "ON")
-                       #(if (:t_ms_event/site_psychiatric %) "PS")
-                       #(if (:t_ms_event/site_other %) "OT")
-                       #(if (:t_ms_event/site_cognitive %) "MT")]
-          :on-edit (fn [event] (reset! editing-event event))]]))))
+            valid? (s/valid? ::ms-event editing-event')
+            _ (tap> {:editing-event editing-event'
+                     :valid?        valid?
+                     :problems      (s/explain-data ::ms-event editing-event')})]
+        (if-not (:t_patient/summary_multiple_sclerosis current-patient)
+          [ui/box-error-message :title "No neuro-inflammatory diagnosis recorded" :message "You must record a neuro-inflammatory diagnosis before recording events"]
+          [:<>
+           (when editing-event'
+             [ui/modal
+              :content [edit-event editing-event' :on-change #(reset! editing-event %)]
+              :actions [{:id        ::save-action
+                         :title     "Save"
+                         :disabled? (not valid?)
+                         :role      :primary
+                         :on-click  #(do (rf/dispatch [::patient-events/save-ms-event
+                                                   (assoc editing-event'
+                                                     :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])
+                                         (reset! editing-event nil))}
+                        {:id       ::delete-action
+                         :title    "Delete"
+                         :hidden?  (not (:t_ms_event/id editing-event')) ;; hide when new
+                         :on-click #(do (when (:t_ms_event/id editing-event')
+                                          (rf/dispatch [::patient-events/delete-ms-event editing-event']))
+                                        (reset! editing-event nil))}
+                        {:id       ::cancel-action
+                         :title    "Cancel"
+                         :on-click #(reset! editing-event nil)}]
+              :on-close #(reset! editing-event nil)])
+           [ui/section-heading "Relapses and disease events"
+            :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                      {:on-click #(reset! editing-event {:t_ms_event/summary_multiple_sclerosis_fk (get-in current-patient [:t_patient/summary_multiple_sclerosis :t_summary_multiple_sclerosis/id])
+                                                         :t_ms_event_type/id 11
+                                                         :t_ms_event/impact "DISABLING"})} "Add event"]]
+           [ui/list-entities-fixed
+            :items sorted-events
+            :headings ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"]
+            :width-classes {"UK" "w-8"
+                            "UE" "w-8" "LE" "w-8" "SS" "w-8" "SP" "w-8" "SX" "w-8" "FM" "w-8" "FS" "w-8" "OM" "w-8" "VE" "w-8" "BB" "w-8" "CB" "w-8" "ON" "w-8" "PS" "w-8" "OT" "w-8" "MT" "w-8"}
+            :id-key :t_ms_event/id
+            :value-keys [#(dates/format-date (:t_ms_event/date %))
+                         ;;UK:unknown. UE:arm motor. LE:leg motor. SS:limb sensory. SP:sphincter. SX:sexual. FM:face motor. FS:face sensory. OM:diplopia.
+                         ;; VE:vestibular. BB:bulbar. CB:ataxia. ON:optic nerve. PS:psychiatric. OT:other. MT:cognitive.
+                         :t_ms_event_type/abbreviation
+                         :t_ms_event/impact
+                         #(if (:t_ms_event/site_unknown %) "UK")
+                         #(if (:t_ms_event/site_arm_motor %) "UE")
+                         #(if (:t_ms_event/site_leg_motor %) "LE")
+                         #(if (:t_ms_event/site_limb_sensory %) "SS")
+                         #(if (:t_ms_event/site_sphincter %) "SP")
+                         #(if (:t_ms_event/site_sexual %) "SX")
+                         #(if (:t_ms_event/site_face_motor %) "FM")
+                         #(if (:t_ms_event/site_face_sensory %) "FS")
+                         #(if (:t_ms_event/site_diplopia %) "OM")
+                         #(if (:t_ms_event/site_vestibular %) "VE")
+                         #(if (:t_ms_event/site_bulbar %) "BB")
+                         #(if (:t_ms_event/site_ataxia %) "CB")
+                         #(if (:t_ms_event/site_optic_nerve %) "ON")
+                         #(if (:t_ms_event/site_psychiatric %) "PS")
+                         #(if (:t_ms_event/site_other %) "OT")
+                         #(if (:t_ms_event/site_cognitive %) "MT")]
+            :on-edit (fn [event] (reset! editing-event event))]])))))
 
 (def neuro-inflammatory-menus
   [{:id        :main
