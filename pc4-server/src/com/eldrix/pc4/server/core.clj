@@ -4,4 +4,4 @@
 
 (defn run [{:keys [profile] :or {profile :live}}]
   (log/info "starting pc4-server with profile" {:profile profile})
-  (pc4/init profile [:http/server]))
+  (pc4/init profile [:http/server2]))
