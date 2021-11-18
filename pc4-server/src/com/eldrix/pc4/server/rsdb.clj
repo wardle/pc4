@@ -48,7 +48,7 @@
 (s/def :t_ms_event/date #(instance? LocalDate %))
 (s/def :t_ms_event/impact string?)
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
-
+(s/def :t_encounter/date_time #(instance? LocalDateTime %))
 (s/def ::user-id int?)
 (s/def ::project-id int?)
 (s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))

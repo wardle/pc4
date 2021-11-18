@@ -233,7 +233,6 @@
     (if (= uri (:uri req))
       (do
         (log/info "processing API call " req)
-        (clojure.pprint/pprint req)
         (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
       (handler req))))
 
