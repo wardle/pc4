@@ -236,13 +236,6 @@
         (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
       (handler req))))
 
-(defn wrap-ping [handler {:keys [uri pathom]}]
-  (fn [req]
-    (if (= uri (:uri req))
-      (let [{:keys [uuid] :as params} (:transit-params req)]
-        (pathom [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}]))
-      (handler req))))
-
 (defn wrap-log-response [handler]
   (fn [req]
     (log/info "request:" req)
@@ -276,7 +269,6 @@
       (wrap-api {:uri "/api"})
       (wrap-authenticated-pathom config)
       (wrap-claims login-config)
-      (wrap-ping {:pathom pathom-boundary-interface :uri "/ping"})
       (wrap-login {:pathom pathom-boundary-interface :uri "/login"})
       (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-params {:opts {:handlers dates/transit-readers}})
       (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-response {:opts {:handlers dates/transit-writers}})
