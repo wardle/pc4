@@ -45,7 +45,7 @@
              http-kit/http-kit                 {:mvn/version "2.5.3"}
 
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
-             org.postgresql/postgresql         {:mvn/version "42.3.0"}}
+             org.postgresql/postgresql         {:mvn/version "42.3.1"}}
 
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
