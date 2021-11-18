@@ -436,6 +436,22 @@
                                                                :order-by [[:date_time :desc]]}))
                               (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
+(pco/defresolver patient->all_edss
+  "This *will* be deprecated but is intended for short-term use. It is a quick
+  hack to get all EDSS results for a patient. We can do better with batch
+  resolvers at some point. Notice how EDSS results are flattened into the
+  encounter. A batch resolver would allow resolution of encounters, and then
+  potentially any interesting data from there, but on a batch basis for the
+  list, which itself would take parameters of date_from and date_to etc. "
+  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
+  {::pco/output [{:t_patient/t_form_edss [:t_encounter/id
+                                          :t_encounter/date_time
+                                          :t_form_edss/edss
+                                          :t_form_edss/edss_type
+                                          :t_form_ms_relapse/in_relapse
+                                          :t_form_ms_disease_course/id
+                                          :t_form_ms_disease_course/name]}]}
+  {:t_patient/t_form_edss (com.eldrix.pc4.server.rsdb.forms/all-ms-disability-forms conn patient-identifier)})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -845,6 +861,7 @@
    project->all-children
    project->all-parents
    patient->encounters
+   patient->all_edss
    encounter->users
    encounter->encounter_template
    encounter->hospital
