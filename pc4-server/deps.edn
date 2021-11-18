@@ -41,7 +41,7 @@
              com.fulcrologic/fulcro            {:mvn/version "3.5.8"}
              ring/ring-core                    {:mvn/version "1.9.4"}
              ring-cors/ring-cors               {:mvn/version "0.1.13"}
-             ring/ring-defaults                {:mvn/version "0.3.2"}
+             ring/ring-defaults                {:mvn/version "0.3.3"}
              http-kit/http-kit                 {:mvn/version "2.5.3"}
 
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
