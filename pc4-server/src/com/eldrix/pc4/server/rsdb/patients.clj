@@ -312,6 +312,25 @@
                                                   :t_address/ignore_invalid_address "true"
                                                   :t_address/patient_fk             (:t_patient/id patient)})))))))
 
+(defn save-encounter!
+  "TODO: set encounter lock time on creation or edit...."
+  [conn {encounter-id          :t_encounter/id
+         encounter-template-id :t_encounter/encounter_template_fk
+         episode-id            :t_encounter/episode_fk
+         date-time             :t_encounter/date_time
+         :as                   encounter}]
+  (if encounter-id
+    (db/execute-one! conn (sql/format {:update [:t_encounter]
+                                       :where  [:and
+                                                [:= :id encounter-id]
+                                                [:= :episode_fk episode-id]]
+                                       :set    {:date_time             date-time
+                                                :encounter_template_fk encounter-template-id}})
+                     {:return-keys true})
+    (next.jdbc.sql/insert! conn :t_encounter
+                           {:date_time             date-time
+                            :encounter_template_fk encounter-template-id
+                            :episode_fk            episode-id})))
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
@@ -342,5 +361,7 @@
   (projects/all-parents-ids conn 37)
   (projects/all-parents-ids conn 76)
   (projects/all-parents-ids conn 59)
-
+  (save-encounter! conn {:t_encounter/date_time             (LocalDateTime/now)
+                         :t_encounter/episode_fk            48224
+                         :t_encounter/encounter_template_fk 469})
   )
