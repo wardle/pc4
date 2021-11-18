@@ -453,6 +453,15 @@
                                           :t_form_ms_disease_course/name]}]}
   {:t_patient/t_form_edss (com.eldrix.pc4.server.rsdb.forms/all-ms-disability-forms conn patient-identifier)})
 
+(pco/defresolver patient->all-weights-heights
+  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
+  {::pco/output [{:t_patient/t_weight_height [:t_encounter/id
+                                              :t_encounter/date_time
+                                              :t:form_weight_height/weight_kilogram
+                                              :t_form_weight_height/height_metres]}]}
+  (let [encounter-ids (com.eldrix.pc4.server.rsdb.forms/all-active-encounter-ids conn patient-identifier)]
+    {:t_patient/t_weight_height (com.eldrix.pc4.server.rsdb.forms/all-form_weight_height conn encounter-ids)}))
+
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
@@ -862,6 +871,7 @@
    project->all-parents
    patient->encounters
    patient->all_edss
+   patient->all-weights-heights
    encounter->users
    encounter->encounter_template
    encounter->hospital
