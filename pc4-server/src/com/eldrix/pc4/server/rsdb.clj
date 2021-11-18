@@ -362,6 +362,22 @@
   {::pco/output [:t_project/long_description_text]}
   {:t_project/long_description_text (html->text desc)})
 
+(pco/defresolver project->encounter_templates
+  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  {::pco/output [{:t_project/encounter_templates [:t_encounter_template/id
+                                                  :t_encounter_template/encounter_type_fk
+                                                  :t_encounter_template/is_deleted
+                                                  :t_encounter_template/title
+                                                  :t_encounter_type/id
+                                                  {:t_encounter_template/encounter_type [:t_encounter_type/id]}]}]}
+  {:t_project/encounter_templates
+   (->> (db/execute! conn (sql/format {:select [:id :encounter_type_fk :is_deleted :title]
+                                       :from   [:t_encounter_template]
+                                       :where  [:= :project_fk project-id]}))
+        (map #(let [encounter-type-id (:t_encounter_template/encounter_type_fk %)]
+                (assoc % :t_encounter_type/id encounter-type-id
+                         :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
+
 (pco/defresolver project->parent
   [{parent-id :t_project/parent_project_fk}]
   {::pco/output [{:t_project/parent [:t_project/id]}]}
@@ -818,6 +834,7 @@
    project->active?
    project->slug
    project->long-description-text
+   project->encounter_templates
    project->users
    project->count_registered_patients
    project->count_pending_referrals
