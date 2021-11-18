@@ -30,7 +30,7 @@
              com.github.seancorfield/honeysql  {:mvn/version "2.1.818"}
              com.github.seancorfield/next.jdbc {:mvn/version "1.2.737"}
              com.wsscode/pathom                {:git/url "https://github.com/wilkerlucio/pathom3"
-                                                :sha     "fbeef9c032038bdd3073dde1b7975ae671aad0d7"}
+                                                :sha     "c456c7b5c8e0ee6e12a4b755cfb8b23fbfda8652"}
              com.zaxxer/HikariCP               {:mvn/version "5.0.0"}
 
              expound/expound                   {:mvn/version "0.8.10"}
