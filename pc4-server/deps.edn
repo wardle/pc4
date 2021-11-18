@@ -38,7 +38,7 @@
              io.pedestal/pedestal.service      {:mvn/version "0.5.9"}
              io.pedestal/pedestal.jetty        {:mvn/version "0.5.9"}
 
-             com.fulcrologic/fulcro            {:mvn/version "3.4.14"}
+             com.fulcrologic/fulcro            {:mvn/version "3.5.8"}
              ring/ring-core                    {:mvn/version "1.9.4"}
              ring-cors/ring-cors               {:mvn/version "0.1.13"}
              ring/ring-defaults                {:mvn/version "0.3.2"}
