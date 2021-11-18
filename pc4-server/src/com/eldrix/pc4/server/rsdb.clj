@@ -9,6 +9,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.server.rsdb.forms :as forms]
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.users :as users]
@@ -24,7 +25,7 @@
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.hermes.core :as hermes])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate)
+           (java.time LocalDate LocalDateTime)
            (java.util Base64)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)
@@ -818,6 +819,39 @@
         (patients/delete-ms-event! conn params')))))
 
 
+(s/def ::save-edss-encounter
+  (s/keys :req [:t_patient/patient_identifier
+                :t_encounter/date_time
+                :t_form_edss/edss_score
+                :t_form_ms_relapse/in_relapse
+                :t_ms_disease_course/id
+                :t_episode/id]
+          :opt [:t_encounter/id
+                :t_form_edss/id]))
+
+(pco/defmutation save-edss-encounter!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-edss-encounter}
+  (log/info "save edss encounter request: " params "user: " user)
+  (if-not (s/valid? ::save-edss-encounter params)
+    (do (log/error "invalid call" (s/explain-data ::save-edss-encounter params))
+        (throw (ex-info "Invalid data" (s/explain-data ::save-edss-encounter params))))
+    (let [patient-identifier (or (:t_patient/patient-identifier params)
+                                 (patients/patient-identifier-for-ms-event conn params))
+          params' (assoc params :t_user/id (users/fetch-user conn (:value user)))] ;; TODO: need a better way than this...
+      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+          (let [encounter (patients/save-encounter! conn {:t_encounter/date_time             (:t_encounter_date/time params)
+                                                          :t_encounter/episode_fk            (:t_episode/id params)
+                                                          :t_encounter/encounter_template_fk (:t_encounter_template/id params)})]
+            (com.eldrix.pc4.server.rsdb.forms/save-form-edss! conn (assoc params' :t_encounter/id (:t_encounter/id encounter)))
+            (com.eldrix.pc4.server.rsdb.forms/save-form-ms-relapse! conn (assoc params' :t_encounter/id (:t_encounter/id encounter))))))))
+
+
+
+
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
@@ -905,6 +939,9 @@
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 1}))
+
+  (project->encounter_templates {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
+
   (jdbc/execute! conn ["select id from t_encounter where patient_fk=?" 1726])
   (jdbc/execute! conn
                  ["select t_form_edss.*,t_encounter.date_time,t_encounter.is_deleted from t_form_edss,t_encounter where t_form_edss.encounter_fk=t_encounter.id and encounter_fk in (select id from t_encounter where patient_fk=?);" 1726])
