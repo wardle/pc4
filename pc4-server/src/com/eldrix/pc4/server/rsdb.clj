@@ -423,16 +423,19 @@
   {::pco/output [{:t_patient/encounters [:t_encounter/id
                                          :t_encounter/date_time
                                          :t_encounter/active
+                                         :t_encounter/is_deleted
                                          :t_encounter/hospital_fk
                                          :t_encounter/ward
                                          :t_encounter/episode_fk
                                          :t_encounter/consultant_user_fk
                                          :t_encounter/encounter_template_fk
                                          :t_encounter/notes]}]}
-  {:t_patient/encounters (jdbc/execute! conn (sql/format {:select   [:*]
-                                                          :from     [:t_encounter]
-                                                          :where    [:= :patient_fk patient-id]
-                                                          :order-by [[:date_time :desc]]}))})
+  {:t_patient/encounters (->> (jdbc/execute! conn (sql/format {:select   [:*]
+                                                               :from     [:t_encounter]
+                                                               :where    [:= :patient_fk patient-id]
+                                                               :order-by [[:date_time :desc]]}))
+                              (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
+
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
