@@ -19,7 +19,7 @@
              com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                                 :sha     "eb953eb8c3f211de4af3d4461a7ec2fc6b2ef8aa"}
              com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                                :sha     "14a393d3934cf5f6b746fb215dde797c094c89f0"}
+                                                :sha     "4c7d17bea26caa8169baa0cc2f62e09c1afd2fad"}
              com.eldrix/comprehend             {:git/url "https://github.com/wardle/comprehend.git"
                                                 :sha     "b89181942c9e68a638e35102c7f1eae073b978f1"}
 
