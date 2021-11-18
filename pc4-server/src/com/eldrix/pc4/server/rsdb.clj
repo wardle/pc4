@@ -268,6 +268,7 @@
   {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
                                        :t_episode/date_referral
                                        :t_episode/date_registration
+                                       :t_episode/status
                                        :t_episode/discharge_user_fk
                                        :t_episode/id
                                        :t_episode/notes
@@ -276,9 +277,13 @@
                                        :t_episode/registration_user_fk
                                        :t_episode/stored_pseudonym
                                        :t_episode/external_identifier]}]}
-  {:t_patient/episodes (jdbc/execute! conn (sql/format {:select [:*]
-                                                        :from   [:t_episode]
-                                                        :where  [:= :patient_fk patient-id]}))})
+  {:t_patient/episodes (->> (jdbc/execute! conn (sql/format {:select   [:*]
+                                                             :from     [:t_episode]
+                                                             :where    [:= :patient_fk patient-id]
+                                                             :order-by [[:t_episode/date_registration :asc]
+                                                                        [:t_episode/date_referral :asc]
+                                                                        [:t_episode/date_discharge :asc]]}))
+                            (map #(assoc % :t_episode/status (projects/episode-status %))))})
 
 
 (def project-properties
