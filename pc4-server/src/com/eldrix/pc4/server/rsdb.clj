@@ -354,7 +354,7 @@
 
 (pco/defresolver project->long-description-text
   [{desc :t_project/long_description}]
-  {::pco.output [:t_project/long_description_text]}
+  {::pco/output [:t_project/long_description_text]}
   {:t_project/long_description_text (html->text desc)})
 
 (pco/defresolver project->parent
