@@ -23,7 +23,8 @@
    {:t_user/active_projects                                 ;;; iff the user has an rsdb account, this will be populated
     [:t_project/id :t_project/name :t_project/title :t_project/slug
      :t_project/is_private
-     :t_project/long_description :t_project/type :t_project/virtual]}
+     :t_project/long_description :t_project/type
+     :t_project/virtual]}
    {:org.hl7.fhir.Practitioner/name
     [:org.hl7.fhir.HumanName/use
      :org.hl7.fhir.HumanName/prefix
@@ -87,14 +88,11 @@
 (rf/reg-event-fx ::ping-server
   []
   (fn [{db :db} _]
-    {:http-xhrio {:method          :post
-                  :uri             "http://localhost:8080/ping"
-                  :timeout         1000
-                  :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
-                  :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
-                  :on-success      [::handle-ping-response]
-                  :on-failure      [::handle-ping-failure]
-                  :params          {:uuid (random-uuid)}}}))
+    (when-let [token (get-in db [:authenticated-user :io.jwt/token])]
+      {:pathom {:token      token
+                :params     (srv/make-ping-op {:uuid (random-uuid)})
+                :on-success [::handle-ping-response]
+                :on-failure [::handle-ping-failure]}})))
 
 (rf/reg-event-fx ::handle-ping-response
   []
@@ -106,7 +104,8 @@
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
     {:db (assoc-in db [:errors :ping] response)
-     :fx [[:dispatch-later [{:ms 2000 :dispatch [::ping-server]}]]]}))
+     ;:fx [[:dispatch-later [{:ms 10000 :dispatch [::ping-server]}]]]
+     }))
 
 (rf/reg-event-db ::clear-ping-failure
   []

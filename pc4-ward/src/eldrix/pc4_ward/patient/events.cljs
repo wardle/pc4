@@ -53,7 +53,9 @@
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
                                              :t_ms_diagnosis/name]}
-     :t_patient/episodes]))
+     :t_patient/episodes
+     :t_patient/t_form_edss
+     :t_patient/t_form_weight_height]))
 
 (defn make-search-by-legacy-pseudonym
   [project-id pseudonym]
@@ -269,12 +271,6 @@
     (-> db
         (update-in [:patient/current] dissoc :current-diagnosis))))
 
-(rf/reg-event-db ::clear-medication
-  []
-  (fn [db _]
-    (-> db
-        (update-in [:patient/current] dissoc :current-medication))))
-
 (rf/reg-event-fx ::save-diagnosis
   (fn [{db :db} [_ params]]
     {:db (-> db
@@ -327,9 +323,9 @@
 (rf/reg-event-fx ::save-pseudonymous-postcode
   []
   (fn [{db :db} [_ {patient-identifier :t_patient/patient_identifier postcode :uk.gov.ons.nhspd/PCD2 :as params}]]
-    {:fx [[:pathom {:params [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code params)
-                              ['*]}]
-                    :token (get-in db [:authenticated-user :io.jwt/token])
+    {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code params)
+                                  ['*]}]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
@@ -337,9 +333,9 @@
   []
   (fn [{db :db} [_ params]]
     (js/console.log "saving ms event " params)
-    {:fx [[:pathom {:params [{(list 'pc4.rsdb/save-ms-event params)
-                              ['*]}]
-                    :token (get-in db [:authenticated-user :io.jwt/token])
+    {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-ms-event params)
+                                  ['*]}]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
@@ -347,11 +343,13 @@
   []
   (fn [{db :db} [_ params]]
     (js/console.log "deleting ms event " params)
-    {:fx [[:pathom {:params [{(list 'pc4.rsdb/delete-ms-event params)
-                              ['*]}]
-                    :token (get-in db [:authenticated-user :io.jwt/token])
+    {:fx [[:pathom {:params     [{(list 'pc4.rsdb/delete-ms-event params)
+                                  ['*]}]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

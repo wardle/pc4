@@ -16,7 +16,8 @@
     [com.eldrix.pc4.commons.dates :as dates]
     [malli.core :as m]
     [clojure.string :as str]
-    [re-frame.db :as db]))
+    [re-frame.db :as db])
+  (:import [goog.date Date]))
 
 (defn valid-nhs-number?
   "Very crude validation of NHS number. We could implement in cljs, but the
@@ -482,8 +483,8 @@
                          :disabled? (not valid?)
                          :role      :primary
                          :on-click  #(do (rf/dispatch [::patient-events/save-ms-event
-                                                   (assoc editing-event'
-                                                     :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])
+                                                       (assoc editing-event'
+                                                         :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])
                                          (reset! editing-event nil))}
                         {:id       ::delete-action
                          :title    "Delete"
@@ -498,8 +499,8 @@
            [ui/section-heading "Relapses and disease events"
             :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
                       {:on-click #(reset! editing-event {:t_ms_event/summary_multiple_sclerosis_fk (get-in current-patient [:t_patient/summary_multiple_sclerosis :t_summary_multiple_sclerosis/id])
-                                                         :t_ms_event_type/id 11
-                                                         :t_ms_event/impact "DISABLING"})} "Add event"]]
+                                                         :t_ms_event_type/id                       11
+                                                         :t_ms_event/impact                        "DISABLING"})} "Add event"]]
            [ui/list-entities-fixed
             :items sorted-events
             :headings ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"]
@@ -529,6 +530,220 @@
                          #(if (:t_ms_event/site_cognitive %) "MT")]
             :on-edit (fn [event] (reset! editing-event event))]])))))
 
+
+
+(s/def ::encounter
+  (s/keys :req [:t_encounter/date_time
+                :t_encounter/patient_fk
+                :t_encounter/episode_fk]))
+
+(defn edit-edss [encounter & {:keys [on-change]}]
+  (let [current-project @(rf/subscribe [::project-subs/current])
+        all-encounter-templates @(rf/subscribe [::project-subs/active-encounter-templates])
+        _ (tap> {:project current-project :all-encounter-templates all-encounter-templates})]
+    [:form.space-y-8.divide-y.divide-gray-200
+     [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+      [:div
+       [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+         [:div.mt-1.sm:mt-0.sm:col-span-2
+          [ui/html-date-picker :name "date" :value (:t_encounter/date_time encounter)
+           :on-change #(on-change (assoc encounter :t_encounter/date_time %))]]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "encounter-template"} "Type"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/select :name "encounter-template"
+          :value encounter
+          :choices all-encounter-templates
+          :sort? false
+          :select-fn #(on-change (merge encounter %))
+          :id-key :t_encounter_template/id
+          :display-key (fn [et] (when et (:t_encounter_template/title et)))]]]
+
+       ]]]))
+
+
+(defn list-edss
+  "This shows a list of EDSS results"
+  []
+  (let [editing-encounter (reagent.core/atom nil)]
+    (fn []
+      (let [current-patient @(rf/subscribe [::patient-subs/current])
+            current-project @(rf/subscribe [::project-subs/current])
+            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
+                                   (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+                                   reverse)
+            default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
+            active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
+            editing-encounter' @editing-encounter
+            valid? (s/valid? ::encounter editing-encounter')
+            _ (tap> {:editing-encounter editing-encounter'
+                     :active-episode    active-episode-for-patient
+                     :sorted-encounters sorted-encounters
+                     :valid?            valid?
+                     :problems          (s/explain-data ::encounter editing-encounter')})]
+        [:<>
+         (when editing-encounter'
+           [ui/modal
+            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :actions [{:id        ::save-action
+                       :title     "Save"
+                       :disabled? (not valid?)
+                       :role      :primary
+                       :on-click  #(do (rf/dispatch [::patient-events/save-encounter editing-encounter'])
+                                       (reset! editing-encounter nil))}
+                      {:id       ::delete-action
+                       :title    "Delete"
+                       :hidden?  (not (:t_encounter/id editing-encounter')) ;; hide when new
+                       :on-click #(do (when (:t_encounter/id editing-encounter')
+                                        (rf/dispatch [::patient-events/delete-encounter editing-encounter']))
+                                      (reset! editing-encounter nil))}
+                      {:id       ::cancel-action
+                       :title    "Cancel"
+                       :on-click #(reset! editing-encounter nil)}]
+            :on-close #(reset! editing-encounter nil)])
+         [ui/section-heading "EDSS"
+          :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                    {:on-click #(reset! editing-encounter (merge default-encounter-template
+                                                                 {:t_encounter/patient_fk (:t_patient/id current-patient)
+                                                                  :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
+                    "Add encounter"]]
+         [ui/list-entities-fixed
+          :items sorted-encounters
+          :headings ["Date" "EDSS" "Disease course" "In relapse?"]
+          :width-classes {"Date" "w-1/6" "EDSS" "w-1/6" "Disease course" "w-3/6" "In relapse?" "w-1/6"}
+          :id-key :t_encounter/id
+          :value-keys [#(dates/format-date (:t_encounter/date_time %))
+                       :t_form_edss/edss
+                       :t_ms_disease_course/name
+                       #(when (:t_form_ms_relapse/in_relapse %) "✔️")]
+          :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
+
+
+(defn list-investigations
+  "This shows a list of investigations"
+  []
+  (let [editing-encounter (reagent.core/atom nil)]
+    (fn []
+      (let [current-patient @(rf/subscribe [::patient-subs/current])
+            current-project @(rf/subscribe [::project-subs/current])
+            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
+                                   (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+                                   reverse)
+            default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
+            active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
+            editing-encounter' @editing-encounter
+            valid? (s/valid? ::encounter editing-encounter')
+            _ (tap> {:editing-encounter editing-encounter'
+                     :active-episode    active-episode-for-patient
+                     :sorted-encounters sorted-encounters
+                     :valid?            valid?
+                     :problems          (s/explain-data ::encounter editing-encounter')})]
+        [:<>
+         (when editing-encounter'
+           [ui/modal
+            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :actions [{:id        ::save-action
+                       :title     "Save"
+                       :disabled? (not valid?)
+                       :role      :primary
+                       :on-click  #(do (rf/dispatch [::patient-events/save-encounter editing-encounter'])
+                                       (reset! editing-encounter nil))}
+                      {:id       ::delete-action
+                       :title    "Delete"
+                       :hidden?  (not (:t_encounter/id editing-encounter')) ;; hide when new
+                       :on-click #(do (when (:t_encounter/id editing-encounter')
+                                        (rf/dispatch [::patient-events/delete-encounter editing-encounter']))
+                                      (reset! editing-encounter nil))}
+                      {:id       ::cancel-action
+                       :title    "Cancel"
+                       :on-click #(reset! editing-encounter nil)}]
+            :on-close #(reset! editing-encounter nil)])
+         [ui/section-heading "Investigations"
+          :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                    {:on-click #(reset! editing-encounter (merge default-encounter-template
+                                                                 {:t_encounter/patient_fk (:t_patient/id current-patient)
+                                                                  :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
+                    "Add investigation"]]
+         [ui/list-entities-fixed
+          :items [{:t_result/date (goog.date.Date/fromIsoString "2005-01-01")
+                   :t_result/title "MRI Brain"
+                   :t_result/result "Typical: There are numerous T2/FLAIR hyperintensities"}
+                  {:t_result/date (goog.date.Date/fromIsoString "2008-01-01")
+                   :t_result/title "JC Virus"
+                   :t_result/result "POSITIVE"}]
+          :headings ["Date" "Investigation" "Result"]
+          :width-classes {"Date" "w-1/6" "Investigation" "w-1/6" "Result" "w-4/6"}
+          :id-key :t_encounter/id
+          :value-keys [#(dates/format-date (:t_result/date %))
+                       :t_result/title
+                       :t_result/result]
+          :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
+
+(defn list-admissions
+  "This shows a list of investigations"
+  []
+  (let [editing-encounter (reagent.core/atom nil)]
+    (fn []
+      (let [current-patient @(rf/subscribe [::patient-subs/current])
+            current-project @(rf/subscribe [::project-subs/current])
+            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
+                                   (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+                                   reverse)
+            default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
+            active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
+            editing-encounter' @editing-encounter
+            valid? (s/valid? ::encounter editing-encounter')
+            _ (tap> {:editing-encounter editing-encounter'
+                     :active-episode    active-episode-for-patient
+                     :sorted-encounters sorted-encounters
+                     :valid?            valid?
+                     :problems          (s/explain-data ::encounter editing-encounter')})]
+        [:<>
+         (when editing-encounter'
+           [ui/modal
+            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :actions [{:id        ::save-action
+                       :title     "Save"
+                       :disabled? (not valid?)
+                       :role      :primary
+                       :on-click  #(do (rf/dispatch [::patient-events/save-encounter editing-encounter'])
+                                       (reset! editing-encounter nil))}
+                      {:id       ::delete-action
+                       :title    "Delete"
+                       :hidden?  (not (:t_encounter/id editing-encounter')) ;; hide when new
+                       :on-click #(do (when (:t_encounter/id editing-encounter')
+                                        (rf/dispatch [::patient-events/delete-encounter editing-encounter']))
+                                      (reset! editing-encounter nil))}
+                      {:id       ::cancel-action
+                       :title    "Cancel"
+                       :on-click #(reset! editing-encounter nil)}]
+            :on-close #(reset! editing-encounter nil)])
+         [ui/section-heading "Admissions"
+          :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+                    {:on-click #(reset! editing-encounter (merge default-encounter-template
+                                                                 {:t_encounter/patient_fk (:t_patient/id current-patient)
+                                                                  :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
+                    "Add admission"]]
+         [ui/list-entities-fixed
+          :items [{:t_admission/from (goog.date.Date/fromIsoString "2012-05-01")
+                   :t_admission/to (goog.date.Date/fromIsoString "2012-05-05")
+                   :t_admission/hospital "UNIVERSITY HOSPITAL WALES"
+                   :t_admission/problems "Urinary tract infection; Sepsis; Pneumonia NOS"}
+                  {:t_admission/from (goog.date.Date/fromIsoString "2015-01-02")
+                   :t_admission/to (goog.date.Date/fromIsoString "2015-01-06")
+                   :t_admission/hospital "ROOKWOOD HOSPITAL"
+                   :t_admission/problems "Spasticity"}]
+          :headings ["From" "To" "Hospital" "Problems"]
+          :width-classes {"From" "w-1/6" "To" "w-1/6" "Hospital" "w-1/6" "Problems" "w-3/6"}
+          :id-key :t_encounter/id
+          :value-keys [#(dates/format-date (:t_admission/from %))
+                       #(dates/format-date (:t_admission/to %))
+                       :t_admission/hospital
+                       :t_admission/problems]
+          :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
+
 (def neuro-inflammatory-menus
   [{:id        :main
     :title     "Main"
@@ -542,14 +757,15 @@
    {:id        :relapses
     :title     "Relapses"
     :component list-ms-events}
-   {:id    :disability
-    :title "Disability"}
+   {:id        :disability
+    :title     "Disability"
+    :component list-edss}
    {:id    :investigations
-    :title "Investigations"}
+    :title "Investigations"
+    :component list-investigations}
    {:id    :admissions
-    :title "Admissions"}
-   {:id    :registration
-    :title "Registration"}])
+    :title "Admissions"
+    :component list-admissions}])
 
 (def menu-by-id (reduce (fn [acc v] (assoc acc (:id v) v)) {} neuro-inflammatory-menus))
 

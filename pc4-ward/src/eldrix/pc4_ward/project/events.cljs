@@ -25,7 +25,8 @@
      :t_project/is_private
      :t_project/count_registered_patients
      :t_project/count_discharged_episodes
-     :t_project/count_pending_referrals]}])
+     :t_project/count_pending_referrals
+     :t_project/encounter_templates]}])
 
 (rf/reg-event-fx ::set-current-project                      ;; TODO: rename to open-project
   []
