@@ -72,11 +72,12 @@
      :controllers [{:parameters {:path [:project-id :pseudonym]}
                     :start      (fn [{:keys [path]}]
                                   (println "viewing patient by pseudonym page" (:project-id path) (:pseudonym path))
+                                  (re-frame/dispatch [::project-events/set-current-project (:project-id path)])
                                   (re-frame/dispatch [::patient-events/open-pseudonymous-patient (:project-id path) (:pseudonym path)]))
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving pseudonymous patient page" (:pseudonym path))
-                                  (re-frame/dispatch [::patient-events/close-current-patient]))}]}]
-
+                                  (re-frame/dispatch [::patient-events/close-current-patient])
+                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]
    ])
 
 (defn on-navigate [new-match]
