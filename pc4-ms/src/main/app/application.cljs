@@ -3,10 +3,10 @@
     [com.fulcrologic.fulcro.networking.http-remote :as net]
     [com.fulcrologic.fulcro.application :as app]
     [com.fulcrologic.fulcro.components :as comp]
-    [edn-query-language.core :as eql]))
+    [edn-query-language.core :as eql]
+    [com.fulcrologic.fulcro.data-fetch :as df]))
 
 (def secured-request-middleware
-  ;; The CSRF token is embedded via server_components/html.clj
   (->
     (net/wrap-fulcro-request)))
 
@@ -19,12 +19,17 @@
     (update :children conj (eql/expr->ast :com.wsscode.pathom.core/errors))))
 
 (defonce SPA (app/fulcro-app
-               {;; This ensures your client can talk to a CSRF-protected server.
-                ;; See middleware.clj to see how the token is embedded into the HTML
-                :remotes {:remote (net/fulcro-http-remote
-                                    {:url                "/api"
+               {:remotes {:remote (net/fulcro-http-remote
+                                    {:url                "http://localhost:8080/api"
                                      :request-middleware secured-request-middleware})}
                 :global-eql-transform global-eql-transform}))
 
 (comment
-  (-> SPA (::app/runtime-atom) deref ::app/indexes))
+  (-> SPA
+      (::app/runtime-atom)
+      deref
+      ::app/indexes)
+
+  (require '[com.fulcrologic.fulcro.data-fetch :as df])
+  (df/load! SPA [:info.snomed.Concept/id 24700007] app.ui.root/SnomedConcept {:target [:root/selected-concept]})
+  )
