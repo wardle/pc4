@@ -240,8 +240,9 @@
 (defn wrap-log-response [handler]
   (fn [req]
     (log/info "request:" req)
-    (log/info "response:" (handler req))
-    (handler req)))
+    (let [response (handler req)]
+      (log/info "response:" response)
+      response)))
 
 (defn wrap-hello [handler uri]
   (fn [req]
