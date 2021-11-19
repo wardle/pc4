@@ -776,8 +776,17 @@
   (let [menu (reagent.core/atom :main)]
     (fn []
       (let [patient @(rf/subscribe [::patient-subs/current])
+            loading? @(rf/subscribe [::patient-subs/loading?])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
+        [:<>
+        (when loading?
+          [:div.flex.h-screen
+           [:div.m-auto
+            [:div
+             [:div.flex.justify-center.items-center
+              [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]]]]
+          )
         (when patient
           [:div
            [ui/patient-banner
@@ -797,7 +806,7 @@
            [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
             [:div.px-4.py-5.sm:p-6
              (when-let [component (:component (menu-by-id @menu))]
-               [component])]]])))))
+               [component])]]])]))))
 
 (defn list-users [users]
   [:div.flex.flex-col
