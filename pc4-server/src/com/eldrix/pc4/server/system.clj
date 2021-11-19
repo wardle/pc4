@@ -286,7 +286,7 @@
                                         "authorization"
                                         "content-type"
                                         "origin"})
-      (wrap-log-response)
+      ;(wrap-log-response)
       ))
 
 (defmethod ig/init-key :http/server2 [_ {:keys [port allowed-origins host handler] :as config}]
