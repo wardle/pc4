@@ -564,14 +564,15 @@
        ]]]))
 
 
-(defn list-edss
-  "This shows a list of EDSS results"
+(defn list-encounters
+  "This shows a list of encounters. Presently, the list headings are hard-coded
+  for multiple sclerosis"
   []
   (let [editing-encounter (reagent.core/atom nil)]
     (fn []
       (let [current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
-            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
+            sorted-encounters (->> @(rf/subscribe [::patient-subs/encounters])
                                    (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
                                    reverse)
             default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
@@ -603,7 +604,7 @@
                        :title    "Cancel"
                        :on-click #(reset! editing-encounter nil)}]
             :on-close #(reset! editing-encounter nil)])
-         [ui/section-heading "EDSS"
+         [ui/section-heading "Encounters"
           :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
                     {:on-click #(reset! editing-encounter (merge default-encounter-template
                                                                  {:t_encounter/patient_fk (:t_patient/id current-patient)
@@ -611,13 +612,15 @@
                     "Add encounter"]]
          [ui/list-entities-fixed
           :items sorted-encounters
-          :headings ["Date" "EDSS" "Disease course" "In relapse?"]
-          :width-classes {"Date" "w-1/6" "EDSS" "w-1/6" "Disease course" "w-3/6" "In relapse?" "w-1/6"}
+          :headings ["Date" "Type" "EDSS" "Disease course" "In relapse?" "Weight"]
+          :width-classes {"Date" "w-1/6" "Type" "w-1/6" "EDSS" "w-1/6" "Disease course" "w-1/6" "In relapse?" "w-1/6" "Weight" "w-1/6"}
           :id-key :t_encounter/id
           :value-keys [#(dates/format-date (:t_encounter/date_time %))
-                       :t_form_edss/edss
-                       :t_ms_disease_course/name
-                       #(when (:t_form_ms_relapse/in_relapse %) "✔️")]
+                       #(get-in % [:t_encounter/encounter_template :t_encounter_template/title])
+                       #(get-in % [:t_encounter/form_edss :t_form_edss/edss])
+                       #(get-in % [:t_encounter/form_ms_relapse :t_ms_disease_course/name])
+                       #(when (get-in % [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse]) "✔️")
+                       #(get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilograms])]
           :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
 
 
@@ -667,11 +670,11 @@
                                                                   :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
                     "Add investigation"]]
          [ui/list-entities-fixed
-          :items [{:t_result/date (goog.date.Date/fromIsoString "2005-01-01")
-                   :t_result/title "MRI Brain"
+          :items [{:t_result/date   (goog.date.Date/fromIsoString "2005-01-01")
+                   :t_result/title  "MRI Brain"
                    :t_result/result "Typical: There are numerous T2/FLAIR hyperintensities"}
-                  {:t_result/date (goog.date.Date/fromIsoString "2008-01-01")
-                   :t_result/title "JC Virus"
+                  {:t_result/date   (goog.date.Date/fromIsoString "2008-01-01")
+                   :t_result/title  "JC Virus"
                    :t_result/result "POSITIVE"}]
           :headings ["Date" "Investigation" "Result"]
           :width-classes {"Date" "w-1/6" "Investigation" "w-1/6" "Result" "w-4/6"}
@@ -727,12 +730,12 @@
                                                                   :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
                     "Add admission"]]
          [ui/list-entities-fixed
-          :items [{:t_admission/from (goog.date.Date/fromIsoString "2012-05-01")
-                   :t_admission/to (goog.date.Date/fromIsoString "2012-05-05")
+          :items [{:t_admission/from     (goog.date.Date/fromIsoString "2012-05-01")
+                   :t_admission/to       (goog.date.Date/fromIsoString "2012-05-05")
                    :t_admission/hospital "UNIVERSITY HOSPITAL WALES"
                    :t_admission/problems "Urinary tract infection; Sepsis; Pneumonia NOS"}
-                  {:t_admission/from (goog.date.Date/fromIsoString "2015-01-02")
-                   :t_admission/to (goog.date.Date/fromIsoString "2015-01-06")
+                  {:t_admission/from     (goog.date.Date/fromIsoString "2015-01-02")
+                   :t_admission/to       (goog.date.Date/fromIsoString "2015-01-06")
                    :t_admission/hospital "ROOKWOOD HOSPITAL"
                    :t_admission/problems "Spasticity"}]
           :headings ["From" "To" "Hospital" "Problems"]
@@ -757,14 +760,14 @@
    {:id        :relapses
     :title     "Relapses"
     :component list-ms-events}
-   {:id        :disability
-    :title     "Disability"
-    :component list-edss}
-   {:id    :investigations
-    :title "Investigations"
+   {:id        :encounters
+    :title     "Encounters"
+    :component list-encounters}
+   {:id        :investigations
+    :title     "Investigations"
     :component list-investigations}
-   {:id    :admissions
-    :title "Admissions"
+   {:id        :admissions
+    :title     "Admissions"
     :component list-admissions}])
 
 (def menu-by-id (reduce (fn [acc v] (assoc acc (:id v) v)) {} neuro-inflammatory-menus))
