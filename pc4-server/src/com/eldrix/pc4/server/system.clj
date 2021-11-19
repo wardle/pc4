@@ -198,6 +198,7 @@
         (log/error "no valid login configuration available"))
       (if claims
         (handler (assoc request :authenticated-claims claims))
+        #_(handler request)
         {:status  401
          :headers {"Content-Type" "text/plain"}
          :body    "Unauthorized. Request missing valid Bearer token."}))))
