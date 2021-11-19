@@ -830,13 +830,11 @@
         (when current-project
           [:<>
            [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
-
-
             [:ul.flex
              [:div.font-bold.text-lg.min-w-min.mr-6.py-1 (:t_project/title current-project)]
              [ui/flat-menu [{:title "Home" :id :home}
-                            {:title "Search" :id :search}
                             {:title "Register" :id :register}
+                            {:title "Search" :id :search}
                             {:title "Users" :id :users}]
               :selected-id @selected-page
               :select-fn #(do (reset! selected-page %)
