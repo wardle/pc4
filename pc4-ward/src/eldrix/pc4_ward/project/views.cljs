@@ -787,8 +787,11 @@
           [:div.flex.h-screen
            [:div.m-auto
             [:div
+             [:div.flex.justify-center.items-center.mb-8
+              [:p.font-sans.font-thin.text-gray-500 "Loading patient record"]]
              [:div.flex.justify-center.items-center
-              [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]]]]
+              [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]
+              ]]]
           )
         (when patient
           [:div
