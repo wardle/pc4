@@ -48,14 +48,18 @@
     core-patient-properties
     [{:t_patient/diagnoses patient-diagnosis-properties}
      {:t_patient/medications patient-medication-properties}
-     :t_patient/encounters
+     {:t_patient/encounters [:t_encounter/date_time
+                             :t_encounter_template/id
+                             {:t_encounter/encounter_template [:t_encounter_template/title :t_encounter_template/id]}
+                             :t_encounter/is_deleted
+                             :t_encounter/form_edss
+                             :t_encounter/form_ms_relapse
+                             :t_encounter/form_weight_height]}
      {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
                                              :t_ms_diagnosis/name]}
-     :t_patient/episodes
-     :t_patient/t_form_edss
-     :t_patient/t_form_weight_height]))
+     :t_patient/episodes]))
 
 (defn make-search-by-legacy-pseudonym
   [project-id pseudonym]
