@@ -173,6 +173,7 @@
     (js/console.log "opening pseudonymous patient record:" project-id pseudonym)
     {:db (-> db
              (dissoc :patient/current)
+             (assoc :patient/loading? true)
              (update-in [:errors] dissoc :open-patient))
      :fx [[:pathom {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
                     :token      (get-in db [:authenticated-user :io.jwt/token])
@@ -208,14 +209,16 @@
   (fn [{:keys [db]} [_ response]]
     (js/console.log "fetch patient failure: response " response)
     {:db (-> db
-             (dissoc :patient/current)
+             (dissoc :patient/current :patient/loading?)
              (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
 
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
     (js/console.log "fetch pseudonymous patient response: " result)
-    {:db (assoc-in db [:patient/current :patient] result)}))
+    {:db (-> db
+             (dissoc :patient/loading?)
+             (assoc-in [:patient/current :patient] result))}))
 
 ;; #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-failure

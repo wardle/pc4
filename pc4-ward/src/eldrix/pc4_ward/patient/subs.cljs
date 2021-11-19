@@ -28,7 +28,7 @@
 ;; is the patient record loading data?
 (rf/reg-sub ::loading?
   (fn [db]
-    (get-in db [:patient/current :loading])))
+    (:patient/loading? db)))
 
 (rf/reg-sub ::diagnoses
   (fn [_]
