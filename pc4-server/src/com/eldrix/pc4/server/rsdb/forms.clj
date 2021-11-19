@@ -124,35 +124,6 @@
                                 [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
                                 [:<> :t_encounter/is_deleted "true"]]}))))
 
-(defn all-form_edss
-  "Given a sequence of encounter-ids, returns a sub-sequence of data for each
-  encounter containing Kurtzke Expanded Disability Status Scale (EDSS)."
-  [conn encounter-ids]
-  (when (seq encounter-ids)
-    (concat
-      (->> (next.jdbc/execute! conn (sql/format {:select [:t_encounter/id :t_encounter/date_time :t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk]
-                                                 :from   [:t_form_edss]
-                                                 :join   [:t_encounter [:= :t_form_edss/encounter_fk :t_encounter/id]]
-                                                 :where  [:and [:in :t_form_edss/encounter_fk encounter-ids]
-                                                          [:<> :t_form_edss/is_deleted "true"]]}))
-           (map #(assoc % :t_form_edss/edss_type :edss)))
-      (->> (next.jdbc/execute! conn (sql/format {:select [:t_encounter/id :t_encounter/date_time :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
-                                                 :from   [:t_form_edss_fs]
-                                                 :join   [:t_encounter [:= :t_form_edss_fs/encounter_fk :t_encounter/id]]
-                                                 :where  [:and [:in :t_form_edss_fs/encounter_fk encounter-ids]
-                                                          [:<> :t_form_edss_fs/is_deleted "true"]]}))
-           (map #(assoc % :t_form_edss/edss_score (:t:form_edss_fs/edss_score)
-                          :t_form_edss/edss_type :edss-fs))))))
-
-(defn all-form_weight_height [conn encounter-ids]
-  (when (seq encounter-ids)
-    (next.jdbc/execute! conn (sql/format {:select [:t_encounter/id :t_encounter/date_time
-                                                   :t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
-                                          :from   [:t_form_weight_height]
-                                          :join   [:t_encounter [:= :t_form_weight_height/encounter_fk :t_encounter/id]]
-                                          :where  [:and [:in :t_form_weight_height/encounter_fk encounter-ids]
-                                                   [:<> :t_form_weight_height/is_deleted "true"]]}))))
-
 (def edss-score->score
   {"SCORE0_0"          "0.0"
    "SCORE1_0"          "1.0"
@@ -176,33 +147,47 @@
    "SCORE10_0"         "10.0"
    "SCORE_LESS_THAN_4" "<4"})
 
+(defn encounters->form_edss
+  "Return a form EDSS for each encounter in the sequence."
+  [conn encounters]
+  (when (seq encounters)
+    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
+                                                           :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
+                                               :from      [:t_encounter]
+                                               :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
+                                                                         [:<> :t_form_edss/is_deleted "true"]]
+                                                           :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
+                                                                            [:<> :t_form_edss_fs/is_deleted "true"]]]
+                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
+         (map #(if-let [edss (or (:t_form_edss_fs/edss_score %) (:t_form_edss/edss_score %))]
+                 (assoc % :t_form_edss/edss (edss-score->score edss)) %)))))
+
+(defn encounters->form_ms_relapse
+  "Return a form ms relapse for each encounter in the sequence, if it exists."
+  [conn encounters]
+  (when (seq encounters)
+    (next.jdbc/execute! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
+                                                      :t_ms_disease_course/id :t_ms_disease_course/name
+                                                      :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
+                                          :from      [:t_encounter]
+                                          :left-join [:t_form_ms_relapse [:and [:= :t_form_ms_relapse/encounter_fk :t_encounter/id]
+                                                                          [:<> :t_form_ms_relapse/is_deleted "true"]]
+                                                      :t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
+                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
+
+(defn encounters->form_weight_height
+  "Return a form weight height for each encounter in the sequence."
+  [conn encounters]
+  (when (seq encounters)
+    (next.jdbc/execute! conn (sql/format {:select    [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
+                                          :from      [:t_encounter]
+                                          :left-join [:t_form_weight_height [:and [:= :t_form_weight_height/encounter_fk :t_encounter/id]
+                                                                             [:<> :t_form_weight_height/is_deleted "true"]]]
+                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
+
+
 (s/def :t_form_edss/edss_score (set (keys edss-score->score)))
 (s/def :t_form_ms_relapse/in_relapse boolean?)
-
-(defn all-ms-disability-forms
-  "Returns all of the forms for the patient specified. "
-  [conn patient-identifier]
-  (->> (db/execute! conn (sql/format {:select    [:t_encounter/id :t_encounter/date_time
-                                                  :t_form_edss/edss_score :t_form_edss_fs/edss_score
-                                                  :t_form_ms_relapse/in_relapse :t_form_ms_relapse/activity
-                                                  :t_ms_disease_course/id :t_ms_disease_course/name]
-                                      :from      :t_encounter
-                                      :left-join [:t_form_edss [:= :t_form_edss/encounter_fk :t_encounter/id]
-                                                  :t_form_edss_fs [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
-                                                  :t_form_ms_relapse [:= :t_form_ms_relapse/encounter_fk :t_encounter/id]
-                                                  :t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
-                                      :where     [:and
-                                                  [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
-                                                  [:<> :t_encounter/is_deleted "true"]
-                                                  [:<> :t_form_edss/is_deleted "true"]
-                                                  [:<> :t_form_ms_relapse/is_deleted "true"]]}))
-       (map (fn [encounter] (let [edss (:t_form_edss/edss_score encounter)
-                                  edss-fs (:t_form_edss_fs/edss_score encounter)
-                                  edss-type (cond edss-fs :edss-fs edss :edss :else nil)
-                                  score (or edss edss-fs)]
-                              (cond-> encounter
-                                      score (assoc :t_form_edss/edss (edss-score->score score))
-                                      edss-type (assoc :t_form_edss/edss_type edss-type)))))))
 
 (defn insert-form!
   "Inserts a form.
@@ -241,7 +226,7 @@
          encounter-id :t_encounter/id
          user-id      :t_user/id
          edss-score   :t_form_edss/edss_score
-         :as data}]
+         :as          data}]
   (s/assert ::save-form-edss data)
   (jdbc/with-transaction
     [tx conn {:isolation :serializable}]
@@ -249,7 +234,7 @@
       (db/execute-one! tx (sql/format {:update [:t_form_edss]
                                        :where  [:= :id form-edss-id]
                                        :set    {:t_form_edss/is_deleted "true"}})))
-    (when-not (= 0 (count-forms tx encounter-id :t_form_edss))  ;; enforce user-space count of forms per encounter
+    (when-not (= 0 (count-forms tx encounter-id :t_form_edss)) ;; enforce user-space count of forms per encounter
       (throw (ex-info "A form of this type already exists in the encounter" data)))
     (insert-form! tx :t_form_edss {:t_form_edss/user_fk      user-id
                                    :t_form_edss/encounter_fk encounter-id
@@ -264,17 +249,7 @@
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 1}))
-  (com.eldrix.pc4.server.rsdb.patients/pk)
-  (sql/format {:union-all [{:select [:id :encounter_fk :is_deleted]
-                            :from   [:t_form_edss]}
-                           {:select [:id :encounter_fk :is_deleted]
-                            :from   [:t_form_edss_fs]}]})
 
-  (time (all-form_weight_height conn (all-active-encounter-ids conn 9500)))
-  (all-form_edss conn (all-active-encounter-ids conn 124018))
-  (time (all-ms-disability-forms conn 124018))
-  (next.jdbc/execute-one! conn (insert-form! conn :t_form_edss
-                                             {:t_form_edss/encounter_fk 1
-                                              :t_form_edss/user_fk      1
-                                              :t_form_edss/edss_score   "SCORE1_0"}))
+  (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
+  (encounters->form_ms_relapse conn encounters)
   )

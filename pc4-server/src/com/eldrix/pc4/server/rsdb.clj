@@ -452,7 +452,7 @@
                                           :t_form_ms_relapse/in_relapse
                                           :t_form_ms_disease_course/id
                                           :t_form_ms_disease_course/name]}]}
-  {:t_patient/t_form_edss (com.eldrix.pc4.server.rsdb.forms/all-ms-disability-forms conn patient-identifier)})
+  {:t_patient/t_form_edss (forms/all-ms-disability-forms conn patient-identifier)})
 
 (pco/defresolver patient->all-weights-heights
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
@@ -460,8 +460,8 @@
                                               :t_encounter/date_time
                                               :t:form_weight_height/weight_kilogram
                                               :t_form_weight_height/height_metres]}]}
-  (let [encounter-ids (com.eldrix.pc4.server.rsdb.forms/all-active-encounter-ids conn patient-identifier)]
-    {:t_patient/t_weight_height (com.eldrix.pc4.server.rsdb.forms/all-form_weight_height conn encounter-ids)}))
+  (let [encounter-ids (forms/all-active-encounter-ids conn patient-identifier)]
+    {:t_patient/t_weight_height (forms/all-form_weight_height conn encounter-ids)}))
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -493,6 +493,52 @@
                                                         :t_encounter_type/name
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
+
+
+(pco/defresolver encounter->form_edss
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/id]
+   ::pco/output [{:t_encounter/form_edss [:t_form_edss/id
+                                          :t_form_edss/edss
+                                          :t_form_edss/edss_score
+                                          :t_form_edss_fs/id
+                                          :t_form_edss_fs/edss_score]}]
+   ::pco/batch? true}
+  (map #(when-not (every? nil? (vals %))
+          (hash-map :t_encounter/form_edss %)) (forms/encounters->form_edss conn encounters)))
+
+(pco/defresolver encounter->form_ms_relapse
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/id]
+   ::pco/output [{:t_encounter/form_ms_relapse [:t_form_ms_relapse/id
+                                                :t_form_ms_relapse/in_relapse
+                                                :t_form_ms_relapse/activity
+                                                :t_form_ms_relapse/progression
+                                                :t_form_ms_disease_course/id
+                                                :t_form_ms_disease_course/name]}]
+   ::pco/batch? true}
+  (map #(when-not (every? nil? (vals %))
+          (hash-map :t_encounter/form_ms_relapse %)) (forms/encounters->form_ms_relapse conn encounters)))
+
+(pco/defresolver encounter->form_weight_height
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/id]
+   ::pco/output [{:t_encounter/form_weight_height [:t_form_weight_height/id
+                                                   :t_form_weight_height/weight_kilogram
+                                                   :t_form_weight_height/height_metres]}]
+   ::pco/batch? true}
+  (map #(when-not (every? nil? (vals %))
+          (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_ms_relapse conn encounters)))
+
+(pco/defresolver encounter->forms_generic_procedures
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/id]
+   ::pco/output [{:t_encounter/forms_generic_procedure [:t_form_procedure_generic/id
+                                                        :t_form_procedure_generic/procedure_concept_fk
+                                                        :info.snomed.Concept/id
+                                                        :t_form_procedure_generic/notes]}]}
+  ;;TODO: this is to show we would handle forms that support multiple per encounter like this....
+  (throw (ex-info "not implemented" {})))
 
 (def user-properties
   [:t_user/username
@@ -846,8 +892,8 @@
           (let [encounter (patients/save-encounter! conn {:t_encounter/date_time             (:t_encounter_date/time params)
                                                           :t_encounter/episode_fk            (:t_episode/id params)
                                                           :t_encounter/encounter_template_fk (:t_encounter_template/id params)})]
-            (com.eldrix.pc4.server.rsdb.forms/save-form-edss! conn (assoc params' :t_encounter/id (:t_encounter/id encounter)))
-            (com.eldrix.pc4.server.rsdb.forms/save-form-ms-relapse! conn (assoc params' :t_encounter/id (:t_encounter/id encounter))))))))
+            (forms/save-form-edss! conn (assoc params' :t_encounter/id (:t_encounter/id encounter)))
+            (forms/save-form-ms-relapse! conn (assoc params' :t_encounter/id (:t_encounter/id encounter))))))))
 
 
 
@@ -910,6 +956,9 @@
    encounter->encounter_template
    encounter->hospital
    encounter_template->encounter_type
+   encounter->form_edss
+   encounter->form_ms_relapse
+   encounter->form_weight_height
    user-by-username
    user-by-id
    user-by-nadex
