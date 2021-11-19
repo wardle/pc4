@@ -233,7 +233,7 @@
   (fn [req]
     (if (= uri (:uri req))
       (do
-        (log/info "processing API call " req)
+        (log/debug "processing API call " req)
         (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
       (handler req))))
 
