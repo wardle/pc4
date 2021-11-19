@@ -329,11 +329,11 @@
 
   (prep :dev)
 
-  ;; start a server for re-frame front-end
+  ;; start a server using pedestal/jetty
   (def system (init :dev [:http/server]))
   (ig/halt! system)
 
-  ;; start a server for fulcro front-end
+  ;; start a server using http-kit/ring
   (def system (init :dev [:http/server2]))
   (ig/halt! system)
 
