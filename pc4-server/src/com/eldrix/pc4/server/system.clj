@@ -202,14 +202,33 @@
         {:status 401
          :body   {:error "Unauthorized. Request missing valid Bearer token."}}))))
 
-(defn wrap-login [handler {uri :uri pathom :pathom}]
+
+(s/def ::operation symbol?)
+(s/def ::params map?)
+(s/def ::login-op (s/cat :operation ::operation :params ::params))
+(s/def ::login (s/coll-of ::login-op :kind vector? :count 1))
+
+(comment
+  (s/valid? ::login [(list 'pc4.users/login {:username "system", :password "password"})])
+  (s/conform ::login [(list 'pc4.users/login {:username "system", :password "password"})]))
+
+(defn wrap-login
+  "The login endpoint does not have an authenticated user, so we need to take
+  special measures to prevent arbitrary pathom queries at this endpoint."
+  [handler {uri :uri pathom :pathom}]
   (fn [req]
     (if (= uri (:uri req))
-      (let [{:keys [system value password query] :as params} (:transit-params req)]
-        (clojure.pprint/pprint req)
-        (log/info "login endpoint; parameters" (dissoc params :password))
-        (com.fulcrologic.fulcro.server.api-middleware/handle-api-request
-          [{(list 'pc4.users/login {:system system :value value :password password}) query}] pathom))
+      (let [params (:transit-params req)                    ;; [(pc4.users/login {:username "system", :password "password"})]
+            params' (s/conform ::login params)
+            mutation (first params')]
+        (if-not (= 'pc4.users/login (:operation mutation))
+          {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}
+          (let [system (or (get-in mutation [:params :system]) "cymru.nhs.uk")
+                username (get-in mutation [:params :username])
+                password (get-in mutation [:params :password])]
+            (log/info "performing login for user " username)
+            (com.fulcrologic.fulcro.server.api-middleware/handle-api-request
+              [{(list 'pc4.users/login {:system system :value username :password password}) [:io.jwt/token]}] pathom))))
       (handler req))))
 
 (defn wrap-authenticated-pathom
