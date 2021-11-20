@@ -199,9 +199,8 @@
       (if claims
         (handler (assoc request :authenticated-claims claims))
         #_(handler request)
-        {:status  401
-         :headers {"Content-Type" "text/plain"}
-         :body    "Unauthorized. Request missing valid Bearer token."}))))
+        {:status 401
+         :body   {:error "Unauthorized. Request missing valid Bearer token."}}))))
 
 (defn wrap-login [handler {uri :uri pathom :pathom}]
   (fn [req]
