@@ -4,7 +4,7 @@
                        :output-dir      "resources/public/js/main"
                        :asset-path      "/js/main"
 
-                       :modules         {:main {:init-fn app.client/init}}
+                       :modules         {:main {:init-fn pc4.client/init}}
                        ;; guardrails checks only during dev
                        :dev             {:build-hooks      [(teknql.tailwind/start-watch!)]
                                          :compiler-options
@@ -13,7 +13,8 @@
                        :devtools        {:http-port  8022
                                          :http-root  "resources/public"
                                          :after-load app.client/refresh
-                                         :preloads   [com.fulcrologic.fulcro.inspect.preload app.development-preload]}
+                                         ;:preloads   [com.fulcrologic.fulcro.inspect.preload app.development-preload]
+                                         }
                        :tailwind/output "resources/public/css/site.css"
                        :tailwind/files  {:base-path    "./." ;; Path to directory housing `tailwind.config.js` and `postcss.config.js`
                                          :tailwind.css "./resources/public/css/tailwind.css"}
