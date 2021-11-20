@@ -12,7 +12,7 @@
 
                        :devtools        {:http-port  8022
                                          :http-root  "resources/public"
-                                         :after-load app.client/refresh
+                                         :after-load pc4.client/refresh
                                          ;:preloads   [com.fulcrologic.fulcro.inspect.preload app.development-preload]
                                          }
                        :tailwind/output "resources/public/css/site.css"
