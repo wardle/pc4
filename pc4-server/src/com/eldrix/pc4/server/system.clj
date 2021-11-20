@@ -253,20 +253,6 @@
       (handler req))))
 
 (defmethod ig/init-key :http/handler [_ {:keys [ring-defaults login-config pathom-boundary-interface] :as config}]
-  #_(com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
-      (com.fulcrologic.fulcro.algorithms.transit/type-handler
-        java.time.LocalDate "LocalDate"
-        (fn [^java.time.LocalDate date]
-          (.format date java.time.format.DateTimeFormatter/ISO_LOCAL_DATE))
-        (fn [s]
-          (java.time.LocalDate/parse s))))
-  #_(com.fulcrologic.fulcro.algorithms.transit/install-type-handler!
-      (com.fulcrologic.fulcro.algorithms.transit/type-handler
-        java.time.LocalDateTime "LocalDateTime"
-        (fn [^java.time.LocalDateTime date-time]
-          (.format date-time java.time.format.DateTimeFormatter/ISO_LOCAL_DATE_TIME))
-        (fn [s]
-          (java.time.LocalDateTime/parse s))))
   (-> not-found-handler
       (wrap-api {:uri "/api"})
       (wrap-authenticated-pathom config)
