@@ -13,6 +13,7 @@
     [com.fulcrologic.fulcro-css.css :as css]
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [app.ui.components]
+    [pc4.users]
     [taoensso.timbre :as log]
     [com.fulcrologic.fulcro.data-fetch :as df]))
 
@@ -66,11 +67,14 @@
 
 (def ui-snomed-concept (comp/factory SnomedConcept))
 
-(defsc Root [this {:root/keys [ selected-concept]}]
-  {:query         [{:root/selected-concept (comp/get-query SnomedConcept)}]
+(defsc Root [this {authenticated-user :authenticated-user
+                   :root/keys [selected-concept]}]
+  {:query         [{:authenticated-user (comp/get-query pc4.users/User)}
+                   {:root/selected-concept (comp/get-query SnomedConcept)}]
    :initial-state {}}
   (div (dom/h1 "Hi there")
-       (ui-snomed-concept selected-concept)
+       (when selected-concept (ui-snomed-concept selected-concept))
+       (when authenticated-user (pc4.users/ui-user authenticated-user))
        (app.ui.components/ui-placeholder {:w 50 :h 50 :label "avatar"} )))
 
 (comment

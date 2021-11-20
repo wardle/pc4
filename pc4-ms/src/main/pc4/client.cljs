@@ -18,7 +18,8 @@
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
-  (app/mount! @SPA root/Root "app"))
+  (app/mount! @SPA root/Root "app")
+  )
 
 
 (defn wrap-authentication-token
@@ -76,14 +77,14 @@
 (defn ^:export init []
   (log/info "Application starting.")
   (reset! SPA (make-SPA))
-  ;(inspect/app-started! SPA)
+  ;(inspect/app-started! @SPA)
   (app/set-root! @SPA root/Root {:initialize-state? true})
   (dr/initialize! @SPA)
   (routing-start!)
   (app/mount! @SPA root/Root "app" {:initialize-state? false}))
 
 (comment
-  (inspect/app-started! SPA)
+  (inspect/app-started! @SPA)
   (app/mounted? @SPA)
   (app/set-root! SPA root/Root {:initialize-state? true})
 
@@ -108,7 +109,7 @@
   (comp/class->any SPA root/Root))
 
 (comment
-  (-> SPA
+  (-> @SPA
       (::app/runtime-atom)
       deref
       ::app/indexes)
@@ -117,10 +118,11 @@
 
   @session/authentication-token
   (reset! session/authentication-token nil)
-  (df/load! SPA [:info.snomed.Concept/id 24700007] app.ui.root/SnomedConcept {:target [:root/selected-concept]})
-  (comp/transact! SPA [(pc4.users/login {:username "system" :password "password"})])
+  (df/load! @SPA [:info.snomed.Concept/id 24700007] app.ui.root/SnomedConcept {:target [:root/selected-concept]})
+  (comp/transact! SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
   (comp/transact! SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
 
+  @SPA
   (pc4.users/login {:username "system" :password "password"})
   (pc4.users/refresh-token {:token "abc"})
   (reset! authentication-token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJjeW1ydS5uaHMudWsiLCJ2YWx1ZSI6InN5c3RlbSIsImV4cCI6MTYzNzM5ODY5NX0.lU8CRsyvF6EfJIDbsO_-R9BJCNvqpV4YTgb2jrx3fI4")
