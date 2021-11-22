@@ -206,11 +206,13 @@
 (s/def ::operation symbol?)
 (s/def ::params map?)
 (s/def ::login-op (s/cat :operation ::operation :params ::params))
-(s/def ::login (s/coll-of ::login-op :kind vector? :count 1))
+(s/def ::login-mutation (s/map-of ::login-op vector?))
+(s/def ::login (s/coll-of ::login-mutation :kind vector? :count 1))
 
 (comment
-  (s/valid? ::login [(list 'pc4.users/login {:username "system", :password "password"})])
-  (s/conform ::login [(list 'pc4.users/login {:username "system", :password "password"})]))
+  (def example-login [{(list 'pc4.users/login {:username "system", :password "password"}) [:t_user/id :t_user/first_names :t_user/last_name]}])
+  (s/valid? ::login example-login)
+  (s/conform ::login example-login))
 
 (defn wrap-login
   "The login endpoint does not have an authenticated user, so we need to take
@@ -218,17 +220,16 @@
   [handler {uri :uri pathom :pathom}]
   (fn [req]
     (if (= uri (:uri req))
-      (let [params (:transit-params req)                    ;; [(pc4.users/login {:username "system", :password "password"})]
-            params' (s/conform ::login params)
-            mutation (first params')]
-        (if-not (= 'pc4.users/login (:operation mutation))
-          {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}
-          (let [system (or (get-in mutation [:params :system]) "cymru.nhs.uk")
-                username (get-in mutation [:params :username])
-                password (get-in mutation [:params :password])]
-            (log/info "performing login for user " username)
-            (com.fulcrologic.fulcro.server.api-middleware/handle-api-request
-              [{(list 'pc4.users/login {:system system :value username :password password}) [:io.jwt/token]}] pathom))))
+      (let [_ (log/info "login request:" (:transit-params req))
+            params (:transit-params req)                    ;; [(pc4.users/login {:username "system", :password "password"})]
+            op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
+        (if-not (= 'pc4.users/login op-name)
+          (do
+            (log/info "invalid request at /login endpoint" params)
+            {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}})
+          (let [resp (com.fulcrologic.fulcro.server.api-middleware/handle-api-request params pathom)
+                user (get-in resp [:body 'pc4.users/login])]
+            (if user resp {}))))    ;; return a nil response if no
       (handler req))))
 
 (defn wrap-authenticated-pathom
