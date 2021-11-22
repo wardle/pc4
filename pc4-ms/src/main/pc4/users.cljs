@@ -27,18 +27,20 @@
   (login [env]
          (js/console.log "Sending login action to remote" env)
          (-> env
-             (m/with-target [:authenticated-user])
+             (m/with-target [:session/authenticated-user])
              (m/returning User)))
   (ok-action [{:keys [result] :as env}]
              (let [token (get-in result [:body 'pc4.users/login :io.jwt/token])]
-               (js/console.log "success from remote: " token)
+               (js/console.log "response from remote: " token)
+               (if token (swap! (:state env) dissoc :session/error)
+                         (swap! (:state env) assoc :session/error "Invalid username or password"))
                (reset! session/authentication-token token))))
 
 (defmutation logout
   [params]
   (action [{:keys [state]}]
           (js/console.log "Performing logout action" params)
-          (swap! state dissoc :authenticated-user)
+          (swap! state dissoc :session/authenticated-user)
           (reset! session/authentication-token nil)))
 
 (defmutation refresh-token

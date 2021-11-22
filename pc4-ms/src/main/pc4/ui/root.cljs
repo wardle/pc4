@@ -14,6 +14,7 @@
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [pc4.app :refer [SPA]]
     [pc4.ui.components]
+    [pc4.ui.ui :as ui]
     [pc4.users]
     [taoensso.timbre :as log]
     [com.fulcrologic.fulcro.data-fetch :as df]))
@@ -70,14 +71,15 @@
 
 (defsc Login
   "Login component that keeps user credentials in local state."
-  [this props]
+  [this {login-error :session/error}]
+  {:query [:session/error]}
   (let [username (or (comp/get-state this :username) "")
         password (or (comp/get-state this :password) "")
         disabled? (or (str/blank? username) (str/blank? password))
         do-login #(comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value username :password password})])]
     (div :.flex.h-screen.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
          (div :.max-w-md.w-full.space-y-8.m-auto
-              (dom/form {:method "POST"
+              (dom/form {:method   "POST"
                          :onSubmit (fn [evt] (evt/prevent-default! evt) (do-login))}
                         (dom/h1 :.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter.mb-8 "PatientCare " (dom/span :.font-bold "v4"))
                         (div :.rounded-md.shadow-sm.-space-y-px
@@ -100,11 +102,11 @@
                                            :autoComplete "current-password"
                                            :value        password
                                            :onChange     #(comp/set-state! this {:password (evt/target-value %)})
-                                           :onKeyDown (fn [evt] (when (evt/enter? evt) (do-login)))
+                                           :onKeyDown    (fn [evt] (when (evt/enter? evt) (do-login)))
                                            :required     true
                                            :placeholder  "Password"})))
-                        (when false                         ;; error
-                          (dom/h3 "Error!"))                ;[box-error-message :message error])
+                        (when login-error                         ;; error
+                          (pc4.ui.ui/box-error-message :message login-error))
                         (div
                           (dom/button :.mt-4.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.bg-indigo-600.hover:bg-indigo-700
                                       {:type     "submit"
@@ -114,13 +116,15 @@
 
 (def ui-login (comp/factory Login))
 
-(defsc Root [this {authenticated-user :authenticated-user
+(defsc Root [this {authenticated-user :session/authenticated-user
+                   login-error        :session/error
                    :root/keys         [selected-concept]}]
-  {:query         [{:authenticated-user (comp/get-query pc4.users/User)}
+  {:query         [{:session/authenticated-user (comp/get-query pc4.users/User)}
+                   :session/error
                    {:root/selected-concept (comp/get-query SnomedConcept)}]
    :initial-state {}}
   (if-not authenticated-user
-    (ui-login {})
+    (ui-login {:session/error login-error})
     (div (dom/h1 "Hi there")
          (when selected-concept (ui-snomed-concept selected-concept))
          (when authenticated-user (pc4.users/ui-user authenticated-user))
