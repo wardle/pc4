@@ -13,8 +13,7 @@
                        :devtools        {:http-port  8022
                                          :http-root  "resources/public"
                                          :after-load pc4.client/refresh
-                                         ;:preloads   [com.fulcrologic.fulcro.inspect.preload app.development-preload]
-                                         }
+                                         :preloads   [com.fulcrologic.fulcro.inspect.preload]}
                        :tailwind/output "resources/public/css/site.css"
                        :tailwind/files  {:base-path    "./." ;; Path to directory housing `tailwind.config.js` and `postcss.config.js`
                                          :tailwind.css "./resources/public/css/tailwind.css"}
