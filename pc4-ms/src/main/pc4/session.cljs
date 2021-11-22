@@ -49,16 +49,13 @@
 (defn check-token []
   (let [token @authentication-token]
     (cond
-      ;; if we have a token, it is valid, and is due to expire, refresh it please
+      ;; if we have a valid token but it is due to expire, please refresh it
       (and (jwt-valid? token) (jwt-expires-in-seconds? token 90))
       (comp/transact! @SPA [(list 'pc4.users/refresh-token {:token token})])
 
       ;; if we have a token and it is invalid, clear the token
       (and token (not (jwt-valid? token)))
-      (do
-        ;; TODO: clear currently logged in user
-        (log/info "forcing logout due to token expiry" token)
-        (reset! authentication-token nil))
+      (comp/transact! @SPA [(list 'pc4.users/logout)])
 
       ;; we have no token, so do nothing
       :else

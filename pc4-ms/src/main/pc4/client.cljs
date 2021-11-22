@@ -1,7 +1,6 @@
 (ns pc4.client
   (:require
     [clojure.string :as str]
-    [app.ui.root :as root]
     [com.fulcrologic.fulcro.application :as app]
     [com.fulcrologic.fulcro.networking.http-remote :as net]
     [com.fulcrologic.fulcro.data-fetch :as df]
@@ -10,17 +9,16 @@
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [com.fulcrologic.fulcro.inspect.inspect-client :as inspect]
     [edn-query-language.core :as eql]
+    [pushy.core :as pushy]
+    [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.users]
-    [pushy.core :as pushy]
-    [taoensso.timbre :as log]))
+    [pc4.ui.root :as root]
+    [pc4.users]))
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
-  (app/mount! @SPA root/Root "app")
-  )
-
+  (app/mount! @SPA root/Root "app"))
 
 (defn wrap-authentication-token
   "Client Remote Middleware to add bearer token to outgoing requests."
@@ -118,9 +116,10 @@
 
   @session/authentication-token
   (reset! session/authentication-token nil)
-  (df/load! @SPA [:info.snomed.Concept/id 24700007] app.ui.root/SnomedConcept {:target [:root/selected-concept]})
-  (comp/transact! SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
-  (comp/transact! SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
+  (df/load! @SPA [:info.snomed.Concept/id 24700007] pc4.ui.root/SnomedConcept {:target [:root/selected-concept]})
+  (comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
+  (comp/transact! @SPA [(pc4.users/logout)])
+  (comp/transact! @SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
 
   @SPA
   (pc4.users/login {:username "system" :password "password"})

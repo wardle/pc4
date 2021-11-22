@@ -3,6 +3,7 @@
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [taoensso.timbre :as log]
+    [pc4.app :refer [SPA]]
     [pc4.session :as session]
     [com.fulcrologic.fulcro.dom :as dom]))
 
@@ -12,7 +13,8 @@
    :ident :t_user/id}
   (when user
     (dom/div
-      (dom/p "User " id " " first_names " " last_name))))
+      (dom/p "User " id " " first_names " " last_name)
+      (dom/button {:onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])} "Logout"))))
 
 (def ui-user (comp/factory User))
 
@@ -31,6 +33,13 @@
              (let [token (get-in result [:body 'pc4.users/login :io.jwt/token])]
                (js/console.log "success from remote: " token)
                (reset! session/authentication-token token))))
+
+(defmutation logout
+  [params]
+  (action [{:keys [state]}]
+          (js/console.log "Performing logout action" params)
+          (swap! state dissoc :authenticated-user)
+          (reset! session/authentication-token nil)))
 
 (defmutation refresh-token
   [params]
