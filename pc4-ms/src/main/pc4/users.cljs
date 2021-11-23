@@ -21,17 +21,16 @@
   {:ident :t_news/id
    :query [:t_news/id :t_news/date_time :t_news/title :t_news/body
            {:t_news/author (comp/get-query NewsAuthor)}]}
-   (li
-     (div :.px-4.py-4.sm:px-6
-          (div :.flex.items-center.justify-between
-               (p :.text-lg.font-medium.text-indigo-600.truncate title)
-               (div :.ml-2.flex-shrink-0.flex
-                    (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
-                       (dom/time {:date-time date_time} (ui/format-date date_time)))))
-          (div :.sm:flex.sm:justify-between
-               (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
-                    (p "by " (ui-news-author author))))
-          (p :.text-sm {:dangerouslySetInnerHTML {:__html body}}))))
+    (div :.px-4.py-4.sm:px-6
+         (div :.flex.items-center.justify-between
+              (p :.text-lg.font-medium.text-indigo-600.truncate title)
+              (div :.ml-2.flex-shrink-0.flex
+                   (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
+                      (dom/time {:date-time date_time} (ui/format-date date_time)))))
+         (div :.sm:flex.sm:justify-between
+              (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
+                   (p "by " (ui-news-author author))))
+         (p :.text-sm {:dangerouslySetInnerHTML {:__html body}})))
 
 (def ui-news-item (comp/factory NewsItem {:keyfn :t_news/id}))
 
@@ -83,6 +82,20 @@
 
 (def ui-user (comp/factory User))
 
+
+(defsc UserHomePage
+  [this {:t_user/keys [id title first_names last_name active_projects latest_news] :as user}]
+  {:query [:t_user/id :io.jwt/token :t_user/title :t_user/first_names :t_user/last_name
+           {:t_user/active_projects (comp/get-query ProjectButton)}
+           {:t_user/latest_news (comp/get-query NewsItem)}]
+   :ident :t_user/id}
+  (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+       (div :.md:mr-2 (ui-list-projects {:projects active_projects}))
+       (div :.col-span-3
+            (map ui-news-item latest_news))))
+
+(def ui-user-home-page (comp/factory UserHomePage))
+
 (defmutation login
   "Performs a login action. If the server responds successfully (200) but there
   is no token, then we have invalid credentials."
@@ -92,7 +105,7 @@
   (login [env]
          (js/console.log "Sending login action to remote" env)
          (-> env
-             (m/returning User)
+             (m/returning UserHomePage)
              (m/with-target [:session/authenticated-user])))
   (ok-action [{:keys [result] :as env}]
              (let [token (get-in result [:body 'pc4.users/login :io.jwt/token])]
