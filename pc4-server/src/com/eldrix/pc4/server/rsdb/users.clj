@@ -268,7 +268,7 @@
   [conn username]
   (db/execute! conn (sql/format
                       {:select    [:t_news/id :date_time :t_news/title :body
-                                   :username :t_user/title :first_names :last_name :postnomial :custom_initials
+                                   :username :t_user/id :t_user/title :first_names :last_name :postnomial :custom_initials
                                    :email :custom_job_title :t_job_title/name]
                        :from      [:t_news]
                        :left-join [:t_user [:= :author_fk :t_user/id]
