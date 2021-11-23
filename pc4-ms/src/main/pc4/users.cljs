@@ -1,11 +1,39 @@
 (ns pc4.users
   (:require
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom :refer [div span]]
+    [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
-    [pc4.session :as session]))
+    [pc4.session :as session]
+    [pc4.ui.ui :as ui]))
+
+
+(defsc NewsAuthor [this {:t_user/keys [id title first_names last_name]}]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/title :t_user/first_names :t_user/last_name]}
+  (span title " " first_names " " last_name))
+
+(def ui-news-author (comp/factory NewsAuthor {:keyfn :t_user/id}))
+
+(defsc NewsItem
+  [this {:t_news/keys [id date_time title body author] :as news-item}]
+  {:ident :t_news/id
+   :query [:t_news/id :t_news/date_time :t_news/title :t_news/body
+           {:t_news/author (comp/get-query NewsAuthor)}]}
+   (li
+     (div :.px-4.py-4.sm:px-6
+          (div :.flex.items-center.justify-between
+               (p :.text-lg.font-medium.text-indigo-600.truncate title)
+               (div :.ml-2.flex-shrink-0.flex
+                    (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
+                       (dom/time {:date-time date_time} (ui/format-date date_time)))))
+          (div :.sm:flex.sm:justify-between
+               (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
+                    (p "by " (ui-news-author author))))
+          (p :.text-sm {:dangerouslySetInnerHTML {:__html body}}))))
+
+(def ui-news-item (comp/factory NewsItem {:keyfn :t_news/id}))
 
 (defsc ProjectButton [this {:t_project/keys [id name type title]}]
   {:query [:t_project/id :t_project/name :t_project/title :t_project/type]
@@ -18,7 +46,6 @@
 
 (def ui-project-button (comp/factory ProjectButton {:keyfn :t_project/id}))
 
-
 (defsc ListProjects [this {:keys [projects]}]
   {:query [{:projects (comp/get-query ProjectButton)}]}
   (let [grouped (group-by :t_project/type projects)
@@ -26,33 +53,32 @@
         has-research? (seq (:RESEARCH grouped))]
     (div :.border-solid.border-gray-800.bg-gray-50.border.rounded.shadow-lg
          (div :.bg-gray-800.text-white.px-2.py-2.border-solid.border-grey-800 "My projects / services")
-     (when has-clinical?
-       (comp/fragment
-         (div
-           (span :.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-yellow-200.uppercase.last:mr-0.mr-1 "clinical"))
-         (map ui-project-button (sort-by :t_project/title (:NHS grouped)))))
-     (when (and has-clinical? has-research?)
-       (dom/hr))
-     (when has-research?
-       (comp/fragment
-         (div
-           (span :.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"))
-         (map ui-project-button (sort-by :t_project/title (:RESEARCH grouped))))))))
+         (when has-clinical?
+           (comp/fragment
+             (div
+               (span :.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-yellow-200.uppercase.last:mr-0.mr-1 "clinical"))
+             (map ui-project-button (sort-by :t_project/title (:NHS grouped)))))
+         (when (and has-clinical? has-research?)
+           (dom/hr))
+         (when has-research?
+           (comp/fragment
+             (div
+               (span :.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"))
+             (map ui-project-button (sort-by :t_project/title (:RESEARCH grouped))))))))
 
 (def ui-list-projects (comp/factory ListProjects))
 
-
 (defsc User
-  [this {:t_user/keys [id title first_names last_name active_projects] :as user token :io.jwt/token}]
+  [this {:t_user/keys [id title first_names last_name active_projects latest_news] :as user token :io.jwt/token}]
   {:query [:t_user/id :io.jwt/token :t_user/title :t_user/first_names :t_user/last_name
-           {:t_user/active_projects (comp/get-query ProjectButton)}]
+           {:t_user/active_projects (comp/get-query ProjectButton)}
+           {:t_user/latest_news (comp/get-query NewsItem)}]
    :ident :t_user/id}
   (when user
     (dom/div
       (dom/p "User " id " " title " " first_names " " last_name)
+      (map ui-news-item latest_news)
       (ui-list-projects {:projects active_projects})
-      #_(dom/ul
-        (map ui-project-button active_projects))
       (dom/button :.border.border-black.bg-blue-400.hover:bg-blue-200.shadow.mb-2 {:onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])} "Logout"))))
 
 (def ui-user (comp/factory User))
