@@ -1,5 +1,7 @@
 (ns pc4.ui.ui
-  (:require [com.fulcrologic.fulcro.dom :as dom]))
+  (:require
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom]))
 
 (defn box-error-message [& {:keys [title message]}]
   (when message
