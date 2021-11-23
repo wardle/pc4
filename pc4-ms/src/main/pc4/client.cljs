@@ -14,7 +14,9 @@
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
     [pc4.ui.root :as root]
-    [pc4.users]))
+    [pc4.users]
+    [com.fulcrologic.fulcro.algorithms.transit :as transit])
+  (:import [goog.date Date DateTime]))
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
@@ -39,6 +41,14 @@
           (update :children conj (eql/expr->ast :com.wsscode.pathom.core/errors))))
 
 (defn make-SPA []
+  (transit/install-type-handler!
+    (transit/type-handler goog.date.Date "LocalDate"
+                          (fn [^goog.date.Date d] (.toIsoString d true))
+                          #(Date/fromIsoString %)))
+  (transit/install-type-handler!
+    (transit/type-handler goog.date.Date "LocalDateTime"
+                          (fn [^goog.date.DateTime dt] (.toIsoString dt true))
+                          #(DateTime/fromIsoString %)))
   (app/fulcro-app
     {:global-eql-transform
      global-eql-transform
@@ -119,6 +129,7 @@
   (df/load! @SPA [:info.snomed.Concept/id 24700007] pc4.ui.root/SnomedConcept {:target [:root/selected-concept]})
   (comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
   (comp/transact! @SPA [(pc4.users/logout)])
+  (df/load! @SPA [:t_user/id 2] pc4.users/User)
   (comp/transact! @SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
 
   @SPA
