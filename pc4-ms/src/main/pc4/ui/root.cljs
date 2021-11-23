@@ -86,11 +86,9 @@
                              (div
                                (dom/label :.sr-only {:htmlFor "username"} "username")
                                (dom/input :.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
-                                          {:name         "username"
-                                           :type         "text"
+                                          {:name         "username" :type "text"
                                            :autoComplete "username" :required true :placeholder "Username"
-                                           :autoFocus    true
-                                           :disabled     false
+                                           :autoFocus    true :disabled false
                                            :value        username
                                            :onChange     (fn [evt] (comp/set-state! this {:username (evt/target-value evt)}))
                                            :onKeyDown    (fn [evt] (when (evt/enter? evt) (.focus (.getElementById js/document "password"))))}))
@@ -105,7 +103,7 @@
                                            :onKeyDown    (fn [evt] (when (evt/enter? evt) (do-login)))
                                            :required     true
                                            :placeholder  "Password"})))
-                        (when login-error                         ;; error
+                        (when login-error                   ;; error
                           (pc4.ui.ui/box-error-message :message login-error))
                         (div
                           (dom/button :.mt-4.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.bg-indigo-600.hover:bg-indigo-700
@@ -125,7 +123,7 @@
    :initial-state {}}
   (if-not authenticated-user
     (ui-login {:session/error login-error})
-    (div (dom/h1 "Hi there")
+    (div (dom/h1 "Hello World")
          (when selected-concept (ui-snomed-concept selected-concept))
          (when authenticated-user (pc4.users/ui-user authenticated-user))
          (pc4.ui.components/ui-placeholder {:w 200 :h 200 :label "avatar"}))))
