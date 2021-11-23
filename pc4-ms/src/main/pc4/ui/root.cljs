@@ -125,9 +125,9 @@
     (ui-login {:session/error login-error})
     (pc4.users/ui-user-home-page authenticated-user)
     #_(div (dom/h1 "Hello World")
-         (when selected-concept (ui-snomed-concept selected-concept))
-         (when authenticated-user (pc4.users/ui-user authenticated-user))
-         (pc4.ui.components/ui-placeholder {:w 200 :h 200 :label "avatar"}))))
+           (when selected-concept (ui-snomed-concept selected-concept))
+           (when authenticated-user (pc4.users/ui-user authenticated-user))
+           (pc4.ui.components/ui-placeholder {:w 200 :h 200 :label "avatar"}))))
 
 (comment
   (comp/get-query Root)
