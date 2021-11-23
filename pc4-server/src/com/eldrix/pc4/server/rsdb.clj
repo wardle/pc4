@@ -437,32 +437,6 @@
                                                                :order-by [[:date_time :desc]]}))
                               (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
-(pco/defresolver patient->all_edss
-  "This *will* be deprecated but is intended for short-term use. It is a quick
-  hack to get all EDSS results for a patient. We can do better with batch
-  resolvers at some point. Notice how EDSS results are flattened into the
-  encounter. A batch resolver would allow resolution of encounters, and then
-  potentially any interesting data from there, but on a batch basis for the
-  list, which itself would take parameters of date_from and date_to etc. "
-  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/output [{:t_patient/t_form_edss [:t_encounter/id
-                                          :t_encounter/date_time
-                                          :t_form_edss/edss
-                                          :t_form_edss/edss_type
-                                          :t_form_ms_relapse/in_relapse
-                                          :t_form_ms_disease_course/id
-                                          :t_form_ms_disease_course/name]}]}
-  {:t_patient/t_form_edss (forms/all-ms-disability-forms conn patient-identifier)})
-
-(pco/defresolver patient->all-weights-heights
-  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/output [{:t_patient/t_weight_height [:t_encounter/id
-                                              :t_encounter/date_time
-                                              :t:form_weight_height/weight_kilogram
-                                              :t_form_weight_height/height_metres]}]}
-  (let [encounter-ids (forms/all-active-encounter-ids conn patient-identifier)]
-    {:t_patient/t_weight_height (forms/all-form_weight_height conn encounter-ids)}))
-
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
@@ -633,7 +607,7 @@
 (pco/defresolver user->active-projects
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
-  {:t_user/active_projects (filter projects/active? (users/projects conn username))})
+  {:t_user/active_projects (vec (filter projects/active? (users/projects conn username)))})
 
 (pco/defresolver user->latest-news
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
@@ -641,7 +615,8 @@
                                        :t_news/title
                                        :t_news/body
                                        {:t_news/author [:t_user/id]}]}]}
-  {:t_user/latest_news (users/fetch-latest-news conn username)})
+  {:t_user/latest_news (vec (->> (users/fetch-latest-news conn username)
+                                 (map #(assoc % :t_news/author (select-keys % [:t_user/id :t_user/first_names :t_user/last_name])))))})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -950,8 +925,6 @@
    project->all-children
    project->all-parents
    patient->encounters
-   patient->all_edss
-   patient->all-weights-heights
    encounter->users
    encounter->encounter_template
    encounter->hospital
