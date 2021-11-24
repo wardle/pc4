@@ -127,6 +127,8 @@
   (action [{:keys [state]}]
           (js/console.log "Performing logout action" params)
           (swap! state dissoc :session/authenticated-user :session/error)
+          (when (:message params)
+            (swap! state assoc :session/error (:message params)))
           (reset! session/authentication-token nil)))
 
 (defmutation refresh-token

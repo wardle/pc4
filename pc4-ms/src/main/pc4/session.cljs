@@ -55,7 +55,7 @@
 
       ;; if we have a token and it is invalid, clear the token
       (and token (not (jwt-valid? token)))
-      (comp/transact! @SPA [(list 'pc4.users/logout)])
+      (comp/transact! @SPA [(list 'pc4.users/logout {:message "Your session timed out."})])
 
       ;; we have no token, so do nothing
       :else

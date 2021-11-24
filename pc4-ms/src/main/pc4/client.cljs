@@ -129,6 +129,7 @@
   (df/load! @SPA [:info.snomed.Concept/id 24700007] pc4.ui.root/SnomedConcept {:target [:root/selected-concept]})
   (comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
   (comp/transact! @SPA [(pc4.users/logout)])
+  (comp/transact! @SPA [(list 'pc4.users/logout {:message "Your session timed out."})])
   (df/load! @SPA [:t_user/id 2] pc4.users/User)
   (comp/transact! @SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
 
