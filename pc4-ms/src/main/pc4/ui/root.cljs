@@ -6,7 +6,7 @@
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.application :as app]
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
     [com.fulcrologic.fulcro.ui-state-machines :as uism :refer [defstatemachine]]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.algorithms.merge :as merge]
@@ -16,6 +16,7 @@
     [pc4.ui.components]
     [pc4.ui.ui :as ui]
     [pc4.users]
+    [pc4.projects :as projects]
     [taoensso.timbre :as log]
     [com.fulcrologic.fulcro.data-fetch :as df]))
 
@@ -49,11 +50,6 @@
        (h3 "Settings")
        (div "TODO")))
 
-(dr/defrouter TopRouter [this props]
-  {:router-targets [Main Settings]})
-
-(def ui-top-router (comp/factory TopRouter))
-
 
 (defsc SnomedDescription [this {:info.snomed.Description/keys [term] :as props}]
   {:query [:info.snomed.Description/id :info.snomed.Description/term]
@@ -72,7 +68,8 @@
 (defsc Login
   "Login component that keeps user credentials in local state."
   [this {login-error :session/error}]
-  {:query [:session/error]}
+  {:query         [:session/error]
+   :route-segment ["login"]}
   (let [username (or (comp/get-state this :username) "")
         password (or (comp/get-state this :password) "")
         disabled? (or (str/blank? username) (str/blank? password))
@@ -114,20 +111,44 @@
 
 (def ui-login (comp/factory Login))
 
+
+(defsc HomePage [this {:session/keys [authenticated-user]}]
+  {:ident         (fn [] [:component/id :home])
+   :query         [{[:session/authenticated-user '_] (comp/get-query pc4.users/UserHomePage)}]
+   :route-segment ["home"]
+   :initial-state (fn [params] {:session/authenticated-user (comp/get-initial-state pc4.users/UserHomePage)})}
+  (js/console.log "HomePage: authenticated user = " authenticated-user)
+  (when authenticated-user (pc4.users/ui-user-home-page authenticated-user)))
+
+(def ui-home-page (comp/factory HomePage))
+
+(defsc NavBar [this {:t_user/keys [title first_names last_name initials] :as params}]
+  {:ident (fn [] [:component/id :nav-bar])
+   :query [:t_user/id :t_user/title :t_user/first_names :t_user/last_name :t_user/initials]}
+  (pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
+                         :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
+                         :initials  initials
+                         :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}))
+
+(def ui-nav-bar (comp/factory NavBar))
+
+(defrouter MainRouter [this props]
+  {:router-targets [HomePage projects/ProjectPage]})
+
+(def ui-main-router (comp/factory MainRouter))
+
 (defsc Root [this {authenticated-user :session/authenticated-user
-                   login-error        :session/error
-                   :root/keys         [selected-concept]}]
-  {:query         [{:session/authenticated-user (comp/get-query pc4.users/User)}
+                   :root/keys         [router]
+                   login-error        :session/error}]
+  {:query         [{:session/authenticated-user (comp/get-query NavBar)}
+                   {:root/router (comp/get-query MainRouter)}
                    :session/error
                    {:root/selected-concept (comp/get-query SnomedConcept)}]
-   :initial-state {}}
+   :initial-state (fn [_] {:root/router (comp/get-initial-state MainRouter)})}
   (if-not authenticated-user
     (ui-login {:session/error login-error})
-    (pc4.users/ui-user-home-page authenticated-user)
-    #_(div (dom/h1 "Hello World")
-           (when selected-concept (ui-snomed-concept selected-concept))
-           (when authenticated-user (pc4.users/ui-user authenticated-user))
-           (pc4.ui.components/ui-placeholder {:w 200 :h 200 :label "avatar"}))))
+    (comp/fragment (ui-nav-bar authenticated-user)
+                   (ui-main-router router))))
 
 (comment
   (comp/get-query Root)

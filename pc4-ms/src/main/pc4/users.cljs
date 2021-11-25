@@ -3,6 +3,7 @@
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
@@ -34,11 +35,13 @@
 
 (def ui-news-item (comp/factory NewsItem {:keyfn :t_news/id}))
 
-(defsc ProjectButton [this {:t_project/keys [id name type title]}]
+(defsc ProjectButton [this {:t_project/keys [id name type title] :as project}]
   {:query [:t_project/id :t_project/name :t_project/title :t_project/type]
    :ident :t_project/id}
-  (dom/a :.cursor-default
-         {:onClick #(js/console.log "selecting project " id name title)}
+  (dom/a :.cursor-pointer
+         {:onClick #(do (js/console.log "selecting project " id name title)
+                        (dr/change-route! this ["project" id])
+                        (comp/transact! @SPA [(list 'pc4.users/open-project project)]))}
          (dom/div :.px-3.py-1.text-sm.border
                   {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
                   title)))
@@ -94,13 +97,13 @@
            {:t_user/latest_news (comp/get-query NewsItem)}]
    :ident :t_user/id}
   (div
-       (pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
-                              :full-name (str first_names " " last_name) :initials initials
-                              :user-menu [{:id :logout :title "Sign out" :on-click #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
-       (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-            (div :.md:mr-2 (ui-list-projects {:projects active_projects}))
-            (div :.col-span-3
-                 (map ui-news-item latest_news)))))
+    #_(pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
+                           :full-name (str first_names " " last_name) :initials initials
+                           :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
+    (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+         (div :.md:mr-2 (ui-list-projects {:projects active_projects}))
+         (div :.col-span-3
+              (map ui-news-item latest_news)))))
 
 (def ui-user-home-page (comp/factory UserHomePage))
 
@@ -140,6 +143,14 @@
              (let [token (get-in result [:body 'pc4.users/refresh-token :io.jwt/token])]
                (reset! session/authentication-token token))))
 
+(defmutation open-project [{:t_project/keys [id]}]          ;; TODO: switch to using a route
+  (action [{:keys [state]}]
+          (js/console.log "Opening project " id)
+          (swap! state assoc :session/current-project [:t_project/id id])))
+
+(defmutation close-project [params]
+  (action [{:keys [state]}]
+          (swap! state dissoc :session/current-project)))
 
 (comment
   (com.fulcrologic.fulcro.algorithms.merge/merge-component!

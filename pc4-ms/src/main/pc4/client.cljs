@@ -72,7 +72,7 @@
         (if (empty route-segments)
           (dr/change-route SPA ["home"])
           (dr/change-route SPA route-segments))))
-    identity))
+    (constantly true))) ;; TODO: properly implement matching function see
 
 (defn routing-start! []
   (pushy/start! history))
@@ -108,7 +108,7 @@
                                              :account/real-name "Joe Schmoe"})
   (dr/initialize! SPA)
   (app/current-state SPA)
-  (dr/change-route SPA ["settings"])
+  (dr/change-route SPA ["login"])
   (app/mount! SPA root/Root "app")
   (comp/get-query root/Root {})
   (comp/get-query root/Root (app/current-state SPA))
@@ -132,7 +132,9 @@
   (comp/transact! @SPA [(list 'pc4.users/logout {:message "Your session timed out."})])
   (df/load! @SPA [:t_user/id 2] pc4.users/User)
   (comp/transact! @SPA [(pc4.users/refresh-token {:token @session/authentication-token})])
-
+  (route-to! "login")
+  (dr/change-route! @SPA ["login"])
+  (dr/ch)
   @SPA
   (pc4.users/login {:username "system" :password "password"})
   (pc4.users/refresh-token {:token "abc"})

@@ -2,7 +2,8 @@
   "Stateless plain components."
   (:require
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]])
+    [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr])
   (:import [goog.date Date]))
 
 (def months-en
@@ -71,7 +72,8 @@
                                        (path {:stroke-linecap "round" :stroke-linejoin "round" :stroke-width "2" :d "M6 18L18 6M6 6l12 12"})))))
                    (div :.flex-1.flex.items-center.justify-center.sm:items-stretch.sm:justify-start
                         (div :.flex-shrink-0.flex.items-center
-                             (span :.text-white.rounded-md.text-lg.font-large.font-bold (a {:onClick #(println "woo")} title)))
+                             (span :.text-white.rounded-md.text-lg.font-large.font-bold.cursor-pointer
+                                   (a {:onClick #(dr/change-route! this ["home"])} title)))
                         (when (seq menu)
                           (div :.hidden.sm:block.sm:ml-6
                                (div :.flex.space-x-4
@@ -99,7 +101,7 @@
                                       {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
                                       (for [item user-menu]
                                         (if (:onClick item)
-                                          (a :.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white.hover:cursor-pointer
+                                          (a :.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white.cursor-pointer
                                              {:key (:id item) :onClick #(do (comp/set-state! this {:show-user-menu (not show-user-menu?)})
                                                                             ((:onClick item))) :role "menuitem" :tabIndex "-1"} (:title item))
                                           (a :.block.px-4.py-2.text-sm.text-gray-700.italic {:key (:id item) :role "menuitem" :tabIndex "-1"} (:title item))))))))))
