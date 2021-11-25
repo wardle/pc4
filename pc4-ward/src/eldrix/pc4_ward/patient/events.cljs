@@ -48,7 +48,8 @@
     core-patient-properties
     [{:t_patient/diagnoses patient-diagnosis-properties}
      {:t_patient/medications patient-medication-properties}
-     {:t_patient/encounters [:t_encounter/date_time
+     {:t_patient/encounters [:t_encounter/id
+                             :t_encounter/date_time
                              :t_encounter_template/id
                              {:t_encounter/encounter_template [:t_encounter_template/title :t_encounter_template/id]}
                              :t_encounter/is_deleted
