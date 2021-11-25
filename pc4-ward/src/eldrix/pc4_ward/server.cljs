@@ -54,7 +54,7 @@
     false
     (let [now (int (/ (.getTime (js/Date.)) 1000))
           exp (:exp (jwt-token-payload token))]
-      (> now exp))))
+      (> exp now))))
 
 (defn make-xhrio-request
   [{:keys [token timeout _params _on-success _on-failure] :as opts :or {timeout 3000}}]
