@@ -26,8 +26,8 @@
     (throw (ex-info "missing parameter(s)" {:id id :constraint constraint :select-fn select-fn})))
   [:<>
    [ui/select-or-autocomplete
-    {:label                label
-     :id                   :test-diagnosis
+    :label                label
+     :id                   id
      :value                value
      :id-key               :info.snomed.Description/id
      :display-key          term-for-description
