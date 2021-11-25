@@ -345,7 +345,7 @@
 
 (pco/defresolver project->count_discharged_episodes         ;; TODO: should include child projects?
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
-  {::pco/output [:t_project/count_registered_patients]}
+  {::pco/output [:t_project/count_discharged_episodes]}
   {:t_project/count_discharged_episodes (projects/count-discharged-episodes conn [project-id])})
 
 (pco/defresolver project->slug
