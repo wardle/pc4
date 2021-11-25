@@ -235,7 +235,7 @@
   TODO: this should generate itself from a schema, including client side
   validation...."
   [diagnosis]
-  [:form.space-y-8.divide-y.divide-gray-200
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div
      [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
@@ -334,7 +334,7 @@
   TODO: this should generate itself from a schema, including client side
   validation...."
   [medication]
-  [:form.space-y-8.divide-y.divide-gray-200
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div
      [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
@@ -411,7 +411,7 @@
 
 (defn edit-event [event & {:keys [on-change]}]
   (let [all-ms-event-types @(rf/subscribe [::lookup-subs/all-ms-event-types])]
-    [:form.space-y-8.divide-y.divide-gray-200
+    [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
      [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
       [:div
        [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
@@ -541,7 +541,7 @@
   (let [current-project @(rf/subscribe [::project-subs/current])
         all-encounter-templates @(rf/subscribe [::project-subs/active-encounter-templates])
         _ (tap> {:project current-project :all-encounter-templates all-encounter-templates})]
-    [:form.space-y-8.divide-y.divide-gray-200
+    [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
      [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
       [:div
        [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
