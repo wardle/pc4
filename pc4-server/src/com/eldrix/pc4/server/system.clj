@@ -216,7 +216,9 @@
 
 (defn wrap-login
   "The login endpoint does not have an authenticated user, so we need to take
-  special measures to prevent arbitrary pathom queries at this endpoint."
+  special measures to prevent arbitrary pathom queries at this endpoint.
+  The alternative here would be to use a different pathom environment that
+  contains only a single resolver, login."
   [handler {uri :uri pathom :pathom}]
   (fn [req]
     (if (= uri (:uri req))
@@ -252,7 +254,7 @@
   (fn [req]
     (if (= uri (:uri req))
       (do
-        (log/debug "processing API call " req)
+        (log/info "processing API call " req)
         (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
       (handler req))))
 
@@ -364,7 +366,7 @@
   (:pathom/env system)
   (rsdb/save-pseudonymous-patient-postal-code! (:pathom/env
                                                  system) {:t_patient/patient_identifier 124018
-                                                          :uk.gov.ons.nhspd/PCD2 "CF14 4XW"})
+                                                          :uk.gov.ons.nhspd/PCD2        "CF14 4XW"})
   (clods/fetch-postcode (:com.eldrix/clods system) "CF14 4XW")
   (save)
   (keys system)
