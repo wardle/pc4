@@ -77,8 +77,7 @@
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving pseudonymous patient page" (:pseudonym path))
                                   (re-frame/dispatch [::patient-events/close-current-patient])
-                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]
-   ])
+                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]])
 
 (defn on-navigate [new-match]
   (when new-match
