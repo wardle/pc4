@@ -43,4 +43,4 @@
      :select-fn            select-fn
      :minimum-chars        2
      :placeholder          placeholder
-     :size                 size}]])
+     :size                 size]])
