@@ -247,10 +247,9 @@
   [& {:keys [name label value choices id-key display-key default-value select-fn
              no-selection-string on-key-down disabled? sort? sort-fn]
       :or   {id-key identity display-key identity sort? true}}]
-  (let [all-choices (if (and value (not (some #(= value %) choices)))
+  (let [all-choices (if (and value (not (some #(= (id-key value) (id-key %)) choices)))
                       (conj choices value) choices)
-        choices (zipmap (map id-key all-choices) all-choices)
-        sorted-choices (if-not sort? (vals choices) (sort-by (or sort-fn display-key) (vals choices)))]
+        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
     (when (and default-value (str/blank? value))
       (select-fn default-value))
     [:div
@@ -264,11 +263,11 @@
                        (let [idx (-> % .-target .-selectedIndex)]
                          (if (and no-selection-string (= 0 idx))
                            (select-fn nil)
-                           (select-fn (nth sorted-choices (if no-selection-string (- idx 1) idx))))))}
+                           (select-fn (nth sorted-values (if no-selection-string (- idx 1) idx))))))}
       (when no-selection-string [:option.py-1 {:value nil :id nil} no-selection-string])
-      (for [choice sorted-choices]
-        (let [id (id-key choice)]
-          [:option.py-1 {:value (str id) :key id} (display-key choice)]))]]))
+      (for [choice sorted-values
+            :let [id (id-key choice)]]
+        ^{:key id} [:option.py-1 {:value (str id)} (display-key choice)])]]))
 
 (defn tabbed-menu
   "A simple tabbed menu that appears as a select control when on mobile and as a
@@ -329,9 +328,9 @@
   (when clear-fn (clear-fn))
   (let [mode (reagent/atom nil)]
     (fn [& {:keys [label value id-key display-key select-display-key common-choices autocomplete-fn
-                 clear-fn autocomplete-results select-fn placeholder
-                 minimum-chars no-selection-string default-value size disabled?]
-          :or   {minimum-chars 3 id-key identity display-key identity size 5}}]
+                   clear-fn autocomplete-results select-fn placeholder
+                   minimum-chars no-selection-string default-value size disabled?]
+            :or   {minimum-chars 3 id-key identity display-key identity size 5}}]
       [:<>
        (when label [ui-label :label label])
        (cond
