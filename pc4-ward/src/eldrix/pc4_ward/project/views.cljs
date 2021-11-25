@@ -7,6 +7,7 @@
     [eldrix.pc4-ward.lookups.subs :as lookup-subs]
     [eldrix.pc4-ward.patient.events :as patient-events]
     [eldrix.pc4-ward.patient.subs :as patient-subs]
+    [eldrix.pc4-ward.patient.views :as patient-views]
     [eldrix.pc4-ward.project.subs :as project-subs]
     [eldrix.pc4-ward.user.subs :as user-subs]
     [eldrix.pc4-ward.user.events :as user-events]
@@ -530,16 +531,38 @@
                          #(if (:t_ms_event/site_cognitive %) "MT")]
             :on-edit (fn [event] (reset! editing-event event))]])))))
 
-
+(def edss-scores
+  ["SCORE0_0"
+   "SCORE1_0"
+   "SCORE1_5"
+   "SCORE2_0"
+   "SCORE2_5"
+   "SCORE3_0"
+   "SCORE3_5"
+   "SCORE4_0"
+   "SCORE4_5"
+   "SCORE5_0"
+   "SCORE5_5"
+   "SCORE6_0"
+   "SCORE6_5"
+   "SCORE7_0"
+   "SCORE7_5"
+   "SCORE8_0"
+   "SCORE8_5"
+   "SCORE9_0"
+   "SCORE9_5"
+   "SCORE10_0"
+   "SCORE_LESS_THAN_4"])
 
 (s/def ::encounter
   (s/keys :req [:t_encounter/date_time
                 :t_encounter/patient_fk
                 :t_encounter/episode_fk]))
 
-(defn edit-edss [encounter & {:keys [on-change]}]
+(defn edit-encounter [encounter & {:keys [on-change]}]
   (let [current-project @(rf/subscribe [::project-subs/current])
         all-encounter-templates @(rf/subscribe [::project-subs/active-encounter-templates])
+        all-ms-disease-courses @(rf/subscribe [::lookup-subs/all-ms-disease-courses])
         _ (tap> {:project current-project :all-encounter-templates all-encounter-templates})]
     [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
      [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
@@ -550,7 +573,7 @@
          [:div.mt-1.sm:mt-0.sm:col-span-2
           [ui/html-date-picker :name "date" :value (:t_encounter/date_time encounter)
            :on-change #(on-change (assoc encounter :t_encounter/date_time %))]]]]
-       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "encounter-template"} "Type"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
          [ui/select :name "encounter-template"
@@ -560,9 +583,42 @@
           :select-fn #(on-change (merge encounter %))
           :id-key :t_encounter_template/id
           :display-key (fn [et] (when et (:t_encounter_template/title et)))]]]
-
-       ]]]))
-
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "edss"} "EDSS"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         (if (:t_form_edss_fs encounter)
+           [:<> [ui/select :name "edss" :sort? false :disabled? true :value (:t_form_edss_fs/edss_score encounter)]
+            [:p.text-sm.text-gray-500 "You cannot edit a functional systems score here. Please use PatientCare v3."]]
+           [ui/select :name "edss"
+            :sort? false
+            :choices edss-scores
+            :no-selection-string "Not recorded"
+            :value (:t_form_edss/edss_score encounter)])]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "in-relapse"} ""]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/checkbox :name "edss"
+          :label "In relapse?"
+          :description "Tick if the EDSS was recorded when patient in relapse."
+          :value (:t_form_ms_relapse/in_relapse encounter)]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "disease-course"} "Current disease course"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/select :name "disease-course"
+          :sort? true
+          :choices all-ms-disease-courses
+          :display-key :t_ms_disease_course/name
+          :id-key :t_ms_disease_course/id
+          :no-selection-string "Not recorded"
+          :value (:t_form_ms_relapse/ms_disease_course_fk encounter)]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "weight"} "Weight (kg)"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/textfield-control (:t_form_weight_height/weight_kilograms encounter) :name "weight"]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "height"} "Height (m)"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/textfield-control (:t_form_weight_height/height_metres encounter) :name "height"]]]]]]))
 
 (defn list-encounters
   "This shows a list of encounters. Presently, the list headings are hard-coded
@@ -587,7 +643,7 @@
         [:<>
          (when editing-encounter'
            [ui/modal
-            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :content [edit-encounter editing-encounter' :on-change #(reset! editing-encounter %)]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
@@ -619,7 +675,8 @@
                        #(get-in % [:t_encounter/encounter_template :t_encounter_template/title])
                        #(get-in % [:t_encounter/form_edss :t_form_edss/edss])
                        #(get-in % [:t_encounter/form_ms_relapse :t_ms_disease_course/name])
-                       #(when (get-in % [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse]) "✔️")
+                       #(case (get-in % [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse])
+                          true "Yes" false "No" "")
                        #(get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilograms])]
           :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
 
@@ -646,7 +703,7 @@
         [:<>
          (when editing-encounter'
            [ui/modal
-            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :content [edit-encounter editing-encounter' :on-change #(reset! editing-encounter %)]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
@@ -706,7 +763,7 @@
         [:<>
          (when editing-encounter'
            [ui/modal
-            :content [edit-edss editing-encounter' :on-change #(reset! editing-encounter %)]
+            :content [edit-encounter editing-encounter' :on-change #(reset! editing-encounter %)]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
@@ -783,36 +840,36 @@
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
         [:<>
-        (when loading?
-          [:div.flex.h-screen
-           [:div.m-auto
-            [:div
-             [:div.flex.justify-center.items-center.mb-8
-              [:p.font-sans.font-thin.text-gray-500 "Loading patient record"]]
-             [:div.flex.justify-center.items-center
-              [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]
+         (when loading?
+           [:div.flex.h-screen
+            [:div.m-auto
+             [:div
+              [:div.flex.justify-center.items-center.mb-8
+               [:p.font-sans.font-thin.text-gray-500 "Loading patient record"]]
+              [:div.flex.justify-center.items-center
+               [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]
               ]]]
-          )
-        (when patient
-          [:div
-           [ui/patient-banner
-            :name (:t_patient/sex patient)
-            :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
-            :address (:t_episode/stored_pseudonym patient)
-            :on-close #(when-let [project-id (:t_episode/project_fk patient)]
-                         (println "opening project page for project" project-id)
-                         (rfe/push-state :projects {:project-id project-id :slug "home"}))
-            :content [ui/tabbed-menu
-                      :name "patient-menu"
-                      :value @menu
-                      :on-change #(do (println "chosen" %) (reset! menu %))
-                      :choices neuro-inflammatory-menus
-                      :value-key :id
-                      :display-key :title]]
-           [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
-            [:div.px-4.py-5.sm:p-6
-             (when-let [component (:component (menu-by-id @menu))]
-               [component])]]])]))))
+           )
+         (when patient
+           [:div
+            [ui/patient-banner
+             :name (:t_patient/sex patient)
+             :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
+             :address (:t_episode/stored_pseudonym patient)
+             :on-close #(when-let [project-id (:t_episode/project_fk patient)]
+                          (println "opening project page for project" project-id)
+                          (rfe/push-state :projects {:project-id project-id :slug "home"}))
+             :content [ui/tabbed-menu
+                       :name "patient-menu"
+                       :value @menu
+                       :on-change #(do (println "chosen" %) (reset! menu %))
+                       :choices neuro-inflammatory-menus
+                       :value-key :id
+                       :display-key :title]]
+            [:div.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+             [:div.px-4.py-5.sm:p-6
+              (when-let [component (:component (menu-by-id @menu))]
+                [component])]]])]))))
 
 (defn list-users [users]
   [:div.flex.flex-col
