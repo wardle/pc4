@@ -328,7 +328,7 @@
   [& {:keys [id clear-fn]}]
   (when clear-fn (clear-fn))
   (let [mode (reagent/atom nil)]
-    (fn [{:keys [label value id-key display-key select-display-key common-choices autocomplete-fn
+    (fn [& {:keys [label value id-key display-key select-display-key common-choices autocomplete-fn
                  clear-fn autocomplete-results select-fn placeholder
                  minimum-chars no-selection-string default-value size disabled?]
           :or   {minimum-chars 3 id-key identity display-key identity size 5}}]
