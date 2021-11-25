@@ -890,6 +890,14 @@
                                                     (sql/format {:select [:id :abbreviation :name]
                                                                  :from   [:t_ms_event_type]}))})
 
+(pco/defresolver all-ms-disease-courses
+  [{conn :com.eldrix.rsdb/conn} _]
+  {::pco/output [{:com.eldrix.rsdb/all-ms-disease-courses [:t_ms_disease_course/id
+                                                           :t_ms_disease_course/name]}]}
+  {:com.eldrix.rsdb/all-ms-disease-courses (db/execute! conn
+                                                        (sql/format {:select [:id :name]
+                                                                     :from   [:t_ms_disease_course]}))})
+
 (def all-resolvers
   [patient-by-identifier
    patient->hospitals
@@ -946,6 +954,7 @@
    patient->fhir-gender
    multiple-sclerosis-diagnoses
    all-ms-event-types
+   all-ms-disease-courses
    ;; mutations - VERBS
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
