@@ -4,7 +4,7 @@
             [clojure.string :as str]))
 
 (defn run [{:keys [profile]}]
-  (when (str/blank? profile)
+  (when-not profile
     (log/error "Missing :profile")
     (System/exit 0))
   (log/info "starting pc4-server with profile" {:profile profile})
