@@ -1,59 +1,70 @@
 ;;
 ;; This is an integrant configuration file
 ;;
-;; There are two main profiles currently:
-;; - :dev            : this profile is used during development
-;; - :cvx-neuro01    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro01)
+;; There are three main profiles currently:
+;; - :dev    : this profile is used during development
+;; - :cvx    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro01)
+;; - :pc4    : this profile is active when deployed on AWS infrastructure
 ;;
 ;;
 
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
 
-
- :com.eldrix.rsdb/conn               {:dbtype          "postgresql"
-                                      :dbname          "rsdb"
-                                      :maximumPoolSize 10}
+ :com.eldrix.rsdb/conn               #profile {:default {:dbtype          "postgresql"
+                                                         :dbname          "rsdb"
+                                                         :maximumPoolSize 10}
+                                               :pc4     {:dbtype          "postgresql"
+                                                         :host            #ref [:secrets :pc4-db :host]
+                                                         :username        #ref [:secrets :pc4-db :username]
+                                                         :password        #ref [:secrets :pc4-db :password]
+                                                         :dbname          "rsdb"
+                                                         :maximumPoolSize 10}}
 
  :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/clods                   {:ods-path   "/Users/mark/Dev/clods/ods-2021-06-25"
-                                      :nhspd-path "/Users/mark/Dev/nhspd/nhspd-2021-08-16.db"}
+ :com.eldrix/clods                   #profile {:default {:ods-path   "/Users/mark/Dev/clods/ods-2021-06-25"
+                                                         :nhspd-path "/Users/mark/Dev/nhspd/nhspd-2021-08-16.db"}
+                                               :pc4     {:ods-path   "/var/pc4/ods-2021-06-25.db"
+                                                         :nhspd-path "/var/pc4/nhspd-2021-08-16.db"}}
 
- :com.eldrix/deprivare               {:path "/Users/mark/Dev/deprivare/depriv.db"}
+ :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
+                                                      :pc4     "/var/pc4/depriv.db"}}
 
- :com.eldrix/dmd                     {:path "/Users/mark/Dev/dmd/dmd-2021-09-27.db"}
+ :com.eldrix/dmd                     {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2021-09-27.db"
+                                                      :pc4     "/var/pc4/dmd-2021-09-27.db"}}
 
- :com.eldrix/hermes                  {:path "/Users/mark/Dev/hermes/snomed.db"}
+ :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
+                                                      :pc4     "/var/pc4/snomed-2021-07-07.db"}}
 
  :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
                                       :access-key-id     #ref [:secrets :aws-access-key-id]
                                       :secret-access-key #ref [:secrets :aws-secret-access-key]}
 
- :com.eldrix.concierge/nadex         #profile {:cvx-neuro01 {:connection-pool-size  5
-                                                             :default-bind-username #ref [:secrets :nadex-bind-username]
-                                                             :default-bind-password #ref [:secrets :nadex-bind-password]}
-                                               :default     {}}
+ :com.eldrix.concierge/nadex         #profile {:cvx     {:connection-pool-size  5
+                                                         :default-bind-username #ref [:secrets :nadex-bind-username]
+                                                         :default-bind-password #ref [:secrets :nadex-bind-password]}
+                                               :default {}}
 
  :com.eldrix.pc4/fake-login-provider {:username "ma090906'"
                                       :password "password"}
 
- :com.eldrix.pc4/login               #profile {:cvx-neuro01 {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                                                           :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                           :jwt-expiry-seconds 300}
-                                               :dev       {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
-                                                           :jwt-secret-key     "secret"
-                                                           :jwt-expiry-seconds 300}}
+ :com.eldrix.pc4/login               #profile {:cvx {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
+                                                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                                                     :jwt-expiry-seconds 300}
+                                               :dev {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
+                                                     :jwt-secret-key     "secret"
+                                                     :jwt-expiry-seconds 300}}
 
- :wales.nhs.cavuhb/pms               #profile {:cvx-neuro01 {:username    #ref [:secrets :cav-pms-username]
-                                                             :password    #ref [:secrets :cav-pms-password]
-                                                             :database    "vpmslive.world"
-                                                             :user-string "patientcare-concierge"}
-                                               :default     {}}
+ :wales.nhs.cavuhb/pms               #profile {:cvx     {:username    #ref [:secrets :cav-pms-username]
+                                                         :password    #ref [:secrets :cav-pms-password]
+                                                         :database    "vpmslive.world"
+                                                         :user-string "patientcare-concierge"}
+                                               :default {}}
 
 
- :wales.nhs/empi                     #profile {:cvx-neuro01 {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
-                                                             :processing-id "P"}
-                                               :default     {}}
+ :wales.nhs/empi                     #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+                                                         :processing-id "P"}
+                                               :default {}}
 
  :pathom/env                         {:com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
                                       :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
