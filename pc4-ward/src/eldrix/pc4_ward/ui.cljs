@@ -253,11 +253,7 @@
       :or   {id-key identity display-key identity sort? true}}]
   (let [all-choices (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
                       (conj choices value) choices)
-        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))
-        _ (tap> {:id            :ui-select
-                 :all-choices   all-choices
-                 :sorted-values sorted-values
-                 :value         value})]
+        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
     (when (and default-value (str/blank? value))
       (select-fn default-value))
     [:div
