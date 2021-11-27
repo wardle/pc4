@@ -15,7 +15,8 @@
             [goog.crypt.base64 :as b64]
             [goog.net.ErrorCode :as errors]
             [cljs.core.async :refer [<!]]
-            [re-frame.core :as rf])
+            [re-frame.core :as rf]
+            [cognitect.transit :as transit])
   (:import [goog.date UtcDateTime]))
 
 (defn jwt-token-payload
@@ -144,7 +145,8 @@
                 :uri             "http://localhost:8080/api"
                 :timeout         timeout
                 :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
-                :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
+                :response-format (ajax-transit/transit-response-format {:handlers (merge dates/transit-readers
+                                                                                         {"f" (fn [x] (str x))})})
                 :headers         (when token {:Authorization (str "Bearer " token)})}
                request)
         (assoc
