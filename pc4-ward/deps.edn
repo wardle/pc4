@@ -5,7 +5,7 @@
                                                             org.clojure/google-closure-library-third-party]
                                               :mvn/version "1.10.893"}
          org.slf4j/slf4j-simple              {:mvn/version "2.0.0-alpha5"}
-         org.clojure/spec.alpha              {:mvn/version "0.3.214"}
+         org.clojure/spec.alpha              {:mvn/version "0.3.218"}
 
          cljs-http/cljs-http                 {:mvn/version "0.1.46"}
          com.eldrix.pc4/client               {:local/root "../pc4-client"}
