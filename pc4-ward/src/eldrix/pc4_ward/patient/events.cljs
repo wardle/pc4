@@ -49,13 +49,16 @@
     [{:t_patient/diagnoses patient-diagnosis-properties}
      {:t_patient/medications patient-medication-properties}
      {:t_patient/encounters [:t_encounter/id
+                             :t_encounter/episode_fk
                              :t_encounter/date_time
                              :t_encounter_template/id
                              {:t_encounter/encounter_template [:t_encounter_template/title :t_encounter_template/id]}
                              :t_encounter/is_deleted
+                             :t_encounter/active
                              :t_encounter/form_edss
                              :t_encounter/form_ms_relapse
-                             :t_encounter/form_weight_height]}
+                             :t_encounter/form_weight_height
+                             :t_encounter/form_smoking]}
      {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
@@ -267,6 +270,19 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(rf/reg-event-fx ::handle-failure-response
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "pathom effect failure " response)
+    (tap> {:error    "pathom call failure"
+           :response response})
+    {}))
+
+
+
+
+
+
 (rf/reg-event-db ::set-current-diagnosis
   []
   (fn [db [_ diagnosis]]
@@ -358,7 +374,26 @@
                     :on-failure [::handle-failure-response]}]]}))
 
 
-
+(rf/reg-event-fx ::save-encounter
+  []
+  (fn [{db :db} [_ params]]
+    (let [params' (cond-> params
+                          (:t_encounter_template/id params)
+                          (assoc :t_encounter/encounter_template_fk (:t_encounter_template/id params))
+                          (:t_ms_disease_course/id params)
+                          (assoc :t_form_ms_relapse/ms_disease_course_fk (:t_ms_disease_course/id params))
+                          (and (:t_form_edss/edss_score params) (not (:t_form_ms_relapse/in_relapse params)))
+                          (assoc :t_form_ms_relapse/in_relapse false)
+                          (and (nil? (:t_ms_disease_course/id params))      ;; this would be better as a database default value!
+                               (or (:t_form_edss/edss_score params)
+                                   (not (nil? (:t_form_ms_relapse/in_relapse params)))))
+                          (assoc :t_form_ms_relapse/ms_disease_course_fk 1))]
+      (js/console.log "saving encounter" params)
+      {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-encounter params')
+                                    ['*]}]
+                      :token      (get-in db [:authenticated-user :io.jwt/token])
+                      :on-success [::handle-save-diagnosis]
+                      :on-failure [::handle-failure-response]}]]})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
