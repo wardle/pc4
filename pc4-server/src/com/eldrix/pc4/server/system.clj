@@ -91,7 +91,7 @@
 
 (defmethod ig/init-key :com.eldrix.rsdb/conn
   [_ params]
-  (log/info "registering PatientCare EPR [rsdb] connection" params)
+  (log/info "registering PatientCare EPR [rsdb] connection" (dissoc params :password))
   (swap! resolvers into com.eldrix.pc4.server.rsdb/all-resolvers)
   (connection/->pool HikariDataSource params))
 
