@@ -65,31 +65,31 @@
       [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
        [:div.max-w-md.w-full.space-y-8
         [:form {:on-submit #(.preventDefault %)}
-        [:div
-         [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]]
-        [:div.rounded-md.shadow-sm.-space-y-px
          [:div
-          [:label.sr-only {:for "username"} "username"]
-          [:input#email-address.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
-           {:name        "username" :type "text" :autoComplete "username" :required true :placeholder "Username" :auto-focus true :disabled disabled
-            :on-change   #(reset! username (-> % .-target .-value))
-            :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "password"))))}]]
+          [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]]
+         [:div.rounded-md.shadow-sm.-space-y-px
+          [:div
+           [:label.sr-only {:for "username"} "username"]
+           [:input#email-address.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
+            {:name        "username" :type "text" :autoComplete "username" :required true :placeholder "Username" :auto-focus true :disabled disabled
+             :on-change   #(reset! username (-> % .-target .-value))
+             :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "password"))))}]]
+          [:div
+           [:label.sr-only {:for "password"} "Password"]
+           [:input#password.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-b-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
+            {:name        "password" :type "password" :autoComplete "current-password" :required true :placeholder "Password" :disabled disabled
+             :on-change   #(reset! password (-> % .-target .-value))
+             :on-key-down #(if (= 13 (.-which %))
+                             (do (reset! password (-> % .-target .-value))
+                                 (when on-login (on-login @username @password))))}]]]
+         (when error
+           [box-error-message :message error])
          [:div
-          [:label.sr-only {:for "password"} "Password"]
-          [:input#password.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-b-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
-           {:name        "password" :type "password" :autoComplete "current-password" :required true :placeholder "Password" :disabled disabled
-            :on-change   #(reset! password (-> % .-target .-value))
-            :on-key-down #(if (= 13 (.-which %))
-                            (do (reset! password (-> % .-target .-value))
-                                (when on-login (on-login @username @password))))}]]]
-        (when error
-          [box-error-message :message error])
-        [:div
-         [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
-          {:type "submit" :on-click #(when on-login (on-login @username @password)) :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
-          [:span.absolute.left-0.inset-y-0.flex.items-center.pl-3
-           [:svg.h-5.w-5.text-indigo-500.group-hover:text-indigo-400 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true" :class (when disabled "animate-bounce")}
-            [:path {:fill-rule "evenodd" :d "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" :clip-rule "evenodd"}]]] (if disabled "Signing in" "Sign in")]]]]])))
+          [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
+           {:type "submit" :on-click #(when on-login (on-login @username @password)) :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
+           [:span.absolute.left-0.inset-y-0.flex.items-center.pl-3
+            [:svg.h-5.w-5.text-indigo-500.group-hover:text-indigo-400 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true" :class (when disabled "animate-bounce")}
+             [:path {:fill-rule "evenodd" :d "M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" :clip-rule "evenodd"}]]] (if disabled "Signing in" "Sign in")]]]]])))
 
 
 (defn ui-textfield [& {:keys [name autocomplete field-type error] :or {field-type "text"}}]
@@ -240,7 +240,8 @@
       :disabled      disabled
       :default-value value
       :auto-focus    auto-focus
-      :on-change     #(when on-change (on-change (-> % .-target .-value)))
+      :on-change     #(when on-change (let [v (-> % .-target .-value)]
+                                        (on-change (if (str/blank? v) nil v))))
       :on-blur       #(when on-blur (on-blur))
       :on-key-down   #(when (and on-enter (= 13 (.-which %))) (on-enter))}]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
@@ -250,9 +251,13 @@
   [& {:keys [name label value choices id-key display-key default-value select-fn
              no-selection-string on-key-down disabled? sort? sort-fn]
       :or   {id-key identity display-key identity sort? true}}]
-  (let [all-choices (if (and value (not (some #(= (id-key value) (id-key %)) choices)))
+  (let [all-choices (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
                       (conj choices value) choices)
-        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
+        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))
+        _ (tap> {:id            :ui-select
+                 :all-choices   all-choices
+                 :sorted-values sorted-values
+                 :value         value})]
     (when (and default-value (str/blank? value))
       (select-fn default-value))
     [:div
