@@ -69,7 +69,7 @@
     (js/console.log "User login failure: response " response)
     {:db (-> db
              (dissoc :authenticated-user)
-             (assoc-in [:errors :user/login] "Failed to login: unable to connect to server. Please check your connection and retry."))}))
+             (assoc-in [:errors :user/login] "Failed to login: unable to connect to API server. Please try again later."))}))
 
 (rf/reg-event-fx ::do-session-expire
   []
