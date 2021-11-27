@@ -153,29 +153,40 @@
   "Return a form EDSS for each encounter in the sequence."
   [conn encounters]
   (when (seq encounters)
-    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
-                                                           :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
-                                               :from      [:t_encounter]
-                                               :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
-                                                                         [:<> :t_form_edss/is_deleted "true"]]
-                                                           :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
-                                                                            [:<> :t_form_edss_fs/is_deleted "true"]]]
-                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
-         (map #(if-let [edss (or (:t_form_edss_fs/edss_score %) (:t_form_edss/edss_score %))]
-                 (assoc % :t_form_edss/edss (edss-score->score edss)) %)))))
+    (next.jdbc/execute! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
+                                                      :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
+                                          :from      [:t_encounter]
+                                          :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
+                                                                    [:<> :t_form_edss/is_deleted "true"]]
+                                                      :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
+                                                                       [:<> :t_form_edss_fs/is_deleted "true"]]]
+                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
 
 (defn encounters->form_ms_relapse
   "Return a form ms relapse for each encounter in the sequence, if it exists."
   [conn encounters]
   (when (seq encounters)
-    (next.jdbc/execute! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
-                                                      :t_ms_disease_course/id :t_ms_disease_course/name
-                                                      :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
-                                          :from      [:t_encounter]
-                                          :left-join [:t_form_ms_relapse [:and [:= :t_form_ms_relapse/encounter_fk :t_encounter/id]
-                                                                          [:<> :t_form_ms_relapse/is_deleted "true"]]
-                                                      :t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
-                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
+    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
+                                                           :t_ms_disease_course/id :t_ms_disease_course/name
+                                                           :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
+                                               :from      [:t_encounter]
+                                               :left-join [:t_form_ms_relapse [:and [:= :t_form_ms_relapse/encounter_fk :t_encounter/id]
+                                                                               [:<> :t_form_ms_relapse/is_deleted "true"]]
+                                                           :t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
+                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
+         (map db/parse-entity))))
+
+(defn encounters->form_smoking_history
+  "Return a form smoking history for each encounter in the sequence, if it exists."
+  [conn encounters]
+  (when (seq encounters)
+    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_smoking_history/id :t_smoking_history/status
+                                                           :t_smoking_history/current_cigarettes_per_day]
+                                               :from      [:t_encounter]
+                                               :left-join [:t_smoking_history [:and [:= :t_smoking_history/encounter_fk :t_encounter/id]
+                                                                               [:<> :t_smoking_history/is_deleted "true"]]]
+                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
+         (map db/parse-entity))))
 
 (defn encounters->form_weight_height
   "Return a form weight height for each encounter in the sequence."
@@ -281,22 +292,26 @@
                                                  :t_episode/id
                                                  :t_patient/patient_identifier
                                                  :t_encounter_template/id
-                                                 :t_user/id]))
+                                                 :t_user/id]
+                                           :opt [:t_encounter/id]))
 
 (defn save-encounter-with-forms!
   [conn data]
+  (log/info "saving encounter with forms" {:data data})
   (when-not (s/valid? ::save-encounter-with-forms data)
     (throw (ex-info "Invalid parameters" (s/explain-data ::save-encounter-with-forms data))))
   (jdbc/with-transaction [tx conn {:isolation :serializable}]
     (let [encounter (patients/save-encounter! tx (merge (when (:t_encounter/id data) {:t_encounter/id (:t_encounter/id data)})
                                                         {:t_encounter/date_time             (:t_encounter/date_time data)
                                                          :t_encounter/episode_fk            (:t_episode/id data)
-                                                         :t_patient/patient_identifier      (:t_patient/identifier data)
+                                                         :t_patient/patient_identifier      (:t_patient/patient_identifier data)
                                                          :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
+          _ (log/info "saved encounter, result:" {:encounter encounter})
           data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
       (save-form! tx :t_form_edss data')
       (save-form! tx :t_form_ms_relapse data')
       (save-form! tx :t_smoking_history data')
+      (save-form! tx :t_form_weight_height data')
       encounter)))
 
 

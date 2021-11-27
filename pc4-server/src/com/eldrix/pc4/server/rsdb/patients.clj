@@ -313,6 +313,8 @@
                                                   :t_address/ignore_invalid_address "true"
                                                   :t_address/patient_fk             (:t_patient/id patient)})))))))
 
+
+
 (s/def ::save-encounter (s/keys :req [:t_encounter/encounter_template_fk
                                       :t_encounter/episode_fk
                                       :t_patient/patient_identifier
@@ -331,13 +333,12 @@
          :as                   encounter}]
   (when-not (s/valid? ::save-encounter encounter)
     (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
+  (log/info "saving encounter" {:encounter_id encounter-id :encounter encounter})
   (if encounter-id
     (db/execute-one! conn (sql/format {:update [:t_encounter]
-                                       :where  [:and
-                                                [:= :id encounter-id]
-                                                [:= :episode_fk episode-id]]
-                                       :set    {:date_time             date-time
-                                                :encounter_template_fk encounter-template-id}})
+                                       :where  [:= :id encounter-id]
+                                       :set    {:t_encounter/encounter_template_fk encounter-template-id
+                                                :t_encounter/date_time             date-time}})
                      {:return-keys true})
     (db/execute-one! conn (sql/format {:insert-into [:t_encounter]
                                        :values      [{:date_time             date-time
