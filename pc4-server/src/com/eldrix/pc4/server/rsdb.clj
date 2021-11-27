@@ -31,17 +31,23 @@
            (org.jsoup.safety Safelist)
            (com.eldrix.pc4.server.rsdb.auth AuthorizationManager)))
 
-(s/def :t_patient/id int?)
-(s/def :t_patient/patient_identifier int?)
-(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
 (s/def :uk.gov.ons.nhspd/PCD2 string?)
 (s/def :info.snomed.Concept/id (s/and int? com.eldrix.hermes.verhoeff/valid?))
+;;
+;;
 (s/def :t_diagnosis/id int?)
 (s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
 (s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
+
+(s/def :t_encounter/episode_fk int?)
+(s/def :t_encounter/date_time #(instance? LocalDateTime %))
+(s/def :t_encounter/id int?)
+(s/def :t_encounter/encounter_template_fk int?)
+
+(s/def :t_episode/id int?)
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
@@ -49,7 +55,13 @@
 (s/def :t_ms_event/date #(instance? LocalDate %))
 (s/def :t_ms_event/impact string?)
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
-(s/def :t_encounter/date_time #(instance? LocalDateTime %))
+(s/def :t_patient/id int?)
+(s/def :t_patient/patient_identifier int?)
+(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :t_user/id int?)
+
+;;
+;;
 (s/def ::user-id int?)
 (s/def ::project-id int?)
 (s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
@@ -431,10 +443,10 @@
                                          :t_encounter/consultant_user_fk
                                          :t_encounter/encounter_template_fk
                                          :t_encounter/notes]}]}
-  {:t_patient/encounters (->> (jdbc/execute! conn (sql/format {:select   [:*]
-                                                               :from     [:t_encounter]
-                                                               :where    [:= :patient_fk patient-id]
-                                                               :order-by [[:date_time :desc]]}))
+  {:t_patient/encounters (->> (db/execute! conn (sql/format {:select   [:*]
+                                                             :from     [:t_encounter]
+                                                             :where    [:= :patient_fk patient-id]
+                                                             :order-by [[:date_time :desc]]}))
                               (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
 (pco/defresolver encounter->users
@@ -478,8 +490,8 @@
                                           :t_form_edss_fs/id
                                           :t_form_edss_fs/edss_score]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
-          (hash-map :t_encounter/form_edss %)) (forms/encounters->form_edss conn encounters)))
+  (map #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
+       (forms/encounters->form_edss conn encounters)))
 
 (pco/defresolver encounter->form_ms_relapse
   [{:com.eldrix.rsdb/keys [conn]} encounters]
@@ -502,7 +514,17 @@
                                                    :t_form_weight_height/height_metres]}]
    ::pco/batch? true}
   (map #(when-not (every? nil? (vals %))
-          (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_ms_relapse conn encounters)))
+          (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_weight_height conn encounters)))
+
+(pco/defresolver encounter->form_smoking
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/id]
+   ::pco/output [{:t_encounter/form_smoking_history [:t_smoking_history/id
+                                                     :t_smoking_history/current_cigarettes_per_day
+                                                     :t_smoking_history/status]}]
+   ::pco/batch? true}
+  (map #(when-not (every? nil? (vals %))
+          (hash-map :t_encounter/form_smoking_history %)) (forms/encounters->form_smoking_history conn encounters)))
 
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
@@ -862,15 +884,15 @@
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
   (log/info "save encounter request: " params "user: " user)
-  (if-not (s/valid? ::save-encounter params)
-    (do (log/error "invalid call" (s/explain-data ::save-encounter params))
-        (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params))))
-    (let [patient-identifier (:t_patient/patient-identifier params)
-          params' (assoc params :t_user/id (users/fetch-user conn (:value user)))] ;; TODO: need a better way than this...
-      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (forms/save-encounter-with-forms! conn params')))))
-
-
+  (let [date (:t_encounter/date_time params)
+        params' (assoc params
+                  :t_encounter/date_time (if (instance? LocalDate date) (.atStartOfDay date) date)
+                  :t_user/id (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
+    (when-not (s/valid? ::save-encounter params')
+      (log/error "invalid call" (s/explain-data ::save-encounter params'))
+      (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
+    (do (guard-can-for-patient? env (:t_patient/patient-identifier params) :PATIENT_EDIT)
+        (forms/save-encounter-with-forms! conn params'))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
@@ -938,6 +960,7 @@
    encounter->form_edss
    encounter->form_ms_relapse
    encounter->form_weight_height
+   encounter->form_smoking
    user-by-username
    user-by-id
    user-by-nadex
@@ -961,7 +984,8 @@
    save-patient-ms-diagnosis!
    save-pseudonymous-patient-postal-code!
    save-ms-event!
-   delete-ms-event!])
+   delete-ms-event!
+   save-encounter!])
 
 (comment
   (require '[next.jdbc.connection])
