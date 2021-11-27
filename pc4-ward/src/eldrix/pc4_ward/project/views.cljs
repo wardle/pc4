@@ -543,11 +543,11 @@
 (s/def :t_form_ms_relapse/in_relapse boolean?)
 (s/def :t_smoking_history/status smoking-status-choices)
 (s/def :t_form_weight_height/weight_kilograms (s/and #(> % 20) #(< % 200)))
-(s/def :t_form_weight_height/height_metres (s/and #(> % 0.5) #(< % 3)))
+(s/def :t_form_weight_height/height_metres (s/nilable (s/and #(> % 0.5) #(< % 3))))
 (s/def ::encounter
   (s/keys :req [:t_encounter/date_time
-                :t_encounter/patient_fk
-                :t_encounter/episode_fk
+                :t_patient/patient_identifier
+                :t_episode/id
                 :t_encounter_template/id]
           :opt [:t_form_ms_relapse/in_relapse
                 :t_form_edss/edss_score
@@ -560,10 +560,10 @@
   (let [current-project @(rf/subscribe [::project-subs/current])
         all-encounter-templates @(rf/subscribe [::project-subs/active-encounter-templates])
         all-ms-disease-courses @(rf/subscribe [::lookup-subs/all-ms-disease-courses])
-        _ (tap> {:encounter encounter
-                 :project   current-project
+        _ (tap> {:encounter               encounter
+                 :project                 current-project
                  :all-encounter-templates all-encounter-templates
-                 :all-ms-disease-courses all-ms-disease-courses})]
+                 :all-ms-disease-courses  all-ms-disease-courses})]
     [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
      [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
       [:div
@@ -577,10 +577,10 @@
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "encounter-template"} "Type"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
          [ui/select :name "encounter-template"
-          :value encounter
+          :value (:t_encounter/encounter_template_fk encounter)
           :choices all-encounter-templates
           :sort? false
-          :select-fn #(on-change (merge encounter %))
+          :select-fn #(on-change (assoc encounter :t_encounter/encounter_template_fk (:t_encounter_template/id %)))
           :id-key :t_encounter_template/id
           :display-key (fn [et] (when et (:t_encounter_template/title et)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
@@ -619,10 +619,10 @@
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "weight"} "Weight (kg)"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
-         [ui/textfield-control (:t_form_weight_height/weight_kilograms encounter)
+         [ui/textfield-control (:t_form_weight_height/weight_kilogram encounter)
           :name "weight" :type "number"
-          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/weight_kilograms (js/parseFloat %)})
-                                       (dissoc encounter :t_form_weight_height/weight_kilograms)))]]]
+          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/weight_kilogram (js/parseFloat %)})
+                                       (dissoc encounter :t_form_weight_height/weight_kilogram)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "height"} "Height (m)"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
@@ -639,7 +639,14 @@
           :no-selection-string "Not recorded"
           :value (:t_smoking_history/status encounter)
           :select-fn #(on-change (if % (merge encounter {:t_smoking_history/status %})
-                                       (dissoc encounter :t_smoking_history/status)))]]]]]]))
+                                       (dissoc encounter :t_smoking_history/status)))]]]
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "cigarettes"} "Cigarettes per day"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/textfield-control (:t_smoking_history/current_cigarettes_per_day encounter)
+          :name "cigarettes" :type "number"
+          :on-change #(on-change (if % (merge encounter {:t_smoking_history/current_cigarettes_per_day (js/parseFloat %)})
+                                       (dissoc encounter :t_smoking_history/current_cigarettes_per_day)))]]]]]]))
 
 (defn list-encounters
   "This shows a list of encounters. Presently, the list headings are hard-coded
@@ -651,6 +658,7 @@
             current-project @(rf/subscribe [::project-subs/current])
             sorted-encounters (->> @(rf/subscribe [::patient-subs/encounters])
                                    (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+                                   (filter :t_encounter/active)
                                    reverse)
             default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
             active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
@@ -684,10 +692,12 @@
          [ui/section-heading "Encounters"
           :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
                     {:on-click #(reset! editing-encounter (merge default-encounter-template
-                                                                 {:t_encounter/patient_fk       (:t_patient/id current-patient)
-                                                                  :t_encounter/episode_fk       (:t_episode/id active-episode-for-patient)
-                                                                  :t_form_ms_relapse/in_relapse false}))}
+                                                                 {:t_patient/patient_identifier (:t_patient/patient_identifier current-patient)
+                                                                  :t_encounter/patient_fk       (:t_patient/id current-patient)
+                                                                  :t_episode/id                 (:t_episode/id active-episode-for-patient)
+                                                                  :t_encounter/episode_fk       (:t_episode/id active-episode-for-patient)}))}
                     "Add encounter"]]
+         (tap> sorted-encounters)
          [ui/list-entities-fixed
           :items sorted-encounters
           :headings ["Date" "Type" "EDSS" "Disease course" "In relapse?" "Weight"]
@@ -695,12 +705,23 @@
           :id-key :t_encounter/id
           :value-keys [#(dates/format-date (:t_encounter/date_time %))
                        #(get-in % [:t_encounter/encounter_template :t_encounter_template/title])
-                       #(get-in % [:t_encounter/form_edss :t_form_edss/edss])
+                       #(or (get-in % [:t_encounter/form_edss :t_form_edss/edss_score])
+                            (get-in % [:t_encounter/form_edss_fs :t_form_edss_fs/edss_score]))
                        #(get-in % [:t_encounter/form_ms_relapse :t_ms_disease_course/name])
                        #(case (get-in % [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse])
                           true "Yes" false "No" "")
-                       #(get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilograms])]
-          :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
+                       #(get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram])]
+          :on-edit (fn [encounter]
+                     (tap> {:editing-encounter true
+                            :encounter         encounter})
+                     (reset! editing-encounter (merge encounter ;; flatten all of the to-one relationships...
+                                                      {:t_episode/id                 (:t_encounter/episode_fk encounter)
+                                                       :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)}
+                                                      (:t_encounter/encounter_template encounter)
+                                                      (:t_encounter/form_edss encounter)
+                                                      (:t_encounter/form_ms_relapse encounter)
+                                                      (:t_encounter/form_weight_height encounter)
+                                                      (:t_encounter/form_smoking encounter))))]]))))
 
 
 (defn list-investigations
