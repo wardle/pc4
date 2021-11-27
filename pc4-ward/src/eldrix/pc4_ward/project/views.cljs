@@ -532,26 +532,9 @@
             :on-edit (fn [event] (reset! editing-event event))]])))))
 
 (def edss-scores
-  ["SCORE0_0"
-   "SCORE1_0"
-   "SCORE1_5"
-   "SCORE2_0"
-   "SCORE2_5"
-   "SCORE3_0"
-   "SCORE3_5"
-   "SCORE4_0"
-   "SCORE4_5"
-   "SCORE5_0"
-   "SCORE5_5"
-   "SCORE6_0"
-   "SCORE6_5"
-   "SCORE7_0"
-   "SCORE7_5"
-   "SCORE8_0"
-   "SCORE8_5"
-   "SCORE9_0"
-   "SCORE9_5"
-   "SCORE10_0"
+  ["SCORE0_0" "SCORE1_0" "SCORE1_5" "SCORE2_0" "SCORE2_5" "SCORE3_0" "SCORE3_5"
+   "SCORE4_0" "SCORE4_5" "SCORE5_0" "SCORE5_5" "SCORE6_0" "SCORE6_5" "SCORE7_0"
+   "SCORE7_5" "SCORE8_0" "SCORE8_5" "SCORE9_0" "SCORE9_5" "SCORE10_0"
    "SCORE_LESS_THAN_4"])
 
 (s/def ::encounter
