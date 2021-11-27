@@ -840,37 +840,35 @@
         (patients/delete-ms-event! conn params')))))
 
 
-(s/def ::save-edss-encounter
+(s/def ::save-encounter
   (s/keys :req [:t_patient/patient_identifier
                 :t_encounter/date_time
-                :t_form_edss/edss_score
-                :t_form_ms_relapse/in_relapse
-                :t_ms_disease_course/id
                 :t_episode/id]
-          :opt [:t_encounter/id
-                :t_form_edss/id]))
+          :opt [:t_encounter/id                             ;; if we've saving an existing encounter
+                :t_encounter_template/id
+                :t_form_weight_height/id                    ;; if we're updating an existing form
+                :t_form_weight_height/height_metres
+                :t_form_weight_height/weight_kilogram
+                :t_form_edss/id                             ;; if we're updating an existing form
+                :t_form_edss/edss_score
+                :t_form_ms_relapse/id                       ;; if we're updating an existing form
+                :t_form_ms_relapse/in_relapse
+                :t_form_ms_relapse/ms_disease_course_fk]))
 
-(pco/defmutation save-edss-encounter!
+(pco/defmutation save-encounter!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
     user    :authenticated-user
     :as     env} params]
-  {::pco/op-name 'pc4.rsdb/save-edss-encounter}
-  (log/info "save edss encounter request: " params "user: " user)
-  (if-not (s/valid? ::save-edss-encounter params)
-    (do (log/error "invalid call" (s/explain-data ::save-edss-encounter params))
-        (throw (ex-info "Invalid data" (s/explain-data ::save-edss-encounter params))))
-    (let [patient-identifier (or (:t_patient/patient-identifier params)
-                                 (patients/patient-identifier-for-ms-event conn params))
+  {::pco/op-name 'pc4.rsdb/save-encounter}
+  (log/info "save encounter request: " params "user: " user)
+  (if-not (s/valid? ::save-encounter params)
+    (do (log/error "invalid call" (s/explain-data ::save-encounter params))
+        (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params))))
+    (let [patient-identifier (:t_patient/patient-identifier params)
           params' (assoc params :t_user/id (users/fetch-user conn (:value user)))] ;; TODO: need a better way than this...
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (let [encounter (patients/save-encounter! conn {:t_encounter/date_time             (:t_encounter_date/time params)
-                                                          :t_encounter/episode_fk            (:t_episode/id params)
-                                                          :t_encounter/encounter_template_fk (:t_encounter_template/id params)})]
-            (forms/save-form-edss! conn (assoc params' :t_encounter/id (:t_encounter/id encounter)))
-            (forms/save-form-ms-relapse! conn (assoc params' :t_encounter/id (:t_encounter/id encounter))))))))
-
-
+          (forms/save-encounter-with-forms! conn params')))))
 
 
 

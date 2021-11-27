@@ -39,7 +39,9 @@
   (:require [honey.sql :as sql]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [clojure.spec.alpha :as s]
-            [next.jdbc :as jdbc])
+            [next.jdbc :as jdbc]
+            [clojure.tools.logging.readable :as log]
+            [com.eldrix.pc4.server.rsdb.patients :as patients])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDateTime)))
 
@@ -186,8 +188,18 @@
                                           :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
 
 
-(s/def :t_form_edss/edss_score (set (keys edss-score->score)))
-(s/def :t_form_ms_relapse/in_relapse boolean?)
+(defn select-keys-by-namespace
+  "Like select-keys, but selects based on namespace.
+  Keys will be selected if there are not namespaced, or of the namespace
+  specified."
+  [m nspace]
+  (let [nspace' (name nspace)]
+    (reduce-kv (fn [a k v]
+                 (if (or (nil? (namespace k)) (= nspace' (namespace k)))
+                   (assoc a (name k) v) a)) {} m)))
+
+(defn some-keys-in-namespace? [nspace m]
+  (some #(= (name nspace) (namespace %)) (keys m)))
 
 (defn insert-form!
   "Inserts a form.
@@ -200,13 +212,14 @@
   This manages the form id safely, because the legacy WebObjects application
   uses horizontal inheritance so that the identifiers are generated from a
   sequence from 't_form'."
-  [conn form-name values]
-  (db/execute-one! conn (sql/format {:insert-into [form-name]
+  [conn table data]
+  (log/info "writing form" {:table table :data (select-keys-by-namespace data table)})
+  (db/execute-one! conn (sql/format {:insert-into [table]
                                      ;; note as this table uses legacy WO horizontal inheritance, we use t_form_seq to generate identifiers manually.
                                      :values      [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
                                                            :is_deleted   "false"
                                                            :date_created (LocalDateTime/now)}
-                                                          values)]})
+                                                          (select-keys-by-namespace data table))]})
                    {:return-keys true}))
 
 (defn count-forms [conn encounter-id form-name]
@@ -215,34 +228,77 @@
                                                     :where  [:and [:= :encounter_fk encounter-id]
                                                              [:<> :is_deleted "true"]]}))))
 
-(s/def ::save-form-edss
-  (s/keys :req [:t_encounter/id
-                :t_user/id
-                :t_form_edss/edss_score]
-          :opt [:t_form_edss/id]))
+(defn delete-all-forms!
+  "Delete all forms of the specific type 'table' from the encounter."
+  [conn table {encounter-id :t_encounter/id}]
+  (jdbc/execute-one! conn (sql/format {:update table
+                                       :where  [:and [:= :is_deleted "false"]
+                                                [:= :encounter_fk encounter-id]]
+                                       :set    {:is_deleted "true"}})))
 
-(defn save-form-edss!
-  [conn {form-edss-id :t_form_edss/id
-         encounter-id :t_encounter/id
-         user-id      :t_user/id
-         edss-score   :t_form_edss/edss_score
-         :as          data}]
-  (s/assert ::save-form-edss data)
-  (jdbc/with-transaction
-    [tx conn {:isolation :serializable}]
-    (when form-edss-id                                      ;; if we have an existing form, delete it, and then create a new form
-      (db/execute-one! tx (sql/format {:update [:t_form_edss]
-                                       :where  [:= :id form-edss-id]
-                                       :set    {:t_form_edss/is_deleted "true"}})))
-    (when-not (= 0 (count-forms tx encounter-id :t_form_edss)) ;; enforce user-space count of forms per encounter
-      (throw (ex-info "A form of this type already exists in the encounter" data)))
-    (insert-form! tx :t_form_edss {:t_form_edss/user_fk      user-id
-                                   :t_form_edss/encounter_fk encounter-id
-                                   :t_form_edss/edss_score   edss-score})))
+(defn delete-form!
+  [conn table data]
+  (when-let [id (get data (keyword (name table) "id"))]
+    (jdbc/execute-one! conn (sql/format {:update table
+                                         :where  [:= :id id]
+                                         :set    {:is_deleted "true"}}))))
 
-(defn save-form-ms-relapse! [conn data]
-  (throw (ex-info "not implemented " data))
-  )
+
+(s/def ::save-form (s/keys :req [:t_encounter/id
+                                 :t_user/id]))
+
+(defn save-form!
+  "Saves an arbitrary form. Designed for forms that permit only a single
+  instance per encounter.
+  Parameters:
+  - tx    : a database transaction
+  - table : form table, e.g. :t_form_edss
+  - data  : form data, e.g. {:t_form_edss/id 1 :t_form_edss/edss_score \"SCORE0_0\"}
+  - pred  : a predicate, optional, if the form has content
+
+  If the form does not have content as defined by pred, the existing form will
+  will be removed from the encounter. The default predicate simply looks for
+  keys for the table, except 'id'."
+  ([tx table data] (save-form! tx table data nil))
+  ([tx table data pred]
+   (when-not (s/valid? ::save-form data)
+     (throw (ex-info "Invalid parameters" (s/explain-data ::save-form data))))
+   (let [form-id-key (keyword (name table) "id")
+         pred' (if pred pred (partial some-keys-in-namespace? table))
+         encounter-id (:t_encounter/id data)
+         user-id (:t_user/id data)
+         data' (dissoc data form-id-key)                    ;; data without the identifier
+         has-data? (pred' data)]
+     (when (get data form-id-key)                           ;; when we have an existing form - delete it
+       (delete-form! tx table data))
+     (if has-data? (if-not (= 0 (count-forms tx encounter-id table)) ;; check we have no existing form...
+                     (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data}))
+                     (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id)))
+                   (log/info "skipping writing form; no data" {:table table :data data})))))
+
+
+(s/def ::save-encounter-with-forms (s/keys :req [:t_encounter/date_time
+                                                 :t_episode/id
+                                                 :t_patient/patient_identifier
+                                                 :t_encounter_template/id
+                                                 :t_user/id]))
+
+(defn save-encounter-with-forms!
+  [conn data]
+  (when-not (s/valid? ::save-encounter-with-forms data)
+    (throw (ex-info "Invalid parameters" (s/explain-data ::save-encounter-with-forms data))))
+  (jdbc/with-transaction [tx conn {:isolation :serializable}]
+    (let [encounter (patients/save-encounter! tx (merge (when (:t_encounter/id data) {:t_encounter/id (:t_encounter/id data)})
+                                                        {:t_encounter/date_time             (:t_encounter/date_time data)
+                                                         :t_encounter/episode_fk            (:t_episode/id data)
+                                                         :t_patient/patient_identifier      (:t_patient/identifier data)
+                                                         :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
+          data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
+      (save-form! tx :t_form_edss data')
+      (save-form! tx :t_form_ms_relapse data')
+      (save-form! tx :t_smoking_history data')
+      encounter)))
+
 
 (comment
   (require '[next.jdbc.connection])
@@ -252,4 +308,27 @@
 
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (encounters->form_ms_relapse conn encounters)
+  (com.eldrix.pc4.server.rsdb.patients/active-episodes conn 124010)
+  (all-active-encounter-ids conn 124010)
+  (com.eldrix.pc4.server.rsdb.patients/save-encounter! conn {:t_encounter/encounter_template_fk 1
+                                                             :t_encounter/episode_fk            48221
+                                                             :t_encounter/patient_fk            124010
+                                                             :t_encounter/date_time             (LocalDateTime/now)})
+  (save-form! conn :t_form_edss {:t_form_edss/edss_score "SCORE1_0"
+                                 :t_form_edss/id         244555
+                                 :t_user/id              1
+                                 :t_encounter/id         529783} :t_form_edss/edss_score)
+  (save-encounter-with-forms! conn {:t_encounter/id                               529792
+                                    :t_encounter/date_time                        (LocalDateTime/now)
+                                    :t_episode/id                                 48221
+                                    :t_patient/patient_identifier                 124010
+                                    :t_form_edss/edss_score                       "SCORE0_0"
+                                    :t_form_edss/id                               244573
+                                    :t_encounter_template/id                      1
+                                    :t_form_ms_relapse/in_relapse                 true
+                                    :t_form_ms_relapse/ms_disease_course_fk       5
+                                    :t_smoking_history/status                     "EX-SMOKER"
+                                    :t_smoking_history/current_cigarettes_per_day 0
+                                    :t_user/id                                    1})
+
   )

@@ -7,7 +7,8 @@
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.clods.core :as clods])
+            [com.eldrix.clods.core :as clods]
+            [clojure.spec.alpha :as s])
   (:import (java.time LocalDate LocalDateTime)))
 
 
@@ -312,13 +313,24 @@
                                                   :t_address/ignore_invalid_address "true"
                                                   :t_address/patient_fk             (:t_patient/id patient)})))))))
 
+(s/def ::save-encounter (s/keys :req [:t_encounter/encounter_template_fk
+                                      :t_encounter/episode_fk
+                                      :t_patient/patient_identifier
+                                      :t_encounter/date_time]
+                                :opt [:t_encounter/id]))
+
 (defn save-encounter!
-  "TODO: set encounter lock time on creation or edit...."
+  "Save an encounter. If there is no :t_encounter/id then a new encounter will
+  be created.
+  TODO: set encounter lock time on creation or edit...."
   [conn {encounter-id          :t_encounter/id
          encounter-template-id :t_encounter/encounter_template_fk
          episode-id            :t_encounter/episode_fk
+         patient-identifier    :t_patient/patient_identifier
          date-time             :t_encounter/date_time
          :as                   encounter}]
+  (when-not (s/valid? ::save-encounter encounter)
+    (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
   (if encounter-id
     (db/execute-one! conn (sql/format {:update [:t_encounter]
                                        :where  [:and
@@ -327,10 +339,14 @@
                                        :set    {:date_time             date-time
                                                 :encounter_template_fk encounter-template-id}})
                      {:return-keys true})
-    (next.jdbc.sql/insert! conn :t_encounter
-                           {:date_time             date-time
-                            :encounter_template_fk encounter-template-id
-                            :episode_fk            episode-id})))
+    (db/execute-one! conn (sql/format {:insert-into [:t_encounter]
+                                       :values      [{:date_time             date-time
+                                                      :encounter_template_fk encounter-template-id
+                                                      :patient_fk            {:select :t_patient/id
+                                                                              :from   [:t_patient]
+                                                                              :where  [:= :t_patient/patient_identifier patient-identifier]}
+                                                      :episode_fk            episode-id}]})
+                     {:return-keys true})))
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
