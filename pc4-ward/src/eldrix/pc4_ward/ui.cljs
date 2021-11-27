@@ -228,12 +228,14 @@
 
 
 (defn textfield-control
-  [value & {:keys [name label placeholder required auto-focus disabled on-change on-blur on-enter help-text]}]
+  [value & {:keys [name type label placeholder required auto-focus disabled on-change on-blur on-enter help-text] :or {type "text"}}]
   [:div
    (when label [:label.block.text-sm.font-medium.text-gray-600 {:for name} label])
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
-     {:name          name :type "text" :placeholder placeholder :required required
+     {:name          name
+      :type          type
+      :placeholder   placeholder :required required
       :class         (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
       :disabled      disabled
       :default-value value
