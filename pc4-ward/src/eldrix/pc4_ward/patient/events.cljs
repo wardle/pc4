@@ -63,7 +63,8 @@
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
                                              :t_ms_diagnosis/name]}
-     :t_patient/episodes]))
+     :t_patient/episodes
+     :t_patient/results]))
 
 (defn make-search-by-legacy-pseudonym
   [project-id pseudonym]
