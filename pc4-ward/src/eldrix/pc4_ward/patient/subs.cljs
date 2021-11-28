@@ -93,3 +93,11 @@
          (filter #(or (:t_encounter/form_edss %) (:t_encounter/form_edss_fs %)))
          reverse
          first)))
+
+(rf/reg-sub ::results
+  (fn [_]
+    (rf/subscribe [::current]))
+  (fn [patient]
+    (->> (:t_patient/results patient)
+         (sort-by #(if-let [date (:t_result/date %)] (.valueOf date) 0))
+         reverse)))
