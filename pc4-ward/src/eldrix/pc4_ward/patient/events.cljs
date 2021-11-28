@@ -15,6 +15,7 @@
    :t_patient/date_birth
    :t_patient/status
    :t_patient/date_death
+   :t_patient/death_certificate
    {:t_patient/address [:uk.gov.ons.nhspd/LSOA11
                         :t_address/lsoa]}])
 
@@ -419,6 +420,14 @@
   []
   (fn [{db :db} [_ result]]
     {:fx [[:pathom {:params     [(list 'pc4.rsdb/delete-result result)]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
+(rf/reg-event-fx ::notify-death
+  []
+  (fn [{db :db} [_ params]]
+    {:fx [[:pathom {:params     [(list 'pc4.rsdb/notify-death params)]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))

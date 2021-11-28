@@ -195,6 +195,50 @@
                   {:on-click #(do (reset! mode :inspect) (reset! postcode ""))}
                   "Cancel"]])))))
 
+(defn inspect-edit-death-certificate [patient]
+  (let [mode (reagent.core/atom :inspect)
+        data (reagent.core/atom {})]
+    (fn [patient]
+      (let [date_death (:t_patient/date_death patient)
+            certificate (:t_patient/death_certificate patient)]
+        (case @mode
+          :inspect [:<>
+                    [:p (if-not date_death "Alive"
+                                           [:<> [:span "Died " (dates/format-date date_death)]
+                                            [:ul.mt-4.ml-4
+                                             (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
+                                             (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
+                                             (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
+                                             (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
+                    [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded.mt-4
+                     {:on-click #(do (reset! data (merge (select-keys patient [:t_patient/patient_identifier :t_patient/date_death])
+                                                         (:t_patient/death_certificate patient)))
+                                     (reset! mode :edit))} "Edit"]]
+          :edit [:<>
+                 [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+                  [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-death"} "Date death"]
+                  [:div.mt-1.sm:mt-0.sm:col-span-2
+                   [ui/html-date-picker :name "date-death" :value (:t_patient/date_death patient)
+                    :on-change #(swap! data assoc :t_patient/date_death %)]]]
+                 [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+                  [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 "Cause of death"]
+                  [:div.mt-1.sm:mt-0.sm:col-span-2
+                   [ui/textfield-control (:t_death_certificate/part1a certificate)
+                    :name "1a" :disabled (not (:t_patient/date_death @data))
+                    :on-change #(swap! data assoc :t_death_certificate/part1a %)]]]
+                 [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded
+                  {:on-click #(do (reset! mode :inspect)
+                                  (tap> {:death-data @data})
+                                  (rf/dispatch [::patient-events/notify-death (merge
+                                                                                {:t_patient/patient_identifier (:t_patient/patient_identifier patient)
+                                                                                 :t_patient/date_death         nil}
+                                                                                @data)]))}
+                  "Save"]
+                 [:button.ml-2.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
+                  {:on-click #(do (reset! mode :inspect) (reset! data {}))}
+                  "Cancel"]
+                 ])))))
+
 (defn multiple-sclerosis-main []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
         most-recent-edss-encounter @(rf/subscribe [::patient-subs/most-recent-edss-encounter])
@@ -234,7 +278,12 @@
                      (get-in current-patient [:t_patient/address :t_address/lsoa]))
           :on-change #(do (println "Setting LSOA to " %)
                           (rf/dispatch [::patient-events/save-pseudonymous-postcode {:t_patient/patient_identifier (:t_patient/patient_identifier current-patient)
-                                                                                     :uk.gov.ons.nhspd/PCD2        %}]))]]]]]]))
+                                                                                     :uk.gov.ons.nhspd/PCD2        %}]))]]]
+       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+        [:dt.text-sm.font-medium.text-gray-500 "Vital status"]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2
+         [inspect-edit-death-certificate current-patient]]]
+       ]]]))
 
 
 (defn edit-diagnosis
