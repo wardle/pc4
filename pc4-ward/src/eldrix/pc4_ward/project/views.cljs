@@ -543,7 +543,7 @@
    "SCORE7_5" "SCORE8_0" "SCORE8_5" "SCORE9_0" "SCORE9_5" "SCORE10_0"
    "SCORE_LESS_THAN_4"])
 
-(def smoking-status-choices #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX-SMOKER"})
+(def smoking-status-choices #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
 
 (s/def :t_encounter/patient_fk number?)
 (s/def :t_form_ms_relapse/in_relapse boolean?)
