@@ -925,7 +925,7 @@
   (log/info "delete encounter:" encounter-id " user:" user)
   (if-not (s/valid? ::delete-encounter params)
     (do (log/error "invalid delete encounter" (s/explain-data ::delete-encounter params))
-        (throw (ex-info "Invalid delete encounter data:" (s/explain-data ::delete-encounter params))))
+        (throw (ex-info "Invalid 'delete encounter' data:" (s/explain-data ::delete-encounter params))))
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (patients/delete-encounter! conn encounter-id))))
 
