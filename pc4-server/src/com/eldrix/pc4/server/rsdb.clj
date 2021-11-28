@@ -36,6 +36,10 @@
 (s/def :info.snomed.Concept/id (s/and int? com.eldrix.hermes.verhoeff/valid?))
 ;;
 ;;
+(s/def :t_death_certificate/part1a (s/nilable string?))
+(s/def :t_death_certificate/part1b (s/nilable string?))
+(s/def :t_death_certificate/part1c (s/nilable string?))
+(s/def :t_death_certificate/part2 (s/nilable string?))
 (s/def :t_diagnosis/id int?)
 (s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
@@ -60,6 +64,7 @@
 (s/def :t_patient/id int?)
 (s/def :t_patient/patient_identifier int?)
 (s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :t_patient/date_death (s/nilable #(instance? LocalDate %)))
 (s/def :t_user/id int?)
 (s/def :t_smoking_history/id int?)
 (s/def :t_smoking_history/current_cigarettes_per_day int?)
@@ -151,8 +156,17 @@
   {::pco/output [{:t_patient/surgery [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
 
+(pco/defresolver patient->death_certificate
+  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
+  {::pco/output [{:t_patient/death_certificate [:t_death_certificate/part1a
+                                                :t_death_certificate/part1b
+                                                :t_death_certificate/part1c
+                                                :t_death_certificate/part2]}]}
+  (when-let [certificate (patients/fetch-death-certificate conn patient-pk)]
+    {:t_patient/death_certificate certificate}))
+
 (pco/defresolver patient->diagnoses
-  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/diagnoses [:t_diagnosis/concept_fk
                                         {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
                                         :t_diagnosis/date_diagnosis
@@ -165,7 +179,7 @@
                                         :t_diagnosis/full_description]}]}
   (let [diagnoses (db/execute! conn (sql/format {:select [:*]
                                                  :from   [:t_diagnosis]
-                                                 :where  [:= :patient_fk patient-id]}))]
+                                                 :where  [:= :patient_fk patient-pk]}))]
     {:t_patient/diagnoses
      (map #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
 
@@ -848,7 +862,7 @@
   (if-not (s/valid? ::save-ms-event params)
     (do (log/error "invalid call" (s/explain-data ::save-ms-event params))
         (throw (ex-info "Invalid data" (s/explain-data ::save-ms-event params))))
-    (let [patient-identifier (or (:t_patient/patient-identifier params)
+    (let [patient-identifier (or (:t_patient/patient_identifier params)
                                  (patients/patient-identifier-for-ms-event conn params))]
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
           (patients/save-ms-event! conn (-> params
@@ -911,11 +925,27 @@
     (when-not (s/valid? ::save-encounter params')
       (log/error "invalid call" (s/explain-data ::save-encounter params'))
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
-    (do (guard-can-for-patient? env (:t_patient/patient-identifier params) :PATIENT_EDIT)
+    (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
         (forms/save-encounter-with-forms! conn params'))))
 
-(s/def ::save-result (s/keys :req [:t_patient/patient_identifier]))
+(s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+(pco/defmutation delete-encounter!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env}
+   {encounter-id       :t_encounter/id
+    patient-identifier :t_patient/patient_identifier :as params}]
+  {::pco/op-name 'pc4.rsdb/delete-encounter}
+  (log/info "delete encounter:" encounter-id " user:" user)
+  (if-not (s/valid? ::delete-encounter params)
+    (do (log/error "invalid delete encounter" (s/explain-data ::delete-encounter params))
+        (throw (ex-info "Invalid 'delete encounter' data:" (s/explain-data ::delete-encounter params))))
+    (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+        (patients/delete-encounter! conn encounter-id))))
 
+
+(s/def ::save-result (s/keys :req [:t_patient/patient_identifier]))
 (pco/defmutation save-result!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
@@ -942,22 +972,25 @@
   (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
       (results/delete-result! conn params)))
 
-(s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
-
-(pco/defmutation delete-encounter!
+(s/def ::notify-death (s/keys :req [:t_patient/patient_identifier
+                                    :t_patient/date_death]
+                              :opt [:t_death_certificate/part1a
+                                    :t_death_certificate/part1b
+                                    :t_death_certificate/part1c
+                                    :t_death_certificate/part2]))
+(pco/defmutation notify-death!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
     user    :authenticated-user
     :as     env}
-   {encounter-id       :t_encounter/id
-    patient-identifier :t_patient/patient_identifier :as params}]
-  {::pco/op-name 'pc4.rsdb/delete-encounter}
-  (log/info "delete encounter:" encounter-id " user:" user)
-  (if-not (s/valid? ::delete-encounter params)
-    (do (log/error "invalid delete encounter" (s/explain-data ::delete-encounter params))
-        (throw (ex-info "Invalid 'delete encounter' data:" (s/explain-data ::delete-encounter params))))
-    (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-        (patients/delete-encounter! conn encounter-id))))
+   {patient-identifier :t_patient/patient_identifier :as params}]
+  {::pco/op-name 'pc4.rsdb/notify-death}
+  (log/info "notify death request: " params "user: " user)
+  (when-not (s/valid? ::notify-death params)
+    (throw (ex-info "Invalid notify-death request" (s/explain-data ::notify-death params))))
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (patients/notify-death! conn params))
+
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
@@ -992,6 +1025,7 @@
    patient->racial-group
    patient->occupation
    patient->surgery
+   patient->death_certificate
    patient->diagnoses
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
@@ -1054,7 +1088,8 @@
    save-encounter!
    delete-encounter!
    save-result!
-   delete-result!])
+   delete-result!
+   notify-death!])
 
 (comment
   (require '[next.jdbc.connection])

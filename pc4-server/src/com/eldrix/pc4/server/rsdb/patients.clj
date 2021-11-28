@@ -48,6 +48,11 @@
    (->> (fetch-episodes conn patient-identifier)
         (filter #(contains? #{:referred :registered} (projects/episode-status % on-date))))))
 
+(defn fetch-death-certificate [conn patient-pk]
+  (jdbc/execute-one! conn (sql/format {:select [:*]
+                                       :from   [:t_death_certificate]
+                                       :where  [:= :patient_fk patient-pk]})))
+
 (defn active-project-identifiers
   "Returns a set of project identifiers representing the projects to which
   the patient belongs.
@@ -369,6 +374,50 @@
                                      :where  [:= :id encounter-id]
                                      :set    {:t_encounter/is_deleted "true"}})))
 
+
+(defn set-date-death [conn patient-pk date_death]
+  (jdbc/execute-one! conn (sql/format {:update [:t_patient]
+                                       :where  [:= :id patient-pk]
+                                       :set    {:date_death date_death}})))
+
+(s/def ::notify-death (s/keys :req [:t_patient/patient_identifier
+                                    :t_patient/date_death]
+                              :opt [:t_death_certificate/part1a
+                                    :t_death_certificate/part1b
+                                    :t_death_certificate/part1c
+                                    :t_death_certificate/part2]))
+
+(defn notify-death!
+  [conn {:t_patient/keys           [patient_identifier date_death]
+         :t_death_certificate/keys [part1a part1b part1c part2]}]
+  (jdbc/with-transaction
+    [tx conn {:isolation :serializable}]
+    (let [patient-pk (patient-identifier->pk tx patient_identifier)
+          existing-certificate (fetch-death-certificate tx patient-pk)]
+      (cond
+        (and date_death existing-certificate)
+        (do (set-date-death tx patient-pk date_death)
+            (jdbc/execute-one! tx (sql/format {:update [:t_death_certificate]
+                                               :where  [:= :id (:t_death_certificate/id existing-certificate)]
+                                               :set    {:t_death_certificate/part1a part1a
+                                                        :t_death_certificate/part1b part1b
+                                                        :t_death_certificate/part1c part1c
+                                                        :t_death_certificate/part2  part2}})))
+        date_death
+        (do (set-date-death tx patient-pk date_death)
+            (jdbc/execute-one! tx (sql/format {:insert-into :t_death_certificate
+                                               :values      [{:t_death_certificate/patient_fk patient-pk
+                                                             :t_death_certificate/part1a     part1a
+                                                             :t_death_certificate/part1b     part1b
+                                                             :t_death_certificate/part1c     part1c
+                                                             :t_death_certificate/part2      part2}]})))
+        :else
+        (do (set-date-death tx patient-pk nil)
+            (jdbc/execute-one! tx (sql/format {:delete-from [:t_death_certificate]
+                                               :where       [:= :t_death_certificate/patient_fk patient-pk]})))))))
+
+
+
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))
   (patient-identifier-for-ms-event conn 7563)
@@ -401,4 +450,6 @@
   (save-encounter! conn {:t_encounter/date_time             (LocalDateTime/now)
                          :t_encounter/episode_fk            48224
                          :t_encounter/encounter_template_fk 469})
+  (notify-death! conn {:t_patient/patient_identifier 124010
+                       :t_patient/date_death         (LocalDate/now)})
   )
