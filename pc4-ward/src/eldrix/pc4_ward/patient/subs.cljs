@@ -76,8 +76,20 @@
     (when project-id
       (first (filter #(= project-id (:t_episode/project_fk %)) episodes)))))
 
-(rf/reg-sub ::all-edss
+(rf/reg-sub ::active-encounters
   (fn [_]
-    (rf/subscribe [::current]))
-  (fn [current-patient]
-    (:t_patient/t_form_edss current-patient)))
+    (rf/subscribe [::encounters]))
+  (fn [encounters]
+    (->> encounters
+         (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+         (filter :t_encounter/active)
+         reverse)))
+
+(rf/reg-sub ::most-recent-edss-encounter
+  (fn [_]
+    (rf/subscribe [::active-encounters]))
+  (fn [encounters]
+    (->> encounters
+         (filter #(or (:t_encounter/form_edss %) (:t_encounter/form_edss_fs %)))
+         reverse
+         first)))

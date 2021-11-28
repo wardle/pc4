@@ -196,7 +196,9 @@
                   "Cancel"]])))))
 
 (defn multiple-sclerosis-main []
-  (let [current-patient @(rf/subscribe [::patient-subs/current])]
+  (let [current-patient @(rf/subscribe [::patient-subs/current])
+        most-recent-edss-encounter @(rf/subscribe [::patient-subs/most-recent-edss-encounter])
+        _ (tap> {:most-recent most-recent-edss-encounter})]
     [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
      [ui/section-heading "Neuro-inflammatory disease"]
      [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
@@ -212,13 +214,15 @@
 
        [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Most recent EDSS"]
-        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
+        [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2
+         (or (get-in most-recent-edss-encounter [:t_encounter/form_edss :t_form_edss/edss_score])
+             (get-in most-recent-edss-encounter [:t_encounter/form_edss_fs :t_form_edss_fs/edss_score]))]]
 
-       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+       #_[:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Number of relapses in last 2 years"]
         [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
 
-       [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
+       #_[:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Number of relapses in last year"]
         [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2 0]]
 
@@ -740,9 +744,7 @@
     (fn []
       (let [current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
-            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
-                                   (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
-                                   reverse)
+            sorted-encounters []
             default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
             active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
             editing-encounter' @editing-encounter
@@ -800,9 +802,7 @@
     (fn []
       (let [current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
-            sorted-encounters (->> @(rf/subscribe [::patient-subs/all-edss])
-                                   (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
-                                   reverse)
+            sorted-encounters []
             default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
             active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
             editing-encounter' @editing-encounter
