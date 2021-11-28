@@ -243,7 +243,8 @@
       :on-change     #(when on-change (let [v (-> % .-target .-value)]
                                         (on-change (if (str/blank? v) nil v))))
       :on-blur       #(when on-blur (on-blur))
-      :on-key-down   #(when (and on-enter (= 13 (.-which %))) (on-enter))}]
+      :on-key-down   #(when (and on-enter (= 13 (.-which %))) (on-enter))
+      :on-wheel #(when (= type "number") (-> % .-target .blur))}]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn select
