@@ -385,7 +385,7 @@
                           (assoc :t_form_ms_relapse/ms_disease_course_fk (:t_ms_disease_course/id params))
                           (and (:t_form_edss/edss_score params) (not (:t_form_ms_relapse/in_relapse params)))
                           (assoc :t_form_ms_relapse/in_relapse false)
-                          (and (nil? (:t_ms_disease_course/id params))      ;; this would be better as a database default value!
+                          (and (nil? (:t_ms_disease_course/id params)) ;; this would be better as a database default value!
                                (or (:t_form_edss/edss_score params)
                                    (not (nil? (:t_form_ms_relapse/in_relapse params)))))
                           (assoc :t_form_ms_relapse/ms_disease_course_fk 1)
@@ -400,9 +400,25 @@
 
 (rf/reg-event-fx ::delete-encounter
   []
-  (fn [{db :db} [_ {encounter-id :t_encounter/id patient-identifier :t_patient/patient_identifier }]]
+  (fn [{db :db} [_ {encounter-id :t_encounter/id patient-identifier :t_patient/patient_identifier}]]
     (js/console.log "deleting encounter" encounter-id)
     {:fx [[:pathom {:params     [(list 'pc4.rsdb/delete-encounter {:t_encounter/id encounter-id :t_patient/patient_identifier patient-identifier})]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
+(rf/reg-event-fx ::save-result
+  []
+  (fn [{db :db} [_ result]]
+    {:fx [[:pathom {:params     [(list 'pc4.rsdb/save-result result)]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
+(rf/reg-event-fx ::delete-result
+  []
+  (fn [{db :db} [_ result]]
+    {:fx [[:pathom {:params     [(list 'pc4.rsdb/delete-result result)]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))

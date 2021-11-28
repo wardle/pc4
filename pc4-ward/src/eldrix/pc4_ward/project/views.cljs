@@ -737,37 +737,74 @@
                                                       (:t_encounter/form_smoking_history encounter))))]]))))
 
 
-(s/def ::result (s/keys :req [:t_result/date]))
+(s/def ::mri-brain-result (s/keys :req [:t_result_mri_brain/date
+                                        :t_patient/patient_identifier]))
 
-(defn edit-result [result & {:keys [on-change]}]
+(defn edit-mri-brain-result [result & {:keys [on-change]}]
   [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div
      [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "MRI brain"]]]]
       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
-        [ui/html-date-picker :name "date" :value (:t:result/date result)
-         :on-change #(on-change (assoc result :t_result/date_time %))]]]]
+        [ui/html-date-picker :name "date" :value (:t_result_mri_brain/date result)
+         :on-change #(on-change (assoc result :t_result_mri_brain/date %))]]]]
+     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "report"} "Report"]
+      [:div.mt-1.sm:mt-0.sm:col-span-2
+       [ui/textarea :name "report"
+        :value (:t_result_mri_brain/report result)
+        :on-change #(on-change (assoc result :t_result_mri_brain/report %))]]]
      ]]])
+
+(def supported-results
+  [{:t_result_type/name "MRI brain"
+    :t_result_type/id   9
+    ::editor            edit-mri-brain-result
+    ::spec              ::mri-brain-result
+    ::initial-data      {:t_result_mri_brain/with_gadolinium false}}
+   {:t_result_type/name "CSF OCB"
+    :t_result_type/id   8}
+   {:t_result_type/name "JC virus"
+    :t_result_type/id   14}])
+
+(def results-lookup (zipmap (map :t_result_type/id supported-results) supported-results))
+
+(defn editor-for-result [result]
+  (get-in results-lookup [(:t_result_type/id result) ::editor]))
+
+(defn spec-for-result [result]
+  (get-in results-lookup [(:t_result_type/id result) ::spec]))
+
+(defn initial-data-for-result [result]
+  (get-in results-lookup [(:t_result_type/id result) ::initial-data]))
 
 (defn list-investigations
   "This shows a list of investigations"
   []
-  (let [editing-result (reagent.core/atom nil)]
+  (let [editing-result (reagent.core/atom nil)
+        new-result (reagent.core/atom (first supported-results))]
     (fn []
       (let [current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
             sorted-results @(rf/subscribe [::patient-subs/results])
             editing-result' @editing-result
-            valid? (s/valid? ::result editing-result')
-            _ (tap> {:editing-encounter editing-result'
-                     :valid?            valid?
-                     :problems          (s/explain-data ::result editing-result')})]
+            new-result' @new-result
+            editor (editor-for-result editing-result')
+            spec (spec-for-result editing-result')
+            valid? (when spec (s/valid? spec editing-result'))
+            _ (tap> {:editing-result editing-result'
+                     :valid?         valid?
+                     :problems       (when spec (s/explain-data spec editing-result'))})]
         [:<>
-         (when editing-result'
+         (when (and editing-result' editor)
            [ui/modal
-            :content [edit-result editing-result' :on-change #(reset! editing-result %)]
+            :content [editor editing-result' :on-change #(reset! editing-result %)]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
@@ -785,18 +822,28 @@
                        :on-click #(reset! editing-result nil)}]
             :on-close #(reset! editing-result nil)])
          [ui/section-heading "Investigations"
-          :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
-                    {:on-click #(reset! editing-result {:t_patient/patient_identifier (:t_patient/patient_identifier current-patient)})}
-                    "Add investigation"]]
+          :buttons
+          [:div.grid.grid-cols-2
+           [:div.col-span-1
+            [ui/select :value new-result' :choices supported-results :display-key :t_result_type/name :id-key :t_result_type/id
+             :select-fn #(reset! new-result %)]]
+           [:div.col-span-1
+            [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+             {:on-click #(reset! editing-result
+                                 (merge
+                                   (initial-data-for-result new-result')
+                                   {:t_result_type/id             (:t_result_type/id new-result')
+                                    :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)}))}
+             (str "Add " (:t_result_type/name new-result'))]]]]
          [ui/list-entities-fixed
           :items sorted-results
           :headings ["Date" "Investigation" "Result"]
           :width-classes {"Date" "w-1/6" "Investigation" "w-1/6" "Result" "w-4/6"}
-          :id-key :t_encounter/id
+          :id-key :t_result/id
           :value-keys [#(dates/format-date (:t_result/date %))
                        :t_result_type/name
                        :t_result/summary]
-          :on-edit (fn [result] (reset! editing-result result))]]))))
+          :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
 
 (defn list-admissions
   "This shows a list of investigations"
@@ -878,9 +925,9 @@
    {:id        :investigations
     :title     "Investigations"
     :component list-investigations}
-   {:id        :admissions
-    :title     "Admissions"
-    :component list-admissions}])
+   #_{:id        :admissions
+      :title     "Admissions"
+      :component list-admissions}])
 
 (def menu-by-id (reduce (fn [acc v] (assoc acc (:id v) v)) {} neuro-inflammatory-menus))
 
