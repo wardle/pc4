@@ -59,7 +59,9 @@
 (s/def :t_patient/patient_identifier int?)
 (s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
 (s/def :t_user/id int?)
-
+(s/def :t_smoking_history/id int?)
+(s/def :t_smoking_history/current_cigarettes_per_day int?)
+(s/def :t_smoking_history/status #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
 ;;
 ;;
 (s/def ::user-id int?)
@@ -875,7 +877,10 @@
                 :t_form_edss/edss_score
                 :t_form_ms_relapse/id                       ;; if we're updating an existing form
                 :t_form_ms_relapse/in_relapse
-                :t_form_ms_relapse/ms_disease_course_fk]))
+                :t_form_ms_relapse/ms_disease_course_fk
+                :t_smoking_history/id
+                :t_smoking_history/current_cigarettes_per_day
+                :t_smoking_history/status]))
 
 (pco/defmutation save-encounter!
   [{conn    :com.eldrix.rsdb/conn
