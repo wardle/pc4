@@ -279,7 +279,7 @@
          encounter-id (:t_encounter/id data)
          user-id (:t_user/id data)
          data' (dissoc data form-id-key)                    ;; data without the identifier
-         has-data? (pred' data)]
+         has-data? (pred' data')]
      (when (get data form-id-key)                           ;; when we have an existing form - delete it
        (delete-form! tx table data))
      (if has-data? (if-not (= 0 (count-forms tx encounter-id table)) ;; check we have no existing form...
