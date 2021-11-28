@@ -452,6 +452,17 @@
                                                              :order-by [[:date_time :desc]]}))
                               (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
+(pco/defresolver patient->results
+  [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
+  {::pco/output [{:t_patient/results [:t_result_mri_brain/date
+                                      :t_result_mri_brain/report
+                                      :t_result_mri_brain/with_gadolinium
+                                      :t_result_jc_virus/date
+                                      :t_result_jc_virus/jc_virus
+                                      :t_result_csf_ocb/date
+                                      :t_result_csf_ocb/result]}]}
+  {:t_patient/results (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)})
+
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
@@ -985,6 +996,7 @@
    encounter->form_ms_relapse
    encounter->form_weight_height
    encounter->form_smoking
+   patient->results
    user-by-username
    user-by-id
    user-by-nadex
