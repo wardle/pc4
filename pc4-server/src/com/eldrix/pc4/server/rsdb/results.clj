@@ -45,11 +45,14 @@
   runtime 'result_type' identifier. This list of 'magic' identifiers is here
   for currently supported types."
   {:t_result_mri_brain {:t_result_type/id 9
-                        ::spec            ::t_result_mri_brain}
+                        ::spec            ::t_result_mri_brain
+                        ::summary         :t_result_mri_brain/report}
    :t_result_jc_virus  {:t_result_type/id 14
-                        ::spec            ::t_result_jc_virus}
+                        ::spec            ::t_result_jc_virus
+                        ::summary         :t_result_jc_virus/jc_virus}
    :t_result_csf_ocb   {:t_result_type/id 8
-                        ::spec            ::t_result_csf_ocb}})
+                        ::spec            ::t_result_csf_ocb
+                        ::summary         :t_result_csf_ocb/result}})
 
 (def supported-types (keys result->types))
 
@@ -76,6 +79,10 @@
       (s/explain-data spec result)
       {:message "Invalid result data: unsupported type"
        :result  result})))
+
+(defn make-summary [rtype result]
+  (when-let [summary-key (::summary (get result->types rtype))]
+    (summary-key result)))
 
 (defn ^:private -insert-result!
   "Inserts a result
@@ -122,14 +129,18 @@
 
 (defn ^:private -results-from-table
   [conn patient-identifier table]
-  (let [date-key (keyword (name table) "date")]
-    (->> (db/execute! conn (sql/format {:select [:*]
-                                        :from   [table]
+  (let [id-key (keyword (name table) "id")
+        date-key (keyword (name table) "date")]
+    (->> (db/execute! conn (sql/format {:select    [:*]
+                                        :from      [table]
                                         :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
-                                        :where  [:and
-                                                 [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
-                                                 [:<> :is_deleted "true"]]}))
-         (map #(assoc % :t_result/date (get % date-key))))))
+                                        :where     [:and
+                                                    [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                                    [:<> :is_deleted "true"]]}))
+         (map #(assoc %
+                 :t_result/id (get % id-key)
+                 :t_result/date (get % date-key)
+                 :t_result/summary (make-summary table %))))))
 
 (defn results-for-patient
   "Returns all of the results for a patient by patient-identifier."
