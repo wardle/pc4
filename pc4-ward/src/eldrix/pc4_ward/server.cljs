@@ -61,7 +61,7 @@
 (defn make-xhrio-request
   [{:keys [token timeout _params _on-success _on-failure] :as opts :or {timeout 3000}}]
   (merge {:method          :post
-          :uri             "https://localhost:8080/api" ;"https://patientcare.app:8000/api"
+          :uri             "https://patientcare.app:8000/api" ; "https://localhost:8080/api" ;
           :timeout         timeout
           :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
           :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
@@ -115,7 +115,7 @@
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
-  (ajax/POST "http://localhost:8080/api" (make-xhrio-request opts)))
+  (ajax/POST "https://patientcare.app:8080/api" (make-xhrio-request opts)))
 
 (defn default-error-handler [x]
   (js/console.log "error in request: " x))
@@ -143,7 +143,7 @@
   [{:keys [on-success on-failure timeout token] :or {timeout 10000} :as request}]
   (let [xhrio (new goog.net.XhrIo)]
     (-> (merge {:method          :post
-                :uri             "http://localhost:8080/api" ;"https://patientcare.app:8080/api"
+                :uri             "https://patientcare.app:8080/api" ; "http://localhost:8080/api"
                 :timeout         timeout
                 :format          (ajax-transit/transit-request-format
                                    {:handlers
