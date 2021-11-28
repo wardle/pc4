@@ -104,7 +104,15 @@
 (defn pk->identifier
   "Turn a single patient primary key into a patient identifier."
   [conn pk]
-  (:t_patient/patient_identifier (next.jdbc.plan/select-one! conn [:t_patient/patient_identifier] (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
+  (:t_patient/patient_identifier
+    (next.jdbc.plan/select-one! conn [:t_patient/patient_identifier]
+                                (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
+
+(defn patient-identifier->pk
+  "Turn a single patient patient identifier into the primary key."
+  [conn patient-identifier]
+  (:t_patient/id
+    (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
 
 (defn patient-pks-on-medications-sql
   [medication-concept-ids]
