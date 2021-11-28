@@ -737,10 +737,10 @@
                                                       (:t_encounter/form_smoking_history encounter))))]]))))
 
 
-(s/def ::mri-brain-result (s/keys :req [:t_result_mri_brain/date
+(s/def ::result-mri-brain (s/keys :req [:t_result_mri_brain/date
                                         :t_patient/patient_identifier]))
 
-(defn edit-mri-brain-result [result & {:keys [on-change]}]
+(defn edit-result-mri-brain [result & {:keys [on-change]}]
   [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div
@@ -762,16 +762,74 @@
         :on-change #(on-change (assoc result :t_result_mri_brain/report %))]]]
      ]]])
 
+(def ocb-results #{"POSITIVE" "PAIRED" "NEGATIVE" "EQUIVOCAL"})
+(s/def :t_result_csf_ocb/result ocb-results)
+(s/def ::result-csf-ocb (s/keys :req [:t_result_csf_ocb/date
+                                      :t_result_csf_ocb/result]))
+
+(defn edit-result-csf-ocb [result & {:keys [on-change]}]
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "CSF oligoclonal bands"]]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_result_csf_ocb/date result)
+         :on-change #(on-change (assoc result :t_result_csf_ocb/date %))]]]]
+     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "result"} "Result"]
+      [:div.mt-1.sm:mt-0.sm:col-span-2
+       (ui/select :value (:t_result_csf_ocb/result result)
+                  :choices ocb-results
+                  :no-selection-string ""
+                  :select-fn #(on-change (assoc result :t_result_csf_ocb/result %)))]]]]])
+
+(def jc-virus-results #{"POSITIVE" "NEGATIVE"})
+(s/def :t_result_jc_virus/jc_virus jc-virus-results)
+(s/def ::result-jc-virus (s/keys :req [:t_result_jc_virus/date
+                                       :t_result_jc_virus/jc_virus]))
+(defn edit-result-jc-virus [result & {:keys [on-change]}]
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "JC virus"]]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_result_jc_virus/date result)
+         :on-change #(on-change (assoc result :t_result_jc_virus/date %))]]]]
+     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "result"} "Result"]
+      [:div.mt-1.sm:mt-0.sm:col-span-2
+       (ui/select :value (:t_result_jc_virus/jc_virus result)
+                  :choices jc-virus-results
+                  :no-selection-string ""
+                  :select-fn #(on-change (assoc result :t_result_jc_virus/jc_virus %)))]]]]])
+
+
 (def supported-results
   [{:t_result_type/name "MRI brain"
     :t_result_type/id   9
-    ::editor            edit-mri-brain-result
-    ::spec              ::mri-brain-result
+    ::editor            edit-result-mri-brain
+    ::spec              ::result-mri-brain
     ::initial-data      {:t_result_mri_brain/with_gadolinium false}}
    {:t_result_type/name "CSF OCB"
-    :t_result_type/id   8}
+    :t_result_type/id   8
+    ::editor            edit-result-csf-ocb
+    ::spec              ::result-csf-ocb}
    {:t_result_type/name "JC virus"
-    :t_result_type/id   14}])
+    :t_result_type/id   14
+    ::editor            edit-result-jc-virus
+    ::spec              ::result-jc-virus}])
 
 (def results-lookup (zipmap (map :t_result_type/id supported-results) supported-results))
 
