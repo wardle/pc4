@@ -397,6 +397,15 @@
                       :on-success [::handle-save-diagnosis]
                       :on-failure [::handle-failure-response]}]]})))
 
+(rf/reg-event-fx ::delete-encounter
+  []
+  (fn [{db :db} [_ {encounter-id :t_encounter/id patient-identifier :t_patient/patient_identifier }]]
+    (js/console.log "deleting encounter" encounter-id)
+    {:fx [[:pathom {:params     [(list 'pc4.rsdb/delete-encounter {:t_encounter/id encounter-id :t_patient/patient_identifier patient-identifier})]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

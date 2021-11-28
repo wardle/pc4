@@ -101,6 +101,11 @@
     #{}
     (jdbc/plan conn (sql/format {:select :patient_identifier :from :t_patient :where [:in :id pks]}))))
 
+(defn pk->identifier
+  "Turn a single patient primary key into a patient identifier."
+  [conn pk]
+  (:t_patient/patient_identifier (next.jdbc.plan/select-one! conn [:t_patient/patient_identifier] (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
+
 (defn patient-pks-on-medications-sql
   [medication-concept-ids]
   (sql/format {:select-distinct :patient_fk
@@ -348,6 +353,13 @@
                                                                               :where  [:= :t_patient/patient_identifier patient-identifier]}
                                                       :episode_fk            episode-id}]})
                      {:return-keys true})))
+
+
+(defn delete-encounter!
+  [conn encounter-id]
+  (db/execute-one! conn (sql/format {:update [:t_encounter]
+                                     :where  [:= :id encounter-id]
+                                     :set    {:t_encounter/is_deleted "true"}})))
 
 (comment
   (patients-in-projects-sql [1 3 32] (LocalDate/now))

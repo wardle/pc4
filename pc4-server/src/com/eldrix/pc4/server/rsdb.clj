@@ -45,6 +45,7 @@
 (s/def :t_encounter/episode_fk int?)
 (s/def :t_encounter/date_time #(instance? LocalDateTime %))
 (s/def :t_encounter/id int?)
+(s/def :t_encounter/patient_fk int?)
 (s/def :t_encounter/encounter_template_fk int?)
 
 (s/def :t_episode/id int?)
@@ -899,6 +900,24 @@
     (do (guard-can-for-patient? env (:t_patient/patient-identifier params) :PATIENT_EDIT)
         (forms/save-encounter-with-forms! conn params'))))
 
+
+(s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+
+(pco/defmutation delete-encounter!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env}
+   {encounter-id       :t_encounter/id
+    patient-identifier :t_patient/patient_identifier :as params}]
+  {::pco/op-name 'pc4.rsdb/delete-encounter}
+  (log/info "delete encounter:" encounter-id " user:" user)
+  (if-not (s/valid? ::delete-encounter params)
+    (do (log/error "invalid delete encounter" (s/explain-data ::delete-encounter params))
+        (throw (ex-info "Invalid delete encounter data:" (s/explain-data ::delete-encounter params))))
+    (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+        (patients/delete-encounter! conn encounter-id))))
+
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
@@ -990,7 +1009,8 @@
    save-pseudonymous-patient-postal-code!
    save-ms-event!
    delete-ms-event!
-   save-encounter!])
+   save-encounter!
+   delete-encounter!])
 
 (comment
   (require '[next.jdbc.connection])
