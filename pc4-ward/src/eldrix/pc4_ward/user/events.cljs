@@ -41,8 +41,8 @@
              (dissoc :authenticated-user)
              (update-in [:errors] dissoc :user/login))
      :fx [[:http-xhrio {:method          :post
-                        :uri             "http://localhost:8080/login"
-                        :timeout         1000
+                        :uri             "http://localhost:8080/login" ;"https://patientcare.app:8000/login"
+                        :timeout         5000
                         :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
                         :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
                         :on-success      [::handle-login-response]

@@ -16,6 +16,7 @@
             [goog.net.ErrorCode :as errors]
             [cljs.core.async :refer [<!]]
             [re-frame.core :as rf]
+            ["big.js" :as Big]
             [cognitect.transit :as transit])
   (:import [goog.date UtcDateTime]))
 
@@ -60,7 +61,7 @@
 (defn make-xhrio-request
   [{:keys [token timeout _params _on-success _on-failure] :as opts :or {timeout 3000}}]
   (merge {:method          :post
-          :uri             "http://localhost:8080/api"
+          :uri             "https://localhost:8080/api" ;"https://patientcare.app:8000/api"
           :timeout         timeout
           :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
           :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
@@ -142,12 +143,18 @@
   [{:keys [on-success on-failure timeout token] :or {timeout 10000} :as request}]
   (let [xhrio (new goog.net.XhrIo)]
     (-> (merge {:method          :post
-                :uri             "http://localhost:8080/api"
+                :uri             "http://localhost:8080/api" ;"https://patientcare.app:8080/api"
                 :timeout         timeout
-                :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
-                :response-format (ajax-transit/transit-response-format {:handlers (merge dates/transit-readers
-                                                                                         {"f" (fn [x] (str x))})})
-                :headers         (when token {:Authorization (str "Bearer " token)})}
+                :format          (ajax-transit/transit-request-format
+                                   {:handlers
+                                    (merge dates/transit-writers
+                                           {Big (transit/write-handler (constantly "f")
+                                                                       (fn [^Big x] (.toString x)))})})
+                :response-format (ajax-transit/transit-response-format
+                                   {:handlers (merge dates/transit-readers
+                                                     {"f" (transit/read-handler #(Big. %))})})
+                :headers
+                (when token {:Authorization (str "Bearer " token)})}
                request)
         (assoc
           :api xhrio

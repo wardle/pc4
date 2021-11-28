@@ -17,7 +17,8 @@
     [com.eldrix.pc4.commons.dates :as dates]
     [malli.core :as m]
     [clojure.string :as str]
-    [re-frame.db :as db])
+    [re-frame.db :as db]
+    ["big.js" :as Big])
   (:import [goog.date Date]))
 
 (defn valid-nhs-number?
@@ -122,8 +123,9 @@
           [:div.md:grid.md:grid-cols-3.md:gap-6
            [:div.md:col-span-1
             [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]
-            [:p.mt-1.mr-12.text-sm.text-gray-500 "Enter your patient details."
-             [:p "This is safe even if patient already registered"]
+            [:div.mt-1.mr-12.text-sm.text-gray-500
+             [:p "Enter patient details."]
+             [:p.mt-4 "This is safe even if patient already registered"]
              [:p.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."]]]
            [:div.mt-5.md:mt-0.md:col-span-2
             [:form {:on-submit #(do (.preventDefault %) (submit-fn))}
@@ -542,8 +544,9 @@
 (s/def :t_encounter/patient_fk number?)
 (s/def :t_form_ms_relapse/in_relapse boolean?)
 (s/def :t_smoking_history/status smoking-status-choices)
-(s/def :t_form_weight_height/weight_kilograms (s/and #(> % 20) #(< % 200)))
-(s/def :t_form_weight_height/height_metres (s/nilable (s/and #(> % 0.5) #(< % 3))))
+(s/def :t_smoking_history/current_cigarettes_per_day int?)
+(s/def :t_form_weight_height/weight_kilogram (s/and #(instance? Big %) #(.gte % 20) #(.lte % 200)))
+(s/def :t_form_weight_height/height_metres (s/nilable (s/and #(instance? Big %) #(.gte % 0.5) #(.lte % 3))))
 (s/def ::encounter
   (s/keys :req [:t_encounter/date_time
                 :t_patient/patient_identifier
@@ -553,8 +556,9 @@
                 :t_form_edss/edss_score
                 :t_ms_disease_course/id
                 :t_form_weight_height/height_metres
-                :t_form_weight_height/weight_kilograms
-                :t_smoking_history/status]))
+                :t_form_weight_height/weight_kilogram
+                :t_smoking_history/status
+                :t_smoking_history/current_cigarettes_per_day]))
 
 (defn edit-encounter [encounter & {:keys [on-change]}]
   (let [current-project @(rf/subscribe [::project-subs/current])
@@ -577,10 +581,10 @@
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "encounter-template"} "Type"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
          [ui/select :name "encounter-template"
-          :value (:t_encounter/encounter_template_fk encounter)
+          :value encounter
           :choices all-encounter-templates
           :sort? false
-          :select-fn #(on-change (assoc encounter :t_encounter/encounter_template_fk (:t_encounter_template/id %)))
+          :select-fn #(on-change (merge encounter %))
           :id-key :t_encounter_template/id
           :display-key (fn [et] (when et (:t_encounter_template/title et)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
@@ -619,16 +623,18 @@
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "weight"} "Weight (kg)"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
-         [ui/textfield-control (:t_form_weight_height/weight_kilogram encounter)
-          :name "weight" :type "number"
-          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/weight_kilogram (js/parseFloat %)})
+         [ui/textfield-control (str (:t_form_weight_height/weight_kilogram encounter))
+          :name "weight"
+          :type "number"
+          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/weight_kilogram (Big. %)})
                                        (dissoc encounter :t_form_weight_height/weight_kilogram)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "height"} "Height (m)"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
-         [ui/textfield-control (:t_form_weight_height/height_metres encounter)
-          :name "height" :type "number"
-          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/height_metres (js/parseFloat %)})
+         [ui/textfield-control (str (:t_form_weight_height/height_metres encounter))
+          :name "height"
+          :type "number"
+          :on-change #(on-change (if % (merge encounter {:t_form_weight_height/height_metres (Big. %)})
                                        (dissoc encounter :t_form_weight_height/height_metres)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "smoking"} "Smoking history"]
@@ -638,14 +644,16 @@
           :choices smoking-status-choices
           :no-selection-string "Not recorded"
           :value (:t_smoking_history/status encounter)
-          :select-fn #(on-change (if % (merge encounter {:t_smoking_history/status %})
-                                       (dissoc encounter :t_smoking_history/status)))]]]
+          :select-fn #(on-change (if % (merge encounter
+                                              {:t_smoking_history/status %}
+                                              (when-not (:t_smoking_history/current_cigarettes_per_day encounter) {:t_smoking_history/current_cigarettes_per_day 0}))
+                                       (dissoc encounter :t_smoking_history/status :t_smoking_history/current_cigarettes_per_day)))]]]
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "cigarettes"} "Cigarettes per day"]
         [:div.mt-1.sm:mt-0.sm:col-span-2
-         [ui/textfield-control (:t_smoking_history/current_cigarettes_per_day encounter)
+         [ui/textfield-control (str (:t_smoking_history/current_cigarettes_per_day encounter))
           :name "cigarettes" :type "number"
-          :on-change #(on-change (if % (merge encounter {:t_smoking_history/current_cigarettes_per_day (js/parseFloat %)})
+          :on-change #(on-change (if % (merge encounter {:t_smoking_history/current_cigarettes_per_day (js/parseInt %)})
                                        (dissoc encounter :t_smoking_history/current_cigarettes_per_day)))]]]]]]))
 
 (defn list-encounters
@@ -710,7 +718,8 @@
                        #(get-in % [:t_encounter/form_ms_relapse :t_ms_disease_course/name])
                        #(case (get-in % [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse])
                           true "Yes" false "No" "")
-                       #(get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram])]
+                       #(when-let [wt (get-in % [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram])]
+                          (str wt "kg"))]
           :on-edit (fn [encounter]
                      (tap> {:editing-encounter true
                             :encounter         encounter})
@@ -721,7 +730,7 @@
                                                       (:t_encounter/form_edss encounter)
                                                       (:t_encounter/form_ms_relapse encounter)
                                                       (:t_encounter/form_weight_height encounter)
-                                                      (:t_encounter/form_smoking encounter))))]]))))
+                                                      (:t_encounter/form_smoking_history encounter))))]]))))
 
 
 (defn list-investigations

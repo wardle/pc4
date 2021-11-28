@@ -58,7 +58,7 @@
                              :t_encounter/form_edss
                              :t_encounter/form_ms_relapse
                              :t_encounter/form_weight_height
-                             :t_encounter/form_smoking]}
+                             :t_encounter/form_smoking_history]}
      {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
@@ -387,7 +387,9 @@
                           (and (nil? (:t_ms_disease_course/id params))      ;; this would be better as a database default value!
                                (or (:t_form_edss/edss_score params)
                                    (not (nil? (:t_form_ms_relapse/in_relapse params)))))
-                          (assoc :t_form_ms_relapse/ms_disease_course_fk 1))]
+                          (assoc :t_form_ms_relapse/ms_disease_course_fk 1)
+                          (and (:t_smoking_history/status params) (not (:t_smoking_history/current_cigarettes_per_day params)))
+                          (assoc :t_smoking_history/current_cigarettes_per_day 0))]
       (js/console.log "saving encounter" params)
       {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-encounter params')
                                     ['*]}]
