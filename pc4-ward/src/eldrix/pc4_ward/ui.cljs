@@ -67,14 +67,14 @@
         [:form {:on-submit #(.preventDefault %)}
          [:div
           [:h1.mx-auto.w-auto.text-center.text-4xl.text-indigo-700.tracking-tighter "PatientCare " [:span.font-bold "v4"]]]
-         [:div.rounded-md.shadow-sm.-space-y-px
-          [:div
+         [:div.rounded-md.shadow-sm
+          [:div.mt-8
            [:label.sr-only {:for "username"} "username"]
            [:input#email-address.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
             {:name        "username" :type "text" :autoComplete "username" :required true :placeholder "Username" :auto-focus true :disabled disabled
              :on-change   #(reset! username (-> % .-target .-value))
              :on-key-down #(if (= 13 (.-which %)) (do (.focus (.getElementById js/document "password"))))}]]
-          [:div
+          [:div.mt-2.mb-4
            [:label.sr-only {:for "password"} "Password"]
            [:input#password.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-b-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
             {:name        "password" :type "password" :autoComplete "current-password" :required true :placeholder "Password" :disabled disabled
@@ -84,7 +84,7 @@
                                  (when on-login (on-login @username @password))))}]]]
          (when error
            [box-error-message :message error])
-         [:div
+         [:div.mt-2
           [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
            {:type "submit" :on-click #(when on-login (on-login @username @password)) :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
            [:span.absolute.left-0.inset-y-0.flex.items-center.pl-3
