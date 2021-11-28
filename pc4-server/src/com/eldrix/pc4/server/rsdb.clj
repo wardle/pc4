@@ -12,6 +12,7 @@
             [com.eldrix.pc4.server.rsdb.forms :as forms]
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
+            [com.eldrix.pc4.server.rsdb.results :as results]
             [com.eldrix.pc4.server.rsdb.users :as users]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
