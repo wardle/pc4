@@ -120,6 +120,22 @@
                                        :set    {:is_deleted "true"}}))
     (throw (ex-info "Failed to delete result: unsupported type" result))))
 
+(defn ^:private -results-from-table
+  [conn patient-identifier table]
+  (let [date-key (keyword (name table) "date")]
+    (->> (db/execute! conn (sql/format {:select [:*]
+                                        :from   [table]
+                                        :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
+                                        :where  [:and
+                                                 [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                                 [:<> :is_deleted "true"]]}))
+         (map #(assoc % :t_result/date (get % date-key))))))
+
+(defn results-for-patient
+  "Returns all of the results for a patient by patient-identifier."
+  [conn patient-identifier]
+  (apply concat (map #(-results-from-table conn patient-identifier %) supported-types)))
+
 (comment
   (require '[next.jdbc.connection])
   (import 'com.zaxxer.hikari.HikariDataSource)
@@ -134,4 +150,5 @@
   (save-result! conn example-result)
   (save-result! conn (assoc example-result :t_result_mri_brain/id 108823 :t_result_mri_brain/report "Sausages, lots of sausages"))
   (delete-result conn (assoc example-result :t_result_mri_brain/id 108822))
+  (results-for-patient conn 13929)
   )
