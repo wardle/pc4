@@ -32,7 +32,6 @@
 (rf/reg-event-fx
   ::time-10-seconds
   (fn [{db :db} [_]]
-    (tap> db)
     {:fx [[:dispatch [::user-events/ping-server]]]}))
 
 (rf/reg-event-fx
