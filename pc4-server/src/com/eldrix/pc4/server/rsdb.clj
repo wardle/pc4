@@ -722,6 +722,8 @@
 
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
   [{conn :com.eldrix.rsdb/conn manager :authorization-manager} patient-identifier permission]
+  (when-not patient-identifier
+    (throw (ex-info "invalid request: missing patient-identifier" {})))
   (let [project-ids (patients/active-project-identifiers conn patient-identifier)]
     (when-not (auth/authorized? manager project-ids permission)
       (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
@@ -912,6 +914,33 @@
     (do (guard-can-for-patient? env (:t_patient/patient-identifier params) :PATIENT_EDIT)
         (forms/save-encounter-with-forms! conn params'))))
 
+(s/def ::save-result (s/keys :req [:t_patient/patient_identifier]))
+
+(pco/defmutation save-result!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-result}
+  (log/info "save result request: " params "user: " user)
+  (when-not (s/valid? ::save-result params)
+    (log/error "invalid save result request" (s/explain-data ::save-result params))
+    (throw (ex-info "Invalid save result request" (s/explain-data ::save-result params))))
+  (let [params' (assoc params
+                  :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
+                  :user_fk (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
+    (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
+        (results/save-result! conn params'))))
+
+(pco/defmutation delete-result!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/delete-result}
+  (log/info "delete result request: " params "user: " user)
+  (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
+      (results/delete-result! conn params)))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
@@ -1023,7 +1052,9 @@
    save-ms-event!
    delete-ms-event!
    save-encounter!
-   delete-encounter!])
+   delete-encounter!
+   save-result!
+   delete-result!])
 
 (comment
   (require '[next.jdbc.connection])

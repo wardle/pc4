@@ -9,13 +9,13 @@
 (s/def :t_result_mri_brain/id int?)
 (s/def :t_result_mri_brain/date #(instance? LocalDate %))
 (s/def :t_result_mri_brain/patient_fk int?)
-(s/def :t_result_mri_brain/report string?)
+(s/def :t_result_mri_brain/report (s/nilable string?))
 (s/def :t_result_mri_brain/user_fk int?)
 (s/def :t_result_mri_brain/with_gadolinium boolean?)
 (s/def ::t_result_mri_brain (s/keys :req [:t_result_mri_brain/date
                                           :t_result_mri_brain/patient_fk
-                                          :t_result_mri_brain/user_fk
                                           :t_result_mri_brain/report
+                                          :t_result_mri_brain/user_fk
                                           :t_result_mri_brain/with_gadolinium]
                                     :opt [:t_result_mri_brain/id]))
 (s/def :t_result_jc_virus/id int?)
@@ -53,18 +53,24 @@
    :t_result_csf_ocb   {:t_result_type/id 8
                         ::spec            ::t_result_csf_ocb
                         ::summary         :t_result_csf_ocb/result}})
-
+:t_result_mri_brain
 (def supported-types (keys result->types))
+(def lookup-by-id (zipmap (map :t_result_type/id (vals result->types)) (keys result->types)))
 
+(defn result-type-by-id [data]
+  (get lookup-by-id (:t_result_type/id data)))
 
-(defn result-type
-  "Returns the type of the result."
+(defn result-type-by-keys
+  "Returns the type of the result by looking at the keys."
   [result]
   (let [all-keys (map namespace (keys result))
         k1 (first all-keys)
         all-same? (every? #(= k1 %) all-keys)]
     (when all-same?
       (keyword k1))))
+
+(defn result-type [result]
+  (or (result-type-by-id result) (result-type-by-keys result)))
 
 (defn valid?
   [result]
@@ -104,23 +110,33 @@
                                                             data)]})
                      {:return-keys true})))
 
-(defn -update-result! [conn table id-key data]
+(defn -update-result! [conn table data]
+  (log/info "updating result" {:table table :data data})
   (db/execute-one! conn (sql/format {:update [table]
-                                     :where  [:= :id (id-key data)]
-                                     :set    (dissoc data id-key)}) {:return-keys true}))
+                                     :where  [:= :id (get data "id")]
+                                     :set    (dissoc data :id)}) {:return-keys true}))
 
 (defn save-result! [conn data]
-  (let [rtype (result-type data)
-        valid? (valid? data)]
-    (when-not valid?
-      (throw (ex-info "Failed to save result; invalid data" (explain-data data))))
+  (let [rtype (result-type data)]
+    (when-not rtype
+      (throw (ex-info "Failed to save result; unable to determine result type" data)))
     (let [id-key (keyword (name rtype) "id")
-          id (get data id-key)]
-      (if id
-        (-update-result! conn rtype id-key data)
-        (-insert-result! conn rtype data)))))
+          id (get data id-key)
+          user-key (keyword (name rtype) "user_fk")
+          patient-key (keyword (name rtype) "patient_fk")
+          data' (-> data
+                    (assoc user-key (:user_fk data)
+                           patient-key (:patient_fk data))
+                    (dissoc :user_fk :patient_fk))]
+      (when-not (valid? data')
+        (throw (ex-info "Failed to save result; invalid data" (explain-data data'))))
+      (let [data'' (com.eldrix.pc4.server.rsdb.forms/select-keys-by-namespace data' rtype)]
+        (if id
+          (when-not (-update-result! conn rtype data'')
+            (throw (ex-info "failed to update result" data'')))
+          (-insert-result! conn rtype data''))))))
 
-(defn delete-result [conn result]
+(defn delete-result! [conn result]
   (if-let [rtype (result-type result)]
     (db/execute-one! conn (sql/format {:update [rtype]
                                        :where  [:= :id (get result (keyword (name rtype) "id"))]
@@ -154,12 +170,46 @@
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 1}))
   (def example-result {:t_result_mri_brain/date            (LocalDate/now)
-                       :t_result_mri_brain/patient_fk      1
+                       :t_result_mri_brain/patient_fk      124010
                        :t_result_mri_brain/user_fk         1
                        :t_result_mri_brain/with_gadolinium false
                        :t_result_mri_brain/report          "Innumerable lesions"})
   (save-result! conn example-result)
   (save-result! conn (assoc example-result :t_result_mri_brain/id 108823 :t_result_mri_brain/report "Sausages, lots of sausages"))
-  (delete-result conn (assoc example-result :t_result_mri_brain/id 108822))
+  (delete-result! conn (assoc example-result :t_result_mri_brain/id 108822))
   (results-for-patient conn 13929)
+
+
+  (def example2 {:t_result_mri_brain/encounter_fk                                nil,
+                 :t_result_type/name                                             "MRI brain",
+                 :t_result_type/description                                      nil,
+                 :t_result_mri_brain/with_gadolinium                             false,
+                 :t_result_type/id                                               9,
+                 :t_result_mri_brain/date                                        (LocalDate/of 2021 11 28)
+                 :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_fk  nil,
+                 :t_result/id                                                    108824,
+                 :t_result_mri_brain/data_source_type                            "MANUAL",
+                 :t_result_mri_brain/hospital_fk                                 nil, :t_patient/patient_identifier 124010,
+                 :t_result_mri_brain/id                                          108824,
+                 :t_result_mri_brain/is_deleted                                  "false",
+                 :t_result_mri_brain/user_fk                                     1,
+                 :t_result_mri_brain/date_created                                (LocalDateTime/now)
+                 :t_result_mri_brain/result_type_fk                              9, :t_result_type/further_reading nil,
+                 :user_fk                                                        1,
+                 :t_result_mri_brain/patient_fk                                  124010,
+                 :t_result/summary                                               "Innumerable lesions",
+                 :t_result_type/result_entity_name                               "ResultMriBrain",
+                 :t_result/date                                                  (LocalDate/of 2021 11 28)
+                 :patient_fk                                                     124010,
+                 :t_result_mri_brain/data_source_url                             nil,
+                 :t_result_mri_brain/annotation_mribrain_multiple_sclerosis_2_fk nil,
+                 :t_result_mri_brain/report                                      "Innumerable lesions typical for MS",
+                 :t_result_mri_brain/annotation_mri_brain_ataxia_fk              nil})
+  (save-result! conn example2)
+  (result-type-by-id example2)
+  (:t_result_type/id
+    example2)
+  (valid? example2)
+  (explain-data example2)
+  lookup-by-id
   )
