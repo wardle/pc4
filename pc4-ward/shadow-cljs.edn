@@ -18,5 +18,5 @@
                                                                          eldrix.pc4_ward.config.login-url     "http://localhost:8080/login"
                                                                          eldrix.pc4_ward.config.api-url       "http://localhost:8080/api"}}}
                   :release         {:build-hooks      [(teknql.tailwind/compile-release!)]
-                                    :compiler-options {:closure-defines {eldrix.pc4_ward.config.login-url "https://patientcare.app:8000/login"
-                                                                         eldrix.pc4_ward.config.api-url   "https://patientcare.app:8000/api"}}}}}}
+                                    :compiler-options {:closure-defines {eldrix.pc4_ward.config.login-url "https://patientcare.app/login"
+                                                                         eldrix.pc4_ward.config.api-url   "https://patientcare.app/api"}}}}}}
