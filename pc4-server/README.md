@@ -42,10 +42,10 @@ To run in a development environment:
 clj -X:run :profile :dev
 ```
 
-To run in a production environment (this uses :cav)
+To run in a production environment (this uses :cvx)
 
 ```shell
-clj -X:run :profile :cav
+clj -X:run :profile :cvx
 ```
 
 Some configuration options are customisable at runtime using environmental
