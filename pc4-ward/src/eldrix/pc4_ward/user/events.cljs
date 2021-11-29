@@ -41,7 +41,7 @@
              (dissoc :authenticated-user)
              (update-in [:errors] dissoc :user/login))
      :fx [[:http-xhrio {:method          :post
-                        :uri            "https://patientcare.app:8000/login" ;;  "http://localhost:8080/login"
+                        :uri             eldrix.pc4-ward.config/login-url
                         :timeout         5000
                         :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
                         :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
