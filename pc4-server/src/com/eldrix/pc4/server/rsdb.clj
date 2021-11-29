@@ -23,8 +23,7 @@
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [clojure.spec.alpha :as s]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.hermes.core :as hermes])
+            [com.eldrix.pc4.server.rsdb.patients :as patients])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)
@@ -991,6 +990,29 @@
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (patients/notify-death! conn params))
 
+(s/def :t_user/username string?)
+(s/def :t_user/password string?)
+(s/def :t_user/new_password string?)
+(s/def ::change-password (s/keys :req [:t_user/username
+                                       :t_user/password
+                                       :t_user/new_password]))
+(pco/defmutation change-password!
+  [{conn               :com.eldrix.rsdb/conn
+    authenticated-user :authenticated-user
+    :as                env}
+   {username     :t_user/username
+    password     :t_user/password
+    new-password :t_user/new_password :as params}]
+  {::pco/op-name 'pc4.rsdb/change-password}
+  (when-not (s/valid? ::change-password params)
+    (throw (ex-info "invalid parameters for change-password! " (s/explain-data ::change-password params))))
+  (let [user (users/fetch-user conn username)]
+    (when-not (= username (:value authenticated-user))
+      (throw (ex-info "You cannot change the password of a different user." {:requested-user     username
+                                                                             :authenticated-user (:value user)})))
+    (when-not (users/check-password conn nil username password)
+      (throw (ex-info "Cannot change password: incorrect password." {})))
+    (users/save-password conn user new-password)))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
@@ -1089,7 +1111,8 @@
    delete-encounter!
    save-result!
    delete-result!
-   notify-death!])
+   notify-death!
+   change-password!])
 
 (comment
   (require '[next.jdbc.connection])
