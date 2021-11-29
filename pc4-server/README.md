@@ -55,3 +55,7 @@ variables. For example:
 PORT=9000 clj -X:run :profile :dev
 ```
 
+View dependencies:
+```shell
+clj -X:deps tree
+```
