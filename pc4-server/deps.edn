@@ -1,21 +1,23 @@
 {:paths     ["src" "resources"]
- :deps      {org.clojure/clojure               {:mvn/version "1.11.0-alpha2"}
+ :deps      {org.clojure/clojure               {:mvn/version "1.11.0-alpha3"}
              org.clojure/core.async            {:mvn/version "1.4.627"}
              org.clojure/data.csv              {:mvn/version "1.0.0"}
              org.clojure/data.xml              {:mvn/version "0.2.0-alpha6"}
              org.clojure/data.zip              {:mvn/version "1.0.0"}
              org.clojure/tools.cli             {:mvn/version "1.0.206"}
              org.clojure/tools.logging         {:mvn/version "1.1.0"}
-             org.slf4j/slf4j-simple            {:mvn/version "2.0.0-alpha5"}
 
-             wonder.core/ERExtensions          {:mvn/version "7.2"}
+             wonder.core/ERExtensions          {:mvn/version "7.2"
+                                                :exclusions  [log4j/log4j
+                                                              commons-logging/commons-logging]}
 
              com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
                                                 :sha     "168de00f083c5b6c538375a37cc1a9ec523283ea"}
              com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
                                                 :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
-             com.eldrix/deprivare              {:git/url "https://github.com/wardle/deprivare.git"
-                                                :sha     "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"}
+             com.eldrix/deprivare              {:git/url    "https://github.com/wardle/deprivare.git"
+                                                :sha        "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"
+                                                :exclusions [commons-logging/commons-logging]}
              com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
                                                 :sha     "eb953eb8c3f211de4af3d4461a7ec2fc6b2ef8aa"}
              com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
@@ -50,10 +52,11 @@
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
- :aliases   {:run      {:exec-fn  com.eldrix.pc4.server.core/run
-                        :jvm-opts ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                                   "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                                   "--illegal-access=permit"]}
+ :aliases   {:run      {:exec-fn    com.eldrix.pc4.server.core/run
+                        :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha5"}}
+                        :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                                     "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                                     "--illegal-access=permit"]}
 
              :dev      {:extra-paths ["dev"]
                         :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
@@ -78,10 +81,10 @@
                         :main-opts  ["-m" "clj-check.check" "src"]}
 
              :lint/kondo
-                       {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
-                        :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
+             {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
+              :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
              :lint/eastwood
-                       {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
-                        :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
+             {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
+              :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
 
