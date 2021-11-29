@@ -994,8 +994,8 @@
 (s/def :t_user/password string?)
 (s/def :t_user/new_password string?)
 (s/def ::change-password (s/keys :req [:t_user/username
-                                       :t_user/password
-                                       :t_user/new_password]))
+                                       :t_user/new_password]
+                                 :opt [:t_user/password]))
 (pco/defmutation change-password!
   [{conn               :com.eldrix.rsdb/conn
     authenticated-user :authenticated-user
@@ -1010,9 +1010,10 @@
     (when-not (= username (:value authenticated-user))
       (throw (ex-info "You cannot change the password of a different user." {:requested-user     username
                                                                              :authenticated-user (:value user)})))
-    (when-not (users/check-password conn nil username password)
-      (throw (ex-info "Cannot change password: incorrect password." {})))
-    (users/save-password conn user new-password)))
+    (if (or (:t_user/must_change_password user)             ;; we don't need current password if we're forcing password change
+            (users/check-password conn nil username password)) ;; otherwise, we do check current password
+      (users/save-password conn user new-password)
+      (throw (ex-info "Cannot change password: incorrect password." {})))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
