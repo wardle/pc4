@@ -19,6 +19,12 @@
   (fn [user]
     (:urn:oid:2.5.4/commonName user)))
 
+(rf/reg-sub ::must-change-password?
+  (fn []
+    (rf/subscribe [::authenticated-user]))
+  (fn [user]
+    (:t_user/must_change_password user)))
+
 (rf/reg-sub ::login-error
   (fn [db]
     (get-in db [:errors :user/login])))
@@ -26,6 +32,10 @@
 (rf/reg-sub ::ping-error
   (fn [db]
     (get-in db [:errors :ping])))
+
+(rf/reg-sub ::change-password-error
+  (fn [db]
+    (get-in db [:errors :change-password])))
 
 ;; we currently hardcode the common hospitals for a user,
 ;; but we could derive based on where they work or a user-configured list

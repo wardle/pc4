@@ -4,13 +4,16 @@
   * Session timeout
   * Token management, including refresh"
   (:require [re-frame.core :as rf]
+            [eldrix.pc4-ward.config]
             [eldrix.pc4-ward.db :as db]
             [eldrix.pc4-ward.server :as srv]
             [ajax.transit :as ajax-transit]
             [com.eldrix.pc4.commons.dates :as dates]))
 
 (def user-query
-  [:urn:oid:1.2.840.113556.1.4/sAMAccountName
+  [:t_user/username
+   :t_user/must_change_password
+   :urn:oid:1.2.840.113556.1.4/sAMAccountName
    :io.jwt/token
    :urn:oid:2.5.4/givenName
    :urn:oid:2.5.4/surname
@@ -133,6 +136,36 @@
   (fn [{:keys [_db]} [_ response]]
     (js/console.log "User token refresh failure: response " response)))
 
+
+(rf/reg-event-fx ::change-password
+  []
+  (fn [{db :db} [_ {username     :t_user/username
+                    password     :t_user/password
+                    new-password :t_user/new_password :as params}]]
+    {:db (update-in db [:errors] dissoc :change-password)
+     :fx [[:pathom {:params     [(list 'pc4.rsdb/change-password params)]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-change-password-success]
+                    :on-failure [::handle-change-password-failure]}]]}
+    ))
+
+(rf/reg-event-fx ::handle-change-password-success
+  []
+  (fn [{db :db} _]
+    {:db (update-in db [:authenticated-user :practitioner] assoc :t_user/must_change_password false)
+     :fx [[:push-state [:home]]]}))
+
+(rf/reg-event-fx ::clear-change-password-error
+  []
+  (fn [{db :db} _]
+    {:db (update-in db [:errors] dissoc :change-password)}))
+
+(rf/reg-event-fx ::handle-change-password-failure
+  []
+  (fn [{db :db} [_ response]]
+    (tap> {:password-change-error response})
+    {:db (assoc-in db [:errors :change-password] (get-in response [:response :message]))}))
+
 (rf/reg-event-fx
   ::check-token
   (fn [{db :db} [_]]
@@ -160,9 +193,10 @@
   (rf/dispatch-sync [::do-login "wales.nhs.uk" "ma090906" "password"])
   (rf/dispatch-sync [::do-logout])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/login-error])
-  @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
+  (tap> {:authenticated-user @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])})
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/token])
   (rf/dispatch-sync [::ping-server])
   (rf/dispatch-sync [::check-token])
   (rf/dispatch-sync [::refresh-token])
+
   )

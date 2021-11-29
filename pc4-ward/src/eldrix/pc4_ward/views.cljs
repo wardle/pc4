@@ -126,10 +126,13 @@
                       (reset! selected-diagnosis %))]]))
 
 (defn main-page []
-  (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])]
+  (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
+        must-change-password? @(rf/subscribe [::user-subs/must-change-password?])]
     [:<>
      (if authenticated-user
-       [home-panel]
+       (if must-change-password?
+         [eldrix.pc4-ward.user.views/change-password]
+         [home-panel])
        [ui/main-login-panel
         :on-login (fn [username password]
                     (rf/dispatch [::user-events/do-login "cymru.nhs.uk" (str/trim username) password]))

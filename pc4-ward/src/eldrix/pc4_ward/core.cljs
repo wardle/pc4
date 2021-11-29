@@ -12,6 +12,7 @@
             [eldrix.pc4-ward.patient.events :as patient-events]
             [eldrix.pc4-ward.user.subs :as user-subs]
             [eldrix.pc4-ward.user.events :as user-events]
+            [eldrix.pc4-ward.user.views :as user-views]
             [eldrix.pc4-ward.refer.views :as refer]
             [eldrix.pc4-ward.project.events :as project-events]
             [eldrix.pc4-ward.project.views :as project]
@@ -38,16 +39,23 @@
      :view      views/main-page
      :link-text "Home"
      :controllers
-                [{;; Do whatever initialization needed for home page
-                  ;; I.e (re-frame/dispatch [::events/load-something-with-ajax])
-                  :start (fn [& params] (js/console.log "Entering home page"))
-                  ;; Teardown can be done here.
-                  :stop  (fn [& params] (js/console.log "Leaving home page"))}]}]
+     [{;; Do whatever initialization needed for home page
+       ;; I.e (re-frame/dispatch [::events/load-something-with-ajax])
+       :start (fn [& params] (js/console.log "Entering home page"))
+       ;; Teardown can be done here.
+       :stop  (fn [& params] (js/console.log "Leaving home page"))}]}]
    ["/refer"
     {:name      :refer
      :title     "Refer"
      :view      refer/refer-page
      :link-text "Refer"}]
+
+   ["/change-password"
+    {:name      :change-password
+     :title     "Change password"
+     :auth        identity                                  ;; we need a logged in user to change password
+     :view      user-views/change-password
+     :link-text "Change password"}]
 
    ["/projects/:project-id/:slug"
     {:name        :projects
@@ -112,7 +120,8 @@
       :show-user? authenticated-user
       :full-name (:urn:oid:2.5.4/commonName authenticated-user)
       :initials (:urn:oid:2.5.4/initials authenticated-user)
-      :user-menu [{:id :logout :title "Sign out" :on-click #(re-frame/dispatch [::user-events/do-logout])}]]
+      :user-menu [{:id :change-password :title "Change password" :on-click #(rfe/push-state :change-password)}
+                  {:id :logout :title "Sign out" :on-click #(re-frame/dispatch [::user-events/do-logout])}]]
      (if (or (nil? auth) (auth authenticated-user))
        [(-> current-route :data :view) current-route]
        [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
