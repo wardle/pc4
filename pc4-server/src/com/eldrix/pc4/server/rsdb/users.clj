@@ -85,7 +85,8 @@
       conn
       (sql/format {:update :t_user
                    :where  [:= :username username]
-                   :set    (cond-> {:credential hash}
+                   :set    (cond-> {:credential hash
+                                    :must_change_password false}
                                    update-auth-method?
                                    (assoc :authentication_method :LOCAL17))}))))
 
@@ -235,6 +236,7 @@
                :email :custom_job_title :t_job_title/name
                :can_be_responsible_clinician :is_clinical
                :send_email_for_messages
+               :must_change_password
                :authentication_method :professional_registration
                :t_professional_registration_authority/name
                :t_professional_registration_authority/abbreviation]
