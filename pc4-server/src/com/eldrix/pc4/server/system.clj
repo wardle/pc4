@@ -336,9 +336,17 @@
 
   (prep :dev)
 
+  (config :pc4)
   ;; start a server using pedestal/jetty
   (def system (init :dev [:http/server]))
   (ig/halt! system)
+
+  ;; start a 'system' without a server
+  (def system (init :dev [:pathom/env]))
+  (ig/halt! system)
+
+  (com.eldrix.pc4.server.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
+
 
   ;; start a server using http-kit/ring
   (def system (init :dev [:http/server2]))
@@ -350,7 +358,6 @@
   ;; this creates a fake authenticated environment and injects it into our system
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
-
   (rsdb/delete-ms-event! (merge (:pathom/env system) authenticated-env) {:t_ms_event/id 1381})
   (reset! resolvers [])
   (ig/halt! system)
@@ -517,4 +524,6 @@
                                                                          :project-id 124
                                                                          :nhs-number "3333333333"
                                                                          :date-birth (LocalDate/of 1975 5 1)})
+  (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
+  (com.eldrix.pc4.server.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password")
   )
