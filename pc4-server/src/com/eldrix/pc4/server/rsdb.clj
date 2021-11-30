@@ -23,7 +23,9 @@
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [clojure.spec.alpha :as s]
-            [com.eldrix.pc4.server.rsdb.patients :as patients])
+            [com.eldrix.pc4.server.rsdb.patients :as patients]
+            [com.eldrix.hermes.core]
+            [com.eldrix.hermes.verhoeff :as verhoeff])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)
@@ -32,7 +34,7 @@
            (com.eldrix.pc4.server.rsdb.auth AuthorizationManager)))
 
 (s/def :uk.gov.ons.nhspd/PCD2 string?)
-(s/def :info.snomed.Concept/id (s/and int? com.eldrix.hermes.verhoeff/valid?))
+(s/def :info.snomed.Concept/id (s/and int? verhoeff/valid?))
 ;;
 ;;
 (s/def :t_death_certificate/part1a (s/nilable string?))
