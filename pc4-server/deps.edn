@@ -52,33 +52,39 @@
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
- :aliases   {:run      {:exec-fn    com.eldrix.pc4.server.core/run
-                        :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha5"}}
-                        :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
-                                     "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
-                                     "--illegal-access=permit"]}
+ :aliases   {:run         {:exec-fn    com.eldrix.pc4.server.core/run
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha5"}}
+                           :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
+                                        "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
+                                        "--illegal-access=permit"]}
 
-             :dev      {:extra-paths ["dev"]
-                        :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
-                                      org.clojure/test.check {:mvn/version "1.1.0"}}}
+             :repl-server {:exec-fn   clojure.core.server/start-server
+                           :exec-args {:name          "repl-server"
+                                       :port          5555
+                                       :accept        clojure.core.server/repl
+                                       :server-daemon false}}
 
-             :portal   {:extra-deps {djblue/portal {:mvn/version "0.18.0"}}}
+             :dev         {:extra-paths ["dev"]
+                           :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
+                                         org.clojure/test.check {:mvn/version "1.1.0"}}}
 
-             :reveal   {:extra-deps {vlaaad/reveal {:mvn/version "1.3.228"}}
-                        :main-opts  ["-m" "vlaaad.reveal" "repl"]}
+             :portal      {:extra-deps {djblue/portal {:mvn/version "0.18.0"}}}
 
-             :test     {:extra-paths ["test" "test/resources"]
-                        :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
-                                                                 :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
-                        :main-opts   ["-m" "cognitect.test-runner"]}
+             :reveal      {:extra-deps {vlaaad/reveal {:mvn/version "1.3.228"}}
+                           :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
-             :outdated {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
-                        :main-opts  ["-m" "antq.core"]}
+             :test        {:extra-paths ["test" "test/resources"]
+                           :extra-deps  {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                    :sha     "dd6da11611eeb87f08780a30ac8ea6012d4c05ce"}}
+                           :main-opts   ["-m" "cognitect.test-runner"]}
 
-             :check    {:extra-deps {athos/clj-check
-                                     {:git/url "https://github.com/athos/clj-check.git"
-                                      :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
-                        :main-opts  ["-m" "clj-check.check" "src"]}
+             :outdated    {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+                           :main-opts  ["-m" "antq.core"]}
+
+             :check       {:extra-deps {athos/clj-check
+                                        {:git/url "https://github.com/athos/clj-check.git"
+                                         :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                           :main-opts  ["-m" "clj-check.check" "src"]}
 
              :lint/kondo
              {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
