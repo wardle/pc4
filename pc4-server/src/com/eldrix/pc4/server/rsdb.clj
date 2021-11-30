@@ -466,7 +466,7 @@
                                                              :from     [:t_encounter]
                                                              :where    [:= :patient_fk patient-id]
                                                              :order-by [[:date_time :desc]]}))
-                              (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
+                              (mapv #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
 (pco/defresolver patient->results
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
@@ -477,7 +477,7 @@
                                       :t_result_jc_virus/jc_virus
                                       :t_result_csf_ocb/date
                                       :t_result_csf_ocb/result]}]}
-  {:t_patient/results (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)})
+  {:t_patient/results (vec (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier))})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -520,7 +520,7 @@
                                           :t_form_edss_fs/id
                                           :t_form_edss_fs/edss_score]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
+  (mapv #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
        (forms/encounters->form_edss conn encounters)))
 
 (pco/defresolver encounter->form_ms_relapse
@@ -533,7 +533,7 @@
                                                 :t_form_ms_disease_course/id
                                                 :t_form_ms_disease_course/name]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
+  (mapv #(when-not (every? nil? (vals %))
           (hash-map :t_encounter/form_ms_relapse %)) (forms/encounters->form_ms_relapse conn encounters)))
 
 (pco/defresolver encounter->form_weight_height
@@ -543,7 +543,7 @@
                                                    :t_form_weight_height/weight_kilogram
                                                    :t_form_weight_height/height_metres]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
+  (mapv #(when-not (every? nil? (vals %))
           (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_weight_height conn encounters)))
 
 (pco/defresolver encounter->form_smoking
@@ -553,7 +553,7 @@
                                                      :t_smoking_history/current_cigarettes_per_day
                                                      :t_smoking_history/status]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
+  (mapv #(when-not (every? nil? (vals %))
           (hash-map :t_encounter/form_smoking_history %)) (forms/encounters->form_smoking_history conn encounters)))
 
 (pco/defresolver encounter->forms_generic_procedures
