@@ -62,7 +62,7 @@
   {:name  ::attach-claims
    :enter (fn [ctx]
             (let [auth-header (get-in ctx [:request :headers "authorization"])
-                  _ (log/info "request auth:" auth-header)
+                  _ (log/debug "request auth:" auth-header)
                   [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
                   login-config (:com.eldrix.pc4/login ctx)
                   claims (when (and token login-config) (users/check-user-token token login-config))]
@@ -112,7 +112,7 @@
   authorization information may be sourced from another system of record."
   {:name  ::api
    :enter (fn [ctx]
-            (log/info "api request: " (get-in ctx [:request :transit-params]))
+            (log/debug "api request: " (get-in ctx [:request :transit-params]))
             (let [params (get-in ctx [:request :transit-params])
                   rsdb-conn (:com.eldrix.rsdb/conn ctx)
                   claims (:authenticated-claims ctx)
