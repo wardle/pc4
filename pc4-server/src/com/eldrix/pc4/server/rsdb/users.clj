@@ -295,6 +295,12 @@
                                                            :date_from  date-from}]})
                           {:return-keys true}))
 
+(defn set-must-change-password! [conn username]
+  (next.jdbc/execute-one! conn (sql/format {:update [:t_user]
+                                            :where [:= :username username]
+                                            :set {:must_change_password true}})))
+
+
 (defn fetch-user-photo [conn username]
   (jdbc/execute-one!
     conn
