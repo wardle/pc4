@@ -22,7 +22,8 @@
             [clojure.string :as str]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.projects :as projects])
+            [com.eldrix.pc4.server.rsdb.projects :as projects]
+            [clojure.spec.alpha :as s])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)
@@ -85,7 +86,7 @@
       conn
       (sql/format {:update :t_user
                    :where  [:= :username username]
-                   :set    (cond-> {:credential hash
+                   :set    (cond-> {:credential           hash
                                     :must_change_password false}
                                    update-auth-method?
                                    (assoc :authentication_method :LOCAL17))}))))
@@ -252,6 +253,46 @@
   (db/execute-one! conn (sql/format (assoc fetch-user-query
                                       :where [:= :t_user/id user-id]))))
 
+
+(s/def ::create-user (s/keys :req [:t_user/username
+                                   :t_user/title
+                                   :t_user/first_names
+                                   :t_user/last_name
+                                   :t_user/job_title_fk]
+                             :opt [:t_user/email
+                                   :t_user/custom_job_title]))
+(defn create-user [conn {:t_user/keys [username custom_job_title email
+                                       job_title_fk
+                                       title first_names
+                                       last_name] :as params}]
+  (when-not (s/valid? ::create-user params)
+    (throw (ex-info "Invalid parameters" (s/explain-data ::create-user params))))
+  (let [new-password (str (buddy.core.codecs/bytes->hex (buddy.core.nonce/random-bytes 8)))
+        credential (BCrypt/hashpw new-password (BCrypt/gensalt))]
+    (-> (next.jdbc/execute-one! conn (sql/format {:insert-into [:t_user]
+                                                  :values      [(merge {:credential            credential
+                                                                        :must_change_password  true
+                                                                        :role_fk               4
+                                                                        :authentication_method "LOCAL17"}
+                                                                       params)]})
+                                {:return-keys true})
+        (assoc :t_user/new_password new-password))))
+
+(defn register-user-to-project
+  "Register a user to a project.
+  Parameters:
+  conn        - database connection, pool or transaction
+  :username   - username of user
+  :project-id - project identifier"
+  [conn {:keys [username
+                                             project-id
+                                             date-from] :or {date-from (LocalDate/now)}}]
+  (next.jdbc/execute-one! conn (sql/format {:insert-into [:t_project_user]
+                                            :values      [{:project_fk project-id
+                                                           :user_fk    {:select [:id ] :from [:t_user] :where [:= :username username]}
+                                                           :date_from date-from}]})
+                          {:return-keys true}))
+
 (defn fetch-user-photo [conn username]
   (jdbc/execute-one!
     conn
@@ -275,7 +316,7 @@
                        :from      [:t_news]
                        :left-join [:t_user [:= :author_fk :t_user/id]
                                    :t_job_title [:= :job_title_fk :t_job_title/id]]
-                       :order-by [[:date_time :desc]]
+                       :order-by  [[:date_time :desc]]
                        :limit     5})))
 
 (comment
