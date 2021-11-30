@@ -6,26 +6,26 @@
   save multiple database round-trips, particularly for to-one relationships.
   Such a change would be trivial because pathom would simply not bother
   trying to resolve data that already exists. "
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.wsscode.pathom3.connect.indexes :as pci]
+            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
+            [com.wsscode.pathom3.connect.operation :as pco]
+            [com.wsscode.pathom3.interface.eql :as p.eql]
+            [honey.sql :as sql]
+            [next.jdbc :as jdbc]
+            [com.eldrix.hermes.core]
+            [com.eldrix.hermes.verhoeff :as verhoeff]
             [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.server.rsdb.auth :as auth]
+            [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.forms :as forms]
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.results :as results]
             [com.eldrix.pc4.server.rsdb.users :as users]
-            [honey.sql :as sql]
-            [next.jdbc :as jdbc]
-            [com.wsscode.pathom3.connect.indexes :as pci]
-            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
-            [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
-            [com.eldrix.pc4.server.rsdb.auth :as auth]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [clojure.spec.alpha :as s]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.hermes.core]
-            [com.eldrix.hermes.verhoeff :as verhoeff])
+            [com.eldrix.pc4.server.rsdb.patients :as patients])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)

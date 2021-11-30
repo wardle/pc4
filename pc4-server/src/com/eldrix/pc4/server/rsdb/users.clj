@@ -15,15 +15,17 @@
   namespace. That means we can safely allow rsdb to resolve existing users
   against the cymru.nhs.uk namespace - until there is an explicit namespace
   listed for each user. "
-  (:require [clojure.tools.logging.readable :as log]
-            [com.eldrix.concierge.wales.nadex :as nadex]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
+            [buddy.core.codecs]
+            [buddy.core.nonce]
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
-            [clojure.string :as str]
+            [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
             [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [clojure.spec.alpha :as s])
+            [com.eldrix.pc4.server.rsdb.projects :as projects])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)
@@ -285,12 +287,12 @@
   :username   - username of user
   :project-id - project identifier"
   [conn {:keys [username
-                                             project-id
-                                             date-from] :or {date-from (LocalDate/now)}}]
+                project-id
+                date-from] :or {date-from (LocalDate/now)}}]
   (next.jdbc/execute-one! conn (sql/format {:insert-into [:t_project_user]
                                             :values      [{:project_fk project-id
-                                                           :user_fk    {:select [:id ] :from [:t_user] :where [:= :username username]}
-                                                           :date_from date-from}]})
+                                                           :user_fk    {:select [:id] :from [:t_user] :where [:= :username username]}
+                                                           :date_from  date-from}]})
                           {:return-keys true}))
 
 (defn fetch-user-photo [conn username]
