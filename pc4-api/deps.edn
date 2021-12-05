@@ -1,0 +1,19 @@
+{:paths   []
+ :deps    {org.clojure/clojure  {:mvn/version "1.11.0-alpha3"}
+           com.eldrix/clods     {:git/url "https://github.com/wardle/clods.git"
+                                 :sha     "168de00f083c5b6c538375a37cc1a9ec523283ea"}
+           com.eldrix/concierge {:git/url "https://github.com/wardle/concierge.git"
+                                 :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
+           com.eldrix/hermes    {:git/url "https://github.com/wardle/hermes.git"
+                                 :sha     "4c7d17bea26caa8169baa0cc2f62e09c1afd2fad"}}
+
+ :aliases {:build    {:deps       {io.github.clojure/tools.build {:git/tag "v0.6.8" :git/sha "d79ae84"}}
+                      :ns-default build}
+
+           :outdated {:extra-deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+                      :main-opts  ["-m" "antq.core"]}
+
+           :check    {:extra-deps {athos/clj-check
+                                   {:git/url "https://github.com/athos/clj-check.git"
+                                    :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                      :main-opts  ["-m" "clj-check.check" "src"]}}}
