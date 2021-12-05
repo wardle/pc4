@@ -101,3 +101,22 @@
     (->> (:t_patient/results patient)
          (sort-by #(if-let [date (:t_result/date %)] (.valueOf date) 0))
          reverse)))
+
+(rf/reg-sub ::episodes
+  (fn [_]
+    (rf/subscribe [::current]))
+  (fn [patient]
+    (->> (:t_patient/episodes patient)
+         (sort-by #(if-let [date (:t_episode/date_from %)] (.valueOf date) 0))
+         reverse)))
+
+;; TODO: don't use a hardcoded project identifier here, but create an episode type,
+;; or better still, project type, reflecting an inpatient stay. That then means
+;; we can determine whether encounters, episodes etc.. are related to inpatient
+;; stays or not
+(rf/reg-sub ::admission-episodes
+  (fn [_]
+    (rf/subscribe [::episodes]))
+  (fn [episodes]
+    (filter #(= (:t_episode/project_fk %) 126) episodes)))    ;;; TODO: this is hacky - hardcoded project 126!
+
