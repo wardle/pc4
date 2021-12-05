@@ -430,7 +430,7 @@
 
 (defn list-entities-fixed
   "A fixed list of entities."
-  [& {:keys [items headings width-classes id-key value-keys on-edit] :or {id-key identity} :as params}]
+  [& {:keys [items headings width-classes id-key value-keys on-edit on-delete] :or {id-key identity} :as params}]
   (when-not (= (count headings) (count value-keys))
     (throw (ex-info "Number of headings must be the same as the number of value-keys" params)))
   [:div.flex.flex-col
@@ -445,9 +445,9 @@
            [:th.px-2.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider
             (cond-> {:scope "col" :key heading}
                     (get width-classes heading) (assoc :class (get width-classes heading))) heading])
-         (when on-edit
+         (when (or on-edit on-delete)
            [:th.relative.px-6.py-3 {:scope "col"}
-            [:span.sr-only "Edit"]])]]
+            [:span.sr-only "Actions"]])]]
        [:tbody
         (for [item items]
           [:tr.bg-white
@@ -455,7 +455,9 @@
            (for [value-key value-keys]
              [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500 {:key value-key} (value-key item)])
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
-                          [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
+                          [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])
+           (when on-delete [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
+                          [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-delete item)} "Delete"]])])]]]]]])
 
 
 (defn html-date-picker [& {:keys [name value on-change min-date max-date]}]
