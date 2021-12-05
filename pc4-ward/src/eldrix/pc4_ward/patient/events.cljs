@@ -64,7 +64,17 @@
                                              :t_summary_multiple_sclerosis/events
                                              :t_ms_diagnosis/id ; we flatten this to-one attribute
                                              :t_ms_diagnosis/name]}
-     :t_patient/episodes
+     {:t_patient/episodes [:t_episode/id
+                           :t_episode/project_fk
+                           {:t_episode/project [:t_project/id
+                                                :t_project/name
+                                                :t_project/title
+                                                :t_project/active?]}
+                           :t_episode/date_from
+                           :t_episode/date_to
+                           :t_episode/stored_pseudonym
+                           {:t_episode/diagnoses patient-diagnosis-properties}
+                           :t_episode/status]}
      :t_patient/results]))
 
 (defn make-search-by-legacy-pseudonym
