@@ -952,66 +952,107 @@
                        :t_result/summary]
           :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
 
+(s/def :t_episode/date_from #(instance? Date %))
+(s/def :t_episode/date_to #(instance? Date %))
+(s/def ::admission (s/and
+                     (s/keys :req [:t_episode/date_from
+                                   :t_episode/date_to])
+                     #(>= (Date/compare (:t_episode/date_to %) (:t_episode/date_from %)) 0)))
+
+(defn edit-admission [admission & {:keys [on-change]}]
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "Admission"]]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date from"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_episode/date_from admission)
+         :max-date (Date.)
+         :on-change #(on-change (assoc admission :t_episode/date_from %))]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date to"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_episode/date_to admission)
+         :min-date (:t_episode/date_from admission)
+         :max-date (Date.)
+         :on-change #(on-change (assoc admission :t_episode/date_to %))]]]
+
+      [ui/list-entities-fixed
+       :items (map-indexed (fn [idx item] (assoc item :id idx)) (:t_episode/diagnoses admission))
+       :headings ["Diagnoses / problems"]
+       :id-key :id
+       :value-keys [#(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+       :on-delete (fn [diag] (on-change (assoc admission
+                                          :t_episode/diagnoses
+                                          (remove #(= (get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/id])
+                                                      (get-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id]))
+                                                  (:t_episode/diagnoses admission)))))]
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Add a problem/ diagnosis"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [eldrix.pc4-ward.snomed.views/select-snomed
+          :id ::choose-diagnosis
+          :common-choices []
+          :value nil
+          :constraint "<404684003"
+          :select-fn (fn [selected]
+                       (on-change (update admission :t_episode/diagnoses conj {:t_diagnosis/diagnosis selected})))]]]]]]]])
+
+
 (defn list-admissions
-  "This shows a list of investigations"
+  "This shows a list of admissions.
+  We track admissions to hospital via a specific 'episode' and tag diagnoses to
+  that episode."
   []
-  (let [editing-encounter (reagent.core/atom nil)]
+  (let [editing-admission (reagent.core/atom nil)]
     (fn []
       (let [current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
-            sorted-encounters []
-            default-encounter-template @(rf/subscribe [::project-subs/default-encounter-template])
-            active-episode-for-patient @(rf/subscribe [::patient-subs/active-episode-for-project (:t_project/id current-project)])
-            editing-encounter' @editing-encounter
-            valid? (s/valid? ::encounter editing-encounter')
-            _ (tap> {:editing-encounter editing-encounter'
-                     :active-episode    active-episode-for-patient
-                     :sorted-encounters sorted-encounters
-                     :valid?            valid?
-                     :problems          (s/explain-data ::encounter editing-encounter')})]
+            admission-episodes @(rf/subscribe [::patient-subs/admission-episodes])
+            editing-admission' @editing-admission
+            valid? (s/valid? ::admission editing-admission')
+            _ (tap> {:admission editing-admission'
+                     :valid?    valid?
+                     :explain   (s/explain-data ::admission editing-admission')})]
         [:<>
-         (when editing-encounter'
+         (when editing-admission'
            [ui/modal
-            :content [edit-encounter editing-encounter' :on-change #(reset! editing-encounter %)]
+            :content [edit-admission editing-admission' :on-change #(reset! editing-admission %)]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
                        :role      :primary
-                       :on-click  #(do (rf/dispatch [::patient-events/save-encounter editing-encounter'])
-                                       (reset! editing-encounter nil))}
+                       :on-click  #(do (rf/dispatch [::patient-events/save-admission editing-admission'])
+                                       (reset! editing-admission nil))}
                       {:id       ::delete-action
                        :title    "Delete"
-                       :hidden?  (not (:t_encounter/id editing-encounter')) ;; hide when new
-                       :on-click #(do (when (:t_encounter/id editing-encounter')
-                                        (rf/dispatch [::patient-events/delete-encounter editing-encounter']))
-                                      (reset! editing-encounter nil))}
+                       :hidden?  (not (:t_episode/id editing-admission')) ;; hide when new
+                       :on-click #(do (when (:t_episode/id editing-admission')
+                                        (rf/dispatch [::patient-events/delete-admission editing-admission']))
+                                      (reset! editing-admission nil))}
                       {:id       ::cancel-action
                        :title    "Cancel"
-                       :on-click #(reset! editing-encounter nil)}]
-            :on-close #(reset! editing-encounter nil)])
+                       :on-click #(reset! editing-admission nil)}]
+            :on-close #(reset! editing-admission nil)])
          [ui/section-heading "Admissions"
           :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
-                    {:on-click #(reset! editing-encounter (merge default-encounter-template
-                                                                 {:t_encounter/patient_fk (:t_patient/id current-patient)
-                                                                  :t_encounter/episode_fk (:t_episode/id active-episode-for-patient)}))}
+                    {:on-click #(reset! editing-admission {:t_episode/patient_fk (:t_patient/id current-patient)})}
                     "Add admission"]]
          [ui/list-entities-fixed
-          :items [{:t_admission/from     (goog.date.Date/fromIsoString "2012-05-01")
-                   :t_admission/to       (goog.date.Date/fromIsoString "2012-05-05")
-                   :t_admission/hospital "UNIVERSITY HOSPITAL WALES"
-                   :t_admission/problems "Urinary tract infection; Sepsis; Pneumonia NOS"}
-                  {:t_admission/from     (goog.date.Date/fromIsoString "2015-01-02")
-                   :t_admission/to       (goog.date.Date/fromIsoString "2015-01-06")
-                   :t_admission/hospital "ROOKWOOD HOSPITAL"
-                   :t_admission/problems "Spasticity"}]
-          :headings ["From" "To" "Hospital" "Problems"]
-          :width-classes {"From" "w-1/6" "To" "w-1/6" "Hospital" "w-1/6" "Problems" "w-3/6"}
-          :id-key :t_encounter/id
-          :value-keys [#(dates/format-date (:t_admission/from %))
-                       #(dates/format-date (:t_admission/to %))
-                       :t_admission/hospital
-                       :t_admission/problems]
-          :on-edit (fn [encounter] (reset! editing-encounter encounter))]]))))
+          :items admission-episodes
+          :headings ["From" "To" "Problems"]
+          :width-classes {"From" "w-1/6" "To" "w-1/6" "Problems" "w-4/6"}
+          :id-key :t_episode/id
+          :value-keys [#(dates/format-date (:t_episode/date_from %))
+                       #(dates/format-date (:t_episode/date_to %))
+                       :t_episode/diagnoses]
+          :on-edit (fn [admission] (reset! editing-admission admission))]]))))
 
 (def neuro-inflammatory-menus
   [{:id        :main
@@ -1032,9 +1073,9 @@
    {:id        :investigations
     :title     "Investigations"
     :component list-investigations}
-   #_{:id        :admissions
-      :title     "Admissions"
-      :component list-admissions}])
+   {:id        :admissions
+    :title     "Admissions"
+    :component list-admissions}])
 
 (def menu-by-id (reduce (fn [acc v] (assoc acc (:id v) v)) {} neuro-inflammatory-menus))
 
