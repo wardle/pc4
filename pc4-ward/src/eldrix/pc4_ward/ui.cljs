@@ -245,7 +245,7 @@
                                         (on-change (if (str/blank? v) nil v))))
       :on-blur       #(when on-blur (on-blur))
       :on-key-down   #(when (and on-enter (= 13 (.-which %))) (on-enter))
-      :on-wheel #(when (= type "number") (-> % .-target .blur))}]
+      :on-wheel      #(when (= type "number") (-> % .-target .blur))}]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn textarea [& {:keys [name value label on-change rows] :or {rows "5"}}]
@@ -253,9 +253,9 @@
    (when label [:label.block.text-sm.font-medium.text-gray-700 {:for "comment"} "Add your comment"])
    [:div.mt-1
     [:textarea#comment.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
-     {:rows rows
-      :name name
-      :value value
+     {:rows      rows
+      :name      name
+      :value     value
       :on-change #(when on-change (let [v (-> % .-target .-value)] (on-change (if (str/blank? v) nil v))))}]]])
 
 
