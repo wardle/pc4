@@ -37,7 +37,7 @@
      :autocomplete-fn      (debounce/debounce #(rf/dispatch [::events/search id {:s              %
                                                                                  :constraint     constraint
                                                                                  :max-hits       max-hits
-                                                                                 :fallback-fuzzy 2}]) 400)
+                                                                                 :fallback-fuzzy 2}]) 200)
      :autocomplete-results @(rf/subscribe [::subs/search-results id])
      :clear-fn             #(rf/dispatch [::events/clear-search-results id])
      :select-fn            select-fn
