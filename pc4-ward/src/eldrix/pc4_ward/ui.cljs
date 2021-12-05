@@ -458,18 +458,22 @@
                           [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])])]]]]]])
 
 
-(defn html-date-picker [& {:keys [name value on-change]}]
+(defn html-date-picker [& {:keys [name value on-change min-date max-date]}]
   (let [d (cond (instance? goog.date.DateTime value)
                 (Date. (.getYear value) (.getMonth value) (.getDate value))
                 (instance? goog.date.Date value)
                 (.toIsoString ^goog.date.Date value true)
                 :else value)]
     [:input#max-w-lg.block.w-full.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.sm:max-w-xs.sm:text-sm.border-gray-300.rounded-md
-     {:type          "date"
-      :name          name
-      :default-value (if (instance? goog.date.Date d) (.toIsoString d true) d)
-      :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
-                        (when on-change (on-change d)))}]))
+     (cond-> {:type          "date"
+              :name          name
+              :default-value (if (instance? goog.date.Date d) (.toIsoString d true) d)
+              :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
+                                (when on-change (on-change d)))}
+             min-date
+             (assoc :min (.toIsoString ^goog.date.Date min-date true))
+             max-date
+             (assoc :max (.toIsoString ^goog.date.Date max-date true)))]))
 
 
 (defn button [& {:keys [disabled? role on-click label]}]
