@@ -811,6 +811,40 @@
         :on-change #(on-change (assoc result :t_result_mri_brain/report %))]]]
      ]]])
 
+(def mri-spine-types #{"CERVICAL_AND_THORACIC" "CERVICAL" "LUMBOSACRAL" "WHOLE_SPINE" "THORACIC"})
+(s/def :t_result_mri_spine/type mri-spine-types)
+
+(s/def ::result-mri-spine (s/keys :req [:t_result_mri_spine/date
+                                        :t_result_mri_spine/type
+                                        :t_patient/patient_identifier]))
+(defn edit-result-mri-spine [result & {:keys [on-change]}]
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "MRI spine"]]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_result_mri_spine/date result)
+         :on-change #(on-change (assoc result :t_result_mri_spine/date %))]]]]
+     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "spine-type"} "Type"]
+      [:div.mt-1.sm:mt-0.sm:col-span-2
+       (ui/select :value (:t_result_mri_spine/type result)
+                  :choices mri-spine-types
+                  :select-fn #(on-change (assoc result :t_result_mri_spine/type %)))]]
+     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "report"} "Report"]
+      [:div.mt-1.sm:mt-0.sm:col-span-2
+       [ui/textarea :name "report"
+        :value (:t_result_mri_spine/report result)
+        :on-change #(on-change (assoc result :t_result_mri_spine/report %))]]]
+     ]]])
+
 (def ocb-results #{"POSITIVE" "PAIRED" "NEGATIVE" "EQUIVOCAL"})
 (s/def :t_result_csf_ocb/result ocb-results)
 (s/def ::result-csf-ocb (s/keys :req [:t_result_csf_ocb/date
@@ -870,7 +904,14 @@
     :t_result_type/id   9
     ::editor            edit-result-mri-brain
     ::spec              ::result-mri-brain
-    ::initial-data      {:t_result_mri_brain/with_gadolinium false}}
+    ::initial-data      {:t_result_mri_brain/with_gadolinium false
+                         :t_result_mri_brain/report ""}}
+   {:t_result_type/name "MRI spine"
+    :t_result_type/id   10
+    ::editor            edit-result-mri-spine
+    ::spec              ::result-mri-spine
+    ::initial-data {:t_result_mri_spine/type "CERVICAL_AND_THORACIC"
+                    :t_result_mri_spine/report ""}}
    {:t_result_type/name "CSF OCB"
     :t_result_type/id   8
     ::editor            edit-result-csf-ocb

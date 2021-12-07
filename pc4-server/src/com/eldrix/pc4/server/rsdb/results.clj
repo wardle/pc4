@@ -18,6 +18,20 @@
                                           :t_result_mri_brain/user_fk
                                           :t_result_mri_brain/with_gadolinium]
                                     :opt [:t_result_mri_brain/id]))
+
+(s/def :t_result_mri_spine/id int?)
+(s/def :t_result_mri_spine/date #(instance? LocalDate %))
+(s/def :t_result_mri_spine/patient_fk int?)
+(s/def :t_result_mri_spine/report (s/nilable string?))
+(s/def :t_result_mri_spine/type #{"CERVICAL_AND_THORACIC" "CERVICAL" "LUMBOSACRAL" "WHOLE_SPINE" "THORACIC"})
+(s/def :t_result_mri_spine/user_fk int?)
+(s/def ::t_result_mri_spine (s/keys :req [:t_result_mri_spine/date
+                                          :t_result_mri_spine/patient_fk
+                                          :t_result_mri_spine/report
+                                          :t_result_mri_spine/type
+                                          :t_result_mri_spine/user_fk]
+                                    :opt [:t_result_mri_spine/id]))
+
 (s/def :t_result_jc_virus/id int?)
 (s/def :t_result_jc_virus/date #(instance? LocalDate %))
 (s/def :t_result_jc_virus/patient_fk int?)
@@ -47,6 +61,9 @@
   {:t_result_mri_brain {:t_result_type/id 9
                         ::spec            ::t_result_mri_brain
                         ::summary         :t_result_mri_brain/report}
+   :t_result_mri_spine {:t_result_type/id 10
+                        ::spec            ::t_result_mri_spine
+                        ::summary         :t_result_mri_spine/report}
    :t_result_jc_virus  {:t_result_type/id 14
                         ::spec            ::t_result_jc_virus
                         ::summary         :t_result_jc_virus/jc_virus}
