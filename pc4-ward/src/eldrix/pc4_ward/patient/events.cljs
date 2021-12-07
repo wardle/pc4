@@ -442,6 +442,14 @@
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
+(rf/reg-event-fx ::save-admission
+  []
+  (fn [{db :db} [_ admission]]
+    {:fx [[:pathom {:params     [(list 'pc4.rsdb/save-admission admission)]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; LEGACY Cardiff and Vale specific fetch - DEPRECATED
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
