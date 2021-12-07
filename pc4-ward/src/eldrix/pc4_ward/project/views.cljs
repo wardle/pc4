@@ -932,6 +932,9 @@
 (defn initial-data-for-result [result]
   (get-in results-lookup [(:t_result_type/id result) ::initial-data]))
 
+(defn truncate [s length]
+  (let [len (count s)] (if (> len length) (str (subs s 0 length) "…") s)))
+
 (defn list-investigations
   "This shows a list of investigations"
   []
@@ -990,7 +993,7 @@
           :id-key :t_result/id
           :value-keys [#(dates/format-date (:t_result/date %))
                        :t_result_type/name
-                       :t_result/summary]
+                       (fn [result] (truncate (:t_result/summary result) 120))]   ;; TODO: should use css to overflow hidden instead
           :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
 
 (s/def :t_episode/date_from #(instance? Date %))
