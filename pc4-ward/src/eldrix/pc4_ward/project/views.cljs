@@ -1050,9 +1050,7 @@
 
 
 (defn list-admissions
-  "This shows a list of admissions.
-  We track admissions to hospital via a specific 'episode' and tag diagnoses to
-  that episode."
+  "This shows a list of admissions."
   []
   (let [editing-admission (reagent.core/atom nil)]
     (fn []
