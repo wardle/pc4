@@ -127,23 +127,24 @@
               [ui/textfield-control
                (:uk.nhs.cfh.isb1506/patient-name current-patient)
                :id "pt-name" :label "Patient name" :required true :disabled true]
-              [ui/select {:label     "Location"
-                       :value     (::refer/location ::refer/type)
-                       :choices   ["Inpatient" "Outpatient"]
-                       :select-fn #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/type] %)])}]
+              [ui/select :label "Location"
+               :value (get-in referral [::refer/location ::refer/type])
+               :default-value "Inpatient"
+               :choices ["Inpatient" "Outpatient"]
+               :select-fn #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/type] %)])]
               [:p]
-              [ui/select-or-autocomplete {:label                "Which hospital?"
-                                       :value                (get-in referral [::refer/location ::refer/hospital])
-                                       :default-value        @(rf/subscribe [::user-subs/default-hospital])
-                                       :id-key               org-events/official-identifier
-                                       :display-key          #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
-                                       :common-choices       @(rf/subscribe [::user-subs/common-hospitals])
-                                       ;  :no-selection-string ""
-                                       :autocomplete-fn      (debounce/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
-                                       :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
-                                       :clear-fn             #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
-                                       :select-fn            #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)])
-                                       :placeholder          "Search for hospital"}]
+              [ui/select-or-autocomplete :label "Which hospital?"
+               :value (get-in referral [::refer/location ::refer/hospital])
+               :default-value @(rf/subscribe [::user-subs/default-hospital])
+               :id-key org-events/official-identifier
+               :display-key #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
+               :common-choices @(rf/subscribe [::user-subs/common-hospitals])
+               ;  :no-selection-string ""
+               :autocomplete-fn (debounce/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
+               :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
+               :clear-fn #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
+               :select-fn #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)])
+               :placeholder "Search for hospital"]
               [ui/textfield-control
                (get-in referral [::refer/location ::refer/ward])
                :id "pt-ward" :label "Ward" :required true :disabled false
@@ -155,18 +156,142 @@
                :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/consultant] %)])]
               )))
 
+
+(def data (reagent.core/atom {}))
+
 (defn service-panel
   [referral & {:keys [on-save]}]
-  (let [valid? (contains? (refer/completed-stages referral) :service)]
+  (let [valid? (contains? (refer/completed-stages referral) :service)
+        _ (tap> {:data @data})]
     (ui/panel {:title         "To which service?"
                :save-label    "Next"
                :save-disabled (not valid?)
                :on-save       #(when (and valid? on-save) (on-save))}
-              [ui/select {:choices             (sort ["Neurology" "Gastroenterology" "Respiratory medicine"])
-                       :value               (::refer/service referral)
-                       :default-value       "Neurology"
-                       :no-selection-string ""
-                       :select-fn           #(rf/dispatch [::events/update-referral (assoc referral ::refer/service %)])}])))
+              [ui/select :choices (sort ["Neuro-oncology MDT" "Neurology" "Gastroenterology" "Respiratory medicine"])
+               :value (::refer/service referral)
+               :default-value "Neuro-oncology MDT"
+               :no-selection-string ""
+               :select-fn #(rf/dispatch [::events/update-referral (assoc referral ::refer/service %)])]
+              [:div.mt-4
+               [ui/select
+                :label "Have you discussed the details of this case with the on-call Neurosurgeon (bleep 6464 at UHW or 07583104201) to ensure that any intervention is safe to wait until after an MDT discussion?"
+                :choices (sort ["Yes" "No. I am happy this can wait."])
+                :no-selection-string ""
+                :value (:discussed? @data)
+                :select-fn #(do (println "selected:" %) (swap! data assoc :discussed? %))]]
+              (when (:discussed? @data)
+                [:fieldset.mt-4
+                 (when (= "Yes" (:discussed? @data))
+                   [:<>
+                    [ui/ui-label :label "When did you discuss with the on-call neurosurgeon?"]
+                    [ui/html-date-picker :value (goog.date.Date.)]])
+                 [:div.mt-8
+                  [:label.block.text-sm.font-medium.text-gray-700 {:for "email"} "Nature of referral"]]
+                 [:legend.sr-only "Nature of referral"]
+                 [:div.space-y-5
+                  [:div.relative.flex.items-start
+                   [:div.flex.items-center.h-5
+                    [:input#small.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:aria-describedby "small-description" :name "plan" :type "radio" :checked "false"}]]
+                   [:div.ml-3.text-sm
+                    [:label.font-medium.text-gray-700 {:for "small"} "New diagnosis"]
+                    [:p#small-description.text-gray-500 "This is a patient with a NEW diagnosis of a brain/CNS tumour. There is NO previously known malignancy"]]]
+                  [:div.relative.flex.items-start
+                   [:div.flex.items-center.h-5
+                    [:input#medium.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:aria-describedby "medium-description" :name "plan" :type "radio"}]]
+                   [:div.ml-3.text-sm
+                    [:label.font-medium.text-gray-700 {:for "medium"} "Oncologist and known other malignancy"]
+                    [:p#medium-description.text-gray-500 "I am the Oncologist (or deputy) whose care this patient is under. They have a KNOWN malignancy and I wish to discuss options for their presumed CNS metastatic disease"]]]
+                  [:div.relative.flex.items-start
+                   [:div.flex.items-center.h-5
+                    [:input#large.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:aria-describedby "large-description" :name "plan" :type "radio" :checked true}]]
+                   [:div.ml-3.text-sm
+                    [:label.font-medium.text-gray-700 {:for "large"} "Surveillance"]
+                    [:p#large-description.text-gray-500 "I am a Neurosurgeon/Neuro-oncologist and this is a patient under my clinical and radiological surveillance. They have had previous MDT discussions"]]]
+                  [:div.relative.flex.items-start
+                   [:div.flex.items-center.h-5
+                    [:input#large.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:aria-describedby "large-description" :name "plan" :type "radio"}]]
+                   [:div.ml-3.text-sm
+                    [:label.font-medium.text-gray-700 {:for "large"} "Neuropathology update"]
+                    [:p#large-description.text-gray-500 "This is a Neuropathology Update"]]]
+                  [:div.relative.flex.items-start
+                   [:div.flex.items-center.h-5
+                    [:input#large.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:aria-describedby "large-description" :name "plan" :type "radio"}]]
+                   [:div.ml-3.text-sm
+                    [:label.font-medium.text-gray-700 {:for "large"} "Stereotactic radiosurgery"]
+                    [:p#large-description.text-gray-500 "I am an Oncologist and would like this MDT’s approval for Stereotactic Radiosurgery"]]]]
+
+                 [:div.mt-4]
+                 [ui/textarea
+                  :label "Please update us on the latest MDT (for the known malignancy) recommendation for your patient:"]
+                 [ui/textarea
+                  :label "What (if any) systemic treatment options exist for your patient?"]]))))
+
+(defn clinical-panel
+  [referral & {:keys [on-save]}]
+  (let [valid? (contains? (refer/completed-stages referral) :service)]
+    (ui/panel {:title         "Clinical details"
+               :save-label    "Next"
+               :save-disabled (not valid?)
+               :on-save       #(when (and valid? on-save) (on-save))}
+
+              [:div
+               [:label.text-base.font-medium.text-gray-900 "EORTC Performance Status"]
+               #_[:p.text-sm.leading-5.text-gray-500 "How do you prefer to receive notifications?"]
+               [:fieldset.mt-4
+                [:legend.sr-only "Notification method"]
+                [:div.space-y-4
+                 [:div.flex.items-center
+                  [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked "true"}]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "0 - Fully active, able to carry on all pre-disease performance without restriction"]]
+                 [:div.flex.items-center
+                  [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked false}]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "1 - Restricted in physically strenuous activity but ambulatory & able to carry out light work . e.g. house/office work"]]
+                 [:div.flex.items-center
+                  [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked false}]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "2 - Ambulatory and capable of all self care but unable to carry out any work activities. Up and about more than 50% of waking hours\n"]]
+                 [:div.flex.items-center
+                  [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked false}]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "3 - Capable of only limited selfcare, confined to bed or chair more than 50% of waking hours"]]
+                 [:div.flex.items-center
+                  [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked false}]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "4 - Completely disabled. Cannot carry on any self care. Totally confined to bed or chair"]]
+
+                 ]]]
+              [:div.mt-4
+               [ui/textarea :label "Relevant symptoms, signs and current clinical state"]
+               [:p.text-sm.text-gray-400 "The members of the MDT rely on accurate yet concise information that is relevant to your patient’s condition in order that an appropriate recommendation can be made.  Therefore please do not paste verbose clinic letters in the above and instead provide a reasonable summary or timeline of events. All referrals to us are reviewed beforehand and will be returned if the above request is found to be disregarded"]]
+
+              [:div.mt-4
+               [ui/textarea :label "Relevant past medical history and co-morbidities"]
+               ]
+              [:div.mt-4
+               [ui/textarea :label "Drug history"]]
+              [ui/select
+               :label "Anticoagulation / antiplatelet therapy"
+               :no-selection-string "None"
+               :choices ["Any NOAC" "Warfarin" "One of, or combination of aspirin / clopidogrel / prasugrel / ticagrelor / dipyrimidole"]]
+              [ui/select
+               :label "Steroid therapy"
+               :choices ["Yes" "No"]]
+              [ui/textarea
+               :label "Details of steroid therapy"]
+              [:div.mt-8
+               [:h2.text-lg.font-semibold.text-gray-700.dark:text-white "Imaging to be discussed"]
+               [:div.px-8 [ui/list-entities-fixed
+                           :items [{:date     "01-Feb-2018"
+                                    :type     "MRI brain"
+                                    :hospital "University Hospital Wales"
+                                    :report   "Right frontal glioma increased in size compared to 2017"}
+                                   {:date     "12-Jul-2017"
+                                    :type     "MRI brain"
+                                    :hospital "Royal Glamorgan Hospital"
+                                    :report   "Right frontal mass lesion, possible glioma"}]
+                           :headings ["Date" "Type" "Hospital" "Report summary"]
+                           :value-keys [:date :type :hospital :report]]]]
+              [ui/button :label "Add imaging report..."])))
+
+
+(def finished (reagent.core/atom false))
 
 (defn refer-page []
   (let [referral @(rf/subscribe [::subs/referral])
@@ -210,7 +335,7 @@
          :svg [ui/svg-anchor] :title "STEP 3:" :text "To which service?"]
         [ui/progress-item :id :question
          :active available :done completed :selected stage :on-click select-stage
-         :svg [ui/svg-graph] :title "STEP 4:" :text "What is the question?"]
+         :svg [ui/svg-graph] :title "STEP 4:" :text "Clinical details?"]
         [ui/progress-item :id :send
          :active available :done completed :selected stage :on-click select-stage
          :svg [ui/svg-tick] :title "FINISH:" :text "Send referral" :end? true]]]
@@ -229,12 +354,19 @@
             :service
             [service-panel referral :on-save #(select-stage :question)]
             :question
-            [:p "Question"]
+            [clinical-panel referral :on-save #(select-stage :send)]
             :send
-            [:p "Send"]
-            ))
-
-        ]]]]))
+            [:<> [ui/panel {:title         "Send referral"
+                            :save-label    "Send"
+                            :save-disabled false
+                            :on-save       #(reset! finished true)}]
+             (when @finished
+             [ui/modal :title "Referral sent"
+              :content nil
+              :actions [{:title "Finish" :id :finish
+                         :on-click #(do (reset! finished false)
+                                        (rf/dispatch [::user-events/do-logout])
+                                        (rf/dispatch [:eldrix.pc4-ward.events/push-state :refer]))}]])]))]]]]))
 
 
 
