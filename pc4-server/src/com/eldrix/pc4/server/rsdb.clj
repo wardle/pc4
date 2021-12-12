@@ -37,41 +37,6 @@
 (s/def :info.snomed.Concept/id (s/and int? verhoeff/valid?))
 ;;
 ;;
-(s/def :t_death_certificate/part1a (s/nilable string?))
-(s/def :t_death_certificate/part1b (s/nilable string?))
-(s/def :t_death_certificate/part1c (s/nilable string?))
-(s/def :t_death_certificate/part2 (s/nilable string?))
-(s/def :t_diagnosis/id int?)
-(s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
-(s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
-(s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
-(s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
-(s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
-
-(s/def :t_encounter/episode_fk int?)
-(s/def :t_encounter/date_time #(instance? LocalDateTime %))
-(s/def :t_encounter/id int?)
-(s/def :t_encounter/patient_fk int?)
-(s/def :t_encounter/encounter_template_fk int?)
-
-(s/def :t_episode/id int?)
-(s/def :t_medication/id int?)
-(s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
-(s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
-(s/def :t_ms_event/id int?)
-(s/def :t_ms_event/date #(instance? LocalDate %))
-(s/def :t_ms_event/impact string?)
-(s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
-(s/def :t_patient/id int?)
-(s/def :t_patient/patient_identifier int?)
-(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
-(s/def :t_patient/date_death (s/nilable #(instance? LocalDate %)))
-(s/def :t_user/id int?)
-(s/def :t_smoking_history/id int?)
-(s/def :t_smoking_history/current_cigarettes_per_day int?)
-(s/def :t_smoking_history/status #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
-;;
-;;
 (s/def ::user-id int?)
 (s/def ::project-id int?)
 (s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
@@ -744,6 +709,7 @@
       (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
                                                                           :permission         permission})))))
 
+(s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
 (s/def ::save-diagnosis
   (s/and
     (s/keys :req [:t_patient/patient_identifier

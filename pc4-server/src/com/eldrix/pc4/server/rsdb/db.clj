@@ -1,7 +1,9 @@
 (ns com.eldrix.pc4.server.rsdb.db
   (:require [next.jdbc.date-time]
-            [next.jdbc :as jdbc])
-  (:import (java.time LocalDate)))
+            [next.jdbc :as jdbc]
+            [clojure.spec.alpha :as s]
+            [com.eldrix.concierge.nhs-number])
+  (:import (java.time LocalDate LocalDateTime)))
 
 (next.jdbc.date-time/read-as-local)
 
@@ -96,3 +98,47 @@
    (parse-entity (jdbc/execute-one! connectable sql-params)))
   ([connectable sql-params opts]
    (parse-entity (jdbc/execute-one! connectable sql-params opts))))
+
+(s/def :t_death_certificate/part1a (s/nilable string?))
+(s/def :t_death_certificate/part1b (s/nilable string?))
+(s/def :t_death_certificate/part1c (s/nilable string?))
+(s/def :t_death_certificate/part2 (s/nilable string?))
+(s/def :t_diagnosis/id int?)
+(s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
+(s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
+(s/def :t_diagnosis/concept_fk int?)
+(s/def :t_encounter/episode_fk int?)
+(s/def :t_encounter/date_time #(instance? LocalDateTime %))
+(s/def :t_encounter/id int?)
+(s/def :t_encounter/patient_fk int?)
+(s/def :t_encounter/encounter_template_fk int?)
+
+(s/def :t_episode/id int?)
+(s/def :t_episode/date_discharge (s/nilable #(instance? LocalDate %)))
+(s/def :t_episode/date_referral #(instance? LocalDate %))
+(s/def :t_episode/discharge_user_fk (s/nilable int?))
+(s/def :t_episode/notes (s/nilable string?))
+(s/def :t_episode/patient_fk int?)
+(s/def :t_episode/project_fk int?)
+(s/def :t_episode/referral_user_fk int?)
+(s/def :t_episode/registration_user_fk (s/nilable int?))
+(s/def :t_episode/stored_pseudonym (s/nilable string?))
+(s/def :t_episode/external_identifier (s/nilable string?))
+
+(s/def :t_medication/id int?)
+(s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
+(s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
+(s/def :t_ms_event/id int?)
+(s/def :t_ms_event/date #(instance? LocalDate %))
+(s/def :t_ms_event/impact string?)
+(s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
+(s/def :t_patient/id int?)
+(s/def :t_patient/patient_identifier int?)
+(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :t_patient/date_death (s/nilable #(instance? LocalDate %)))
+(s/def :t_user/id int?)
+(s/def :t_smoking_history/id int?)
+(s/def :t_smoking_history/current_cigarettes_per_day int?)
+(s/def :t_smoking_history/status #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
