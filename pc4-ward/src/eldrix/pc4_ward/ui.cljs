@@ -250,7 +250,7 @@
 
 (defn textarea [& {:keys [name value label on-change rows] :or {rows "5"}}]
   [:div
-   (when label [:label.block.text-sm.font-medium.text-gray-700 {:for "comment"} "Add your comment"])
+   (when label [:label.block.text-sm.font-medium.text-gray-700 {:for "comment"} label])
    [:div.mt-1
     [:textarea#comment.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
      {:rows      rows
