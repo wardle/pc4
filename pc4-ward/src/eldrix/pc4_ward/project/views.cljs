@@ -996,12 +996,12 @@
                        (fn [result] (truncate (:t_result/summary result) 120))]   ;; TODO: should use css to overflow hidden instead
           :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
 
-(s/def :t_episode/date_from #(instance? Date %))
-(s/def :t_episode/date_to #(instance? Date %))
+(s/def :t_episode/date_registration #(instance? Date %))
+(s/def :t_episode/date_discharge #(instance? Date %))
 (s/def ::admission (s/and
-                     (s/keys :req [:t_episode/date_from
-                                   :t_episode/date_to])
-                     #(>= (Date/compare (:t_episode/date_to %) (:t_episode/date_from %)) 0)))
+                     (s/keys :req [:t_episode/date_registration
+                                   :t_episode/date_discharge])
+                     #(>= (Date/compare (:t_episode/date_discharge %) (:t_episode/date_registration %)) 0)))
 
 (defn edit-admission [admission & {:keys [on-change]}]
   [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
@@ -1015,18 +1015,18 @@
       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date from"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
-        [ui/html-date-picker :name "date" :value (:t_episode/date_from admission)
+        [ui/html-date-picker :name "date" :value (:t_episode/date_registration admission)
          :max-date (Date.)
-         :on-change #(on-change (assoc admission :t_episode/date_from %))]]]
+         :on-change #(on-change (assoc admission :t_episode/date_registration %))]]]
       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date to"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
-        [ui/html-date-picker :name "date" :value (:t_episode/date_to admission)
-         :min-date (:t_episode/date_from admission)
+        [ui/html-date-picker :name "date" :value (:t_episode/date_discharge admission)
+         :min-date (:t_episode/date_registration admission)
          :max-date (Date.)
-         :on-change #(on-change (assoc admission :t_episode/date_to %))]]]
+         :on-change #(on-change (assoc admission :t_episode/date_discharge %))]]]
 
-      [ui/list-entities-fixed
+      #_[ui/list-entities-fixed
        :items (map-indexed (fn [idx item] (assoc item :id idx)) (:t_episode/diagnoses admission))
        :headings ["Diagnoses / problems"]
        :id-key :id
@@ -1036,7 +1036,7 @@
                                           (remove #(= (get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/id])
                                                       (get-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id]))
                                                   (:t_episode/diagnoses admission)))))]
-      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+      #_[:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Add a problem/ diagnosis"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
         [:div.w-full.rounded-md.shadow-sm.space-y-2
@@ -1091,10 +1091,14 @@
           :headings ["From" "To" "Problems"]
           :width-classes {"From" "w-1/6" "To" "w-1/6" "Problems" "w-4/6"}
           :id-key :t_episode/id
-          :value-keys [#(dates/format-date (:t_episode/date_from %))
-                       #(dates/format-date (:t_episode/date_to %))
+          :value-keys [#(dates/format-date (:t_episode/date_registration %))
+                       #(dates/format-date (:t_episode/date_discharge %))
                        :t_episode/diagnoses]
-          :on-edit (fn [admission] (reset! editing-admission admission))]]))))
+          :on-edit (fn [admission] (reset! editing-admission (select-keys admission [:t_episode/id
+                                                                                     :t_episode/patient_fk
+                                                                                     :t_episode/project_fk
+                                                                                     :t_episode/date_registration
+                                                                                     :t_episode/date_discharge])))]]))))
 
 (def neuro-inflammatory-menus
   [{:id        :main
