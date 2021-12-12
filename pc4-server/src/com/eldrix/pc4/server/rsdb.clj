@@ -1017,6 +1017,52 @@
       (users/save-password conn user new-password)
       (throw (ex-info "Cannot change password: incorrect password." {})))))
 
+
+(s/def ::save-admission (s/keys :req [:t_episode/patient_fk
+                                      :t_episode/date_registration
+                                      :t_episode/date_discharge]))
+(pco/defmutation save-admission!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} params]
+  {::pco/op-name 'pc4.rsdb/save-admission}
+  (log/info "save admission request: " params "user: " user)
+  (when-not (s/valid? ::save-admission params)
+    (log/error "invalid save result request" (s/explain-data ::save-admission params))
+    (throw (ex-info "Invalid save result request" (s/explain-data ::save-admission params))))
+  (let [user-id (:t_user/id (users/fetch-user conn (:value user)))
+        project-id (or (:t_episode/project_fk params)
+                       (:t_project/id (next.jdbc/execute-one! conn (sql/format {:select :id :from :t_project :where [:= :name "ADMISSION"]})))
+                       (throw (ex-info "No project named 'ADMISSION' available to be used for default admission episodes." {})))
+        params' (assoc params :t_episode/project_fk project-id
+                              :t_episode/date_referral (:t_episode/date_registration params)
+                              :t_episode/registration_user_fk user-id
+                              :t_episode/referral_user_fk user-id
+                              :t_episode/discharge_user_fk user-id)]
+    (do (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
+        (log/info "writing episode" params')
+        (if (:t_episode/id params')
+          (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
+          (next.jdbc.sql/insert! conn :t_episode params')))))
+
+(pco/defmutation delete-admission!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :authenticated-user
+    :as     env} {episode-id :t_episode/id
+                  patient-fk :t_episode/patient_fk
+                  :as        params}]
+  {::pco/op-name 'pc4.rsdb/delete-admission}
+  (if (and episode-id patient-fk)
+    (let [patient-identifier (patients/pk->identifier conn patient-fk)]
+      (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+      (next.jdbc.sql/delete! conn :t_episode {:id episode-id}))
+    (throw (ex-info "Invalid parameters:" params))))
+
+
+
+
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
@@ -1115,7 +1161,9 @@
    save-result!
    delete-result!
    notify-death!
-   change-password!])
+   change-password!
+   save-admission!
+   delete-admission!])
 
 (comment
   (require '[next.jdbc.connection])
