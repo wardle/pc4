@@ -716,11 +716,13 @@
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (->> (db/execute! conn
                     (sql/format {:select [:t_patient/patient_identifier
-                                          :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to]
+                                          :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to
+                                          :t_medication/reason_for_stopping]
                                  :from   [:t_medication :t_patient]
                                  :where  [:and
                                           [:= :t_medication/patient_fk :t_patient/id]
-                                          [:in :t_patient/patient_identifier patient-ids]]}))
+                                          [:in :t_patient/patient_identifier patient-ids]
+                                          [:<> :t_medication/reason_for_stopping "RECORDED_IN_ERROR"]]}))
        (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
        (map #(convert-product-pack system %))))
 
