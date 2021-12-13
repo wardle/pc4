@@ -690,7 +690,7 @@
    (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
      (update-vals (addresses-for-patients system patient-ids)
                   #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
-                          (rsdb/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
+                          (patients/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
                         :t_address/postcode_raw
                         (lsoa-for-postcode system)
                         (deprivation-quartile-for-lsoa system))))))
