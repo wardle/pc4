@@ -14,10 +14,11 @@
 (defn uber [_]
   (clean nil)
   (b/compile-clj {:basis basis
-                  :src-dirs ["src/main/clj"]
-                  :ns-compile ['com.eldrix.hermes.snomed]
+                  :src-dirs []
+                  :ns-compile ['com.eldrix.clods.core
+                               'com.eldrix.hermes.core]
                   :class-dir class-dir})
-  (b/javac {:src-dirs ["src"]
+  (b/javac {:src-dirs ["src/main/java"]
             :class-dir class-dir
             :basis basis
             :javac-opts ["-source" "8" "-target" "8"]})
@@ -25,3 +26,9 @@
            :uber-file uber-file
            :basis     basis
            :main      'com.eldrix.pc4.api.Factory}))
+
+
+(defn install-rsdb [_]
+  (uber nil)
+  (b/copy-file {:src uber-file
+                :target "/Users/mark/Dev/rsdb/Frameworks/RSJars/Libraries/pc4-api-standalone.jar"}))

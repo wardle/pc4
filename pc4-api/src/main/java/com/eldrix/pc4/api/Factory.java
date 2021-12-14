@@ -36,7 +36,7 @@ public class Factory {
         System.out.println("pc4-api : running live test suite.");
         Hermes hermes = new Hermes("/Users/mark/Dev/hermes/snomed.db");
         // test search
-        List<Result> results = hermes.search(SearchRequest.builder().setS("mnd").build());
+        List<Result> results = hermes.search(Hermes.searchRequestBuilder().setS("mnd").build());
         System.out.print("Hermes search and autocompletion: ");
         printResult(results.stream().anyMatch(r -> ((long) r.conceptId) == 37340000L));
         // test fetch
@@ -47,5 +47,9 @@ public class Factory {
         printResult(hermes.subsumedBy(24700007, 6118003));  // MS is a type of demyelinating disease
         System.out.print("Hermes subsumption 2/2          : ");
         printResult(!(hermes.subsumedBy(24700007, 40733004))); // MS is not a type of infectious disease
+
+        Ods ods = new Ods("/Users/mark/Dev/clods/ods-2021-08", "/Users/mark/Dev/nhspd/nhspd-2021-08-16.db");
+        System.out.println("Postcode: " + ods.fetchPostcode("CF14 4XW"));
+
     }
 }
