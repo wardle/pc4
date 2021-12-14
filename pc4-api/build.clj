@@ -14,7 +14,7 @@
 (defn uber [_]
   (clean nil)
   (b/compile-clj {:basis basis
-                  :src-dirs []
+                  :src-dirs ["src/main/clj"]
                   :ns-compile ['com.eldrix.hermes.snomed]
                   :class-dir class-dir})
   (b/javac {:src-dirs ["src"]
