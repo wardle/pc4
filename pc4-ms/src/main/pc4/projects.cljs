@@ -86,7 +86,7 @@
 
 
 
-(defsc ProjectPage [this {current-project :session/current-project
+(defsc ProjectPage [this {current-project    :session/current-project
                           home               :>/home        ;; TODO: this should use routing, rather than manually handling the menu
                           users              :>/users
                           authenticated-user :session/authenticated-user
@@ -98,14 +98,14 @@
                    {[:session/authenticated-user '_] [:t_user/first_names :t_user/last_name]}
                    {:>/home (comp/get-query ProjectHome)}
                    {:>/users (comp/get-query ProjectUsers)}]
-   :initial-state {:>/home {}
+   :initial-state {:>/home  {}
                    :>/users {}}
    :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
                     (when-let [project-id (some-> id (js/parseInt))]
                       (println "entering project page: project-id" project-id)
                       (dr/route-deferred [:t_project/id project-id]
                                          (fn [] (df/load! app [:t_project/id project-id] ProjectPage
-                                                          {:target [:session/current-project]
+                                                          {:target               [:session/current-project]
                                                            :post-mutation        `dr/target-ready
                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
    :will-leave    (fn [this props]
@@ -129,3 +129,24 @@
         (ui/box-error-message :message "Page not found")))))
 
 (def ui-project-page (comp/factory ProjectPage))
+
+
+(defsc ProjectPage2 [this {:t_project/keys [id name title long_description]}]
+  {:query         [:t_project/id :t_project/name :t_project/title :t_project/long_description]
+   :ident         :t_project/id
+   :route-segment ["project" :t_project/id]
+   :will-enter      (fn [app {:project/keys [id] :as route-params}]
+                      (log/info "Will enter patient with route params " route-params)
+                      ;; be sure to convert strings to int for this case
+                      (let [id (if (string? id) (js/parseInt id) id)]
+                        (dr/route-deferred [:project/id id]
+                                           #(df/load app [:project/id id] ProjectHome
+                                                     {:post-mutation `dr/target-ready
+                                                      :post-mutation-params
+                                                      {:target [:project/id id]}}))))
+   }
+  (dom/div
+    (dom/h3 (str "Project " id))
+    (dom/div (str name " title: " title ": " long_description)))
+
+(def ui-project-page2 (comp/factory ProjectPage2))
