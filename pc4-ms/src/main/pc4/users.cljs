@@ -7,7 +7,9 @@
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.ui.ui :as ui]))
+    [pc4.ui.ui :as ui]
+    [pc4.route :as route]
+    [pc4.ui.projects :as projects]))
 
 
 (defsc NewsAuthor [this {:t_user/keys [id title first_names last_name]}]
@@ -40,8 +42,12 @@
    :ident :t_project/id}
   (dom/a :.cursor-pointer
          {:onClick #(do (js/console.log "selecting project " id name title)
-                        (dr/change-route! this ["project" id])
-                        (comp/transact! @SPA [(list 'pc4.users/open-project project)]))}
+                        (comp/transact! this
+                                         [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage2 id)})])
+                        #_(route/route-to! (str "/project/" id))
+                        #_(dr/change-route! this ["project" id])
+                        #_(comp/transact! @SPA [(list 'pc4.users/open-project project)])
+                        )}
          (dom/div :.px-3.py-1.text-sm.border
                   {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
                   title)))

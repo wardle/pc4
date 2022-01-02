@@ -14,6 +14,7 @@
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
     [pc4.ui.root :as root]
+    [pc4.route :as route]
     [pc4.users]
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
@@ -64,23 +65,6 @@
         {:url                "http://localhost:8080/login"
          :request-middleware (-> (net/wrap-fulcro-request))})}}))
 
-(defonce history
-  (pushy/pushy
-    (fn [p]
-      (let [route-segments (vec (rest (str/split p "/")))]
-        (log/info :info route-segments)
-        (if (empty route-segments)
-          (dr/change-route SPA ["home"])
-          (dr/change-route SPA route-segments))))
-    (constantly true))) ;; TODO: properly implement matching function see
-
-(defn routing-start! []
-  (pushy/start! history))
-
-(defn route-to!
-  "Change routes to the given route-string (e.g. \"/home\"."
-  [route-string]
-  (pushy/set-token! history route-string))
 
 (defn ^:export init []
   (log/info "Application starting.")
@@ -88,7 +72,7 @@
   ;(inspect/app-started! @SPA)
   (app/set-root! @SPA root/Root {:initialize-state? true})
   (dr/initialize! @SPA)
-  (routing-start!)
+  (route/routing-start!)
   (app/mount! @SPA root/Root "app" {:initialize-state? false}))
 
 (comment

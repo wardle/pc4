@@ -3,7 +3,8 @@
   (:require
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr])
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [pc4.route :as route])
   (:import [goog.date Date]))
 
 (def months-en
@@ -94,7 +95,9 @@
                    (div :.flex-1.flex.items-center.justify-center.sm:items-stretch.sm:justify-start
                         (div :.flex-shrink-0.flex.items-center
                              (span :.text-white.rounded-md.text-lg.font-large.font-bold.cursor-pointer
-                                   (a {:onClick #(dr/change-route! this ["home"])} title)))
+                                   (a {:onClick #(comp/transact! this
+                                                                 [(route/route-to {:path ["home"]})])}
+                                      #_{:onClick #(dr/change-route! this ["home"])} title)))
                         (when (seq menu)
                           (div :.hidden.sm:block.sm:ml-6
                                (div :.flex.space-x-4

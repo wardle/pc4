@@ -16,7 +16,7 @@
     [pc4.ui.components]
     [pc4.ui.ui :as ui]
     [pc4.users]
-    [pc4.projects :as projects]
+    [pc4.ui.projects :as projects]
     [taoensso.timbre :as log]
     [com.fulcrologic.fulcro.data-fetch :as df]))
 
@@ -133,7 +133,7 @@
 (def ui-nav-bar (comp/factory NavBar))
 
 (defrouter MainRouter [this props]
-  {:router-targets [HomePage projects/ProjectPage]})
+  {:router-targets [HomePage projects/ProjectPage2]})
 
 (def ui-main-router (comp/factory MainRouter))
 
@@ -142,8 +142,7 @@
                    login-error        :session/error}]
   {:query         [{:session/authenticated-user (comp/get-query NavBar)}
                    {:root/router (comp/get-query MainRouter)}
-                   :session/error
-                   {:root/selected-concept (comp/get-query SnomedConcept)}]
+                   :session/error]
    :initial-state (fn [_] {:root/router (comp/get-initial-state MainRouter)})}
   (if-not authenticated-user
     (ui-login {:session/error login-error})

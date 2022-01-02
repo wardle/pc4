@@ -1,11 +1,12 @@
-(ns pc4.projects
+(ns pc4.ui.projects
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [clojure.string :as str]
-            [pc4.ui.ui :as ui]))
+            [pc4.ui.ui :as ui]
+            [taoensso.timbre :as log]))
 
 (defsc ProjectUsers
   [this {:t_project/keys [users] :as props}]
@@ -128,25 +129,32 @@
         :users (ui-project-users users)
         (ui/box-error-message :message "Page not found")))))
 
+
+
+
 (def ui-project-page (comp/factory ProjectPage))
+
+
+
+(defsc AboutPage [this params]
+  {:route-segment ["about"]}
+  (dom/div (dom/h3 "About")))
 
 
 (defsc ProjectPage2 [this {:t_project/keys [id name title long_description]}]
   {:query         [:t_project/id :t_project/name :t_project/title :t_project/long_description]
    :ident         :t_project/id
    :route-segment ["project" :t_project/id]
-   :will-enter      (fn [app {:project/keys [id] :as route-params}]
-                      (log/info "Will enter patient with route params " route-params)
-                      ;; be sure to convert strings to int for this case
-                      (let [id (if (string? id) (js/parseInt id) id)]
-                        (dr/route-deferred [:project/id id]
-                                           #(df/load app [:project/id id] ProjectHome
-                                                     {:post-mutation `dr/target-ready
-                                                      :post-mutation-params
-                                                      {:target [:project/id id]}}))))
-   }
+   :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
+                    (log/info "Will enter project with route params " route-params)
+                    ;; be sure to convert strings to int for this case
+                    (let [id (if (string? id) (js/parseInt id) id)]
+                      (dr/route-deferred [:t_project/id id]
+                                         #(df/load app [:t_project/id id] ProjectHome
+                                                   {:post-mutation        `dr/target-ready
+                                                    :post-mutation-params {:target [:t_project/id id]}}))))}
   (dom/div
     (dom/h3 (str "Project " id))
-    (dom/div (str name " title: " title ": " long_description)))
+    (dom/div (str name " title: " title ": " long_description))))
 
 (def ui-project-page2 (comp/factory ProjectPage2))
