@@ -413,7 +413,7 @@
 (pco/defresolver project->users
   [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
   {::pco/output [{:t_project/users [:t_user/id]}]}
-  {:t_project/users (projects/fetch-users conn id)})
+  {:t_project/users (vec (projects/fetch-users conn id))})
 
 (pco/defresolver patient->encounters
   [{:com.eldrix.rsdb/keys [conn]} {patient-id :t_patient/id}]
