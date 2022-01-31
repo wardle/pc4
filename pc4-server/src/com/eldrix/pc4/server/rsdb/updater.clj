@@ -36,10 +36,13 @@
   This namespace provides functions that can take modern reference data sources
   and update the v3 backend so it may continue to run safely."
   (:require [clojure.core.async :as a]
+            [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
+            [com.eldrix.hermes.impl.store]
             [com.eldrix.hermes.snomed :as snomed]
             [next.jdbc.sql :as sql]
-            [next.jdbc :as jdbc])
+            [next.jdbc :as jdbc]
+            [next.jdbc.connection])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (defn stream-extended-concepts
@@ -51,13 +54,13 @@
     ch))
 
 (def upsert-concepts-sql
-  (clojure.string/join " " ["insert into t_concept"
-                            "(concept_id, concept_status_code, ctv_id, fully_specified_name, is_primitive, snomed_id)"
-                            "values (?,?,?,?,?,?)"
-                            "on conflict (concept_id) do update"
-                            "set concept_status_code = EXCLUDED.concept_status_code,"
-                            "ctv_id = EXCLUDED.ctv_id, fully_specified_name = EXCLUDED.fully_specified_name, is_primitive = EXCLUDED.is_primitive,"
-                            "snomed_id = EXCLUDED.snomed_id"]))
+  (str/join " " ["insert into t_concept"
+                 "(concept_id, concept_status_code, ctv_id, fully_specified_name, is_primitive, snomed_id)"
+                 "values (?,?,?,?,?,?)"
+                 "on conflict (concept_id) do update"
+                 "set concept_status_code = EXCLUDED.concept_status_code,"
+                 "ctv_id = EXCLUDED.ctv_id, fully_specified_name = EXCLUDED.fully_specified_name, is_primitive = EXCLUDED.is_primitive,"
+                 "snomed_id = EXCLUDED.snomed_id"]))
 (defn ec->rf1-concept [ec]
   [(get-in ec [:concept :id])                               ;; concept_id
    (if (get-in ec [:concept :active]) 0 1)                  ;; concept_status_code ( 0 = "current" 1 = "retired")
@@ -67,76 +70,6 @@
    ""                                                       ;; snomed_id
    ])
 
-(def upsert-descriptions-sql
-  (clojure.string/join " " ["insert into t_description"
-                            "(concept_id, description_id, description_status_code, description_type_code, initial_capital_status, language_code, term)"
-                            "values (?,?,?,?,?,?,?)"
-                            "on conflict (description_id) do update"
-                            "set concept_id = EXCLUDED.concept_id,"
-                            "    description_status_code = EXCLUDED.description_status_code,"
-                            "    description_type_code = EXCLUDED.description_type_code,"
-                            "    initial_capital_status = EXCLUDED.initial_capital_status,"
-                            "    language_code = EXCLUDED.language_code,"
-                            "    term = EXCLUDED.term"]))
-
-(defn ec->rf1-descriptions
-  [ec]
-  (let [preferred (->> (:descriptions ec)
-                       (remove snomed/is-fully-specified-name?)
-                       (filter #(seq (:preferredIn %)))
-                       first)]
-    (map (fn [d] [(get-in ec [:concept :id])                ;; concept_id
-                  (:id d)                                   ;; description_id
-                  (if (:active d) 0 1)                      ;; description_status_code 0 = "current  1 = "non-current"
-                  (cond                                     ;;description_type_code 1 = preferred, 2 = synonym, 3 = fsn
-                    (and (seq (:preferredIn d)) (snomed/is-fully-specified-name? d)) 3
-                    (= preferred d) 1 :else 2)
-                  (case (:caseSignificanceId d)             ;; initial_capital_status
-                    900000000000020002 "1"                  ;; initial character is case-sensitive - we can make initial character lowercase
-                    900000000000448009 "0"                  ;; entire term case insensitive - just make it all lower-case
-                    900000000000017005 "1")                 ;; entire term is case sensitive - can't do anything
-                  (:languageCode d)                         ;; language_code
-                  (:term d)])                               ;; term
-         (:descriptions ec))))
-
-(def insert-relationships-sql
-  (clojure.string/join " " ["insert into t_relationship"
-                            "(source_concept_id, relationship_type_concept_id, target_concept_id, characteristic_type, refinability, relationship_group)"
-                            "values (?,?,?,?,?,?)"]))
-(defn ec->rf1-relationships
-  "Generate RF1 relationships from an extended concept.
-  We cheat here by skipping most of the data, as it is not used in the legacy
-  application. All we need is the source, the type and the destination.
-  For referential integrity, all concepts will need to exist if these data
-  are imported, and all existing relationships should be simply deleted before
-  creating these new relationships.
-  Warning: the relationship_id is generated by PostgreSQL as we do not use it."
-  [ec]
-  (->> (reduce-kv (fn [acc k v] (into acc (map #(vector k %) v))) [] (:directParentRelationships ec))
-       (map (fn [[type-id target-id]]
-              [(get-in ec [:concept :id])                   ;; source_concept_id
-               type-id                                      ;; relationship_type_concept_id
-               target-id                                    ;; target_concept_id
-               0                                            ;; characteristic_type
-               0                                            ;;refinability
-               0                                            ;;relationship_group
-               ]))))
-
-(def insert-cached-parents-sql
-  (clojure.string/join " " ["insert into t_cached_parent_concepts"
-                            "(child_concept_id, parent_concept_id)"
-                            "values (?,?)"]))
-
-(defn ec->cached-parents
-  "Build a sequence of legacy cached parents.
-  Parameters:
-  - ec : extended concept
-  Returns
-  - A sequence of vectors containing child_concept_id and parent_concept_id"
-  [ec]
-  (let [concept-id (get-in ec [:concept :id])
-        isa-parents (get-in ec [:parentRelationships 116680003])]
-    (map #(vector concept-id %) isa-parents)))
 
 (defn execute-batch [conn sql batch]
   [conn sql batch]
@@ -158,60 +91,12 @@
     (a/<!! (a/reduce (fn [acc batch]
                        (+ acc (apply + (execute-batch conn upsert-concepts-sql batch)))) 0 ch2))))
 
-(defn update-descriptions
-  "Update the legacy rsdb descriptions from the data available in hermes.
-  * Streams all concepts from hermes
-  * Maps each to a sequence of RF1 representations for each concept's descriptions
-  * Upserts each batch
-  Returns a count of descriptions processed."
-  [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
-  (let [ch (stream-extended-concepts hermes)
-        ch2 (a/chan 5 (partition-all batch-size))]
-    (a/pipeline 4 ch2 (map ec->rf1-descriptions) ch)        ;; note - returns multiple descriptions per concept - so we need to concatenate a batch
-    (a/<!! (a/reduce (fn [acc batch] (+ acc (apply + (execute-batch conn upsert-descriptions-sql (apply concat batch))))) 0 ch2))))
-
-(defn update-relationships
-  "Update the legacy rsdb relationships from the data available in hermes.
-  * Delete all existing relationships
-  * Streams all concepts from hermes
-  * Maps each to a sequence of RF1 representations for each concept's relationships
-  * Inserts each batch
-  Returns a count of relationships processed."
-  [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
-  (jdbc/execute-one! conn ["truncate t_relationship"])
-  (let [ch (stream-extended-concepts hermes)
-        ch2 (a/chan 5 (partition-all batch-size))]
-    (a/pipeline 4 ch2 (map ec->rf1-relationships) ch)       ;; note - returns multiple per concept - so we need to concatenate a batch
-    (a/<!! (a/reduce (fn [acc batch] (+ acc (apply + (execute-batch conn insert-relationships-sql (apply concat batch))))) 0 ch2))))
-
-(defn build-cached-parents
-  "Builds a cache parent index.
-  * Delete existing cache
-  * Streams all concepts from hermes
-  * Maps each to a sequence of vectors representing source and target concepts
-  * Inserts each batch.
-  Returns a count of rows processed."
-  [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
-  (jdbc/execute-one! conn ["truncate t_cached_parent_concepts"])
-  (let [ch (stream-extended-concepts hermes)
-        ch2 (a/chan 5 (partition-all batch-size))]
-    (a/pipeline 4 ch2 (map ec->cached-parents) ch)          ;; note - returns multiple per concept - so we need to concatenate a batch
-    (a/<!! (a/reduce (fn [acc batch] (+ acc (apply + (execute-batch conn insert-cached-parents-sql (apply concat batch))))) 0 ch2))))
-
 (defn update-snomed'
   "Updates a legacy rsdb RF1 SNOMED database 'conn' from the data in the modern
   SNOMED RF2 service 'hermes'."
   [conn hermes]
   (println "Updating concepts")
-  (update-concepts conn hermes)
-  (println "Updating descriptions")
-  (update-descriptions conn hermes)
-  (println "Updating relationships")
-  (update-relationships conn hermes)
-  (println "Building legacy parent cache")
-  (build-cached-parents conn hermes)
-  (println "Now use legacy index creator to build a lucene6 index:\nSee https://github.com/wardle/rsterminology/releases/tag/v1.1\nRun using:\njava -jar target/rsterminology-server-1.1-SNAPSHOT.jar --config run.yml --build-index wibble"))
-
+  (update-concepts conn hermes))
 
 (defn update-snomed
   "Update the database db-name (default 'rsdb') with data from hermes.
@@ -221,9 +106,9 @@
   will update the database 'rsdb' from data in the hermes file specified."
   [{:keys [db-name hermes] :or {db-name "rsdb"}}]
   (let [hermes-svc (hermes/open hermes)
-        conn (next.jdbc.connection/->pool HikariDataSource {:dbtype                            "postgresql"
-                                                                              :dbname          db-name
-                                                                              :maximumPoolSize 10})]
+        conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
+                                                            :dbname          db-name
+                                                            :maximumPoolSize 10})]
     (update-snomed' conn hermes-svc)))
 
 (comment
@@ -231,13 +116,14 @@
   (def hermes (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
   (hermes/get-extended-concept hermes 24700007)
   (require '[next.jdbc.connection])
-  (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype                            "postgresql"
-                                                                             :dbname          "rsdb"
-                                                                             :maximumPoolSize 10}))
+  (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
+                                                           :dbname          "rsdb"
+                                                           :maximumPoolSize 10}))
   (sql/get-by-id conn :t_concept 104001 :concept_id {})
   (sql/update! conn :t_concept (ec->rf1-concept ec) {:concept_id (get-in ec [:concept :id])})
 
-
+  (sql/get-by-id conn :t_concept 38097211000001103 :concept_id {})
+  (update-concepts conn hermes)
 
   (def ch (stream-extended-concepts hermes))
   (a/<!! ch)
