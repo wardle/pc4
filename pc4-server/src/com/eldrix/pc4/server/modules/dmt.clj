@@ -437,6 +437,43 @@
                                      [:in :t_patient/patient_identifier patient-ids]]}))
        (map #(update % :t_result_mri_brain/date to-local-date))))
 
+
+
+(defn mri-brain-multiple-sclerosis
+  "Returns MRI brain results with MS annotations.
+  In the backend database, there is a to-many relationship between MRI brain
+  result and the annotation. As such, there may be multiple annotations for a
+  single result. This is appropriate, as we may have one annotation recorded on
+  the basis of the report, and a subsequent more accurate annotation recorded
+  on the basis of viewing the images. We use the 'best' annotation"
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (->> (db/execute! conn (sql/format
+                           {:select [:t_patient/patient_identifier
+                                     :t_result_mri_brain/id
+                                     :t_result_mri_brain/date
+                                     :t_result_mri_brain/report
+                                     :t_annotation_mri_brain_multiple_sclerosis_new/id
+                                     :annotation_type :black_holes_t1_hypointense_lesions
+                                     :cerebralatrophy
+                                     :change_t2_hyperintense
+                                     :compare_to_comment
+                                     :compare_to_result_mri_brain_fk
+                                     :enlarging_t2_lesions
+                                     :gad_enhancing_lesions
+                                     :infra_tentorial_lesions
+                                     :juxta_cortical_lesions
+                                     :periventricularlesions
+                                     :summary
+                                     :t2_hyperintense_lesions
+                                     :t2_lesions_typical_for_ms]
+                            :from [:t_result_mri_brain
+                            :left-join [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]
+                                        :t_annotation_mri_brain_multiple_sclerosis_new [:= :result_fk :t_result_mri_brain/id]]
+                            :where [:and
+                                    [:<> :t_result_mri_brain/is_deleted "true"]
+                                    [:in :t_patient/patient_identifier patient-ids]]}))))
+
+
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
   of diagnosis."
