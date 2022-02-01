@@ -8,7 +8,8 @@
                   :output-dir      "resources/public/js/compiled"
                   :asset-path      "/js/compiled"
                   :modules         {:app {:init-fn  eldrix.pc4-ward.core/init
-                                          :preloads [devtools.preload]}}
+                                          ;:preloads [devtools.preload]
+                                          }}
                   :tailwind/output "resources/public/css/site.css"
                   :tailwind/files  {:base-path    "./."     ;; Path to directory housing `tailwind.config.js` and `postcss.config.js`
                                     :tailwind.css "./resources/public/css/tailwind.css"}

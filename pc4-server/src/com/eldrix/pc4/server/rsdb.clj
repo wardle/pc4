@@ -438,10 +438,14 @@
   {::pco/output [{:t_patient/results [:t_result_mri_brain/date
                                       :t_result_mri_brain/report
                                       :t_result_mri_brain/with_gadolinium
-                                      :t_result_jc_virus/date
-                                      :t_result_jc_virus/jc_virus
-                                      :t_result_csf_ocb/date
-                                      :t_result_csf_ocb/result]}]}
+                                      :t_result_jc_virus/date :t_result_jc_virus/jc_virus
+                                      :t_result_csf_ocb/date :t_result_csf_ocb/result
+                                      :t_result_renal/date :t_result_renal/notes
+                                      :t_result_full_blood_count/date :t_result_full_blood_count/notes
+                                      :t_result_ecg/date :t_result_ecg/notes
+                                      :t_result_urinalysis/date :t_result_urinalysis/notes
+                                      :t_result_liver_function/date :t_result_liver_function/notes
+                                      ]}]}
   {:t_patient/results (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)})
 
 (pco/defresolver encounter->users

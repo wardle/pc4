@@ -785,6 +785,35 @@
                                                       (:t_encounter/form_weight_height encounter)
                                                       (:t_encounter/form_smoking_history encounter))))]]))))
 
+(s/def ::result-renal (s/keys :req [:t_result_renal/date :t_patient/patient_identifier]))
+(s/def ::result-full-blood-count (s/keys :req [:t_result_full_blood_count/date :t_patient/patient_identifier]))
+(s/def ::result-ecg (s/keys :req [:t_result_ecg/date :t_patient/patient_identifier]))
+(s/def ::result-urinalysis (s/keys :req [:t_result_urinalysis/date :t_patient/patient_identifier]))
+(s/def ::result-liver-function (s/keys :req [:t_result_liver_function/date :t_patient/patient_identifier]))
+
+(defn make-edit-result [title entity-name]
+  (let [date-key (keyword (name entity-name) "date")
+        notes-key (keyword (name entity-name) "notes")]
+    (fn [result & {:keys [on-change]}]
+      [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+       [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+        [:div
+         [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+          [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+           [:div.mt-1.sm:mt-0.sm:col-span-2
+            [:div.w-full.rounded-md.shadow-sm.space-y-2
+             [:h3.text-lg.font-medium.leading-6.text-gray-900 title]]]]
+          [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+           [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+           [:div.mt-1.sm:mt-0.sm:col-span-2
+            [ui/html-date-picker :name "date" :value (date-key result)
+             :on-change #(on-change (assoc result date-key %))]]]]
+         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "notes"} "Notes"]
+          [:div.mt-1.sm:mt-0.sm:col-span-2
+           [ui/textarea :name "notes"
+            :value (notes-key result)
+            :on-change #(on-change (assoc result notes-key %))]]]]]])))
 
 (s/def ::result-mri-brain (s/keys :req [:t_result_mri_brain/date
                                         :t_patient/patient_identifier]))
@@ -905,13 +934,13 @@
     ::editor            edit-result-mri-brain
     ::spec              ::result-mri-brain
     ::initial-data      {:t_result_mri_brain/with_gadolinium false
-                         :t_result_mri_brain/report ""}}
+                         :t_result_mri_brain/report          ""}}
    {:t_result_type/name "MRI spine"
     :t_result_type/id   10
     ::editor            edit-result-mri-spine
     ::spec              ::result-mri-spine
-    ::initial-data {:t_result_mri_spine/type "CERVICAL_AND_THORACIC"
-                    :t_result_mri_spine/report ""}}
+    ::initial-data      {:t_result_mri_spine/type   "CERVICAL_AND_THORACIC"
+                         :t_result_mri_spine/report ""}}
    {:t_result_type/name "CSF OCB"
     :t_result_type/id   8
     ::editor            edit-result-csf-ocb
@@ -919,7 +948,27 @@
    {:t_result_type/name "JC virus"
     :t_result_type/id   14
     ::editor            edit-result-jc-virus
-    ::spec              ::result-jc-virus}])
+    ::spec              ::result-jc-virus}
+   {:t_result_type/name "Renal profile"
+    :t_result_type/id   23
+    ::editor            (make-edit-result "Renal profile" :t_result_renal)
+    ::spec              ::result-renal}
+   {:t_result_type/name "Full blood count"
+    :t_result_type/id   24
+    ::editor            (make-edit-result "Full blood count" :t_result_full_blood_count)
+    ::spec              ::result-full-blood-count}
+   {:t_result_type/name "Electrocardiogram (ECG)"
+    :t_result_type/id   25
+    ::editor            (make-edit-result "Electrocardiogram (ECG)" :t_result_ecg)
+    ::spec              ::result-ecg}
+   {:t_result_type/name "Urinalysis"
+    :t_result_type/id   26
+    ::editor            (make-edit-result "Urinalysis" :t_result_urinalysis)
+    ::spec ::result-urinalysis}
+   {:t_result_type/name "Liver function tests"
+    :t_result_type/id   27
+    ::editor            (make-edit-result "Liver function tests" :t_result_liver_function)
+    ::spec ::result-liver-function}])
 
 (def results-lookup (zipmap (map :t_result_type/id supported-results) supported-results))
 
@@ -993,7 +1042,7 @@
           :id-key :t_result/id
           :value-keys [#(dates/format-date (:t_result/date %))
                        :t_result_type/name
-                       (fn [result] (truncate (:t_result/summary result) 120))]   ;; TODO: should use css to overflow hidden instead
+                       (fn [result] (truncate (:t_result/summary result) 120))] ;; TODO: should use css to overflow hidden instead
           :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
 
 (s/def :t_episode/date_registration #(instance? Date %))
@@ -1027,26 +1076,26 @@
          :on-change #(on-change (assoc admission :t_episode/date_discharge %))]]]
 
       #_[ui/list-entities-fixed
-       :items (map-indexed (fn [idx item] (assoc item :id idx)) (:t_episode/diagnoses admission))
-       :headings ["Diagnoses / problems"]
-       :id-key :id
-       :value-keys [#(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-       :on-delete (fn [diag] (on-change (assoc admission
-                                          :t_episode/diagnoses
-                                          (remove #(= (get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/id])
-                                                      (get-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id]))
-                                                  (:t_episode/diagnoses admission)))))]
+         :items (map-indexed (fn [idx item] (assoc item :id idx)) (:t_episode/diagnoses admission))
+         :headings ["Diagnoses / problems"]
+         :id-key :id
+         :value-keys [#(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+         :on-delete (fn [diag] (on-change (assoc admission
+                                            :t_episode/diagnoses
+                                            (remove #(= (get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/id])
+                                                        (get-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id]))
+                                                    (:t_episode/diagnoses admission)))))]
       #_[:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Add a problem/ diagnosis"]
-       [:div.mt-1.sm:mt-0.sm:col-span-2
-        [:div.w-full.rounded-md.shadow-sm.space-y-2
-         [eldrix.pc4-ward.snomed.views/select-snomed
-          :id ::choose-diagnosis
-          :common-choices []
-          :value nil
-          :constraint "<404684003"
-          :select-fn (fn [selected]
-                       (on-change (update admission :t_episode/diagnoses conj {:t_diagnosis/diagnosis selected})))]]]]]]]])
+         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Add a problem/ diagnosis"]
+         [:div.mt-1.sm:mt-0.sm:col-span-2
+          [:div.w-full.rounded-md.shadow-sm.space-y-2
+           [eldrix.pc4-ward.snomed.views/select-snomed
+            :id ::choose-diagnosis
+            :common-choices []
+            :value nil
+            :constraint "<404684003"
+            :select-fn (fn [selected]
+                         (on-change (update admission :t_episode/diagnoses conj {:t_diagnosis/diagnosis selected})))]]]]]]]])
 
 
 (defn list-admissions

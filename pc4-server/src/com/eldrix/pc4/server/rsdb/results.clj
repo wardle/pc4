@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.rsdb.db :as db]
+            [com.eldrix.pc4.server.rsdb.forms]
             [honey.sql :as sql])
   (:import (java.time LocalDate LocalDateTime)))
 
@@ -35,7 +36,7 @@
 (s/def :t_result_jc_virus/id int?)
 (s/def :t_result_jc_virus/date #(instance? LocalDate %))
 (s/def :t_result_jc_virus/patient_fk int?)
-(s/def :t_result_jc_virtus/user_fk int?)
+(s/def :t_result_jc_virus/user_fk int?)
 (s/def :t_result_jc_virus/jc_virus #{"POSITIVE" "NEGATIVE"})
 (s/def ::t_result_jc_virus (s/keys :req [:t_result_jc_virus/date
                                          :t_result_jc_virus/patient_fk
@@ -54,23 +55,84 @@
                                         :t_result_csf_ocb/result]
                                   :opt [:t_result_csf_ocb/id]))
 
+(s/def :t_result_renal/id int?)
+(s/def :t_result_renal/date #(instance? LocalDate %))
+(s/def :t_result_renal/patient_fk int?)
+(s/def :t_result_renal/user_fk int?)
+(s/def ::t_result_renal (s/keys :req [:t_result_renal/date
+                                      :t_result_renal/patient_fk
+                                      :t_result_renal/user_fk]
+                                :opt [:t_result_renal/id]))
+(s/def :t_result_full_blood_count/id int?)
+(s/def :t_result_full_blood_count/date #(instance? LocalDate %))
+(s/def :t_result_full_blood_count/patient_fk int?)
+(s/def :t_result_full_blood_count/user_fk int?)
+(s/def ::t_result_full_blood_count (s/keys :req [:t_result_full_blood_count/date
+                                                 :t_result_full_blood_count/patient_fk
+                                                 :t_result_full_blood_count/user_fk]
+                                           :opt [:t_result_full_blood_count/id]))
+
+(s/def :t_result_ecg/id int?)
+(s/def :t_result_ecg/date #(instance? LocalDate %))
+(s/def :t_result_ecg/patient_fk int?)
+(s/def :t_result_ecg/user_fk int?)
+(s/def ::t_result_ecg (s/keys :req [:t_result_ecg/date
+                                    :t_result_ecg/patient_fk
+                                    :t_result_ecg/user_fk]
+                              :opt [:t_result_ecg/id]))
+
+(s/def :t_result_urinalysis/id int?)
+(s/def :t_result_urinalysis/date #(instance? LocalDate %))
+(s/def :t_result_urinalysis/patient_fk int?)
+(s/def :t_result_urinalysis/user_fk int?)
+(s/def ::t_result_urinalysis (s/keys :req [:t_result_urinalysis/date
+                                           :t_result_urinalysis/patient_fk
+                                           :t_result_urinalysis/user_fk]
+                                     :opt [:t_result_urinalysis/id]))
+
+(s/def :t_result_liver_function/id int?)
+(s/def :t_result_liver_function/date #(instance? LocalDate %))
+(s/def :t_result_liver_function/patient_fk int?)
+(s/def :t_result_liver_function/user_fk int?)
+(s/def ::t_result_liver_function (s/keys :req [:t_result_liver_function/date
+                                               :t_result_liver_function/patient_fk
+                                               :t_result_liver_function/user_fk]
+                                         :opt [:t_result_liver_function/id]))
+
+
+
 (def result->types
   "Frustratingly, the legacy system manages types using both entities and a
   runtime 'result_type' identifier. This list of 'magic' identifiers is here
   for currently supported types."
-  {:t_result_mri_brain {:t_result_type/id 9
-                        ::spec            ::t_result_mri_brain
-                        ::summary         :t_result_mri_brain/report}
-   :t_result_mri_spine {:t_result_type/id 10
-                        ::spec            ::t_result_mri_spine
-                        ::summary         :t_result_mri_spine/report}
-   :t_result_jc_virus  {:t_result_type/id 14
-                        ::spec            ::t_result_jc_virus
-                        ::summary         :t_result_jc_virus/jc_virus}
-   :t_result_csf_ocb   {:t_result_type/id 8
-                        ::spec            ::t_result_csf_ocb
-                        ::summary         :t_result_csf_ocb/result}})
-:t_result_mri_brain
+  {:t_result_mri_brain        {:t_result_type/id 9
+                               ::spec            ::t_result_mri_brain
+                               ::summary         :t_result_mri_brain/report}
+   :t_result_mri_spine        {:t_result_type/id 10
+                               ::spec            ::t_result_mri_spine
+                               ::summary         :t_result_mri_spine/report}
+   :t_result_jc_virus         {:t_result_type/id 14
+                               ::spec            ::t_result_jc_virus
+                               ::summary         :t_result_jc_virus/jc_virus}
+   :t_result_csf_ocb          {:t_result_type/id 8
+                               ::spec            ::t_result_csf_ocb
+                               ::summary         :t_result_csf_ocb/result}
+   :t_result_renal            {:t_result_type/id 23
+                               ::spec            ::t_result_renal
+                               ::summary         :t_result_renal/notes}
+   :t_result_full_blood_count {:t_result_type/id 24
+                               ::spec            ::t_result_full_blood_count
+                               ::summary         :t_result_full_blood_count/notes}
+   :t_result_ecg              {:t_result_type/id 25
+                               ::spec            ::t_result_ecg
+                               ::summary         :t_result_ecg/notes}
+   :t_result_urinalysis       {:t_result_type/id 26
+                               ::spec            ::t_result_urinalysis
+                               ::summary         :t_result_urinalysis/notes}
+   :t_result_liver_function   {:t_result_type/id 27
+                               ::spec            ::t_result_liver_function
+                               ::summary         :t_result_liver_function/notes}})
+
 (def supported-types (keys result->types))
 (def lookup-by-id (zipmap (map :t_result_type/id (vals result->types)) (keys result->types)))
 
