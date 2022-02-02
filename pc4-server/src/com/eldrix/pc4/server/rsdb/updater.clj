@@ -45,31 +45,16 @@
             [next.jdbc.connection])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
-(defn stream-extended-concepts
-  "Return a channel on which all concepts will be returned."
-  [hermes & {:keys [buf-n] :or {buf-n 50}}]
-  (let [xf-extended-concept (map #(hermes/get-extended-concept hermes (:id %)))
-        ch (a/chan buf-n xf-extended-concept)]
+(defn stream-concept-identifiers
+  "Return a channel on which all concept identifiers will be returned."
+  [hermes & {:keys [ batch-size] :or {batch-size 5000}}]
+  (let [xf-concept-id (map :id)
+        ch (a/chan 5 (comp xf-concept-id (partition-all batch-size)))]
     (com.eldrix.hermes.impl.store/stream-all-concepts (.-store hermes) ch)
     ch))
 
 (def upsert-concepts-sql
-  (str/join " " ["insert into t_concept"
-                 "(concept_id, concept_status_code, ctv_id, fully_specified_name, is_primitive, snomed_id)"
-                 "values (?,?,?,?,?,?)"
-                 "on conflict (concept_id) do update"
-                 "set concept_status_code = EXCLUDED.concept_status_code,"
-                 "ctv_id = EXCLUDED.ctv_id, fully_specified_name = EXCLUDED.fully_specified_name, is_primitive = EXCLUDED.is_primitive,"
-                 "snomed_id = EXCLUDED.snomed_id"]))
-(defn ec->rf1-concept [ec]
-  [(get-in ec [:concept :id])                               ;; concept_id
-   (if (get-in ec [:concept :active]) 0 1)                  ;; concept_status_code ( 0 = "current" 1 = "retired")
-   ""                                                       ;; ctv_id
-   (:term (first (filter snomed/is-fully-specified-name? (:descriptions ec)))) ;; fsn
-   (if (snomed/is-primitive? (:concept ec)) 1 0)            ;; is_primitive
-   ""                                                       ;; snomed_id
-   ])
-
+  "insert into t_concept (concept_id) values (?) on conflict (concept_id) do nothing")
 
 (defn execute-batch [conn sql batch]
   [conn sql batch]
@@ -84,12 +69,10 @@
   * Turns into batches of values
   * Upserts each batch.
   Returns a count of concepts processed."
-  [conn hermes & {:keys [batch-size] :or {batch-size 5000}}]
-  (let [ch (stream-extended-concepts hermes)
-        ch2 (a/chan 5 (partition-all batch-size))]
-    (a/pipeline 4 ch2 (map ec->rf1-concept) ch)
+  [conn hermes]
+  (let [ch (stream-concept-identifiers hermes)]
     (a/<!! (a/reduce (fn [acc batch]
-                       (+ acc (apply + (execute-batch conn upsert-concepts-sql batch)))) 0 ch2))))
+                       (+ acc (apply + (execute-batch conn upsert-concepts-sql (map vector batch))))) 0 ch))))
 
 (defn update-snomed'
   "Updates a legacy rsdb RF1 SNOMED database 'conn' from the data in the modern
@@ -120,29 +103,7 @@
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 10}))
   (sql/get-by-id conn :t_concept 104001 :concept_id {})
-  (sql/update! conn :t_concept (ec->rf1-concept ec) {:concept_id (get-in ec [:concept :id])})
-
   (sql/get-by-id conn :t_concept 38097211000001103 :concept_id {})
   (update-concepts conn hermes)
 
-  (def ch (stream-extended-concepts hermes))
-  (a/<!! ch)
-  (def ch2 (a/chan 5 (partition-all 500)))
-  (a/pipeline 4 ch2 (map (comp rf1-concept->vals ec->rf1-concept)) ch)
-  (a/<!! ch2)
-  (def ch3 (a/reduce (fn [acc batch] (+ acc (apply + (upsert-concepts conn batch))))
-                     0 ch2))
-  (a/poll! ch3)
-  (upsert-concepts conn [(ec->rf1-concept ec)])
-  (map rf1-concept->vals [(ec->rf1-concept ec)])
-  (update-descriptions conn hermes)
-  (def ch2 (a/chan))
-  (a/pipeline 4 ch2 (map ec->rf1-descriptions) ch)
-  (a/<!! ch2)
-  (apply concat (a/<!! ch2))
-  (jdbc/execute-one! conn ["truncate t_relationship"])
-  (update-relationships conn hermes)
-  (a/pipeline 4 ch2 (map ec->cached-parent-concepts) ch)
-  (a/<!! ch2)
-  (build-cached-parents conn hermes)
   )
