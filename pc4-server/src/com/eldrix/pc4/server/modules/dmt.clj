@@ -466,7 +466,7 @@
                                      :summary
                                      :t2_hyperintense_lesions
                                      :t2_lesions_typical_for_ms]
-                            :from [:t_result_mri_brain
+                            :from [:t_result_mri_brain]
                             :left-join [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]
                                         :t_annotation_mri_brain_multiple_sclerosis_new [:= :result_fk :t_result_mri_brain/id]]
                             :where [:and
