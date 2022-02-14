@@ -498,8 +498,8 @@
                                 (let [diag (first diags)
                                       first-event (get first-ms-events (:t_patient/patient_identifier diag))]
                                   (assoc diag :date_first_event first-event
-                                              ;; use first recorded event as onset, or date onset in diagnosis, or date of diagnosis failing that.
-                                              :calculated-onset (or first-event (:t_diagnosis/date_onset diag) (:t_diagnosis/date_diagnosis diag))))))))
+                                              ;; use first recorded event as onset, or date onset in diagnosis
+                                              :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
 
 
 (defn fetch-patient-diagnoses
