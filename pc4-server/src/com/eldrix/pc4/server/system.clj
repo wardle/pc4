@@ -47,18 +47,25 @@
             [org.httpkit.server]
             [ring.middleware.content-type]
             [ring.middleware.cors]
-            [ring.middleware.defaults])
+            [ring.middleware.defaults]
+            [com.eldrix.nhspd.core :as nhspd])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate)))
 
 (def resolvers (atom []))
 
-(defmethod ig/init-key :com.eldrix/clods [_ {:keys [ods-path nhspd-path]}]
-  (log/info "opening nhspd index from " nhspd-path)
-  (log/info "opening clods index from " ods-path)
+(defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [path]}]
+  (log/info "opening nhspd index from " path)
+  (nhspd/open-index path))
+
+(defmethod ig/halt-key! :com.eldrix/nhspd [_ nhspd]
+  (.close nhspd))
+
+(defmethod ig/init-key :com.eldrix/clods [_ {:keys [path nhspd]}]
+  (log/info "opening clods index from " path)
   (log/info "registering UK ODS and NHSPD graph resolvers")
   (swap! resolvers into com.eldrix.clods.graph/all-resolvers)
-  (clods/open-index ods-path nhspd-path))
+  (clods/open-index {:ods-dir path :nhspd nhspd}))
 
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
@@ -345,10 +352,22 @@
   (def system (init :dev [:pathom/env]))
   (ig/halt! system)
 
+  ;; just connect to remote database
+  (def system (init :pc4 [:com.eldrix.rsdb/conn]))
+
+
   (com.eldrix.pc4.server.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
 
+  (com.eldrix.pc4.server.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username "bstacey"
+                                                                                :t_user/first_names "Becky"
+                                                                                :t_user/last_name "Stacy"
+                                                                                :t_user/title "Ms"
+                                                                                :t_user/job_title_fk 8})
+  (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "cevans" "password")
+  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
-  ;; start a server using http-kit/ring
+
+  ;; start a server using http-kit/ring - suitable for a fulcro front-end
   (def system (init :dev [:http/server2]))
   (ig/halt! system)
 

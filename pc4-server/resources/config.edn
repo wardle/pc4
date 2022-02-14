@@ -22,10 +22,13 @@
 
  :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/clods                   #profile {:default {:ods-path   "/Users/mark/Dev/clods/ods-2021-06-25"
-                                                         :nhspd-path "/Users/mark/Dev/nhspd/nhspd-2021-08-16.db"}
-                                               :pc4     {:ods-path   "/var/pc4/ods-2021-06-25.db"
-                                                         :nhspd-path "/var/pc4/nhspd-2021-08-16.db"}}
+ :com.eldrix/nhspd                   #profile {:default {:path "/Users/mark/Dev/nhspd/nhspd-08-16.db"}
+                                               :pc4     {:path "/var/pc4/nhspd-2021-08-16.db"}}
+
+ :com.eldrix/clods                   #profile {:default {:path "/Users/mark/Dev/clods/ods-2021-06-25"
+                                                         :nhspd    #ig/ref :com.eldrix/nhspd}
+                                               :pc4     {:path "/var/pc4/ods-2021-06-25.db"
+                                                         :nhspd    #ig/ref :com.eldrix/nhspd}}
 
  :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
                                                       :pc4     "/var/pc4/depriv.db"}}

@@ -11,17 +11,12 @@
                                                 :exclusions  [log4j/log4j
                                                               commons-logging/commons-logging]}
 
-             com.eldrix/clods                  {:git/url "https://github.com/wardle/clods.git"
-                                                :sha     "168de00f083c5b6c538375a37cc1a9ec523283ea"}
-             com.eldrix/concierge              {:git/url "https://github.com/wardle/concierge.git"
-                                                :sha     "326f729f126db069a3d59c8294f7345c0bda7f40"}
-             com.eldrix/deprivare              {:git/url    "https://github.com/wardle/deprivare.git"
-                                                :sha        "c27dd00b6db4b137ddf830f7fa82a696fbcb7a58"
+             com.eldrix/clods                  {:mvn/version "1.0.165"}
+             com.eldrix/concierge              {:mvn/version "1.0.123"}
+             com.eldrix/deprivare              {:mvn/version "1.0.46"
                                                 :exclusions [commons-logging/commons-logging]}
-             com.eldrix/dmd                    {:git/url "https://github.com/wardle/dmd.git"
-                                                :sha     "eb953eb8c3f211de4af3d4461a7ec2fc6b2ef8aa"}
-             com.eldrix/hermes                 {:git/url "https://github.com/wardle/hermes.git"
-                                                :sha     "4c7d17bea26caa8169baa0cc2f62e09c1afd2fad"}
+             com.eldrix/dmd                    {:mvn/version "0.6.139"}
+             com.eldrix/hermes                 {:mvn/version "0.8.353"}
              com.eldrix/comprehend             {:git/url "https://github.com/wardle/comprehend.git"
                                                 :sha     "b89181942c9e68a638e35102c7f1eae073b978f1"}
 
