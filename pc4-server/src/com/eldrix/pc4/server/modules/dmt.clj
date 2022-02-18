@@ -4,6 +4,7 @@
    post-marketing surveillance."
   (:require [clojure.data.csv :as csv]
             [clojure.java.io :as io]
+            clojure.java.shell
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
@@ -39,8 +40,8 @@
     :brand-names ["Tecfidera"]
     :class       :platform-dmt
     :codelist    {:ecl
-                       "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
-                       (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
+                  "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
+                  (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
                   :atc "L04AX07"}}
 
    :glatiramer
@@ -49,8 +50,8 @@
     :atc         "L03AX13"
     :class       :platform-dmt
     :codelist    {:ecl
-                       "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
-                       OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
+                  "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
+                  OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
                   :atc "L03AX13"}}
 
    :ifn-beta-1a
@@ -59,8 +60,8 @@
     :atc         "L03AB07 NOT L03AB13"
     :class       :platform-dmt
     :codelist    {:inclusions {:ecl
-                                    "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
-                                    (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
+                               "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
+                               (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
                                :atc "L03AB07"}
                   :exclusions {:ecl "<<12222201000001108|PLEGRIDY|"
                                :atc "L03AB13"}}}
@@ -96,11 +97,11 @@
     :atc         "L01XC02"
     :class       :he-dmt
     :codelist    {:ecl
-                       (str/join " "
-                                 ["(<<108809004|Rituximab product|)"
-                                  "OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
-                                  "OR (<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
-                                  "OR (<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
+                  (str/join " "
+                            ["(<<108809004|Rituximab product|)"
+                             "OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
+                             "OR (<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
+                             "OR (<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
                   :atc "L01XC02"}}
 
    :ocrelizumab
@@ -164,12 +165,17 @@
     :class       :other
     :codelist    {:atc "B01AC"}}
 
+   :anti-coagulant
+   {:description "Anticoagulants"
+    :class       :other
+    :codelist    {:atc ["B01AA" "B01AB" "B01AD"]}}
+
    :proton-pump-inhibitor
    {:description "Proton pump inhibitors"
     :class       :other
     :codelist    {:atc "A02BC"}}
 
-   :immunosuppressant
+   :immunosuppressant                                       ;; NB: need to double check the list for LEM-PASS vs LEM-DUS and see if match
    {:description "Immunosuppressants"
     :class       :other
     :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
@@ -206,7 +212,11 @@
 
 (def study-diagnosis-categories
   "These are project specific criteria for diagnostic classification."
-  {:cardiovascular
+  {:multiple_sclerosis
+   {:description "Multiple sclerosis"
+    :codelist    {:ecl "<<24700007"}}
+
+   :cardiovascular
    {:description "Cardiovascular disorders"
     :codelist    {:icd10 ["I"]}}
 
@@ -226,8 +236,38 @@
    :gastrointestinal
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
 
+   :severe-infection                                        ;; note: also significance based on whether admitted for problem
+   {:codelist {:icd10 ["J01." "J02." "J03." "J04." "J05."]}}
+
+   :arterial-dissection
+   {:codelist {:icd10 ["I72.0" "I72.5"]}}
+
+   :stroke
+   {:codelist {:icd10 ["I6"]}}
+
+   :angina-or-myocardial-infarction
+   {:codelist {:icd10 ["I20" "I21" "I22" "I23" "I24" "I25"]}}
+
+   :coagulopathy
+   {:codelist {:icd10 ["D65" "D66" "D67" "D68" "D69" "Y44.2" "Y44.3" "Y44.4" "Y44.5" "Z992.1"]}}
+
    :respiratory
-   {:codelist {:icd10 ["J"]}}                               ;; note I'm using different ICD-10 codes to that specified!
+   {:codelist {:icd10 ["J0" "J1" "J20" "J21" "J22"]}}
+
+   :hiv
+   {:codelist {:icd10 ["B20.", "B21.", "B22.", "B24.", "Z21", "R75"]}}
+
+   :autoimmune-disease
+   {:codelist {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32." "M34." "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
+                       "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10" "E06.3" "E05.0" "K75.4" "K90.0"
+                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80.0" "G61.0" "D51.0" "D59.1" "D69.3" "D68" "N02.8" "M31.0" "D76.1"
+                       "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "D69.3" "I01." "G70.0" "G73.1"]}}
+
+   :uncontrolled-hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
+   {:codelist {:ecl "<<706882009"}}                         ;; this means 'hypertensive emergency'
+
+   :urinary-tract
+   {:codelist {:icd10 ["N10." "N11." "N12." "N13." "N14." "N15." "N16."]}}
 
    :hair-and-skin
    {:codelist {:icd10 ["L63." "L10.9" "L40." "L80.0"]}}
@@ -266,17 +306,6 @@
   (let [cats' (expand-codelists system categories)]
     (fn [concept-ids]
       (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
-
-(def formatters
-  {LocalDate     #(.format (DateTimeFormatter/ISO_DATE) %)
-   LocalDateTime #(.format (DateTimeFormatter/ISO_DATE_TIME) %)})
-
-(defn write-json [m]
-  (json/write-str m
-                  :value-fn (fn [k v]
-                              (if-let [formatter (get formatters (type v))]
-                                (formatter v)
-                                v))))
 
 (comment
 
@@ -448,30 +477,30 @@
   on the basis of viewing the images. We use the 'best' annotation"
   [{conn :com.eldrix.rsdb/conn} patient-ids]
   (->> (db/execute! conn (sql/format
-                           {:select [:t_patient/patient_identifier
-                                     :t_result_mri_brain/id
-                                     :t_result_mri_brain/date
-                                     :t_result_mri_brain/report
-                                     :t_annotation_mri_brain_multiple_sclerosis_new/id
-                                     :annotation_type :black_holes_t1_hypointense_lesions
-                                     :cerebralatrophy
-                                     :change_t2_hyperintense
-                                     :compare_to_comment
-                                     :compare_to_result_mri_brain_fk
-                                     :enlarging_t2_lesions
-                                     :gad_enhancing_lesions
-                                     :infra_tentorial_lesions
-                                     :juxta_cortical_lesions
-                                     :periventricularlesions
-                                     :summary
-                                     :t2_hyperintense_lesions
-                                     :t2_lesions_typical_for_ms]
-                            :from [:t_result_mri_brain]
+                           {:select    [:t_patient/patient_identifier
+                                        :t_result_mri_brain/id
+                                        :t_result_mri_brain/date
+                                        :t_result_mri_brain/report
+                                        :t_annotation_mri_brain_multiple_sclerosis_new/id
+                                        :annotation_type :black_holes_t1_hypointense_lesions
+                                        :cerebralatrophy
+                                        :change_t2_hyperintense
+                                        :compare_to_comment
+                                        :compare_to_result_mri_brain_fk
+                                        :enlarging_t2_lesions
+                                        :gad_enhancing_lesions
+                                        :infra_tentorial_lesions
+                                        :juxta_cortical_lesions
+                                        :periventricularlesions
+                                        :summary
+                                        :t2_hyperintense_lesions
+                                        :t2_lesions_typical_for_ms]
+                            :from      [:t_result_mri_brain]
                             :left-join [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]
                                         :t_annotation_mri_brain_multiple_sclerosis_new [:= :result_fk :t_result_mri_brain/id]]
-                            :where [:and
-                                    [:<> :t_result_mri_brain/is_deleted "true"]
-                                    [:in :t_patient/patient_identifier patient-ids]]}))))
+                            :where     [:and
+                                        [:<> :t_result_mri_brain/is_deleted "true"]
+                                        [:in :t_patient/patient_identifier patient-ids]]}))))
 
 
 (defn multiple-sclerosis-onset
@@ -727,7 +756,7 @@
    (let [date-fn (if (ifn? on-date) on-date (constantly on-date))]
      (update-vals (addresses-for-patients system patient-ids)
                   #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
-                          (patients/address-for-date % date))   ;; address-for-date will use 'now' if date nil, so wrap
+                          (patients/address-for-date % date)) ;; address-for-date will use 'now' if date nil, so wrap
                         :t_address/postcode_raw
                         (lsoa-for-postcode system)
                         (deprivation-quartile-for-lsoa system))))))
@@ -991,12 +1020,12 @@
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}
    :validation-errors
-              {:more-than-one-death-certificate
-               (or (patients-with-more-than-one-death-certificate system) [])
-               :patients-with-dmts-as-product-packs
-               (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
-               :misidentified-patients
-               (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
+   {:more-than-one-death-certificate
+    (or (patients-with-more-than-one-death-certificate system) [])
+    :patients-with-dmts-as-product-packs
+    (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
+    :misidentified-patients
+    (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1126,6 +1155,7 @@
                             :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
                             :icd10
                             :term
+                            :multiple_sclerosis
                             :cardiovascular
                             :respiratory
                             :connective-tissue
@@ -1178,6 +1208,20 @@
                             :t_result_mri_brain/date]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
+
+(defn write-local-date [^LocalDate o ^Appendable out _options]
+  (.append out \")
+  (.append out (.format (DateTimeFormatter/ISO_DATE) o))
+  (.append out \"))
+
+(defn write-local-date-time [^LocalDateTime o ^Appendable out _options]
+  (.append out \")
+  (.append out (.format (DateTimeFormatter/ISO_DATE_TIME) o))
+  (.append out \"))
+
+(extend LocalDate json/JSONWriter {:-write write-local-date})
+(extend LocalDateTime json/JSONWriter {:-write write-local-date-time})
+
 (defn write-data [system]
   (log/info "writing patient core data")
   (write-patients-table system)
@@ -1200,7 +1244,7 @@
   (log/info "writing MRI")
   (write-mri system)
   (log/info "writing metadata")
-  (spit "metadata.json" (write-json (make-metadata system)))
+  (spit "metadata.json" (json/write-str (make-metadata system)))
   )
 
 
@@ -1217,7 +1261,7 @@
   (write-weight-height system)
   (write-ms-events system)
   (write-non-dmt-medications system)
-  (spit "metadata.json" (write-json (make-metadata system)))
+  (spit "metadata.json" (json/write-str (make-metadata system)))
   (write-mri system)
 
   (def conn (:com.eldrix.rsdb/conn system))
