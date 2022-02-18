@@ -947,7 +947,7 @@
                   (assoc :t_medication/date % :valid true)
                   (dissoc :t_medication/date_from :t_medication/date_to :t_medication/reason_for_stopping)) dates))
       (-> med
-          (assoc :valid false :t_medication/date from )
+          (assoc :valid false :t_medication/date from)
           (dissoc :t_medication/date_from :t_medication/date_to :t_medication/reason_for_stopping)))))
 
 (defn alemtuzumab-infusions
@@ -968,19 +968,28 @@
   Returns the sequence of infusions, but with :course-rank and :infusion-rank
   properties."
   [infusions]
-    (loop [partitions (partition 2 1 (concat [nil] infusions))
-           course-rank 1
-           infusion-rank 1
-           results []]
-      (let [[prior item] (vec (first partitions))]
-        (println item)
-        (if-not item
-          results
-          (let [new-course? (and prior item (> (.between ChronoUnit/DAYS (:t_medication/date prior) (:t_medication/date item)) 15))
-                course-rank (if new-course? (inc course-rank) course-rank)
-                infusion-rank (if new-course? 1 infusion-rank)
-                item' (assoc item :course-rank course-rank :infusion-rank infusion-rank)]
+  (loop [partitions (partition 2 1 (concat [nil] infusions))
+         course-rank 1
+         infusion-rank 1
+         results []]
+    (let [[prior item] (vec (first partitions))]
+      (if-not item
+        results
+        (let [new-course? (and prior item (> (.between ChronoUnit/DAYS (:t_medication/date prior) (:t_medication/date item)) 15))
+              course-rank (if new-course? (inc course-rank) course-rank)
+              infusion-rank (if new-course? 1 infusion-rank)
+              item' (assoc item :course-rank course-rank :infusion-rank infusion-rank)]
           (recur (rest partitions) course-rank (inc infusion-rank) (conj results item')))))))
+
+(defn ranked-alemtuzum-infusions
+  "Returns a map keyed by patient-id of alemtuzumab infusions, with course
+  and infusion rank included."
+  [system patient-ids]
+  (-> (alemtuzumab-infusions system patient-ids)
+      (update-vals course-and-infusion-rank)))
+
+(comment
+  (ranked-alemtuzum-infusions system (take 20 (fetch-study-patient-identifiers system))))
 
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
@@ -1225,8 +1234,23 @@
        (ranked-alemtuzum-infusions system)
        vals
        flatten
+       (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank))))
+
+(defn write-alemtuzumab-infusions [system]
+  (write-rows-csv "alemtuzumab-infusions.csv" (make-alemtuzumab-infusions system)
+                  :columns [:t_patient/patient_identifier
+                            :dmt
+                            :t_medication/medication_concept_fk
                             :atc
                             :t_medication/date
+                            :valid
+                            :course-rank
+                            :infusion-rank]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :course-rank                  "course_rank"
+                             :infusion-rank                "infusion_rank"}))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn write-admissions [system]
@@ -1375,6 +1399,8 @@
   (write-raw-dmt-medications-table system)
   (log/info "writing dmt regimens")
   (write-dmt-regimens-table system)
+  (log/info "writing alemtuzumab infusions")
+  (write-alemtuzumab-infusions system)
   (log/info "writing non dmt medications")
   (write-non-dmt-medications system)
   (log/info "writing diagnoses")
