@@ -927,6 +927,30 @@
         to (:t_medication/date_to med)]
     (and from to (> 5 (.between ChronoUnit/DAYS from to)))))
 
+(defn make-daily-infusions [med]
+  (let [from (:t_medication/date_from med)
+        to (:t_medication/date_to med)]
+    (if (valid-alemtuzumab-record? med)
+      (let [days (.between ChronoUnit/DAYS from to)
+            dates (map #(.plusDays from %) (range 0 (inc days)))]
+        (map #(-> med
+                  (assoc :t_medication/date % :valid true)
+                  (dissoc :t_medication/date_from :t_medication/date_to :t_medication/reason_for_stopping)) dates))
+      (-> med
+          (assoc :valid false :t_medication/date from )
+          (dissoc :t_medication/date_from :t_medication/date_to :t_medication/reason_for_stopping)))))
+
+(defn alemtuzumab-infusions
+  "Returns a map keyed by patient identifier of all infusions of alemtuzumab."
+  [system patient-ids]
+  (->> (alemtuzumab-medications system patient-ids)
+       vals
+       (remove nil?)
+       flatten
+       (map make-daily-infusions)
+       flatten
+       (group-by :t_patient/patient_identifier)))
+
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
