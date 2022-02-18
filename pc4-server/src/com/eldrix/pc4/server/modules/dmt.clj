@@ -21,7 +21,8 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc.plan :as plan]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clojure.spec.alpha :as s])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)))
@@ -1421,8 +1422,13 @@
   (spit "metadata.json" (json/write-str (make-metadata system)))
   )
 
+(s/def ::profile keyword?)
+(s/def ::export-options (s/keys :req-un [::profile]))
+
 (defn export [opts]
-  (let [system (pc4/init :dev [:pathom/env])]
+  (when-not (s/valid? ::export-options opts)
+    (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (let [system (pc4/init (:profile opts) [:pathom/env])]
     (write-data system)))
 
 ;;;
