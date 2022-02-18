@@ -1102,14 +1102,14 @@
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}
    :validation-errors
-   {:more-than-one-death-certificate        ;; generate a list of patients with more than one death certificate
+   {:more-than-one-death-certificate                        ;; generate a list of patients with more than one death certificate
     (or (patients-with-more-than-one-death-certificate system) [])
-    :patients-with-dmts-as-product-packs      ;; generate a list of medications recorded as product packs
+    :patients-with-dmts-as-product-packs                    ;; generate a list of medications recorded as product packs
     (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
-    :patients-without-ms-diagnosis          ;; generate a list of patients in the study without multiple sclerosis
+    :patients-without-ms-diagnosis                          ;; generate a list of patients in the study without multiple sclerosis
     (->> (update-vals (multiple-sclerosis-onset system (fetch-study-patient-identifiers system)) :has_multiple_sclerosis)
          (remove (fn [[k v]] v)))
-    :incorrect-alemtuzumab-course-dates     ;;  generate a list of incorrect alemtuzumab records
+    :incorrect-alemtuzumab-course-dates                     ;;  generate a list of incorrect alemtuzumab records
     (->> (fetch-study-patient-identifiers system)
          (alemtuzumab-medications system)
          vals
