@@ -1421,7 +1421,9 @@
   (spit "metadata.json" (json/write-str (make-metadata system)))
   )
 
-
+(defn export [opts]
+  (let [system (pc4/init :dev [:pathom/env])]
+    (write-data system)))
 
 ;;;
 ;;; Write out data
