@@ -35,8 +35,7 @@
             [clojure.string :as str]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.snomed :as snomed]
-            [clojure.string :as str])
+            [com.eldrix.hermes.snomed :as snomed])
   (:import (java.util Set)))
 
 
