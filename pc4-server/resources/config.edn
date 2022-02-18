@@ -22,13 +22,14 @@
 
  :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/nhspd                   #profile {:default {:path "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"}
-                                               :pc4     {:path "/var/pc4/nhspd-2021-08-16.db"}}
+ :com.eldrix/nhspd                   {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
+                                                      :pc4     "/var/pc4/nhspd-2021-08-16.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
- :com.eldrix/clods                   #profile {:default {:path "/Users/mark/Dev/clods/ods-2022-01-24.db"
-                                                         :nhspd    #ig/ref :com.eldrix/nhspd}
-                                               :pc4     {:path "/var/pc4/ods-2021-06-25.db"
-                                                         :nhspd    #ig/ref :com.eldrix/nhspd}}
+ :com.eldrix/clods                   {:path  #profile {:default "/Users/mark/Dev/clods/ods-2022-01-24.db"
+                                                       :pc4     "/var/pc4/ods-2021-06-25.db"
+                                                       :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
+                                      :nhspd #ig/ref :com.eldrix/nhspd}
 
  :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
                                                       :pc4     "/var/pc4/depriv.db"}}
@@ -37,7 +38,8 @@
                                                       :pc4     "/var/pc4/dmd-2021-09-27.db"}}
 
  :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
-                                                      :pc4     "/var/pc4/snomed-2021-07-07.db"}}
+                                                      :pc4     "/var/pc4/snomed-2021-07-07.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/snomed-2021-11.db"}}
 
  :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
                                       :access-key-id     #ref [:secrets :aws-access-key-id]
