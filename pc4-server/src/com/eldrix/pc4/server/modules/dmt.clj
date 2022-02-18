@@ -224,7 +224,7 @@
    {:description "Cancer, except skin cancers"
     :codelist    {:inclusions {:icd10 "C"} :exclusions {:icd10 "C44"}}}
 
-   :connective-tissue
+   :connective_tissue
    {:description "Connective tissue disorders"
     :codelist    {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
                           "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
@@ -236,16 +236,16 @@
    :gastrointestinal
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
 
-   :severe-infection                                        ;; note: also significance based on whether admitted for problem
+   :severe_infection                                        ;; note: also significance based on whether admitted for problem
    {:codelist {:icd10 ["J01." "J02." "J03." "J04." "J05."]}}
 
-   :arterial-dissection
+   :arterial_dissection
    {:codelist {:icd10 ["I72.0" "I72.5"]}}
 
    :stroke
    {:codelist {:icd10 ["I6"]}}
 
-   :angina-or-myocardial-infarction
+   :angina_or_myocardial_infarction
    {:codelist {:icd10 ["I20" "I21" "I22" "I23" "I24" "I25"]}}
 
    :coagulopathy
@@ -257,19 +257,19 @@
    :hiv
    {:codelist {:icd10 ["B20.", "B21.", "B22.", "B24.", "Z21", "R75"]}}
 
-   :autoimmune-disease
+   :autoimmune_disease
    {:codelist {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32." "M34." "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
                        "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10" "E06.3" "E05.0" "K75.4" "K90.0"
                        "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80.0" "G61.0" "D51.0" "D59.1" "D69.3" "D68" "N02.8" "M31.0" "D76.1"
                        "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "D69.3" "I01." "G70.0" "G73.1"]}}
 
-   :uncontrolled-hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
+   :uncontrolled_hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
    {:codelist {:ecl "<<706882009"}}                         ;; this means 'hypertensive emergency'
 
-   :urinary-tract
+   :urinary_tract
    {:codelist {:icd10 ["N10." "N11." "N12." "N13." "N14." "N15." "N16."]}}
 
-   :hair-and-skin
+   :hair_and_skin
    {:codelist {:icd10 ["L63." "L10.9" "L40." "L80.0"]}}
 
    :mood
@@ -900,7 +900,8 @@
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
   This is defined as date of first prescription of a HE-DMT after the
-  defined study date."
+  defined study date.
+  This is for the LEM-PASS study. Cohort entry date defined differently for DUS."
   [system patient-ids study-date]
   (->> (patient-dmt-sequential-regimens system patient-ids)
        vals
@@ -909,6 +910,22 @@
        (map #(vector (:t_patient/patient_identifier %) %))
        (into {})))
 
+
+(defn alemtuzumab-medications
+  "Returns alemtuzumab medication records for the patients specified.
+  Returns a map keyed by patient identifier, with a collection of ordered
+  medications."
+  [system patient-ids]
+  (-> (patient-raw-dmt-medications system patient-ids)
+      (update-vals (fn [meds] (seq (filter #(= (:dmt %) :alemtuzumab) meds))))))
+
+(defn valid-alemtuzumab-record?
+  "Is this a valid alemtuzumab record?
+  A record must never more than 5 days between the 'from' date and the 'to' date."
+  [med]
+  (let [from (:t_medication/date_from med)
+        to (:t_medication/date_to med)]
+    (and from to (> 5 (.between ChronoUnit/DAYS from to)))))
 
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
@@ -1021,14 +1038,21 @@
    :codelists {:study-medications study-medications
                :study-diagnoses   study-diagnosis-categories}
    :validation-errors
-   {:more-than-one-death-certificate
+   {:more-than-one-death-certificate        ;; generate a list of patients with more than one death certificate
     (or (patients-with-more-than-one-death-certificate system) [])
-    :patients-with-dmts-as-product-packs
+    :patients-with-dmts-as-product-packs      ;; generate a list of medications recorded as product packs
     (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
-    :patients-without-ms-diagnosis
+    :patients-without-ms-diagnosis          ;; generate a list of patients in the study without multiple sclerosis
     (->> (update-vals (multiple-sclerosis-onset system (fetch-study-patient-identifiers system)) :has_multiple_sclerosis)
          (remove (fn [[k v]] v)))
-    :misidentified-patients
+    :incorrect-alemtuzumab-course-dates     ;;  generate a list of incorrect alemtuzumab records
+    (->> (fetch-study-patient-identifiers system)
+         (alemtuzumab-medications system)
+         vals
+         (remove nil?)
+         flatten
+         (remove valid-alemtuzumab-record?))
+    :misidentified-patients       ;; generate a list of patients who have been misidentified
     (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
 
@@ -1100,6 +1124,16 @@
                              :t_medication/date_from       "cohort_entry_date"
                              :switch?                      "switch"}))
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-dus-inclusion-exclusion [system]
+  (let [patient-ids (fetch-study-patient-identifiers system)
+        onsets (multiple-sclerosis-onset system patient-ids)
+        cohort-entry-meds (cohort-entry-meds system patient-ids study-master-date)]))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-raw-dmt-medications-table
   [system]
@@ -1112,7 +1146,8 @@
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt_class
-                            :t_medication/date_from :t_medication/date_to]
+                            :t_medication/date_from :t_medication/date_to
+                            :t_medication/reason_for_stopping]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-regimens-table
@@ -1166,12 +1201,22 @@
                             :multiple_sclerosis
                             :cardiovascular
                             :respiratory
-                            :connective-tissue
+                            :coagulopathy
+                            :stroke
+                            :hiv
+                            :angina_or_myocardial_infarction
+                            :arterial_dissection
+                            :uncontrolled_hypertension
+                            :hair_and_skin
+                            :severe_infection
+                            :autoimmune_disease
+                            :connective_tissue
                             :endocrine
+                            :urinary_tract
                             :mood
                             :cancer
                             :gastrointestinal
-                            :hair-and-skin
+                            :hair_and_skin
                             :epilepsy
                             :other]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
@@ -1187,6 +1232,22 @@
                             :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_ms_disease_course/type     "disease_status"}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn fetch-results-for-patient [{:com.eldrix.rsdb/keys [conn]} patient-identifier]
+  (->> (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)
+       (map #(assoc % :t_patient/patient_identifier patient-identifier))))
+
+(defn make-results-table [system]
+  (->> (mapcat #(fetch-results-for-patient system %) (fetch-study-patient-identifiers system))
+       (map #(select-keys % [:t_patient/patient_identifier :t_result/date :t_result_type/name]))))
+
+(defn write-results [system]
+  (write-rows-csv "patient-results.csv" (make-results-table system)
+                  :columns [:t_patient/patient_identifier :t_result/date :t_result_type/name]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_result/date                "date"
+                             :t_result_type/name           "test"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-weight-height-table [system]
@@ -1251,6 +1312,8 @@
   (write-jc-virus system)
   (log/info "writing MRI")
   (write-mri system)
+  (log/info "writing investigation results")
+  (write-results system)
   (log/info "writing metadata")
   (spit "metadata.json" (json/write-str (make-metadata system)))
   )
