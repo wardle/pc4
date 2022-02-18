@@ -951,6 +951,27 @@
        flatten
        (group-by :t_patient/patient_identifier)))
 
+(defn course-and-infusion-rank
+  "Given a sequence of infusions, generate a 'course-rank' and 'infusion-rank'.
+  We do this by generating a sequence of tuples that slide over the infusions.
+  Each tuple contains two items: the prior item and the item.
+  Returns the sequence of infusions, but with :course-rank and :infusion-rank
+  properties."
+  [infusions]
+    (loop [partitions (partition 2 1 (concat [nil] infusions))
+           course-rank 1
+           infusion-rank 1
+           results []]
+      (let [[prior item] (vec (first partitions))]
+        (println item)
+        (if-not item
+          results
+          (let [new-course? (and prior item (> (.between ChronoUnit/DAYS (:t_medication/date prior) (:t_medication/date item)) 15))
+                course-rank (if new-course? (inc course-rank) course-rank)
+                infusion-rank (if new-course? 1 infusion-rank)
+                item' (assoc item :course-rank course-rank :infusion-rank infusion-rank)]
+          (recur (rest partitions) course-rank (inc infusion-rank) (conj results item')))))))
+
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
