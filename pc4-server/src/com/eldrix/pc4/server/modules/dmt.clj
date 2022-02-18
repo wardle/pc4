@@ -526,9 +526,11 @@
     (update-vals pt-diagnoses (fn [diags]
                                 (let [diag (first diags)
                                       first-event (get first-ms-events (:t_patient/patient_identifier diag))]
-                                  (assoc diag :date_first_event first-event
-                                              ;; use first recorded event as onset, or date onset in diagnosis
-                                              :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
+                                  (assoc diag
+                                    :has_multiple_sclerosis (boolean diag)
+                                    :date_first_event first-event
+                                    ;; use first recorded event as onset, or date onset in diagnosis
+                                    :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
 
 
 (defn fetch-patient-diagnoses
@@ -940,7 +942,6 @@
     (with-open [writer (io/writer out)]
       (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;
@@ -1024,6 +1025,9 @@
     (or (patients-with-more-than-one-death-certificate system) [])
     :patients-with-dmts-as-product-packs
     (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
+    :patients-without-ms-diagnosis
+    (->> (update-vals (multiple-sclerosis-onset system (fetch-study-patient-identifiers system)) :has_multiple_sclerosis)
+         (remove (fn [[k v]] v)))
     :misidentified-patients
     (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
@@ -1045,7 +1049,9 @@
     (->> (fetch-patients system patient-ids)
          (map #(let [patient-id (:t_patient/patient_identifier %)
                      cohort-entry-med (get cohort-entry-meds patient-id)
-                     onset-date (:calculated-onset (get onsets patient-id))
+                     onsets (get onsets patient-id)
+                     onset-date (:calculated-onset onsets)
+                     has-multiple-sclerosis (:has_multiple_sclerosis onsets)
                      date-death (when-let [d (:t_patient/date_death %)] (.withDayOfMonth d 15))]
                  (-> (merge % cohort-entry-med)
                      (update :t_patient/sex (fnil name ""))
@@ -1056,6 +1062,7 @@
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
                             :date_death date-death
                             :onset onset-date
+                            :has_multiple_sclerosis has-multiple-sclerosis
                             :smoking (get-in smoking [patient-id :t_smoking_history/status])
                             :disease_duration_years (when (and (:t_medication/date_from cohort-entry-med) onset-date)
                                                       (.getYears (Period/between ^LocalDate onset-date ^LocalDate (:t_medication/date_from cohort-entry-med))))
@@ -1081,6 +1088,7 @@
                             :exposure_days
                             :smoking
                             :most_recent_edss
+                            :has_multiple_sclerosis
                             :onset
                             :date_edss_4
                             :nc_time_edss_4
