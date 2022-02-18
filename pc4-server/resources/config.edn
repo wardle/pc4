@@ -3,7 +3,7 @@
 ;;
 ;; There are three main profiles currently:
 ;; - :dev    : this profile is used during development
-;; - :cvx    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro01)
+;; - :cvx    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
 ;; - :pc4    : this profile is active when deployed on AWS infrastructure
 ;;
 ;;
@@ -32,10 +32,12 @@
                                       :nhspd #ig/ref :com.eldrix/nhspd}
 
  :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
-                                                      :pc4     "/var/pc4/depriv.db"}}
+                                                      :pc4     "/var/pc4/depriv.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
 
  :com.eldrix/dmd                     {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2021-09-27.db"
-                                                      :pc4     "/var/pc4/dmd-2021-09-27.db"}}
+                                                      :pc4     "/var/pc4/dmd-2021-09-27.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
  :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
                                                       :pc4     "/var/pc4/snomed-2021-07-07.db"
