@@ -546,6 +546,16 @@
                                           [:in :t_diagnosis/status ["ACTIVE" "INACTIVE_RESOLVED"]]
                                           [:in :t_patient/patient_identifier patient-ids]]})))
 
+(defn fetch-patient-admissions
+  [{conn :com.eldrix.rsdb/conn} project-name patient-ids]
+  (db/execute! conn (sql/format {:select [:t_patient/patient_identifier :t_episode/date_registration :t_episode/date_discharge]
+                                 :from   [:t_episode]
+                                 :join   [:t_patient [:= :t_episode/patient_fk :t_patient/id]
+                                          :t_project [:= :t_episode/project_fk :t_project/id]]
+                                 :where  [:and
+                                          [:= :t_project/name project-name]
+                                          [:in :t_patient/patient_identifier patient-ids]]})))
+
 (defn fetch-smoking-status
   [{conn :com.eldrix.rsdb/conn} patient-ids]
   (-> (group-by :t_patient/patient_identifier
@@ -1097,7 +1107,7 @@
          (remove nil?)
          flatten
          (remove valid-alemtuzumab-record?))
-    :misidentified-patients       ;; generate a list of patients who have been misidentified
+    :misidentified-patients                                 ;; generate a list of patients who have been misidentified
     (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
 
@@ -1208,6 +1218,26 @@
                             :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :dmt-class                    "dmt_class"}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-alemtuzumab-infusions [system]
+  (->> (fetch-study-patient-identifiers system)
+       (ranked-alemtuzum-infusions system)
+       vals
+       flatten
+                            :atc
+                            :t_medication/date
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn write-admissions [system]
+  (write-rows-csv "patient-admissions.csv" (fetch-patient-admissions system "ADMISSION" (fetch-study-patient-identifiers system))
+                  :columns [:t_patient/patient_identifier
+                            :t_episode/date_registration
+                            :t_episode/date_discharge]
+                  :title-fn {:t_patient/patient_identifier "patient_id"
+                             :t_episode/date_registration  "date_from"
+                             :t_episode/date_discharge     "date_to"}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
   [system]
@@ -1359,6 +1389,8 @@
   (write-mri system)
   (log/info "writing investigation results")
   (write-results system)
+  (log/info "writing admissions")
+  (write-admissions system)
   (log/info "writing metadata")
   (spit "metadata.json" (json/write-str (make-metadata system)))
   )
