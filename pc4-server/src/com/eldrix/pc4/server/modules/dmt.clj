@@ -1121,6 +1121,12 @@
     (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
 
 
+
+(defn update-all
+  "Applies function 'f' to the values of the keys 'ks' in the map 'm'."
+  [m ks f]
+  (reduce (fn [v k] (update v k f)) m ks))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-patients-table
   [system]
@@ -1203,7 +1209,10 @@
 (defn make-raw-dmt-medications-table
   [system]
   (let [patient-ids (fetch-study-patient-identifiers system)]
-    (mapcat identity (vals (patient-raw-dmt-medications system patient-ids)))))
+    (->> (patient-raw-dmt-medications system patient-ids)
+         vals
+         (mapcat identity)
+         (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name)))))
 
 (defn write-raw-dmt-medications-table
   [system]
@@ -1217,7 +1226,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-regimens-table
   [system]
-  (mapcat identity (vals (patient-dmt-sequential-regimens system (fetch-study-patient-identifiers system)))))
+  (->> (patient-dmt-sequential-regimens system (fetch-study-patient-identifiers system))
+       vals
+       (mapcat identity)
+       (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name))))
+
 (defn write-dmt-regimens-table
   [system]
   (write-rows-csv "patient-dmt-regimens.csv" (make-dmt-regimens-table system)
@@ -1235,6 +1248,7 @@
        (ranked-alemtuzum-infusions system)
        vals
        flatten
+       (map #(update-all % [:dmt :dmt_class] name))
        (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank))))
 
 (defn write-alemtuzumab-infusions [system]
