@@ -1439,10 +1439,12 @@
 (s/def ::profile keyword?)
 (s/def ::export-options (s/keys :req-un [::profile]))
 
-(defn export [opts]
+(defn export
+  "Run "
+  [{:keys [profile] :as opts}]
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
-  (let [system (pc4/init (:profile opts) [:pathom/env])]
+  (let [system (pc4/init profile [:pathom/env])]
     (write-data system)))
 
 ;;;
