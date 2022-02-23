@@ -12,6 +12,7 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
+
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.clods.graph]
@@ -22,11 +23,13 @@
             [com.eldrix.dmd.graph]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
+            [com.eldrix.nhspd.core :as nhspd]
             [com.eldrix.pc4.server.api :as api]
             [com.eldrix.pc4.server.dates :as dates]
             [com.eldrix.pc4.server.rsdb :as rsdb]
             [com.eldrix.pc4.server.users :as users]
             [com.eldrix.pc4.server.patients :as patients]
+
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
@@ -34,6 +37,7 @@
             [com.wsscode.pathom3.connect.runner :as pcr]
             [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
+
             [integrant.core :as ig]
             [io.pedestal.http :as http]
             [io.pedestal.http.body-params]
@@ -47,10 +51,10 @@
             [org.httpkit.server]
             [ring.middleware.content-type]
             [ring.middleware.cors]
-            [ring.middleware.defaults]
-            [com.eldrix.nhspd.core :as nhspd])
+            [ring.middleware.defaults])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate)))
+           (java.time LocalDate)
+           (org.apache.commons.lang3 RandomStringUtils)))
 
 (def resolvers (atom []))
 
@@ -77,7 +81,7 @@
     svc))
 
 (defmethod ig/halt-key! :com.eldrix/deprivare [_ svc]
-  (com.eldrix.deprivare.core/close svc))
+  (deprivare/close svc))
 
 (defmethod ig/init-key :com.eldrix/dmd [_ {:keys [path]}]
   (log/info "opening UK NHS dm+d index: " path)
@@ -129,7 +133,7 @@
 
 (defmethod ig/init-key :com.eldrix/comprehend [_ config]
   (log/info "registering comprehend service")
-  (com.eldrix.comprehend.core/open config))
+  (comprehend/open config))
 
 (defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
   config)
@@ -238,7 +242,7 @@
             {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}})
           (let [resp (com.fulcrologic.fulcro.server.api-middleware/handle-api-request params pathom)
                 user (get-in resp [:body 'pc4.users/login])]
-            (if user resp {}))))    ;; return a nil response if no
+            (if user resp {}))))                            ;; return a nil response if no
       (handler req))))
 
 (defn wrap-authenticated-pathom
@@ -348,31 +352,9 @@
   (def system (init :dev [:http/server]))
   (ig/halt! system)
 
-  ;; start a 'system' without a server
-  (def system (init :dev [:pathom/env]))
-  (ig/halt! system)
-
-  ;; just connect to remote database
-  (def system (init :pc4 [:com.eldrix.rsdb/conn]))
-
-
-  (com.eldrix.pc4.server.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
-
-  (com.eldrix.pc4.server.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username "bstacey"
-                                                                                :t_user/first_names "Becky"
-                                                                                :t_user/last_name "Stacy"
-                                                                                :t_user/title "Ms"
-                                                                                :t_user/job_title_fk 8})
-  (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "cevans" "password")
-  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
-
-
-  ;; start a server using http-kit/ring - suitable for a fulcro front-end
+  ;; start a server using http-kit/ring
   (def system (init :dev [:http/server2]))
   (ig/halt! system)
-
-
-  (transit/reader (:body response))
 
   ;; this creates a fake authenticated environment and injects it into our system
   (def authenticated-env (com.eldrix.pc4.server.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
@@ -545,4 +527,7 @@
                                                                          :date-birth (LocalDate/of 1975 5 1)})
   (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
   (com.eldrix.pc4.server.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password")
+
   )
+
+

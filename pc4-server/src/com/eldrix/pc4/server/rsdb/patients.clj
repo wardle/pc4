@@ -9,17 +9,21 @@
             [com.eldrix.pc4.server.dates :as dates]
             [com.eldrix.clods.core :as clods]
             [clojure.spec.alpha :as s])
-  (:import (java.time LocalDate LocalDateTime)))
+  (:import (java.time LocalDate LocalDateTime)
+           (javax.sql DataSource)))
 
+(s/def ::conn #(instance? DataSource %))
 
+(s/fdef fetch-patient-addresses
+  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 
 (defn fetch-patient-addresses
   "Returns patient addresses."
-  [conn patient-id]
+  [conn {patient-pk :t_patient/id}]
   (db/execute! conn (sql/format {:select   [:id :address1 :address2 :address3 :address4 [:postcode_raw :postcode]
                                             :date_from :date_to :housing_concept_fk :ignore_invalid_address]
                                  :from     [:t_address]
-                                 :where    [:= :patient_fk patient-id]
+                                 :where    [:= :patient_fk patient-pk]
                                  :order-by [[:date_to :desc] [:date_from :desc]]})))
 
 (defn address-for-date
@@ -48,7 +52,15 @@
    (->> (fetch-episodes conn patient-identifier)
         (filter #(contains? #{:referred :registered} (projects/episode-status % on-date))))))
 
-(defn fetch-death-certificate [conn patient-pk]
+(s/fdef fetch-death-certificate
+  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
+
+(defn fetch-death-certificate
+  "Return a death certificate for the patient specified.
+  Parameters:
+  conn - a database connection
+  patient - a map containing :t_patient/id"
+  [conn {patient-pk :t_patient/id}]
   (jdbc/execute-one! conn (sql/format {:select [:*]
                                        :from   [:t_death_certificate]
                                        :where  [:= :patient_fk patient-pk]})))
@@ -82,7 +94,7 @@
                                   [:= :date_registration on-date]]]}))
 
 (defn patient-pks-in-projects
-  "Return a set of patients in the projects specified, on the date `on-date`.
+  "Return a set of patient pks in the projects specified, on the date `on-date`.
   Parameters:
   - conn        : database connection, or pool
   - project-ids : collection of project identifiers
@@ -130,7 +142,7 @@
   medications specified.
   Parameters:
   - conn       : database connection, or pool
-  - medication-concept=ids : a collection of concept identifiers.
+  - medication-concept-ids : a collection of concept identifiers.
 
   Returns a set of patient primary keys, not patient_identifier."
   [conn medication-concept-ids]
@@ -140,6 +152,12 @@
     #{}
     (jdbc/plan conn (patient-pks-on-medications-sql medication-concept-ids))))
 
+(s/fdef create-diagnosis
+  :args (s/cat :conn ::conn
+               :diagnosis (s/keys :req [:t_diagnosis/concept_fk :t_diagnosis/status
+                                        :t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
+                                        :t_diagnosis/date_diagnosis :t_diagnosis/date_diagnosis_accuracy
+                                        :t_diagnosis/date_to :t_diagnosis/date_to_accuracy])))
 
 (defn create-diagnosis [conn {:t_diagnosis/keys  [concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]
                               patient-identifier :t_patient/patient_identifier}]
@@ -158,6 +176,7 @@
                                                                          :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
                    {:return-keys true}))
 
+
 (defn update-diagnosis
   [conn {:t_diagnosis/keys [concept_fk id date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]}]
   (db/execute-one! conn
@@ -174,6 +193,9 @@
                                          [:= :t_diagnosis/id id]]})
                    {:return-keys true}))
 
+(s/fdef create-medication
+  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
+                                                :opt [:t_medication/date_to])))
 (defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to]
                                patient-identifier :t_patient/patient_identifier}]
   (db/execute-one! conn
@@ -186,6 +208,9 @@
                                                                        :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
                    {:return-keys true}))
 
+(s/fdef update-medication
+  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
+                                                :opt [:t_medication/date_to])))
 (defn update-medication
   [conn {:t_medication/keys [medication_concept_fk id date_from date_to]}]
   (db/execute-one! conn
@@ -197,6 +222,9 @@
                                          [:= :t_medication/medication_concept_fk medication_concept_fk]
                                          [:= :t_medication/id id]]})
                    {:return-keys true}))
+
+(s/fdef delete-medication
+  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id])))
 
 (defn delete-medication
   [conn {:t_medication/keys [id]}]
@@ -249,10 +277,15 @@
                                                                              :t_ms_event [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]]
                                                                     :where  [:= :t_ms_event/id ms-event-id]}))))
 
+(s/fdef delete-ms-event!
+  :args (s/cat :conn ::conn :event (s/keys :req [:t_ms_event/id])))
+
 (defn delete-ms-event! [conn {ms-event-id :t_ms_event/id}]
   (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
                                      :where       [:= :t_ms_event/id ms-event-id]})))
 
+(s/fdef save-ms-diagnosis!
+  :args (s/cat :conn ::conn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
                                 user-id            :t_user/id
@@ -375,53 +408,60 @@
                                      :set    {:t_encounter/is_deleted "true"}})))
 
 
-(defn set-date-death [conn patient-pk date_death]
+(s/fdef set-date-death
+  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
+
+(defn set-date-death [conn {patient-pk :t_patient/id date_death :t_patient/date_death}]
   (jdbc/execute-one! conn (sql/format {:update [:t_patient]
                                        :where  [:= :id patient-pk]
                                        :set    {:date_death date_death}})))
 
-(s/def ::notify-death (s/keys :req [:t_patient/patient_identifier
-                                    :t_patient/date_death]
-                              :opt [:t_death_certificate/part1a
-                                    :t_death_certificate/part1b
-                                    :t_death_certificate/part1c
-                                    :t_death_certificate/part2]))
 
+(s/fdef notify-death!
+  :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
+                                                   :t_patient/date_death
+                                                   :t_death_certificate/part1a
+                                                   :t_death_certificate/part1b
+                                                   :t_death_certificate/part1c
+                                                   :t_death_certificate/part2])))
 (defn notify-death!
-  [conn {:t_patient/keys           [patient_identifier date_death]
+  [conn {patient-pk                :t_patient/id
+         patient-identifier        :t_patient/patient_identifier
+         date_death                :t_patient/date_death :as patient
          :t_death_certificate/keys [part1a part1b part1c part2]}]
   (jdbc/with-transaction
     [tx conn {:isolation :serializable}]
-    (let [patient-pk (patient-identifier->pk tx patient_identifier)
-          existing-certificate (fetch-death-certificate tx patient-pk)]
+    (let [patient-pk (or patient-pk (patient-identifier->pk conn patient-identifier))
+          existing-certificate (fetch-death-certificate tx patient)]
       (cond
+        ;; if there's a date of death, and an existing certificate, update both
         (and date_death existing-certificate)
-        (do (set-date-death tx patient-pk date_death)
+        (do (set-date-death tx patient)
             (jdbc/execute-one! tx (sql/format {:update [:t_death_certificate]
                                                :where  [:= :id (:t_death_certificate/id existing-certificate)]
                                                :set    {:t_death_certificate/part1a part1a
                                                         :t_death_certificate/part1b part1b
                                                         :t_death_certificate/part1c part1c
                                                         :t_death_certificate/part2  part2}})))
+        ;; patient has died, but no existing certificate
         date_death
-        (do (set-date-death tx patient-pk date_death)
+        (do (set-date-death tx patient)
             (jdbc/execute-one! tx (sql/format {:insert-into :t_death_certificate
                                                :values      [{:t_death_certificate/patient_fk patient-pk
-                                                             :t_death_certificate/part1a     part1a
-                                                             :t_death_certificate/part1b     part1b
-                                                             :t_death_certificate/part1c     part1c
-                                                             :t_death_certificate/part2      part2}]})))
+                                                              :t_death_certificate/part1a     part1a
+                                                              :t_death_certificate/part1b     part1b
+                                                              :t_death_certificate/part1c     part1c
+                                                              :t_death_certificate/part2      part2}]})))
+        ;; patient has not died, clear date of death and delete death certificate
         :else
-        (do (set-date-death tx patient-pk nil)
+        (do (set-date-death tx patient)
             (jdbc/execute-one! tx (sql/format {:delete-from [:t_death_certificate]
                                                :where       [:= :t_death_certificate/patient_fk patient-pk]})))))))
 
 
 
 (comment
-  (patients-in-projects-sql [1 3 32] (LocalDate/now))
   (patient-identifier-for-ms-event conn 7563)
-  (patients-in-projects conn #{1 3 32})
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
@@ -437,8 +477,7 @@
   (count (fetch-ms-events conn 4708))
   (save-ms-diagnosis! conn {:t_ms_diagnosis/id 12 :t_patient/patient_identifier 3 :t_user/id 1})
   (fetch-episodes conn 15203)
-  (save-pseudonymous-patient-postal-code! conn {:t_patient/patient_identifier 124018
-                                                :uk.gov.ons.nhspd/LSOA11      "E01008956"})
+
   (fetch-patient-addresses conn 124018)
   (active-episodes conn 15203)
   (active-project-identifiers conn 15203)

@@ -123,12 +123,13 @@
   (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
 
 (pco/defresolver patient->death_certificate
-  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
-  {::pco/output [{:t_patient/death_certificate [:t_death_certificate/part1a
+  [{conn :com.eldrix.rsdb/conn} patient]
+  {::pco/input [:t_patient/id]
+   ::pco/output [{:t_patient/death_certificate [:t_death_certificate/part1a
                                                 :t_death_certificate/part1b
                                                 :t_death_certificate/part1c
                                                 :t_death_certificate/part2]}]}
-  (when-let [certificate (patients/fetch-death-certificate conn patient-pk)]
+  (when-let [certificate (patients/fetch-death-certificate conn patient)]
     {:t_patient/death_certificate certificate}))
 
 (pco/defresolver patient->diagnoses
@@ -214,9 +215,10 @@
                          :t_address/ignore_invalid_address])
 
 (pco/defresolver patient->addresses
-  [{:com.eldrix.rsdb/keys [conn]} {id :t_patient/id}]
-  {::pco/output [{:t_patient/addresses address-properties}]}
-  {:t_patient/addresses (patients/fetch-patient-addresses conn id)})
+  [{:com.eldrix.rsdb/keys [conn]} patient]
+  {::pco/input [:t_patient/id]
+   ::pco/output [{:t_patient/addresses address-properties}]}
+  {:t_patient/addresses (patients/fetch-patient-addresses conn patient)})
 
 (pco/defresolver patient->address
   "Returns the current address, or the address for the specified date.
@@ -226,7 +228,7 @@
   Parameters:
   - :date - a ISO LOCAL DATE string e.g \"2020-01-01\" or an instance of
             java.time.LocalDate."
-  [{conn :com.eldrix.rsdb/conn :as env} {:t_patient/keys [id addresses]}]
+  [{conn :com.eldrix.rsdb/conn :as env} {:as patient addresses :t_patient/addresses}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
    ::pco/output [{:t_patient/address address-properties}]}
@@ -234,7 +236,7 @@
         date' (cond (nil? date) nil
                     (string? date) (LocalDate/parse date)
                     :else date)
-        addresses' (or addresses (patients/fetch-patient-addresses conn id))]
+        addresses' (or addresses (patients/fetch-patient-addresses conn patient))]
     {:t_patient/address (patients/address-for-date addresses' date')}))
 
 (def lsoa-re #"^[a-zA-Z]\d{8}$")
@@ -261,7 +263,7 @@
   (when concept-id {:t_address/housing {:info.snomed.Concept/id concept-id}}))
 
 (pco/defresolver patient->episodes
-  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
                                        :t_episode/date_referral
                                        :t_episode/date_registration
@@ -276,7 +278,7 @@
                                        :t_episode/external_identifier]}]}
   {:t_patient/episodes (->> (jdbc/execute! conn (sql/format {:select   [:*]
                                                              :from     [:t_episode]
-                                                             :where    [:= :patient_fk patient-id]
+                                                             :where    [:= :patient_fk patient-pk]
                                                              :order-by [[:t_episode/date_registration :asc]
                                                                         [:t_episode/date_referral :asc]
                                                                         [:t_episode/date_discharge :asc]]}))
