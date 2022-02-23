@@ -229,7 +229,7 @@
   [{conn :com.eldrix.rsdb/conn :as env} {:t_patient/keys [id addresses]}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
-   ::pco/output [:t_patient/address address-properties]}
+   ::pco/output [{:t_patient/address address-properties}]}
   (let [date (:date (pco/params env))                       ;; doesn't matter if nil
         date' (cond (nil? date) nil
                     (string? date) (LocalDate/parse date)
