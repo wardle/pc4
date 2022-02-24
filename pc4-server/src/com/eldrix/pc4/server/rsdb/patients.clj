@@ -419,8 +419,8 @@
 
 (s/fdef notify-death!
   :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
-                                                   :t_patient/date_death
-                                                   :t_death_certificate/part1a
+                                                   :t_patient/date_death]
+                                             :opt [:t_death_certificate/part1a
                                                    :t_death_certificate/part1b
                                                    :t_death_certificate/part1c
                                                    :t_death_certificate/part2])))
@@ -432,11 +432,12 @@
   (jdbc/with-transaction
     [tx conn {:isolation :serializable}]
     (let [patient-pk (or patient-pk (patient-identifier->pk conn patient-identifier))
-          existing-certificate (fetch-death-certificate tx patient)]
+          patient' (update patient :t_patient/id  #(or % patient-pk))
+          existing-certificate (fetch-death-certificate tx patient')]
       (cond
         ;; if there's a date of death, and an existing certificate, update both
         (and date_death existing-certificate)
-        (do (set-date-death tx patient)
+        (do (set-date-death tx patient')
             (jdbc/execute-one! tx (sql/format {:update [:t_death_certificate]
                                                :where  [:= :id (:t_death_certificate/id existing-certificate)]
                                                :set    {:t_death_certificate/part1a part1a
@@ -445,7 +446,7 @@
                                                         :t_death_certificate/part2  part2}})))
         ;; patient has died, but no existing certificate
         date_death
-        (do (set-date-death tx patient)
+        (do (set-date-death tx patient')
             (jdbc/execute-one! tx (sql/format {:insert-into :t_death_certificate
                                                :values      [{:t_death_certificate/patient_fk patient-pk
                                                               :t_death_certificate/part1a     part1a
@@ -454,7 +455,7 @@
                                                               :t_death_certificate/part2      part2}]})))
         ;; patient has not died, clear date of death and delete death certificate
         :else
-        (do (set-date-death tx patient)
+        (do (set-date-death tx patient')
             (jdbc/execute-one! tx (sql/format {:delete-from [:t_death_certificate]
                                                :where       [:= :t_death_certificate/patient_fk patient-pk]})))))))
 
