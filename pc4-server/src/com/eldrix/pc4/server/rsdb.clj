@@ -124,7 +124,7 @@
 
 (pco/defresolver patient->death_certificate
   [{conn :com.eldrix.rsdb/conn} patient]
-  {::pco/input [:t_patient/id]
+  {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/death_certificate [:t_death_certificate/part1a
                                                 :t_death_certificate/part1b
                                                 :t_death_certificate/part1c
@@ -180,7 +180,7 @@
     {:t_summary_multiple_sclerosis/events events}))
 
 (pco/defresolver patient->medications
-  [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
+  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/medications [:t_medication/date_from
                                           :t_medication/date_to
                                           :t_medication/date_from_accuracy
@@ -200,8 +200,8 @@
                                           :t_medication/prescriptions]}]}
   (let [medication (db/execute! conn (sql/format {:select [:*]
                                                   :from   [:t_medication]
-                                                  :where  [:= :patient_fk patient-id]}))]
-    {:t_patient/medications
+                                                  :where  [:= :patient_fk patient-pk]}))]
+    {:t_patient/medications                                 ;; and now just add a property to permit walking to SNOMED CT
      (map #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
 
 (def address-properties [:t_address/address1
@@ -216,7 +216,7 @@
 
 (pco/defresolver patient->addresses
   [{:com.eldrix.rsdb/keys [conn]} patient]
-  {::pco/input [:t_patient/id]
+  {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/addresses address-properties}]}
   {:t_patient/addresses (patients/fetch-patient-addresses conn patient)})
 
@@ -228,7 +228,7 @@
   Parameters:
   - :date - a ISO LOCAL DATE string e.g \"2020-01-01\" or an instance of
             java.time.LocalDate."
-  [{conn :com.eldrix.rsdb/conn :as env} {:as patient addresses :t_patient/addresses}]
+  [{conn :com.eldrix.rsdb/conn :as env} {addresses :t_patient/addresses :as patient}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
    ::pco/output [{:t_patient/address address-properties}]}
