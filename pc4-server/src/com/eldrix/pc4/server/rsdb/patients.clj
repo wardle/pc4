@@ -12,7 +12,7 @@
   (:import (java.time LocalDate LocalDateTime)
            (javax.sql DataSource)))
 
-(s/def ::conn #(instance? DataSource %))
+(s/def ::conn identity)
 
 (s/fdef fetch-patient-addresses
   :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
