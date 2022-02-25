@@ -15,7 +15,8 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [com.eldrix.hermes.core]
+            [com.eldrix.clods.core :as clods]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.verhoeff :as verhoeff]
             [com.eldrix.pc4.server.dates :as dates]
             [com.eldrix.pc4.server.rsdb.auth :as auth]
@@ -815,7 +816,7 @@
     (if (str/blank? postcode)
       (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
                                                       :uk.gov.ons.nhspd/LSOA11      ""})
-      (let [pc (com.eldrix.clods.core/fetch-postcode ods postcode)]
+      (let [pc (clods/fetch-postcode ods postcode)]
         (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
                                                         :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
 
