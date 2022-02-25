@@ -15,7 +15,7 @@
 (s/def ::conn identity)
 
 (s/fdef fetch-patient-addresses
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
+        :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 
 (defn fetch-patient-addresses
   "Returns patient addresses."
@@ -53,7 +53,7 @@
         (filter #(contains? #{:referred :registered} (projects/episode-status % on-date))))))
 
 (s/fdef fetch-death-certificate
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
+        :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 
 (defn fetch-death-certificate
   "Return a death certificate for the patient specified.
