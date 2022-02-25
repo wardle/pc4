@@ -153,14 +153,16 @@
     (jdbc/plan conn (patient-pks-on-medications-sql medication-concept-ids))))
 
 (s/fdef create-diagnosis
-  :args (s/cat :conn ::conn
-               :diagnosis (s/keys :req [:t_diagnosis/concept_fk :t_diagnosis/status
-                                        :t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
-                                        :t_diagnosis/date_diagnosis :t_diagnosis/date_diagnosis_accuracy
-                                        :t_diagnosis/date_to :t_diagnosis/date_to_accuracy])))
+        :args (s/cat :conn ::conn
+                     :diagnosis (s/keys :req [:t_patient/patient_identifier
+                                              :t_diagnosis/concept_fk :t_diagnosis/status]
+                                        :opt [:t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
+                                              :t_diagnosis/date_diagnosis :t_diagnosis/date_diagnosis_accuracy
+                                              :t_diagnosis/date_to :t_diagnosis/date_to_accuracy])))
 
-(defn create-diagnosis [conn {:t_diagnosis/keys  [concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]
-                              patient-identifier :t_patient/patient_identifier}]
+(defn create-diagnosis
+  [conn {:t_diagnosis/keys  [concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]
+         patient-identifier :t_patient/patient_identifier}]
   (db/execute-one! conn
                    (sql/format {:insert-into [:t_diagnosis]
                                 :values      [{:date_onset              date_onset
