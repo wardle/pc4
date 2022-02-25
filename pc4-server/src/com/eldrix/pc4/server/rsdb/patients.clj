@@ -196,8 +196,8 @@
                    {:return-keys true}))
 
 (s/fdef create-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to])))
+        :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
+                                                      :opt [:t_medication/date_to])))
 (defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to]
                                patient-identifier :t_patient/patient_identifier}]
   (db/execute-one! conn
@@ -211,8 +211,8 @@
                    {:return-keys true}))
 
 (s/fdef update-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to])))
+        :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
+                                                      :opt [:t_medication/date_to])))
 (defn update-medication
   [conn {:t_medication/keys [medication_concept_fk id date_from date_to]}]
   (db/execute-one! conn
