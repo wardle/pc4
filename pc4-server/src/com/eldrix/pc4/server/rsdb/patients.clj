@@ -420,12 +420,12 @@
 
 
 (s/fdef notify-death!
-  :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
-                                                   :t_patient/date_death]
-                                             :opt [:t_death_certificate/part1a
-                                                   :t_death_certificate/part1b
-                                                   :t_death_certificate/part1c
-                                                   :t_death_certificate/part2])))
+        :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
+                                                         :t_patient/date_death]
+                                                   :opt [:t_death_certificate/part1a
+                                                         :t_death_certificate/part1b
+                                                         :t_death_certificate/part1c
+                                                         :t_death_certificate/part2])))
 (defn notify-death!
   [conn {patient-pk                :t_patient/id
          patient-identifier        :t_patient/patient_identifier
@@ -434,7 +434,8 @@
   (jdbc/with-transaction
     [tx conn {:isolation :serializable}]
     (let [patient-pk (or patient-pk (patient-identifier->pk conn patient-identifier))
-          patient' (update patient :t_patient/id  #(or % patient-pk))
+          patient' (assoc patient :t_patient/id patient-pk)
+          _ (log/info "Fetching certificate " patient')
           existing-certificate (fetch-death-certificate tx patient')]
       (cond
         ;; if there's a date of death, and an existing certificate, update both
