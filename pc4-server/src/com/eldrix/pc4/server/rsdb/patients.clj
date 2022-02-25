@@ -180,7 +180,7 @@
 
 
 (defn update-diagnosis
-  [conn {:t_diagnosis/keys [concept_fk id date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]}]
+  [conn {:t_diagnosis/keys [id concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]}]
   (db/execute-one! conn
                    (sql/format {:update [:t_diagnosis]
                                 :set    {:date_onset              date_onset
