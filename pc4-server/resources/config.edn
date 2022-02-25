@@ -36,7 +36,7 @@
                                                       :pc4 "/var/pc4/depriv.db"
                                                       :cvx "/opt/Local/var/db/pc4/depriv.db"}}
 
- :com.eldrix/dmd                     {:path #profile {:dev "/Users/mark/Dev/dmd/dmd-2021-09-27.db"
+ :com.eldrix/dmd                     {:path #profile {:dev "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
                                                       :pc4 "/var/pc4/dmd-2021-09-27.db"
                                                       :cvx "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
