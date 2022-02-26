@@ -7,6 +7,34 @@
             [honey.sql :as sql])
   (:import (java.time LocalDate LocalDateTime)))
 
+(def re-lesions
+  "Regular expression to match lesion count syntax such as 2 +2 ~2 >2 2+/-1 and 1-3"
+  #"(?x) # allow white-space and comments
+  (?<change>^(\+|-)(\d+)$) |                               # change in lesion count ;; e.g. +2
+  (?<exactcount>^(\d+)$) |                                 # exact count            ;; e.g. 2
+  (^~(?<approxcount>\d+)$) |                               # approximate count      ;; e.g. ~2
+  (^>(?<morethan>\d+)$) |                                  # more than              ;; e.g. >20
+  (?<approxrange>^(?<count>\d+)\+\/\-(?<plusminus>\d+)$) | # approximate-range      ;; e.g. 10+/-2
+  (?<range>^(?<from>\d+)\-(?<to>\d+)$)                     # range                  ;; e.g. 3-5
+  ")
+
+(defn parse-lesions
+  "Parse lesion count string into a map containing structured data.
+  The supported formats are shown in [[re-lesions]]. Returns nil if format invalid."
+  [s]
+  (let [m (re-matcher re-lesions (or s ""))]
+    (when (.matches m)
+      (reduce-kv (fn [m k v] (if v (assoc m k v) m)) {}
+                 {:change            (parse-long (or (.group m "change") ""))
+                  :exact-count       (parse-long (or (.group m "exactcount") ""))
+                  :approximate-count (parse-long (or (.group m "approxcount") ""))
+                  :more-than         (parse-long (or (.group m "morethan") ""))
+                  :approximate-range (when (.group m "approxrange") {:count      (parse-long (.group m "count"))
+                                                                     :plus-minus (parse-long (.group m "plusminus"))})
+                  :range             (when (.group m "range") {:from (parse-long (.group m "from"))
+                                                               :to   (parse-long (.group m "to"))})}))))
+
+
 (s/def :t_result_mri_brain/id int?)
 (s/def :t_result_mri_brain/date #(instance? LocalDate %))
 (s/def :t_result_mri_brain/patient_fk int?)
@@ -290,5 +318,4 @@
     example2)
   (valid? example2)
   (explain-data example2)
-  lookup-by-id
-  )
+  lookup-by-id)
