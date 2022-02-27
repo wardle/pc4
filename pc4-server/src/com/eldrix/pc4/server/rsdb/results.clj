@@ -87,7 +87,7 @@
 
 (s/fdef save-result*
   :args (s/cat :conn ::conn
-               :result-type (s/keys :req [:t_result_type/id :t_result_type/table])
+               :result-type (s/keys :req [::result-type-id ::table ::spec])
                :result-data (s/keys :opt-un [::user_fk ::patient_fk])))
 (defn- save-result*
   "Save a result.
@@ -117,6 +117,7 @@
 
 (def annotation-multiple-sclerosis-summary #{"TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"})
 
+(s/def ::conn identity)
 (s/def :t_result_mri_brain/multiple_sclerosis_summary annotation-multiple-sclerosis-summary)
 (s/def :t_result_mri_brain/total_gad_enhancing_lesions (s/nilable parse-count-lesions))
 (s/def :t_result_mri_brain/total_t2_hyperintense (s/nilable parse-count-lesions))
@@ -227,51 +228,39 @@
                                                :t_result_liver_function/user_fk]
                                          :opt [:t_result_liver_function/id]))
 
-(s/fdef -save-mri-brain-ms-annotation!
-  :args (s/cat :conn ::conn
-               :result (s/keys :req [:t_result_mri_brain/id :t_result_mri_brain/user_fk])
-               :annotation ::t_annotation_mri_brain_multiple_sclerosis))
-(defn -save-mri-brain-ms-annotation!
-  [conn {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
-  (let [annotation' (-> annotation
-                        (dissoc :t_result_mri_brain/multiple_sclerosis_summary)
-                        (assoc :user_fk user-id :result_fk result-id
-                               :date_created (LocalDateTime/now)
-                               :gad_enhancing_lesions "NONE" ;; these are the legacy annotations - should delete
-                               :juxta_cortical_lesions "NONE" ;; but they currently have a non-NULL constraint
-                               :periventricularlesions "NONE" ;; so this is a temporary workaround
-                               :infra_tentorial_lesions "NONE" ;; until full migration
-                               :t2_hyperintense_lesions "NONE"
-                               :summary (:t_result_mri_brain/multiple_sclerosis_summary annotation)))]
-    (log/info "Saving annotation for result " annotation')
-    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
-      (jdbc/execute-one! conn (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
-                                           :where       [:= :result_fk result-id]}))
-      (-insert-annotation! conn :t_annotation_mri_brain_multiple_sclerosis_new annotation'))))
+(s/fdef default-fetch-fn
+  :args (s/cat :conn ::conn :table keyword? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
+(defn- default-fetch-fn [conn table {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
+  (db/execute! conn (sql/format {:select    [:*]
+                                 :from      [table]
+                                 :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
+                                 :where     [:and
+                                             [:= :patient_fk (or patient-pk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]})]
+                                             [:<> :is_deleted "true"]]})))
 
-(s/fdef save-mri-brain!
-  :args (s/cat :conn ::conn
-               :result-type (s/keys :req [::result-type-id])
-               :data map?))
-(defn- save-mri-brain!
-  [conn result-type data]
-  (log/info "saving MRI brain:" data)
-  (let [existing? (:t_result_mri_brain/id data)             ;; is this an update, or an insert?
-        data' (select-keys data [:t_result_mri_brain/id :t_result_mri_brain/report
-                                 :t_result_mri_brain/date :t_result_mri_brain/with_gadolinium
-                                 :patient_fk :t_result_mri_brain/patient_fk
-                                 :user_fk :t_result_mri_brain/user_fk])
-        ms-annot (select-keys data [:t_result_mri_brain/change_t2_hyperintense
-                                    :t_result_mri_brain/total_t2_hyperintense
-                                    :t_result_mri_brain/total_gad_enhancing_lesions
-                                    :t_result_mri_brain/compare_to_result_mri_brain_fk
-                                    :t_result_mri_brain/multiple_sclerosis_summary])
-        result (save-result* conn result-type data')]
-    (when-not result
-      (throw (ex-info "failed to save result" data')))
-    (when-not (empty? ms-annot)
-      (-save-mri-brain-ms-annotation! conn result ms-annot))
-    result))
+(s/fdef normalize-result
+  :args (s/cat :conn ::conn :result-type (s/keys :req [::table] :opt [::summary-fn])))
+(defn normalize-result
+  [result {::keys [table summary-fn]}]
+  (let [table' (name table)
+        id-key (keyword table' "id")
+        date-key (keyword table' "date")
+        result-type-key (keyword table' "result_type_fk")]
+    (assoc result
+      :t_result_type/id (get result result-type-key)
+      :t_result/id (get result id-key)
+      :t_result/date (get result date-key)
+      :t_result/summary (when summary-fn (summary-fn result)))))
+
+(s/fdef -results-from-table
+  :args (s/cat :conn identity
+               :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])
+               :result-type (s/keys :req [::table] :opt [::fetch-fn ::summary-fn])))
+(defn ^:private -results-from-table
+  [conn patient {::keys [fetch-fn table] :as result-type}]
+  (->> (if fetch-fn (fetch-fn conn table patient)
+                    (default-fetch-fn conn table patient))
+       (map #(normalize-result % result-type))))
 
 (defn normalize-mri-brain
   "Normalises an MRI brain scan record, flattening and renaming any annotations."
@@ -287,11 +276,13 @@
                    (assoc m (keyword "t_result_mri_brain" (name k)) v)
                    :else m)) {} result)))
 
+(s/fdef fetch-mri-brain-results
+  :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn- fetch-mri-brain-results
   "Fetch MRI brain scan results for the given patient.
   This carefully fetches annotations for each scan and then determines the 'best' annotation as there may be more than
   one annotation recorded in the legacy system."
-  [conn _ patient-identifier]
+  [conn _ {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
   (->> (db/execute! conn (sql/format {:select    [:t_result_mri_brain/id
                                                   :t_result_mri_brain/date
                                                   :t_result_mri_brain/hospital_fk
@@ -316,7 +307,7 @@
                                       :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]
                                                   :t_annotation_mri_brain_multiple_sclerosis_new [:= :result_fk :t_result_mri_brain/id]]
                                       :where     [:and
-                                                  [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                                  [:= :patient_fk (or patient-pk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]})]
                                                   [:<> :is_deleted "true"]]
                                       :order-by  [[:t_annotation_mri_brain_multiple_sclerosis_new/date_created :desc]]}))
        (group-by :t_result_mri_brain/id)
@@ -324,53 +315,122 @@
        (map first)
        (map normalize-mri-brain)))
 
-(def result->types
+(s/fdef -save-mri-brain-ms-annotation!
+  :args (s/cat :conn ::conn
+               :result (s/keys :req [:t_result_mri_brain/id :t_result_mri_brain/user_fk])
+               :annotation ::t_annotation_mri_brain_multiple_sclerosis))
+(defn -save-mri-brain-ms-annotation!
+  [conn {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
+  (let [annotation' (-> annotation
+                        (dissoc :t_result_mri_brain/multiple_sclerosis_summary)
+                        (assoc :user_fk user-id :result_fk result-id
+                               :date_created (LocalDateTime/now)
+                               :gad_enhancing_lesions "NONE" ;; these are the legacy annotations - should delete
+                               :juxta_cortical_lesions "NONE" ;; but they currently have a non-NULL constraint
+                               :periventricularlesions "NONE" ;; so this is a temporary workaround
+                               :infra_tentorial_lesions "NONE" ;; until full migration
+                               :t2_hyperintense_lesions "NONE"
+                               :summary (:t_result_mri_brain/multiple_sclerosis_summary annotation)))]
+    (log/info "Saving annotation for result " annotation')
+    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
+      (jdbc/execute-one! conn (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
+                                           :where       [:= :result_fk result-id]}))
+      (-insert-annotation! conn :t_annotation_mri_brain_multiple_sclerosis_new annotation'))))
+
+(s/fdef save-mri-brain!
+  :args (s/cat :conn ::conn
+               :result-type (s/keys :req [::result-type-id ::table])
+               :data (s/keys :req [(or ::patient_fk :t_result_mri_brain/patient_fk)
+                                   (or ::user_fk :t_result_mri_brain/user_fks)])))
+(defn- save-mri-brain!
+  "Customised save for MRI brain scan to include flattened annotation data."
+  [conn result-type data]
+  (log/info "saving MRI brain:" data)
+  (let [data' (select-keys data [:t_result_mri_brain/id :t_result_mri_brain/report
+                                 :t_result_mri_brain/date :t_result_mri_brain/with_gadolinium
+                                 :patient_fk :t_result_mri_brain/patient_fk
+                                 :user_fk :t_result_mri_brain/user_fk])
+        ms-annot (select-keys data [:t_result_mri_brain/change_t2_hyperintense
+                                    :t_result_mri_brain/total_t2_hyperintense
+                                    :t_result_mri_brain/total_gad_enhancing_lesions
+                                    :t_result_mri_brain/compare_to_result_mri_brain_fk
+                                    :t_result_mri_brain/multiple_sclerosis_summary])
+        result (save-result* conn result-type data')
+        patient-pk (or (:patient_fk data) (:t_result_mri_brain/patient_fk data))]
+    (when-not result
+      (throw (ex-info "failed to save result" data')))
+    (if (empty? ms-annot)
+      (normalize-result result result-type)
+      (let [annot-result (-save-mri-brain-ms-annotation! conn result ms-annot)]
+        (tap> {:result result :annot-result annot-result})
+        (-> result
+            (merge annot-result)
+            (normalize-mri-brain)
+            (normalize-result result-type))))))
+
+
+
+
+
+(def result-types
   "Frustratingly, the legacy system manages types using both entities and a
   runtime 'result_type' identifier. This list of 'magic' identifiers is here
   for currently supported types."
-  {:t_result_mri_brain        {::result-type-id 9
-                               ::spec           ::t_result_mri_brain
-                               ::summary        :t_result_mri_brain/report
-                               ::fetch-fn       fetch-mri-brain-results
-                               ::save-fn        save-mri-brain!}
-   :t_result_mri_spine        {::result-type-id 10
-                               ::spec           ::t_result_mri_spine
-                               ::summary        :t_result_mri_spine/report}
-   :t_result_jc_virus         {::result-type-id 14
-                               ::spec           ::t_result_jc_virus
-                               ::summary        :t_result_jc_virus/jc_virus}
-   :t_result_csf_ocb          {::result-type-id 8
-                               ::spec           ::t_result_csf_ocb
-                               ::summary        :t_result_csf_ocb/result}
-   :t_result_renal            {::result-type-id 23
-                               ::spec           ::t_result_renal
-                               ::summary        :t_result_renal/notes}
-   :t_result_full_blood_count {::result-type-id 24
-                               ::spec           ::t_result_full_blood_count
-                               ::summary        :t_result_full_blood_count/notes}
-   :t_result_ecg              {::result-type-id 25
-                               ::spec           ::t_result_ecg
-                               ::summary        :t_result_ecg/notes}
-   :t_result_urinalysis       {::result-type-id 26
-                               ::spec           ::t_result_urinalysis
-                               ::summary        :t_result_urinalysis/notes}
-   :t_result_liver_function   {::result-type-id 27
-                               ::spec           ::t_result_liver_function
-                               ::summary        :t_result_liver_function/notes}})
+  [{::result-type-id 9
+    ::table          :t_result_mri_brain
+    ::spec           ::t_result_mri_brain
+    ::summary-fn     :t_result_mri_brain/report
+    ::fetch-fn       fetch-mri-brain-results
+    ::save-fn        save-mri-brain!}
+   {::result-type-id 10
+    ::table          :t_result_mri_spine
+    ::spec           ::t_result_mri_spine
+    ::summary-fn     :t_result_mri_spine/report}
+   {::result-type-id 14
+    ::table          :t_result_jc_virus
+    ::spec           ::t_result_jc_virus
+    ::summary-fn     :t_result_jc_virus/jc_virus}
+   {::result-type-id 8
+    ::table          :t_result_csf_ocb
+    ::spec           ::t_result_csf_ocb
+    ::summary-fn     :t_result_csf_ocb/result}
+   {::result-type-id 23
+    ::table          :t_result_renal
+    ::spec           ::t_result_renal
+    ::summary-fn     :t_result_renal/notes}
+   {::result-type-id 24
+    ::table          :t_result_full_blood_count
+    ::spec           ::t_result_full_blood_count
+    ::summary-fn     :t_result_full_blood_count/notes}
+   {::result-type-id 25
+    ::table          :t_result_ecg
+    ::spec           ::t_result_ecg
+    ::summary-fn     :t_result_ecg/notes}
+   {::result-type-id 26
+    ::table          :t_result_urinalysis
+    ::spec           ::t_result_urinalysis
+    ::summary-fn     :t_result_urinalysis/notes}
+   {::result-type-id 27
+    ::table          :t_result_liver_function
+    ::spec           ::t_result_liver_function
+    ::summary-fn     :t_result_liver_function/notes}])
 
-(def lookup-by-id (reduce-kv (fn [m k v]
-                               (assoc m (::result-type-id v) (assoc v ::table k))) {} result->types))
+(def result-type-by-id
+  "Map of return-type-id to result-type."
+  (zipmap (map ::result-type-id result-types) result-types))
 
-(defn make-summary [table result]
-  (when-let [summary-key (::summary (get result->types table))]
-    (summary-key result)))
+(def result-type-by-table
+  (zipmap (map ::table result-types) result-types))
 
 (s/fdef save-result!
   :args (s/cat :conn ::conn
                :result (s/keys :req [:t_result_type/id])))
 (defn save-result!
+  "Save an investigation result. Parameters:
+  - conn   : database connection, or pool
+  - result : data of the result, must include :t_result_type/id with the type of result"
   [conn {result-type-id :t_result_type/id :as result}]
-  (let [result-type (lookup-by-id result-type-id)
+  (let [result-type (result-type-by-id result-type-id)
         save-fn (::save-fn result-type)
         result' (dissoc result :t_result_type/id)]
     (when-not result-type
@@ -383,35 +443,30 @@
   :args (s/cat :conn ::conn
                :result (s/keys :req [:t_result_type/id])))
 (defn delete-result! [conn {result-type-id :t_result_type/id :as result}]
-  (if-let [result-type (lookup-by-id result-type-id)]
+  (if-let [result-type (result-type-by-id result-type-id)]
     (db/execute-one! conn (sql/format {:update (::table result-type)
                                        :where  [:= :id (get result (keyword (name (::table result-type)) "id"))]
                                        :set    {:is_deleted "true"}}))
     (throw (ex-info "Failed to delete result: unsupported type" result))))
 
-(defn- default-fetch-fn [conn table patient-identifier]
-  (db/execute! conn (sql/format {:select    [:*]
-                                 :from      [table]
-                                 :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
-                                 :where     [:and
-                                             [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
-                                             [:<> :is_deleted "true"]]})))
+(defn delete-all-results!!
+  "DANGER: Deletes all results for a given patient. Designed for use in automated tests only."
+  ([conn patient-identifier]
+   (doseq [result-type result-types]
+     (delete-all-results!! conn patient-identifier (::table result-type))))
+  ([conn patient-identifier table]
+   (db/execute-one! conn (sql/format {:delete-from table
+                                      :where       [:= :patient_fk {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}]}))))
 
-(defn ^:private -results-from-table
-  [conn patient-identifier {::keys [fetch-fn table]}]
-  (let [id-key (keyword (name table) "id")
-        date-key (keyword (name table) "date")]
-    (->> (if fetch-fn (fetch-fn conn table patient-identifier)
-                      (default-fetch-fn conn table patient-identifier))
-         (map #(assoc %
-                 :t_result/id (get % id-key)
-                 :t_result/date (get % date-key)
-                 :t_result/summary (make-summary table %))))))
+
 
 (defn results-for-patient
-  "Returns all of the results for a patient by patient-identifier."
+  "Returns all of the results for a patient by patient-identifier.
+  Normalizes results, to include generic result properties to simplify generic processing of all results, and may
+  include annotations if supported by that result type."
   [conn patient-identifier]
-  (apply concat (map #(-results-from-table conn patient-identifier %) result->types)))
+  (let [patient {:t_patient/patient_identifier patient-identifier}]
+    (apply concat (map #(-results-from-table conn patient %) result-types))))
 
 (comment
   (require '[next.jdbc.connection])
@@ -431,5 +486,7 @@
   (save-result! conn example-result)
   (save-result! conn (assoc example-result :t_result_mri_brain/id 108823 :t_result_mri_brain/report "Sausages, lots of sausages"))
   (delete-result! conn (assoc example-result :t_result_mri_brain/id 108822))
-  (results-for-patient conn 13929))
-
+  conn
+  (clojure.spec.test.alpha/instrument)
+  (-results-from-table conn 129409 (get result-type-by-table :t_result_mri_brain))
+  (results-for-patient conn 129409))
