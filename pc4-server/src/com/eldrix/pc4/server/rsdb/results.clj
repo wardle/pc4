@@ -430,11 +430,13 @@
   - result : data of the result
   The data must include :t_result_type/result_entity_name with the type of result"
   [conn {entity-name :t_result_type/result_entity_name :as result}]
-  (let [result-type (result-type-by-entity-name entity-name)
+  (let [result-type (or (result-type-by-entity-name entity-name)
+                        (throw (ex-info "Failed to save result: unknown result type" result)))
         save-fn (::save-fn result-type)
-        result' (dissoc result :t_result_type/id :t_result_type/result_entity_name)]
-    (when-not result-type
-      (throw (ex-info "Failed to save result: unknown result type" result)))
+        table (name (::table result-type))
+        result' (reduce-kv (fn [m k v] (let [nspace (namespace k)]
+                                         (if (or (nil? nspace) (= nspace table))
+                                           (assoc m k v) m))) {} result)]
     (if save-fn
       (save-fn conn result-type result')
       (-> (save-result* conn result-type result')

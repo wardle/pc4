@@ -75,7 +75,7 @@
                                         :t_result_mri_brain/user_fk         1
                                         :t_result_mri_brain/patient_fk      (:t_patient/id patient)})])))
 
-(deftest save-and-update
+(deftest save-and-update-brain
   (let [conn (:com.eldrix.rsdb/conn *system*)
         patient *patient*]
     (let [result (results/save-result! conn
@@ -103,6 +103,19 @@
     (is (= 24 (:t_result_type/id fetched)))
     (is (= "ResultFullBloodCount" (:t_result_type/result_entity_name fetched)))))
 
+(deftest save-and-update-ecg
+  (let [conn (:com.eldrix.rsdb/conn *system*)
+        patient *patient*]
+    (let [result (results/save-result! conn
+                                       {:t_result_type/result_entity_name "ResultECG"
+                                        :t_result_ecg/date                (LocalDate/of 2020 1 4)
+                                        :t_result_ecg/notes               "Normal"
+                                        :user_fk                          1
+                                        :patient_fk                       (:t_patient/id patient)})
+          updated (results/save-result! conn (assoc result :t_result_ecg/notes "Abnormal"))]
+      (is (= "Abnormal" (:t_result_ecg/notes updated)))
+      (is (= (:t_result/id updated) (:t_result/id result)))
+      (is (= (:t_result_ecg/id updated) (:t_result_ecg/id result))))))
 
 
 (defn with-system [f]
