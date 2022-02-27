@@ -14,7 +14,7 @@
 
 (defn fetch-result [conn patient-identifier ^LocalDate date]
   (let [results (->> (results/results-for-patient conn patient-identifier)
-                     (filter #(= (:t_result/date %) date)))]
+                     (filter #(.isEqual (:t_result/date %) date)))]
     (case (count results)
       0 (throw (ex-info "No result found" {:patient-identifier patient-identifier :date date}))
       1 (first results)
@@ -46,7 +46,7 @@
   (let [conn (:com.eldrix.rsdb/conn *system*)
         patient *patient*]
     (let [date (LocalDate/of 2020 1 1)
-          data {:t_result_type/id                               9
+          data {:t_result_type/result_entity_name               "ResultMriBrain"
                 :t_result_mri_brain/date                        date
                 :t_result_mri_brain/report                      "Scan typical of multiple sclerosis."
                 :t_result_mri_brain/with_gadolinium             true
@@ -60,29 +60,50 @@
       (tap> {:data data :result result :fetched fetched})
       (is result)
       (is fetched)
-      (is (= (:t_result_type/id data) (:t_result_type/id result) (:t_result_type/id fetched)))
+      (is (= (:t_result_type/result_entity_name data) (:t_result_type/result_entity_name result) (:t_result_type/result_entity_name fetched)))
       (is (= (:t_result_mri_brain/report data) (:t_result_mri_brain/report result) (:t_result_mri_brain/report fetched)))
-      (is (= (:t_result_mri_brain/total_t2_hyperintense data ) (:t_result_mri_brain/total_t2_hyperintense result) (:t_result_mri_brain/total_t2_hyperintense fetched))))))
+      (is (= (:t_result_mri_brain/total_t2_hyperintense data) (:t_result_mri_brain/total_t2_hyperintense result) (:t_result_mri_brain/total_t2_hyperintense fetched))))))
 
 (deftest save-mri-brain-without-annotations
   (let [conn (:com.eldrix.rsdb/conn *system*)
         patient *patient*]
     (let [result (results/save-result! conn
-                                       {:t_result_type/id                   9
+                                       {:t_result_type/result_entity_name   "ResultMriBrain"
                                         :t_result_mri_brain/date            (LocalDate/of 2020 1 2)
                                         :t_result_mri_brain/report          "Scan typical of multiple sclerosis."
                                         :t_result_mri_brain/with_gadolinium true
                                         :t_result_mri_brain/user_fk         1
                                         :t_result_mri_brain/patient_fk      (:t_patient/id patient)})])))
 
+(deftest save-and-update
+  (let [conn (:com.eldrix.rsdb/conn *system*)
+        patient *patient*]
+    (let [result (results/save-result! conn
+                                       {:t_result_type/result_entity_name   "ResultMriBrain"
+                                        :t_result_mri_brain/date            (LocalDate/of 2020 1 3)
+                                        :t_result_mri_brain/report          "Scan typical of multiple sclerosis."
+                                        :t_result_mri_brain/with_gadolinium true
+                                        :t_result_mri_brain/user_fk         1
+                                        :t_result_mri_brain/patient_fk      (:t_patient/id patient)})
+          updated (results/save-result! conn (assoc result :t_result_mri_brain/report "Normal scan"))]
+      (is (= "Normal scan" (:t_result_mri_brain/report updated)))
+      (is (= (:t_result/id updated) (:t_result/id result)))
+      (is (= (:t_result_mri_brain/id updated) (:t_result_mri_brain/id result))))))
+
 
 (deftest save-full-blood-count
   (let [conn (:com.eldrix.rsdb/conn *system*)
-        patient *patient*]
-    (results/save-result! conn {:t_result_type/id               24
-                                :t_result_full_blood_count/date (LocalDate/of 2020 1 3)
-                                :patient_fk                     (:t_patient/id patient)
-                                :user_fk                        1})))
+        patient *patient*
+        date (LocalDate/of 2020 1 4)
+        result (results/save-result! conn {:t_result_type/result_entity_name "ResultFullBloodCount"
+                                           :t_result_full_blood_count/date   date
+                                           :patient_fk                       (:t_patient/id patient)
+                                           :user_fk                          1})
+        fetched (fetch-result conn (:t_patient/patient_identifier patient) date)]
+    (is (= 24 (:t_result_type/id fetched)))
+    (is (= "ResultFullBloodCount" (:t_result_type/result_entity_name fetched)))))
+
+
 
 (defn with-system [f]
   (binding [*system* (pc4/init :dev [:pathom/env])]
@@ -105,4 +126,5 @@
 (use-fixtures :once with-system with-patient)
 
 (comment
-  (clojure.test/run-tests))
+  (clojure.test/run-tests)
+  (save-full-blood-count))

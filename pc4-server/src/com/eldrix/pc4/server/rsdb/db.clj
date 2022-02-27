@@ -45,10 +45,17 @@
    :t_project/type                             keyword
    :t_project/virtual                          parse-boolean
    :t_project_user/role                        keyword
-   :t_result_mri_brain/date                    parse-local-date
    :t_result_mri_brain/with_gadolinium         parse-boolean
+   :t_result_mri_brain/date                    parse-local-date
+   :t_result_full_blood_count/date             parse-local-date
+   :t_result_renal/date                        parse-local-date
    :t_result_csf_ocb/date                      parse-local-date
    :t_result_jc_virus/date                     parse-local-date
+   :t_result_mri_spine/date                    parse-local-date
+   :t_result_liver_function/date               parse-local-date
+   :t_result_urinalysis/date                   parse-local-date
+   :t_result_ecg/date                          parse-local-date
+   :t_result_thyroid_function/date             parse-local-date
    :t_role/is_system                           parse-boolean
    :t_user/authentication_method               keyword
    :t_user/must_change_password                parse-boolean
@@ -69,8 +76,8 @@
    :t_ms_event/site_sphincter                  parse-boolean
    :t_ms_event/site_unknown                    parse-boolean
    :t_ms_event/site_vestibular                 parse-boolean
-   :t_ms_events/is_relapse                     parse-boolean
-   })
+   :t_ms_events/is_relapse                     parse-boolean})
+
 
 (defn parse-entity
   "Simple mapping from rsdb source data.

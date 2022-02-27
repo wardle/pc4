@@ -929,57 +929,57 @@
 
 
 (def supported-results
-  [{:t_result_type/name "MRI brain"
-    :t_result_type/id   9
-    ::editor            edit-result-mri-brain
-    ::spec              ::result-mri-brain
-    ::initial-data      {:t_result_mri_brain/with_gadolinium false
-                         :t_result_mri_brain/report          ""}}
-   {:t_result_type/name "MRI spine"
-    :t_result_type/id   10
-    ::editor            edit-result-mri-spine
-    ::spec              ::result-mri-spine
-    ::initial-data      {:t_result_mri_spine/type   "CERVICAL_AND_THORACIC"
-                         :t_result_mri_spine/report ""}}
-   {:t_result_type/name "CSF OCB"
-    :t_result_type/id   8
-    ::editor            edit-result-csf-ocb
-    ::spec              ::result-csf-ocb}
-   {:t_result_type/name "JC virus"
-    :t_result_type/id   14
-    ::editor            edit-result-jc-virus
-    ::spec              ::result-jc-virus}
-   {:t_result_type/name "Renal profile"
-    :t_result_type/id   23
-    ::editor            (make-edit-result "Renal profile" :t_result_renal)
-    ::spec              ::result-renal}
-   {:t_result_type/name "Full blood count"
-    :t_result_type/id   24
-    ::editor            (make-edit-result "Full blood count" :t_result_full_blood_count)
-    ::spec              ::result-full-blood-count}
-   {:t_result_type/name "Electrocardiogram (ECG)"
-    :t_result_type/id   25
-    ::editor            (make-edit-result "Electrocardiogram (ECG)" :t_result_ecg)
-    ::spec              ::result-ecg}
-   {:t_result_type/name "Urinalysis"
-    :t_result_type/id   26
-    ::editor            (make-edit-result "Urinalysis" :t_result_urinalysis)
-    ::spec ::result-urinalysis}
-   {:t_result_type/name "Liver function tests"
-    :t_result_type/id   27
-    ::editor            (make-edit-result "Liver function tests" :t_result_liver_function)
-    ::spec ::result-liver-function}])
+  [{:t_result_type/name               "MRI brain"
+    :t_result_type/result_entity_name "ResultMriBrain"
+    ::editor                          edit-result-mri-brain
+    ::spec                            ::result-mri-brain
+    ::initial-data                    {:t_result_mri_brain/with_gadolinium false
+                                       :t_result_mri_brain/report          ""}}
+   {:t_result_type/name               "MRI spine"
+    :t_result_type/result_entity_name "ResultMriSpine"
+    ::editor                          edit-result-mri-spine
+    ::spec                            ::result-mri-spine
+    ::initial-data                    {:t_result_mri_spine/type   "CERVICAL_AND_THORACIC"
+                                       :t_result_mri_spine/report ""}}
+   {:t_result_type/name               "CSF OCB"
+    :t_result_type/result_entity_name "ResultCsfOcb"
+    ::editor                          edit-result-csf-ocb
+    ::spec                            ::result-csf-ocb}
+   {:t_result_type/name               "JC virus"
+    :t_result_type/result_entity_name "ResultJCVirus"
+    ::editor                          edit-result-jc-virus
+    ::spec                            ::result-jc-virus}
+   {:t_result_type/name               "Renal profile"
+    :t_result_type/result_entity_name "ResultRenalProfile"
+    ::editor                          (make-edit-result "Renal profile" :t_result_renal)
+    ::spec                            ::result-renal}
+   {:t_result_type/name               "Full blood count"
+    :t_result_type/result_entity_name "ResultFullBloodCount"
+    ::editor                          (make-edit-result "Full blood count" :t_result_full_blood_count)
+    ::spec                            ::result-full-blood-count}
+   {:t_result_type/name               "Electrocardiogram (ECG)"
+    :t_result_type/result_entity_name "ResultECG"
+    ::editor                          (make-edit-result "Electrocardiogram (ECG)" :t_result_ecg)
+    ::spec                            ::result-ecg}
+   {:t_result_type/name               "Urinalysis"
+    :t_result_type/result_entity_name "ResultUrinalysis"
+    ::editor                          (make-edit-result "Urinalysis" :t_result_urinalysis)
+    ::spec                            ::result-urinalysis}
+   {:t_result_type/name               "Liver function tests"
+    :t_result_type/result_entity_name "ResultLiverFunction"
+    ::editor                          (make-edit-result "Liver function tests" :t_result_liver_function)
+    ::spec                            ::result-liver-function}])
 
-(def results-lookup (zipmap (map :t_result_type/id supported-results) supported-results))
+(def results-lookup (zipmap (map :t_result_type/result_entity_name supported-results) supported-results))
 
 (defn editor-for-result [result]
-  (get-in results-lookup [(:t_result_type/id result) ::editor]))
+  (get-in results-lookup [(:t_result_type/result_entity_name result) ::editor]))
 
 (defn spec-for-result [result]
-  (get-in results-lookup [(:t_result_type/id result) ::spec]))
+  (get-in results-lookup [(:t_result_type/result_entity_name result) ::spec]))
 
 (defn initial-data-for-result [result]
-  (get-in results-lookup [(:t_result_type/id result) ::initial-data]))
+  (get-in results-lookup [(:t_result_type/result_entity_name result) ::initial-data]))
 
 (defn truncate [s length]
   (let [len (count s)] (if (> len length) (str (subs s 0 length) "…") s)))
@@ -1025,15 +1025,15 @@
           :buttons
           [:div.grid.grid-cols-2
            [:div.col-span-1
-            [ui/select :value new-result' :choices supported-results :display-key :t_result_type/name :id-key :t_result_type/id
+            [ui/select :value new-result' :choices supported-results :display-key :t_result_type/name :id-key :t_result_type/result_entity_name
              :select-fn #(reset! new-result %)]]
            [:div.col-span-1
             [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
              {:on-click #(reset! editing-result
                                  (merge
                                    (initial-data-for-result new-result')
-                                   {:t_result_type/id             (:t_result_type/id new-result')
-                                    :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)}))}
+                                   {:t_result_type/result_entity_name (:t_result_type/result_entity_name new-result')
+                                    :t_patient/patient_identifier     (:t_patient/patient_identifier current-patient)}))}
              (str "Add " (:t_result_type/name new-result'))]]]]
          [ui/list-entities-fixed
           :items sorted-results

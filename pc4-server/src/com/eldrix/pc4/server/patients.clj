@@ -287,5 +287,5 @@
                         :wales.nhs.cavuhb.Patient/SEX
                         :org.hl7.fhir.Patient/gender
                         {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}]}])
-  (cav->fhir-identifiers (add-namespace-cav-patient (get fake-cav-patients "A999998")))
-  )
+  (cav->fhir-identifiers (add-namespace-cav-patient (get fake-cav-patients "A999998"))))
+

@@ -38,10 +38,12 @@
       (do (log/debug "mutation success: " {:request params
                                            :result  result})
           (assoc ctx :response (ok result)))
-      (let [error (Throwable->map mutation-error)]
+      (let [error (Throwable->map mutation-error)
+            error-data (ex-data mutation-error)]
         (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
                                       :cause   (:cause error)})
-        (log/info "error" (ex-data mutation-error))
+        (tap> error)
+        (when error-data (log/info "error" error-data))
         (assoc ctx :response {:status 400
                               :body   {:message (:cause error)}})))))
 
@@ -128,9 +130,8 @@
                      attach-claims
                      api]]}))
 
-(comment
+(comment)
 
   ;; from command line, send some transit+json data to the API endpoint
   ;; echo '["^ ","a",1,"b",[1,2.2,200000,null]]' | http -f POST localhost:8080/api Content-Type:application/transit+json;charset=UTF-8
 
-  )

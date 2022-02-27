@@ -930,9 +930,10 @@
   (when-not (s/valid? ::save-result params)
     (log/error "invalid save result request" (s/explain-data ::save-result params))
     (throw (ex-info "Invalid save result request" (s/explain-data ::save-result params))))
-  (let [params' (assoc params
-                  :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
-                  :user_fk (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
+  (let [params' (-> params
+                    (dissoc :t_patient/patient_identifier)
+                    (assoc :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
+                           :user_fk (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
     (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
         (results/save-result! conn params'))))
 

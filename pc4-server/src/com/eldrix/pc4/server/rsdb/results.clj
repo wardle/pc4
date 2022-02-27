@@ -47,22 +47,22 @@
 
 
 (s/fdef -insert-result!
-  :args (s/cat :conn ::conn :table keyword? :result-type-id int? :result-data map?))
+  :args (s/cat :conn ::conn :table keyword? :entity-name string? :result-data map?))
 (defn ^:private -insert-result!
   "Inserts a result
 
   This manages the form id safely, because the legacy WebObjects application
   uses horizontal inheritance so that the identifiers are generated from a
   sequence from 't_result'."
-  [conn table result-type-id data]
-  (log/info "inserting result:" {:result-type-id result-type-id :data data})
+  [conn table entity-name data]
+  (log/info "inserting result:" {:entity-name entity-name :data data})
   (db/execute-one! conn (sql/format {:insert-into [table]
                                      ;; note as this table uses legacy WO horizontal inheritance, we use t_result_seq to generate identifiers manually.
                                      :values      [(merge {:id               {:select [[[:nextval "t_result_seq"]]]}
                                                            :data_source_type "MANUAL"
                                                            :date_created     (LocalDateTime/now)
                                                            :is_deleted       "false"
-                                                           :result_type_fk   result-type-id}
+                                                           :result_type_fk   {:select :id :from :t_result_type :where [:= :result_entity_name entity-name]}}
                                                           data)]})
                    {:return-keys true}))
 
@@ -75,19 +75,17 @@
 
 
 (s/fdef -update-result!
-  :args (s/cat :conn ::conn
-               :table keyword?
-               :data (s/keys :req-un [::id])))
-(defn -update-result! [conn table data]
+  :args (s/cat :conn ::conn :table keyword? :result-id int? :data map?))
+(defn -update-result! [conn table result-id data]
   (log/info "updating result" {:table table :data data})
   (db/execute-one! conn (sql/format {:update [table]
-                                     :where  [:= :id (get data "id")]
-                                     :set    (dissoc data :id)}) {:return-keys true}))
+                                     :where  [:= :id result-id]
+                                     :set    data}) {:return-keys true}))
 
 
 (s/fdef save-result*
   :args (s/cat :conn ::conn
-               :result-type (s/keys :req [::result-type-id ::table ::spec])
+               :result-type (s/keys :req [::entity-name ::table ::spec])
                :result-data (s/keys :opt-un [::user_fk ::patient_fk])))
 (defn- save-result*
   "Save a result.
@@ -97,9 +95,9 @@
   - ::spec             : specification for data
   - :user_fk           : user_fk to be used if not already namespaced under result
   - :patient_fk        : patient_fk to be used if not already namespaced under result"
-  [conn {result-type-id ::result-type-id
-         table          ::table
-         spec           ::spec}
+  [conn {entity-name ::entity-name
+         table       ::table
+         spec        ::spec}
    {:keys [user_fk patient_fk] :as data}]
   (let [id-key (keyword (name table) "id")
         id (get data id-key)
@@ -112,8 +110,8 @@
                       (assoc patient-key patient_fk))]
     (when-not (s/valid? spec data')
       (throw (ex-info "Failed to save result; invalid data" (s/explain spec data'))))
-    (if id (-update-result! conn table data')
-           (-insert-result! conn table result-type-id data'))))
+    (if id (-update-result! conn table id (dissoc data' id-key))
+           (-insert-result! conn table entity-name data'))))
 
 (def annotation-multiple-sclerosis-summary #{"TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"})
 
@@ -239,15 +237,14 @@
                                              [:<> :is_deleted "true"]]})))
 
 (s/fdef normalize-result
-  :args (s/cat :conn ::conn :result-type (s/keys :req [::table] :opt [::summary-fn])))
+  :args (s/cat :result map? :result-type (s/keys :req [::entity-name ::table] :opt [::summary-fn])))
 (defn normalize-result
-  [result {::keys [table summary-fn]}]
+  [result {::keys [entity-name table summary-fn]}]
   (let [table' (name table)
         id-key (keyword table' "id")
-        date-key (keyword table' "date")
-        result-type-key (keyword table' "result_type_fk")]
+        date-key (keyword table' "date")]
     (assoc result
-      :t_result_type/id (get result result-type-key)
+      :t_result_type/result_entity_name entity-name
       :t_result/id (get result id-key)
       :t_result/date (get result date-key)
       :t_result/summary (when summary-fn (summary-fn result)))))
@@ -255,7 +252,7 @@
 (s/fdef -results-from-table
   :args (s/cat :conn identity
                :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])
-               :result-type (s/keys :req [::table] :opt [::fetch-fn ::summary-fn])))
+               :result-type (s/keys :req [::entity-name ::table] :opt [::fetch-fn ::summary-fn])))
 (defn ^:private -results-from-table
   [conn patient {::keys [fetch-fn table] :as result-type}]
   (->> (if fetch-fn (fetch-fn conn table patient)
@@ -269,6 +266,8 @@
     (reduce-kv (fn [m k v]
                  (cond
                    (= "t_result_mri_brain" (namespace k))
+                   (assoc m k v)
+                   (= "t_result_type" (namespace k))
                    (assoc m k v)
                    (and (= :t_annotation_mri_brain_multiple_sclerosis_new/id k) v)
                    (assoc m :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id v)
@@ -295,7 +294,7 @@
                                                   :t_result_mri_brain/data_source_url
                                                   :t_result_mri_brain/patient_fk
                                                   :t_result_mri_brain/report
-                                                  :t_result_type/id
+                                                  :t_result_type/*
                                                   :t_annotation_mri_brain_multiple_sclerosis_new/id
                                                   :t_annotation_mri_brain_multiple_sclerosis_new/date_created
                                                   :t_annotation_mri_brain_multiple_sclerosis_new/change_t2_hyperintense
@@ -339,7 +338,7 @@
 
 (s/fdef save-mri-brain!
   :args (s/cat :conn ::conn
-               :result-type (s/keys :req [::result-type-id ::table])
+               :result-type (s/keys :req [::entity-name ::table])
                :data (s/keys :req [(or ::patient_fk :t_result_mri_brain/patient_fk)
                                    (or ::user_fk :t_result_mri_brain/user_fks)])))
 (defn- save-mri-brain!
@@ -376,74 +375,76 @@
   "Frustratingly, the legacy system manages types using both entities and a
   runtime 'result_type' identifier. This list of 'magic' identifiers is here
   for currently supported types."
-  [{::result-type-id 9
-    ::table          :t_result_mri_brain
-    ::spec           ::t_result_mri_brain
-    ::summary-fn     :t_result_mri_brain/report
-    ::fetch-fn       fetch-mri-brain-results
-    ::save-fn        save-mri-brain!}
-   {::result-type-id 10
-    ::table          :t_result_mri_spine
-    ::spec           ::t_result_mri_spine
-    ::summary-fn     :t_result_mri_spine/report}
-   {::result-type-id 14
-    ::table          :t_result_jc_virus
-    ::spec           ::t_result_jc_virus
-    ::summary-fn     :t_result_jc_virus/jc_virus}
-   {::result-type-id 8
-    ::table          :t_result_csf_ocb
-    ::spec           ::t_result_csf_ocb
-    ::summary-fn     :t_result_csf_ocb/result}
-   {::result-type-id 23
-    ::table          :t_result_renal
-    ::spec           ::t_result_renal
-    ::summary-fn     :t_result_renal/notes}
-   {::result-type-id 24
-    ::table          :t_result_full_blood_count
-    ::spec           ::t_result_full_blood_count
-    ::summary-fn     :t_result_full_blood_count/notes}
-   {::result-type-id 25
-    ::table          :t_result_ecg
-    ::spec           ::t_result_ecg
-    ::summary-fn     :t_result_ecg/notes}
-   {::result-type-id 26
-    ::table          :t_result_urinalysis
-    ::spec           ::t_result_urinalysis
-    ::summary-fn     :t_result_urinalysis/notes}
-   {::result-type-id 27
-    ::table          :t_result_liver_function
-    ::spec           ::t_result_liver_function
-    ::summary-fn     :t_result_liver_function/notes}])
+  [{::entity-name "ResultMriBrain"
+    ::table       :t_result_mri_brain
+    ::spec        ::t_result_mri_brain
+    ::summary-fn  :t_result_mri_brain/report
+    ::fetch-fn    fetch-mri-brain-results
+    ::save-fn     save-mri-brain!}
+   {::entity-name "ResultMriSpine"
+    ::table       :t_result_mri_spine
+    ::spec        ::t_result_mri_spine
+    ::summary-fn  :t_result_mri_spine/report}
+   {::entity-name "ResultJCVirus"
+    ::table       :t_result_jc_virus
+    ::spec        ::t_result_jc_virus
+    ::summary-fn  :t_result_jc_virus/jc_virus}
+   {::entity-name "ResultCsfOcb"
+    ::table       :t_result_csf_ocb
+    ::spec        ::t_result_csf_ocb
+    ::summary-fn  :t_result_csf_ocb/result}
+   {::entity-name "ResultRenalProfile"
+    ::table       :t_result_renal
+    ::spec        ::t_result_renal
+    ::summary-fn  :t_result_renal/notes}
+   {::entity-name "ResultFullBloodCount"
+    ::table       :t_result_full_blood_count
+    ::spec        ::t_result_full_blood_count
+    ::summary-fn  :t_result_full_blood_count/notes}
+   {::entity-name "ResultECG"
+    ::table       :t_result_ecg
+    ::spec        ::t_result_ecg
+    ::summary-fn  :t_result_ecg/notes}
+   {::entity-name "ResultUrinalysis"
+    ::table       :t_result_urinalysis
+    ::spec        ::t_result_urinalysis
+    ::summary-fn  :t_result_urinalysis/notes}
+   {::entity-name "ResultLiverFunction"
+    ::table       :t_result_liver_function
+    ::spec        ::t_result_liver_function
+    ::summary-fn  :t_result_liver_function/notes}])
 
-(def result-type-by-id
-  "Map of return-type-id to result-type."
-  (zipmap (map ::result-type-id result-types) result-types))
+(def result-type-by-entity-name
+  "Map of entity-name to result-type."
+  (zipmap (map ::entity-name result-types) result-types))
 
 (def result-type-by-table
   (zipmap (map ::table result-types) result-types))
 
 (s/fdef save-result!
   :args (s/cat :conn ::conn
-               :result (s/keys :req [:t_result_type/id])))
+               :result (s/keys :req [:t_result_type/result_entity_name])))
 (defn save-result!
   "Save an investigation result. Parameters:
   - conn   : database connection, or pool
-  - result : data of the result, must include :t_result_type/id with the type of result"
-  [conn {result-type-id :t_result_type/id :as result}]
-  (let [result-type (result-type-by-id result-type-id)
+  - result : data of the result
+  The data must include :t_result_type/result_entity_name with the type of result"
+  [conn {entity-name :t_result_type/result_entity_name :as result}]
+  (let [result-type (result-type-by-entity-name entity-name)
         save-fn (::save-fn result-type)
-        result' (dissoc result :t_result_type/id)]
+        result' (dissoc result :t_result_type/id :t_result_type/result_entity_name)]
     (when-not result-type
       (throw (ex-info "Failed to save result: unknown result type" result)))
     (if save-fn
       (save-fn conn result-type result')
-      (save-result* conn result-type result'))))
+      (-> (save-result* conn result-type result')
+          (normalize-result result-type)))))
 
 (s/fdef delete-result!
   :args (s/cat :conn ::conn
-               :result (s/keys :req [:t_result_type/id])))
-(defn delete-result! [conn {result-type-id :t_result_type/id :as result}]
-  (if-let [result-type (result-type-by-id result-type-id)]
+               :result (s/keys :req [:t_result_type/result_entity_name])))
+(defn delete-result! [conn {entity-name :t_result_type/result_entity_name :as result}]
+  (if-let [result-type (result-type-by-entity-name entity-name)]
     (db/execute-one! conn (sql/format {:update (::table result-type)
                                        :where  [:= :id (get result (keyword (name (::table result-type)) "id"))]
                                        :set    {:is_deleted "true"}}))
@@ -474,19 +475,19 @@
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
                                                            :maximumPoolSize 1}))
-  (def example-result {:t_result_type/id                               9
-                       :t_result_mri_brain/date                        (LocalDate/now)
-                       :t_result_mri_brain/patient_fk                  129410
-                       :user_fk                                        1
-                       :t_result_mri_brain/with_gadolinium             false
-                       :t_result_mri_brain/report                      "Innumerable lesions"
-                       :t_result_mri_brain/total_gad_enhancing_lesions "5"
-                       :t_result_mri_brain/total_t2_hyperintense       "~10"
-                       :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"})
-  (save-result! conn example-result)
-  (save-result! conn (assoc example-result :t_result_mri_brain/id 108823 :t_result_mri_brain/report "Sausages, lots of sausages"))
-  (delete-result! conn (assoc example-result :t_result_mri_brain/id 108822))
-  conn
-  (clojure.spec.test.alpha/instrument)
-  (-results-from-table conn 129409 (get result-type-by-table :t_result_mri_brain))
-  (results-for-patient conn 129409))
+
+  (-results-from-table conn {:t_patient/id 100197} (get result-type-by-table :t_result_mri_brain))
+  (-results-from-table conn {:t_patient/id 100197} (get result-type-by-table :t_result_renal))
+  (default-fetch-fn conn :t_result_renal {:t_patient/id 100197})
+
+  (results-for-patient conn 129409)
+
+  (->> (results-for-patient conn 129409)
+       (filter #(= (:t_result/date %) (LocalDate/now))))
+  (save-result! conn {:t_result_type/result_entity_name "ResultFullBloodCount"
+                      :t_result_full_blood_count/date   (LocalDate/now)
+                      :patient_fk                       129409
+                      :user_fk                          1}))
+
+
+
