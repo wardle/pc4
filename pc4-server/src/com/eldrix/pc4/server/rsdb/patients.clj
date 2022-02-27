@@ -350,7 +350,7 @@
       (throw (ex-info "Invalid operation: cannot save LSOA for non-pseudonymous patient" params))
       (jdbc/with-transaction
         [tx conn {:isolation :serializable}]
-        (let [addresses (fetch-patient-addresses tx (:t_patient/id patient))
+        (let [addresses (fetch-patient-addresses tx patient)
               current-address (address-for-date addresses)]
           ;; we currently do not support an address history for pseudonymous patients, so either edit or create
           ;; current address
