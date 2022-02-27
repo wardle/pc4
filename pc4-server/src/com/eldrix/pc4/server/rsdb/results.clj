@@ -134,7 +134,6 @@
                                                                           :t_result_mri_brain/change_t2_hyperintense))]
                                                            :opt [:t_result_mri_brain/total_gad_enhancing_lesions]))
 
-
 (s/def ::t_result_mri_brain (s/keys :req [:t_result_mri_brain/date
                                           :t_result_mri_brain/patient_fk
                                           :t_result_mri_brain/report
@@ -319,7 +318,12 @@
                :result (s/keys :req [:t_result_mri_brain/id :t_result_mri_brain/user_fk])
                :annotation ::t_annotation_mri_brain_multiple_sclerosis))
 (defn -save-mri-brain-ms-annotation!
-  [conn {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
+  "Save an MRI brain multiple sclerosis annotation.
+  - tx - a connection that *must* be within a transaction as multiple operations should either succeed or fail as one. "
+  [tx {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
+  (when (and (:t_result_mri_brain/total_t2_hyperintense annotation)
+             (:t_result_mri_brain/change_t2_hyperintense annotation))
+    (throw (ex-info "Invalid annotation data: cannot specify both absolute and relative T2 counts" annotation)))
   (let [annotation' (-> annotation
                         (dissoc :t_result_mri_brain/multiple_sclerosis_summary)
                         (assoc :user_fk user-id :result_fk result-id
@@ -331,10 +335,9 @@
                                :t2_hyperintense_lesions "NONE"
                                :summary (:t_result_mri_brain/multiple_sclerosis_summary annotation)))]
     (log/info "Saving annotation for result " annotation')
-    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
-      (jdbc/execute-one! conn (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
-                                           :where       [:= :result_fk result-id]}))
-      (-insert-annotation! conn :t_annotation_mri_brain_multiple_sclerosis_new annotation'))))
+    (jdbc/execute-one! tx (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
+                                       :where       [:= :result_fk result-id]}))
+    (-insert-annotation! tx :t_annotation_mri_brain_multiple_sclerosis_new annotation')))
 
 (s/fdef save-mri-brain!
   :args (s/cat :conn ::conn
@@ -353,19 +356,20 @@
                                     :t_result_mri_brain/total_t2_hyperintense
                                     :t_result_mri_brain/total_gad_enhancing_lesions
                                     :t_result_mri_brain/compare_to_result_mri_brain_fk
-                                    :t_result_mri_brain/multiple_sclerosis_summary])
-        result (save-result* conn result-type data')
-        patient-pk (or (:patient_fk data) (:t_result_mri_brain/patient_fk data))]
-    (when-not result
-      (throw (ex-info "failed to save result" data')))
-    (if (empty? ms-annot)
-      (normalize-result result result-type)
-      (let [annot-result (-save-mri-brain-ms-annotation! conn result ms-annot)]
-        (tap> {:result result :annot-result annot-result})
-        (-> result
-            (merge annot-result)
-            (normalize-mri-brain)
-            (normalize-result result-type))))))
+                                    :t_result_mri_brain/multiple_sclerosis_summary])]
+    (when-not (or (empty? ms-annot) (s/valid? ::t_annotation_mri_brain_multiple_sclerosis ms-annot))
+      (throw (ex-info "Invalid MRI brain annotation data" (s/explain-data ::t_annotation_mri_brain_multiple_sclerosis ms-annot))))
+    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
+      (let [result (save-result* tx result-type data')]     ;; this will validate the MRI data
+        (when-not result
+          (throw (ex-info "failed to save MRI brain result" data')))
+        (if (empty? ms-annot)
+          (normalize-result result result-type)
+          (let [annot-result (-save-mri-brain-ms-annotation! tx result ms-annot)]
+            (-> result
+                (merge annot-result)
+                (normalize-mri-brain)
+                (normalize-result result-type))))))))
 
 
 

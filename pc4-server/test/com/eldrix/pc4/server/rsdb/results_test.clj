@@ -1,11 +1,13 @@
 (ns com.eldrix.pc4.server.rsdb.results-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :as test :refer [deftest is use-fixtures]]
             [com.eldrix.pc4.server.system :as pc4]
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
             [clojure.spec.test.alpha :as stest])
-  (:import (java.time LocalDate)))
+  (:import (java.time LocalDate)
+           (clojure.lang ExceptionInfo)
+           (java.time.temporal ChronoUnit)))
 
 (stest/instrument)
 (def ^:dynamic *system* nil)
@@ -108,7 +110,7 @@
         patient *patient*]
     (let [result (results/save-result! conn
                                        {:t_result_type/result_entity_name "ResultECG"
-                                        :t_result_ecg/date                (LocalDate/of 2020 1 4)
+                                        :t_result_ecg/date                (LocalDate/of 2020 1 5)
                                         :t_result_ecg/notes               "Normal"
                                         :user_fk                          1
                                         :patient_fk                       (:t_patient/id patient)})
@@ -116,6 +118,36 @@
       (is (= "Abnormal" (:t_result_ecg/notes updated)))
       (is (= (:t_result/id updated) (:t_result/id result)))
       (is (= (:t_result_ecg/id updated) (:t_result_ecg/id result))))))
+
+(deftest invalid-mri-brain-annotations
+  (let [conn (:com.eldrix.rsdb/conn *system*)
+        patient *patient*
+        date (LocalDate/of 2020 1 6)
+        base {:t_result_type/result_entity_name   "ResultMriBrain"
+              :t_result_mri_brain/date            date
+              :t_result_mri_brain/report          "Multiple T2 hyperintensities"
+              :t_result_mri_brain/with_gadolinium true
+              :user_fk                            1
+              :patient_fk                         (:t_patient/id patient)}
+        result (results/save-result! conn (merge base {:t_result_mri_brain/total_t2_hyperintense       "2"
+                                                       :t_result_mri_brain/with_gadolinium             false
+                                                       :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"
+                                                       :t_result_mri_brain/total_gad_enhancing_lesions nil}))
+        result-id (:t_result_mri_brain/id result)]
+    ;; invalid change specification:
+    (is (thrown? ExceptionInfo (results/save-result! conn (merge base {:t_result_mri_brain/total_gad_enhancing_lesions    "~2"
+                                                                       :t_result_mri_brain/change_t2_hyperintense         "2"
+                                                                       :t_result_mri_brain/compare_to_result_mri_brain_fk result-id
+                                                                       :t_result_mri_brain/multiple_sclerosis_summary     "TYPICAL"}))))
+    ;; missing reference to comparison scan:
+    (is (thrown? ExceptionInfo (results/save-result! conn (merge base {:t_result_mri_brain/total_gad_enhancing_lesions "~2"
+                                                                       :t_result_mri_brain/change_t2_hyperintense      "2"
+                                                                       :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"}))))
+    ;; including both total T2 intensities AND change
+    (is (thrown? ExceptionInfo (results/save-result! conn (merge base {:t_result_mri_brain/total_gad_enhancing_lesions "~2"
+                                                                       :t_result_mri_brain/total_t2_hyperintense       "2"
+                                                                       :t_result_mri_brain/change_t2_hyperintense      "+2"
+                                                                       :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"}))))))
 
 
 (defn with-system [f]
