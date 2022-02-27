@@ -303,9 +303,9 @@
                                         "accept-language"
                                         "authorization"
                                         "content-type"
-                                        "origin"})
+                                        "origin"})))
       ;(wrap-log-response)
-      ))
+
 
 (defmethod ig/init-key :http/server2 [_ {:keys [port allowed-origins host handler] :as config}]
   (log/info "running HTTP server" (dissoc config :handler))
@@ -340,6 +340,9 @@
   ([profile keys]
    (reset! resolvers [])
    (ig/init (config profile) keys)))
+
+(defn halt! [system]
+  (ig/halt! system))
 
 (comment
   (config :dev)
@@ -526,8 +529,8 @@
                                                                          :nhs-number "3333333333"
                                                                          :date-birth (LocalDate/of 1975 5 1)})
   (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
-  (com.eldrix.pc4.server.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password")
+  (com.eldrix.pc4.server.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password"))
 
-  )
+
 
 
