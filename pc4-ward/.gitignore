@@ -4,6 +4,7 @@
 /*-init.clj
 /*.log
 /.cpcache/
+/.clj-kondo
 
 # Leiningen
 /.lein-*
