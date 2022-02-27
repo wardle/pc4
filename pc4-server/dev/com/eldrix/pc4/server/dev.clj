@@ -26,7 +26,6 @@
   (def system (pc4/init :dev [:http/server2]))
   (ig/halt! system)
 
-
   ;; exercise some of the components...
   (keys system)
   (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7a4")
@@ -35,13 +34,14 @@
   (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))
   (com.eldrix.dmd.core/fetch-product (:com.eldrix/dmd system) 108537001)
   (com.eldrix.nhspd.core/fetch-postcode (:com.eldrix/nhspd system) "cf144xw")
+  (com.eldrix.deprivare.core/fetch-installed (:com.eldrix/deprivare system))
   (com.eldrix.deprivare.core/fetch-lsoa (:com.eldrix/deprivare system) "W01001770")
 
 
   (require '[com.eldrix.pc4.server.rsdb.patients :as patients])
-  (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 123})
-  (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
-  )
+  (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
+  (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8}))
+
 
 
 
@@ -120,8 +120,8 @@
   (require '[com.eldrix.hermes.snomed :as snomed])
   (p.eql/process (:pathom/env system)
                  [{[:t_patient/patient-identifier 81253]
-                   [:t_patient/last_name
-                    ]}
+                   [:t_patient/last_name]}
+
                   {[:t_patient/patient-identifier 17490]
                    [:t_patient/last_name
                     :org.hl7.fhir.Patient/gender
@@ -163,7 +163,7 @@
   (com.eldrix.pc4.server.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "cpizot"
                                                                                              :project-id 1})
 
-  (com.eldrix.pc4.server.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot")
-  )
+  (com.eldrix.pc4.server.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot"))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

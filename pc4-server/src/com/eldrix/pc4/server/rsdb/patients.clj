@@ -54,7 +54,6 @@
 
 (s/fdef fetch-death-certificate
         :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
-
 (defn fetch-death-certificate
   "Return a death certificate for the patient specified.
   Parameters:
@@ -226,7 +225,7 @@
                    {:return-keys true}))
 
 (s/fdef delete-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id])))
+        :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id])))
 
 (defn delete-medication
   [conn {:t_medication/keys [id]}]
@@ -280,14 +279,14 @@
                                                                     :where  [:= :t_ms_event/id ms-event-id]}))))
 
 (s/fdef delete-ms-event!
-  :args (s/cat :conn ::conn :event (s/keys :req [:t_ms_event/id])))
+        :args (s/cat :conn ::conn :event (s/keys :req [:t_ms_event/id])))
 
 (defn delete-ms-event! [conn {ms-event-id :t_ms_event/id}]
   (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
                                      :where       [:= :t_ms_event/id ms-event-id]})))
 
 (s/fdef save-ms-diagnosis!
-  :args (s/cat :conn ::conn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
+        :args (s/cat :conn ::conn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
 (defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
                                 patient-identifier :t_patient/patient_identifier
                                 user-id            :t_user/id
@@ -411,7 +410,7 @@
 
 
 (s/fdef set-date-death
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
+        :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
 
 (defn set-date-death [conn {patient-pk :t_patient/id date_death :t_patient/date_death}]
   (jdbc/execute-one! conn (sql/format {:update [:t_patient]
@@ -494,5 +493,4 @@
                          :t_encounter/episode_fk            48224
                          :t_encounter/encounter_template_fk 469})
   (notify-death! conn {:t_patient/patient_identifier 124010
-                       :t_patient/date_death         (LocalDate/now)})
-  )
+                       :t_patient/date_death         (LocalDate/now)}))

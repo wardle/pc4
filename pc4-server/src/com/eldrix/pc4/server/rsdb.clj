@@ -447,8 +447,8 @@
                                       :t_result_full_blood_count/date :t_result_full_blood_count/notes
                                       :t_result_ecg/date :t_result_ecg/notes
                                       :t_result_urinalysis/date :t_result_urinalysis/notes
-                                      :t_result_liver_function/date :t_result_liver_function/notes
-                                      ]}]}
+                                      :t_result_liver_function/date :t_result_liver_function/notes]}]}
+
   {:t_patient/results (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)})
 
 (pco/defresolver encounter->users
@@ -662,8 +662,8 @@
                                                    :project-id 1
                                                    :nhs-number "111 111 1111"
                                                    :sex        :MALE
-                                                   :date-birth (LocalDate/of 1970 1 1)})
-  )
+                                                   :date-birth (LocalDate/of 1970 1 1)}))
+
 
 (pco/defmutation register-patient-by-pseudonym!
   "Register a legacy pseudonymous patient. This will be deprecated in the
@@ -1241,5 +1241,5 @@
   (auth/authorized? manager project-ids :PATIENT_VIEW)
   (auth/authorized? sys-manager project-ids :PATIENT_VIEW)
   (auth/authorized? unk-manager project-ids :PATIENT_VIEW)
-  (auth/authorized? manager project-ids :BIOBANK_CREATE_LOCATION)
-  )
+  (auth/authorized? manager project-ids :BIOBANK_CREATE_LOCATION))
+

@@ -430,7 +430,6 @@
   (when-not (nhs-number/valid? nhs-number)
     (throw (ex-info "Invalid NHS number" registration)))
   (let [existing (find-legacy-pseudonymous-patient conn registration)]
-    (log/error "existing patient:" existing)
     (if (:t_patient/id existing)
       ;; existing patient - so check matching core demographics, and proceed
       (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
@@ -532,6 +531,5 @@
        :order-by  [:last_name :first_names]}))
 
   (fetch-project-sql 1)
-  (jdbc/execute! conn (fetch-project-sql 2))
+  (jdbc/execute! conn (fetch-project-sql 2)))
 
-  )

@@ -344,6 +344,5 @@
                                     :t_form_ms_relapse/ms_disease_course_fk       5
                                     :t_smoking_history/status                     "EX-SMOKER"
                                     :t_smoking_history/current_cigarettes_per_day 0
-                                    :t_user/id                                    1})
+                                    :t_user/id                                    1}))
 
-  )
