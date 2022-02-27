@@ -5,11 +5,15 @@
     [com.eldrix.pc4.server.system :as pc4]
     [integrant.core :as ig]
     [com.eldrix.clods.core :as clods]
-    [com.eldrix.pc4.server.rsdb.patients :as patients]))
+    [com.eldrix.pc4.server.rsdb.patients :as patients]
+    [portal.api :as portal]))
 
 (stest/instrument)  ;; turn on instrumentation for development
 
+
 (comment
+  (portal/open)
+  (add-tap #'portal/submit)
   (pc4/prep :dev)
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
