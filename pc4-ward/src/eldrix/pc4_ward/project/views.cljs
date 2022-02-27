@@ -815,30 +815,117 @@
             :value (notes-key result)
             :on-change #(on-change (assoc result notes-key %))]]]]]])))
 
-(s/def ::result-mri-brain (s/keys :req [:t_result_mri_brain/date
-                                        :t_patient/patient_identifier]))
 
+(s/def :t_result_mri_brain/compare_to_result_mri_brain_fk int?)
+(s/def ::result-mri-brain (s/keys :req [:t_result_mri_brain/date
+                                        :t_patient/patient_identifier]
+                                  :opt [:t_result_mri_brain/compare_to_result_mri_brain_fk
+                                        :t_result_mri_brain/total_t2_hyperintense
+                                        :t_result_mri_brain/change_t2_hyperintense
+                                        :t_result_mri_brain/total_gad_enhancing_lesions
+                                        :t_result_mri_brain/multiple_sclerosis_summary]))
+(def lesion-count-help-text "Format as one of x, ~x, x+/-y, x-y or >x'")
 (defn edit-result-mri-brain [result & {:keys [on-change]}]
-  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
-   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
-    [:div
-     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
-      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-       [:div.mt-1.sm:mt-0.sm:col-span-2
-        [:div.w-full.rounded-md.shadow-sm.space-y-2
-         [:h3.text-lg.font-medium.leading-6.text-gray-900 "MRI brain"]]]]
-      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
-       [:div.mt-1.sm:mt-0.sm:col-span-2
-        [ui/html-date-picker :name "date" :value (:t_result_mri_brain/date result)
-         :on-change #(on-change (assoc result :t_result_mri_brain/date %))]]]]
-     [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
-      [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "report"} "Report"]
-      [:div.mt-1.sm:mt-0.sm:col-span-2
-       [ui/textarea :name "report"
-        :value (:t_result_mri_brain/report result)
-        :on-change #(on-change (assoc result :t_result_mri_brain/report %))]]]
-     ]]])
+  (let [t2-mode (reagent.core/atom :absolute)]
+    (fn [result & {:keys [on-change]}]
+      (when-not (str/blank? (:t_result_mri_brain/change_t2_hyperintense result))
+        (reset! t2-mode :relative))
+      (when-not (str/blank? (:t_result_mri_brain/total_t2_hyperintense result))
+        (reset! t2-mode :absolute))
+      [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+       [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+        [:div
+         [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+          [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+           [:div.mt-1.sm:mt-0.sm:col-span-2
+            [:div.w-full.rounded-md.shadow-sm.space-y-2
+             [:h3.text-lg.font-medium.leading-6.text-gray-900 "MRI brain"]]]]
+          [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+           [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+           [:div.mt-1.sm:mt-0.sm:col-span-2
+            [ui/html-date-picker :name "date" :value (:t_result_mri_brain/date result)
+             :on-change #(on-change (assoc result :t_result_mri_brain/date %))]]]]
+         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "report"} "Report"]
+          [:div.mt-1.sm:mt-0.sm:col-span-2
+           [ui/textarea :name "report"
+            :value (:t_result_mri_brain/report result)
+            :on-change #(on-change (assoc result :t_result_mri_brain/report %))]]]
+         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "summary"} "Interpretation"]
+          [:div.mt-1.sm:mt-0.sm:col-span-2
+           [ui/select :name "summary"
+            :value (:t_result_mri_brain/multiple_sclerosis_summary result)
+            :choices ["TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"]
+            :default-value "TYPICAL" :sort? false
+            :select-fn #(on-change (assoc result :t_result_mri_brain/multiple_sclerosis_summary %))]]]
+         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "summary"} "With gadolinium?"]
+          [:div.pt-2.sm:mt-0.sm:col-span-2
+           [ui/checkbox :name "with-gad" :description "Was the scan performed with gadolinium?"
+            :checked (:t_result_mri_brain/with_gadolinium result)
+            :on-change #(on-change (assoc result :t_result_mri_brain/with_gadolinium %))]]]
+         (when (:t_result_mri_brain/with_gadolinium result)
+           [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+            [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "num-gad-lesions"} "Number of enhancing lesions"]
+            [:div.mt-1.sm:mt-0.sm:col-span-2
+             [ui/textfield-control (:t_result_mri_brain/total_gad_enhancing_lesions result)
+              :name "num-gad-lesions" :type "text"
+              :help-text lesion-count-help-text
+              :on-change #(on-change (if % (merge result {:t_result_mri_brain/total_gad_enhancing_lesions %})
+                                           (dissoc result :t_result_mri_brain/total_gad_enhancing_lesions)))]]])
+         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "t2-lesions"} "T2 lesions"]
+          [:div.mt-1.sm:mt-0.sm:col-span-2
+           [ui/select :name "t2-lesions"
+            :value @t2-mode
+            :display-key (fn [v] (str/upper-case (name v)))
+            :choices [:absolute :relative]
+            :disabled? (or (:t_result_mri_brain/change_t2_hyperintense result)
+                           (:t_result_mri_brain/total_t2_hyperintense result))
+            :select-fn #(reset! t2-mode %)]]]
+         (when (= :absolute @t2-mode)
+           [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+            [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "total-t2-lesions"} "Total number of T2 hyperintense lesions"]
+            [:div.mt-1.sm:mt-0.sm:col-span-2
+             [ui/textfield-control (:t_result_mri_brain/total_t2_hyperintense result)
+              :name "total-t2-lesions" :type "text"
+              :help-text lesion-count-help-text
+              :on-change (fn [v] (on-change (cond-> (dissoc result :t_result_mri_brain/change_t2_hyperintense
+                                                            :t_result_mri_brain/total_t2_hyperintense)
+                                                    v (assoc :t_result_mri_brain/total_t2_hyperintense v))))]]])
+         (when (= :relative @t2-mode)
+           [:<>
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "previous-scan"} "Previous scan"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [ui/select :name "previous-scan"
+               :value {:t_result_mri_brain/id (:t_result_mri_brain/compare_to_result_mri_brain_fk result)}
+               :choices (if (:t_result_mri_brain/date result)
+                          @(rf/subscribe [::patient-subs/results-mri-brains {:before-date (:t_result_mri_brain/date result)}])
+                          @(rf/subscribe [::patient-subs/results-mri-brains]))
+               :id-key :t_result_mri_brain/id
+               :no-selection-string "<None>"
+               :display-key #(com.eldrix.pc4.commons.dates/format-date (:t_result_mri_brain/date %))
+               :select-fn #(do
+                             (tap> {:selected-scan %})
+                             (on-change (if % (assoc result :t_result_mri_brain/compare_to_result_mri_brain_fk (:t_result_mri_brain/id %))
+                                              (dissoc result :t_result_mri_brain/compare_to_result_mri_brain_fk))))]
+              (when-let [compare-result-id (:t_result_mri_brain/compare_to_result_mri_brain_fk result)]
+                (let [compare-result (->> @(rf/subscribe [::patient-subs/results-mri-brains])
+                                          (filter #(= (:t_result_mri_brain/id %) compare-result-id)) first)]
+                  [:p.pl-4.text-sm.text-gray-500.italic "\"" (:t_result_mri_brain/report compare-result) "\""]))]]
+            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "change-t2-lesions"} "Change in T2 hyperintense lesions"]
+             [:div.mt-1.sm:mt-0.sm:col-span-2
+              [ui/textfield-control (:t_result_mri_brain/change_t2_hyperintense result)
+               :name "change-t2-lesions" :type "text"
+               :help-text (if (:t_result_mri_brain/compare_to_result_mri_brain_fk result)
+                            "Use +x or -x to record the change in T2 hyperintense lesions compared to a previous scan"
+                            "Use +x or -x to record the change in T2 hyperintense lesions compared to the scan above")
+               :on-change (fn [v] (on-change (cond-> (dissoc result :t_result_mri_brain/total_t2_hyperintense
+                                                             :t_result_mri_brain/change_t2_hyperintense)
+                                                     v (assoc :t_result_mri_brain/change_t2_hyperintense v))))]]]])]]])))
 
 (def mri-spine-types #{"CERVICAL_AND_THORACIC" "CERVICAL" "LUMBOSACRAL" "WHOLE_SPINE" "THORACIC"})
 (s/def :t_result_mri_spine/type mri-spine-types)
@@ -987,40 +1074,38 @@
 (defn list-investigations
   "This shows a list of investigations"
   []
-  (let [editing-result (reagent.core/atom nil)
-        new-result (reagent.core/atom (first supported-results))]
+  (let [new-result (reagent.core/atom (first supported-results))]
     (fn []
-      (let [current-patient @(rf/subscribe [::patient-subs/current])
+      (let [editing-result @(rf/subscribe [::patient-subs/current-result])
+            current-patient @(rf/subscribe [::patient-subs/current])
             current-project @(rf/subscribe [::project-subs/current])
             sorted-results @(rf/subscribe [::patient-subs/results])
-            editing-result' @editing-result
             new-result' @new-result
-            editor (editor-for-result editing-result')
-            spec (spec-for-result editing-result')
-            valid? (when spec (s/valid? spec editing-result'))
-            _ (tap> {:editing-result editing-result'
+            editor (editor-for-result editing-result)
+            spec (spec-for-result editing-result)
+            valid? (when spec (s/valid? spec editing-result))
+            _ (tap> {:editing-result editing-result
                      :valid?         valid?
-                     :problems       (when spec (s/explain-data spec editing-result'))})]
+                     :problems       (when spec (s/explain-data spec editing-result))})]
         [:<>
-         (when (and editing-result' editor)
+         (when (and editing-result editor)
            [ui/modal
-            :content [editor editing-result' :on-change #(reset! editing-result %)]
+            :content [editor editing-result :on-change #(rf/dispatch [::patient-events/set-current-result %])]
             :actions [{:id        ::save-action
                        :title     "Save"
                        :disabled? (not valid?)
                        :role      :primary
-                       :on-click  #(do (rf/dispatch [::patient-events/save-result editing-result'])
-                                       (reset! editing-result nil))}
+                       :on-click  #(rf/dispatch [::patient-events/save-result editing-result])}
                       {:id       ::delete-action
                        :title    "Delete"
-                       :hidden?  (not (:t_result/id editing-result')) ;; hide when new
-                       :on-click #(do (when (:t_result/id editing-result')
-                                        (rf/dispatch [::patient-events/delete-result editing-result']))
-                                      (reset! editing-result nil))}
+                       :hidden?  (not (:t_result/id editing-result)) ;; hide when new
+                       :on-click #(do (when (:t_result/id editing-result)
+                                        (rf/dispatch [::patient-events/delete-result editing-result]))
+                                      (rf/dispatch [::patient-events/clear-current-result]))}
                       {:id       ::cancel-action
                        :title    "Cancel"
-                       :on-click #(reset! editing-result nil)}]
-            :on-close #(reset! editing-result nil)])
+                       :on-click #(rf/dispatch [::patient-events/clear-current-result])}]
+            :on-close #(rf/dispatch [::patient-events/clear-current-result])])
          [ui/section-heading "Investigations"
           :buttons
           [:div.grid.grid-cols-2
@@ -1029,11 +1114,11 @@
              :select-fn #(reset! new-result %)]]
            [:div.col-span-1
             [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
-             {:on-click #(reset! editing-result
-                                 (merge
-                                   (initial-data-for-result new-result')
-                                   {:t_result_type/result_entity_name (:t_result_type/result_entity_name new-result')
-                                    :t_patient/patient_identifier     (:t_patient/patient_identifier current-patient)}))}
+             {:on-click #(rf/dispatch [::patient-events/set-current-result
+                                       (merge
+                                         (initial-data-for-result new-result')
+                                         {:t_result_type/result_entity_name (:t_result_type/result_entity_name new-result')
+                                          :t_patient/patient_identifier     (:t_patient/patient_identifier current-patient)})])}
              (str "Add " (:t_result_type/name new-result'))]]]]
          [ui/list-entities-fixed
           :items sorted-results
@@ -1043,7 +1128,7 @@
           :value-keys [#(dates/format-date (:t_result/date %))
                        :t_result_type/name
                        (fn [result] (truncate (:t_result/summary result) 120))] ;; TODO: should use css to overflow hidden instead
-          :on-edit (fn [result] (reset! editing-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))))]]))))
+          :on-edit (fn [result] (rf/dispatch [::patient-events/set-current-result (assoc result :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))]))]]))))
 
 (s/def :t_episode/date_registration #(instance? Date %))
 (s/def :t_episode/date_discharge #(instance? Date %))

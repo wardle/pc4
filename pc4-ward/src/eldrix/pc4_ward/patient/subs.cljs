@@ -50,6 +50,10 @@
   (fn [db _]
     (get-in db [:patient/current :current-medication])))
 
+(rf/reg-sub ::current-result
+  (fn [db _]
+    (get-in db [:patient/current :current-result])))
+
 (rf/reg-sub ::ms-events
   (fn [_]
     (rf/subscribe [::current]))
@@ -102,6 +106,15 @@
          (sort-by #(if-let [date (:t_result/date %)] (.valueOf date) 0))
          reverse)))
 
+(rf/reg-sub ::results-mri-brains
+  (fn [[_ {:keys [before-date]}]]
+    (rf/subscribe [::results]))
+  (fn [results [_ {:keys [before-date]}]]
+    (let [scans (filter #(= "ResultMriBrain" (:t_result_type/result_entity_name %)) results)]
+      (if-not before-date
+        scans
+        (filter #(pos? (Date/compare before-date (:t_result/date %))) scans)))))
+
 (rf/reg-sub ::episodes
   (fn [_]
     (rf/subscribe [::current]))
@@ -118,5 +131,5 @@
   (fn [_]
     (rf/subscribe [::episodes]))
   (fn [episodes]
-    (filter #(= "ADMISSION" (get-in % [:t_episode/project :t_project/name])) episodes)))    ;;; TODO: this is hacky - hardcoded project NAME!
+    (filter #(= "ADMISSION" (get-in % [:t_episode/project :t_project/name])) episodes))) ;;; TODO: this is hacky - hardcoded project NAME!
 

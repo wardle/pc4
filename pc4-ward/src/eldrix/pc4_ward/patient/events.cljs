@@ -424,8 +424,27 @@
   (fn [{db :db} [_ result]]
     {:fx [[:pathom {:params     [(list 'pc4.rsdb/save-result result)]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
-                    :on-success [::handle-save-diagnosis]
+                    :on-success [::handle-save-result]
                     :on-failure [::handle-failure-response]}]]}))
+
+(rf/reg-event-fx ::handle-save-result
+  []
+  (fn [{db :db} [_ {result 'pc4.rsdb/save-result}]]
+    (js/console.log "save result response: " result)
+    {:fx [[:dispatch-n [[::refresh-current-patient]
+                        [::clear-current-result]]]]}))
+
+(rf/reg-event-db ::clear-current-result
+  []
+  (fn [db _]
+    (-> db
+        (update-in [:patient/current] dissoc :current-result))))
+
+(rf/reg-event-db ::set-current-result
+  []
+  (fn [db [_ result]]
+    (-> db
+        (update-in [:patient/current] assoc :current-result result))))
 
 (rf/reg-event-fx ::delete-result
   []

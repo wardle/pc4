@@ -128,11 +128,11 @@
 (s/def :t_result_mri_brain/report (s/nilable string?))
 (s/def :t_result_mri_brain/user_fk int?)
 (s/def :t_result_mri_brain/with_gadolinium boolean?)
-(s/def ::t_annotation_mri_brain_multiple_sclerosis (s/keys :req [:t_result_mri_brain/multiple_sclerosis_summary
-                                                                 (or :t_result_mri_brain/total_t2_hyperintense
-                                                                     (and :t_result_mri_brain/compare_to_result_mri_brain_fk
-                                                                          :t_result_mri_brain/change_t2_hyperintense))]
-                                                           :opt [:t_result_mri_brain/total_gad_enhancing_lesions]))
+(s/def ::t_annotation_mri_brain_multiple_sclerosis (s/keys :req [:t_result_mri_brain/multiple_sclerosis_summary]
+                                                           :opt [:t_result_mri_brain/total_gad_enhancing_lesions
+                                                                 :t_result_mri_brain/total_t2_hyperintense
+                                                                 :t_result_mri_brain/change_t2_hyperintense
+                                                                 :t_result_mri_brain/compare_to_result_mri_brain_fk]))
 
 (s/def ::t_result_mri_brain (s/keys :req [:t_result_mri_brain/date
                                           :t_result_mri_brain/patient_fk
