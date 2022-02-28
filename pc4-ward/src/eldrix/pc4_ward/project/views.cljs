@@ -816,7 +816,7 @@
             :on-change #(on-change (assoc result notes-key %))]]]]]])))
 
 
-(s/def :t_result_mri_brain/compare_to_result_mri_brain_fk int?)
+(s/def :t_result_mri_brain/compare_to_result_mri_brain_fk (s/nilable int?))
 (s/def ::result-mri-brain (s/keys :req [:t_result_mri_brain/date
                                         :t_patient/patient_identifier]
                                   :opt [:t_result_mri_brain/compare_to_result_mri_brain_fk
@@ -877,13 +877,15 @@
          [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
           [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "t2-lesions"} "T2 lesions"]
           [:div.mt-1.sm:mt-0.sm:col-span-2
-           [ui/select :name "t2-lesions"
-            :value @t2-mode
-            :display-key (fn [v] (str/upper-case (name v)))
-            :choices [:absolute :relative]
-            :disabled? (or (:t_result_mri_brain/change_t2_hyperintense result)
-                           (:t_result_mri_brain/total_t2_hyperintense result))
-            :select-fn #(reset! t2-mode %)]]]
+           (let [disabled? (or (:t_result_mri_brain/change_t2_hyperintense result)
+                               (:t_result_mri_brain/total_t2_hyperintense result))]
+             [:<> [ui/select :name "t2-lesions"
+                   :value @t2-mode
+                   :display-key (fn [v] (str/upper-case (name v)))
+                   :choices [:absolute :relative]
+                   :disabled? disabled?
+                   :select-fn #(reset! t2-mode %)]
+              (when disabled? [:p.pl-4.text-sm.text-gray-500.italic "You cannot change mode if data recorded"])])]]
          (when (= :absolute @t2-mode)
            [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
             [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "total-t2-lesions"} "Total number of T2 hyperintense lesions"]
