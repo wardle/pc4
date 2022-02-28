@@ -149,6 +149,19 @@
                                                                        :t_result_mri_brain/change_t2_hyperintense      "+2"
                                                                        :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"}))))))
 
+(deftest save-thyroid-function
+  (let [conn (:com.eldrix.rsdb/conn *system*)
+        patient *patient*
+        date (LocalDate/of 2020 1 7)
+        result (results/save-result! conn {:t_result_type/result_entity_name "ResultThyroidFunction"
+                                           :t_result_thyroid_function/date   date
+                                           :t_result_thyroid_function/free_t4 15.4
+                                           :patient_fk                       (:t_patient/id patient)
+                                           :user_fk                          1})
+        fetched (fetch-result conn (:t_patient/patient_identifier patient) date)]
+    (is (= "ResultThyroidFunction" (:t_result_type/result_entity_name fetched)))
+    (is (.isEqual date (:t_result_thyroid_function/date fetched)))))
+
 
 (defn with-system [f]
   (binding [*system* (pc4/init :dev [:pathom/env])]

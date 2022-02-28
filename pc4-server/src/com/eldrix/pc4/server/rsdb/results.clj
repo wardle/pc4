@@ -227,6 +227,17 @@
                                                :t_result_liver_function/user_fk]
                                          :opt [:t_result_liver_function/id]))
 
+(s/def :t_result_thyroid_function/id int?)
+(s/def :t_result_thyroid_function/date #(instance? LocalDate %))
+(s/def :t_result_thyroid_function/patient_fk int?)
+(s/def :t_result_thyroid_function/user_fk int?)
+(s/def ::t_result_thyroid_function (s/keys :req [:t_result_thyroid_function/date
+                                                 :t_result_thyroid_function/patient_fk
+                                                 :t_result_thyroid_function/user_fk]
+                                           :opt [:t_result_liver_function/id
+                                                 :t_result_liver_function/free_t4
+                                                 :t_result_liver_function/tsh]))
+
 (s/fdef default-fetch-fn
   :args (s/cat :conn ::conn :table keyword? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn- default-fetch-fn [conn table {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
@@ -418,7 +429,11 @@
    {::entity-name "ResultLiverFunction"
     ::table       :t_result_liver_function
     ::spec        ::t_result_liver_function
-    ::summary-fn  :t_result_liver_function/notes}])
+    ::summary-fn  :t_result_liver_function/notes}
+   {::entity-name "ResultThyroidFunction"
+    ::table       :t_result_thyroid_function
+    ::spec        ::t_result_thyroid_function
+    ::summary-fn  :t_result_thyroid_function/free_t4}])
 
 (def result-type-by-entity-name
   "Map of entity-name to result-type."
