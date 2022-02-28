@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.server.rsdb.results
   "Support for legacy rsdb integration for results."
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.forms]
@@ -385,8 +386,12 @@
                 (normalize-result result-type))))))))
 
 
-
-
+(defn summary-thyroid-function [result]
+  (let [t4 (:t_result_thyroid_function/free_t4 result)
+        tsh (:t_result_thyroid_function/tsh result)]
+    (str/join " " (cond-> []
+                          t4 (conj (str "T4: " t4))
+                          tsh (conj (str "TSH: " tsh))))))
 
 (def result-types
   "Frustratingly, the legacy system manages types using both entities and a
@@ -433,7 +438,7 @@
    {::entity-name "ResultThyroidFunction"
     ::table       :t_result_thyroid_function
     ::spec        ::t_result_thyroid_function
-    ::summary-fn  :t_result_thyroid_function/free_t4}])
+    ::summary-fn  summary-thyroid-function}])
 
 (def result-type-by-entity-name
   "Map of entity-name to result-type."
