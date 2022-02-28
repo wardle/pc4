@@ -90,15 +90,17 @@
 (defn- save-result*
   "Save a result.
   - conn               : database connection or pool
-  - ::result_type-id   : the legacy result_type identifier
-  - ::table            : namespace for result e.g. :t_result_mri_brain
-  - ::spec             : specification for data
-  - :user_fk           : user_fk to be used if not already namespaced under result
-  - :patient_fk        : patient_fk to be used if not already namespaced under result"
-  [conn {entity-name ::entity-name
-         table       ::table
-         spec        ::spec}
-   {:keys [user_fk patient_fk] :as data}]
+  - result-type        : a map containing the following keys:
+      - ::entity-name      : the legacy entity name e.g. 'ResultMriBrain'
+      - ::table            : namespace for result e.g. :t_result_mri_brain
+      - ::spec             : specification for data
+  - data               : data for the result, matching the specification for the result, but can include
+      - :user_fk           : user_fk to be used if not already namespaced under result
+      - :patient_fk        : patient_fk to be used if not already namespaced under result
+
+  If non-namespaced values are supplied for :user_fk and :patient_fk, they will be used to create
+  namespaced keys if they don't exist."
+  [conn {entity-name ::entity-name table ::table spec ::spec} {:keys [user_fk patient_fk] :as data}]
   (let [id-key (keyword (name table) "id")
         id (get data id-key)
         user-key (keyword (name table) "user_fk")
