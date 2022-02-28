@@ -1016,6 +1016,35 @@
                   :no-selection-string ""
                   :select-fn #(on-change (assoc result :t_result_jc_virus/jc_virus %)))]]]]])
 
+(s/def ::result-thyroid-function (s/keys :req [:t_result_thyroid_function/date :t_patient/patient_identifier]))
+(defn edit-result-thyroid-function [result & {:keys [on-change]}]
+  [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div
+     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+      [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [:div.w-full.rounded-md.shadow-sm.space-y-2
+         [:h3.text-lg.font-medium.leading-6.text-gray-900 "Thyroid function"]]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date"} "Date"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/html-date-picker :name "date" :value (:t_result_thyroid_function/date result)
+         :on-change #(on-change (assoc result :t_result_thyroid_function/date %))]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "free-t4"} "Free T4"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/textfield-control (str (:t_result_thyroid_function/free_t4 result))
+         :name "free-t4" :type "number"
+         :on-change #(on-change (if % (merge result {:t_result_thyroid_function/free_t4 (js/parseFloat %)})
+                                      (dissoc result :t_result_thyroid_function/free_t4)))]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "tsh"} "TSH"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/textfield-control (str (:t_result_thyroid_function/tsh result))
+         :name "tsh" :type "number"
+         :on-change #(on-change (if % (merge result {:t_result_thyroid_function/tsh (js/parseFloat %)})
+                                      (dissoc result :t_result_thyroid_function/tsh)))]]]]]]])
 
 (def supported-results
   [{:t_result_type/name               "MRI brain"
@@ -1057,7 +1086,11 @@
    {:t_result_type/name               "Liver function tests"
     :t_result_type/result_entity_name "ResultLiverFunction"
     ::editor                          (make-edit-result "Liver function tests" :t_result_liver_function)
-    ::spec                            ::result-liver-function}])
+    ::spec                            ::result-liver-function}
+   {:t_result_type/name               "Thyroid function tests"
+    :t_result_type/result_entity_name "ResultThyroidFunction"
+    ::editor                          edit-result-thyroid-function
+    ::spec                            ::result-thyroid-function}])
 
 (def results-lookup (zipmap (map :t_result_type/result_entity_name supported-results) supported-results))
 
@@ -1071,7 +1104,8 @@
   (get-in results-lookup [(:t_result_type/result_entity_name result) ::initial-data]))
 
 (defn truncate [s length]
-  (let [len (count s)] (if (> len length) (str (subs s 0 length) "…") s)))
+  (when s
+    (let [len (count s)] (if (> len length) (str (subs s 0 length) "…") s))))
 
 (defn list-investigations
   "This shows a list of investigations"
