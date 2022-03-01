@@ -346,8 +346,8 @@
                    :else m)) {} result)))
 
 (s/fdef fetch-mri-brain-results
-  :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
-(defn- fetch-mri-brain-results
+  :args (s/cat :conn ::conn :table any? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
+(defn fetch-mri-brain-results
   "Fetch MRI brain scan results for the given patient.
   This carefully fetches annotations for each scan and then determines the 'best' annotation as there may be more than
   one annotation recorded in the legacy system."
