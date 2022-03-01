@@ -24,7 +24,7 @@
   [n (+ n (int (/ n 2)))])
 (defmethod lesion-range :range [{from :from to :to}]
   [from to])
-
+(defmethod lesion-range nil [_])
 ;;;;
 ;;;; lesion count specifications
 ;;;;
