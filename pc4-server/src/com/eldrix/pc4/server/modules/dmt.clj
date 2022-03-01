@@ -22,7 +22,8 @@
             [honey.sql :as sql]
             [next.jdbc.plan :as plan]
             [clojure.data.json :as json]
-            [clojure.spec.alpha :as s])
+            [clojure.spec.alpha :as s]
+            [com.eldrix.pc4.server.rsdb.results :as results])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)))
@@ -340,7 +341,6 @@
   (map ps (codelists/expand cancer))
   (defn ps [id] (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB")))
   (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (set (map :referencedComponentId (hermes/reverse-map-range (:com.eldrix/hermes system) 447562003 "C44"))))
-  (has-diagnoses? system [24700007 24700007] (get-in study-diagnosis-categories [:connective-tissue :codelist]))
 
 
   (vals (hermes/source-historical-associations (:com.eldrix/hermes system) 24700007))
@@ -457,52 +457,27 @@
                                      [:in :t_patient/patient_identifier patient-ids]]}))
        (map #(update % :t_result_jc_virus/date to-local-date))))
 
+
+(defn lesion-ranges-for-mri-brain [result]
+  (let [[t2-lower t2-upper] (results/lesion-range (results/parse-count-lesions (:t_result_mri_brain/total_t2_hyperintense result)))
+        [gad-lower gad-upper] (results/lesion-range (results/parse-count-lesions (:t_result_mri_brain/total_gad_enhancing_lesions result)))]
+    (cond-> result
+            t2-lower (assoc :t_result_mri_brain/t2_range_lower t2-lower)
+            t2-upper (assoc :t_result_mri_brain/t2_range_upper t2-upper)
+            gad-lower (assoc :t_result_mri_brain/gad_range_lower gad-lower)
+            gad-upper (assoc :t_result_mri_brain/gad_range_upper gad-upper))))
+
+(defn mri-brains-for-patient [conn patient-identifier]
+  (let [results (->> (results/fetch-mri-brain-results conn nil {:t_patient/patient_identifier patient-identifier})
+                     (map #(assoc % :t_patient/patient_identifier patient-identifier))
+                     (map lesion-ranges-for-mri-brain))
+        results-by-id (zipmap (map :t_result_mri_brain/id results) results)]
+    (map #(if-let [compare-id (:t_result_mri_brain/compare_to_result_mri_brain_fk %)]
+            (assoc % :t_result_mri_brain/compare_to_result_date (:t_result_mri_brain/date (get results-by-id compare-id)))
+            %) results)))
+
 (defn mri-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (->> (db/execute! conn (sql/format
-                           {:select [:t_patient/patient_identifier :date]
-                            :from   [:t_result_mri_brain]
-                            :join   [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]]
-                            :where  [:and
-                                     [:<> :t_result_mri_brain/is_deleted "true"]
-                                     [:in :t_patient/patient_identifier patient-ids]]}))
-       (map #(update % :t_result_mri_brain/date to-local-date))))
-
-
-
-(defn mri-brain-multiple-sclerosis
-  "Returns MRI brain results with MS annotations.
-  In the backend database, there is a to-many relationship between MRI brain
-  result and the annotation. As such, there may be multiple annotations for a
-  single result. This is appropriate, as we may have one annotation recorded on
-  the basis of the report, and a subsequent more accurate annotation recorded
-  on the basis of viewing the images. We use the 'best' annotation"
-  [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (->> (db/execute! conn (sql/format
-                           {:select    [:t_patient/patient_identifier
-                                        :t_result_mri_brain/id
-                                        :t_result_mri_brain/date
-                                        :t_result_mri_brain/report
-                                        :t_annotation_mri_brain_multiple_sclerosis_new/id
-                                        :annotation_type :black_holes_t1_hypointense_lesions
-                                        :cerebralatrophy
-                                        :change_t2_hyperintense
-                                        :compare_to_comment
-                                        :compare_to_result_mri_brain_fk
-                                        :enlarging_t2_lesions
-                                        :gad_enhancing_lesions
-                                        :infra_tentorial_lesions
-                                        :juxta_cortical_lesions
-                                        :periventricularlesions
-                                        :summary
-                                        :t2_hyperintense_lesions
-                                        :t2_lesions_typical_for_ms]
-                            :from      [:t_result_mri_brain]
-                            :left-join [:t_patient [:= :t_result_mri_brain/patient_fk :t_patient/id]
-                                        :t_annotation_mri_brain_multiple_sclerosis_new [:= :result_fk :t_result_mri_brain/id]]
-                            :where     [:and
-                                        [:<> :t_result_mri_brain/is_deleted "true"]
-                                        [:in :t_patient/patient_identifier patient-ids]]}))))
-
+  (->> (mapcat #(mri-brains-for-patient conn %) patient-ids)))
 
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
@@ -982,7 +957,7 @@
               item' (assoc item :course-rank course-rank :infusion-rank infusion-rank)]
           (recur (rest partitions) course-rank (inc infusion-rank) (conj results item')))))))
 
-(defn ranked-alemtuzum-infusions
+(defn ranked-alemtuzumab-infusions
   "Returns a map keyed by patient-id of alemtuzumab infusions, with course
   and infusion rank included."
   [system patient-ids]
@@ -990,7 +965,7 @@
       (update-vals course-and-infusion-rank)))
 
 (comment
-  (ranked-alemtuzum-infusions system (take 20 (fetch-study-patient-identifiers system))))
+  (ranked-alemtuzumab-infusions system (take 20 (fetch-study-patient-identifiers system))))
 
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
@@ -1245,7 +1220,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-alemtuzumab-infusions [system]
   (->> (fetch-study-patient-identifiers system)
-       (ranked-alemtuzum-infusions system)
+       (ranked-alemtuzumab-infusions system)
        vals
        flatten
        (map #(update-all % [:dmt :dmt_class] name))
@@ -1388,8 +1363,23 @@
 (defn write-mri [system]
   (write-rows-csv "patient-mri.csv" (mri-for-patients system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
-                            :t_result_mri_brain/date]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+                            :t_result_mri_brain/date
+                            :t_result_mri_brain/id
+                            :t_result_mri_brain/multiple_sclerosis_summary
+                            :t_result_mri_brain/with_gadolinium
+                            :t_result_mri_brain/total_gad_enhancing_lesions
+                            :t_result_mri_brain/gad_range_lower
+                            :t_result_mri_brain/gad_range_upper
+                            :t_result_mri_brain/total_t2_hyperintense
+                            :t_result_mri_brain/t2_range_lower
+                            :t_result_mri_brain/t2_range_upper
+                            :t_result_mri_brain/compare_to_result_mri_brain_fk
+                            :t_result_mri_brain/compare_to_result_date
+                            :t_result_mri_brain/change_t2_hyperintense]
+                  :title-fn {:t_patient/patient_identifier                      "patient_id"
+                             :t_result_mri_brain/multiple_sclerosis_summary     "ms_summary"
+                             :t_result_mri_brain/compare_to_result_date         "compare_to_date"
+                             :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"}))
 
 
 (defn write-local-date [^LocalDate o ^Appendable out _options]
