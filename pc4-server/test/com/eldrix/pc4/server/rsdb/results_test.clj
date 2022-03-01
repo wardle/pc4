@@ -4,7 +4,9 @@
             [com.eldrix.pc4.server.rsdb.patients :as patients]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
-            [clojure.spec.test.alpha :as stest])
+            [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]
+            [clojure.spec.gen.alpha :as gen])
   (:import (java.time LocalDate)
            (clojure.lang ExceptionInfo)
            (java.time.temporal ChronoUnit)))
@@ -23,16 +25,24 @@
       (throw (ex-info "More than one result found for single date" {:patient-identifier patient-identifier :date date})))))
 
 (deftest parsing-lesions
-  (is (= {:change 2} (parse-change-lesions "+2")))
-  (is (= {:change -2} (parse-change-lesions "-2")))
-  (is (= {:approximate-count 2} (parse-count-lesions "~2")))
-  (is (= {:more-than 2} (parse-count-lesions ">2")))
-  (is (= {:approximate-range {:count 10 :plus-minus 2}} (parse-count-lesions "10+/-2")))
-  (is (= {:range {:from 5 :to 10}} (parse-count-lesions "5-10")))
+  (is (= 2 (parse-change-lesions "+2")))
+  (is (= -2 (parse-change-lesions "-2")))
+  (is (= {:type :approximate :n 2} (parse-count-lesions "~2")))
+  (is (= {:type :more-than :n 2} (parse-count-lesions ">2")))
+  (is (= {:type :range :from 8 :to 12} (parse-count-lesions "10+/-2")))
+  (is (= {:type :range :from 5 :to 10} (parse-count-lesions "5-10")))
   (is (nil? (parse-change-lesions "2")))
   (is (nil? (parse-count-lesions " 2")))
   (is (nil? (parse-count-lesions "2-")))
-  (is (nil? (parse-count-lesions "hello"))))
+  (is (nil? (parse-count-lesions "hello")))
+  (is (map results/lesion-range (gen/sample (s/gen ::results/lesion-count) 100))))
+
+(deftest lesion-ranges
+  (is (s/valid? ::results/lesion-count {:type :exact :n 5}))
+  (is (s/valid? ::results/lesion-count {:type :more-than :n 5}))
+  (is (s/valid? ::results/lesion-count {:type :range :from 5 :to 10}))
+  (is (every? identity (map results/lesion-range (gen/sample (s/gen ::results/lesion-count) 1000)))))
+
 
 (deftest normalize-mri-brain-annotations
   (is (= (results/normalize-mri-brain {:t_result_mri_brain/id                                                5
@@ -153,11 +163,11 @@
   (let [conn (:com.eldrix.rsdb/conn *system*)
         patient *patient*
         date (LocalDate/of 2020 1 7)
-        result (results/save-result! conn {:t_result_type/result_entity_name "ResultThyroidFunction"
-                                           :t_result_thyroid_function/date   date
+        result (results/save-result! conn {:t_result_type/result_entity_name  "ResultThyroidFunction"
+                                           :t_result_thyroid_function/date    date
                                            :t_result_thyroid_function/free_t4 15.4
-                                           :patient_fk                       (:t_patient/id patient)
-                                           :user_fk                          1})
+                                           :patient_fk                        (:t_patient/id patient)
+                                           :user_fk                           1})
         fetched (fetch-result conn (:t_patient/patient_identifier patient) date)]
     (is (= "ResultThyroidFunction" (:t_result_type/result_entity_name fetched)))
     (is (.isEqual date (:t_result_thyroid_function/date fetched)))))
@@ -184,5 +194,6 @@
 (use-fixtures :once with-system with-patient)
 
 (comment
+  (parsing-lesions)
   (clojure.test/run-tests)
   (save-full-blood-count))

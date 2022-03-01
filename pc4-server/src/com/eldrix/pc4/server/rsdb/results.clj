@@ -1,14 +1,50 @@
 (ns com.eldrix.pc4.server.rsdb.results
   "Support for legacy rsdb integration for results."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.math :as math]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.forms]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.sql])
-  (:import (java.time LocalDate LocalDateTime)))
+            [next.jdbc.sql]
+            [clojure.spec.gen.alpha :as gen])
+  (:import (java.time LocalDate LocalDateTime)
+           (java.util Random)))
+
+(defmulti lesion-range
+  "Returns a vector of two integers representing the count of lesions as a range."
+  :type)
+(defmethod lesion-range :exact [{n :n}]
+  [n n])
+(defmethod lesion-range :approximate [{n :n}]
+  [(max 0 (dec n)) (inc n)])
+(defmethod lesion-range :more-than [{n :n}]
+  [n (+ n (int (/ n 2)))])
+(defmethod lesion-range :range [{from :from to :to}]
+  [from to])
+
+;;;;
+;;;; lesion count specifications
+;;;;
+(s/def :lesion-count/n-gen (s/int-in 0 40))
+(s/def :lesion-count/type #{:exact :range :approximate :more-than})
+(s/def :lesion-count/n (s/with-gen nat-int? #(s/gen :lesion-count/n-gen)))
+(s/def :lesion-count/from :lesion-count/n)
+(s/def :lesion-count/to :lesion-count/n)
+(defmulti lesion-count-type :type)
+(defmethod lesion-count-type :exact [_]
+  (s/keys :req-un [:lesion-count/type :lesion-count/n]))
+(defmethod lesion-count-type :range [_]
+  (s/and
+    (s/keys :req-un [:lesion-count/type :lesion-count/from :lesion-count/to])
+    (fn [{:keys [from to]}] (>= to from))))
+(defmethod lesion-count-type :approximate [_]
+  (s/keys :req-un [:lesion-count/type :lesion-count/n]))
+(defmethod lesion-count-type :more-than [_]
+  (s/keys :req-un [:lesion-count/type :lesion-count/n]))
+(s/def ::lesion-count (s/multi-spec lesion-count-type :type))
 
 (def re-count-lesions
   "Regular expression to match lesion count syntax such as 2 ~2 >2 2+/-1 and 1-3"
@@ -20,20 +56,41 @@
   (?<range>^(?<from>\d+)\-(?<to>\d+)$)                     # range                  ;; e.g. 3-5
   ")
 
-(defn parse-count-lesions
-  "Parse lesion count string into a map containing structured data.
-  The supported formats are shown in [[re-count-lesions]]. Returns nil if format invalid."
+
+(defn ^:private parse-count-lesions*
   [s]
   (let [m (re-matcher re-count-lesions (or s ""))]
     (when (.matches m)
-      (reduce-kv (fn [m k v] (if v (assoc m k v) m)) {}
-                 {:exact-count       (parse-long (or (.group m "exactcount") ""))
-                  :approximate-count (parse-long (or (.group m "approxcount") ""))
-                  :more-than         (parse-long (or (.group m "morethan") ""))
-                  :approximate-range (when (.group m "approxrange") {:count      (parse-long (.group m "count"))
-                                                                     :plus-minus (parse-long (.group m "plusminus"))})
-                  :range             (when (.group m "range") {:from (parse-long (.group m "from"))
-                                                               :to   (parse-long (.group m "to"))})}))))
+      (let [exact (.group m "exactcount")
+            approx (.group m "approxcount")
+            more-than (.group m "morethan")
+            approx-range (.group m "approxrange")
+            range (.group m "range")]
+        (cond
+          exact {:type :exact :n (parse-long exact)}
+          approx {:type :approximate :n (parse-long approx)}
+          more-than {:type :more-than :n (parse-long more-than)}
+          approx-range (let [n (parse-long (.group m "count"))
+                             x (parse-long (.group m "plusminus"))]
+                         {:type :range :from (- n x) :to (+ n x)})
+          range (let [from (parse-long (.group m "from"))
+                      to (parse-long (.group m "to"))]
+                  {:type :range :from from :to to}))))))
+
+(defn parse-count-lesions
+  "Parse lesion count string into a map containing structured data.
+  The supported formats are shown in [[re-count-lesions]].
+  Returns nil if format invalid."
+  [s]
+  (let [x (parse-count-lesions* s)]
+    (when (s/valid? ::lesion-count x) x)))
+
+(defn gaussian-from-range
+  "Generate a random number from the range specified."
+  [[from to]]
+  (if (= from to)
+    from
+    (max 0 (math/round (+ (+ from (/ (- to from) 2)) (* (/ (- to from) 2) (.nextGaussian (Random.))))))))
 
 (def re-change-lesions
   "Regular expression to match 'change in lesion count' syntax such as +2 or -2.
@@ -44,7 +101,7 @@
   [s]
   (let [m (re-matcher re-change-lesions (or s ""))]
     (when (.matches m)
-      {:change (parse-long (or (.group m "change") ""))})))
+      (parse-long (or (.group m "change") "")))))
 
 
 (s/fdef -insert-result!
