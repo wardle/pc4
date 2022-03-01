@@ -373,8 +373,8 @@
 
 (comment
   study-medication-atc
-  (first (get-study-classes "N05BA"))
-  )
+  (first (get-study-classes "N05BA")))
+
 
 (defn all-ms-dmts
   "Returns a collection of multiple sclerosis disease modifying medications with
@@ -725,8 +725,8 @@
 (comment
   (get (ms-events-for-patients system [5506]) 5506)
   (def d1 (LocalDate/of 2014 1 1))
-  (relapses-between-dates (get (ms-events-for-patients system [5506]) 5506) (.minusMonths d1 24) d1)
-  )
+  (relapses-between-dates (get (ms-events-for-patients system [5506]) 5506) (.minusMonths d1 24) d1))
+
 
 (defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
   (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
@@ -1433,8 +1433,8 @@
   (log/info "writing admissions")
   (write-admissions system)
   (log/info "writing metadata")
-  (spit "metadata.json" (json/write-str (make-metadata system)))
-  )
+  (spit "metadata.json" (json/write-str (make-metadata system))))
+
 
 (s/def ::profile keyword?)
 (s/def ::export-options (s/keys :req-un [::profile]))
@@ -1560,8 +1560,8 @@
   (set (map :conceptId (:rituximab dmts)))
   (:rituximab dmts)
   (disjoint? (map #(when-let [ecl (get-in % [:concepts :info.snomed/ECL])]
-                     (into #{} (map :conceptId (hermes/expand-ecl-historic svc ecl)))) multiple-sclerosis-dmts))
-  )
+                     (into #{} (map :conceptId (hermes/expand-ecl-historic svc ecl)))) multiple-sclerosis-dmts)))
+
 
 (comment
   (require '[portal.api :as p])
@@ -1608,8 +1608,8 @@
 
   (pathom [{[:info.snomed.Concept/id 9246601000001104]
             [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-             :uk.nhs.dmd/NM
-             ]}])
+             :uk.nhs.dmd/NM]}])
+
 
   (def natalizumab (get
                      (pathom [{[:info.snomed.Concept/id 36030311000001108]
@@ -1644,8 +1644,8 @@
   (pathom [{'(info.snomed.Search/search {:s "glatiramer acetate"})
             [:info.snomed.Concept/id
              :info.snomed.Description/term
-             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-             ]}])
+             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
+
   (pathom [{'(info.snomed.Search/search {:constraint "<<9246601000001104 OR <<108755008"})
             [:info.snomed.Concept/id
              :info.snomed.Description/term]}])
@@ -1654,5 +1654,4 @@
   (require '[com.eldrix.hermes.core :as hermes])
   (def dmf (set (map :conceptId (hermes/search hermes {:constraint "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"}))))
   (contains? dmf 12086301000001102)
-  (contains? dmf 24035111000001108)
-  )
+  (contains? dmf 24035111000001108))
