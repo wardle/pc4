@@ -55,7 +55,6 @@
   (?<range>^(?<from>\d+)\-(?<to>\d+)$)                     # range                  ;; e.g. 3-5
   ")
 
-
 (defn ^:private parse-count-lesions*
   [s]
   (let [m (re-matcher re-count-lesions (or s ""))]
@@ -347,10 +346,14 @@
 (defn ^:private t2-counts
   "Calculates T2 counts by using data in the scan and the prior scan.
   Designed to be used within linear processing of date-ordered scans.
+  Parameters:
+  - scan       : scan for calculated t2-counts
+  - prior-scan : a prior scan with already calculated counts, or nil.
+
   Adds the following keys:
   - :t_result_mri_brain/t2_range_upper
   - :t_result_mri_brain/t2_range_lower
-  - :t_result_mri_brain/increased_t2"
+  - :t_result_mri_brain/calc_change_t2"
   [scan prior-scan]
   (let [[t2-lower t2-upper] (lesion-range (parse-count-lesions (:t_result_mri_brain/total_t2_hyperintense scan)))
         t2-change (parse-change-lesions (:t_result_mri_brain/change_t2_hyperintense scan))
