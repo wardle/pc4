@@ -8,8 +8,7 @@
             [com.eldrix.pc4.server.rsdb.forms]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.sql]
-            [clojure.spec.gen.alpha :as gen])
+            [next.jdbc.sql])
   (:import (java.time LocalDate LocalDateTime)
            (java.util Random)))
 
