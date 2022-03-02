@@ -398,12 +398,15 @@
 
 
 (defn print-mri-brain-results
+  "Internal function to display results of sequential scans for REPL usage and
+  validation."
   [results]
   (let [key-map {:t_result_mri_brain/patient_fk :patient-pk
                  :t_result_mri_brain/id :id
                  :t_result_mri_brain/date :date
                  :t_result_mri_brain/total_t2_hyperintense :total-t2
                  :t_result_mri_brain/change_t2_hyperintense :change-t2
+                 :t_result_mri_brain/compare_to_result_mri_brain_fk :compare-id
                  :t_result_mri_brain/total_gad_enhancing_lesions :total-gad
                  :t_result_mri_brain/t2_range_lower :t2-lower
                  :t_result_mri_brain/t2_range_upper :t2-upper
