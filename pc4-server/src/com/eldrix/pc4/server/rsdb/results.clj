@@ -378,17 +378,20 @@
 (defn all-t2-counts
   "For a sequence of MRI brain results on the same patient, impute the
   T2 hyperintense lesion counts by using a combination of absolute counts with
-  relative counts from scan to scan. "
+  relative counts from scan to scan."
   [results]
-  (let [sorted-results (sort-by :t_result_mri_brain/date results) ;; sorted in ascending order
-        result-by-id (zipmap (map :t_result_mri_brain/id results) results)]
+  (let [sorted-results (sort-by :t_result_mri_brain/date results)] ;; sorted in ascending order
     (loop [remaining sorted-results
            prior-scan nil
            result []]
       (let [scan (first remaining)]
         (if-not scan
           result
-          (let [scan' (t2-counts scan prior-scan)]
+          (let [prior-scan-id (:t_result_mri_brain/compare_to_result_mri_brain_fk scan)
+                prior-scan' (or (and prior-scan-id
+                                     (first (filter #(= prior-scan-id (:t_result_mri_brain/id %)) result)))
+                                prior-scan)
+                scan' (t2-counts scan prior-scan')]
             (recur (rest remaining)
                    scan'
                    (conj result scan'))))))))
