@@ -384,13 +384,19 @@
   [coll]
   (or (not (seq coll)) (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll)))
 
+(s/fdef all-t2-counts
+  :args (s/cat :results (s/coll-of (s/keys :req [:t_result_mri_brain/patient_fk
+                                                 :t_result_mri_brain/date]
+                                           :opt [:t_result_mri_brain/compare_to_result_mri_brain_fk
+                                                 :t_result_mri_brain/change_t2_hyperintense
+                                                 :t_result_mri_brain/total_t2_hyperintense]))))
 (defn all-t2-counts
   "For a sequence of MRI brain results on the same patient, impute the
   T2 hyperintense lesion counts by using a combination of absolute counts with
   relative counts from scan to scan."
   [results]
   (when-not (every-equal? (map :t_result_mri_brain/patient_fk results))
-    (throw (ex-info "To calculate T2 counts, all scans must be for the same patient" (map :t_result_mri_brain/patient_fk results))))
+    (throw (ex-info "To calculate T2 counts, all scans must be for the same patient" {:patient-ids (set (map :t_result_mri_brain/patient_fk results))})))
   (let [sorted-results (sort-by :t_result_mri_brain/date results)] ;; sorted in ascending order
     (loop [remaining sorted-results
            prior-scan nil
@@ -407,6 +413,12 @@
                    scan'
                    (conj result scan'))))))))
 
+(defn gad-count-range [{gad :t_result_mri_brain/total_gad_enhancing_lesions :as result}]
+  (if-not gad
+    result
+    (let [[gad-lower gad-upper] (lesion-range (parse-count-lesions gad))]
+      (assoc result :t_result_mri_brain/gad_range_lower gad-lower
+               :t_result_mri_brain/gad_range_upper gad-upper))))
 
 (defn print-mri-brain-results
   "Internal function to display results of sequential scans for REPL usage and
