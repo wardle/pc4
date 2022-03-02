@@ -389,6 +389,8 @@
   T2 hyperintense lesion counts by using a combination of absolute counts with
   relative counts from scan to scan."
   [results]
+  (when-not (every-equal? (map :t_result_mri_brain/patient_fk results))
+    (throw (ex-info "To calculate T2 counts, all scans must be for the same patient" (map :t_result_mri_brain/patient_fk results))))
   (let [sorted-results (sort-by :t_result_mri_brain/date results)] ;; sorted in ascending order
     (loop [remaining sorted-results
            prior-scan nil
