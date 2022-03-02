@@ -382,7 +382,7 @@
 (defn ^:private every-equal?
   "Are all elements of 'coll' equal?"
   [coll]
-  (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll))
+  (or (not (seq coll)) (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll)))
 
 (defn all-t2-counts
   "For a sequence of MRI brain results on the same patient, impute the
