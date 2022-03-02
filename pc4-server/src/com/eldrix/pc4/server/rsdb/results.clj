@@ -378,6 +378,12 @@
                                             :opt [:t_result_mri_brain/total_t2_hyperintense
                                                   :t_result_mri_brain/change_t2_hyperintense
                                                   :t_result_mri_brain/compare_to_result_mri_brain_fk]))))
+
+(defn ^:private every-equal?
+  "Are all elements of 'coll' equal?"
+  [coll]
+  (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll))
+
 (defn all-t2-counts
   "For a sequence of MRI brain results on the same patient, impute the
   T2 hyperintense lesion counts by using a combination of absolute counts with
