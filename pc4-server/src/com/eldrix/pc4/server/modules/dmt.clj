@@ -458,25 +458,17 @@
        (map #(update % :t_result_jc_virus/date to-local-date))))
 
 
-(defn lesion-ranges-for-mri-brain [result]
-  (let [[t2-lower t2-upper] (results/lesion-range (results/parse-count-lesions (:t_result_mri_brain/total_t2_hyperintense result)))
-        [gad-lower gad-upper] (results/lesion-range (results/parse-count-lesions (:t_result_mri_brain/total_gad_enhancing_lesions result)))]
-    (cond-> result
-            t2-lower (assoc :t_result_mri_brain/t2_range_lower t2-lower)
-            t2-upper (assoc :t_result_mri_brain/t2_range_upper t2-upper)
-            gad-lower (assoc :t_result_mri_brain/gad_range_lower gad-lower)
-            gad-upper (assoc :t_result_mri_brain/gad_range_upper gad-upper))))
-
 (defn mri-brains-for-patient [conn patient-identifier]
   (let [results (->> (results/fetch-mri-brain-results conn nil {:t_patient/patient_identifier patient-identifier})
                      (map #(assoc % :t_patient/patient_identifier patient-identifier))
-                     (map lesion-ranges-for-mri-brain))
+                     results/all-t2-counts
+                     (map results/gad-count-range))
         results-by-id (zipmap (map :t_result_mri_brain/id results) results)]
     (map #(if-let [compare-id (:t_result_mri_brain/compare_to_result_mri_brain_fk %)]
             (assoc % :t_result_mri_brain/compare_to_result_date (:t_result_mri_brain/date (get results-by-id compare-id)))
             %) results)))
 
-(defn mri-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
+(defn mri-brains-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
   (->> (mapcat #(mri-brains-for-patient conn %) patient-ids)))
 
 (defn multiple-sclerosis-onset
@@ -1360,8 +1352,8 @@
                             :t_result_jc_virus/titre]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
-(defn write-mri [system]
-  (write-rows-csv "patient-mri.csv" (mri-for-patients system (fetch-study-patient-identifiers system))
+(defn write-mri-brain [system]
+  (write-rows-csv "patient-mri-brain.csv" (mri-brains-for-patients system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :t_result_mri_brain/date
                             :t_result_mri_brain/id
@@ -1375,11 +1367,21 @@
                             :t_result_mri_brain/t2_range_upper
                             :t_result_mri_brain/compare_to_result_mri_brain_fk
                             :t_result_mri_brain/compare_to_result_date
-                            :t_result_mri_brain/change_t2_hyperintense]
+                            :t_result_mri_brain/change_t2_hyperintense
+                            :t_result_mri_brain/calc_change_t2]
                   :title-fn {:t_patient/patient_identifier                      "patient_id"
                              :t_result_mri_brain/multiple_sclerosis_summary     "ms_summary"
+                             :t_result_mri_brain/with_gadolinium                "with_gad"
+                             :t_result_mri_brain/total_gad_enhancing_lesions    "gad_count"
+                             :t_result_mri_brain/gad_range_lower                "gad_lower"
+                             :t_result_mri_brain/gad_range_upper                "gad_upper"
+                             :t_result_mri_brain/total_t2_hyperintense          "t2_count"
+                             :t_result_mri_brain/t2_range_lower                 "t2_lower"
+                             :t_result_mri_brain/t2_range_upper                 "t2_upper"
                              :t_result_mri_brain/compare_to_result_date         "compare_to_date"
-                             :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"}))
+                             :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"
+                             :t_result_mri_brain/change_t2_hyperintense         "t2_change"
+                             :t_result_mri_brain/calc_change_t2                 "calc_t2_change"}))
 
 
 (defn write-local-date [^LocalDate o ^Appendable out _options]
@@ -1416,8 +1418,8 @@
   (write-weight-height system)
   (log/info "writing JC virus")
   (write-jc-virus system)
-  (log/info "writing MRI")
-  (write-mri system)
+  (log/info "writing MRI brain")
+  (write-mri-brain system)
   (log/info "writing investigation results")
   (write-results system)
   (log/info "writing admissions")
@@ -1450,7 +1452,7 @@
   (write-ms-events system)
   (write-non-dmt-medications system)
   (spit "metadata.json" (json/write-str (make-metadata system)))
-  (write-mri system)
+  (write-mri-brain system)
 
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
