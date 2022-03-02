@@ -344,13 +344,90 @@
                    (assoc m (keyword "t_result_mri_brain" (name k)) v)
                    :else m)) {} result)))
 
+(defn ^:private t2-counts
+  "Calculates T2 counts by using data in the scan and the prior scan.
+  Designed to be used within linear processing of date-ordered scans.
+  Adds the following keys:
+  - :t_result_mri_brain/t2_range_upper
+  - :t_result_mri_brain/t2_range_lower
+  - :t_result_mri_brain/increased_t2"
+  [scan prior-scan]
+  (let [[t2-lower t2-upper] (lesion-range (parse-count-lesions (:t_result_mri_brain/total_t2_hyperintense scan)))
+        t2-change (parse-change-lesions (:t_result_mri_brain/change_t2_hyperintense scan))
+        old-t2-lower (:t_result_mri_brain/t2_range_lower prior-scan)
+        old-t2-upper (:t_result_mri_brain/t2_range_upper prior-scan)
+        [t2-lower' t2-upper'] (if (and t2-lower t2-upper)
+                                [t2-lower t2-upper]
+                                (when (and prior-scan old-t2-lower old-t2-upper t2-change)
+                                  [(+ old-t2-lower t2-change) (+ old-t2-upper t2-change)]))]
+    (cond-> scan
+            (and t2-lower' t2-upper')
+            (assoc :t_result_mri_brain/t2_range_lower t2-lower'
+                   :t_result_mri_brain/t2_range_upper t2-upper')
+            (and t2-lower' t2-upper' old-t2-upper old-t2-lower)
+            (assoc :t_result_mri_brain/calc_change_t2 (math/round (-  (/ (+ t2-lower' t2-upper') 2) (/ (+ old-t2-lower old-t2-upper) 2))))
+            (pos-int? t2-change)
+            (assoc :t_result_mri_brain/calc_change_t2 t2-change))))
+
+
+(s/fdef all-t2-counts
+  :args (s/cat ::results (s/coll-of (s/keys :req [:t_result_mri_brain/date]
+                                            :opt [:t_result_mri_brain/total_t2_hyperintense
+                                                  :t_result_mri_brain/change_t2_hyperintense
+                                                  :t_result_mri_brain/compare_to_result_mri_brain_fk]))))
+(defn all-t2-counts
+  "For a sequence of MRI brain results on the same patient, impute the
+  T2 hyperintense lesion counts by using a combination of absolute counts with
+  relative counts from scan to scan. "
+  [results]
+  (let [sorted-results (sort-by :t_result_mri_brain/date results) ;; sorted in ascending order
+        result-by-id (zipmap (map :t_result_mri_brain/id results) results)]
+    (loop [remaining sorted-results
+           prior-scan nil
+           result []]
+      (let [scan (first remaining)]
+        (if-not scan
+          result
+          (let [scan' (t2-counts scan prior-scan)]
+            (recur (rest remaining)
+                   scan'
+                   (conj result scan'))))))))
+
+
+(defn print-mri-brain-results
+  [results]
+  (let [key-map {:t_result_mri_brain/patient_fk :patient-pk
+                 :t_result_mri_brain/id :id
+                 :t_result_mri_brain/date :date
+                 :t_result_mri_brain/total_t2_hyperintense :total-t2
+                 :t_result_mri_brain/change_t2_hyperintense :change-t2
+                 :t_result_mri_brain/total_gad_enhancing_lesions :total-gad
+                 :t_result_mri_brain/t2_range_lower :t2-lower
+                 :t_result_mri_brain/t2_range_upper :t2-upper
+                 :t_result_mri_brain/calc_change_t2 :calc-t2-change}]
+    (->> results
+         (map #(update-keys % key-map))
+         (clojure.pprint/print-table [:patient-pk :id :date :total-t2 :change-t2 :total-gad :t2-lower :t2-upper :calc-t2-change]))))
+
+
+(comment
+  (-> (fetch-mri-brain-results conn nil {:t_patient/id 117445})
+      all-t2-counts
+      print-mri-brain-results))
+
+
+
+
+
 (s/fdef fetch-mri-brain-results
   :args (s/cat :conn ::conn :table any? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn fetch-mri-brain-results
   "Fetch MRI brain scan results for the given patient.
-  This carefully fetches annotations for each scan and then determines the 'best' annotation as there may be more than
-  one annotation recorded in the legacy system."
-  [conn _ {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
+
+  This carefully fetches annotations for each scan and then determines the
+  'best' annotation as there may be more than one annotation recorded in the
+  legacy system."
+  [conn _table {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
   (->> (db/execute! conn (sql/format {:select    [:t_result_mri_brain/id
                                                   :t_result_mri_brain/date
                                                   :t_result_mri_brain/hospital_fk
