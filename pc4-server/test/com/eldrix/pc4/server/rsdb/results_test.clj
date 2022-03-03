@@ -54,6 +54,8 @@
           :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id 24
           :t_result_mri_brain/change_t2_hyperintense                         "+2"})))
 
+
+
 (deftest save-mri-brain-with-annotations
   (let [conn (:com.eldrix.rsdb/conn *system*)
         patient *patient*]
@@ -178,7 +180,8 @@
     (f)
     (pc4/halt! *system*)))
 
-(defn with-patient [f]
+(defn with-patient
+  [f]
   (binding [*patient* (projects/register-legacy-pseudonymous-patient ;; this is an idempotent operation, by design
                         (:com.eldrix.rsdb/conn *system*)
                         {:salt       (get-in *system* [:pathom/env :com.eldrix.rsdb/config :legacy-global-pseudonym-salt])
@@ -193,7 +196,53 @@
 
 (use-fixtures :once with-system with-patient)
 
+(defn make-mri-results
+  "Creates a lazy sequence of base MRI results for the patient specified."
+  [patient-pk & {:keys [start-date]}]
+  (let [start-date' (or start-date (LocalDate/of 2010 1 1))
+        date-seq (map #(.plusMonths start-date' %) (range))
+        result-seq (partition 2 (interleave (range) date-seq))]
+    (map (fn [[id date]]
+           {:t_result_mri_brain/patient_fk patient-pk
+            :t_result_mri_brain/id         id
+            :t_result_mri_brain/date       date}) result-seq)))
+
+(defn make-t2-test-data
+  ([data] (make-t2-test-data (rand-int 10000) data))
+  ([patient-pk data]
+   (->> (map merge (make-mri-results patient-pk) data)
+        (map #(assoc % :expected-range (results/lesion-range (results/parse-count-lesions (:expected %))))))))
+
+(defn test-t2 [data]
+  (->> (make-t2-test-data data)
+       results/all-t2-counts
+       (map #(let [[expected-lower expected-upper] (:expected-range %)]
+               (and (= expected-lower (:t_result_mri_brain/t2_range_lower %))
+                    (= expected-upper (:t_result_mri_brain/t2_range_upper %)))))))
+
+(def t2-test-data
+  [[{:t_result_mri_brain/total_t2_hyperintense "0" :expected 0}
+    {:t_result_mri_brain/change_t2_hyperintense         "+2"
+     :t_result_mri_brain/compare_to_result_mri_brain_fk 10
+     :expected                                          2}
+    {:t_result_mri_brain/total_t2_hyperintense "~6"
+     :expected                                 "~6"}
+    {:t_result_mri_brain/change_t2_hyperintense "+4"
+     :expected                                  "~10"}]
+   [{:t_result_mri_brain/total_t2_hyperintense "4" :expected 4}
+    {:t_result_mri_brain/change_t2_hyperintense "+2" :expected 6}
+    {:t_result_mri_brain/change_t2_hyperintense "+2" :expected 8}]])
+
+(deftest t2-counts
+  (is (every? true? (mapcat test-t2 t2-test-data)))
+  (let [change-result (first (results/all-t2-counts (make-t2-test-data {:t_result_mri_brain/change_t2_hyperintense "+2"})))]
+    (is (= 2 (:t_result_mri_brain/calc_change_t2 change-result)))))
+
 (comment
+  (t2-counts)
   (parsing-lesions)
+  (take 5 (make-mri-results 1))
+
+
   (clojure.test/run-tests)
   (save-full-blood-count))
