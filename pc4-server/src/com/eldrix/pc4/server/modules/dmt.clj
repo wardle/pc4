@@ -218,6 +218,10 @@
    {:description "Multiple sclerosis"
     :codelist    {:ecl "<<24700007"}}
 
+   :allergic_reaction
+   {:description "Any type of allergic reaction, including anaphylaxis"
+    :codelist    {:ecl "<<419076005"}}
+
    :cardiovascular
    {:description "Cardiovascular disorders"
     :codelist    {:icd10 ["I"]}}
@@ -1210,13 +1214,28 @@
                              :dmt-class                    "dmt_class"}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn dates-of-allergic-reactions
+  "Creates a map containing allergic reaction diagnoses, keyed by a vector of
+  patient identifier and date."
+  [system patient-ids]
+  (let [allergy-diagnoses (set (map :conceptId (hermes/expand-ecl-historic (:com.eldrix/hermes system) "<<419076005")))
+        pt-diagnoses (->> (fetch-patient-diagnoses system patient-ids)
+                          (filter #(allergy-diagnoses (:t_diagnosis/concept_fk %))))]
+    (zipmap (map #(vector (:t_patient/patient_identifier %)
+                          (:t_diagnosis/date_onset %)) pt-diagnoses)
+            pt-diagnoses)))
+
 (defn make-alemtuzumab-infusions [system]
-  (->> (fetch-study-patient-identifiers system)
-       (ranked-alemtuzumab-infusions system)
-       vals
-       flatten
-       (map #(update-all % [:dmt :dmt_class] name))
-       (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank))))
+  (let [patient-ids (fetch-study-patient-identifiers system)
+        allergic-reactions (dates-of-allergic-reactions system patient-ids)]
+    (->> patient-ids
+         (ranked-alemtuzumab-infusions system)
+         vals
+         flatten
+         (map #(update-all % [:dmt :dmt_class] name))
+         (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) ( :t_medication/date %)]))))
+         (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank)))))
 
 (defn write-alemtuzumab-infusions [system]
   (write-rows-csv "alemtuzumab-infusions.csv" (make-alemtuzumab-infusions system)
