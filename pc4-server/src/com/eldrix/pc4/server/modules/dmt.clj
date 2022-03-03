@@ -243,7 +243,7 @@
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
 
    :severe_infection                                        ;; note: also significance based on whether admitted for problem
-   {:codelist {:icd10 ["J01." "J02." "J03." "J04." "J05."]}}
+   {:codelist {:icd10 ["A" "B" "U07.1" "U07.2" "U08." "U09." "U10."]}}
 
    :arterial_dissection
    {:codelist {:icd10 ["I72.0" "I72.5"]}}
