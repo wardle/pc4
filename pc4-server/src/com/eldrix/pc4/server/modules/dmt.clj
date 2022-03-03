@@ -278,8 +278,8 @@
    :hair_and_skin
    {:codelist {:icd10 ["L63." "L10.9" "L40." "L80.0"]}}
 
-   :mood
-   {:codelist {:icd10 ["F3"]}}
+   :mental_behavioural
+   {:codelist {:icd10 ["F"]}}
 
    :epilepsy
    {:codelist {:icd10 ["G40"]}}
@@ -1313,7 +1313,7 @@
                             :connective_tissue
                             :endocrine
                             :urinary_tract
-                            :mood
+                            :mental_behavioural
                             :cancer
                             :gastrointestinal
                             :hair_and_skin
