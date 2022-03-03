@@ -1225,19 +1225,22 @@
                           (:t_diagnosis/date_onset %)) pt-diagnoses)
             pt-diagnoses)))
 
-(defn make-alemtuzumab-infusions [system]
-  (let [patient-ids (fetch-study-patient-identifiers system)
-        allergic-reactions (dates-of-allergic-reactions system patient-ids)]
+(defn make-alemtuzumab-infusions
+  "Create ordered sequence of individual infusions. Each item will include
+  properties with date, drug, course-rank, infusion-rank and whether that
+  infusion coincided with an allergic reaction."
+  [system patient-ids]
+  (let [allergic-reactions (dates-of-allergic-reactions system patient-ids)]
     (->> patient-ids
          (ranked-alemtuzumab-infusions system)
          vals
          flatten
          (map #(update-all % [:dmt :dmt_class] name))
-         (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) ( :t_medication/date %)]))))
+         (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) (:t_medication/date %)]))))
          (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank)))))
 
 (defn write-alemtuzumab-infusions [system]
-  (write-rows-csv "alemtuzumab-infusions.csv" (make-alemtuzumab-infusions system)
+  (write-rows-csv "alemtuzumab-infusions.csv" (make-alemtuzumab-infusions system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :dmt
                             :t_medication/medication_concept_fk
