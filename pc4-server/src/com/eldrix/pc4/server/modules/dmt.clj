@@ -183,6 +183,13 @@
     :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
                   :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
 
+   :anti-retroviral
+   {:description "Antiretrovirals"
+    :class       :other
+    :codelist {:inclusions {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]}
+               :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
+                                  "J05AF07" "J05AF08" "J05AF10"
+                                  "J05AX15" "J05AX65"]}}}
    :antidepressant
    {:description "Anti-depressants"
     :class       :other
@@ -1264,7 +1271,7 @@
   (write-rows-csv "patient-non-dmt-medications.csv" (make-non-dmt-medications system)
                   :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
                             :t_medication/date_from :t_medication/date_to :nm :atc
-                            :anti-hypertensive :antidepressant :statin :anti-platelet :immunosuppressant
+                            :anti-hypertensive :antidepressant :anti-retroviral :statin :anti-platelet :immunosuppressant
                             :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
