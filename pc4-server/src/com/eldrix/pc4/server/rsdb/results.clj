@@ -386,7 +386,8 @@
 
 (s/fdef all-t2-counts
   :args (s/cat :results (s/coll-of (s/keys :req [:t_result_mri_brain/patient_fk
-                                                 :t_result_mri_brain/date]
+                                                 :t_result_mri_brain/date
+                                                 :t_result_mri_brain/id]
                                            :opt [:t_result_mri_brain/compare_to_result_mri_brain_fk
                                                  :t_result_mri_brain/change_t2_hyperintense
                                                  :t_result_mri_brain/total_t2_hyperintense]))))
