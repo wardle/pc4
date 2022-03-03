@@ -187,10 +187,10 @@
    :anti-retroviral
    {:description "Antiretrovirals"
     :class       :other
-    :codelist {:inclusions {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]}
-               :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
-                                  "J05AF07" "J05AF08" "J05AF10"
-                                  "J05AX15" "J05AX65"]}}}
+    :codelist    {:inclusions {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]}
+                  :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
+                                     "J05AF07" "J05AF08" "J05AF10"
+                                     "J05AX15" "J05AX65"]}}}
    :antidepressant
    {:description "Anti-depressants"
     :class       :other
@@ -298,6 +298,9 @@
                        "M05.3" "I01.2" "I40.8" "I40.9" "I09.0" "G04.0"
                        "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}})
 
+(def flattened-study-diagnoses
+  "A flattened sequence of study diagnoses for convenience."
+  (reduce-kv (fn [acc k v] (conj acc (assoc v :id k))) [] study-diagnosis-categories))
 
 (defn ^:deprecated make-diagnostic-category-fn
   "Returns a function that will test a collection of concept identifiers against the diagnostic categories specified."
@@ -1447,7 +1450,22 @@
   (log/info "writing admissions")
   (write-admissions system)
   (log/info "writing metadata")
-  (spit "metadata.json" (json/write-str (make-metadata system))))
+  (spit "metadata.json" (json/write-str (make-metadata system)))
+  (log/info "writing medication codes")
+  (csv/write-csv (io/writer "medication-codes.csv")
+                 (->> (expand-codelists system flattened-study-medications)
+                      (mapcat #(map (fn [concept-id] (vector (:id %) concept-id (:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) concept-id))))
+                                    (:codes %)))))
+  (log/info "writing diagnosis codes")
+  (csv/write-csv (io/writer "diagnosis-codes.csv")
+                 (->> (expand-codelists system flattened-study-diagnoses)
+                      (mapcat #(map (fn [concept-id] (vector (:id %) concept-id (:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) concept-id))))
+                                    (:codes %))))))
+
+
+(comment)
+
+
 
 
 (s/def ::profile keyword?)
