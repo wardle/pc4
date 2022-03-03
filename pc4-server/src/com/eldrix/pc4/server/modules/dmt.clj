@@ -1167,14 +1167,6 @@
                              :switch?                      "switch"}))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn make-dus-inclusion-exclusion [system]
-  (let [patient-ids (fetch-study-patient-identifiers system)
-        onsets (multiple-sclerosis-onset system patient-ids)
-        cohort-entry-meds (cohort-entry-meds system patient-ids study-master-date)]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-raw-dmt-medications-table
