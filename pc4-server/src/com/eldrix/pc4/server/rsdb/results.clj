@@ -57,7 +57,7 @@
 
 (defn ^:private parse-count-lesions*
   [s]
-  (let [m (re-matcher re-count-lesions (or s ""))]
+  (let [m (re-matcher re-count-lesions (str s))]
     (when (.matches m)
       (let [exact (.group m "exactcount")
             approx (.group m "approxcount")
