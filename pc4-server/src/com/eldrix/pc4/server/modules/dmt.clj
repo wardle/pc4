@@ -26,7 +26,8 @@
             [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
             [com.eldrix.pc4.server.rsdb.results :as results]
-            [com.eldrix.clods.core :as clods])
+            [com.eldrix.clods.core :as clods]
+            [clojure.math :as math])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
@@ -1075,6 +1076,15 @@
          (filter :t_medication/converted_from_pp)
          (filter #(all-dmts (:t_medication/medication_concept_fk %))))))
 
+(defn patients-with-local-demographics [system]
+  (let [patient-ids (fetch-study-patient-identifiers system)]
+    (map :patient_identifier (next.jdbc.plan/select! (:com.eldrix.rsdb/conn system) [:patient_identifier]
+                                                     (sql/format {:select :patient_identifier
+                                                                  :from   :t_patient
+                                                                  :where  [:and
+                                                                           [:in :patient_identifier patient-ids]
+                                                                           [:= :authoritative_demographics "LOCAL"]]})))))
+
 
 
 (defn make-metadata [system]
@@ -1108,7 +1118,13 @@
         flatten
         (remove valid-alemtuzumab-record?))
    :misidentified-patients                                  ;; generate a list of patients who have been misidentified
-   (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))})
+   (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))
+   :linked-cardiff-demographics (let [patient-ids (patients-with-local-demographics system)
+                                      all-patient-ids (fetch-study-patient-identifiers system)]
+                                  {:description "This is a list of patients who are not linked to Cardiff's NHS systems for status updates.
+                                  This should be 0% for the Cardiff group, and 100% for other centres."
+                                   :score       (str (clojure.math/round (* 100 (/ (count patient-ids) (count all-patient-ids)))) "%")
+                                   :patient-ids patient-ids})})
 
 
 (defn update-all
@@ -1500,14 +1516,27 @@
                     (let [pt (cav/fetch-patient-by-crn pms patient_identifier)]
                       (Thread/sleep 500)
                       (assoc patient-hospital
-                             :cav/crn (:HOSPITAL_ID pt)
-                             :cav/first-names (str/join " " (remove nil? [(:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
-                             :cav/last-name (:LAST_NAME pt)
-                             :cav/date-birth (:DATE_BIRTH pt)
-                             :cav/date-death (:DATE_DEATH pt)
-                             :cav/nnn (:NHS_NUMBER pt)))
+                        :cav/crn (:HOSPITAL_ID pt)
+                        :cav/first-names (str/join " " (remove nil? [(:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
+                        :cav/last-name (:LAST_NAME pt)
+                        :cav/date-birth (:DATE_BIRTH pt)
+                        :cav/date-death (:DATE_DEATH pt)
+                        :cav/nnn (:NHS_NUMBER pt)))
                     patient-hospital)))))))
 
+(defn check-demographics
+  "Check demographics report. Run as
+  ```
+  clj -X com.eldrix.pc4.server.modules.dmt/check-demographics :profile :cvx
+  ```"
+  [{:keys [profile] :as opts}]
+  (when-not (s/valid? ::export-options opts)
+    (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (let [system (pc4/init profile [:pathom/env :wales.nhs.cavuhb/pms])
+        local-patient-ids (patients-with-local-demographics system)
+        patient-hospitals (fetch-patient-hospitals system local-patient-ids)]
+    (write-rows-csv "CAV_demographics.csv"
+                    (fetch-cav-patients system patient-hospitals))))
 
 (comment
   (:wales.nhs.cavuhb/pms system)
@@ -1553,8 +1582,8 @@
 (comment
   (def system (pc4/init :cvx [:pathom/env :wales.nhs.cav/pms]))
   (require '[clojure.pprint :refer [pprint]])
-  (pprint (make-demographics-report system (take 10 (fetch-study-patient-identifiers system))))
-  )
+  (pprint (make-demographics-report system (take 10 (fetch-study-patient-identifiers system)))))
+
 
 
 
