@@ -37,6 +37,7 @@
    :t_patient/date_death                       parse-local-date
    :t_patient/sex                              keyword
    :t_patient/status                           keyword
+   :t_patient_hospital/authoritative           parse-boolean
    :t_project/advertise_to_all                 parse-boolean
    :t_project/can_own_equipment                parse-boolean
    :t_project/date_from                        parse-local-date
