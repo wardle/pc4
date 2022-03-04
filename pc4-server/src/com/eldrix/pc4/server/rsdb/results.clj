@@ -415,9 +415,10 @@
                    (conj result scan'))))))))
 
 (s/fdef gad-count-range
-  :args (s/cat :result (s/keys :req [:t_result_mri_brain/total_gad_enhancing_lesions])))
+  :args (s/cat :result (s/keys :opt [:t_result_mri_brain/total_gad_enhancing_lesions])))
 (defn gad-count-range
-  "Parses gad enhancing lesion count data, supplementing the result."
+  "Parses gad enhancing lesion count data, if present, supplementing result with
+  a properties defining lesion range."
   [{gad :t_result_mri_brain/total_gad_enhancing_lesions :as result}]
   (if-not gad
     result
