@@ -1517,16 +1517,17 @@
                     (let [pt (cav/fetch-patient-by-crn pms patient_identifier)]
                       (Thread/sleep 500)
                       (assoc patient-hospital
-                        :cav/crn (:HOSPITAL_ID pt)
-                        :cav/first-names (str/join " " (remove nil? [(:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
-                        :cav/last-name (:LAST_NAME pt)
-                        :cav/date-birth (:DATE_BIRTH pt)
-                        :cav/date-death (:DATE_DEATH pt)
-                        :cav/nnn (:NHS_NUMBER pt)
-                        :cav/sex (get {"F" :FEMALE "M" :MALE} (:SEX pt) ))
-                    patient-hospital))))))))
+                             :cav/crn (:HOSPITAL_ID pt)
+                             :cav/first-names (str/join " " (remove nil? [(:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
+                             :cav/last-name (:LAST_NAME pt)
+                             :cav/date-birth (:DATE_BIRTH pt)
+                             :cav/date-death (:DATE_DEATH pt)
+                             :cav/nnn (:NHS_NUMBER pt)
+                             :cav/sex (get {"F" :FEMALE "M" :MALE} (:SEX pt))))
+                    patient-hospital)))))))
   
-(defn matching-cav-demog? [{:cav/keys [crn first-names last-name date-birth sex nnn]
+(defn matching-cav-demog? 
+  [{:cav/keys [crn first-names last-name date-birth sex nnn]
                             :t_patient/keys [first_names last_name date_birth sex nhs_number] :as pt}]
   (and (:cav/crn pt)
        (= (:cav/date-birth pt) (:t_patient/date_birth pt))
