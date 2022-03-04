@@ -26,7 +26,8 @@
             [com.eldrix.pc4.server.rsdb.results :as results])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
-           (java.time.format DateTimeFormatter)))
+           (java.time.format DateTimeFormatter)
+           (java.io PushbackReader)))
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
@@ -1074,34 +1075,37 @@
 
 
 (defn make-metadata [system]
-  {:data      (fetch-most-recent-encounter-date-time system)
-   :pc4       {:url "https://github.com/wardle/pc4"
-               :sha (str/trim (:out (clojure.java.shell/sh "/bin/sh" "-c" "git rev-parse HEAD")))}
-   :hermes    {:url  "https://github.com/wardle/hermes"
-               :data (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))}
-   :dmd       {:url  "https://github.com/wardle/dmd"
-               :data {:title "UK Dictionary of Medicines and Devices (dm+d)"
-                      :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}}
-   :codelists {:study-medications study-medications
-               :study-diagnoses   study-diagnosis-categories}
-   :validation-errors
-   {:more-than-one-death-certificate                        ;; generate a list of patients with more than one death certificate
-    (or (patients-with-more-than-one-death-certificate system) [])
-    :patients-with-dmts-as-product-packs                    ;; generate a list of medications recorded as product packs
-    (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
-    :patients-without-ms-diagnosis                          ;; generate a list of patients in the study without multiple sclerosis
-    (->> (update-vals (multiple-sclerosis-onset system (fetch-study-patient-identifiers system)) :has_multiple_sclerosis)
-         (remove (fn [[k v]] v)))
-    :incorrect-alemtuzumab-course-dates                     ;;  generate a list of incorrect alemtuzumab records
-    (->> (fetch-study-patient-identifiers system)
-         (alemtuzumab-medications system)
-         vals
-         (remove nil?)
-         flatten
-         (remove valid-alemtuzumab-record?))
-    :misidentified-patients                                 ;; generate a list of patients who have been misidentified
-    (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))}})
+  (let [deps (clojure.edn/read (PushbackReader. (io/reader "deps.edn")))]
+    {:data      (fetch-most-recent-encounter-date-time system)
+     :pc4       {:url "https://github.com/wardle/pc4"
+                 :sha (str/trim (:out (clojure.java.shell/sh "/bin/sh" "-c" "git rev-parse HEAD")))}
+     :hermes    {:url     "https://github.com/wardle/hermes"
+                 :version (get-in deps [:deps 'com.eldrix/hermes :mvn/version])
+                 :data    (map #(hash-map :title (:term %) :date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))}
+     :dmd       {:url     "https://github.com/wardle/dmd"
+                 :version (get-in deps [:deps 'com.eldrix/dmd :mvn/version])
+                 :data    {:title "UK Dictionary of Medicines and Devices (dm+d)"
+                           :date  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))}}
+     :codelists {:study-medications study-medications
+                 :study-diagnoses   study-diagnosis-categories}}))
 
+(defn make-problem-report [system]
+  {:more-than-one-death-certificate                         ;; generate a list of patients with more than one death certificate
+   (or (patients-with-more-than-one-death-certificate system) [])
+   :patients-with-dmts-as-product-packs                     ;; generate a list of medications recorded as product packs
+   (map :t_patient/patient_identifier (dmts-recorded-as-product-packs system))
+   :patients-without-ms-diagnosis                           ;; generate a list of patients in the study without multiple sclerosis
+   (->> (update-vals (multiple-sclerosis-onset system (fetch-study-patient-identifiers system)) :has_multiple_sclerosis)
+        (remove (fn [[k v]] v)))
+   :incorrect-alemtuzumab-course-dates                      ;;  generate a list of incorrect alemtuzumab records
+   (->> (fetch-study-patient-identifiers system)
+        (alemtuzumab-medications system)
+        vals
+        (remove nil?)
+        flatten
+        (remove valid-alemtuzumab-record?))
+   :misidentified-patients                                  ;; generate a list of patients who have been misidentified
+   (set/difference (fetch-study-patient-identifiers2 system) (fetch-study-patient-identifiers system))})
 
 
 (defn update-all
@@ -1156,8 +1160,8 @@
                             :end_follow_up (or date-death (to-local-date (get latest-contacts patient-id))))
                      (dissoc :t_patient/date_birth)))))))
 
-(defn write-patients-table [system]
-  (write-rows-csv "patients.csv" (make-patients-table system)
+(defn write-patients-table [filename system]
+  (write-rows-csv filename (make-patients-table system)
                   :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :date_death
                             :depriv_quartile :start_follow_up :end_follow_up
                             :part1a :part1b :part1c :part2
@@ -1189,8 +1193,8 @@
          (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name)))))
 
 (defn write-raw-dmt-medications-table
-  [system]
-  (write-rows-csv "patient-raw-dmt-medications.csv" (make-raw-dmt-medications-table system)
+  [filename system]
+  (write-rows-csv filename (make-raw-dmt-medications-table system)
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt_class
@@ -1206,8 +1210,8 @@
        (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name))))
 
 (defn write-dmt-regimens-table
-  [system]
-  (write-rows-csv "patient-dmt-regimens.csv" (make-dmt-regimens-table system)
+  [f system]
+  (write-rows-csv f (make-dmt-regimens-table system)
                   :columns [:t_patient/patient_identifier
                             :t_medication/medication_concept_fk
                             :atc :dmt :dmt-class
@@ -1243,8 +1247,8 @@
          (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) (:t_medication/date %)]))))
          (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank)))))
 
-(defn write-alemtuzumab-infusions [system]
-  (write-rows-csv "alemtuzumab-infusions.csv" (make-alemtuzumab-infusions system (fetch-study-patient-identifiers system))
+(defn write-alemtuzumab-infusions [f system]
+  (write-rows-csv f (make-alemtuzumab-infusions system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :dmt
                             :t_medication/medication_concept_fk
@@ -1260,8 +1264,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn write-admissions [system]
-  (write-rows-csv "patient-admissions.csv" (fetch-patient-admissions system "ADMISSION" (fetch-study-patient-identifiers system))
+(defn write-admissions [f system]
+  (write-rows-csv f (fetch-patient-admissions system "ADMISSION" (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :t_episode/date_registration
                             :t_episode/date_discharge]
@@ -1274,8 +1278,8 @@
   [system]
   (fetch-non-dmt-medications system (fetch-study-patient-identifiers system)))
 
-(defn write-non-dmt-medications [system]
-  (write-rows-csv "patient-non-dmt-medications.csv" (make-non-dmt-medications system)
+(defn write-non-dmt-medications [f system]
+  (write-rows-csv f (make-non-dmt-medications system)
                   :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
                             :t_medication/date_from :t_medication/date_to :nm :atc
                             :anti-hypertensive :antidepressant :anti-retroviral :statin :anti-platelet :immunosuppressant
@@ -1287,8 +1291,8 @@
   (mapcat identity (vals (ms-events-for-patients system (fetch-study-patient-identifiers system)))))
 
 (defn write-ms-events
-  [system]
-  (write-rows-csv "patient-ms-events.csv" (make-ms-events-table system)
+  [filename system]
+  (write-rows-csv filename (make-ms-events-table system)
                   :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event/is_relapse :t_ms_event_type/name]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_ms_event_type/abbreviation "type"
@@ -1298,8 +1302,8 @@
 (defn make-diagnoses-table [system]
   (all-patient-diagnoses system (fetch-study-patient-identifiers system)))
 
-(defn write-diagnoses [system]
-  (write-rows-csv "patient-diagnoses.csv" (make-diagnoses-table system)
+(defn write-diagnoses [f system]
+  (write-rows-csv f (make-diagnoses-table system)
                   :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk
                             :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
                             :icd10
@@ -1331,8 +1335,8 @@
 (defn make-edss-table [system]
   (mapcat identity (vals (edss-scores system (fetch-study-patient-identifiers system)))))
 
-(defn write-edss [system]
-  (write-rows-csv "patient-edss.csv" (make-edss-table system)
+(defn write-edss [f system]
+  (write-rows-csv f (make-edss-table system)
                   :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score
                             :t_ms_disease_course/type :t_ms_disease_course/name
                             :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
@@ -1348,8 +1352,8 @@
   (->> (mapcat #(fetch-results-for-patient system %) (fetch-study-patient-identifiers system))
        (map #(select-keys % [:t_patient/patient_identifier :t_result/date :t_result_type/name]))))
 
-(defn write-results [system]
-  (write-rows-csv "patient-results.csv" (make-results-table system)
+(defn write-results [f system]
+  (write-rows-csv f (make-results-table system)
                   :columns [:t_patient/patient_identifier :t_result/date :t_result_type/name]
                   :title-fn {:t_patient/patient_identifier "patient_id"
                              :t_result/date                "date"
@@ -1360,8 +1364,8 @@
   (->> (mapcat identity (vals (fetch-weight-height system (fetch-study-patient-identifiers system))))
        (map #(update % :t_encounter/date_time to-local-date))))
 
-(defn write-weight-height [system]
-  (write-rows-csv "patient-weight.csv" (make-weight-height-table system)
+(defn write-weight-height [f system]
+  (write-rows-csv f (make-weight-height-table system)
                   :columns [:t_patient/patient_identifier :t_encounter/date_time
                             :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
                             :body_mass_index]
@@ -1369,16 +1373,16 @@
                              :t_encounter/date_time        "date"}))
 
 
-(defn write-jc-virus [system]
-  (write-rows-csv "patient-jc-virus.csv" (jc-virus-for-patients system (fetch-study-patient-identifiers system))
+(defn write-jc-virus [f system]
+  (write-rows-csv f (jc-virus-for-patients system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :t_result_jc_virus/date
                             :t_result_jc_virus/jc_virus
                             :t_result_jc_virus/titre]
                   :title-fn {:t_patient/patient_identifier "patient_id"}))
 
-(defn write-mri-brain [system]
-  (write-rows-csv "patient-mri-brain.csv" (mri-brains-for-patients system (fetch-study-patient-identifiers system))
+(defn write-mri-brain [f system]
+  (write-rows-csv f (mri-brains-for-patients system (fetch-study-patient-identifiers system))
                   :columns [:t_patient/patient_identifier
                             :t_result_mri_brain/date
                             :t_result_mri_brain/id
@@ -1424,33 +1428,37 @@
 
 (defn write-data [system]
   (log/info "writing patient core data")
-  (write-patients-table system)
+  (write-patients-table "patients.csv" system)
   (log/info "writing ms events")
-  (write-ms-events system)
+  (write-ms-events "patient-ms-events.csv" system)
   (log/info "writing dmt medications")
-  (write-raw-dmt-medications-table system)
+  (write-raw-dmt-medications-table "patient-raw-dmt-medications.csv" system)
   (log/info "writing dmt regimens")
-  (write-dmt-regimens-table system)
+  (write-dmt-regimens-table "patient-dmt-regimens.csv" system)
   (log/info "writing alemtuzumab infusions")
-  (write-alemtuzumab-infusions system)
+  (write-alemtuzumab-infusions "alemtuzumab-infusions.csv" system)
   (log/info "writing non dmt medications")
-  (write-non-dmt-medications system)
+  (write-non-dmt-medications "patient-non-dmt-medications.csv" system)
   (log/info "writing diagnoses")
-  (write-diagnoses system)
+  (write-diagnoses "patient-diagnoses.csv" system)
   (log/info "writing edss scores")
-  (write-edss system)
+  (write-edss "patient-edss.csv" system)
   (log/info "writing adiposity")
-  (write-weight-height system)
+  (write-weight-height "patient-weight.csv" system)
   (log/info "writing JC virus")
-  (write-jc-virus system)
+  (write-jc-virus "patient-jc-virus.csv" system)
   (log/info "writing MRI brain")
-  (write-mri-brain system)
+  (write-mri-brain "patient-mri-brain.csv" system)
   (log/info "writing investigation results")
-  (write-results system)
+  (write-results "patient-results.csv" system)
   (log/info "writing admissions")
-  (write-admissions system)
+  (write-admissions "patient-admissions.csv" system)
   (log/info "writing metadata")
-  (spit "metadata.json" (json/write-str (make-metadata system)))
+  (with-open [writer (io/writer "metadata.json")]
+    (json/write (make-metadata system) writer))
+  (log/info "writing problem report")
+  (with-open [writer (io/writer "problems.json")]
+    (json/write (make-problem-report system) writer))
   (log/info "writing medication codes")
   (csv/write-csv (io/writer "medication-codes.csv")
                  (->> (expand-codelists system flattened-study-medications)
@@ -1472,7 +1480,10 @@
 (s/def ::export-options (s/keys :req-un [::profile]))
 
 (defn export
-  "Run "
+  "Export research data. Run as:
+  ```
+  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx
+  ```"
   [{:keys [profile] :as opts}]
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
@@ -1487,7 +1498,7 @@
 (comment
   (def system (pc4/init :dev [:pathom/env]))
   (time (write-data system))
-  (write-patients-table system)
+  (write-patients-table "patients.csv" system)
   (write-weight-height system)
   (write-ms-events system)
   (write-non-dmt-medications system)
