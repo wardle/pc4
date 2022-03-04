@@ -8,6 +8,8 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.clods.core :as clods]
+            [com.eldrix.concierge.wales.cav-pms :as cav]
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
@@ -23,7 +25,8 @@
             [next.jdbc.plan :as plan]
             [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
-            [com.eldrix.pc4.server.rsdb.results :as results])
+            [com.eldrix.pc4.server.rsdb.results :as results]
+            [com.eldrix.clods.core :as clods])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
@@ -1470,8 +1473,83 @@
                       (mapcat #(map (fn [concept-id] (vector (:id %) concept-id (:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) concept-id))))
                                     (:codes %))))))
 
+(defn fetch-patient-hospitals
+  [{conn :com.eldrix.rsdb/conn} patient-ids]
+  (db/execute! conn (sql/format {:select [:t_patient/patient_identifier :sex :date_birth :date_death :first_names :last_name
+                                          :t_patient/authoritative_demographics :t_patient/authoritative_last_updated
+                                          :t_patient_hospital/authoritative :t_patient_hospital/hospital_fk
+                                          :t_patient_hospital/patient_identifier]
+                                 :from   [:t_patient_hospital :t_patient]
+                                 :where  [:and
+                                          [:= :t_patient.id :t_patient_hospital/patient_fk]
+                                          [:in :t_patient/patient_identifier patient-ids]]})))
 
-(comment)
+(s/fdef fetch-cav-patients
+  :args (s/cat :system any? :patients (s/coll-of (s/keys :req [:t_patient_hospital/hospital_fk :t_patient_hospital/patient_identifier]))))
+(defn fetch-cav-patients
+  "Given a sequence of t_patient_hospital maps, adds data from CAV PMS if the
+  hospital is one linked to CAVUHB."
+  [{pms :wales.nhs.cav/pms clods :com.eldrix/clods} patients]
+  (let [cavuhb (clods/fetch-org clods nil "7A4")
+        fetch-org (memoize clods/fetch-org)]
+    (->> patients
+         (map (fn [{ :t_patient_hospital/keys [hospital_fk patient_identifier] :as patient-hospital}]
+                (if (and pms (clods/related? clods (fetch-org clods nil hospital_fk) cavuhb))
+                  (let [pt (cav/fetch-patient-by-crn pms patient_identifier)]
+                    (Thread/sleep 500)
+                    (assoc patient-hospital
+                      :cav/crn (:HOSPITAL_ID pt)
+                     :cav/first-names (str/join " " (remove nil? [ (:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
+                     :cav/last-name (:LAST_NAME pt)
+                     :cav/date-birth (:DATE_BIRTH pt)
+                     :cav/date-death (:DATE_DEATH pt)
+                     :cav/nnn (:NHS_NUMBER pt)))
+                  patient-hospital))))))
+
+
+(comment
+  (def system (pc4/init :dev [:pathom/env]))
+  (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system)))
+  (fetch-cav-patients system (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system))))
+  (->> (group-by :t_patient/patient_identifier (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system))))
+       (map (fn [[patient-identifier v]]
+              (let [pt (first v)]
+                (vector patient-identifier
+                        (:t_patient/date_birth pt)
+                        (:t_patient/date_death pt)
+                        (:t_patient/first_names pt)
+                        (:t_patient/last_name pt)
+                        (:t_patient/authoritative_demographics pt)
+                        (:t_patient/authoritative_last_updated pt))))))
+  (def patients (group-by :t_patient/patient_identifier (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system)))))
+  (def cav (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7A4"))
+  cav)
+
+
+(defn make-demographics-report
+  "Create a report for each patient documenting demographic status.
+  If a live Cardiff PMS service is available, and the patient has a CAV
+  identifier, then their demographics will also be validated.
+
+  There are several checks to be made.
+  First, all patients should be using an authoritative demographic source.
+  We need to identify the following patients:
+  1. Patients with a LOCAL demographic source but a valid Cardiff CRN."
+  [{pms :wales.nhs.cav/pms clods :com.eldrix/clods :as system} patient-ids]
+  (let [patients (fetch-patient-hospitals system patient-ids)
+        cav-uhb (clods/fetch-org clods nil "7A4")
+        fetch-org (memoize clods/fetch-org)]
+    (->> patients
+         (map #(if (:t_patient_hospital/hospital_fk %)
+                 (assoc % :cav? (boolean (clods/related? clods (fetch-org clods nil (:t_patient_hospital/hospital_fk %)) cav-uhb))) %)))))
+
+
+
+
+(comment
+  (def system (pc4/init :dev [:pathom/env]))
+  (make-demographics-report system (take 10 (fetch-study-patient-identifiers system))))
+
 
 
 
