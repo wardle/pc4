@@ -1489,28 +1489,32 @@
 (defn fetch-cav-patients
   "Given a sequence of t_patient_hospital maps, adds data from CAV PMS if the
   hospital is one linked to CAVUHB."
-  [{pms :wales.nhs.cav/pms clods :com.eldrix/clods} patients]
-  (let [cavuhb (clods/fetch-org clods nil "7A4")
-        fetch-org (memoize clods/fetch-org)]
-    (->> patients
-         (map (fn [{ :t_patient_hospital/keys [hospital_fk patient_identifier] :as patient-hospital}]
-                (if (and pms (clods/related? clods (fetch-org clods nil hospital_fk) cavuhb))
-                  (let [pt (cav/fetch-patient-by-crn pms patient_identifier)]
-                    (Thread/sleep 500)
-                    (assoc patient-hospital
-                      :cav/crn (:HOSPITAL_ID pt)
-                     :cav/first-names (str/join " " (remove nil? [ (:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
-                     :cav/last-name (:LAST_NAME pt)
-                     :cav/date-birth (:DATE_BIRTH pt)
-                     :cav/date-death (:DATE_DEATH pt)
-                     :cav/nnn (:NHS_NUMBER pt)))
-                  patient-hospital))))))
+  [{pms :wales.nhs.cavuhb/pms clods :com.eldrix/clods} patients]
+  (if-not pms
+    patients
+    (let [cavuhb (clods/fetch-org clods nil "7A4")
+          fetch-org (memoize clods/fetch-org)]
+      (->> patients
+           (map (fn [{:t_patient_hospital/keys [hospital_fk patient_identifier] :as patient-hospital}]
+                  (if (clods/related? clods (fetch-org clods nil hospital_fk) cavuhb)
+                    (let [pt (cav/fetch-patient-by-crn pms patient_identifier)]
+                      (Thread/sleep 500)
+                      (assoc patient-hospital
+                             :cav/crn (:HOSPITAL_ID pt)
+                             :cav/first-names (str/join " " (remove nil? [(:FIRST_FORENAME pt) (:SECOND_FORENAME pt) (:OTHER_FORENAMES pt)]))
+                             :cav/last-name (:LAST_NAME pt)
+                             :cav/date-birth (:DATE_BIRTH pt)
+                             :cav/date-death (:DATE_DEATH pt)
+                             :cav/nnn (:NHS_NUMBER pt)))
+                    patient-hospital)))))))
 
 
 (comment
-  (def system (pc4/init :dev [:pathom/env]))
-  (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system)))
-  (fetch-cav-patients system (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system))))
+  (:wales.nhs.cavuhb/pms system)
+  (def system (pc4/init :cvx [:pathom/env :wales.nhs.cavuhb/pms]))
+  (cav/fetch-patient-by-crn (:wales.nhs.cavuhb/pms system) "A706596")
+  (fetch-patient-hospitals system (take 2 (fetch-study-patient-identifiers system)))
+  (fetch-cav-patients system (fetch-patient-hospitals system (take 2 (fetch-study-patient-identifiers system))))
   (->> (group-by :t_patient/patient_identifier (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system))))
        (map (fn [[patient-identifier v]]
               (let [pt (first v)]
@@ -1547,8 +1551,10 @@
 
 
 (comment
-  (def system (pc4/init :dev [:pathom/env]))
-  (make-demographics-report system (take 10 (fetch-study-patient-identifiers system))))
+  (def system (pc4/init :cvx [:pathom/env :wales.nhs.cav/pms]))
+  (require '[clojure.pprint :refer [pprint]])
+  (pprint (make-demographics-report system (take 10 (fetch-study-patient-identifiers system))))
+  )
 
 
 
