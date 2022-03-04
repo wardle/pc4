@@ -1491,10 +1491,11 @@
 
 (defn fetch-patient-hospitals
   [{conn :com.eldrix.rsdb/conn} patient-ids]
-  (db/execute! conn (sql/format {:select [:t_patient/patient_identifier :sex :date_birth :date_death :first_names :last_name
+  (db/execute! conn (sql/format {:select [:t_patient/patient_identifier :sex :nhs_number :date_birth :date_death :first_names :last_name
                                           :t_patient/authoritative_demographics :t_patient/authoritative_last_updated
+                                          :t_patient_hospital/id
                                           :t_patient_hospital/authoritative :t_patient_hospital/hospital_fk
-                                          :t_patient_hospital/patient_identifier]
+                                          :t_patient_hospital/patient_identifier ]
                                  :from   [:t_patient_hospital :t_patient]
                                  :where  [:and
                                           [:= :t_patient.id :t_patient_hospital/patient_fk]
@@ -1521,9 +1522,17 @@
                         :cav/last-name (:LAST_NAME pt)
                         :cav/date-birth (:DATE_BIRTH pt)
                         :cav/date-death (:DATE_DEATH pt)
-                        :cav/nnn (:NHS_NUMBER pt)))
-                    patient-hospital)))))))
-
+                        :cav/nnn (:NHS_NUMBER pt)
+                        :cav/sex (get {"F" :FEMALE "M" :MALE} (:SEX pt) ))
+                    patient-hospital))))))))
+  
+(defn matching-cav-demog? [{:cav/keys [crn first-names last-name date-birth sex nnn]
+                            :t_patient/keys [first_names last_name date_birth sex nhs_number] :as pt}]
+  (and (:cav/crn pt)
+       (= (:cav/date-birth pt) (:t_patient/date_birth pt))
+       (= (:cav/sex pt) (:t_patient/sex pt))
+       (= (:cav/last-name pt) (:t_patient/last_name pt))))
+  
 (defn check-demographics
   "Check demographics report. Run as
   ```
@@ -1534,11 +1543,23 @@
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [system (pc4/init profile [:pathom/env :wales.nhs.cavuhb/pms])
         local-patient-ids (patients-with-local-demographics system)
-        patient-hospitals (fetch-patient-hospitals system local-patient-ids)]
-    (write-rows-csv "CAV_demographics.csv"
-                    (fetch-cav-patients system patient-hospitals))))
+        patient-hospitals (fetch-patient-hospitals system local-patient-ids)
+        cav-patients (fetch-cav-patients system patient-hospitals)
+        to-update (filter matching-cav-demog? cav-patients)]
+    (write-rows-csv "CAV_demographics.csv" to-update)
+    (doseq [patient cav-patients]
+      (if (matching-cav-demog? patient)
+        (println "Would update " patient)
+        (println "Would NOT update " patient)))))
+
+
 
 (comment
+
+  (def local-patient-ids (patients-with-local-demographics system))
+  (def cav-patients (fetch-cav-patients system (fetch-patient-hospitals system local-patient-ids)))
+  cav-patients
+  (keys (first cav-patients))
   (:wales.nhs.cavuhb/pms system)
   (def system (pc4/init :cvx [:pathom/env :wales.nhs.cavuhb/pms]))
   (cav/fetch-patient-by-crn (:wales.nhs.cavuhb/pms system) "A706596")
@@ -1556,7 +1577,8 @@
                         (:t_patient/authoritative_last_updated pt))))))
   (def patients (group-by :t_patient/patient_identifier (fetch-patient-hospitals system (take 10 (fetch-study-patient-identifiers system)))))
   (def cav (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7A4"))
-  cav)
+  cav
+  )
 
 
 (defn make-demographics-report
