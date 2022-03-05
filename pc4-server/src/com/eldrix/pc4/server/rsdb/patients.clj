@@ -15,8 +15,6 @@
 (s/def ::clods #(satisfies? clods/ODS %))
 (s/def ::conn identity)
 
-(s/fdef fetch-patient-addresses
-        :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 
 (s/fdef set-cav-authoritative-demographics!
   :args (s/cat :clods ::clods
@@ -61,6 +59,9 @@
         (jdbc/execute-one! tx (sql/format {:update :t_patient_hospital
                                            :set    {:authoritative false}
                                            :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
+
+(s/fdef fetch-patient-addresses
+  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 (defn fetch-patient-addresses
   "Returns patient addresses."
   [conn {patient-pk :t_patient/id}]
