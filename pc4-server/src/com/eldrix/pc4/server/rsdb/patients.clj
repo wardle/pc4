@@ -7,16 +7,60 @@
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.clods.core :as clods]
-            [clojure.spec.alpha :as s])
-  (:import (java.time LocalDate LocalDateTime)
-           (javax.sql DataSource)))
+            [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [com.eldrix.clods.core :as clods])
+  (:import (java.time LocalDate LocalDateTime)))
 
+(s/def ::clods #(satisfies? clods/ODS %))
 (s/def ::conn identity)
 
 (s/fdef fetch-patient-addresses
         :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 
+(s/fdef set-cav-authoritative-demographics!
+  :args (s/cat :clods ::clods
+               :conn ::conn
+               :pt (s/keys :req [:t_patient/id])
+               :ph (s/keys :req [:t_patient_hospital/id
+                                 :t_patient_hospital/patient_fk
+                                 (or :t_patient_hospital/hospital_fk :t_patient_hospital/hospital_identifier)
+                                 :t_patient_hospital/patient_identifier])))
+(defn set-cav-authoritative-demographics!
+  "Set the authoritative source of demographics for a patient.
+  This will be deprecated in the future and can only be used to use CAVUHB as
+  the authoritative source for demographics data for the patient specified.
+  Parameters:
+  - ods  - 'clods' organisational data services instance
+  - conn - database connection
+  - pt   - patient, with key :t_patient/id
+  - ph   - patient-hospital, with keys referencing hospital and patient identifier"
+  [ods conn
+   {patient-pk :t_patient/id :as pt}
+   {ph-id                    :t_patient_hospital/id
+    crn                      :t_patient_hospital/patient_identifier
+    :t_patient_hospital/keys [patient_fk hospital_fk hospital_identifier] :as ph}]
+  (when-not (= patient-pk patient_fk)
+    (throw (ex-info "Mismatch between patient ids:" {:patient pt :patient-hospital ph})))
+  (when (str/blank? crn)
+    (throw (ex-info "Missing hospital number " ph)))
+  (let [org (clods/fetch-org ods nil (or hospital_fk (last (str/split hospital_identifier #"\|"))))
+        cavuhb (clods/fetch-org ods nil "7A4")]
+    (if-not (clods/related? ods org cavuhb)
+      (throw (ex-info "Invalid organisation. Must be CAVUHB." {:patient ph :org org}))
+      (jdbc/with-transaction [tx conn]
+        ;; first, set patient record so it uses an authority for demographics
+        (jdbc/execute-one! tx (sql/format {:update :t_patient
+                                           :set    {:authoritative_demographics "CAVUHB"}
+                                           :where  [:= :id patient-pk]}))
+        ;; next, set the patient_hospital record to be authoritative
+        (jdbc/execute-one! tx (sql/format {:update :t_patient_hospital
+                                           :set    {:authoritative true}
+                                           :where  [:and [:= :id ph-id] [:= :patient_fk patient-pk]]}))
+        ;; and finally, ensure all other hospital numbers are not authoritative
+        (jdbc/execute-one! tx (sql/format {:update :t_patient_hospital
+                                           :set    {:authoritative false}
+                                           :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
 (defn fetch-patient-addresses
   "Returns patient addresses."
   [conn {patient-pk :t_patient/id}]
