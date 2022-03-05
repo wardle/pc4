@@ -90,13 +90,37 @@
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
                                         :t_patient_hospital/patient_identifier
                                         :t_patient_hospital/authoritative]}]}
-  {:t_patient/hospitals (db/execute! conn (sql/format {:select [:*]
-                                                       :from   [:t_patient_hospital]
-                                                       :where  [:= :patient_fk patient-id]}))})
+  {:t_patient/hospitals (vec (db/execute! conn (sql/format {:select [:*]
+                                                            :from   [:t_patient_hospital]
+                                                            :where  [:= :patient_fk patient-id]})))})
 
-(pco/defresolver patient-hospital->hospital
+(pco/defresolver patient-hospital->flat-hospital
   [{hospital_fk :t_patient_hospital/hospital_fk}]
+  {::pco/input  [:t_patient_hospital/hospital_fk]
+   ::pco/output [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}
+  {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk})
+
+(pco/defresolver patient-hospital->nested-hospital
+  [{hospital_fk :t_patient_hospital/hospital_fk}]
+  {::pco/input  [:t_patient_hospital/hospital_fk]
+   ::pco/output [{:t_patient_hospital/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   {:t_patient_hospital/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
+
+(pco/defresolver patient-hospital->hospital-crn
+  "Resolves a valid namespaced hospital identifier based on the combination of
+  the hospital and the identifier within the :t_patient_hospital data.
+  Currently, this only supports CAVUHB, but it would be straightforward to
+  support other demographic sources here."
+  [{clods :com.eldrix/clods} {hospital_fk :t_patient_hospital/hospital_fk
+                              crn         :t_patient_hospital/patient_identifier :as params}]
+  {::pco/input  [:t_patient_hospital/hospital_fk
+                 :t_patient_hospital/patient_identifier]
+   ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]
+   (let [org (clods/fetch-org clods nil hospital_fk)        ;; we directly make use of the injected clods service here
+         cavuhb (clods/fetch-org clods nil "7A4")]
+     (cond
+       (clods/related? clods org cavuhb)                    ;; Is this a hospital within Cardiff and Vale UHB?
+       {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}))})
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
@@ -1064,7 +1088,9 @@
 (def all-resolvers
   [patient-by-identifier
    patient->hospitals
-   patient-hospital->hospital
+   patient-hospital->flat-hospital
+   patient-hospital->nested-hospital
+   patient-hospital->hospital-crn
    patient->country-of-birth
    patient->ethnic-origin
    patient->racial-group

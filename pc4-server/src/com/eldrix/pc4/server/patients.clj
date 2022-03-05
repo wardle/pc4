@@ -58,8 +58,8 @@
                                   :DATE_FROM (LocalDate/of 2019 01 01) :DATE_TO nil}]}})
 
 (defn add-namespace-cav-patient [pt]
-  (assoc (record->map "wales.nhs.cavuhb.Patient" pt)
-    :wales.nhs.cavuhb.Patient/ADDRESSES (map #(record->map "wales.nhs.cavuhb.Address" %) (:ADDRESSES pt))))
+  (when pt (assoc (record->map "wales.nhs.cavuhb.Patient" pt)
+             :wales.nhs.cavuhb.Patient/ADDRESSES (map #(record->map "wales.nhs.cavuhb.Address" %) (:ADDRESSES pt)))))
 
 (pco/defmutation fetch-cav-patient
   "Fetch patient details from the Cardiff and Vale PAS.
@@ -77,7 +77,7 @@
   [{config :wales.nhs.cavuhb/pms} {:keys [system value]}]
   {::pco/op-name 'wales.nhs.cavuhb/fetch-patient
    ::pco/output  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
-                  :wales.nhs.cavuhb.Patient/NHS_NO
+                  :wales.nhs.cavuhb.Patient/NHS_NUMBER
                   :wales.nhs.cavuhb.Patient/LAST_NAME
                   :wales.nhs.cavuhb.Patient/FIRST_NAMES
                   :wales.nhs.cavuhb.Patient/DATE_BIRTH
@@ -91,17 +91,29 @@
     (empty? config)
     (do
       (log/info "generating fake patient for cavuhb: " system value)
-      (when-let [pt (get (fake-cav-patients) (str/upper-case value))]
-        (add-namespace-cav-patient pt)))
+      (add-namespace-cav-patient (get (fake-cav-patients) (str/upper-case value))))
 
     (or (= system :wales.nhs.cavuhb.id/pas-identifier) (= system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier"))
-    (when-let [pt (cavpms/fetch-patient-by-crn config value)]
-      (add-namespace-cav-patient pt))
+    (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config value))
 
     (or (= system :uk.nhs.id/nhs-number) (= system "https://fhir.nhs.uk/Id/nhs-number"))
-    (when-let [pt (cavpms/fetch-patient-by-nnn config value)]
-      (add-namespace-cav-patient pt))))
+    (add-namespace-cav-patient (cavpms/fetch-patient-by-nnn config value))))
 
+
+(pco/defresolver resolve-cav-patient
+  [{config :wales.nhs.cavuhb/pms} {crn :wales.nhs.cavuhb.Patient/HOSPITAL_ID}]
+  {::pco/input  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]
+   ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
+                 :wales.nhs.cavuhb.Patient/NHS_NUMBER
+                 :wales.nhs.cavuhb.Patient/LAST_NAME
+                 :wales.nhs.cavuhb.Patient/FIRST_NAMES
+                 :wales.nhs.cavuhb.Patient/DATE_BIRTH
+                 :wales.nhs.cavuhb.Patient/DATE_DEATH
+                 :wales.nhs.cavuhb.Patient/TITLE
+                 :wales.nhs.cavuhb.Patient/GPPR_ID
+                 :wales.nhs.cavuhb.Patient/GP_ID]}
+  (log/info "cavuhb resolve patient: " {:config config :crn crn})
+  (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config crn)))
 
 (pco/defresolver cav->fhir-identifiers
   [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER HOSPITAL_ID]}]
@@ -242,6 +254,7 @@
         (when-not (str/blank? TITLE) (str " (" TITLE ")")))})
 
 (def all-resolvers [fetch-cav-patient
+                    resolve-cav-patient
                     cav->fhir-identifiers
                     cav->fhir-names
                     cav->fhir-gender
