@@ -70,6 +70,9 @@
                                  :where    [:= :patient_fk patient-pk]
                                  :order-by [[:date_to :desc] [:date_from :desc]]})))
 
+(s/fdef address-for-date
+  :args (s/cat :addresses (s/coll-of (s/keys :req [:t_address/date_from :t_address/date_to]))
+               :on-date (s/? #(instance? LocalDate %))))
 (defn address-for-date
   "Determine the address on a given date, the current date if none given."
   ([sorted-addresses]
