@@ -135,7 +135,7 @@
 
 (pco/defresolver cav->fhir-deceased
   [{DATE_DEATH :wales.nhs.cavuhb.Patient/DATE_DEATH}]
-  {:org.hl7.fhir.Patient/deceased DATE_DEATH})
+  {:org.hl7.fhir.Patient/deceased (boolean DATE_DEATH)})
 
 (defn make-cav-fhir-address
   [{:wales.nhs.cavuhb.Address/keys [ADDRESS1 ADDRESS2 ADDRESS3 ADDRESS4 POSTCODE DATE_FROM DATE_TO]}]
