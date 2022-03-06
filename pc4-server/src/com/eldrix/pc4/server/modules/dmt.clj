@@ -27,7 +27,8 @@
             [com.eldrix.pc4.server.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
-            [next.jdbc.plan :as plan])
+            [next.jdbc.plan :as plan]
+            [clojure.spec.test.alpha :as stest])
   (:import (java.time LocalDate LocalDateTime Period Duration)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
@@ -35,6 +36,16 @@
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
+
+
+(def study-centres
+  "This defines each logical centre with a list of internal 'projects' providing
+  a potential hook to create combined cohorts in the future should need arise."
+  {:cardiff   {:projects ["NINFLAMMCARDIFF"]}
+   :cambridge {:projects ["CAMBRDIGEMS"]}
+   :plymouth  {:projects ["PLYMOUTH"]}})
+
+(s/def ::centre (set (keys study-centres)))
 
 (def study-medications
   "A list of interesting drugs for studies of multiple sclerosis.
@@ -1006,7 +1017,7 @@
   (let [columns' (or columns (keys (first rows)))
         headers (mapv #(or (title-fn %) (name %)) columns')]
     (with-open [writer (io/writer out)]
-      (csv/write-csv writer (into [headers] (mapv #(mapv % columns') rows))))))
+      (csv/write-csv writer (into [headers] (map (fn [row] (mapv (fn [col] (col row)) columns')) rows))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1029,22 +1040,13 @@
         all-patients-pks (patients/patient-pks-in-projects conn all-project-ids)]
     (patients/pks->identifiers conn all-patients-pks)))
 
-(def study-centres
-  "This defines each logical centre with a list of internal 'projects' providing
-  a potential hook to create combined cohorts in the future should need arise."
-  {:cardiff   ["NINFLAMMCARDIFF"]
-   :cambridge ["CAMBRDIGEMS"]
-   :plymouth  ["PLYMOUTH"]})
-
-(s/def ::centre (set (keys study-centres)))
-
 (s/fdef fetch-study-patient-identifiers
   :args (s/cat :system any? :centre ::centre))
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
   [system centre]
   (let [all-dmts (all-he-dmt-identifiers system)]
-    (->> (fetch-project-patient-identifiers system (get study-centres centre))
+    (->> (fetch-project-patient-identifiers system (get-in study-centres [centre :projects]))
          (medications-for-patients system)
          (filter #(all-dmts (:t_medication/medication_concept_fk %)))
          (map :t_patient/patient_identifier)
@@ -1175,26 +1177,32 @@
                             :end_follow_up (or date-death (to-local-date (get latest-contacts patient-id))))
                      (dissoc :t_patient/date_birth)))))))
 
-(defn write-patients-table [filename system patient-ids]
-  (write-rows-csv filename (make-patients-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_patient/sex :year_birth :date_death
-                            :depriv_quartile :start_follow_up :end_follow_up
-                            :part1a :part1b :part1c :part2
-                            :atc :dmt :dmt_class :t_medication/date_from
-                            :exposure_days
-                            :smoking
-                            :most_recent_edss
-                            :has_multiple_sclerosis
-                            :onset
-                            :date_edss_4
-                            :nc_time_edss_4
-                            :disease_duration_years
-                            :nc_relapses
-                            :n_prior_he_dmts :n_prior_platform_dmts
-                            :first_use :switch?]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_medication/date_from       "cohort_entry_date"
-                             :switch?                      "switch"}))
+(s/fdef write-patients-table
+  :args (s/cat :filename any? :system any? :centre ::centre :patient-ids (s/coll-of pos-int?)))
+(defn write-patients-table [filename system centre patient-ids]
+  (let [centre-fn (constantly (name centre))]
+    (write-rows-csv filename (make-patients-table system patient-ids)
+                    :columns [:t_patient/patient_identifier
+                              centre-fn
+                              :t_patient/sex :year_birth :date_death
+                              :depriv_quartile :start_follow_up :end_follow_up
+                              :part1a :part1b :part1c :part2
+                              :atc :dmt :dmt_class :t_medication/date_from
+                              :exposure_days
+                              :smoking
+                              :most_recent_edss
+                              :has_multiple_sclerosis
+                              :onset
+                              :date_edss_4
+                              :nc_time_edss_4
+                              :disease_duration_years
+                              :nc_relapses
+                              :n_prior_he_dmts :n_prior_platform_dmts
+                              :first_use :switch?]
+                    :title-fn {:t_patient/patient_identifier "patient_id"
+                               centre-fn                     "centre"
+                               :t_medication/date_from       "cohort_entry_date"
+                               :switch?                      "switch"})))
 
 
 
@@ -1445,7 +1453,7 @@
 (defn write-data [system centre]
   (let [patient-ids (fetch-study-patient-identifiers system centre)]
     (log/info "writing patient core data")
-    (write-patients-table "patients.csv" system patient-ids)
+    (write-patients-table "patients.csv" system centre patient-ids)
     (log/info "writing ms events")
     (write-ms-events "patient-ms-events.csv" system patient-ids)
     (log/info "writing dmt medications")
@@ -1500,7 +1508,9 @@
 
 
 (def ^:private demographic-eql
-  [:t_patient/id :t_patient/first_names
+  [:t_patient/id
+   :t_patient/patient_identifier
+   :t_patient/first_names
    :t_patient/last_name :t_patient/nhs_number
    :t_patient/authoritative_demographics
    :t_patient/authoritative_last_updated
@@ -1530,15 +1540,6 @@
         (assoc :potential-authoritative-demographics
                (first (filter :demographic-match (:t_patient/hospitals pt)))))))
 
-(comment
-  (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
-  (pc4/halt! system)
-  (keys system)
-  (write-data system :cardiff)
-  (check-patient-demographics system 13189)
-  (cav/fetch-patient-by-crn (:wales.nhs.cavuhb/pms system) "A706596"))
-
-
 (s/def ::profile keyword?)
 (s/def ::export-options (s/keys :req-un [::profile]))
 
@@ -1565,8 +1566,24 @@
   (let [system (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
         patient-ids (fetch-study-patient-identifiers system centre)
         local-patient-ids (patients-with-local-demographics system patient-ids)
-        patients (map #(check-patient-demographics system % :sleep-millis 500) local-patient-ids)]))
-
+        patients (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)) local-patient-ids)]
+    (->> patients
+         (map #(hash-map
+                 :patient_id (:t_patient/patient_identifier %)
+                 :first_names (:t_patient/first_names %)
+                 :last_name (:t_patient/last_name %)
+                 :date_birth (:t_patient/date_birth %)
+                 :nhs_number (:t_patient/nhs_number %)
+                 :demog (:t_patient/authoritative_demographics %)
+                 :match_org (get-in % [:potential-authoritative-demographics :t_patient_hospital/hospital_fk])
+                 :crn (get-in % [:potential-authoritative-demographics :t_patient_hospital/patient_identifier])
+                 :cav_match (boolean (get-in % [:potential-authoritative-demographics :demographic-match]))
+                 :cav_crn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/HOSPITAL_ID])
+                 :cav_nnn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/NHS_NUMBER])
+                 :cav_dob (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/DATE_BIRTH])
+                 :cav_fname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/FIRST_NAMES])
+                 :cav_lname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/LAST_NAME])))
+         (write-rows-csv "cav-demog-check.csv"))))
 
 ;;;
 ;;; Write out data
@@ -1574,12 +1591,15 @@
 ;;; zip
 
 (comment
-  (def system (pc4/init :dev [:pathom/boundary-interface]))
+  (clojure.spec.test.alpha/instrument)
+  (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
+  (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
-  (time (write-data system patient-ids))
-  (write-patients-table "patients.csv" system patient-ids)
+  (time (write-data system :cardiff))
+  (write-patients-table "patients.csv" system :cardiff patient-ids)
   (write-non-dmt-medications "patient-non-dmt-medications.csv" system patient-ids)
   (spit "metadata.json" (json/write-str (make-metadata system)))
+  (check-patient-demographics system 13189)
 
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
