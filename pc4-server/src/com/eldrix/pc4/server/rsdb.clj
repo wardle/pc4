@@ -109,18 +109,22 @@
 (pco/defresolver patient-hospital->hospital-crn
   "Resolves a valid namespaced hospital identifier based on the combination of
   the hospital and the identifier within the :t_patient_hospital data.
-  Currently, this only supports CAVUHB, but it would be straightforward to
-  support other demographic sources here."
+  As this resolves to a local hospital CRN, clients can then resolve FHIR
+  properties against this record to fetch FHIR-flavoured data.
+  TODO: switch to using a parameterised resolver to check relationship"
   [{clods :com.eldrix/clods} {hospital_fk :t_patient_hospital/hospital_fk
                               crn         :t_patient_hospital/patient_identifier :as params}]
   {::pco/input  [:t_patient_hospital/hospital_fk
                  :t_patient_hospital/patient_identifier]
-   ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]
-   (let [org (clods/fetch-org clods nil hospital_fk)        ;; we directly make use of the injected clods service here
-         cavuhb (clods/fetch-org clods nil "7A4")]
-     (cond
-       (clods/related? clods org cavuhb)                    ;; Is this a hospital within Cardiff and Vale UHB?
-       {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}))})
+   ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
+  (let [org (clods/fetch-org clods nil hospital_fk)]        ;; we directly make use of the injected clods service here
+    (cond                                                   ;; but ideally this would be itself a resolver
+      ;; Is this a hospital within Cardiff and Vale UHB?
+      (clods/related? clods org (clods/fetch-org clods nil "7A4"))
+      {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}
+      ;; Is this a hospital within Aneurin Bevan UHB?
+      (clods/related? clods org (clods/fetch-org clods nil "7A6"))
+      {:wales.nhs.abuhb.Patient/CRN crn})))
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
