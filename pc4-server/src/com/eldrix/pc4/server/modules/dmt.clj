@@ -41,9 +41,9 @@
 (def study-centres
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
-  {:cardiff   {:projects ["NINFLAMMCARDIFF"]}
-   :cambridge {:projects ["CAMBRDIGEMS"]}
-   :plymouth  {:projects ["PLYMOUTH"]}})
+  {:cardiff   {:projects ["NINFLAMMCARDIFF"] :prefix "CF"}
+   :cambridge {:projects ["CAMBRDIGEMS" :prefix "CB"]}
+   :plymouth  {:projects ["PLYMOUTH" :prefix "PL"]}})
 
 (s/def ::centre (set (keys study-centres)))
 
@@ -1004,19 +1004,32 @@
                       (fetch-drug' system (:t_medication/medication_concept_fk %))
                       (drug-fn [(:t_medication/medication_concept_fk %)]))))))
 
-(defn write-rows-csv
-  "Write a collection of maps ('rows') to a CSV file. Parameters:
-  - out      : anything coercible by clojure.java.io/writer such as a filename
-  - rows     : a sequence of maps
-  - columns  : a vector of columns to write; optional.
-  - title-fn : a function (or map) to convert each column key for output; optional, default: 'name'
 
-  e.g.
-  (write-rows-csv \"wibble.csv\" [{:one 1 :two 2 :three 3}] :columns [:one :two] :title {:one \"UN\" :two \"DEUX\"})"
-  [out rows & {:keys [columns title-fn] :or {title-fn name}}]
-  (let [columns' (or columns (keys (first rows)))
-        headers (mapv #(or (title-fn %) (name %)) columns')]
-    (with-open [writer (io/writer out)]
+(s/fdef write-table
+  :args (s/cat :table (s/keys :req-un [::filename] :opt-un [::columns ::title-fn])
+               :centre ::centre
+               :data (s/coll-of map?)))
+(defn write-table
+  "Write a collection of maps ('rows') to a CSV file. Parameters:
+  - table    : a map defining the table, to include:
+    - :filename - filename to use
+    - :columns  - a vector of columns to write; optional
+    - :title-fn - a function, or map, to convert each column key for output.
+                - optional, default `name`.
+  - centre   : keyword representing centre  -
+  - data     : a sequence of maps
+
+  Injects special properties into each row:
+  - ::patient-id  : a centre prefixed patient identifier
+  - ::centre      : the centre set during export."
+  [{:keys [filename columns title-fn]} centre data]
+  (let [columns' (or columns (keys (first data)))
+        title-fn' (merge {::patient-id "patient_id" ::centre "centre"} title-fn) ;; add a default column titles
+        headers (mapv #(or (title-fn' %) (name %)) columns')
+        make-pt-id #(str (get-in study-centres [centre :prefix]) (format "%06d" %))
+        rows (map #(assoc % ::centre centre
+                            ::patient-id (make-pt-id (:t_patient/patient_identifier %))) data)]
+    (with-open [writer (io/writer filename)]
       (csv/write-csv writer (into [headers] (map (fn [row] (mapv (fn [col] (col row)) columns')) rows))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1177,34 +1190,28 @@
                             :end_follow_up (or date-death (to-local-date (get latest-contacts patient-id))))
                      (dissoc :t_patient/date_birth)))))))
 
-(s/fdef write-patients-table
-  :args (s/cat :filename any? :system any? :centre ::centre :patient-ids (s/coll-of pos-int?)))
-(defn write-patients-table [filename system centre patient-ids]
-  (let [centre-fn (constantly (name centre))]
-    (write-rows-csv filename (make-patients-table system patient-ids)
-                    :columns [:t_patient/patient_identifier
-                              centre-fn
-                              :t_patient/sex :year_birth :date_death
-                              :depriv_quartile :start_follow_up :end_follow_up
-                              :part1a :part1b :part1c :part2
-                              :atc :dmt :dmt_class :t_medication/date_from
-                              :exposure_days
-                              :smoking
-                              :most_recent_edss
-                              :has_multiple_sclerosis
-                              :onset
-                              :date_edss_4
-                              :nc_time_edss_4
-                              :disease_duration_years
-                              :nc_relapses
-                              :n_prior_he_dmts :n_prior_platform_dmts
-                              :first_use :switch?]
-                    :title-fn {:t_patient/patient_identifier "patient_id"
-                               centre-fn                     "centre"
-                               :t_medication/date_from       "cohort_entry_date"
-                               :switch?                      "switch"})))
-
-
+(def patients-table
+  {:filename "patients.csv"
+   :data-fn  make-patients-table
+   :columns  [::patient-id
+              ::centre
+              :t_patient/sex :year_birth :date_death
+              :depriv_quartile :start_follow_up :end_follow_up
+              :part1a :part1b :part1c :part2
+              :atc :dmt :dmt_class :t_medication/date_from
+              :exposure_days
+              :smoking
+              :most_recent_edss
+              :has_multiple_sclerosis
+              :onset
+              :date_edss_4
+              :nc_time_edss_4
+              :disease_duration_years
+              :nc_relapses
+              :n_prior_he_dmts :n_prior_platform_dmts
+              :first_use :switch?]
+   :title-fn {:t_medication/date_from "cohort_entry_date"
+              :switch?                "switch"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-raw-dmt-medications-table
@@ -1214,15 +1221,15 @@
        (mapcat identity)
        (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name))))
 
-(defn write-raw-dmt-medications-table
-  [filename system patient-ids]
-  (write-rows-csv filename (make-raw-dmt-medications-table system patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :t_medication/medication_concept_fk
-                            :atc :dmt :dmt_class
-                            :t_medication/date_from :t_medication/date_to
-                            :t_medication/reason_for_stopping]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+(def raw-dmt-medications-table
+  {:filename "patient-raw-dmt-medications.csv"
+   :data-fn  make-raw-dmt-medications-table
+   :columns  [::patient-id
+              :t_medication/medication_concept_fk
+              :atc :dmt :dmt_class
+              :t_medication/date_from :t_medication/date_to
+              :t_medication/reason_for_stopping]})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-regimens-table
   [system patient-ids]
@@ -1231,16 +1238,15 @@
        (mapcat identity)
        (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name))))
 
-(defn write-dmt-regimens-table
-  [f system patient-ids]
-  (write-rows-csv f (make-dmt-regimens-table system patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :t_medication/medication_concept_fk
-                            :atc :dmt :dmt-class
-                            :t_medication/date_from :t_medication/date_to :exposure_days
-                            :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :dmt-class                    "dmt_class"}))
+(def dmt-regimens-table
+  {:filename "patient-dmt-regimens.csv"
+   :data-fn  make-dmt-regimens-table
+   :columns  [::patient-id
+              :t_medication/medication_concept_fk
+              :atc :dmt :dmt-class
+              :t_medication/date_from :t_medication/date_to :exposure_days
+              :switch_from :n_prior_platform_dmts :n_prior_he_dmts]
+   :title-fn {:dmt-class "dmt_class"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1269,101 +1275,105 @@
          (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) (:t_medication/date %)]))))
          (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank)))))
 
-(defn write-alemtuzumab-infusions [f system patient-ids]
-  (write-rows-csv f (make-alemtuzumab-infusions system patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :dmt
-                            :t_medication/medication_concept_fk
-                            :atc
-                            :t_medication/date
-                            :valid
-                            :course-rank
-                            :infusion-rank]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :course-rank                  "course_rank"
-                             :infusion-rank                "infusion_rank"}))
+(def alemtuzumab-infusions-table
+  {:filename "alemtuzumab-infusions.csv"
+   :data-fn  make-alemtuzumab-infusions
+   :columns  [::patient-id
+              :dmt
+              :t_medication/medication_concept_fk
+              :atc
+              :t_medication/date
+              :valid
+              :course-rank
+              :infusion-rank]
+   :title-fn {:course-rank   "course_rank"
+              :infusion-rank "infusion_rank"}})
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn write-admissions [f system patient-ids]
-  (write-rows-csv f (fetch-patient-admissions system "ADMISSION" patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :t_episode/date_registration
-                            :t_episode/date_discharge]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_episode/date_registration  "date_from"
-                             :t_episode/date_discharge     "date_to"}))
+(def admissions-table
+  {:filename "patient-admissions.csv"
+   :data-fn  (fn [system patient-ids] (fetch-patient-admissions system "ADMISSION" patient-ids))
+   :columns  [::patient-id
+              :t_episode/date_registration
+              :t_episode/date_discharge]
+   :title-fn {:t_episode/date_registration "date_from"
+              :t_episode/date_discharge    "date_to"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
   [system patient-ids]
   (fetch-non-dmt-medications system patient-ids))
 
-(defn write-non-dmt-medications [f system patient-ids]
-  (write-rows-csv f (make-non-dmt-medications system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_medication/medication_concept_fk
-                            :t_medication/date_from :t_medication/date_to :nm :atc
-                            :anti-hypertensive :antidepressant :anti-retroviral :statin :anti-platelet :immunosuppressant
-                            :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+(def non-dmt-medications-table
+  {:filename "patient-non-dmt-medications.csv"
+   :data-fn  make-non-dmt-medications
+   :columns  [::patient-id :t_medication/medication_concept_fk
+              :t_medication/date_from :t_medication/date_to :nm :atc
+              :anti-hypertensive :antidepressant :anti-retroviral :statin :anti-platelet :immunosuppressant
+              :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic]
+   :title-fn {:anti-hypertensive     :anti_hypertensive
+              :anti-retroviral       :anti_retroviral
+              :anti-platelet         :anti_platelet
+              :proton-pump-inhibitor :proton_pump_inhibitor}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-ms-events-table [system patient-ids]
   (mapcat identity (vals (ms-events-for-patients system patient-ids))))
 
-(defn write-ms-events
-  [filename system patient-ids]
-  (write-rows-csv filename (make-ms-events-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation :t_ms_event/is_relapse :t_ms_event_type/name]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_ms_event_type/abbreviation "type"
-                             :t_ms_event_type/name         "description"}))
+(def ms-events-table
+  {:filename "patient-ms-events.csv"
+   :data-fn  make-ms-events-table
+   :columns  [::patient-id
+              :t_ms_event/date :t_ms_event/impact :t_ms_event_type/abbreviation
+              :t_ms_event/is_relapse :t_ms_event_type/name]
+   :title-fn {:t_ms_event_type/abbreviation "type"
+              :t_ms_event_type/name         "description"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn make-diagnoses-table [system patient-ids]
-  (all-patient-diagnoses system patient-ids))
 
-(defn write-diagnoses [f system patient-ids]
-  (write-rows-csv f (make-diagnoses-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_diagnosis/concept_fk
-                            :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
-                            :icd10
-                            :term
-                            :multiple_sclerosis
-                            :cardiovascular
-                            :respiratory
-                            :coagulopathy
-                            :stroke
-                            :hiv
-                            :angina_or_myocardial_infarction
-                            :arterial_dissection
-                            :uncontrolled_hypertension
-                            :hair_and_skin
-                            :severe_infection
-                            :autoimmune_disease
-                            :connective_tissue
-                            :endocrine
-                            :urinary_tract
-                            :mental_behavioural
-                            :cancer
-                            :gastrointestinal
-                            :hair_and_skin
-                            :epilepsy
-                            :other]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
+(def diagnoses-table
+  {:filename "patient-diagnoses.csv"
+   :data-fn  all-patient-diagnoses
+   :columns  [::patient-id
+              :t_diagnosis/concept_fk
+              :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
+              :icd10
+              :term
+              :multiple_sclerosis
+              :cardiovascular
+              :respiratory
+              :coagulopathy
+              :stroke
+              :hiv
+              :angina_or_myocardial_infarction
+              :arterial_dissection
+              :uncontrolled_hypertension
+              :hair_and_skin
+              :severe_infection
+              :autoimmune_disease
+              :connective_tissue
+              :endocrine
+              :urinary_tract
+              :mental_behavioural
+              :cancer
+              :gastrointestinal
+              :hair_and_skin
+              :epilepsy
+              :other]})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-edss-table [system patient-ids]
   (mapcat identity (vals (edss-scores system patient-ids))))
 
-(defn write-edss [f system patient-ids]
-  (write-rows-csv f (make-edss-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_encounter/date :t_form_edss/edss_score
-                            :t_ms_disease_course/type :t_ms_disease_course/name
-                            :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_ms_disease_course/type     "disease_status"}))
+(def edss-table
+  {:filename "patient-edss.csv"
+   :data-fn  make-edss-table
+   :columns  [::patient-id :t_encounter/date :t_form_edss/edss_score
+              :t_ms_disease_course/type :t_ms_disease_course/name
+              :t_form_ms_relapse/in_relapse :t_form_ms_relapse/date_status_recorded]
+   :title-fn {:t_ms_disease_course/type "disease_status"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn fetch-results-for-patient [{:com.eldrix.rsdb/keys [conn]} patient-identifier]
@@ -1374,65 +1384,64 @@
   (->> (mapcat #(fetch-results-for-patient system %) patient-ids)
        (map #(select-keys % [:t_patient/patient_identifier :t_result/date :t_result_type/name]))))
 
-(defn write-results [f system patient-ids]
-  (write-rows-csv f (make-results-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_result/date :t_result_type/name]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_result/date                "date"
-                             :t_result_type/name           "test"}))
+(def results-table
+  {:filename "patient-results.csv"
+   :data-fn  make-results-table
+   :columns  [::patient-id :t_result/date :t_result_type/name]
+   :title-fn {:t_result/date      "date"
+              :t_result_type/name "test"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-weight-height-table [system patient-ids]
   (->> (mapcat identity (vals (fetch-weight-height system patient-ids)))
        (map #(update % :t_encounter/date_time to-local-date))))
 
-(defn write-weight-height [f system patient-ids]
-  (write-rows-csv f (make-weight-height-table system patient-ids)
-                  :columns [:t_patient/patient_identifier :t_encounter/date_time
-                            :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
-                            :body_mass_index]
-                  :title-fn {:t_patient/patient_identifier "patient_id"
-                             :t_encounter/date_time        "date"}))
+(def weight-height-table
+  {:filename "patient-weight.csv"
+   :data-fn  make-weight-height-table
+   :columns  [::patient-id :t_encounter/date_time
+              :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres
+              :body_mass_index]
+   :title-fn {:t_encounter/date_time "date"}})
 
+(def jc-virus-table
+  {:filename "patient-jc-virus.csv"
+   :data-fn  jc-virus-for-patients
+   :columns  [::patient-id
+              :t_result_jc_virus/date
+              :t_result_jc_virus/jc_virus
+              :t_result_jc_virus/titre]})
 
-(defn write-jc-virus [f system patient-ids]
-  (write-rows-csv f (jc-virus-for-patients system patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :t_result_jc_virus/date
-                            :t_result_jc_virus/jc_virus
-                            :t_result_jc_virus/titre]
-                  :title-fn {:t_patient/patient_identifier "patient_id"}))
-
-(defn write-mri-brain [f system patient-ids]
-  (write-rows-csv f (mri-brains-for-patients system patient-ids)
-                  :columns [:t_patient/patient_identifier
-                            :t_result_mri_brain/date
-                            :t_result_mri_brain/id
-                            :t_result_mri_brain/multiple_sclerosis_summary
-                            :t_result_mri_brain/with_gadolinium
-                            :t_result_mri_brain/total_gad_enhancing_lesions
-                            :t_result_mri_brain/gad_range_lower
-                            :t_result_mri_brain/gad_range_upper
-                            :t_result_mri_brain/total_t2_hyperintense
-                            :t_result_mri_brain/t2_range_lower
-                            :t_result_mri_brain/t2_range_upper
-                            :t_result_mri_brain/compare_to_result_mri_brain_fk
-                            :t_result_mri_brain/compare_to_result_date
-                            :t_result_mri_brain/change_t2_hyperintense
-                            :t_result_mri_brain/calc_change_t2]
-                  :title-fn {:t_patient/patient_identifier                      "patient_id"
-                             :t_result_mri_brain/multiple_sclerosis_summary     "ms_summary"
-                             :t_result_mri_brain/with_gadolinium                "with_gad"
-                             :t_result_mri_brain/total_gad_enhancing_lesions    "gad_count"
-                             :t_result_mri_brain/gad_range_lower                "gad_lower"
-                             :t_result_mri_brain/gad_range_upper                "gad_upper"
-                             :t_result_mri_brain/total_t2_hyperintense          "t2_count"
-                             :t_result_mri_brain/t2_range_lower                 "t2_lower"
-                             :t_result_mri_brain/t2_range_upper                 "t2_upper"
-                             :t_result_mri_brain/compare_to_result_date         "compare_to_date"
-                             :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"
-                             :t_result_mri_brain/change_t2_hyperintense         "t2_change"
-                             :t_result_mri_brain/calc_change_t2                 "calc_t2_change"}))
+(def mri-brain-table
+  {:filename "patient-mri-brain.csv"
+   :data-fn  mri-brains-for-patients
+   :columns  [::patient-id
+              :t_result_mri_brain/date
+              :t_result_mri_brain/id
+              :t_result_mri_brain/multiple_sclerosis_summary
+              :t_result_mri_brain/with_gadolinium
+              :t_result_mri_brain/total_gad_enhancing_lesions
+              :t_result_mri_brain/gad_range_lower
+              :t_result_mri_brain/gad_range_upper
+              :t_result_mri_brain/total_t2_hyperintense
+              :t_result_mri_brain/t2_range_lower
+              :t_result_mri_brain/t2_range_upper
+              :t_result_mri_brain/compare_to_result_mri_brain_fk
+              :t_result_mri_brain/compare_to_result_date
+              :t_result_mri_brain/change_t2_hyperintense
+              :t_result_mri_brain/calc_change_t2]
+   :title-fn {:t_result_mri_brain/multiple_sclerosis_summary     "ms_summary"
+              :t_result_mri_brain/with_gadolinium                "with_gad"
+              :t_result_mri_brain/total_gad_enhancing_lesions    "gad_count"
+              :t_result_mri_brain/gad_range_lower                "gad_lower"
+              :t_result_mri_brain/gad_range_upper                "gad_upper"
+              :t_result_mri_brain/total_t2_hyperintense          "t2_count"
+              :t_result_mri_brain/t2_range_lower                 "t2_lower"
+              :t_result_mri_brain/t2_range_upper                 "t2_upper"
+              :t_result_mri_brain/compare_to_result_date         "compare_to_date"
+              :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"
+              :t_result_mri_brain/change_t2_hyperintense         "t2_change"
+              :t_result_mri_brain/calc_change_t2                 "calc_t2_change"}})
 
 
 (defn write-local-date [^LocalDate o ^Appendable out _options]
@@ -1448,36 +1457,31 @@
 (extend LocalDate json/JSONWriter {:-write write-local-date})
 (extend LocalDateTime json/JSONWriter {:-write write-local-date-time})
 
+
+
+(def export-tables
+  [patients-table
+   raw-dmt-medications-table
+   dmt-regimens-table
+   alemtuzumab-infusions-table
+   admissions-table
+   non-dmt-medications-table
+   ms-events-table
+   diagnoses-table
+   edss-table
+   results-table
+   weight-height-table
+   jc-virus-table
+   mri-brain-table])
+
 (s/fdef write-data
   :args (s/cat :system any? :centre ::centre))
 (defn write-data [system centre]
   (let [patient-ids (fetch-study-patient-identifiers system centre)]
-    (log/info "writing patient core data")
-    (write-patients-table "patients.csv" system centre patient-ids)
-    (log/info "writing ms events")
-    (write-ms-events "patient-ms-events.csv" system patient-ids)
-    (log/info "writing dmt medications")
-    (write-raw-dmt-medications-table "patient-raw-dmt-medications.csv" system patient-ids)
-    (log/info "writing dmt regimens")
-    (write-dmt-regimens-table "patient-dmt-regimens.csv" system patient-ids)
-    (log/info "writing alemtuzumab infusions")
-    (write-alemtuzumab-infusions "alemtuzumab-infusions.csv" system patient-ids)
-    (log/info "writing non dmt medications")
-    (write-non-dmt-medications "patient-non-dmt-medications.csv" system patient-ids)
-    (log/info "writing diagnoses")
-    (write-diagnoses "patient-diagnoses.csv" system patient-ids)
-    (log/info "writing edss scores")
-    (write-edss "patient-edss.csv" system patient-ids)
-    (log/info "writing adiposity")
-    (write-weight-height "patient-weight.csv" system patient-ids)
-    (log/info "writing JC virus")
-    (write-jc-virus "patient-jc-virus.csv" system patient-ids)
-    (log/info "writing MRI brain")
-    (write-mri-brain "patient-mri-brain.csv" system patient-ids)
-    (log/info "writing investigation results")
-    (write-results "patient-results.csv" system patient-ids)
-    (log/info "writing admissions")
-    (write-admissions "patient-admissions.csv" system patient-ids)
+    (doseq [table export-tables]
+      (let [f (:data-fn table)]
+        (log/info "writing table:" (:filename table))
+        (write-table table centre (f system patient-ids))))
     (log/info "writing metadata")
     (with-open [writer (io/writer "metadata.json")]
       (json/write (make-metadata system) writer))
@@ -1546,9 +1550,10 @@
 (defn export
   "Export research data. Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx
+  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre] :as opts}]
+  (stest/instrument)
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [system (pc4/init profile [:pathom/env])
@@ -1558,7 +1563,7 @@
 (defn check-demographics
   "Check demographics report. Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/check-demographics :profile :cvx
+  clj -X com.eldrix.pc4.server.modules.dmt/check-demographics :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
