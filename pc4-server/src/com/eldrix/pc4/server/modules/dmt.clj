@@ -1006,29 +1006,33 @@
 
 
 (s/fdef write-table
-  :args (s/cat :table (s/keys :req-un [::filename] :opt-un [::columns ::title-fn])
+  :args (s/cat :system any?
+               :table (s/keys :req-un [::filename ::data-fn] :opt-un [::columns ::title-fn])
                :centre ::centre
-               :data (s/coll-of map?)))
+               :patient-ids (s/coll-of pos-int?)))
 (defn write-table
-  "Write a collection of maps ('rows') to a CSV file. Parameters:
-  - table    : a map defining the table, to include:
-    - :filename - filename to use
-    - :columns  - a vector of columns to write; optional
-    - :title-fn - a function, or map, to convert each column key for output.
-                - optional, default `name`.
-  - centre   : keyword representing centre  -
-  - data     : a sequence of maps
+  "Write out a data export table. Parameters:
+  - system
+  - table       - a map defining the table, to include:
+      - :filename - filename to use
+      - :data-fn  - function to create data
+      - :columns  - a vector of columns to write; optional
+      - :title-fn - a function, or map, to convert each column key for output.
+                  - optional, default `name`.
+  - centre      - keyword representing centre
+  - patient-ids - a sequence of patient identifiers
 
   Injects special properties into each row:
   - ::patient-id  : a centre prefixed patient identifier
   - ::centre      : the centre set during export."
-  [{:keys [filename columns title-fn]} centre data]
-  (let [columns' (or columns (keys (first data)))
+  [system {:keys [filename data-fn columns title-fn]} centre patient-ids]
+  (let [make-pt-id #(str (get-in study-centres [centre :prefix]) (format "%06d" %))
+        rows (->> (data-fn system patient-ids)
+                  (map #(assoc % ::centre centre
+                                 ::patient-id (make-pt-id (:t_patient/patient_identifier %)))))
+        columns' (or columns (keys (first rows)))
         title-fn' (merge {::patient-id "patient_id" ::centre "centre"} title-fn) ;; add a default column titles
-        headers (mapv #(or (title-fn' %) (name %)) columns')
-        make-pt-id #(str (get-in study-centres [centre :prefix]) (format "%06d" %))
-        rows (map #(assoc % ::centre centre
-                            ::patient-id (make-pt-id (:t_patient/patient_identifier %))) data)]
+        headers (mapv #(or (title-fn' %) (name %)) columns')]
     (with-open [writer (io/writer filename)]
       (csv/write-csv writer (into [headers] (map (fn [row] (mapv (fn [col] (col row)) columns')) rows))))))
 
@@ -1479,9 +1483,8 @@
 (defn write-data [system centre]
   (let [patient-ids (fetch-study-patient-identifiers system centre)]
     (doseq [table export-tables]
-      (let [f (:data-fn table)]
-        (log/info "writing table:" (:filename table))
-        (write-table table centre (f system patient-ids))))
+      (log/info "writing table:" (:filename table))
+      (write-table system table centre patient-ids))
     (log/info "writing metadata")
     (with-open [writer (io/writer "metadata.json")]
       (json/write (make-metadata system) writer))
@@ -1560,6 +1563,27 @@
         patient-ids (fetch-study-patient-identifiers system centre)]
     (write-data system patient-ids)))
 
+
+(defn make-demography-check [system profile patient-ids]
+  (->> patient-ids
+       (patients-with-local-demographics system)
+       (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
+       (map #(hash-map
+               :patient_id (:t_patient/patient_identifier %)
+               :first_names (:t_patient/first_names %)
+               :last_name (:t_patient/last_name %)
+               :date_birth (:t_patient/date_birth %)
+               :nhs_number (:t_patient/nhs_number %)
+               :demog (:t_patient/authoritative_demographics %)
+               :match_org (get-in % [:potential-authoritative-demographics :t_patient_hospital/hospital_fk])
+               :crn (get-in % [:potential-authoritative-demographics :t_patient_hospital/patient_identifier])
+               :cav_match (boolean (get-in % [:potential-authoritative-demographics :demographic-match]))
+               :cav_crn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/HOSPITAL_ID])
+               :cav_nnn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/NHS_NUMBER])
+               :cav_dob (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/DATE_BIRTH])
+               :cav_fname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/FIRST_NAMES])
+               :cav_lname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/LAST_NAME])))))
+
 (defn check-demographics
   "Check demographics report. Run as:
   ```
@@ -1569,26 +1593,11 @@
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [system (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
-        patient-ids (fetch-study-patient-identifiers system centre)
-        local-patient-ids (patients-with-local-demographics system patient-ids)
-        patients (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)) local-patient-ids)]
-    (->> patients
-         (map #(hash-map
-                 :patient_id (:t_patient/patient_identifier %)
-                 :first_names (:t_patient/first_names %)
-                 :last_name (:t_patient/last_name %)
-                 :date_birth (:t_patient/date_birth %)
-                 :nhs_number (:t_patient/nhs_number %)
-                 :demog (:t_patient/authoritative_demographics %)
-                 :match_org (get-in % [:potential-authoritative-demographics :t_patient_hospital/hospital_fk])
-                 :crn (get-in % [:potential-authoritative-demographics :t_patient_hospital/patient_identifier])
-                 :cav_match (boolean (get-in % [:potential-authoritative-demographics :demographic-match]))
-                 :cav_crn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/HOSPITAL_ID])
-                 :cav_nnn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/NHS_NUMBER])
-                 :cav_dob (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/DATE_BIRTH])
-                 :cav_fname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/FIRST_NAMES])
-                 :cav_lname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/LAST_NAME])))
-         (write-rows-csv "cav-demog-check.csv"))))
+        patient-ids (fetch-study-patient-identifiers system centre)]
+    (write-table system {:filename "demography-check.csv"
+                         :data-fn  (fn [system patient-ids] (make-demography-check system profile patient-ids))}
+                 centre patient-ids)
+    (pc4/halt! system)))
 
 ;;;
 ;;; Write out data
@@ -1601,11 +1610,10 @@
   (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
   (time (write-data system :cardiff))
-  (write-patients-table "patients.csv" system :cardiff patient-ids)
-  (write-non-dmt-medications "patient-non-dmt-medications.csv" system patient-ids)
+  (write-table system patients-table :cardiff patient-ids)
   (spit "metadata.json" (json/write-str (make-metadata system)))
   (check-patient-demographics system 13189)
-
+  (check-demographics {:profile :dev :centre :cardiff})
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))
