@@ -3,7 +3,6 @@
             [next.jdbc :as jdbc]
             [next.jdbc.sql]
             [honey.sql :as sql]
-            [clojure.string :as str]
             [com.eldrix.pc4.server.rsdb.db :as db]
             [com.eldrix.pc4.server.rsdb.projects :as projects]
             [com.eldrix.pc4.server.dates :as dates]
@@ -42,7 +41,9 @@
     (throw (ex-info "Mismatch between patient ids:" {:patient pt :patient-hospital ph})))
   (when (str/blank? crn)
     (throw (ex-info "Missing hospital number " ph)))
-  (let [org (clods/fetch-org ods nil (or hospital_fk (last (str/split hospital_identifier #"\|"))))
+  (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
+                                                 (clods/parse-org-id hospital_identifier))
+        org (clods/fetch-org ods root extension)
         cavuhb (clods/fetch-org ods nil "7A4")]
     (if-not (clods/related? ods org cavuhb)
       (throw (ex-info "Invalid organisation. Must be CAVUHB." {:patient ph :org org}))
