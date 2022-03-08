@@ -1572,7 +1572,7 @@
        (patients-with-local-demographics system)
        (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
        (map #(hash-map
-               :patient_identifier (:t_patient/patient_identifier %)
+               :t_patient/patient_identifier (:t_patient/patient_identifier %)
                :first_names (:t_patient/first_names %)
                :last_name (:t_patient/last_name %)
                :date_birth (:t_patient/date_birth %)
