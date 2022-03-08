@@ -116,7 +116,8 @@
                  :wales.nhs.cavuhb.Patient/GPPR_ID
                  :wales.nhs.cavuhb.Patient/GP_ID]}
   (log/info "cavuhb resolve patient: " {:config config :crn crn})
-  (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config crn)))
+  (when (not-empty config)
+    (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config crn))))
 
 (pco/defresolver resolve-cav-patient-first-names
   [{:wales.nhs.cavuhb.Patient/keys [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]}]
