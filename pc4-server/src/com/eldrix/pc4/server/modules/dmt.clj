@@ -1543,13 +1543,12 @@
   (when sleep-millis (Thread/sleep sleep-millis))
   (let [ident [:t_patient/patient_identifier patient-identifier]
         pt (get (pathom [{ident demographic-eql}]) ident)
-        _ ( println pt)]
-    (-> pt
-        (update :t_patient/hospitals
-                (fn [hosps]
-                  (map #(assoc % :demographic-match (matching-cav-demog? pt %)) hosps)))
-        (assoc :potential-authoritative-demographics
-               (first (filter :demographic-match (:t_patient/hospitals pt)))))))
+        pt2 (when pt (update pt 
+                             :t_patient/hospitals
+                              (fn [hosps]
+                                (map #(assoc % :demographic-match (matching-cav-demog? pt %)) hosps))))]
+        (assoc pt2 :potential-authoritative-demographics
+               (first (filter :demographic-match (:t_patient/hospitals pt2))))))
 
 (s/def ::profile keyword?)
 (s/def ::export-options (s/keys :req-un [::profile]))
@@ -1611,17 +1610,28 @@
 
 (comment
   (clojure.spec.test.alpha/instrument)
-  (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
+  (def system (pc4/init :cvx [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
   (tap> (take 5 patient-ids))
   (time (write-data system :cardiff))
   (write-table system patients-table :cardiff patient-ids)
   (spit "metadata.json" (json/write-str (make-metadata system)))
-  (check-patient-demographics system 14332)
-  (check-patient-demographics system 13189)
+  (check-patient-demographics system 14232)
+  (clojure.pprint/pprint (check-patient-demographics system 13936))
+  (clojure.pprint/pprint (make-demography-check system :cardiff [13936 ]))
   (check-demographics {:profile :dev :centre :cardiff})
 
+  (def pathom (:pathom/boundary-interface system))
+
+  (pathom [{[:wales.nhs.cavuhb.Patient/FIRST_FORENAME "Mark"]
+            [:wales.nhs.cavuhb.Patient/FIRST_FORENAME 
+             :wales.nhs.cavuhb.Patient/FIRST_NAMES]}])
+  (pathom [{[:wales.nhs.cavuhb.Patient/HOSPITAL_ID "A542488"]
+            [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
+             :wales.nhs.cavuhb.Patient/FIRST_NAMES
+             :wales.nhs.cavuhb.Patient/LAST_NAME]}])
+  
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))

@@ -79,7 +79,9 @@
    ::pco/output  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
                   :wales.nhs.cavuhb.Patient/NHS_NUMBER
                   :wales.nhs.cavuhb.Patient/LAST_NAME
-                  :wales.nhs.cavuhb.Patient/FIRST_NAMES
+                  :wales.nhs.cavuhb.Patient/FIRST_FORENAME
+                  :wales.nhs.cavuhb.Patient/SECOND_FORENAME
+                  :wales.nhs.cavuhb.Patient/OTHER_FORENAMES
                   :wales.nhs.cavuhb.Patient/DATE_BIRTH
                   :wales.nhs.cavuhb.Patient/DATE_DEATH
                   :wales.nhs.cavuhb.Patient/TITLE
@@ -99,14 +101,15 @@
     (or (= system :uk.nhs.id/nhs-number) (= system "https://fhir.nhs.uk/Id/nhs-number"))
     (add-namespace-cav-patient (cavpms/fetch-patient-by-nnn config value))))
 
-
 (pco/defresolver resolve-cav-patient
   [{config :wales.nhs.cavuhb/pms} {crn :wales.nhs.cavuhb.Patient/HOSPITAL_ID}]
   {::pco/input  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]
    ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID
                  :wales.nhs.cavuhb.Patient/NHS_NUMBER
                  :wales.nhs.cavuhb.Patient/LAST_NAME
-                 :wales.nhs.cavuhb.Patient/FIRST_NAMES
+                 :wales.nhs.cavuhb.Patient/FIRST_FORENAME
+                 :wales.nhs.cavuhb.Patient/SECOND_FORENAME
+                 :wales.nhs.cavuhb.Patient/OTHER_FORENAMES
                  :wales.nhs.cavuhb.Patient/DATE_BIRTH
                  :wales.nhs.cavuhb.Patient/DATE_DEATH
                  :wales.nhs.cavuhb.Patient/TITLE
@@ -114,6 +117,16 @@
                  :wales.nhs.cavuhb.Patient/GP_ID]}
   (log/info "cavuhb resolve patient: " {:config config :crn crn})
   (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config crn)))
+
+(pco/defresolver resolve-cav-patient-first-names
+  [{:wales.nhs.cavuhb.Patient/keys [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]}]
+  {::pco/input [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
+                (pco/? :wales.nhs.cavuhb.Patient/SECOND_FORENAME)
+                (pco/? :wales.nhs.cavuhb.Patient/OTHER_FORENAMES)]
+   ::pco/output [:wales.nhs.cavuhb.Patient/FIRST_NAMES]}
+  {:wales.nhs.cavuhb.Patient/FIRST_NAMES 
+   (str/join " " (remove nil? [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]))})
+
 
 (pco/defresolver cav->fhir-identifiers
   [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER HOSPITAL_ID]}]
@@ -255,6 +268,7 @@
 
 (def all-resolvers [fetch-cav-patient
                     resolve-cav-patient
+                    resolve-cav-patient-first-names
                     cav->fhir-identifiers
                     cav->fhir-names
                     cav->fhir-gender
