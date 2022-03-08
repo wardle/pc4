@@ -1526,6 +1526,7 @@
    :t_patient/authoritative_last_updated
    {:t_patient/hospitals [:t_patient_hospital/id
                           :t_patient_hospital/hospital_fk
+                          :t_patient_hospital/patient_fk
                           :t_patient_hospital/patient_identifier
                           :wales.nhs.cavuhb.Patient/HOSPITAL_ID
                           :wales.nhs.cavuhb.Patient/NHS_NUMBER
@@ -1563,9 +1564,8 @@
   (stest/instrument)
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
-  (let [system (pc4/init profile [:pathom/env])
-        patient-ids (fetch-study-patient-identifiers system centre)]
-    (write-data system patient-ids)))
+  (let [system (pc4/init profile [:pathom/env])]
+    (write-data system centre)))
 
 
 (defn make-demography-check [system profile patient-ids]
@@ -1622,7 +1622,7 @@
     (doseq [patient patients]
       (clojure.pprint/pprint {:patient patient
                               :ph (:potential-authoritative-demographics patient)})
-      #_(patients/set-cav-authoritative-demographics! (:com.eldrix/clods system)
+      (patients/set-cav-authoritative-demographics! (:com.eldrix/clods system)
                                                       (:com.eldrix.rsdb/conn system)
                                                       patient
                                                       (:potential-authoritative-demographics patient)))
