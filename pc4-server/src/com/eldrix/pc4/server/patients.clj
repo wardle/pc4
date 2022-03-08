@@ -120,13 +120,12 @@
 
 (pco/defresolver resolve-cav-patient-first-names
   [{:wales.nhs.cavuhb.Patient/keys [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]}]
-  {::pco/input [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
-                (pco/? :wales.nhs.cavuhb.Patient/SECOND_FORENAME)
-                (pco/? :wales.nhs.cavuhb.Patient/OTHER_FORENAMES)]
+  {::pco/input  [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
+                 (pco/? :wales.nhs.cavuhb.Patient/SECOND_FORENAME)
+                 (pco/? :wales.nhs.cavuhb.Patient/OTHER_FORENAMES)]
    ::pco/output [:wales.nhs.cavuhb.Patient/FIRST_NAMES]}
-  {:wales.nhs.cavuhb.Patient/FIRST_NAMES 
+  {:wales.nhs.cavuhb.Patient/FIRST_NAMES
    (str/join " " (remove nil? [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]))})
-
 
 (pco/defresolver cav->fhir-identifiers
   [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER HOSPITAL_ID]}]
