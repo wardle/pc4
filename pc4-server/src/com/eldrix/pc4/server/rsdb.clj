@@ -90,6 +90,8 @@
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
+                                        :t_patient_hospital/patient_fk
+                                        :t_patient_hospital/hospital_identifier
                                         :t_patient_hospital/patient_identifier
                                         :t_patient_hospital/authoritative]}]}
   {:t_patient/hospitals (vec (db/execute! conn (sql/format {:select [:*]
@@ -157,14 +159,13 @@
    ::pco/output [{:t_patient/demographics_authority [:t_patient_hospital/hospital_fk
                                                      :t_patient_hospital/hospital_identifier
                                                      :t_patient_hospital/authoritative
-                                                     :t_patient_hospital/patient_identifier
-                                                     :t_patient/nhs_number]}]}
+                                                     :t_patient_hospital/patient_identifier]}]}
   (let [result (->> hospitals
                     (filter #(= (:t_patient_hospital/authoritative_demographics %) authoritative_demographics))
                     (filter :t_patient_hospital/authoritative))]
     (when (> (count result) 1)
       (log/error "More than one authoritative demographic source:" params))
-    (first result)))
+    {:t_patient/demographics_authority (first result)}))
 
 
 (pco/defresolver patient->country-of-birth
