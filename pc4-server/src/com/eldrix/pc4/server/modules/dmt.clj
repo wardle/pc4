@@ -1522,6 +1522,7 @@
    :t_patient/date_birth
    :t_patient/sex
    :t_patient/authoritative_demographics
+   :t_patient/demographics_authority
    :t_patient/authoritative_last_updated
    {:t_patient/hospitals [:t_patient_hospital/id
                           :t_patient_hospital/hospital_fk
@@ -1535,10 +1536,10 @@
                           :wales.nhs.cavuhb.Patient/SEX]}])
 
 (defn check-patient-demographics
-  "Check a single patient's demographics. This will potentially call out to
-  backend live demographic authorities in order to provide demographic data
-  for the given patient, so there is an optionally sleep-millis parameter to
-  avoid denial-of-service attacks if used in batch processes."
+  "Check a single patient's demographics. This will call out to backend live
+  demographic authorities in order to provide demographic data for the given
+  patient, so there is an optionally sleep-millis parameter to avoid
+  denial-of-service attacks if used in batch processes."
   [{pathom :pathom/boundary-interface} patient-identifier & {:keys [sleep-millis]}]
   (when sleep-millis (Thread/sleep sleep-millis))
   (let [ident [:t_patient/patient_identifier patient-identifier]
@@ -1609,10 +1610,12 @@
 ;;; zip
 
 (comment
-  (clojure.spec.test.alpha/instrument)
+  (require '[clojure.spec.test.alpha :as stest])
+  (stest/instrument)
   (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
+  (count patient-ids)
   (tap> (take 5 patient-ids))
   (time (write-data system :cardiff))
   (write-table system patients-table :cardiff patient-ids)
@@ -1623,7 +1626,14 @@
   (check-demographics {:profile :dev :centre :cardiff})
 
   (def pathom (:pathom/boundary-interface system))
+  (p.eql/process (:pathom/env system) [{[:t_patient/patient_identifier 78213]
+                                        [:t_patient/last_name
+                                         :t_patient/patient_identifier
+                                         :t_patient/id
+                                         :t_patient/hospitals
+                                         :t_patient/demographics_authority]}])
 
+  (pathom [{[:t_patient/patient_identifier 78213] demographic-eql}])
   (pathom [{[:wales.nhs.cavuhb.Patient/FIRST_FORENAME "Mark"]
             [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
              :wales.nhs.cavuhb.Patient/FIRST_NAMES]}])
