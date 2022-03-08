@@ -8,7 +8,7 @@
 (next.jdbc.date-time/read-as-local)
 
 (def parse-local-date #(when % (LocalDate/from %)))
-(def parse-boolean #(Boolean/parseBoolean %))
+(def parse-local-datetime #(when % (LocalDateTime/from %)))
 
 (def property-parsers
   {:t_address/date_from                        parse-local-date
@@ -37,6 +37,8 @@
    :t_patient/date_death                       parse-local-date
    :t_patient/sex                              keyword
    :t_patient/status                           keyword
+   :t_patient/authoritative_demographics       keyword
+   :t_patient/authoritative_last_updated       parse-local-datetime
    :t_patient_hospital/authoritative           parse-boolean
    :t_project/advertise_to_all                 parse-boolean
    :t_project/can_own_equipment                parse-boolean

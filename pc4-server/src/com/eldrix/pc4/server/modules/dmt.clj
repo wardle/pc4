@@ -1519,6 +1519,8 @@
    :t_patient/patient_identifier
    :t_patient/first_names
    :t_patient/last_name :t_patient/nhs_number
+   :t_patient/date_birth
+   :t_patient/sex
    :t_patient/authoritative_demographics
    :t_patient/authoritative_last_updated
    {:t_patient/hospitals [:t_patient_hospital/id
@@ -1529,7 +1531,8 @@
                           :wales.nhs.cavuhb.Patient/LAST_NAME
                           :wales.nhs.cavuhb.Patient/FIRST_NAMES
                           :wales.nhs.cavuhb.Patient/DATE_BIRTH
-                          :wales.nhs.cavuhb.Patient/DATE_DEATH]}])
+                          :wales.nhs.cavuhb.Patient/DATE_DEATH
+                          :wales.nhs.cavuhb.Patient/SEX]}])
 
 (defn check-patient-demographics
   "Check a single patient's demographics. This will potentially call out to
@@ -1539,7 +1542,8 @@
   [{pathom :pathom/boundary-interface} patient-identifier & {:keys [sleep-millis]}]
   (when sleep-millis (Thread/sleep sleep-millis))
   (let [ident [:t_patient/patient_identifier patient-identifier]
-        pt (get (pathom [{ident demographic-eql}]) ident)]
+        pt (get (pathom [{ident demographic-eql}]) ident)
+        _ ( println pt)]
     (-> pt
         (update :t_patient/hospitals
                 (fn [hosps]
@@ -1569,7 +1573,7 @@
        (patients-with-local-demographics system)
        (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
        (map #(hash-map
-               :patient_id (:t_patient/patient_identifier %)
+               :patient_identifier (:t_patient/patient_identifier %)
                :first_names (:t_patient/first_names %)
                :last_name (:t_patient/last_name %)
                :date_birth (:t_patient/date_birth %)
@@ -1592,6 +1596,7 @@
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (log/info "check-demographics with " opts)
   (let [system (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
         patient-ids (fetch-study-patient-identifiers system centre)]
     (write-table system {:filename "demography-check.csv"
@@ -1609,11 +1614,14 @@
   (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
+  (tap> (take 5 patient-ids))
   (time (write-data system :cardiff))
   (write-table system patients-table :cardiff patient-ids)
   (spit "metadata.json" (json/write-str (make-metadata system)))
+  (check-patient-demographics system 14332)
   (check-patient-demographics system 13189)
   (check-demographics {:profile :dev :centre :cardiff})
+
   (def conn (:com.eldrix.rsdb/conn system))
   (keys system)
   (def all-dmts (all-ms-dmts system))

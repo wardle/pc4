@@ -80,6 +80,8 @@
                  :t_patient/date_death
                  :t_patient/nhs_number
                  :t_patient/surgery_fk
+                 :t_patient/authoritative_demographics
+                 :t_patient/authoritative_last_updated
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
@@ -106,25 +108,64 @@
    ::pco/output [{:t_patient_hospital/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   {:t_patient_hospital/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
 
+
+
+(pco/defresolver patient-hospital->authority
+  [{clods :com.eldrix/clods} {hospital_fk         :t_patient_hospital/hospital_fk
+                              hospital_identifier :t_patient_hospital/hospital_identifier}]
+  {::pco/input  [:t_patient_hospital/hospital_fk
+                 :t_patient_hospital/hospital_identifier]
+   ::pco/output [:t_patient_hospital/authoritative_demographics]}
+  (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
+                                                 (clods/parse-org-id hospital_identifier))
+        org (clods/fetch-org clods root extension)]
+    (cond
+      ;; Is this a hospital within Cardiff and Vale UHB?
+      (clods/related? clods org (clods/fetch-org clods nil "7A4"))
+      {:t_patient_hospital/authoritative_demographics :CAVUHB}
+      ;; Is this a hospital within Aneurin Bevan UHB?
+      (clods/related? clods org (clods/fetch-org clods nil "7A6"))
+      {:t_patient_hospital/authoritative_demographics :ABUHB})))
+
 (pco/defresolver patient-hospital->hospital-crn
   "Resolves a valid namespaced hospital identifier based on the combination of
   the hospital and the identifier within the :t_patient_hospital data.
   As this resolves to a local hospital CRN, clients can then resolve FHIR
   properties against this record to fetch FHIR-flavoured data.
-  TODO: switch to using a parameterised resolver to check relationship"
-  [{clods :com.eldrix/clods} {hospital_fk :t_patient_hospital/hospital_fk
-                              crn         :t_patient_hospital/patient_identifier :as params}]
-  {::pco/input  [:t_patient_hospital/hospital_fk
+  TODO: switch to using a parameterised resolver to check match status."
+  [{clods :com.eldrix/clods} {auth :t_patient_hospital/authoritative_demographics
+                              crn  :t_patient_hospital/patient_identifier}]
+  {::pco/input  [:t_patient_hospital/authoritative_demographics
                  :t_patient_hospital/patient_identifier]
    ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
-  (let [org (clods/fetch-org clods nil hospital_fk)]        ;; we directly make use of the injected clods service here
-    (cond                                                   ;; but ideally this would be itself a resolver
-      ;; Is this a hospital within Cardiff and Vale UHB?
-      (clods/related? clods org (clods/fetch-org clods nil "7A4"))
-      {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}
-      ;; Is this a hospital within Aneurin Bevan UHB?
-      (clods/related? clods org (clods/fetch-org clods nil "7A6"))
-      {:wales.nhs.abuhb.Patient/CRN crn})))
+  (case auth
+    :CAVUHB {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}
+    :ABUHB {:wales.nhs.abuhb.Patient/CRN crn}
+    nil))
+
+
+(pco/defresolver patient->demographics-authority
+  [{authoritative_demographics :t_patient/authoritative_demographics
+    hospitals                  :t_patient/hospitals :as params}]
+  {::pco/input  [:t_patient/patient_identifier
+                 :t_patient/authoritative_demographics
+                 {:t_patient/hospitals [:t_patient_hospital/authoritative_demographics
+                                        :t_patient_hospital/hospital_fk
+                                        :t_patient_hospital/hospital_identifier
+                                        :t_patient_hospital/patient_identifier
+                                        :t_patient_hospital/authoritative]}]
+   ::pco/output [{:t_patient/demographics_authority [:t_patient_hospital/hospital_fk
+                                                     :t_patient_hospital/hospital_identifier
+                                                     :t_patient_hospital/authoritative
+                                                     :t_patient_hospital/patient_identifier
+                                                     :t_patient/nhs_number]}]}
+  (let [result (->> hospitals
+                    (filter #(= (:t_patient_hospital/authoritative_demographics %) authoritative_demographics))
+                    (filter :t_patient_hospital/authoritative))]
+    (when (> (count result) 1)
+      (log/error "More than one authoritative demographic source:" params))
+    (first result)))
+
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
@@ -1094,7 +1135,9 @@
    patient->hospitals
    patient-hospital->flat-hospital
    patient-hospital->nested-hospital
+   patient-hospital->authority
    patient-hospital->hospital-crn
+   patient->demographics-authority
    patient->country-of-birth
    patient->ethnic-origin
    patient->racial-group
