@@ -1618,8 +1618,15 @@
                       (patients-with-local-demographics system)
                       (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
                       (filter #(get-in % [:potential-authoritative-demographics :demographic-match])))]
+    (require '[clojure.pprint])
     (doseq [patient patients]
-      (println "Updating" patient))
+      (clojure.pprint/pprint {:patient patient
+                              :ph (:potential-authoritative-demographics patient)})
+      #_(patients/set-cav-authoritative-demographics! (:com.eldrix/clods system)
+                                                      (:com.eldrix.rsdb/conn system)
+                                                      patient
+                                                      (:potential-authoritative-demographics patient)))
+
     (pc4/halt! system)))
 
 ;;;
