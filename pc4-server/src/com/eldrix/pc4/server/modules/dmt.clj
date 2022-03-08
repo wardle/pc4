@@ -1604,6 +1604,24 @@
                  centre patient-ids)
     (pc4/halt! system)))
 
+(defn update-demographic-authority
+  "Update demographic authorities. Run as:
+  ```
+  clj -X com.eldrix.pc4.server.modules.dmt/update-demographic-authority :profile :cvx :centre :cardiff
+  ```"
+  [{:keys [profile centre] :as opts}]
+  (when-not (s/valid? ::export-options opts)
+    (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (let [system (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
+        patient-ids (fetch-study-patient-identifiers system centre)
+        patients (->> patient-ids
+                      (patients-with-local-demographics system)
+                      (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
+                      (filter #(get-in % [:potential-authoritative-demographics :demographic-match])))]
+    (doseq [patient patients]
+      (println "Updating" patient))
+    (pc4/halt! system)))
+
 ;;;
 ;;; Write out data
 ;;; zip all csv files with the metadata.json
