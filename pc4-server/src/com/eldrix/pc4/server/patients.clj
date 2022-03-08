@@ -125,7 +125,7 @@
                  (pco/? :wales.nhs.cavuhb.Patient/OTHER_FORENAMES)]
    ::pco/output [:wales.nhs.cavuhb.Patient/FIRST_NAMES]}
   {:wales.nhs.cavuhb.Patient/FIRST_NAMES
-   (str/join " " (remove nil? [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]))})
+   (str/join " " (remove str/blank? [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]))})
 
 (pco/defresolver cav->fhir-identifiers
   [{:wales.nhs.cavuhb.Patient/keys [NHS_NUMBER HOSPITAL_ID]}]
