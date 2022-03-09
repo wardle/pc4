@@ -1007,7 +1007,6 @@
                       (fetch-drug' system (:t_medication/medication_concept_fk %))
                       (drug-fn [(:t_medication/medication_concept_fk %)]))))))
 
-
 (s/fdef write-table
   :args (s/cat :system any?
                :table (s/keys :req-un [::filename ::data-fn] :opt-un [::columns ::title-fn])
@@ -1306,20 +1305,28 @@
                                        (and date-to (.isEqual diag-date date-to))
                                        (and (.isAfter diag-date date-from) (or (nil? date-to) (.isBefore diag-date date-to))))))
                         (get diagnoses patient-id))
-        admissions (fetch-patient-admissions system "ADMISSION" patient-ids)]
+        admissions (fetch-patient-admissions system "ACUTENEUROLOGYCARDIFF" patient-ids)]
     (->> admissions
-         (map (fn [{patient-id :t_patient/patient_identifier :as admission
-                    :t_episode/keys [ date_registration date_discharge]}]
+         (map (fn [{:t_episode/keys [date_registration date_discharge] :as admission}]
+                (assoc admission :t_episode/duration_days
+                                 (when (and date_registration date_discharge)
+                                   (.between ChronoUnit/DAYS date_registration date_discharge)))))
+
+         (map (fn [{patient-id      :t_patient/patient_identifier :as admission
+                    :t_episode/keys [date_registration date_discharge]}]
                 (merge admission (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge))))))))
 
 (def admissions-table
   {:filename "patient-admissions.csv"
    :data-fn  make-admissions-table
-   :columns  [::patient-id
-              :t_episode/date_registration
-              :t_episode/date_discharge]
+   :columns  (into [::patient-id
+                    :t_episode/date_registration
+                    :t_episode/date_discharge
+                    :t_episode/duration_days]
+                   (keys study-diagnosis-categories))
    :title-fn {:t_episode/date_registration "date_from"
-              :t_episode/date_discharge    "date_to"}})
+              :t_episode/date_discharge    "date_to"
+              :t_episode/duration_days     "duration_days"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-non-dmt-medications
@@ -1356,32 +1363,12 @@
 (def diagnoses-table
   {:filename "patient-diagnoses.csv"
    :data-fn  all-patient-diagnoses
-   :columns  [::patient-id
-              :t_diagnosis/concept_fk
-              :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
-              :icd10
-              :term
-              :multiple_sclerosis
-              :cardiovascular
-              :respiratory
-              :coagulopathy
-              :stroke
-              :hiv
-              :angina_or_myocardial_infarction
-              :arterial_dissection
-              :uncontrolled_hypertension
-              :hair_and_skin
-              :severe_infection
-              :autoimmune_disease
-              :connective_tissue
-              :endocrine
-              :urinary_tract
-              :mental_behavioural
-              :cancer
-              :gastrointestinal
-              :hair_and_skin
-              :epilepsy
-              :other]})
+   :columns  (into [::patient-id
+                    :t_diagnosis/concept_fk
+                    :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
+                    :icd10
+                    :term
+                    (keys study-diagnosis-categories)])})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-edss-table [system patient-ids]
