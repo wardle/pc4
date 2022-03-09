@@ -119,6 +119,17 @@
   (when (not-empty config)
     (add-namespace-cav-patient (cavpms/fetch-patient-by-crn config crn))))
 
+(pco/defresolver cav->admissions
+  [{config :wales.nhs.cavuhb/pms} {crn :wales.nhs.cavuhb.Patient/HOSPITAL_ID}]
+  {::pco/input  [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]
+   ::pco/output [{:wales.nhs.cavuhb.Patient/ADMISSIONS [:wales.nhs.cavuhb.Admission/DATE_FROM
+                                                        :wales.nhs.cavuhb.Admission/DATE_TO]}]}
+  (when config
+    (->> (cavpms/fetch-admissions config :crn crn)
+         (mapv #(hash-map :wales.nhs.cavuhb.Admission/DATE_FROM (:DATE_ADM %)
+                          :wales.nhs.cavuhb.Admission/DATE_TO (:DATE_DISC %))))))
+
+
 (pco/defresolver resolve-cav-patient-first-names
   [{:wales.nhs.cavuhb.Patient/keys [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]}]
   {::pco/input  [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
@@ -268,6 +279,7 @@
 
 (def all-resolvers [fetch-cav-patient
                     resolve-cav-patient
+                    cav->admissions
                     resolve-cav-patient-first-names
                     cav->fhir-identifiers
                     cav->fhir-names
