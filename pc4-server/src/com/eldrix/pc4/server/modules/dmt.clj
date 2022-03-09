@@ -994,6 +994,12 @@
          (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
          (map #(assoc % :term (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) (:t_diagnosis/concept_fk %) "en-GB")))))))
 
+(defn merge-diagnostic-categories
+  [diagnoses]
+  (let [categories (keys study-diagnosis-categories)
+        diagnoses' (map #(select-keys % categories) diagnoses)]
+    (apply merge-with #(or %1 %2) diagnoses')))
+
 (defn fetch-non-dmt-medications [system patient-ids]
   (let [drug-fn (make-codelist-category-fn system study-medications)
         all-dmts (all-dmt-identifiers system)
@@ -1293,12 +1299,25 @@
    :title-fn {:course-rank   "course_rank"
               :infusion-rank "infusion_rank"}})
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-admissions-table
+  [system patient-ids]
+  (let [diagnoses (group-by :t_patient/patient_identifier (all-patient-diagnoses system patient-ids))
+        get-diagnoses (fn [patient-id ^LocalDate date-from ^LocalDate date-to]
+                        (filter #(when-let [diag-date (or (:t_diagnosis/date_onset %) (:t_diagnosis/date_diagnosis %))]
+                                   (or (.isEqual diag-date date-from)
+                                       (and date-to (.isEqual diag-date date-to))
+                                       (and (.isAfter diag-date date-from) (or (nil? date-to) (.isBefore diag-date date-to))))))
+                        (get diagnoses patient-id))
+        admissions (fetch-patient-admissions system "ADMISSION" patient-ids)]
+    (->> admissions
+         (map (fn [{patient-id :t_patient/patient_identifier :as admission
+                    :t_episode/keys [ date_registration date_discharge]}]
+                (merge admission (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge))))))))
 
 (def admissions-table
   {:filename "patient-admissions.csv"
-   :data-fn  (fn [system patient-ids] (fetch-patient-admissions system "ADMISSION" patient-ids))
+   :data-fn  make-admissions-table
    :columns  [::patient-id
               :t_episode/date_registration
               :t_episode/date_discharge]
