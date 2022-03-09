@@ -42,8 +42,8 @@
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
   {:cardiff   {:projects ["NINFLAMMCARDIFF"] :prefix "CF"}
-   :cambridge {:projects ["CAMBRDIGEMS" :prefix "CB"]}
-   :plymouth  {:projects ["PLYMOUTH" :prefix "PL"]}})
+   :cambridge {:projects ["CAMBRDIGEMS"] :prefix "CB"}
+   :plymouth  {:projects ["PLYMOUTH"] :prefix "PL"}})
 
 (s/def ::centre (set (keys study-centres)))
 
