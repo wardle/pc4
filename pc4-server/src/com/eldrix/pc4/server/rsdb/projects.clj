@@ -10,7 +10,9 @@
    Others are configured to automatically discharge a patient after an interval.
    Many users are authorised to register and discharge patients from projects
    but such authorisation is on a per-project basis."
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.nhs-number :as nhs-number]
             [com.eldrix.pc4.server.rsdb.db :as db]
@@ -22,6 +24,16 @@
            (java.time.format DateTimeFormatter)
            (org.apache.commons.codec.digest DigestUtils)))
 
+(s/def ::conn any?)
+(s/def ::date-birth
+  (s/with-gen #(instance? LocalDate %)
+              #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
+                         (s/gen (s/int-in 0 (* 365 100))))))
+
+(s/def ::nhs-number com.eldrix.concierge.nhs-number/valid?)
+(s/def ::salt string?)
+(s/def ::project-id pos-int?)
+(s/def ::project-name string?)
 
 (defn fetch-users
   "Fetch users for the project specified. An individual may be listed more than
@@ -48,22 +60,22 @@
 
 (defn all-children-sql [project-id]
   (sql/format {:with-recursive
-                       [[:children
-                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :where  [:= :id project-id]}
-                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
+               [[:children
+                 {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                               :where  [:= :id project-id]}
+                              {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                               :join   [:children [:= :t_project/parent_project_fk :children.id]]}]}]]
                :select :children/id
                :from   :children
                :where  [:!= :id project-id]}))
 
 (defn all-parents-sql [project-id]
   (sql/format {:with-recursive
-                       [[:parents
-                         {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :where  [:= :id project-id]}
-                                      {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
-                                       :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
+               [[:parents
+                 {:union-all [{:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                               :where  [:= :id project-id]}
+                              {:select [:t_project/id :t_project/parent_project_fk] :from :t_project
+                               :join   [:parents [:= :parents/parent_project_fk :t_project/id]]}]}]]
                :select :parents/id
                :from   :parents
                :where  [:!= :id project-id]}))
@@ -204,6 +216,8 @@
   [project-name identifier ^LocalDate date-birth]
   (make-hash-pseudonym (DigestUtils/md5Hex ^String project-name) identifier (.format date-birth (DateTimeFormatter/ISO_LOCAL_DATE))))
 
+(s/fdef calculate-global-pseudonym
+  :args (s/cat :salt string? :nhs-number string? :date-birth ::date-birth))
 (defn calculate-global-pseudonym
   "Generate a legacy rsdb global pseudonym; the salt must match the secret
   salt used in the legacy rsdb application. For other uses, use a
@@ -271,6 +285,11 @@
                                               [:= :patient_identifier patient-identifier]
                                               [:= :project_fk project-id]]})))
 
+
+(s/fdef find-legacy-pseudonymous-patient
+  :args (s/cat :conn ::conn :params (s/keys* :req-un [::salt
+                                                      (or ::project-id ::project-name)
+                                                      ::nhs-number ::date-birth])))
 (defn ^:deprecated find-legacy-pseudonymous-patient
   "Attempts to identify a patient using the legacy rsdb pseudonym registration.
   Parameters:
@@ -306,6 +325,8 @@
               :t_episode/project_fk       project-id
               :global-pseudonym           global-pseudonym}))))
 
+(s/fdef register-episode!
+  :args (s/cat :conn ::conn :user-id pos-int? :episode (s/keys :req-un [:t_episode/id])))
 (defn register-episode!
   "Sets the episode specified as registered as of now, by the user specified.
   Returns the updated episode.
@@ -318,6 +339,8 @@
                                 :where  [:= :t_episode/id episode-id]})
                    {:return-keys true}))
 
+(s/fdef discharge-episode!
+  :args (s/cat :conn ::conn :user-id pos-int? :episode (s/keys :req [:t_episode/id])))
 (defn discharge-episode!
   "Sets the episode specified as discharged. Returns the updated episode.
   We do not worry about optimistic locking here, by design."
@@ -329,6 +352,11 @@
                                 :where  [:= :t_episode/id episode-id]})
                    {:return-keys true}))
 
+(s/fdef create-episode!
+  :args (s/cat :conn ::conn :episode (s/keys :req [:t_episode/date_referral :t_episode/patient_fk :t_episode/project_fk :t_episode/referral_user_fk]
+                                             :opt [:t_episode/date_registration :t_episode/registration_user_fk
+                                                   :t_episode/date_discharge :t_episode/discharge_user_fk
+                                                   :t_episode/notes :t_episode/stored_pseudonym :t_episode/external_identifier])))
 (defn create-episode!
   "Create a new episode, returning the data."
   [conn episode]
@@ -362,6 +390,42 @@
                                   :values      [patient']})
                      {:return-keys true})))
 
+(s/fdef register-completed-episode!
+  :args (s/cat :conn ::conn :user-id pos-int?
+               :episode (s/keys :req [(or :t_patient/patient_identifier :t_patient/id :t_episode/patient_fk)
+                                      :t_episode/date_registration :t_episode/date_discharge]
+                                :opt [:t_episode/date_referral
+                                      :t_episode/notes])))
+(defn register-completed-episode!
+  "Register a completed episode with start and end dates.
+  Returns the newly created episode, or the existing episode if already exists.
+  This operation is idempotent, by design."
+  [conn user-id {:t_episode/keys [patient_fk project_fk date_referral date_registration date_discharge] :as episode}]
+  (when (.isAfter date_registration date_discharge)
+    (throw (ex-info "Date of registration cannot be after date of discharge" episode)))
+  (let [episode' (merge {:t_episode/referral_user_fk user-id
+                         :t_episode/registration_user_fk user-id
+                         :t_episode/discharge_user_fk user-id
+                         :t_episode/date_referral date_registration} episode)]
+    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
+      (if-let [existing (db/execute-one! conn (sql/format {:select :* :from :t_episode :where
+                                                           [:and
+                                                            [:= :patient_fk patient_fk] [:= :project_fk project_fk]
+                                                            [:= :date_registration date_registration]
+                                                            [:= :date_discharge date_discharge]]}))]
+        existing
+        (create-episode! tx episode')))))
+
+
+
+
+
+(s/def ::adopt-pending? boolean?)
+(s/def ::pseudonym string?)
+(s/fdef register-patient-project!
+  :args (s/cat :conn ::conn :project-id pos-int?
+               :patient (s/keys :req [:t_patient/id])
+               :opts (s/keys* :opt-un [::adopt-pending? ::pseudonym])))
 (defn register-patient-project!
   "Register a patient to a project. Safe to use if patient already registered.
 
@@ -513,10 +577,6 @@
   (discharge-episode! conn 1 {:t_episode/id 46540})
   (register-patient-project! conn 18 2 {:t_patient/id 14031})
   (register-episode! conn 1 {:t_episode/id 46538})
-  (insert-episode! conn {:t_episode/project_fk       18
-                         :t_episode/patient_fk       14031
-                         :t_episode/referral_user_fk 1
-                         :t_episode/date_referral    (LocalDate/now)})
 
 
   (jdbc/execute!
