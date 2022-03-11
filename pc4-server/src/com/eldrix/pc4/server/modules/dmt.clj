@@ -267,7 +267,7 @@
    {:codelist {:icd10 ["A" "B" "U07.1" "U07.2" "U08." "U09." "U10."]}}
 
    :arterial_dissection
-   {:codelist {:icd10 ["I72.0" "I72.5"]}}
+   {:codelist {:icd10 ["I67.0" "I72.5"]}}
 
    :stroke
    {:codelist {:icd10 ["I6"]}}
@@ -276,19 +276,19 @@
    {:codelist {:icd10 ["I20" "I21" "I22" "I23" "I24" "I25"]}}
 
    :coagulopathy
-   {:codelist {:icd10 ["D65" "D66" "D67" "D68" "D69" "Y44.2" "Y44.3" "Y44.4" "Y44.5" "Z992.1"]}}
+   {:codelist {:icd10 ["D65" "D66" "D67" "D68" "D69" "Y44.2" "Y44.3" "Y44.4" "Y44.5"]}}
 
    :respiratory
    {:codelist {:icd10 ["J0" "J1" "J20" "J21" "J22"]}}
 
    :hiv
-   {:codelist {:icd10 ["B20.", "B21.", "B22.", "B24.", "Z21", "R75"]}}
+   {:codelist {:icd10 ["B20.", "B21.", "B22.", "B24.", "F02.4" "O98.7" "Z21", "R75"]}}
 
    :autoimmune_disease
    {:codelist {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32." "M34." "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
                        "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10" "E06.3" "E05.0" "K75.4" "K90.0"
-                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80.0" "G61.0" "D51.0" "D59.1" "D69.3" "D68" "N02.8" "M31.0" "D76.1"
-                       "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "D69.3" "I01." "G70.0" "G73.1"]}}
+                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80." "G61.0" "D51.0" "D59.1" "D69.3" "D68" "N02.8" "M31.0" "D76.1"
+                       "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "I01." "G70.0" "G73.1"]}}
 
    :uncontrolled_hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
    {:codelist {:ecl "<<706882009"}}                         ;; this means 'hypertensive emergency'
