@@ -1256,13 +1256,17 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn dates-of-allergic-reactions
-  "Creates a map containing allergic reaction diagnoses, keyed by a vector of
-  patient identifier and date."
+(defn dates-of-anaphylaxis-reactions
+  "Creates a map containing anaphylaxis diagnoses, keyed by a vector of
+  patient identifier and date. This is derived from a diagnosis of anaphylaxis
+  in the problem list.
+
+  TODO: Use the t_medication_event table to impute life-threatening events from
+  the historic record."
   [system patient-ids]
-  (let [allergy-diagnoses (set (map :conceptId (hermes/expand-ecl-historic (:com.eldrix/hermes system) "<<419076005")))
+  (let [anaphylaxis-diagnoses (set (map :conceptId (hermes/expand-ecl-historic (:com.eldrix/hermes system) "<<39579001")))
         pt-diagnoses (->> (fetch-patient-diagnoses system patient-ids)
-                          (filter #(allergy-diagnoses (:t_diagnosis/concept_fk %))))]
+                          (filter #(anaphylaxis-diagnoses (:t_diagnosis/concept_fk %))))]
     (zipmap (map #(vector (:t_patient/patient_identifier %)
                           (:t_diagnosis/date_onset %)) pt-diagnoses)
             pt-diagnoses)))
@@ -1272,13 +1276,13 @@
   properties with date, drug, course-rank, infusion-rank and whether that
   infusion coincided with an allergic reaction."
   [system patient-ids]
-  (let [allergic-reactions (dates-of-allergic-reactions system patient-ids)]
+  (let [anaphylaxis-reactions (dates-of-anaphylaxis-reactions system patient-ids)]
     (->> patient-ids
          (ranked-alemtuzumab-infusions system)
          vals
          flatten
          (map #(update-all % [:dmt :dmt_class] name))
-         (map #(assoc % :allergic_reaction (boolean (get allergic-reactions [(:t_patient/patient_identifier %) (:t_medication/date %)]))))
+         (map #(assoc % :anaphylaxis (boolean (get anaphylaxis-reactions [(:t_patient/patient_identifier %) (:t_medication/date %)]))))
          (sort-by (juxt :t_patient/patient_identifier :course-rank :infusion-rank)))))
 
 (def alemtuzumab-infusions-table
@@ -1291,7 +1295,8 @@
               :t_medication/date
               :valid
               :course-rank
-              :infusion-rank]
+              :infusion-rank
+              :anaphylaxis]
    :title-fn {:course-rank   "course_rank"
               :infusion-rank "infusion_rank"}})
 
