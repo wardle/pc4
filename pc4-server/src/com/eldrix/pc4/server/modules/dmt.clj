@@ -1311,7 +1311,7 @@
                                        (and date-to (.isEqual diag-date date-to))
                                        (and (.isAfter diag-date date-from) (or (nil? date-to) (.isBefore diag-date date-to))))))
                         (get diagnoses patient-id))
-        admissions (fetch-patient-admissions system "ACUTENEUROLOGYCARDIFF" patient-ids)]
+        admissions (fetch-patient-admissions system "ADMISSION" patient-ids)]
     (->> admissions
          (map (fn [{:t_episode/keys [date_registration date_discharge] :as admission}]
                 (assoc admission :t_episode/duration_days
