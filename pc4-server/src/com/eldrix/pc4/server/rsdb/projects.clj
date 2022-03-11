@@ -407,7 +407,8 @@
   (let [episode' (merge {:t_episode/referral_user_fk     user_fk
                          :t_episode/registration_user_fk user_fk
                          :t_episode/discharge_user_fk    user_fk
-                         :t_episode/date_referral        date_registration} episode)]
+                         :t_episode/date_referral        date_registration}
+                        (dissoc episode :t_episode/user_fk))]
     (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
       (if-let [existing (db/execute-one! conn (sql/format {:select :* :from :t_episode :where
                                                            [:and
