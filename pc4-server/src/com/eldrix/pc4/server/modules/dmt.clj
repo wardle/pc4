@@ -1242,7 +1242,7 @@
   (->> (patient-dmt-sequential-regimens system patient-ids)
        vals
        (mapcat identity)
-       (map #(update-all % [:dmt :dmt_class :t_medication/reason_for_stopping] name))))
+       (map #(update-all % [:dmt :dmt_class :switch_from :t_medication/reason_for_stopping] (fnil name "")))))
 
 (def dmt-regimens-table
   {:filename "patient-dmt-regimens.csv"
