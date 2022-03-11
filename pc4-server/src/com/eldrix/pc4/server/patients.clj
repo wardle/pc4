@@ -125,9 +125,10 @@
    ::pco/output [{:wales.nhs.cavuhb.Patient/ADMISSIONS [:wales.nhs.cavuhb.Admission/DATE_FROM
                                                         :wales.nhs.cavuhb.Admission/DATE_TO]}]}
   (when config
-    (->> (cavpms/fetch-admissions config :crn crn)
-         (mapv #(hash-map :wales.nhs.cavuhb.Admission/DATE_FROM (:DATE_ADM %)
-                          :wales.nhs.cavuhb.Admission/DATE_TO (:DATE_DISC %))))))
+    {:wales.nhs.cavuhb.Patient/ADMISSIONS
+     (->> (cavpms/fetch-admissions config :crn crn)
+          (mapv #(hash-map :wales.nhs.cavuhb.Admission/DATE_FROM (:DATE_ADM %)
+                           :wales.nhs.cavuhb.Admission/DATE_TO (:DATE_DISC %))))}))
 
 
 (pco/defresolver resolve-cav-patient-first-names
