@@ -790,6 +790,7 @@
 (defn medications-for-patients [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
   (->> (db/execute! conn
                     (sql/format {:select [:t_patient/patient_identifier
+                                          :t_medication/id
                                           :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to
                                           :t_medication/reason_for_stopping]
                                  :from   [:t_medication :t_patient]
