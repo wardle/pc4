@@ -1030,7 +1030,7 @@
   [system {:keys [filename data-fn columns title-fn]} centre patient-ids]
   (let [make-pt-id #(str (get-in study-centres [centre :prefix]) (format "%06d" %))
         rows (->> (data-fn system patient-ids)
-                  (map #(assoc % ::centre centre
+                  (map #(assoc % ::centre (name centre)
                                  ::patient-id (make-pt-id (:t_patient/patient_identifier %)))))
         columns' (or columns (keys (first rows)))
         title-fn' (merge {::patient-id "patient_id" ::centre "centre"} title-fn) ;; add a default column titles
