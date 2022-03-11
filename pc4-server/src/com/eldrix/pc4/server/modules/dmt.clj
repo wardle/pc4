@@ -1170,7 +1170,7 @@
                      onsets (get onsets patient-id)
                      onset-date (:calculated-onset onsets)
                      has-multiple-sclerosis (:has_multiple_sclerosis onsets)
-                     year-death (when-let [d (:t_patient/date_death %)] (.getYear d))]
+                     date-death (when-let [d (:t_patient/date_death %)] (.withDayOfMonth d 15))]
                  (-> (merge % cohort-entry-med)
                      (update :t_patient/sex (fnil name ""))
                      (update :dmt (fnil name ""))
@@ -1178,7 +1178,7 @@
                      (assoc :depriv_quartile (get deprivation patient-id)
                             :start_follow_up (to-local-date (get earliest-contacts patient-id))
                             :year_birth (when (:t_patient/date_birth %) (.getYear (:t_patient/date_birth %)))
-                            :year_death year-death
+                            :date_death date-death
                             :onset onset-date
                             :has_multiple_sclerosis has-multiple-sclerosis
                             :smoking (get-in smoking [patient-id :t_smoking_history/status])
@@ -1202,6 +1202,7 @@
    :data-fn  make-patients-table
    :columns  [::patient-id
               ::centre
+              :t_patient/sex :year_birth :date_death
               :depriv_quartile :start_follow_up :end_follow_up
               :t_death_certificate/part1a :t_death_certificate/part1b :t_death_certificate/part1c :t_death_certificate/part2
               :atc :dmt :dmt_class :t_medication/date_from
