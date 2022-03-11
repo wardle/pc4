@@ -1203,7 +1203,7 @@
    :columns  [::patient-id
               ::centre
               :depriv_quartile :start_follow_up :end_follow_up
-              :part1a :part1b :part1c :part2
+              :t_death_certificate/part1a :t_death_certificate/part1b :t_death_certificate/part1c :t_death_certificate/part2
               :atc :dmt :dmt_class :t_medication/date_from
               :exposure_days
               :smoking
