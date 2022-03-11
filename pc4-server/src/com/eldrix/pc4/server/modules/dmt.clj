@@ -1657,10 +1657,11 @@
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
-  (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
+  (def system (pc4/init :cvx [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
   (count patient-ids)
+  (take 5 patient-ids)
   (tap> (take 5 patient-ids))
   (time (write-data system :cardiff))
   (write-table system patients-table :cardiff patient-ids)
@@ -1671,14 +1672,47 @@
   (clojure.pprint/pprint (make-demography-check system :cardiff [13936]))
   (check-demographics {:profile :dev :centre :cardiff})
 
-  (def pathom (:pathom/boundary-interface system))
-  (p.eql/process (:pathom/env system) [{[:t_patient/patient_identifier 78213]
-                                        [:t_patient/last_name
-                                         :t_patient/patient_identifier
-                                         :t_patient/id
-                                         :t_patient/hospitals
-                                         :t_patient/demographics_authority]}])
 
+
+
+  (com.eldrix.concierge.wales.cav-pms/fetch-admissions (:wales.nhs.cavuhb/pms system) :crn "A647963")
+
+  (def pathom (:pathom/boundary-interface system))
+  (p.eql/process (:pathom/env system) [{[:t_patient/patient_identifier 93718]
+                                        [{:t_patient/demographics_authority
+                                          [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
+
+
+  (defn admission->episode [patient-pk user-id {:wales.nhs.cavuhb.Admission/keys [DATE_FROM DATE_TO] :as admission}]
+    (when (and admission DATE_FROM DATE_TO)
+      {:t_episode/patient_fk patient-pk
+       :t_episode/user_fk user-id
+       :t_episode/date_registration (.toLocalDate DATE_FROM)
+       :t_episode/date_discharge (.toLocalDate DATE_TO)}))
+
+  (defn admissions-for-patient [system patient-identifier]
+    (let [ident [:t_patient/patient_identifier patient-identifier]
+          admissions (p.eql/process (:pathom/env system) [{ident
+                                                           [:t_patient/id
+                                                            {:t_patient/demographics_authority
+                                                             [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
+          patient-pk (get-in admissions [ident :t_patient/id])
+          admissions' (get-in admissions [ident :t_patient/demographics_authority :wales.nhs.cavuhb.Patient/ADMISSIONS])]
+      (map #(admission->episode patient-pk 1 %) admissions')))
+
+  (let [project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
+        project-id (:t_project/id project)]
+    (doseq [episode (remove nil? (mapcat #(admissions-for-patient system %) [93718]))]
+      (projects/register-completed-episode! (:com.eldrix.rsdb/conn system)
+                                            (assoc episode :t_episode/project_fk project-id))))
+  (mapcat #(admissions-for-patient system %) (take 3 (fetch-study-patient-identifiers system :cardiff)))
+  (take 5 (fetch-study-patient-identifiers system :cardiff))
+  (admissions-for-patient system 94967)
+  (projects/register-completed-episode! (:com.eldrix.rsdb/conn system)
+                                        (first (admissions-for-patient system 93718)))
+  (p.eql/process (:pathom/env system) [{[:t_patient/patient_identifier 94967]
+                                        [{:t_patient/demographics_authority
+                                          [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
   (pathom [{[:t_patient/patient_identifier 78213] demographic-eql}])
   (pathom [{[:wales.nhs.cavuhb.Patient/FIRST_FORENAME "Mark"]
             [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
@@ -1778,7 +1812,8 @@
   dmts
   (set (map :conceptId (:alemtuzumab dmts)))
   (set (map :conceptId (:rituximab dmts)))
-  (:rituximab dmts))
+  (:rituximab dmts)
+  )
 
 (comment
   (require '[portal.api :as p])
