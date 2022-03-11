@@ -1564,10 +1564,24 @@
 (s/def ::export-options (s/keys :req-un [::profile]))
 
 (defn export
-  "Export research data. Run as:
+  "Export research data.
+  Run as:
   ```
   clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx :centre :cardiff
-  ```"
+  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :pc4 :centre :plymouth
+  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :dev :centre :cardiff
+  ```
+  Profile determines the environment in which to use. There are four running
+  pc4 environments currrently:
+  * dev - development
+  * nuc - development
+  * pc4 - Amazon AWS infrastructure
+  * cvx - NHS Wales infrastructure
+
+  Centre determines the choice of projects from which to analyse patients.
+  * :cardiff
+  * :plymouth
+  * :cambridge"
   [{:keys [profile centre] :as opts}]
   (stest/instrument)
   (when-not (s/valid? ::export-options opts)
@@ -1649,6 +1663,7 @@
   (tap> (take 5 patient-ids))
   (time (write-data system :cardiff))
   (write-table system patients-table :cardiff patient-ids)
+  (write-table system diagnoses-table :cardiff patient-ids)
   (spit "metadata.json" (json/write-str (make-metadata system)))
   (check-patient-demographics system 14232)
   (clojure.pprint/pprint (check-patient-demographics system 13936))
