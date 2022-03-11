@@ -392,7 +392,8 @@
 
 (s/fdef register-completed-episode!
   :args (s/cat :conn ::conn :user-id pos-int?
-               :episode (s/keys :req [(or :t_patient/patient_identifier :t_patient/id :t_episode/patient_fk)
+               :episode (s/keys :req [:t_episode/patient_fk
+                                      (or :t_episode/user_fk (and :t_episode/referral_user_fk :t_episode/registration_user_fk :t_episode/discharge_user_fk))
                                       :t_episode/date_registration :t_episode/date_discharge]
                                 :opt [:t_episode/date_referral
                                       :t_episode/notes])))
@@ -400,13 +401,13 @@
   "Register a completed episode with start and end dates.
   Returns the newly created episode, or the existing episode if already exists.
   This operation is idempotent, by design."
-  [conn user-id {:t_episode/keys [patient_fk project_fk date_referral date_registration date_discharge] :as episode}]
+  [conn {:t_episode/keys [patient_fk user_fk project_fk _date_referral date_registration date_discharge] :as episode}]
   (when (.isAfter date_registration date_discharge)
     (throw (ex-info "Date of registration cannot be after date of discharge" episode)))
-  (let [episode' (merge {:t_episode/referral_user_fk user-id
-                         :t_episode/registration_user_fk user-id
-                         :t_episode/discharge_user_fk user-id
-                         :t_episode/date_referral date_registration} episode)]
+  (let [episode' (merge {:t_episode/referral_user_fk     user_fk
+                         :t_episode/registration_user_fk user_fk
+                         :t_episode/discharge_user_fk    user_fk
+                         :t_episode/date_referral        date_registration} episode)]
     (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
       (if-let [existing (db/execute-one! conn (sql/format {:select :* :from :t_episode :where
                                                            [:and
