@@ -391,7 +391,7 @@
                      {:return-keys true})))
 
 (s/fdef register-completed-episode!
-  :args (s/cat :conn ::conn :user-id pos-int?
+  :args (s/cat :conn ::conn
                :episode (s/keys :req [:t_episode/patient_fk
                                       (or :t_episode/user_fk (and :t_episode/referral_user_fk :t_episode/registration_user_fk :t_episode/discharge_user_fk))
                                       :t_episode/date_registration :t_episode/date_discharge]
