@@ -1034,7 +1034,7 @@
                                  ::patient-id (make-pt-id (:t_patient/patient_identifier %)))))
         columns' (or columns (keys (first rows)))
         title-fn' (merge {::patient-id "patient_id" ::centre "centre"} title-fn) ;; add a default column titles
-        headers (mapv #(or (title-fn' %) (name %)) columns')]
+        headers (mapv #(name (or (title-fn' %) %)) columns')]
     (with-open [writer (io/writer filename)]
       (csv/write-csv writer (into [headers] (map (fn [row] (mapv (fn [col] (col row)) columns')) rows))))))
 
@@ -1367,8 +1367,8 @@
                     :t_diagnosis/concept_fk
                     :t_diagnosis/date_onset :t_diagnosis/date_diagnosis :t_diagnosis/date_to
                     :icd10
-                    :term
-                    (keys study-diagnosis-categories)])})
+                    :term]
+                   (keys study-diagnosis-categories))})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-edss-table [system patient-ids]
