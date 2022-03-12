@@ -1057,9 +1057,8 @@
   [{conn :com.eldrix.rsdb/conn} project-names]
   (let [project-ids (set (map #(:t_project/id (projects/project-with-name conn %)) project-names))
         child-project-ids (set (mapcat #(projects/all-children-ids conn %) project-ids))
-        all-project-ids (set/union project-ids child-project-ids)
-        all-patients-pks (patients/patient-pks-in-projects conn all-project-ids)]
-    (patients/pks->identifiers conn all-patients-pks)))
+        all-project-ids (set/union project-ids child-project-ids)]
+    (patients/patient-ids-in-projects conn all-project-ids)))
 
 (s/fdef fetch-study-patient-identifiers
   :args (s/cat :system any? :centre ::centre))

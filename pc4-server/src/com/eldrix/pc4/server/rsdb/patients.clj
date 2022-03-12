@@ -127,36 +127,47 @@
        active-projects
        (into active-projects (flatten (map #(projects/all-parents-ids conn %) active-projects)))))))
 
-(defn patient-pks-in-projects-sql
-  [project-ids on-date]
-  (sql/format {:select-distinct :patient_fk
-               :from            :t_episode
-               :where           [:and
-                                 [:in :project_fk project-ids]
-                                 [:or
-                                  [:is :t_episode/date_discharge nil]
-                                  [:> :date_discharge on-date]]
-                                 [:or
-                                  [:is :date_registration nil]
-                                  [:< :date_registration on-date]
-                                  [:= :date_registration on-date]]]}))
-
-(defn patient-pks-in-projects
-  "Return a set of patient pks in the projects specified, on the date `on-date`.
+(s/def ::on-date #(instance? LocalDate %))
+(s/def ::patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})
+(s/def ::discharged? boolean?)
+(s/fdef patient-ids-in-projects
+  :args (s/cat :conn ::conn
+               :project-ids (s/coll-of pos-int?)
+               :opts (s/keys* :opt-un [::on-date ::patient-status ::discharged?])))
+(defn patient-ids-in-projects
+  "Returns a set of patient identifiers in the projects specified.
   Parameters:
-  - conn        : database connection, or pool
-  - project-ids : collection of project identifiers
-  - on-date     : (optional, default now), date on which to determine membership
+  - conn        : database connectable
+  - project-ids : project identifiers
+  - on-date     : optional, determine membership on this date, default today
+  - patient-status : 'status' of patient.
+  - "
+  [conn project-ids & {:keys [^LocalDate on-date patient-status discharged?]
+                       :or   {on-date        (LocalDate/now)
+                              patient-status #{:FULL :PSEUDONYMOUS}
+                              discharged? false}}]
+  (transduce
+    (map :t_patient/patient_identifier)
+    conj
+    #{}
+    (jdbc/plan conn (sql/format {:select-distinct :patient_identifier
+                                 :from            :t_patient
+                                 :left-join       [:t_episode [:= :patient_fk :t_patient/id]]
+                                 :where           [:and
+                                                   [:in :project_fk project-ids]
+                                                   [:in :t_patient/status (map name patient-status)]
+                                                   (when-not discharged?
+                                                     [:or
+                                                      [:is :t_episode/date_discharge nil]
+                                                      [:> :date_discharge on-date]])
+                                                   [:or
+                                                    [:is :date_registration nil]
+                                                    [:< :date_registration on-date]
+                                                    [:= :date_registration on-date]]]}))))
 
-  Returns a set of patient primary keys."
-  ([conn project-ids] (patient-pks-in-projects conn project-ids (LocalDate/now)))
-  ([conn project-ids ^LocalDate on-date]
-   (transduce
-     (map :t_episode/patient_fk)
-     conj
-     #{}
-     (jdbc/plan conn (patient-pks-in-projects-sql project-ids on-date)))))
 
+(s/fdef pks->identifiers
+  :args (s/cat :conn ::conn :pks (s/coll-of pos-int?)))
 (defn pks->identifiers
   "Turn patient primary keys into identifiers."
   [conn pks]
@@ -178,27 +189,6 @@
   [conn patient-identifier]
   (:t_patient/id
     (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
-
-(defn patient-pks-on-medications-sql
-  [medication-concept-ids]
-  (sql/format {:select-distinct :patient_fk
-               :from            :t_medication
-               :where           [:in :medication_concept_fk medication-concept-ids]}))
-
-(defn patient-pks-on-medications
-  "Return a set of patient primary keys who are recorded as ever being on one of the
-  medications specified.
-  Parameters:
-  - conn       : database connection, or pool
-  - medication-concept-ids : a collection of concept identifiers.
-
-  Returns a set of patient primary keys, not patient_identifier."
-  [conn medication-concept-ids]
-  (transduce
-    (map :t_medication/patient_fk)
-    conj
-    #{}
-    (jdbc/plan conn (patient-pks-on-medications-sql medication-concept-ids))))
 
 (s/fdef create-diagnosis
   :args (s/cat :conn ::conn
