@@ -10,6 +10,7 @@
             [clojure.math :as math]
             [clojure.set :as set]
             [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.deprivare.core :as deprivare]
@@ -24,9 +25,9 @@
             [com.eldrix.pc4.server.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
-            [next.jdbc.plan :as plan]
-            [clojure.spec.test.alpha :as stest])
-  (:import (java.time LocalDate LocalDateTime Period Duration)
+            [next.jdbc.plan :as plan])
+
+  (:import (java.time LocalDate LocalDateTime Period)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
            (java.io PushbackReader)))
