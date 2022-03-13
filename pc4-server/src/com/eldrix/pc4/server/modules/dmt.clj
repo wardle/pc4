@@ -45,6 +45,7 @@
 
 (s/def ::centre (set (keys study-centres)))
 
+
 (def study-medications
   "A list of interesting drugs for studies of multiple sclerosis.
   They are classified as either platform DMTs or highly efficacious DMTs.
@@ -1302,25 +1303,28 @@
               :infusion-rank "infusion_rank"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn date-in-range-inclusive?
+  [^LocalDate date-from ^LocalDate date-to ^LocalDate date]
+  (when date
+    (or (.isEqual date date-from)
+        (.isEqual date date-to)
+        (and (.isAfter date date-from) (.isBefore date date-to)))))
+
 (defn make-admissions-table
   [system patient-ids]
   (let [diagnoses (group-by :t_patient/patient_identifier (all-patient-diagnoses system patient-ids))
-        get-diagnoses (fn [patient-id ^LocalDate date-from ^LocalDate date-to]
-                        (filter #(when-let [diag-date (or (:t_diagnosis/date_onset %) (:t_diagnosis/date_diagnosis %))]
-                                   (or (.isEqual diag-date date-from)
-                                       (and date-to (.isEqual diag-date date-to))
-                                       (and (.isAfter diag-date date-from) (or (nil? date-to) (.isBefore diag-date date-to))))))
-                        (get diagnoses patient-id))
-        admissions (fetch-patient-admissions system "ADMISSION" patient-ids)]
-    (->> admissions
-         (map (fn [{:t_episode/keys [date_registration date_discharge] :as admission}]
-                (assoc admission :t_episode/duration_days
-                                 (when (and date_registration date_discharge)
-                                   (.between ChronoUnit/DAYS date_registration date_discharge)))))
-
-         (map (fn [{patient-id      :t_patient/patient_identifier :as admission
-                    :t_episode/keys [date_registration date_discharge]}]
-                (merge admission (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge))))))))
+        get-diagnoses (fn [patient-id ^LocalDate date-from ^LocalDate date-to] ;; create a function to fetch a patient's diagnoses within a date range
+                        (->> (get diagnoses patient-id)
+                             (filter #(date-in-range-inclusive? date-from date-to (or (:t_diagnosis/date_diagnosis %) (:t_diagnosis/date_onset %))))))]
+    (->> (fetch-patient-admissions system "ADMISSION" patient-ids)
+         (map (fn [{patient-id      :t_patient/patient_identifier
+                    :t_episode/keys [date_registration date_discharge] :as admission}]
+                (-> admission
+                    (assoc :t_episode/duration_days
+                           (when (and date_registration date_discharge)
+                             (.between ChronoUnit/DAYS date_registration date_discharge)))
+                    (merge (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge)))))))))
 
 (def admissions-table
   {:filename "patient-admissions.csv"
@@ -1728,8 +1732,14 @@
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
-  (def system (pc4/init :cvx [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
+  (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
+  (time (def a (fetch-project-patient-identifiers system (get-in study-centres [:cardiff :projects]))))
+  (get-in study-centres [:cardiff :projects])
+  (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF")
+  (time (def b (patients/patient-ids-in-projects (:com.eldrix.rsdb/conn system) #{5} :patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})))
+  (count b)
+  (set/difference a b)
   (def patient-ids (fetch-study-patient-identifiers system :cardiff))
   (count patient-ids)
   (take 5 patient-ids)
