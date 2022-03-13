@@ -1649,6 +1649,45 @@
 
     (pc4/halt! system)))
 
+
+
+(defn admission->episode [patient-pk user-id {:wales.nhs.cavuhb.Admission/keys [DATE_FROM DATE_TO] :as admission}]
+  (when (and admission DATE_FROM DATE_TO)
+    {:t_episode/patient_fk        patient-pk
+     :t_episode/user_fk           user-id
+     :t_episode/date_registration (.toLocalDate DATE_FROM)
+     :t_episode/date_discharge    (.toLocalDate DATE_TO)}))
+
+(defn admissions-for-patient [system patient-identifier]
+  (let [ident [:t_patient/patient_identifier patient-identifier]
+        admissions (p.eql/process (:pathom/env system) [{ident
+                                                         [:t_patient/id
+                                                          {:t_patient/demographics_authority
+                                                           [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
+        patient-pk (get-in admissions [ident :t_patient/id])
+        admissions' (get-in admissions [ident :t_patient/demographics_authority :wales.nhs.cavuhb.Patient/ADMISSIONS])]
+    (map #(admission->episode patient-pk 1 %) admissions')))
+
+(defn update-cav-admissions
+  "Update admission data from CAVPMS. Run as:
+  ```
+  clj -X com.eldrix.pc4.server.modules.dmt/update-cav-admissions :profile :cvx :centre :cardiff
+  ```"
+  [{:keys [profile centre]}]
+  (let [system (pc4/init profile)
+        project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
+        project-id (:t_project/id project)]
+    (dorun
+      (->> (fetch-study-patient-identifiers system centre)
+           (mapcat #(admissions-for-patient system %))
+           (remove nil?)
+           (map #(assoc % :t_episode/project_fk project-id))
+           (map #(projects/register-completed-episode! (:com.eldrix.rsdb/conn system) %))))
+    (pc4/halt! system)))
+
+
+
+
 ;;;
 ;;; Write out data
 ;;; zip all csv files with the metadata.json
@@ -1682,23 +1721,6 @@
                                         [{:t_patient/demographics_authority
                                           [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
 
-
-  (defn admission->episode [patient-pk user-id {:wales.nhs.cavuhb.Admission/keys [DATE_FROM DATE_TO] :as admission}]
-    (when (and admission DATE_FROM DATE_TO)
-      {:t_episode/patient_fk patient-pk
-       :t_episode/user_fk user-id
-       :t_episode/date_registration (.toLocalDate DATE_FROM)
-       :t_episode/date_discharge (.toLocalDate DATE_TO)}))
-
-  (defn admissions-for-patient [system patient-identifier]
-    (let [ident [:t_patient/patient_identifier patient-identifier]
-          admissions (p.eql/process (:pathom/env system) [{ident
-                                                           [:t_patient/id
-                                                            {:t_patient/demographics_authority
-                                                             [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
-          patient-pk (get-in admissions [ident :t_patient/id])
-          admissions' (get-in admissions [ident :t_patient/demographics_authority :wales.nhs.cavuhb.Patient/ADMISSIONS])]
-      (map #(admission->episode patient-pk 1 %) admissions')))
 
   (let [project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
         project-id (:t_project/id project)]
