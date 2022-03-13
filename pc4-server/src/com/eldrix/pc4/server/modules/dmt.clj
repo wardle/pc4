@@ -1744,70 +1744,6 @@
              :wales.nhs.cavuhb.Patient/FIRST_NAMES
              :wales.nhs.cavuhb.Patient/LAST_NAME]}])
 
-  (def conn (:com.eldrix.rsdb/conn system))
-  (keys system)
-  (def all-dmts (all-ms-dmts system))
-  (def all-he-dmt-identifiers (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) all-dmts)))))
-  all-he-dmt-identifiers
-  (def dmt-lookup (apply merge (map (fn [dmt] (zipmap (:codes dmt) (repeat (vector (:class dmt) (:id dmt))))) all-dmts)))
-  (apply concat (map :codes all-dmts))
-  (first all-dmts)
-  (count all-dmt-identifiers)
-  all-dmts
-  ;; get a list of patients who have received one of the disease-modifying treatments:
-  (def dmt-patient-pks (patients/patient-pks-on-medications (:com.eldrix.rsdb/conn system) all-dmt-identifiers))
-  (count dmt-patient-pks)
-
-  ;; get a list of projects from which we will select patients
-  (def project-ids (let [project-id (:t_project/id (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF"))]
-                     (conj (projects/all-children-ids (:com.eldrix.rsdb/conn system) project-id) project-id)))
-  (def cardiff-patient-pks (patients/patient-pks-in-projects (:com.eldrix.rsdb/conn system) project-ids))
-  (count cardiff-patient-pks)
-
-  ;; and now it is simple to derive identifiers for all patients known to service who have received DMT:
-  (def study-patient-pks (set/intersection dmt-patient-pks cardiff-patient-pks))
-  (def study-patient-identifiers (patients/pks->identifiers conn study-patient-pks))
-  (take 4 study-patient-identifiers)
-
-
-  (defn rows->csv
-    [header rows])
-
-  (def columns [:t_patient/patient_identifier
-                :t_medication/medication_concept_fk
-                :atc
-                :dmt
-                :dmt_class
-                :t_medication/date_from
-                :t_medication/date_to
-                :exposure_days
-                :switch_from
-                :n_prior_platform_dmts
-                :n_prior_he_dmts])
-  (def headers (mapv name columns))
-  headers
-
-  (clojure.pprint/print-table (get pt-dmts 12314))
-  (def rows (mapcat identity (vals pt-dmts)))
-  (take 4 rows)
-  (into [headers] (mapv #(mapv % columns) rows))
-  (with-open [writer (io/writer "out-file.csv")]
-    (csv/write-csv writer
-                   (into [headers] (mapv #(mapv % columns) rows))))
-
-  (take 5 (into [headers] (mapv (fn [[patient-id medications]] (into [patient-id] (when-let [dmt (first-he-dmt-after-date medications study-master-date)]
-                                                                                    [(:t_medication/date_from dmt) (:dmt dmt) (:dmt_class dmt)
-                                                                                     (:n_prior_platform_dmts dmt) (:n_prior_he_dmts dmt)]))) pt-dmts)))
-
-
-
-
-
-
-
-
-  (def pathom (:pathom/boundary-interface system))
-
   (tap> (pathom [{[:t_patient/patient_identifier 94967]
                   [:t_patient/id
                    :t_patient/date_birth
@@ -1824,18 +1760,7 @@
                                             :t_medication/date_to
                                             {:t_medication/medication [:info.snomed.Concept/id
                                                                        {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
-                                                                       :uk.nhs.dmd/NM]}]}]}]))
-
-
-
-
-  (def dmts (apply merge (map #(when-let [ecl (get-in % [:concepts :info.snomed/ECL])]
-                                 (hash-map (:id %) (hermes/expand-ecl-historic svc ecl))) multiple-sclerosis-dmts)))
-  dmts
-  (set (map :conceptId (:alemtuzumab dmts)))
-  (set (map :conceptId (:rituximab dmts)))
-  (:rituximab dmts)
-  )
+                                                                       :uk.nhs.dmd/NM]}]}]}])))
 
 (comment
   (require '[portal.api :as p])
