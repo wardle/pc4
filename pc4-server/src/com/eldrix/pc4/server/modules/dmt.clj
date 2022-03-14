@@ -1322,9 +1322,6 @@
     (->> (fetch-patient-admissions system "ADMISSION" patient-ids)
          (map (fn [{patient-id      :t_patient/patient_identifier
                     :t_episode/keys [date_registration date_discharge] :as admission}]
-                (println "processing admission" admission)
-                (clojure.pprint/pprint {:diagnoses (get-diagnoses patient-id date_registration date_discharge)
-                                        :merged (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge))})
                 (-> admission
                     (assoc :t_episode/duration_days
                            (when (and date_registration date_discharge)
