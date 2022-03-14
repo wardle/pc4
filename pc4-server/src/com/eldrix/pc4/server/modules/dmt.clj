@@ -997,8 +997,9 @@
 (defn merge-diagnostic-categories
   [diagnoses]
   (let [categories (keys study-diagnosis-categories)
-        diagnoses' (map #(select-keys % categories) diagnoses)]
-    (apply merge-with #(or %1 %2) diagnoses')))
+        diagnoses' (map #(select-keys % categories) diagnoses)
+        all-false (zipmap (keys study-diagnosis-categories) (repeat false))]
+    (apply merge-with #(or %1 %2) (conj diagnoses' all-false))))
 
 (defn fetch-non-dmt-medications [system patient-ids]
   (let [drug-fn (make-codelist-category-fn system study-medications)
@@ -1304,9 +1305,10 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
 (defn date-in-range-inclusive?
   [^LocalDate date-from ^LocalDate date-to ^LocalDate date]
-  (when date
+  (when (and  date-from date-to date)
     (or (.isEqual date date-from)
         (.isEqual date date-to)
         (and (.isAfter date date-from) (.isBefore date date-to)))))
@@ -1320,11 +1322,19 @@
     (->> (fetch-patient-admissions system "ADMISSION" patient-ids)
          (map (fn [{patient-id      :t_patient/patient_identifier
                     :t_episode/keys [date_registration date_discharge] :as admission}]
+                (println "processing admission" admission)
+                (clojure.pprint/pprint {:diagnoses (get-diagnoses patient-id date_registration date_discharge)
+                                        :merged (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge))})
                 (-> admission
                     (assoc :t_episode/duration_days
                            (when (and date_registration date_discharge)
                              (.between ChronoUnit/DAYS date_registration date_discharge)))
                     (merge (merge-diagnostic-categories (get-diagnoses patient-id date_registration date_discharge)))))))))
+
+(comment
+  (fetch-patient-admissions system "ADMISSION" [17490])
+  (make-admissions-table system [17490]))
+
 
 (def admissions-table
   {:filename "patient-admissions.csv"
