@@ -1132,10 +1132,7 @@
    :patients-without-ms-diagnosis
    (let [with-ms (set (map :t_patient/patient_identifier (filter :has_multiple_sclerosis (vals (multiple-sclerosis-onset system patient-ids)))))]
      (set/difference patient-ids with-ms))
-
-   (->> (update-vals (multiple-sclerosis-onset system patient-ids) :has_multiple_sclerosis)
-        (remove (fn [[k v]] v)))
-
+   
    ;;  generate a list of incorrect alemtuzumab records
    :incorrect-alemtuzumab-course-dates
    (->> (alemtuzumab-medications system patient-ids)
