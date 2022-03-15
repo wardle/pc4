@@ -1130,6 +1130,9 @@
 
    ;; generate a list of patients in the study without multiple sclerosis
    :patients-without-ms-diagnosis
+   (let [with-ms (set (map :t_patient/patient_identifier (filter :has_multiple_sclerosis (vals (multiple-sclerosis-onset system patient-ids)))))]
+     (set/difference patient-ids with-ms))
+
    (->> (update-vals (multiple-sclerosis-onset system patient-ids) :has_multiple_sclerosis)
         (remove (fn [[k v]] v)))
 
