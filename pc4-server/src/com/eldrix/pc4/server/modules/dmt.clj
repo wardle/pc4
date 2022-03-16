@@ -1419,7 +1419,7 @@
 
 (def observations-missing
   "A set of patient pseudonyms with observation data missing"
-  #{"df10d218a9a3e08ce3e9ce254040cff6a57ce9fc653df424f097356118bcce7a"})
+  #{})
 
 (defn observation-missing?
   "Returns whether the patient specified has observations missing."
