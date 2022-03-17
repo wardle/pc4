@@ -1137,7 +1137,7 @@
    :patients-without-ms-diagnosis
    (let [with-ms (set (map :t_patient/patient_identifier (filter :has_multiple_sclerosis (vals (multiple-sclerosis-onset system patient-ids)))))]
      (set/difference patient-ids with-ms))
-   
+
    ;;  generate a list of incorrect alemtuzumab records
    :incorrect-alemtuzumab-course-dates
    (->> (alemtuzumab-medications system patient-ids)
@@ -1313,7 +1313,7 @@
 
 (defn date-in-range-inclusive?
   [^LocalDate date-from ^LocalDate date-to ^LocalDate date]
-  (when (and  date-from date-to date)
+  (when (and date-from date-to date)
     (or (.isEqual date date-from)
         (.isEqual date date-to)
         (and (.isAfter date date-from) (.isBefore date date-to)))))
