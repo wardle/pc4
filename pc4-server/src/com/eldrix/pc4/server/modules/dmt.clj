@@ -199,7 +199,7 @@
     :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
                   :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
 
-   :anti-retroviral
+   :anti_retroviral
    {:description "Antiretrovirals"
     :class       :other
     :codelist    {:inclusions {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]}
