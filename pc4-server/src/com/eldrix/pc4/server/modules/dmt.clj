@@ -206,6 +206,11 @@
                   :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
                                      "J05AF07" "J05AF08" "J05AF10"
                                      "J05AX15" "J05AX65"]}}}
+   :antibiotic_antimyocotic
+   {:description "Antibiotics and antimycotics"
+    :class       :other
+    :codelist    {:atc ["J01." "J02." "J03." "J04."]}}
+
    :antidepressant
    {:description "Anti-depressants"
     :class       :other
