@@ -185,7 +185,7 @@
    :anti-coagulant
    {:description "Anticoagulants"
     :class       :other
-    :codelist    {:atc ["B01AA" "B01AB" "B01AF" "B01AE" "B01AD"
+    :codelist    {:atc ["B01AA" "B01AB" "B01AC" "B01AF" "B01AE" "B01AD"
                         "B01AX04" "B01AX05" "S01XA13" "B06AA02" "B06AA55"]}}
 
    :proton-pump-inhibitor
