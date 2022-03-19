@@ -1814,8 +1814,8 @@
   (clojure.pprint/pprint (make-demography-check system :cardiff [13936]))
   (check-demographics {:profile :dev :centre :cardiff})
 
-  (matching-filenames "/Users/mark/Desktop/lempass"
-                      (merge-matching-data "/Users/mark/Desktop/lempass" "/Users/mark/Desktop/lempass-merged"))
+  (matching-filenames "/Users/mark/Desktop/lempass")
+  (merge-matching-data "/Users/mark/Desktop/lempass" "/Users/mark/Desktop/lempass-merged")
 
 
   (com.eldrix.concierge.wales.cav-pms/fetch-admissions (:wales.nhs.cavuhb/pms system) :crn "A647963")
