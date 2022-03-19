@@ -30,7 +30,9 @@
   (:import (java.time LocalDate LocalDateTime Period)
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
-           (java.io PushbackReader)))
+           (java.io PushbackReader File)
+           (java.nio.file Files LinkOption)
+           (java.nio.file.attribute FileAttribute)))
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
@@ -1734,7 +1736,54 @@
     (pc4/halt! system)))
 
 
+(defn matching-filenames
+  "Return a sequence of filenames from the directory specified, in a map keyed
+  by the filename."
+  [dir]
+  (->> (file-seq (io/as-file dir))
+       (filter #(.isFile %))
+       (reduce (fn [acc v] (update acc (.getName v) conj v)) {})))
 
+(defn copy-csv-file
+  [writer csv-file]
+  (with-open [reader (io/reader csv-file)]
+    (->> (csv/read-csv reader)
+         (csv/write-csv writer))))
+
+(defn append-csv-file
+  "Write data to writer from the csv-file, removing the first row"
+  [writer csv-file]
+  (with-open [reader (io/reader csv-file)]
+    (->> (csv/read-csv reader)
+         (rest)
+         (csv/write-csv writer))))
+
+(defn merge-csv-files
+  [out files]
+  (with-open [writer (io/writer out)]
+    (copy-csv-file writer (first files))
+    (dorun (map #(append-csv-file writer %) (rest files)))))
+
+(defn merge-matching-data
+  [dir out-dir]
+  (let [out-path (.toPath ^File (io/as-file out-dir))
+        files (->> (matching-filenames dir)
+                   (filter (fn [[filename _files]]
+                             (.endsWith (str/lower-case filename) ".csv"))))]
+    (println "Writing merged files to" out-path)
+    (Files/createDirectories out-path (make-array FileAttribute 0))
+    (dorun (map (fn [[filename csv-files]]
+                  (let [out (.resolve out-path filename)]
+                    (merge-csv-files (.toFile out) csv-files))) files))))
+
+(defn merge-csv
+  "Merge directories of csv files based on matching filename.
+  Unfortunately, one must escape strings.
+  ```
+  clj -X com.eldrix.pc4.server.modules.dmt/merge-csv :dir '\"/tmp/csv-files\"' :out '\"/tmp/merged\"'
+  ```"
+  [{:keys [dir out]}]
+  (merge-matching-data (str dir) (str out)))
 
 ;;;
 ;;; Write out data
@@ -1765,7 +1814,8 @@
   (clojure.pprint/pprint (make-demography-check system :cardiff [13936]))
   (check-demographics {:profile :dev :centre :cardiff})
 
-
+  (matching-filenames "/Users/mark/Desktop/lempass"
+                      (merge-matching-data "/Users/mark/Desktop/lempass" "/Users/mark/Desktop/lempass-merged"))
 
 
   (com.eldrix.concierge.wales.cav-pms/fetch-admissions (:wales.nhs.cavuhb/pms system) :crn "A647963")
@@ -1908,3 +1958,4 @@
   (def dmf (set (map :conceptId (hermes/search hermes {:constraint "(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"}))))
   (contains? dmf 12086301000001102)
   (contains? dmf 24035111000001108))
+
