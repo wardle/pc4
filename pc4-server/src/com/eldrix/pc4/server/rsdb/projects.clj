@@ -33,7 +33,11 @@
 (s/def ::nhs-number com.eldrix.concierge.nhs-number/valid?)
 (s/def ::salt string?)
 (s/def ::project-id pos-int?)
+(s/def ::user-id pos-int?)
+(s/def ::sex #{:MALE :FEMALE :UNKNOWN "MALE" "FEMALE" "UNKNOWN"})
 (s/def ::project-name string?)
+(s/def ::adopt-pending? boolean?)
+(s/def ::pseudonym string?)
 
 (defn fetch-users
   "Fetch users for the project specified. An individual may be listed more than
@@ -201,6 +205,9 @@
   [& identifiers]
   (DigestUtils/sha256Hex ^String (apply str identifiers)))
 
+
+(s/fdef calculate-project-pseudonym
+  :args (s/cat :project-name string? :identifier string? :date-birth ::date-birth))
 (defn ^:deprecated calculate-project-pseudonym
   "Generate a legacy project-based pseudonym, based on:
    - the name of the project
@@ -212,7 +219,11 @@
    project itself.
 
    This is compatible with the legacy project-specific pseudonymous strategy
-   from RSNews/rsdb from 2008."
+   from RSNews/rsdb from 2008.
+
+   TODO: Add a flexible configurable pseudonymous identifier strategy for each
+   project - with versioned identifiers based on the strategy used. Add
+   cryptographically secure salt to each project for v2 identifiers."
   [project-name identifier ^LocalDate date-birth]
   (make-hash-pseudonym (DigestUtils/md5Hex ^String project-name) identifier (.format date-birth (DateTimeFormatter/ISO_LOCAL_DATE))))
 
@@ -402,7 +413,7 @@
   Returns the newly created episode, or the existing episode if already exists.
   This operation is idempotent, by design."
   [conn {:t_episode/keys [patient_fk user_fk project_fk _date_referral date_registration date_discharge] :as episode}]
-  (when (.isAfter date_registration date_discharge)
+  (when (or (nil? date_registration) (nil? date_discharge) (.isAfter date_registration date_discharge))
     (throw (ex-info "Date of registration cannot be after date of discharge" episode)))
   (let [episode' (merge {:t_episode/referral_user_fk     user_fk
                          :t_episode/registration_user_fk user_fk
@@ -410,22 +421,19 @@
                          :t_episode/date_referral        date_registration}
                         (dissoc episode :t_episode/user_fk))]
     (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
-      (if-let [existing (db/execute-one! conn (sql/format {:select :* :from :t_episode :where
-                                                           [:and
-                                                            [:= :patient_fk patient_fk] [:= :project_fk project_fk]
-                                                            [:= :date_registration date_registration]
-                                                            [:= :date_discharge date_discharge]]}))]
+      (if-let [existing (db/execute-one! tx (sql/format {:select :* :from :t_episode :where
+                                                         [:and
+                                                          [:= :patient_fk patient_fk] [:= :project_fk project_fk]
+                                                          [:= :date_registration date_registration]
+                                                          [:= :date_discharge date_discharge]]}))]
         existing
         (create-episode! tx episode')))))
 
 
 
 
-
-(s/def ::adopt-pending? boolean?)
-(s/def ::pseudonym string?)
 (s/fdef register-patient-project!
-  :args (s/cat :conn ::conn :project-id pos-int?
+  :args (s/cat :conn ::conn :project-id pos-int? :user-id pos-int?
                :patient (s/keys :req [:t_patient/id])
                :opts (s/keys* :opt-un [::adopt-pending? ::pseudonym])))
 (defn register-patient-project!
@@ -472,6 +480,9 @@
                                      :t_episode/date_registration    (LocalDate/now)}
                                     pseudonym (assoc :t_episode/stored_pseudonym pseudonym)))))))
 
+
+(s/fdef register-legacy-pseudonymous-patient
+  :args (s/cat :conn ::conn :patient (s/keys :req-un [::salt ::user-id ::project-id ::nhs-number ::sex ::date-birth])))
 (defn ^:deprecated register-legacy-pseudonymous-patient
   "Registers a pseudonymous patient using the legacy rsdb registration.
   This simply looks for an existing patient record, or creates a new patient
