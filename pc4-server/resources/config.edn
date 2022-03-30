@@ -87,7 +87,8 @@
                                       :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
                                       :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
                                       :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
-                                      :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms}
+                                      :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms
+                                      :wales.nhs/empi                 #ig/ref :wales.nhs/empi}
 
  :pathom/boundary-interface          {:config #profile {:default {}
                                                         :dev     {:connect-viz true}}
