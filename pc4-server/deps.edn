@@ -17,9 +17,8 @@
              com.eldrix/deprivare              {:mvn/version "1.0.49"
                                                 :exclusions  [commons-logging/commons-logging]}
              com.eldrix/dmd                    {:mvn/version "0.6.139"}
-             com.eldrix/hermes                 {:mvn/version "0.9.379"}
-             com.eldrix/comprehend             {:git/url "https://github.com/wardle/comprehend.git"
-                                                :sha     "b89181942c9e68a638e35102c7f1eae073b978f1"}
+             com.eldrix/hermes                 {:mvn/version "0.9.458"}
+             ;com.eldrix/comprehend             {:mvn/version "0.0.4"}
 
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}
