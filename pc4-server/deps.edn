@@ -12,7 +12,8 @@
                                                               commons-logging/commons-logging]}
 
              com.eldrix/clods                  {:mvn/version "1.1.185"}
-             com.eldrix/concierge              {:mvn/version "1.0.133"}
+             com.eldrix/ods-weekly             {:mvn/version "0.1.36"}
+             com.eldrix/concierge              {:mvn/version "1.0.142"}
              com.eldrix/deprivare              {:mvn/version "1.0.49"
                                                 :exclusions  [commons-logging/commons-logging]}
              com.eldrix/dmd                    {:mvn/version "0.6.139"}
