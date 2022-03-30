@@ -46,7 +46,7 @@
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
- :aliases   {:build       {:deps       {io.github.clojure/tools.build {:git/tag "v0.7.5" :git/sha "34727f7"}
+ :aliases   {:build       {:deps       {io.github.clojure/tools.build {:git/tag "v0.8.1" :git/sha "7d40500"}
                                         slipset/deps-deploy           {:mvn/version "RELEASE"}}
                            :ns-default build}
 
