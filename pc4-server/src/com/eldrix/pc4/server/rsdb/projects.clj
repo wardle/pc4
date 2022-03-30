@@ -18,7 +18,8 @@
             [com.eldrix.pc4.server.rsdb.db :as db]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [next.jdbc.plan])
+            [next.jdbc.plan]
+            [next.jdbc.sql])
   (:import (java.time LocalDate)
            (java.text Normalizer Normalizer$Form)
            (java.time.format DateTimeFormatter)
@@ -320,13 +321,13 @@
   * t_patient/date_birth
   * t_patient/sex
   * t_patient/nhs_number"
-  [conn & {:keys [salt project-id project-name nhs-number date-birth] :as params}]
+  [conn & {:keys [salt project-id project-name nhs-number date-birth validate?] :or {validate? true} :as params}]
   (let [project-name (if project-name project-name (:t_project/name (fetch-project conn project-id)))
         project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth)
         global-pseudonym (calculate-global-pseudonym salt nhs-number date-birth)]
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
                       (fetch-by-global-pseudonym conn global-pseudonym))]
-      (when (and (not patient) (fetch-by-nhs-number conn nhs-number))
+      (when (and validate? (not patient) (fetch-by-nhs-number conn nhs-number))
         (throw (ex-info "NHS number match but other details do not." {:params            params
                                                                       :global-pseudonym  global-pseudonym
                                                                       :project-pseudonym project-pseudonym})))
@@ -530,6 +531,46 @@
         (assoc patient
           :t_episode/project_fk project-id
           :t_episode/stored_pseudonym (:project-pseudonym existing))))))
+
+(s/fdef update-legacy-pseudonymous-patient!
+  :args (s/cat :conn ::conn
+               :salt ::salt
+               :existing (s/keys :req-un [::nhs-number ::sex ::date-birth])
+               :updated (s/keys :req-un [::nhs-number ::sex ::date-birth])))
+(defn update-legacy-pseudonymous-patient!
+  "DANGER: updates the demographic details for the given patient. This is
+  designed to correct incorrectly entered patient registration information.
+  In essence, you must provide the original and the original patient details.
+  These will be used to firstly identify the patient, and then carefully update
+  the pseudonymous identifiers. "
+  [conn salt old-details
+   {:keys [nhs-number sex date-birth] :as new-details}]
+  (jdbc/with-transaction [tx conn {:isolation :serializable}]
+    (doseq [project-id (map :t_episode/project_fk  (jdbc/execute! tx (sql/format {:select-distinct :project_fk :from            :t_episode
+                                                                                  :where           [:and [:= :patient_fk 129411] [:<> :stored_pseudonym nil]]})))]
+      (let [existing (find-legacy-pseudonymous-patient tx (assoc old-details :salt salt :project-id project-id))
+            updated (find-legacy-pseudonymous-patient tx (assoc new-details :salt salt :project-id project-id :validate? false))]
+        (if-not (:t_patient/id existing)
+          (throw (ex-info "No patient found:" old-details))
+          (if (and (:t_patient/id updated) (not= (:t_patient/id updated) (:t_patient/id existing)))
+            (throw (ex-info "Patient already found with details:" new-details))
+            (do
+              (log/info "Updating pseudonymous patient demographics:" {:existing existing :updated updated
+                                                                       :diff (clojure.data/diff existing updated)})
+              (next.jdbc.sql/update! tx :t_patient
+                                     {:sex                     (name sex)
+                                      :date_birth              (.withDayOfMonth date-birth 1)
+                                      :nhs_number              nhs-number
+                                      :stored_global_pseudonym (:global-pseudonym updated)}
+                                     {:id (:t_patient/id existing)})
+              (next.jdbc.sql/update! tx :t_episode
+                                     {:stored_pseudonym (:project-pseudonym updated)}
+                                     {:patient_fk       (:t_patient/id existing)
+                                      :project_fk       project-id
+                                      :stored_pseudonym (:project-pseudonym existing)}))))))))
+
+
+
 
 (defn make-slug
   [s]
