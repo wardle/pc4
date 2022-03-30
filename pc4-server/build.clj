@@ -14,6 +14,10 @@
 (defn jar [_]
       (clean nil)
       (println "Building   :" lib version)
+      (b/compile-clj {:basis      basis
+                      :class-dir  class-dir
+                      :src-dir    ["src"]
+                      :ns-compile ['com.eldrix.pc4.server.system]})
       (b/write-pom {:class-dir class-dir
                     :lib       lib
                     :version   version
