@@ -74,6 +74,14 @@
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
 
+(defmethod ig/init-key :com.eldrix/ods-weekly [_ {path :path}]
+  (if path
+    (do (log/info "opening ods-weekly from " path)
+        (log/info "registering ods-weekly graph resolvers")
+        (swap! resolvers into com.eldrix.odsweekly.graph/all-resolvers)
+        (odsweekly/open-index path))
+    (log/info "skipping ods-weekly; no path specified")))
+
 (defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [path]}]
   (log/info "opening deprivare index: " path)
   (let [svc (deprivare/open path)]
