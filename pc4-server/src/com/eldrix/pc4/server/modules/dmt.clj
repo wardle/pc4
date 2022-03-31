@@ -1638,7 +1638,6 @@
   * :plymouth
   * :cambridge"
   [{:keys [profile centre] :as opts}]
-  (stest/instrument)
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [system (pc4/init profile [:pathom/env])]
