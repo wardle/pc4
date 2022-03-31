@@ -543,11 +543,16 @@
   In essence, you must provide the original and the original patient details.
   These will be used to firstly identify the patient, and then carefully update
   the pseudonymous identifiers. "
-  [conn salt old-details
-   {:keys [nhs-number sex date-birth] :as new-details}]
+  [conn salt
+   {old-nhs-number :nhs-number old-date-birth :date-birth old-sex :sex :as old-details}
+   {new-nhs-number :nhs-number new-date-birth :date-birth new-sex :sex :as new-details}]
   (jdbc/with-transaction [tx conn {:isolation :serializable}]
-    (doseq [project-id (map :t_episode/project_fk  (jdbc/execute! tx (sql/format {:select-distinct :project_fk :from            :t_episode
-                                                                                  :where           [:and [:= :patient_fk 129411] [:<> :stored_pseudonym nil]]})))]
+    (doseq [project-id (map :t_episode/project_fk  (jdbc/execute! tx (sql/format {:select-distinct :project_fk
+                                                                                  :from            [ :t_episode :t_patient]
+                                                                                  :where           [:and
+                                                                                                    [:= :t_patient/nhs_number old-nhs-number]
+                                                                                                    [:= :patient_fk :t_patient/id]
+                                                                                                    [:<> :stored_pseudonym nil]]})))]
       (let [existing (find-legacy-pseudonymous-patient tx (assoc old-details :salt salt :project-id project-id))
             updated (find-legacy-pseudonymous-patient tx (assoc new-details :salt salt :project-id project-id :validate? false))]
         (if-not (:t_patient/id existing)
@@ -558,9 +563,9 @@
               (log/info "Updating pseudonymous patient demographics:" {:existing existing :updated updated
                                                                        :diff (clojure.data/diff existing updated)})
               (next.jdbc.sql/update! tx :t_patient
-                                     {:sex                     (name sex)
-                                      :date_birth              (.withDayOfMonth date-birth 1)
-                                      :nhs_number              nhs-number
+                                     {:sex                     (name new-sex)
+                                      :date_birth              (.withDayOfMonth new-date-birth 1)
+                                      :nhs_number              new-nhs-number
                                       :stored_global_pseudonym (:global-pseudonym updated)}
                                      {:id (:t_patient/id existing)})
               (next.jdbc.sql/update! tx :t_episode
