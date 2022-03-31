@@ -182,7 +182,8 @@
    :anti-platelet
    {:description "Anti-platelets"
     :class       :other
-    :codelist    {:atc "B01AC"}}
+    :codelist    {:atc "B01AC"
+                  :ecl "<<7947003"}}
 
    :anti-coagulant
    {:description "Anticoagulants"
