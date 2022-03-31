@@ -119,7 +119,7 @@
   (def in (java.io.ByteArrayInputStream. (.toByteArray out)))
   (def r (transit/reader in :json {:handlers transit-readers}))
   (def x (transit/read r))
-  (print x)
+  (print x))
 
-  )
+
 

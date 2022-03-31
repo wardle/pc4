@@ -211,8 +211,8 @@
 (comment
   (fhir-telecom {:urn:oid:2.5.4/telephoneNumber "07786196137" :urn:oid:0.9.2342.19200300.100.1.3 "mark.wardle@wales.nhs.uk"})
 
-  (fhir-practitioner-name {:urn:oid:2.5.4/surname "Wardle" :urn:oid:2.5.4/givenName "Mark" :urn:oid:2.5.4/personalTitle "Dr"})
-  )
+  (fhir-practitioner-name {:urn:oid:2.5.4/surname "Wardle" :urn:oid:2.5.4/givenName "Mark" :urn:oid:2.5.4/personalTitle "Dr"}))
+
 
 
 (def all-resolvers
@@ -273,5 +273,5 @@
                               :password],
                   :docstring "This is the documentation"
                   :mutate    (fn [env params] params)})
-  (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
-  )
+  (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20))
+

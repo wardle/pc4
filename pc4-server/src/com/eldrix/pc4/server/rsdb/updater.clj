@@ -104,6 +104,6 @@
                                                            :maximumPoolSize 10}))
   (sql/get-by-id conn :t_concept 104001 :concept_id {})
   (sql/get-by-id conn :t_concept 38097211000001103 :concept_id {})
-  (update-concepts conn hermes)
+  (update-concepts conn hermes))
 
-  )
+

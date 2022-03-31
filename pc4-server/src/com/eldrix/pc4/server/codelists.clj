@@ -103,7 +103,7 @@
        (map :conceptId)
        (into #{})))
 
-(defn expand-icd10 [{:com.eldrix/keys [hermes]}  & icd10-codes]
+(defn expand-icd10 [{:com.eldrix/keys [hermes]} & icd10-codes]
   (->> icd10-codes
        (map #(map :referencedComponentId (hermes/reverse-map-range hermes 447562003 %)))
        (map set)
@@ -197,9 +197,9 @@
         atc-codes (to-atc system concept-ids')
         icd10-codes (to-icd10 system concept-ids')]
     (boolean (or (match-codes (:atc inclusions) atc-codes)
-        (match-codes (:icd10 inclusions) icd10-codes)
-        (when-let [ecl (:ecl inclusions)]
-          (hermes/ecl-contains? hermes (hermes/with-historical hermes concept-ids') ecl))))))
+                 (match-codes (:icd10 inclusions) icd10-codes)
+                 (when-let [ecl (:ecl inclusions)]
+                   (hermes/ecl-contains? hermes (hermes/with-historical hermes concept-ids') ecl))))))
 
 (deftype LazyCodeList [system codelist]
   CodeList
@@ -247,14 +247,12 @@
   (def os-calchan (set (map #(Long/parseLong (get % 1)) (rest (clojure.data.csv/read-csv (clojure.java.io/reader "https://www.opencodelists.org/codelist/opensafely/calcium-channel-blockers/2020-05-19/download.csv"))))))
   os-calchan
   (def calchan (expand calcium-channel-blockers))
-  (map ps (set/difference os-calchan calchan ))
+  (map ps (set/difference os-calchan calchan))
 
   (map ps (set/difference calchan os-calchan))
   (hermes/expand-ecl-historic hermes (dmd/atc->snomed-ecl dmd #"C09A.*"))
   (dmd/atc->products-for-ecl dmd #"C09A.*")
-  (hermes/subsumed-by? hermes 10441211000001106 9191801000001103)
+  (hermes/subsumed-by? hermes 10441211000001106 9191801000001103))
 
 
-
-  )
 
