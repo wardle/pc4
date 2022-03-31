@@ -24,6 +24,8 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.graph]
             [com.eldrix.nhspd.core :as nhspd]
+            [com.eldrix.odsweekly.core :as odsweekly]
+            [com.eldrix.odsweekly.graph]
             [com.eldrix.pc4.server.api :as api]
             [com.eldrix.pc4.server.dates :as dates]
             [com.eldrix.pc4.server.rsdb :as rsdb]
