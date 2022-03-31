@@ -83,7 +83,7 @@
                                       :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
                                       :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
                                       :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
-                                      :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
+                                      ; :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
                                       :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
                                       :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
                                       :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config

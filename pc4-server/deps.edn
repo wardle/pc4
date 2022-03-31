@@ -18,7 +18,7 @@
                                                 :exclusions  [commons-logging/commons-logging]}
              com.eldrix/dmd                    {:mvn/version "0.6.139"}
              com.eldrix/hermes                 {:mvn/version "0.9.458"}
-             ;com.eldrix/comprehend             {:mvn/version "0.0.4"}
+             com.eldrix/comprehend             {:mvn/version "0.0.4"}
 
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}
