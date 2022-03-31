@@ -316,6 +316,7 @@
   * project-pseudonym
   And with these additional keys, if a patient was found matching the search:
   * t_patient/id
+  * t_patient/patient_identifier
   * t_patient/first_names
   * t_patient/last_name
   * t_patient/date_birth
@@ -329,6 +330,12 @@
                       (fetch-by-global-pseudonym conn global-pseudonym))]
       (when (and validate? (not patient) (fetch-by-nhs-number conn nhs-number))
         (throw (ex-info "NHS number match but other details do not." {:params            params
+                                                                      :patient           patient
+                                                                      :pseudonyms        {:project           {:project-id   project-id
+                                                                                                              :project-name project-name}
+                                                                                          :project-pseudonym project-pseudonym
+                                                                                          :global-pseudonym  global-pseudonym}
+                                                                      :existing          (fetch-by-nhs-number conn nhs-number)
                                                                       :global-pseudonym  global-pseudonym
                                                                       :project-pseudonym project-pseudonym})))
       (merge (db/parse-entity patient)
@@ -535,44 +542,34 @@
 (s/fdef update-legacy-pseudonymous-patient!
   :args (s/cat :conn ::conn
                :salt ::salt
-               :existing (s/keys :req-un [::nhs-number ::sex ::date-birth])
+               :patient-pk int?
                :updated (s/keys :req-un [::nhs-number ::sex ::date-birth])))
 (defn update-legacy-pseudonymous-patient!
   "DANGER: updates the demographic details for the given patient. This is
-  designed to correct incorrectly entered patient registration information.
-  In essence, you must provide the original and the original patient details.
-  These will be used to firstly identify the patient, and then carefully update
-  the pseudonymous identifiers. "
+  designed to correct incorrectly entered patient registration information."
   [conn salt
-   {old-nhs-number :nhs-number old-date-birth :date-birth old-sex :sex :as old-details}
-   {new-nhs-number :nhs-number new-date-birth :date-birth new-sex :sex :as new-details}]
+   patient-pk
+   {:keys [nhs-number date-birth sex] :as new-details}]
   (jdbc/with-transaction [tx conn {:isolation :serializable}]
-    (doseq [project-id (map :t_episode/project_fk  (jdbc/execute! tx (sql/format {:select-distinct :project_fk
-                                                                                  :from            [ :t_episode :t_patient]
-                                                                                  :where           [:and
-                                                                                                    [:= :t_patient/nhs_number old-nhs-number]
-                                                                                                    [:= :patient_fk :t_patient/id]
-                                                                                                    [:<> :stored_pseudonym nil]]})))]
-      (let [existing (find-legacy-pseudonymous-patient tx (assoc old-details :salt salt :project-id project-id))
-            updated (find-legacy-pseudonymous-patient tx (assoc new-details :salt salt :project-id project-id :validate? false))]
-        (if-not (:t_patient/id existing)
-          (throw (ex-info "No patient found:" old-details))
-          (if (and (:t_patient/id updated) (not= (:t_patient/id updated) (:t_patient/id existing)))
-            (throw (ex-info "Patient already found with details:" new-details))
-            (do
-              (log/info "Updating pseudonymous patient demographics:" {:existing existing :updated updated
-                                                                       :diff (clojure.data/diff existing updated)})
-              (next.jdbc.sql/update! tx :t_patient
-                                     {:sex                     (name new-sex)
-                                      :date_birth              (.withDayOfMonth new-date-birth 1)
-                                      :nhs_number              new-nhs-number
-                                      :stored_global_pseudonym (:global-pseudonym updated)}
-                                     {:id (:t_patient/id existing)})
-              (next.jdbc.sql/update! tx :t_episode
-                                     {:stored_pseudonym (:project-pseudonym updated)}
-                                     {:patient_fk       (:t_patient/id existing)
-                                      :project_fk       project-id
-                                      :stored_pseudonym (:project-pseudonym existing)}))))))))
+    (doseq [project-id (map :t_episode/project_fk (jdbc/execute! tx (sql/format {:select-distinct :project_fk
+                                                                                 :from            :t_episode
+                                                                                 :where           [:and
+                                                                                                   [:= :patient_fk patient-pk]
+                                                                                                   [:<> :stored_pseudonym nil]]})))]
+      (let [updated (find-legacy-pseudonymous-patient tx (assoc new-details :salt salt :project-id project-id :validate? false))]
+        (if (and (:t_patient/id updated) (not= (:t_patient/id updated) patient-pk))
+          (throw (ex-info "Patient already found with details:" new-details))
+          (do
+            (next.jdbc.sql/update! tx :t_patient
+                                   {:sex                     (name sex)
+                                    :date_birth              (.withDayOfMonth date-birth 1)
+                                    :nhs_number              nhs-number
+                                    :stored_global_pseudonym (:global-pseudonym updated)}
+                                   {:id patient-pk})
+            (next.jdbc.sql/update! tx :t_episode
+                                   {:stored_pseudonym (:project-pseudonym updated)}
+                                   {:patient_fk       patient-pk
+                                    :project_fk       project-id})))))))
 
 
 
