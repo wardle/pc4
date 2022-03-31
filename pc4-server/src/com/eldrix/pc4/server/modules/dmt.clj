@@ -982,7 +982,7 @@
     (let [[prior item] (vec (first partitions))]
       (if-not item
         results
-        (let [new-course? (and prior item (> (.between ChronoUnit/DAYS (:t_medication/date prior) (:t_medication/date item)) 15))
+        (let [new-course? (and (:t_medication/date prior) (:t_medication/date item) (> (.between ChronoUnit/DAYS (:t_medication/date prior) (:t_medication/date item)) 15))
               course-rank (if new-course? (inc course-rank) course-rank)
               infusion-rank (if new-course? 1 infusion-rank)
               item' (assoc item :course-rank course-rank :infusion-rank infusion-rank)]
