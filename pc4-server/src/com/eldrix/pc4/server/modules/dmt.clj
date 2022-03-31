@@ -42,7 +42,7 @@
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
   {:cardiff   {:projects ["NINFLAMMCARDIFF"] :prefix "CF"}
-   :cambridge {:projects ["CAMBRDIGEMS"] :prefix "CB"}
+   :cambridge {:projects ["CAMBRIDGEMS"] :prefix "CB"}
    :plymouth  {:projects ["PLYMOUTH"] :prefix "PL"}})
 
 (s/def ::centre (set (keys study-centres)))
@@ -1624,7 +1624,7 @@
   ```
   clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx :centre :cardiff
   clj -X com.eldrix.pc4.server.modules.dmt/export :profile :pc4 :centre :plymouth
-  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :dev :centre :cardiff
+  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :dev :centre :cambridge
   ```
   Profile determines the environment in which to use. There are four running
   pc4 environments currrently:
