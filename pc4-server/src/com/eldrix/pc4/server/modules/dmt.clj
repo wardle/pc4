@@ -209,10 +209,11 @@
                   :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
                                      "J05AF07" "J05AF08" "J05AF10"
                                      "J05AX15" "J05AX65"]}}}
-   :antibiotic_antimyocotic
-   {:description "Antibiotics and antimycotics"
+   :anti-infectious
+   {:description "Anti-infectious medications"
     :class       :other
-    :codelist    {:atc ["J01." "J02." "J03." "J04."]}}
+    :codelist    {:inclusions {:atc ["J01." "J02." "J03." "J04." "J05."]}
+                  :exclusions {:atc ["J05A."]}}}
 
    :antidepressant
    {:description "Anti-depressants"
@@ -1364,11 +1365,14 @@
    :columns  [::patient-id :t_medication/medication_concept_fk
               :t_medication/date_from :t_medication/date_to :nm :atc
               :anti-hypertensive :antidepressant :anti-retroviral :statin :anti-platelet :immunosuppressant
-              :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic]
+              :benzodiazepine :antiepileptic :proton-pump-inhibitor :nutritional :antidiabetic
+              :anti-coagulant :anti-infectious]
    :title-fn {:anti-hypertensive     :anti_hypertensive
               :anti-retroviral       :anti_retroviral
               :anti-platelet         :anti_platelet
-              :proton-pump-inhibitor :proton_pump_inhibitor}})
+              :proton-pump-inhibitor :proton_pump_inhibitor
+              :anti-coagulant        :anti_coagulant
+              :anti-infectious       :anti_infectious}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-ms-events-table [system patient-ids]
