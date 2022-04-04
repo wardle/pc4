@@ -1231,6 +1231,22 @@
               :switch?                "switch"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defn make-patient-identifiers-table [system patient-ids]
+  (db/execute! (:com.eldrix.rsdb/conn system)
+               (sql/format {:select   [:patient_identifier :stored_pseudonym :t_project/name] :from [:t_episode :t_patient :t_project]
+                            :where    [:and [:= :patient_fk :t_patient/id]
+                                       [:= :project_fk :t_project/id]
+                                       [:in :t_patient/patient_identifier patient-ids]]
+                            :order-by [[:t_patient/id :asc]]})))
+
+(def patient-identifiers-table
+  {:filename "patient-identifiers.csv"
+   :data-fn make-patient-identifiers-table
+   :columns [::patient-id
+             :t_project/name
+             :t_episode/stored_pseudonym]})
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-raw-dmt-medications-table
   [system patient-ids]
   (->> (patient-raw-dmt-medications system patient-ids)
@@ -1338,7 +1354,9 @@
 
 (comment
   (fetch-patient-admissions system "ADMISSION" [17490])
-  (make-admissions-table system [17490]))
+  (group-by :t_patient/patient_identifier (all-patient-diagnoses system [17490]))
+  (time (make-admissions-table system [17490])))
+
 
 
 (def admissions-table
@@ -1527,6 +1545,7 @@
 
 (def export-tables
   [patients-table
+   patient-identifiers-table
    raw-dmt-medications-table
    dmt-regimens-table
    alemtuzumab-infusions-table
@@ -1642,7 +1661,6 @@
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [system (pc4/init profile [:pathom/env])]
     (write-data system centre)))
-
 
 (defn make-demography-check [system profile patient-ids]
   (->> patient-ids
@@ -1799,6 +1817,7 @@
   (def system (pc4/init :dev [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
   (pc4/halt! system)
   (time (def a (fetch-project-patient-identifiers system (get-in study-centres [:cardiff :projects]))))
+  (def patient-ids (fetch-study-patient-identifiers system :cardiff))
   (get-in study-centres [:cardiff :projects])
   (projects/project-with-name (:com.eldrix.rsdb/conn system) "NINFLAMMCARDIFF")
   (time (def b (patients/patient-ids-in-projects (:com.eldrix.rsdb/conn system) #{5} :patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})))
