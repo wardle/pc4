@@ -237,7 +237,7 @@
    :nutritional
    {:description "Nutritional supplements and vitamins"
     :class       :other
-    :codelist    {:atc ["A11" "B02B" "B03C"]}}})
+    :codelist    {:atc ["A11" "B02B" "B03C"] :ecl "<<9552901000001103"}}})
 
 (def flattened-study-medications
   "A flattened sequence of study medications for convenience."
@@ -251,7 +251,7 @@
 
    :allergic_reaction
    {:description "Any type of allergic reaction, including anaphylaxis"
-    :codelist    {:ecl "<<419076005"}}
+    :codelist    {:ecl "<<419076005 OR <<243865006"}}
 
    :cardiovascular
    {:description "Cardiovascular disorders"
