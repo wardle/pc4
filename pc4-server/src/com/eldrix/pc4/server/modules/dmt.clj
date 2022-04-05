@@ -1569,10 +1569,10 @@
       (write-table system table centre patient-ids))
     (log/info "writing metadata")
     (with-open [writer (io/writer "metadata.json")]
-      (json/write (make-metadata system) writer))
+      (json/write (make-metadata system) writer :indent true))
     (log/info "writing problem report")
     (with-open [writer (io/writer "problems.json")]
-      (json/write (make-problem-report system patient-ids) writer))
+      (json/write (make-problem-report system patient-ids) writer :indent true))
     (log/info "writing medication codes")
     (csv/write-csv (io/writer "medication-codes.csv")
                    (->> (expand-codelists system flattened-study-medications)
