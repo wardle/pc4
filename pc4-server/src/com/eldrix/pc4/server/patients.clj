@@ -280,15 +280,14 @@
         (when-not (str/blank? TITLE) (str " (" TITLE ")")))})
 
 
-(pco/defmutation fetch-empi-patient
+(pco/defmutation fetch-empi-patients
   "Fetch patient details from the NHS Wales' enterprise master patient index.
   As the concierge service provides eMPI data as a FHIR representation natively,
   we have no need to perform any mapping here."
   [{empi :wales.nhs/empi} {:keys [system value]}]
   {::pco/op-name 'wales.nhs.empi/fetch-patient
-   ::pco/output [{:org.hl7.fhir.Patient/identifiers
-                  [:org.hl7.fhir.Identifier/system
-                   :org.hl7.fhir.Identifier/value]
+   ::pco/output  [{:org.hl7.fhir.Patient/identifiers [:org.hl7.fhir.Identifier/system
+                                                      :org.hl7.fhir.Identifier/value]}
                   {:org.hl7.fhir.Patient/name [:org.hl7.fhir.HumanName/family
                                                :org.hl7.fhir.HumanName/given
                                                :org.hl7.fhir.HumanName/prefix]}
@@ -300,10 +299,11 @@
                                                   :org.hl7.fhir.ContactPoint/use]}
                   {:org.hl7.fhir.Patient/generalPractitioner [:org.hl7.fhir.Reference/type
                                                               {:org.hl7.fhir.Reference/identifier [:org.hl7.fhir.Identifier/system
-                                                                                                   :org.hl7.fhir.Identifier/value]}]}}]}
-  (log/info "wales empi fetch patient: " {:empi empi :system system :value value})
-  (when empi
-    (empi/resolve! empi (or system "https://fhir.nhs.uk/Id/nhs-number") value)))
+                                                                                                   :org.hl7.fhir.Identifier/value]}]}]}
+  (log/info "wales empi fetch patients: " {:empi empi :system system :value value})
+  (if (seq empi)
+    (empi/resolve! empi (or system "https://fhir.nhs.uk/Id/nhs-number") value)
+    (empi/resolve-fake system value)))
 
 (def all-resolvers [fetch-cav-patient
                     resolve-cav-patient
@@ -326,7 +326,7 @@
                     (pbir/alias-resolver :wales.nhs.cavuhb.Patient/NHS_NUMBER :uk.nhs.id/nhs-number)
                     (pbir/alias-resolver :wales.nhs.cavuhb.Patient/DATE_BIRTH :org.hl7.fhir.Patient/birthDate)
                     (pbir/alias-resolver :wales.nhs.cavuhb.Patient/DATE_DEATH :org.hl7.fhir.Patient/deceased)
-                    fetch-empi-patient])
+                    fetch-empi-patients])
 
 (comment
   (require '[com.eldrix.pc4.server.system :as pc4-system]
