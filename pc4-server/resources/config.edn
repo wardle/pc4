@@ -2,48 +2,52 @@
 ;; This is an integrant configuration file
 ;;
 ;; There are three main profiles currently:
-;; - :dev    : this profile is used during development
-;; - :cvx    : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
-;; - :pc4    : this profile is active when deployed on AWS infrastructure
+;; - :dev     : this profile is used during development
+;; - :cvx     : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
+;; - :pc4     : this profile is active when deployed on AWS infrastructure
 ;;
-;;
+;; There is an additional development profile:
+;; - :dev-pc4 : this profile is for use in development but connects to the remote live AWS infrastructure
 
 {:secrets                            #include #join [#env HOME "/.secrets.edn"]
+
+ :pc4-db-conn                        {:dbtype          "postgresql"
+                                      :host            #ref [:secrets :pc4-db :host]
+                                      :username        #ref [:secrets :pc4-db :username]
+                                      :password        #ref [:secrets :pc4-db :password]
+                                      :dbname          "rsdb"
+                                      :maximumPoolSize 10}
 
  :com.eldrix.rsdb/conn               #profile {:default {:dbtype          "postgresql"
                                                          :dbname          "rsdb"
                                                          :maximumPoolSize 10}
-                                               :pc4     {:dbtype          "postgresql"
-                                                         :host            #ref [:secrets :pc4-db :host]
-                                                         :username        #ref [:secrets :pc4-db :username]
-                                                         :password        #ref [:secrets :pc4-db :password]
-                                                         :dbname          "rsdb"
-                                                         :maximumPoolSize 10}}
+                                               :pc4     #ref [:pc4-db-conn]
+                                               :pc4-dev #ref [:pc4-db-conn]}
 
  :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/nhspd                   {:path #profile {:dev "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
-                                                      :pc4 "/var/pc4/nhspd-2021-08-16.db"
-                                                      :cvx "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
+ :com.eldrix/nhspd                   {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
+                                                      :pc4     "/var/pc4/nhspd-2021-08-16.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
- :com.eldrix/clods                   {:path  #profile {:dev "/Users/mark/Dev/clods/ods-2022-01-24.db"
-                                                       :pc4 "/var/pc4/ods-2021-06-25.db"
-                                                       :cvx "/opt/Local/var/db/pc4/ods-2021-08-24"}
+ :com.eldrix/clods                   {:path  #profile {:default "/Users/mark/Dev/clods/ods-2022-01-24.db"
+                                                       :pc4     "/var/pc4/ods-2021-06-25.db"
+                                                       :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
                                       :nhspd #ig/ref :com.eldrix/nhspd}
 
- :com.eldrix/ods-weekly              {:path #profile {:dev "/Users/mark/Dev/ods-weekly/ods-weekly.db"}}
+ :com.eldrix/ods-weekly              {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly.db"}}
 
- :com.eldrix/deprivare               {:path #profile {:dev "/Users/mark/Dev/deprivare/depriv.db"
-                                                      :pc4 "/var/pc4/depriv.db"
-                                                      :cvx "/opt/Local/var/db/pc4/depriv.db"}}
+ :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
+                                                      :pc4     "/var/pc4/depriv.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
 
- :com.eldrix/dmd                     {:path #profile {:dev "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
-                                                      :pc4 "/var/pc4/dmd-2021-09-27.db"
-                                                      :cvx "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
+ :com.eldrix/dmd                     {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
+                                                      :pc4     "/var/pc4/dmd-2021-09-27.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
- :com.eldrix/hermes                  {:path #profile {:dev "/Users/mark/Dev/hermes/snomed.db"
-                                                      :pc4 "/var/pc4/snomed-2021-07-07.db"
-                                                      :cvx "/opt/Local/var/db/pc4/snomed-2021-11.db"}}
+ :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
+                                                      :pc4     "/var/pc4/snomed-2021-07-07.db"
+                                                      :cvx     "/opt/Local/var/db/pc4/snomed-2021-11.db"}}
 
  :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
                                       :access-key-id     #ref [:secrets :aws-access-key-id]
@@ -57,15 +61,15 @@
  :com.eldrix.pc4/fake-login-provider {:username "ma090906'"
                                       :password "password"}
 
- :com.eldrix.pc4/login               #profile {:cvx {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                                                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                     :jwt-expiry-seconds 300}
-                                               :pc4 {:providers          {}
-                                                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                     :jwt-expiry-seconds 300}
-                                               :dev {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
-                                                     :jwt-secret-key     "secret"
-                                                     :jwt-expiry-seconds 300}}
+ :com.eldrix.pc4/login               #profile {:cvx     {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
+                                                         :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                                                         :jwt-expiry-seconds 300}
+                                               :pc4     {:providers          {}
+                                                         :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                                                         :jwt-expiry-seconds 300}
+                                               :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
+                                                         :jwt-secret-key     "secret"
+                                                         :jwt-expiry-seconds 300}}
 
  :wales.nhs.cavuhb/pms               #profile {:cvx     {:username    #ref [:secrets :cav-pms-username]
                                                          :password    #ref [:secrets :cav-pms-password]
