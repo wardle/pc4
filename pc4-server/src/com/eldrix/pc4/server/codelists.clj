@@ -105,7 +105,7 @@
 
 (defn expand-icd10 [{:com.eldrix/keys [hermes]} & icd10-codes]
   (->> icd10-codes
-       (map #(map :referencedComponentId (hermes/reverse-map-range hermes 447562003 %)))
+       (map #(hermes/member-field-prefix hermes 447562003 "mapTarget" %))
        (map set)
        (map #(hermes/with-historical hermes %))
        (apply set/union)))

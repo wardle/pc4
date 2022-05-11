@@ -378,8 +378,7 @@
   (codelists/disjoint? (codelists/expand cancer) (codelists/expand (codelists/make-codelist system {:icd10 "C44"})))
   (defn ps [id] (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB")))
   (map ps (codelists/expand cancer))
-  (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (set (map :referencedComponentId (hermes/reverse-map-range (:com.eldrix/hermes system) 447562003 "C44"))))
-
+  (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (hermes/member-field-prefix (:com.eldrix/hermes system) 447562003 "mapTarget" "C44"))
 
   (vals (hermes/source-historical-associations (:com.eldrix/hermes system) 24700007))
 
@@ -1838,7 +1837,6 @@
 
   (matching-filenames "/Users/mark/Desktop/lempass")
   (merge-matching-data "/Users/mark/Desktop/lempass" "/Users/mark/Desktop/lempass-merged")
-
 
   (com.eldrix.concierge.wales.cav-pms/fetch-admissions (:wales.nhs.cavuhb/pms system) :crn "A647963")
 
