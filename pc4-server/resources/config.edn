@@ -47,7 +47,7 @@
 
  :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
                                                       :pc4     "/var/pc4/snomed-2021-07-07.db"
-                                                      :cvx     "/opt/Local/var/db/pc4/snomed-2021-11.db"}}
+                                                      :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
  :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
                                       :access-key-id     #ref [:secrets :aws-access-key-id]
