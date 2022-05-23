@@ -17,7 +17,7 @@
              com.eldrix/deprivare              {:mvn/version "1.0.49"
                                                 :exclusions  [commons-logging/commons-logging]}
              com.eldrix/dmd                    {:mvn/version "0.6.139"}
-             com.eldrix/hermes                 {:mvn/version "0.12.647"}
+             com.eldrix/hermes                 {:mvn/version "0.12.650"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
 
              aero/aero                         {:mvn/version "1.1.6"}
