@@ -20,10 +20,10 @@
                     :version   version
                     :basis     basis
                     :src-dirs  ["src"]
-                    :scm       {:url                 "https://github.com/wardle/hermes"
+                    :scm       {:url                 "https://github.com/wardle/pc4"
                                 :tag                 (str "v" version)
-                                :connection          "scm:git:git://github.com/wardle/hermes.git"
-                                :developerConnection "scm:git:ssh://git@github.com/wardle/hermes.git"}})
+                                :connection          "scm:git:git://github.com/wardle/pc4.git"
+                                :developerConnection "scm:git:ssh://git@github.com/wardle/pc4.git"}})
       (b/copy-dir {:src-dirs   ["src" "resources"]
                    :target-dir class-dir})
       (b/jar {:class-dir class-dir
