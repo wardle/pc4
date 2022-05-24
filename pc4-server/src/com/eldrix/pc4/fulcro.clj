@@ -1,7 +1,7 @@
-(ns com.eldrix.pc4.server.fulcro
+(ns com.eldrix.pc4.fulcro
   (:require [clojure.spec.alpha :as s]
-            [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.pc4.server.users :as users]
+            [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.users :as users]
 
             [com.fulcrologic.fulcro.server.api-middleware :as server]
             [org.httpkit.server]

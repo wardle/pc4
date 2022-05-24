@@ -1,12 +1,12 @@
-(ns com.eldrix.pc4.server.pedestal
+(ns com.eldrix.pc4.pedestal
   (:require [clojure.tools.logging.readable :as log]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor.error :as int-err]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.http.body-params :as body-params]
             [cognitect.transit :as transit]
-            [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.pc4.server.users :as users]
+            [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.users :as users]
             [integrant.core :as ig]
             [io.pedestal.http.route :as route])
   (:import (clojure.lang ExceptionInfo)))

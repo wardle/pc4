@@ -1,9 +1,9 @@
-(ns com.eldrix.pc4.server.patients
+(ns com.eldrix.pc4.patients
   (:require
     [clojure.tools.logging.readable :as log]
     [com.eldrix.concierge.wales.cav-pms :as cavpms]
     [com.eldrix.concierge.wales.empi :as empi]
-    [com.eldrix.pc4.server.dates :as dates]
+    [com.eldrix.pc4.dates :as dates]
     [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
     [com.wsscode.pathom3.connect.operation :as pco]
     [com.wsscode.pathom3.connect.indexes :as pci]
@@ -329,7 +329,7 @@
                     fetch-empi-patients])
 
 (comment
-  (require '[com.eldrix.pc4.server.system :as pc4-system]
+  (require '[com.eldrix.pc4.system :as pc4-system]
            '[integrant.core :as ig])
   (def system (pc4-system/init :dev))
   (ig/halt! system)

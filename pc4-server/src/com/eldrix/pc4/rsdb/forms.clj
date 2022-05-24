@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.forms
+(ns com.eldrix.pc4.rsdb.forms
   "We have an issue here.
 
   The legacy WebObjects application uses horizontal inheritance. That means:
@@ -37,11 +37,11 @@
   forms flattened within an encounter. For the few forms that permit multiple
   forms per encounter, they would be represented as a to-many property."
   (:require [honey.sql :as sql]
-            [com.eldrix.pc4.server.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.db :as db]
             [clojure.spec.alpha :as s]
             [next.jdbc :as jdbc]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.pc4.server.rsdb.patients :as patients])
+            [com.eldrix.pc4.rsdb.patients :as patients])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDateTime)))
 
@@ -323,12 +323,12 @@
 
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (encounters->form_ms_relapse conn encounters)
-  (com.eldrix.pc4.server.rsdb.patients/active-episodes conn 124010)
+  (com.eldrix.pc4.rsdb.patients/active-episodes conn 124010)
   (all-active-encounter-ids conn 124010)
-  (com.eldrix.pc4.server.rsdb.patients/save-encounter! conn {:t_encounter/encounter_template_fk 1
-                                                             :t_encounter/episode_fk            48221
-                                                             :t_encounter/patient_fk            124010
-                                                             :t_encounter/date_time             (LocalDateTime/now)})
+  (com.eldrix.pc4.rsdb.patients/save-encounter! conn {:t_encounter/encounter_template_fk 1
+                                                      :t_encounter/episode_fk            48221
+                                                      :t_encounter/patient_fk            124010
+                                                      :t_encounter/date_time             (LocalDateTime/now)})
   (save-form! conn :t_form_edss {:t_form_edss/edss_score "SCORE1_0"
                                  :t_form_edss/id         244555
                                  :t_user/id              1

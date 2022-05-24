@@ -106,10 +106,10 @@
   #clj/var com.eldrix.odsweekly.graph/all-resolvers
   #ig/ref :com.eldrix.deprivare/ops
   #clj/var com.eldrix.dmd.graph/all-resolvers
-  #clj/var com.eldrix.pc4.server.rsdb/all-resolvers
+  #clj/var com.eldrix.pc4.rsdb/all-resolvers
   #clj/var com.eldrix.hermes.graph/all-resolvers
-  #clj/var com.eldrix.pc4.server.users/all-resolvers
-  #clj/var com.eldrix.pc4.server.patients/all-resolvers]
+  #clj/var com.eldrix.pc4.users/all-resolvers
+  #clj/var com.eldrix.pc4.patients/all-resolvers]
 
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
@@ -130,7 +130,7 @@
                     :dev     {:connect-viz true}}
   :env    #ig/ref :pathom/env}
 
- :com.eldrix.pc4.server.pedestal/server
+ :com.eldrix.pc4.pedestal/server
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
   :host            "0.0.0.0"
@@ -138,7 +138,7 @@
                     :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
                     :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
 
- :com.eldrix.pc4.server.fulcro/handler
+ :com.eldrix.pc4.fulcro/handler
  {:login-config              #ig/ref :com.eldrix.pc4/login
   :pathom-boundary-interface #ig/ref :pathom/boundary-interface
   :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
@@ -161,7 +161,7 @@
                                           :xss-protection {:enable? true
                                                            :mode    :block}}}}
 
- :com.eldrix.pc4.server.fulcro/server
+ :com.eldrix.pc4.fulcro/server
  {:port    #long #or [#env PORT 8080]
   :host    "0.0.0.0"
-  :handler #ig/ref :com.eldrix.pc4.server.fulcro/handler}}
+  :handler #ig/ref :com.eldrix.pc4.fulcro/handler}}

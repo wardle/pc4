@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.db
+(ns com.eldrix.pc4.rsdb.db
   (:require [next.jdbc.date-time]
             [next.jdbc :as jdbc]
             [clojure.spec.alpha :as s]

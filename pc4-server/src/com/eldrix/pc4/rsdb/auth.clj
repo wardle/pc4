@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.auth
+(ns com.eldrix.pc4.rsdb.auth
   "Implementation of the legacy rsdb authentication model.
 
   Each user is given a role, or multiple roles, within a project.

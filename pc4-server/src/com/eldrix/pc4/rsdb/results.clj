@@ -1,11 +1,11 @@
-(ns com.eldrix.pc4.server.rsdb.results
+(ns com.eldrix.pc4.rsdb.results
   "Support for legacy rsdb integration for results."
   (:require [clojure.math :as math]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.forms]
+            [com.eldrix.pc4.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.forms]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.sql])

@@ -1,6 +1,6 @@
-(ns com.eldrix.pc4.server.core
+(ns com.eldrix.pc4.core
   (:require [clojure.tools.logging :as log]
-            [com.eldrix.pc4.server.system :as pc4]))
+            [com.eldrix.pc4.system :as pc4]))
 
 (defn run [{:keys [profile]}]
   (when-not profile

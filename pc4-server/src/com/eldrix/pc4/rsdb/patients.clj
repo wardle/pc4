@@ -1,11 +1,11 @@
-(ns com.eldrix.pc4.server.rsdb.patients
+(ns com.eldrix.pc4.rsdb.patients
   (:require [clojure.tools.logging.readable :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.sql]
             [honey.sql :as sql]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.projects :as projects]
+            [com.eldrix.pc4.dates :as dates]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.clods.core :as clods])

@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.users
+(ns com.eldrix.pc4.rsdb.users
   "Support for legacy RSDB application; user management.
 
   Legacy user management is based upon a unique username, rather than a tuple
@@ -23,14 +23,14 @@
             [next.jdbc :as jdbc]
             [honey.sql :as sql]
             [com.eldrix.concierge.wales.nadex :as nadex]
-            [com.eldrix.pc4.server.rsdb.auth :as auth]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.projects :as projects])
+            [com.eldrix.pc4.rsdb.auth :as auth]
+            [com.eldrix.pc4.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.projects :as projects])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)
            (java.time LocalDate)
-           (com.eldrix.pc4.server.rsdb.auth AuthorizationManager)))
+           (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
 
 (defn- can-authenticate-with-password?
   "Support for legacy rsdb authentication.
@@ -336,7 +336,7 @@
   (count-unread-messages conn "ma090906")
   (fetch-latest-news conn "ma090906")
   (projects conn "ma090906")
-  (sort (map :t_project/title (filter com.eldrix.pc4.server.rsdb.projects/active? (projects conn "ma090906"))))
+  (sort (map :t_project/title (filter com.eldrix.pc4.rsdb.projects/active? (projects conn "ma090906"))))
 
   (group-by :t_project/type (projects conn "ma090906"))
 

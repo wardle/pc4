@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.codelists
+(ns com.eldrix.pc4.codelists
   "Codelists provides functionality to generate a list of codes from different
   specifications.
 
@@ -211,7 +211,7 @@
 
 (comment
 
-  (require '[com.eldrix.pc4.server.system :as pc4])
+  (require '[com.eldrix.pc4.system :as pc4])
   (def system (pc4/init :dev [:pathom/env]))
   (defn ps [id] (vector id (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB"))))
   (ps 24700007)

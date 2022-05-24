@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.users
+(ns com.eldrix.pc4.users
   (:require [buddy.sign.jwt :as jwt]
             [clojure.tools.logging.readable :as log]
             [clojure.spec.alpha :as s]
@@ -6,8 +6,8 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [clojure.string :as str]
-            [com.eldrix.pc4.server.rsdb.auth]
-            [com.eldrix.pc4.server.rsdb.users :as rsdb-users])
+            [com.eldrix.pc4.rsdb.auth]
+            [com.eldrix.pc4.rsdb.users :as rsdb-users])
   (:import (java.time Instant LocalDateTime)))
 
 (pco/defmutation ping-operation
@@ -259,7 +259,7 @@
                                      :urn:oid:2.5.4/surname],
                          :output    [:urn:oid:2.5.4/commonName],
                          :docstring "Generate an x500 common-name.",
-                         :op-name   'com.eldrix.pc4.server.users/x500->common-name
+                         :op-name   'com.eldrix.pc4.users/x500->common-name
                          :resolve   (fn [env {:urn:oid:2.5.4/keys [givenName surname]}]
                                       {:urn:oid:2.5.4/commonName (str givenName " " surname)})}))
   (pco/resolver? r)

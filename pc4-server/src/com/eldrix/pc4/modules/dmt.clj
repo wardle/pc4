@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.modules.dmt
+(ns com.eldrix.pc4.modules.dmt
   "Experimental approach to data downloads, suitable for short-term
    requirements for multiple sclerosis disease modifying drug
    post-marketing surveillance."
@@ -16,13 +16,13 @@
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.codelists :as codelists]
-            [com.eldrix.pc4.server.system :as pc4]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [com.eldrix.pc4.server.rsdb.results :as results]
-            [com.eldrix.pc4.server.rsdb.users :as users]
+            [com.eldrix.pc4.rsdb.db :as db]
+            [com.eldrix.pc4.codelists :as codelists]
+            [com.eldrix.pc4.system :as pc4]
+            [com.eldrix.pc4.rsdb.patients :as patients]
+            [com.eldrix.pc4.rsdb.projects :as projects]
+            [com.eldrix.pc4.rsdb.results :as results]
+            [com.eldrix.pc4.rsdb.users :as users]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc.plan :as plan])
@@ -1429,7 +1429,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn fetch-results-for-patient [{:com.eldrix.rsdb/keys [conn]} patient-identifier]
-  (->> (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)
+  (->> (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)
        (map #(assoc % :t_patient/patient_identifier patient-identifier))))
 
 (defn make-results-table [system patient-ids]
@@ -1640,9 +1640,9 @@
   "Export research data.
   Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :cvx :centre :cardiff
-  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :pc4 :centre :plymouth
-  clj -X com.eldrix.pc4.server.modules.dmt/export :profile :dev :centre :cambridge
+  clj -X com.eldrix.pc4.modules.dmt/export :profile :cvx :centre :cardiff
+  clj -X com.eldrix.pc4.modules.dmt/export :profile :pc4 :centre :plymouth
+  clj -X com.eldrix.pc4.modules.dmt/export :profile :dev :centre :cambridge
   ```
   Profile determines the environment in which to use. There are four running
   pc4 environments currrently:
@@ -1684,7 +1684,7 @@
 (defn check-demographics
   "Check demographics report. Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/check-demographics :profile :cvx :centre :cardiff
+  clj -X com.eldrix.pc4.modules.dmt/check-demographics :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
@@ -1700,7 +1700,7 @@
 (defn update-demographic-authority
   "Update demographic authorities. Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/update-demographic-authority :profile :cvx :centre :cardiff
+  clj -X com.eldrix.pc4.modules.dmt/update-demographic-authority :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
@@ -1741,7 +1741,7 @@
 (defn update-cav-admissions
   "Update admission data from CAVPMS. Run as:
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/update-cav-admissions :profile :cvx :centre :cardiff
+  clj -X com.eldrix.pc4.modules.dmt/update-cav-admissions :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre]}]
   (let [system (pc4/init profile)
@@ -1800,7 +1800,7 @@
   "Merge directories of csv files based on matching filename.
   Unfortunately, one must escape strings.
   ```
-  clj -X com.eldrix.pc4.server.modules.dmt/merge-csv :dir '\"/tmp/csv-files\"' :out '\"/tmp/merged\"'
+  clj -X com.eldrix.pc4.modules.dmt/merge-csv :dir '\"/tmp/csv-files\"' :out '\"/tmp/merged\"'
   ```"
   [{:keys [dir out]}]
   (merge-matching-data (str dir) (str out)))

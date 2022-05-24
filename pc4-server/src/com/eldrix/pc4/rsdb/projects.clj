@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.projects
+(ns com.eldrix.pc4.rsdb.projects
   "Support for rsdb projects. These represent logical clinical services or
    clinical research projects. They are fundamental in supporting the
    finely-grained security model; linked to patients by virtue of an 'episode'
@@ -15,7 +15,7 @@
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.nhs-number :as nhs-number]
-            [com.eldrix.pc4.server.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.db :as db]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.plan]
@@ -511,7 +511,7 @@
 
   If a patient exists, the month and year of birth, as well as sex, must match.
   If the existing record has an NHS number, then that must match as well."
-  [conn & {:keys [_salt user-id project-id nhs-number sex date-birth] :as registration}]
+  [conn {:keys [_salt user-id project-id nhs-number sex date-birth] :as registration}]
   (when-not (nhs-number/valid? nhs-number)
     (throw (ex-info "Invalid NHS number" registration)))
   (let [existing (find-legacy-pseudonymous-patient conn registration)]
@@ -626,9 +626,9 @@
                                          :date-birth   (LocalDate/of 1973 10 1)})
 
   (search-by-project-pseudonym conn 124 "e657")
-  (map episode-status (com.eldrix.pc4.server.rsdb.patients/fetch-episodes conn 14032))
+  (map episode-status (com.eldrix.pc4.rsdb.patients/fetch-episodes conn 14032))
 
-  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (com.eldrix.pc4.server.rsdb.patients/fetch-episodes conn 43518)))
+  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (com.eldrix.pc4.rsdb.patients/fetch-episodes conn 43518)))
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 43518 37)))
   (discharge-episode! conn 1 {:t_episode/id 46540})
   (register-patient-project! conn 18 2 {:t_patient/id 14031})

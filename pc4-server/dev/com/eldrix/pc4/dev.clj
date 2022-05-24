@@ -1,13 +1,13 @@
-(ns com.eldrix.pc4.server.dev
+(ns com.eldrix.pc4.dev
   (:require
     [clojure.repl :as repl :refer [doc]]
     [clojure.spec.test.alpha :as stest]
-    [com.eldrix.pc4.server.system :as pc4]
+    [com.eldrix.pc4.system :as pc4]
     [integrant.core :as ig]
     [com.eldrix.clods.core :as clods]
-    [com.eldrix.pc4.server.rsdb.patients :as patients]
+    [com.eldrix.pc4.rsdb.patients :as patients]
     [portal.api :as portal]
-    [com.eldrix.pc4.server.rsdb.results :as results]
+    [com.eldrix.pc4.rsdb.results :as results]
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]))
 
@@ -29,13 +29,13 @@
     (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
 
   ;; start a server using pedestal/jetty   - for re-frame clients
-  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server.pedestal/server])
-  (def system (pc4/init :dev [:com.eldrix.pc4.server.pedestal/server]))
+  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.pedestal/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (ig/halt! system)
 
   ;; start a server using http-kit/ring    - for fulcro clients
-  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server.fulcro/server])
-  (def system (pc4/init :dev [:com.eldrix.pc4.server.fulcro/server]))
+  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.fulcro/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.fulcro/server]))
   (ig/halt! system)
 
   ;; exercise some of the components...
@@ -50,7 +50,7 @@
   (com.eldrix.deprivare.core/fetch-lsoa (:com.eldrix/deprivare system) "W01001770")
 
 
-  (require '[com.eldrix.pc4.server.rsdb.patients :as patients])
+  (require '[com.eldrix.pc4.rsdb.patients :as patients])
   (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
   (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8}))
 
@@ -104,7 +104,7 @@
       [:org.hl7.fhir.Patient/identifier
        :org.hl7.fhir.Patient/name
        :org.hl7.fhir.Patient/gender]}])
-  
+
 
   (keys system)
   (process [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
@@ -198,67 +198,67 @@
   (def system (pc4/init :pc4-dev [:com.eldrix.rsdb/conn :com.eldrix.rsdb/config]))
   (def system (pc4/init :pc4-dev [:pathom/boundary-interface]))
   (ig/halt! system)
-  (com.eldrix.pc4.server.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
+  (com.eldrix.pc4.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
 
-  (require '[com.eldrix.pc4.server.modules.dmt :as dmt])
-  (com.eldrix.pc4.server.modules.dmt/write-data system :plymouth)
-  (com.eldrix.pc4.server.modules.dmt/write-data system :cambridge)
-  (com.eldrix.pc4.server.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
+  (require '[com.eldrix.pc4.modules.dmt :as dmt])
+  (com.eldrix.pc4.modules.dmt/write-data system :plymouth)
+  (com.eldrix.pc4.modules.dmt/write-data system :cambridge)
+  (com.eldrix.pc4.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
-  (com.eldrix.pc4.server.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "username"
-                                                                                :t_user/first_names  "First names"
-                                                                                :t_user/last_name    "Last name"
-                                                                                :t_user/title        "Title"
-                                                                                :t_user/job_title_fk 8})
+  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "username"
+                                                                         :t_user/first_names  "First names"
+                                                                         :t_user/last_name    "Last name"
+                                                                         :t_user/title        "Title"
+                                                                         :t_user/job_title_fk 8})
   (def random-password (RandomStringUtils/randomAlphabetic 32))
-  (#'com.eldrix.pc4.server.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "username" random-password)
-  (com.eldrix.pc4.server.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "username"))
+  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "username" random-password)
+  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "username"))
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
 
   ;; start a server using http-kit/ring - suitable for a fulcro front-end
-  (com.eldrix.pc4.server.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
+  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
 
-  (com.eldrix.pc4.server.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "cpizot"
-                                                                                             :project-id 1})
+  (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "cpizot"
+                                                                                      :project-id 1})
 
-  (com.eldrix.pc4.server.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot")
+  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot")
 
   (def global-salt (get-in system [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]))
   global-salt
-  (com.eldrix.pc4.server.rsdb.projects/update-legacy-pseudonymous-patient! (:com.eldrix.rsdb/conn system)
-                                                                           global-salt
-                                                                           124064
-                                                                           {:nhs-number "4290060692"
-                                                                            :date-birth (java.time.LocalDate/of 1983 7 3)
-                                                                            :sex        :MALE})
-  (com.eldrix.pc4.server.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
-                                                                        {:salt       global-salt :project-id 126 :nhs-number "4290060692"
-                                                                         :date-birth (java.time.LocalDate/of 1983 7 3)})
+  (com.eldrix.pc4.rsdb.projects/update-legacy-pseudonymous-patient! (:com.eldrix.rsdb/conn system)
+                                                                    global-salt
+                                                                    124064
+                                                                    {:nhs-number "4290060692"
+                                                                     :date-birth (java.time.LocalDate/of 1983 7 3)
+                                                                     :sex        :MALE})
+  (com.eldrix.pc4.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
+                                                                 {:salt       global-salt :project-id 126 :nhs-number "4290060692"
+                                                                  :date-birth (java.time.LocalDate/of 1983 7 3)})
 
-  (require '[com.eldrix.pc4.server.modules.dmt])
-  (com.eldrix.pc4.server.modules.dmt/make-patient-identifiers-table system
-                                                                    (com.eldrix.pc4.server.modules.dmt/fetch-study-patient-identifiers system :cambridge))
-  (com.eldrix.pc4.server.modules.dmt/write-table system
-                                                 com.eldrix.pc4.server.modules.dmt/patient-identifiers-table
+  (require '[com.eldrix.pc4.modules.dmt])
+  (com.eldrix.pc4.modules.dmt/make-patient-identifiers-table system
+                                                                    (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :cambridge))
+  (com.eldrix.pc4.modules.dmt/write-table system
+                                                 com.eldrix.pc4.modules.dmt/patient-identifiers-table
                                                  :plymouth
-                                                 (com.eldrix.pc4.server.modules.dmt/fetch-study-patient-identifiers system :plymouth))
+                                                 (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :plymouth))
 
-  (require '[com.eldrix.pc4.server.modules.dmt :as dmt])
-  (com.eldrix.pc4.server.modules.dmt/all-patient-diagnoses system [124079])
-  (com.eldrix.pc4.server.modules.dmt/write-data system :cambridge))
+  (require '[com.eldrix.pc4.modules.dmt :as dmt])
+  (com.eldrix.pc4.modules.dmt/all-patient-diagnoses system [124079])
+  (com.eldrix.pc4.modules.dmt/write-data system :cambridge))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (comment
-  (def x (com.eldrix.pc4.server.rsdb.results/parse-count-lesions "5+/-2"))
+  (def x (com.eldrix.pc4.rsdb.results/parse-count-lesions "5+/-2"))
 
 
-  (results/lesion-range (com.eldrix.pc4.server.rsdb.results/parse-count-lesions ">12"))
+  (results/lesion-range (com.eldrix.pc4.rsdb.results/parse-count-lesions ">12"))
 
   (gen/generate (s/gen ::lesion-count))
   (gen/generate (s/gen ::lesion-number))
   (s/valid? ::lesion-count [:plus-minus 4 1])
-  (com.eldrix.pc4.server.rsdb.results/parse-count-lesions "6-3")
+  (com.eldrix.pc4.rsdb.results/parse-count-lesions "6-3")
   x)
 

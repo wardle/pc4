@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb
+(ns com.eldrix.pc4.rsdb
   "Integration with the rsdb backend.
   `rsdb` is the Apple WebObjects 'legacy' application that was PatientCare v1-3.
 
@@ -18,21 +18,21 @@
             [com.eldrix.clods.core :as clods]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.verhoeff :as verhoeff]
-            [com.eldrix.pc4.server.dates :as dates]
-            [com.eldrix.pc4.server.rsdb.auth :as auth]
-            [com.eldrix.pc4.server.rsdb.db :as db]
-            [com.eldrix.pc4.server.rsdb.forms :as forms]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [com.eldrix.pc4.server.rsdb.results :as results]
-            [com.eldrix.pc4.server.rsdb.users :as users]
-            [com.eldrix.pc4.server.rsdb.patients :as patients])
+            [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.rsdb.auth :as auth]
+            [com.eldrix.pc4.rsdb.db :as db]
+            [com.eldrix.pc4.rsdb.forms :as forms]
+            [com.eldrix.pc4.rsdb.patients :as patients]
+            [com.eldrix.pc4.rsdb.projects :as projects]
+            [com.eldrix.pc4.rsdb.results :as results]
+            [com.eldrix.pc4.rsdb.users :as users]
+            [com.eldrix.pc4.rsdb.patients :as patients])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)
-           (com.eldrix.pc4.server.rsdb.auth AuthorizationManager)))
+           (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
 
 (s/def :uk.gov.ons.nhspd/PCD2 string?)
 (s/def :info.snomed.Concept/id (s/and int? verhoeff/valid?))
@@ -519,7 +519,7 @@
                                       :t_result_urinalysis/date :t_result_urinalysis/notes
                                       :t_result_liver_function/date :t_result_liver_function/notes]}]}
 
-  {:t_patient/results (com.eldrix.pc4.server.rsdb.results/results-for-patient conn patient-identifier)})
+  {:t_patient/results (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -646,7 +646,7 @@
   [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
   {::pco/output [{:t_user/photo [:t_photo/data
                                  :t_photo/mime_type]}]}
-  (when-let [photo (com.eldrix.pc4.server.rsdb.users/fetch-user-photo conn username)]
+  (when-let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn username)]
     {:t_user/photo {:t_photo/data      (.encodeToString (Base64/getEncoder) (:data photo))
                     :t_photo/mime_type (:mimetype photo)}}))
 
@@ -1308,8 +1308,8 @@
   (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
   (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
 
-  (require '[com.eldrix.pc4.server.rsdb.patients])
-  (def project-ids (com.eldrix.pc4.server.rsdb.patients/active-project-identifiers conn 14032))
+  (require '[com.eldrix.pc4.rsdb.patients])
+  (def project-ids (com.eldrix.pc4.rsdb.patients/active-project-identifiers conn 14032))
   (def manager (users/make-authorization-manager conn "ma090906"))
   (def sys-manager (users/make-authorization-manager conn "system"))
   (def unk-manager (users/make-authorization-manager conn "unknown"))

@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.rsdb.updater
+(ns com.eldrix.pc4.rsdb.updater
   "A collection of tools to support updates to the legacy rsdb backend.
 
   rsdb v3 and earlier were monolithic applications with a single PostgreSQL
@@ -84,7 +84,7 @@
 (defn update-snomed
   "Update the database db-name (default 'rsdb') with data from hermes.
   e.g
-  clj -X com.eldrix.pc4.server.rsdb.updater/update-snomed :hermes '\"/Users/mark/Dev/hermes/snomed.db\"'
+  clj -X com.eldrix.pc4.rsdb.updater/update-snomed :hermes '\"/Users/mark/Dev/hermes/snomed.db\"'
 
   will update the database 'rsdb' from data in the hermes file specified."
   [{:keys [db-name hermes] :or {db-name "rsdb"}}]

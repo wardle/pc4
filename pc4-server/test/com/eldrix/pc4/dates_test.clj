@@ -1,6 +1,6 @@
-(ns com.eldrix.pc4.server.dates-test
+(ns com.eldrix.pc4.dates-test
   (:require [clojure.test :refer [deftest is run-tests]]
-            [com.eldrix.pc4.server.dates :as dates])
+            [com.eldrix.pc4.dates :as dates])
   (:import (java.time LocalDateTime ZonedDateTime ZoneId LocalDate)))
 
 (def display-age-examples

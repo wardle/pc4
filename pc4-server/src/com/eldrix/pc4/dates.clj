@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.server.dates
+(ns com.eldrix.pc4.dates
   (:require [cognitect.transit :as transit])
   (:import (java.time LocalDate LocalDateTime ZonedDateTime Period)
            (java.time.format DateTimeFormatter)

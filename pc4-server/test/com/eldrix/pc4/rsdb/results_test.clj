@@ -1,9 +1,9 @@
-(ns com.eldrix.pc4.server.rsdb.results-test
+(ns com.eldrix.pc4.rsdb.results-test
   (:require [clojure.test :as test :refer [deftest is use-fixtures]]
-            [com.eldrix.pc4.server.system :as pc4]
-            [com.eldrix.pc4.server.rsdb.patients :as patients]
-            [com.eldrix.pc4.server.rsdb.projects :as projects]
-            [com.eldrix.pc4.server.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
+            [com.eldrix.pc4.system :as pc4]
+            [com.eldrix.pc4.rsdb.patients :as patients]
+            [com.eldrix.pc4.rsdb.projects :as projects]
+            [com.eldrix.pc4.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
             [clojure.spec.gen.alpha :as gen])
@@ -176,6 +176,7 @@
 
 
 (defn with-system [f]
+  (pc4/load-namespaces :dev [:pathom/env])
   (binding [*system* (pc4/init :dev [:pathom/env])]
     (f)
     (pc4/halt! *system*)))
@@ -243,6 +244,6 @@
   (parsing-lesions)
   (take 5 (make-mri-results 1))
 
-
+  (def *system* (pc4/init :dev [:pathom/env]))
   (clojure.test/run-tests)
   (save-full-blood-count))
