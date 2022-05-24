@@ -1,9 +1,16 @@
-(ns com.eldrix.pc4.server.api
+(ns com.eldrix.pc4.server.pedestal
   (:require [clojure.tools.logging.readable :as log]
             [io.pedestal.http :as http]
-            [io.pedestal.http.route :as route]
             [io.pedestal.interceptor.error :as int-err]
-            [com.eldrix.pc4.server.users :as users]))
+            [io.pedestal.interceptor :as intc]
+            [io.pedestal.http.body-params :as body-params]
+            [cognitect.transit :as transit]
+            [com.eldrix.pc4.server.dates :as dates]
+            [com.eldrix.pc4.server.users :as users]
+            [integrant.core :as ig]
+            [io.pedestal.http.route :as route])
+  (:import (clojure.lang ExceptionInfo)))
+
 
 (set! *warn-on-reflection* true)
 
@@ -130,8 +137,30 @@
                      attach-claims
                      api]]}))
 
-(comment)
+(defmethod ig/init-key ::server [_ {:keys [port allowed-origins host env join?] :or {port 8080 join? false} :as config}]
+  (log/info "Running HTTP server" (dissoc config :env))
+  (-> {::http/type            :jetty
+       ::http/join?           join?
+       ::http/routes          routes
+       ::http/port            port
+       ::http/allowed-origins (cond
+                                (= "*" allowed-origins)
+                                (constantly true)
+                                :else
+                                allowed-origins)
+       ::http/host            (or host "127.0.0.1")}
+      (http/default-interceptors)
+      (update ::http/interceptors conj
+              (intc/interceptor (inject env))
+              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
+              (http/transit-body-interceptor ::transit-json-body
+                                             "application/transit+json;charset=UTF-8"
+                                             :json
+                                             {:handlers (merge dates/transit-writers
+                                                               {ExceptionInfo (transit/write-handler "ex-info" ex-data)
+                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
+      (http/create-server)
+      (http/start)))
 
-  ;; from command line, send some transit+json data to the API endpoint
-  ;; echo '["^ ","a",1,"b",[1,2.2,200000,null]]' | http -f POST localhost:8080/api Content-Type:application/transit+json;charset=UTF-8
-
+(defmethod ig/halt-key! ::server [_ service-map]
+  (http/stop service-map))

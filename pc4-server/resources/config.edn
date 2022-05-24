@@ -9,124 +9,159 @@
 ;; There is an additional development profile:
 ;; - :dev-pc4 : this profile is for use in development but connects to the remote live AWS infrastructure
 
-{:secrets                            #include #join [#env HOME "/.secrets.edn"]
+{:secrets
+ #include #join [#env HOME "/.secrets.edn"]
 
- :pc4-db-conn                        {:dbtype          "postgresql"
-                                      :host            #ref [:secrets :pc4-db :host]
-                                      :username        #ref [:secrets :pc4-db :username]
-                                      :password        #ref [:secrets :pc4-db :password]
-                                      :dbname          "rsdb"
-                                      :maximumPoolSize 10}
+ :pc4-db-conn
+ {:dbtype          "postgresql"
+  :host            #ref [:secrets :pc4-db :host]
+  :username        #ref [:secrets :pc4-db :username]
+  :password        #ref [:secrets :pc4-db :password]
+  :dbname          "rsdb"
+  :maximumPoolSize 10}
 
- :com.eldrix.rsdb/conn               #profile {:default {:dbtype          "postgresql"
-                                                         :dbname          "rsdb"
-                                                         :maximumPoolSize 10}
-                                               :pc4     #ref [:pc4-db-conn]
-                                               :pc4-dev #ref [:pc4-db-conn]}
+ :com.eldrix.rsdb/conn
+ #profile {:default {:dbtype          "postgresql"
+                     :dbname          "rsdb"
+                     :maximumPoolSize 10}
+           :pc4     #ref [:pc4-db-conn]
+           :pc4-dev #ref [:pc4-db-conn]}
 
- :com.eldrix.rsdb/config             {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
+ :com.eldrix.rsdb/config
+ {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
 
- :com.eldrix/nhspd                   {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
-                                                      :pc4     "/var/pc4/nhspd-2021-08-16.db"
-                                                      :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
+ :com.eldrix/nhspd
+ {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
+                  :pc4     "/var/pc4/nhspd-2021-08-16.db"
+                  :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
- :com.eldrix/clods                   {:path  #profile {:default "/Users/mark/Dev/clods/ods-2022-01-24.db"
-                                                       :pc4     "/var/pc4/ods-2021-06-25.db"
-                                                       :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
-                                      :nhspd #ig/ref :com.eldrix/nhspd}
+ :com.eldrix/clods
+ {:path  #profile {:default "/Users/mark/Dev/clods/ods-2022-01-24.db"
+                   :pc4     "/var/pc4/ods-2021-06-25.db"
+                   :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
+  :nhspd #ig/ref :com.eldrix/nhspd}
 
- :com.eldrix/ods-weekly              {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly.db"}}
+ :com.eldrix/ods-weekly
+ {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly.db"}}
 
- :com.eldrix/deprivare               {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
-                                                      :pc4     "/var/pc4/depriv.db"
-                                                      :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
+ :com.eldrix/deprivare
+ {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
+                  :pc4     "/var/pc4/depriv.db"
+                  :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
 
- :com.eldrix/dmd                     {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
-                                                      :pc4     "/var/pc4/dmd-2021-09-27.db"
-                                                      :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
+ :com.eldrix/dmd
+ {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
+                  :pc4     "/var/pc4/dmd-2021-09-27.db"
+                  :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
- :com.eldrix/hermes                  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
-                                                      :pc4     "/var/pc4/snomed-2021-07-07.db"
-                                                      :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
+ :com.eldrix/hermes
+ {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
+                  :pc4     "/var/pc4/snomed-2021-07-07.db"
+                  :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
- :com.eldrix/comprehend              {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
-                                      :access-key-id     #ref [:secrets :aws-access-key-id]
-                                      :secret-access-key #ref [:secrets :aws-secret-access-key]}
+ :com.eldrix/comprehend
+ {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
+  :access-key-id     #ref [:secrets :aws-access-key-id]
+  :secret-access-key #ref [:secrets :aws-secret-access-key]}
 
- :com.eldrix.concierge/nadex         #profile {:cvx     {:connection-pool-size  5
-                                                         :default-bind-username #ref [:secrets :nadex-bind-username]
-                                                         :default-bind-password #ref [:secrets :nadex-bind-password]}
-                                               :default {}}
+ :com.eldrix.concierge/nadex
+ #profile {:cvx     {:connection-pool-size  5
+                     :default-bind-username #ref [:secrets :nadex-bind-username]
+                     :default-bind-password #ref [:secrets :nadex-bind-password]}
+           :default {}}
 
- :com.eldrix.pc4/fake-login-provider {:username "ma090906'"
-                                      :password "password"}
+ :com.eldrix.pc4/fake-login-provider
+ {:username "ma090906'"
+  :password "password"}
 
- :com.eldrix.pc4/login               #profile {:cvx     {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                                                         :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                         :jwt-expiry-seconds 300}
-                                               :pc4     {:providers          {}
-                                                         :jwt-secret-key     #ref [:secrets :jwt-secret-key]
-                                                         :jwt-expiry-seconds 300}
-                                               :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
-                                                         :jwt-secret-key     "secret"
-                                                         :jwt-expiry-seconds 300}}
+ :com.eldrix.pc4/login
+ #profile {:cvx     {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
+                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                     :jwt-expiry-seconds 300}
+           :pc4     {:providers          {}
+                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                     :jwt-expiry-seconds 300}
+           :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
+                     :jwt-secret-key     "secret"
+                     :jwt-expiry-seconds 300}}
 
- :wales.nhs.cavuhb/pms               #profile {:cvx     {:username    #ref [:secrets :cav-pms-username]
-                                                         :password    #ref [:secrets :cav-pms-password]
-                                                         :database    "vpmslive.world"
-                                                         :user-string "patientcare-concierge"}
-                                               :default {}}
+ :wales.nhs.cavuhb/pms
+ #profile {:cvx     {:username    #ref [:secrets :cav-pms-username]
+                     :password    #ref [:secrets :cav-pms-password]
+                     :database    "vpmslive.world"
+                     :user-string "patientcare-concierge"}
+           :default {}}
 
 
- :wales.nhs/empi                     #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
-                                                         :processing-id "P"}
-                                               :default {}}
+ :wales.nhs/empi
+ #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+                     :processing-id "P"}
+           :default {}}
 
- :pathom/env                         {:com.eldrix/clods               #ig/ref :com.eldrix/clods
-                                      :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
-                                      :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
-                                      :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
-                                      :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
-                                      ; :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
-                                      :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
-                                      :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
-                                      :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
-                                      :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms
-                                      :wales.nhs/empi                 #ig/ref :wales.nhs/empi}
+ :com.eldrix.deprivare/ops
+ #ig/ref :com.eldrix/deprivare
 
- :pathom/boundary-interface          {:config #profile {:default {}
-                                                        :dev     {:connect-viz true}}
-                                      :env    #ig/ref :pathom/env}
+ :pathom/ops
+ [#clj/var com.eldrix.clods.graph/all-resolvers
+  #clj/var com.eldrix.odsweekly.graph/all-resolvers
+  #ig/ref :com.eldrix.deprivare/ops
+  #clj/var com.eldrix.dmd.graph/all-resolvers
+  #clj/var com.eldrix.pc4.server.rsdb/all-resolvers
+  #clj/var com.eldrix.hermes.graph/all-resolvers
+  #clj/var com.eldrix.pc4.server.users/all-resolvers
+  #clj/var com.eldrix.pc4.server.patients/all-resolvers]
 
- :http/server                        {:port            #long #or [#env PORT 8080]
-                                      :allowed-origins "*"
-                                      :host            "0.0.0.0"
-                                      :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
-                                                        :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                                                        :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+ :pathom/env
+ {:pathom/ops                     #ig/ref :pathom/ops
+  :com.eldrix/clods               #ig/ref :com.eldrix/clods
+  :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
+  :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
+  :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
+  :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
+  ;;;; :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
+  :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
+  :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
+  :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
+  :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms
+  :wales.nhs/empi                 #ig/ref :wales.nhs/empi}
 
- :http/handler                       {:login-config              #ig/ref :com.eldrix.pc4/login
-                                      :pathom-boundary-interface #ig/ref :pathom/boundary-interface
-                                      :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                                      :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login
-                                      :ring-defaults             {:params    {:keywordize true
-                                                                              :multipart  true
-                                                                              :nested     true
-                                                                              :urlencoded true}
-                                                                  :cookies   true
-                                                                  :responses {:absolute-redirects     true
-                                                                              :content-types          true
-                                                                              :default-charset        "utf-8"
-                                                                              :not-modified-responses true}
-                                                                  :session   true
-                                                                  :static    {:resources "public"}
-                                                                  :security  {:anti-forgery   false
-                                                                              :hsts           true
-                                                                              :ssl-redirect   false
-                                                                              :frame-options  :sameorigin
-                                                                              :xss-protection {:enable? true
-                                                                                               :mode    :block}}}}
+ :pathom/boundary-interface
+ {:config #profile {:default {}
+                    :dev     {:connect-viz true}}
+  :env    #ig/ref :pathom/env}
 
- :http/server2                       {:port    #long #or [#env PORT 8080]
-                                      :host    "0.0.0.0"
-                                      :handler #ig/ref :http/handler}}
+ :com.eldrix.pc4.server.pedestal/server
+ {:port            #long #or [#env PORT 8080]
+  :allowed-origins "*"
+  :host            "0.0.0.0"
+  :env             {:pathom-boundary-interface #ig/ref :pathom/boundary-interface
+                    :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+                    :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+
+ :com.eldrix.pc4.server.fulcro/handler
+ {:login-config              #ig/ref :com.eldrix.pc4/login
+  :pathom-boundary-interface #ig/ref :pathom/boundary-interface
+  :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+  :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login
+  :ring-defaults             {:params    {:keywordize true
+                                          :multipart  true
+                                          :nested     true
+                                          :urlencoded true}
+                              :cookies   true
+                              :responses {:absolute-redirects     true
+                                          :content-types          true
+                                          :default-charset        "utf-8"
+                                          :not-modified-responses true}
+                              :session   true
+                              :static    {:resources "public"}
+                              :security  {:anti-forgery   false
+                                          :hsts           true
+                                          :ssl-redirect   false
+                                          :frame-options  :sameorigin
+                                          :xss-protection {:enable? true
+                                                           :mode    :block}}}}
+
+ :com.eldrix.pc4.server.fulcro/server
+ {:port    #long #or [#env PORT 8080]
+  :host    "0.0.0.0"
+  :handler #ig/ref :com.eldrix.pc4.server.fulcro/handler}}

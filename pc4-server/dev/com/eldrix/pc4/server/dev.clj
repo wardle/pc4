@@ -18,7 +18,8 @@
   (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
   (def p (portal/open))                                     ;; open browser-based portal
   (add-tap #'portal/submit)
-  (pc4/prep :dev)
+  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server/fulcro])
+  (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
   (tap> system)
@@ -28,11 +29,13 @@
     (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
 
   ;; start a server using pedestal/jetty   - for re-frame clients
-  (def system (pc4/init :dev [:http/server]))
+  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server.pedestal/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.server.pedestal/server]))
   (ig/halt! system)
 
   ;; start a server using http-kit/ring    - for fulcro clients
-  (def system (pc4/init :dev [:http/server2]))
+  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server.fulcro/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.server.fulcro/server]))
   (ig/halt! system)
 
   ;; exercise some of the components...

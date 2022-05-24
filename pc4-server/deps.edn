@@ -31,14 +31,6 @@
 
              expound/expound                   {:mvn/version "0.9.0"}
              integrant/integrant               {:mvn/version "0.8.0"}
-             io.pedestal/pedestal.service      {:mvn/version "0.5.10"}
-             io.pedestal/pedestal.jetty        {:mvn/version "0.5.10"}
-
-             com.fulcrologic/fulcro            {:mvn/version "3.5.20"}
-             ring/ring-core                    {:mvn/version "1.9.5"}
-             ring-cors/ring-cors               {:mvn/version "0.1.13"}
-             ring/ring-defaults                {:mvn/version "0.3.3"}
-             http-kit/http-kit                 {:mvn/version "2.5.3"}
 
              org.jsoup/jsoup                   {:mvn/version "1.14.3"}
              org.postgresql/postgresql         {:mvn/version "42.3.5"}}
@@ -51,7 +43,14 @@
                            :ns-default build}
 
              :run         {:exec-fn    com.eldrix.pc4.server.core/run
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha15"}}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha15"}
+                                        io.pedestal/pedestal.service      {:mvn/version "0.5.10"}
+                                        io.pedestal/pedestal.jetty        {:mvn/version "0.5.10"}
+                                        com.fulcrologic/fulcro            {:mvn/version "3.5.20"}
+                                        ring/ring-core                    {:mvn/version "1.9.5"}
+                                        ring-cors/ring-cors               {:mvn/version "0.1.13"}
+                                        ring/ring-defaults                {:mvn/version "0.3.3"}
+                                        http-kit/http-kit                 {:mvn/version "2.5.3"}}
                            :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                         "--illegal-access=permit"]}
