@@ -119,7 +119,15 @@
   (merge (dissoc env :pathom/ops)
          (-> (pci/register {::p.error/lenient-mode? true} ops))))
 
-(defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env] :as config}]
+#_(defmacro connect-viz [env config]
+    `(do (require [com.wsscode.pathom-viz.ws-connector.pathom3])
+         (com.wsscode.pathom-viz.ws-connector.pathom3/connect-env ~env (merge {:com.wsscode.pathom.viz.ws-connector.core pc4} ~config))))
+
+(defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
+  (when (:connect-viz config)
+    (log/info "Connecting pathom-viz" config)
+    (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
+      (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config))))
   (p.eql/boundary-interface env))
 
 (defmethod aero/reader 'ig/ref [_ _ x]
