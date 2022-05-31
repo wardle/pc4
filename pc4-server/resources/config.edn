@@ -113,8 +113,8 @@
 
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
-  :com.eldrix/clods               #ig/ref :com.eldrix/clods
   :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
+  :com.eldrix.odsweekly.graph/svc #ig/ref :com.eldrix/ods-weekly
   :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
   :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
   :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
