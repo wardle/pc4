@@ -13,9 +13,10 @@ It provides the following integrations:
 * UK dictionary of medicines and devices (via [dmd](https://github.com/wardle/dmd))
 * Deprivation indices (via [deprivare](https://github.com/wardle/deprivare))
 * UK health and care organisational reference data (via [clods](https://github.com/wardle/clods))
+* GP surgery general practitioners (via [ods-weekly](https://github.com/wardle/ods-weekly))
 * NHS Wales' integration (via [concierge](https://github.com/wardle/concierge))
 * Geographical reference data (via [nhspd](https://github.com/wardle/nhspd))
-* legacy rsdb ([PatientCare v3](https://github.com/wardle/rsdb))
+* Legacy rsdb ([PatientCare v3](https://github.com/wardle/rsdb))
 
 The core abstraction is a property graph.
 
