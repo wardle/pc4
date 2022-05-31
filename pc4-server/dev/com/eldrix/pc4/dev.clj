@@ -96,8 +96,6 @@
   (pc4/halt! system)
   (def process (:pathom/boundary-interface system))
 
-  #_(connect-viz (:pathom/env system))
-
   (process
     [{'(wales.nhs.empi/fetch-patient
          {:system "https://fhir.nhs.uk/Id/nhs-number" :value "1234567890"})
