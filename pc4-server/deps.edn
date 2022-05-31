@@ -11,11 +11,11 @@
                                                 :exclusions  [log4j/log4j
                                                               commons-logging/commons-logging]}
 
-             com.eldrix/clods                  {:mvn/version "1.1.187"}
-             com.eldrix/ods-weekly             {:mvn/version "0.1.36"}
+             com.eldrix/clods                  {:mvn/version "1.1.195"}
+             com.eldrix/nhspd                  {:mvn/version "1.1.40"}
+             com.eldrix/ods-weekly             {:mvn/version "0.1.40"}
              com.eldrix/concierge              {:mvn/version "1.0.146"}
-             com.eldrix/deprivare              {:mvn/version "1.0.49"
-                                                :exclusions  [commons-logging/commons-logging]}
+             com.eldrix/deprivare              {:mvn/version "1.0.53"}
              com.eldrix/dmd                    {:mvn/version "0.6.144"}
              com.eldrix/hermes                 {:mvn/version "0.12.650"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
@@ -23,7 +23,6 @@
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}
              buddy/buddy-sign                  {:mvn/version "3.4.333"}
-             cheshire/cheshire                 {:mvn/version "5.10.2"}
              com.github.seancorfield/honeysql  {:mvn/version "2.2.891"}
              com.github.seancorfield/next.jdbc {:mvn/version "1.2.780"}
              com.wsscode/pathom3               {:mvn/version "2022.05.19-alpha"}
@@ -44,13 +43,13 @@
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
                            :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-alpha16"}
-                                        io.pedestal/pedestal.service      {:mvn/version "0.5.10"}
-                                        io.pedestal/pedestal.jetty        {:mvn/version "0.5.10"}
-                                        com.fulcrologic/fulcro            {:mvn/version "3.5.20"}
-                                        ring/ring-core                    {:mvn/version "1.9.5"}
-                                        ring-cors/ring-cors               {:mvn/version "0.1.13"}
-                                        ring/ring-defaults                {:mvn/version "0.3.3"}
-                                        http-kit/http-kit                 {:mvn/version "2.5.3"}}
+                                        io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
+                                        io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
+                                        com.fulcrologic/fulcro         {:mvn/version "3.5.20"}
+                                        ring/ring-core                 {:mvn/version "1.9.5"}
+                                        ring-cors/ring-cors            {:mvn/version "0.1.13"}
+                                        ring/ring-defaults             {:mvn/version "0.3.3"}
+                                        http-kit/http-kit              {:mvn/version "2.5.3"}}
                            :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                         "--illegal-access=permit"]}
@@ -63,7 +62,7 @@
                                         :server-daemon false}}
 
              :dev         {:extra-paths ["dev"]
-                           :extra-deps  {;com.wsscode/pathom-viz-connector {:mvn/version "2021.07.15-1"}
+                           :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                                          com.clojure-goes-fast/clj-async-profiler {:mvn/version "0.5.1"}
                                          ch.qos.logback/logback-classic           {:mvn/version "1.3.0-alpha16"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}}
@@ -74,7 +73,7 @@
                            :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
              :test        {:extra-paths ["test" "test/resources"]
-                           :extra-deps  {org.clojure/test.check         {:mvn/version "1.1.1"}
+                           :extra-deps  {org.clojure/test.check               {:mvn/version "1.1.1"}
                                          io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
                            :main-opts   ["-m" "cognitect.test-runner"]}
 
