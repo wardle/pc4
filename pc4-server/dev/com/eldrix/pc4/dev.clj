@@ -104,6 +104,11 @@
        :org.hl7.fhir.Patient/name
        :org.hl7.fhir.Patient/gender]}])
 
+  (process [{[:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id "W93036"]
+             [:uk.nhs.ord/orgId
+              :org.hl7.fhir.Organization/name
+              :org.hl7.fhir.Organization/address
+              :uk.nhs.ord/generalPractitioners]}])
 
   (keys system)
   (process [{[:uk.gov.ons.nhspd/PCDS "cf14 4xw"]
