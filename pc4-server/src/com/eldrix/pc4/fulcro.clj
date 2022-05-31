@@ -1,14 +1,13 @@
 (ns com.eldrix.pc4.fulcro
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.tools.logging.readable :as log]
+            [clojure.spec.alpha :as s]
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.users :as users]
-
-            [com.fulcrologic.fulcro.server.api-middleware :as server]
+            [com.fulcrologic.fulcro.server.api-middleware]
             [org.httpkit.server]
             [ring.middleware.content-type]
             [ring.middleware.cors]
             [ring.middleware.defaults]
-            [clojure.tools.logging.readable :as log]
             [integrant.core :as ig]))
 
 (def ^:private not-found-handler
@@ -132,7 +131,7 @@
   (log/info "running HTTP server" (dissoc config :handler))
   (when-not handler
     (throw (ex-info "invalid http server configuration: expected 'handler' key" config)))
-  (org.httpkit.server/run-server handler (cond-> config     ;; TODO: support allowed-origins
+  (org.httpkit.server/run-server handler (cond-> config
                                                  (= "*" allowed-origins) (assoc :legal-origins #".*")
                                                  (seq allowed-origins) (assoc :legal-origins allowed-origins)
                                                  host (assoc :ip host))))
