@@ -331,10 +331,10 @@
   ;;   date_updated
 
   (com.eldrix.pc4.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
-                                                                        {:salt       (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
-                                                                         :project-id 124
-                                                                         :nhs-number "3333333333"
-                                                                         :date-birth (LocalDate/of 1975 5 1)})
+                                                                 {:salt       (:legacy-global-pseudonym-salt (:com.eldrix.rsdb/config system))
+                                                                  :project-id 124
+                                                                  :nhs-number "3333333333"
+                                                                  :date-birth (LocalDate/of 1975 5 1)})
   (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
   (com.eldrix.pc4.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password"))
 
