@@ -22,6 +22,7 @@
   (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
+  (def system (pc4/init :dev [:pathom/boundary-interface]))
   (tap> system)
   (ig/halt! system)
   (do
