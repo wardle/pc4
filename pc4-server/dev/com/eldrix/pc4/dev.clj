@@ -243,11 +243,11 @@
 
   (require '[com.eldrix.pc4.modules.dmt])
   (com.eldrix.pc4.modules.dmt/make-patient-identifiers-table system
-                                                                    (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :cambridge))
+                                                             (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :cambridge))
   (com.eldrix.pc4.modules.dmt/write-table system
-                                                 com.eldrix.pc4.modules.dmt/patient-identifiers-table
-                                                 :plymouth
-                                                 (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :plymouth))
+                                          com.eldrix.pc4.modules.dmt/patient-identifiers-table
+                                          :plymouth
+                                          (com.eldrix.pc4.modules.dmt/fetch-study-patient-identifiers system :plymouth))
 
   (require '[com.eldrix.pc4.modules.dmt :as dmt])
   (com.eldrix.pc4.modules.dmt/all-patient-diagnoses system [124079])
