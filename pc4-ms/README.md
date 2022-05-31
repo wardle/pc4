@@ -8,7 +8,14 @@ It is designed to be eventually equivalent to pc4-ward, and perhaps replace it.
 This app was based on the [Fulcro template application](https://github.com/fulcrologic/fulcro-template)
 (commit 75367939f196eb591f712a2618d55b9a231f0cef from 19th September 2021).
 
-To start standalone client:
+
+To build
+
+```shell
+yarn install
+```
+
+Start frontend compilation server:
 
 ```shell
 shadow-cljs watch main
