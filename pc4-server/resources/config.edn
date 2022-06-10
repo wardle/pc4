@@ -42,7 +42,9 @@
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  :com.eldrix/ods-weekly
- {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly.db"}}
+ {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2022-06-09.db"
+                  :pc4 "/var/pc4/ods-weekly-2022-06-09.db"
+                  :cvx "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
  :com.eldrix/deprivare
  {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
