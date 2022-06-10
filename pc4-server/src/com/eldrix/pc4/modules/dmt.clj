@@ -1744,7 +1744,7 @@
   clj -X com.eldrix.pc4.modules.dmt/update-cav-admissions :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre]}]
-  (let [system (pc4/init profile)
+  (let [system (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
         project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
         project-id (:t_project/id project)]
     (dorun
