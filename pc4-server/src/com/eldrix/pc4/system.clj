@@ -61,10 +61,10 @@
   (.close dmd))
 
 (defmethod ig/init-key :com.eldrix.concierge/nadex
-  [_ {:keys [connection-pool-size _default-bind-username _default-bind-password] :as params}]
-  (when connection-pool-size
+  [_ params]
+  (when (:size params)
     (-> params
-        (assoc :connection-pool (nadex/make-connection-pool connection-pool-size)))))
+        (assoc :connection-pool (nadex/make-connection-pool params)))))
 
 (defmethod ig/halt-key! :com.eldrix.concierge/nadex [_ {:keys [connection-pool]}]
   (when connection-pool (.close connection-pool)))
