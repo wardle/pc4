@@ -1178,7 +1178,7 @@
                      cohort-entry-med (get cohort-entry-meds patient-id)
                      onsets (get onsets patient-id)
                      onset-date (:calculated-onset onsets)
-                     has-multiple-sclerosis (:has_multiple_sclerosis onsets)
+                     has-multiple-sclerosis (boolean (:has_multiple_sclerosis onsets))
                      date-death (when-let [d (:t_patient/date_death %)] (.withDayOfMonth d 15))]
                  (-> (merge % cohort-entry-med)
                      (update :t_patient/sex (fnil name ""))
