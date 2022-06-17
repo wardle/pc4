@@ -702,8 +702,7 @@
                         :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
                         :t_encounter/date (to-local-date (:t_encounter/date_time %))))
          (group-by :t_patient/patient_identifier)
-         (reduce-kv (fn [acc k v] (assoc acc k (sort-by :date_time v))) {}))))
-
+         (reduce-kv (fn [acc k v] (assoc acc k (sort-by :t_encounter/date_time v))) {}))))
 
 (defn date-at-edss-4
   "Given an ordered sequence of EDSS scores, identify the first that is 4 or
