@@ -1644,7 +1644,7 @@
   clj -X com.eldrix.pc4.modules.dmt/export :profile :dev :centre :cambridge
   ```
   Profile determines the environment in which to use. There are four running
-  pc4 environments currrently:
+  pc4 environments currently:
   * dev - development
   * nuc - development
   * pc4 - Amazon AWS infrastructure
