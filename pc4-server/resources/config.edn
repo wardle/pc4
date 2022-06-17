@@ -43,8 +43,8 @@
 
  :com.eldrix/ods-weekly
  {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2022-06-09.db"
-                  :pc4 "/var/pc4/ods-weekly-2022-06-09.db"
-                  :cvx "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
+                  :pc4     "/var/pc4/ods-weekly-2022-06-09.db"
+                  :cvx     "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
  :com.eldrix/deprivare
  {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
@@ -67,9 +67,15 @@
   :secret-access-key #ref [:secrets :aws-secret-access-key]}
 
  :com.eldrix.concierge/nadex
- #profile {:cvx     {:connection-pool-size  5
-                     :default-bind-username #ref [:secrets :nadex-bind-username]
-                     :default-bind-password #ref [:secrets :nadex-bind-password]}
+ #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
+                                               "7A4BVSRVDOM0002.cymru.nhs.uk"
+                                               "7A4BVSRVDOM0003.cymru.nhs.uk"]
+                     :port                    636
+                     :pool-size               5
+                     :trust-all-certificates? true
+                     :follow-referrals?       true
+                     :default-bind-username   #ref [:secrets :nadex-bind-username]
+                     :default-bind-password   #ref [:secrets :nadex-bind-password]}
            :default {}}
 
  :com.eldrix.pc4/fake-login-provider

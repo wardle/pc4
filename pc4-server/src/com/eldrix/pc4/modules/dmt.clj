@@ -263,12 +263,12 @@
 
    :connective_tissue
    {:description "Connective tissue disorders"
-    :codelist    {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
+    :codelist    {:icd10 ["M45." "M33." "M35.3" "M35.0" "M32." "M34."
                           "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
-                          "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
+                          "M30.0" "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3"
                           "M06.1" "E85.0" "D86."]}}
    :endocrine
-   {:codelist {:icd10 ["E27.4" "E10" "E06.3" "E05.0"]}}
+   {:codelist {:icd10 ["E27.1" "E27.2" "E27.4" "E10." "E06.3" "E05.0"]}}
 
    :gastrointestinal
    {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
@@ -296,8 +296,8 @@
 
    :autoimmune_disease
    {:codelist {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32." "M34." "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
-                       "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10" "E06.3" "E05.0" "K75.4" "K90.0"
-                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80." "G61.0" "D51.0" "D59.1" "D69.3" "D68" "N02.8" "M31.0" "D76.1"
+                       "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10." "E06.3" "E05.0" "K75.4" "K90.0"
+                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80." "G61.0" "D51.0" "D59.1" "D69.3" "D68." "N02.8" "M31.0" "D76.1"
                        "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "I01." "G70.0" "G73.1"]}}
 
    :uncontrolled_hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
@@ -316,10 +316,10 @@
    {:codelist {:icd10 ["G40"]}}
 
    :other
-   {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68.8" "D68.9"
+   {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68."
                        "N02.8" "M31.0" "D76.1"
                        "M05.3" "I01.2" "I40.8" "I40.9" "I09.0" "G04.0"
-                       "E31.0" "D69.3" "I01." "G70.0" "G70.8" "G73.1"]}}})
+                       "E31.0" "D69.3" "I01." "G70.0" "G73.1"]}}})
 
 (def flattened-study-diagnoses
   "A flattened sequence of study diagnoses for convenience."
@@ -702,8 +702,7 @@
                         :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
                         :t_encounter/date (to-local-date (:t_encounter/date_time %))))
          (group-by :t_patient/patient_identifier)
-         (reduce-kv (fn [acc k v] (assoc acc k (sort-by :date_time v))) {}))))
-
+         (reduce-kv (fn [acc k v] (assoc acc k (sort-by :t_encounter/date_time v))) {}))))
 
 (defn date-at-edss-4
   "Given an ordered sequence of EDSS scores, identify the first that is 4 or
@@ -1178,7 +1177,7 @@
                      cohort-entry-med (get cohort-entry-meds patient-id)
                      onsets (get onsets patient-id)
                      onset-date (:calculated-onset onsets)
-                     has-multiple-sclerosis (:has_multiple_sclerosis onsets)
+                     has-multiple-sclerosis (boolean (:has_multiple_sclerosis onsets))
                      date-death (when-let [d (:t_patient/date_death %)] (.withDayOfMonth d 15))]
                  (-> (merge % cohort-entry-med)
                      (update :t_patient/sex (fnil name ""))
@@ -1645,7 +1644,7 @@
   clj -X com.eldrix.pc4.modules.dmt/export :profile :dev :centre :cambridge
   ```
   Profile determines the environment in which to use. There are four running
-  pc4 environments currrently:
+  pc4 environments currently:
   * dev - development
   * nuc - development
   * pc4 - Amazon AWS infrastructure

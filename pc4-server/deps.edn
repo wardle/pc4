@@ -14,8 +14,8 @@
              com.eldrix/clods                  {:mvn/version "1.1.195"}
              com.eldrix/nhspd                  {:mvn/version "1.1.40"}
              com.eldrix/ods-weekly             {:mvn/version "0.1.40"}
-             com.eldrix/concierge              {:mvn/version "1.0.149"}
-             com.eldrix/deprivare              {:mvn/version "1.0.53"}
+             com.eldrix/concierge              {:mvn/version "1.0.150"}
+             com.eldrix/deprivare              {:mvn/version "1.0.54"}
              com.eldrix/dmd                    {:mvn/version "0.6.144"}
              com.eldrix/hermes                 {:mvn/version "0.12.681"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
@@ -32,7 +32,7 @@
              integrant/integrant               {:mvn/version "0.8.0"}
 
              org.jsoup/jsoup                   {:mvn/version "1.15.1"}
-             org.postgresql/postgresql         {:mvn/version "42.3.6"}}
+             org.postgresql/postgresql         {:mvn/version "42.4.0"}}
 
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}

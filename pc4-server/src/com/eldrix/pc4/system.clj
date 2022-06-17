@@ -61,10 +61,12 @@
   (.close dmd))
 
 (defmethod ig/init-key :com.eldrix.concierge/nadex
-  [_ {:keys [connection-pool-size _default-bind-username _default-bind-password] :as params}]
-  (when connection-pool-size
-    (-> params
-        (assoc :connection-pool (nadex/make-connection-pool connection-pool-size)))))
+  [_ params]
+  (if (:pool-size params)
+    (do (log/info "configuring NADEX:" (select-keys params [:host :hosts :pool-size]))
+        (-> params
+            (assoc :connection-pool (nadex/make-connection-pool params))))
+    (log/info "skipping NADEX as no configuration")))
 
 (defmethod ig/halt-key! :com.eldrix.concierge/nadex [_ {:keys [connection-pool]}]
   (when connection-pool (.close connection-pool)))
