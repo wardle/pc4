@@ -133,7 +133,7 @@
 (def ui-nav-bar (comp/factory NavBar))
 
 (defrouter MainRouter [this props]
-  {:router-targets [HomePage projects/ProjectPage2]})
+  {:router-targets [HomePage projects/ProjectPage]})
 
 (def ui-main-router (comp/factory MainRouter))
 
@@ -150,6 +150,5 @@
                    (ui-main-router router))))
 
 (comment
-  (comp/get-query Root)
+  (comp/get-query Root))
 
-  )

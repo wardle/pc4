@@ -43,7 +43,7 @@
   (dom/a :.cursor-pointer
          {:onClick #(do (js/console.log "selecting project " id name title)
                         (comp/transact! this
-                                         [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage2 id)})])
+                                         [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage id)})])
                         #_(route/route-to! (str "/project/" id))
                         #_(dr/change-route! this ["project" id])
                         #_(comp/transact! @SPA [(list 'pc4.users/open-project project)])
