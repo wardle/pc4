@@ -33,7 +33,8 @@
        (div :.sm:flex.sm:justify-between
             (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
                  (p "by " (ui-news-author author))))
-       (p :.text-sm {:dangerouslySetInnerHTML {:__html body}})))
+       (dom/article :.text-sm.prose.pb-4 {:dangerouslySetInnerHTML {:__html body}})
+       (dom/hr)))
 
 (def ui-news-item (comp/factory NewsItem {:keyfn :t_news/id}))
 
@@ -43,11 +44,11 @@
   (dom/a :.cursor-pointer
          {:onClick #(do (js/console.log "selecting project " id name title)
                         (comp/transact! this
-                                         [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage id)})])
+                                        [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage id)})])
                         #_(route/route-to! (str "/project/" id))
                         #_(dr/change-route! this ["project" id])
-                        #_(comp/transact! @SPA [(list 'pc4.users/open-project project)])
-                        )}
+                        #_(comp/transact! @SPA [(list 'pc4.users/open-project project)]))}
+
          (dom/div :.px-3.py-1.text-sm.border
                   {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
                   title)))
@@ -104,8 +105,8 @@
    :ident :t_user/id}
   (div
     #_(pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
-                           :full-name (str first_names " " last_name) :initials initials
-                           :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
+                             :full-name (str first_names " " last_name) :initials initials
+                             :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
     (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
          (div :.md:mr-2 (ui-list-projects {:projects active_projects}))
          (div :.col-span-3
@@ -174,5 +175,4 @@
      :t_user/last_name       "Smith"
      :t_user/first_names     "John"
      :t_user/active_projects [{:t_project/id   1
-                               :t_project/name "Wibble"}]})
-  )
+                               :t_project/name "Wibble"}]}))
