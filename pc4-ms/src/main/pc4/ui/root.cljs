@@ -124,7 +124,8 @@
 
 (defsc NavBar [this {:t_user/keys [title first_names last_name initials] :as params}]
   {:ident (fn [] [:component/id :nav-bar])
-   :query [:t_user/id :t_user/title :t_user/first_names :t_user/last_name :t_user/initials]}
+   :query [:t_user/id :t_user/title :t_user/first_names :t_user/last_name :t_user/initials]
+   :initial-state {}}
   (pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                          :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                          :initials  initials
@@ -143,8 +144,9 @@
   {:query         [{:session/authenticated-user (comp/get-query NavBar)}
                    {:root/router (comp/get-query MainRouter)}
                    :session/error]
-   :initial-state (fn [_] {:root/router (comp/get-initial-state MainRouter)})}
-  (if-not authenticated-user
+   :initial-state (fn [_] {:session/authenticated-user (comp/get-initial-state NavBar)
+                           :root/router (comp/get-initial-state MainRouter)})}
+  (if-not (seq authenticated-user)
     (ui-login {:session/error login-error})
     (comp/fragment (ui-nav-bar authenticated-user)
                    (ui-main-router router))))
