@@ -55,9 +55,10 @@
 
 (def ui-project-button (comp/factory ProjectButton {:keyfn :t_project/id}))
 
-(defsc ListProjects [this {:keys [projects]}]
-  {:query [{:projects (comp/get-query ProjectButton)}]}
-  (let [grouped (group-by :t_project/type projects)
+(defsc ListUserProjects [this {:t_user/keys [active_projects]}]
+  {:query [:t_user/id {:t_user/active_projects (comp/get-query ProjectButton)}]
+   :ident :t_user/id}
+  (let [grouped (group-by :t_project/type active_projects)
         has-clinical? (seq (:NHS grouped))
         has-research? (seq (:RESEARCH grouped))]
     (div :.border-solid.border-gray-800.bg-gray-50.border.rounded.shadow-lg
@@ -75,40 +76,26 @@
                (span :.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"))
              (map ui-project-button (sort-by :t_project/title (:RESEARCH grouped))))))))
 
-(def ui-list-projects (comp/factory ListProjects))
-
-(defsc User
-  [this {:t_user/keys [id title first_names last_name active_projects latest_news] :as user token :io.jwt/token}]
-  {:query [:t_user/id :io.jwt/token :t_user/title :t_user/first_names :t_user/last_name
-           {:t_user/active_projects (comp/get-query ProjectButton)}
-           {:t_user/latest_news (comp/get-query NewsItem)}]
-   :ident :t_user/id}
-  (when user
-    (dom/div
-      (dom/p "User " id " " title " " first_names " " last_name)
-      (map ui-news-item latest_news)
-      (ui-list-projects {:projects active_projects})
-      (dom/button :.border.border-black.bg-blue-400.hover:bg-blue-200.shadow.mb-2 {:onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])} "Logout"))))
-
-(def ui-user (comp/factory User))
-
+(def ui-list-user-projects (comp/factory ListUserProjects))
 
 (defsc UserHomePage
-  [this {:t_user/keys [id title first_names last_name active_projects latest_news]
+  [this {:>/keys [projects]
+         :t_user/keys [id title first_names last_name latest_news]
          common-name  :urn:oid:2.5.4/commonName
          initials     :urn:oid:2.5.4/initials
          :as          user}]
   {:query [:t_user/id :io.jwt/token :t_user/title :t_user/first_names :t_user/last_name
            :urn:oid:2.5.4/commonName :urn:oid:2.5.4/initials
-           {:t_user/active_projects (comp/get-query ProjectButton)}
+           {:>/projects (comp/get-query ListUserProjects)}
            {:t_user/latest_news (comp/get-query NewsItem)}]
    :ident :t_user/id}
+  (tap> user)
   (div
     #_(pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                              :full-name (str first_names " " last_name) :initials initials
                              :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
     (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-         (div :.md:mr-2 (ui-list-projects {:projects active_projects}))
+         (div :.md:mr-2 (ui-list-user-projects projects))
          (div :.col-span-3
               (map ui-news-item latest_news)))))
 
