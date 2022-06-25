@@ -22,7 +22,7 @@
     (td :.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (or custom_job_title job_title_name))
     (td :.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 email)))
 
-(def ui-project-user (comp/factory ProjectUser))
+(def ui-project-user (comp/factory ProjectUser {:keyfn :t_user/id}))
 
 (defsc ProjectUsers
   [this {:t_project/keys [users] :as props}]
