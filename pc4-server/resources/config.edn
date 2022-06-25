@@ -7,7 +7,7 @@
 ;; - :pc4     : this profile is active when deployed on AWS infrastructure
 ;;
 ;; There is an additional development profile:
-;; - :dev-pc4 : this profile is for use in development but connects to the remote live AWS infrastructure
+;; - ::pc4-dev : this profile is for use in development but connects to the remote live AWS infrastructure
 
 {:secrets
  #include #join [#env HOME "/.secrets.edn"]
