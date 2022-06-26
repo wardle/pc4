@@ -9,7 +9,7 @@
     [pc4.session :as session]
     [pc4.ui.ui :as ui]
     [pc4.route :as route]
-    [pc4.ui.projects :as projects]))
+    [pc4.projects :as projects]))
 
 
 (defsc NewsAuthor [this {:t_user/keys [id title first_names last_name]}]
@@ -44,11 +44,7 @@
   (dom/a :.cursor-pointer
          {:onClick #(do (js/console.log "selecting project " id name title)
                         (comp/transact! this
-                                        [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage id)})])
-                        #_(route/route-to! (str "/project/" id))
-                        #_(dr/change-route! this ["project" id])
-                        #_(comp/transact! @SPA [(list 'pc4.users/open-project project)]))}
-
+                                        [(route/route-to {:path (dr/path-to projects/ProjectPage id)})]))}
          (dom/div :.px-3.py-1.text-sm.border
                   {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
                   title)))
@@ -126,6 +122,7 @@
           (swap! state dissoc :session/authenticated-user :session/error)
           (when (:message params)
             (swap! state assoc :session/error (:message params)))
+          (route/route-to! [])
           (reset! session/authentication-token nil)))
 
 (defmutation refresh-token

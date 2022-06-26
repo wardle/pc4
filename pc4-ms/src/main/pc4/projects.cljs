@@ -1,13 +1,45 @@
-(ns pc4.ui.projects
+(ns pc4.projects
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
+            [com.fulcrologic.fulcro.dom.events :as evt]
+            [com.fulcrologic.fulcro.mutations :refer [defmutation returning]]
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [clojure.string :as str]
             [pc4.ui.ui :as ui]
+            [pc4.rsdb]
             [taoensso.timbre :as log]))
 
+(defsc PatientSearchByPseudonym
+  [this {project-id :t_project/id
+         patient    :patient-search/pseudonymous}]
+  {:query         [:t_project/id
+                   {[:patient-search/pseudonymous '_] (comp/get-query pc4.rsdb/PseudonymousPatient)}]
+   :initial-state {:t_project/id :param/id}}
+  (div
+    :.bg-white.overflow-hidden.shadow.sm:rounded-lg
+    (div
+      :.px-4.py-6.sm:p-6
+      (dom/form
+        :.divide-y.divide-gray-200 {:onSubmit evt/prevent-default!}
+        (div :.divide-y.divide-gray-200.sm:space-y-5
+             (div
+               (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
+                       (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
+               (div :.mt-4
+                    (dom/label :.sr-only {:for "pseudonym"} "Pseudonym")
+                    (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+                               {:type      "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
+                                :onKeyDown #(when (and patient (evt/enter-key? %))
+                                              (println "Will go to patient!" patient))
+                                :onChange  #(let [s (evt/target-value %)]
+                                              (println "Patient search " s)
+                                              (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
+               (when patient
+                 (pc4.rsdb/ui-pseudonymous-patient patient))))))))
+
+(def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
 (defsc ProjectUser
   [this {:t_user/keys [id first_names last_name title custom_job_title job_title_name email]}]
@@ -16,7 +48,8 @@
            :t_user/first_names :t_user/last_name
            :t_user/title
            :t_user/custom_job_title
-           :t_user/job_title_name :t_user/email]}
+           :t_user/job_title_name :t_user/email]
+   :initial-state {}}
   (tr
     (td :.px-6.py-4.whitespace-nowrap.text-sm.font-medium.text-gray-900 (str/join " " [title first_names last_name]))
     (td :.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (or custom_job_title job_title_name))
@@ -58,9 +91,7 @@
    :query         [:t_project/id :t_project/active? :t_project/title :t_project/date_from :t_project/date_to :t_project/type
                    :t_project/virtual :t_project/long_description :t_project/inclusion_criteria :t_project/exclusion_criteria
                    :t_project/count_registered_patients :t_project/count_discharged_episodes]
-   :route-segment ["home"]
-   :initial-state {}}
-  (println "project:" project)
+   :route-segment ["home"]}
   (if-not (seq project)
     (div (ui/box-error-message :message "No project information available"))
     (div :.bg-white.shadow.overflow-hidden.sm:rounded-lg
@@ -98,19 +129,17 @@
 (def ui-project-home (comp/factory ProjectHome))
 
 (defsc ProjectPage
-  [this {:t_project/keys    [id title]
-         home               :>/home
-         users              :>/users
-         authenticated-user :session/authenticated-user
-         :as                props}]
+  [this {:t_project/keys [id title]
+         home            :>/home
+         users           :>/users
+         search          :>/search}]
   {:ident         :t_project/id
    :route-segment ["project" :t_project/id]
    :query         [:t_project/id :t_project/title
                    {[:session/authenticated-user '_] [:t_user/first_names :t_user/last_name]}
                    {:>/home (comp/get-query ProjectHome)}
-                   {:>/users (comp/get-query ProjectUsers)}]
-   :initial-state {:>/home  {}
-                   :>/users {}}
+                   {:>/users (comp/get-query ProjectUsers)}
+                   {:>/search (comp/get-query PatientSearchByPseudonym)}]
    :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
                     (when-let [project-id (some-> id (js/parseInt))]
                       (println "entering project page: project-id" project-id)
@@ -119,6 +148,7 @@
                                                           {:target               [:session/current-project]
                                                            :post-mutation        `dr/target-ready
                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :allow-route-change? (constantly true)
    :will-leave    (fn [this props]
                     (comp/transact! this [(list 'pc4.users/close-project)]))}
   (let [selected-page (or (comp/get-state this :selected-page) :home)]
@@ -127,8 +157,8 @@
            (dom/ul :.flex
                    (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
                    (ui/flat-menu [{:title "Home" :id :home}
-                                  {:title "Register" :id :register}
                                   {:title "Search" :id :search}
+                                  {:title "Register" :id :register}
                                   {:title "Users" :id :users}]
                                  :selected-id selected-page
                                  :select-fn #(do
@@ -136,6 +166,7 @@
                                                (comp/set-state! this {:selected-page %})))))
       (case selected-page
         :home (ui-project-home home)
+        :search (ui-patient-search-by-pseudonym search)
         :users (ui-project-users users)
         (ui/box-error-message :message "Page not found")))))
 
