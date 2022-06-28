@@ -113,7 +113,8 @@
                (js/console.log "response from remote: " result)
                (if token (swap! (:state env) dissoc :session/error)
                          (swap! (:state env) assoc :session/error "Invalid username or password"))
-               (reset! session/authentication-token token))))
+               (reset! session/authentication-token token)
+               (route/route-to! ["home"]))))
 
 (defmutation logout
   [params]
@@ -122,7 +123,7 @@
           (swap! state dissoc :session/authenticated-user :session/error)
           (when (:message params)
             (swap! state assoc :session/error (:message params)))
-          (route/route-to! [])
+          (route/route-to! ["home"])
           (reset! session/authentication-token nil)))
 
 (defmutation refresh-token
