@@ -117,7 +117,7 @@
   {:ident         (fn [] [:component/id :home])
    :query         [{[:session/authenticated-user '_] (comp/get-query pc4.users/UserHomePage)}]
    :route-segment ["home"]
-   :initial-state {:session/authenticated-user {}}}
+   :initial-state {}}
   (js/console.log "HomePage: authenticated user = " authenticated-user)
   (when (seq authenticated-user) (pc4.users/ui-user-home-page authenticated-user)))
 

@@ -19,8 +19,16 @@
 
 (defmutation search-patient-by-pseudonym
   [params]
-  (search-patient-by-pseudonym [env]
-          (-> env
-              (m/returning PseudonymousPatient)
-              (m/with-target [:session/authenticated-user])))
+  (search-patient-by-pseudonym
+    [env]
+    (-> env
+        (m/returning PseudonymousPatient)))
   (remote [env] true))
+
+(defmutation register-pseudonymous-patient
+  [params]
+  (register-pseudonymous-patient
+    [env]
+    (-> env
+        (m/returning PseudonymousPatient)))
+  (remote [env] true)) ;;TODO:validate parameters before sending

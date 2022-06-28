@@ -13,7 +13,7 @@
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.ui.root :as root]
+    [pc4.root :as root]
     [pc4.route :as route]
     [pc4.users]
     [com.fulcrologic.fulcro.algorithms.transit :as transit])

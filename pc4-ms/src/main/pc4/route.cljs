@@ -46,7 +46,6 @@
 (defn routing-start! []
   (pushy/start! history))
 
-
 (defn route-to!
   [path]
   (pushy/set-token! history (path->url path)))
