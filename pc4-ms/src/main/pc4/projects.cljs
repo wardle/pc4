@@ -9,10 +9,11 @@
             [com.fulcrologic.fulcro.data-fetch :as df]
 
             [clojure.string :as str]
-            [pc4.ui.ui :as ui]
+            [pc4.ui :as ui]
             [pc4.rsdb]
             [taoensso.timbre :as log]
-            [com.fulcrologic.fulcro.mutations :as m]))
+            [com.fulcrologic.fulcro.mutations :as m])
+  (:import [goog.date Date]))
 
 (defsc PatientSearchByPseudonym
   [this {project-id :t_project/id
@@ -45,45 +46,46 @@
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
 (defsc RegisterByPseudonym
-  [this {project-id             :t_project/id
-         :register-patient/keys [nhs-number date-birth gender]}]
+  [this {project-id :t_project/id
+         :ui/keys   [nhs-number date-birth gender] :as params}]
   {:query         [:t_project/id
-                   :register-patient/nhs-number :register-patient/date-birth :register-patient/gender
-                   :register-patient/error fs/form-config-join]
+                   :ui/nhs-number :ui/date-birth :ui/gender
+                   :ui/error fs/form-config-join]
    :initial-state (fn [_]
                     (fs/add-form-config RegisterByPseudonym
-                                        {:register-patient/nhs-number ""
-                                         :register-patient/gender     nil
-                                         :register-patient/date-birth nil}))
-   :form-fields   #{:register-patient/nhs-number :register-patient/date-birth :register-patient/gender}
+                                        {:ui/nhs-number ""
+                                         :ui/gender     nil
+                                         :ui/date-birth nil}))
+   :form-fields   #{:ui/nhs-number :ui/date-birth :ui/gender}
    :ident         (fn [] [:component-id :register-pseudonymous-patient])}
-  (let [do-register #(do (println "Attempting to register" {:nhs-number nhs-number}) (comp/transact! @SPA [(pc4.rsdb/register-pseudonymous-patient {:project-id project-id
-                                                                                                                                                    :nhs-number nhs-number
-                                                                                                                                                    :date-birth date-birth
-                                                                                                                                                    :gender     gender})]))
-        valid? true]
+  (let [valid? true
+        do-register (fn [] (do (println "Attempting to register" params)
+                               (comp/transact! @SPA [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
+                                                                                              :nhs-number nhs-number
+                                                                                              :date-birth date-birth
+                                                                                              :gender     gender})])))]
     (div :.space-y-6
-     (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-      (div :.md:grid.md:grid-cols-3.md:gap-6
-       (div :.md:col-span-1
-        (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
-        (div :.mt-1.mr-12.text-sm.text-gray-500
-         (p "Enter patient details.")
-         (p :.mt-4 "This is safe even if patient already registered")
-         (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym.")))
-       (div :.mt-5.md:mt-0.md:col-span-2
-        (dom/form {:on-submit #(do (evt/prevent-default! %) (do-register))}
-         (div :.grid.grid-cols-6.gap-6
-          (div :.col-span-6.sm:col-span-3.space-y-6
-            (div (dom/label "NHS Number:")
-                 (dom/input {:value    (or nhs-number "")
-                             :onChange #(m/set-string! this :register-patient/nhs-number :event %)}))))))))
-     (div :.flex.justify-end.mr-8
-      (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
-       {:type     "submit"
-        :className    (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
-        :onClick #(when valid? (do-register))}
-       "Search or register patient »")))))
+         (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+              (div :.md:grid.md:grid-cols-3.md:gap-6
+                   (div :.md:col-span-1
+                        (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
+                        (div :.mt-1.mr-12.text-sm.text-gray-500)
+                        (p "Enter patient details.")
+                        (p :.mt-4 "This is safe even if patient already registered")
+                        (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
+                   (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
+                        (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+                        (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
+                                         {:onChange #(m/set-string! this :ui/nhs-number :value %)})
+                        (ui/ui-local-date {:id "date-birth" :value date-birth :label "Date of birth:" :min-date (Date. 1900 1 1) :max-date (Date.)}
+                                          {:onChange #(m/set-value! this :ui/date-birth %)}))))
+         (div :.flex.justify-end.mr-8
+              (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
+                          {:type      "submit"
+                           :className (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
+                           :onClick   #(when valid? (do-register))}
+                          "Search or register patient »")))))
+
 
 (def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
 

@@ -4,10 +4,9 @@
     [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.ui.ui :as ui]
+    [pc4.ui :as ui]
     [pc4.route :as route]
     [pc4.projects :as projects]))
 

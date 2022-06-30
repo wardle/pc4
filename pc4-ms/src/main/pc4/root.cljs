@@ -13,8 +13,7 @@
     [com.fulcrologic.fulcro-css.css :as css]
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [pc4.app :refer [SPA]]
-    [pc4.ui.components]
-    [pc4.ui.ui :as ui]
+    [pc4.ui :as ui]
     [pc4.users]
     [pc4.projects :as projects]
     [taoensso.timbre :as log]
@@ -101,7 +100,7 @@
                                    :required     true
                                    :placeholder  "Password"})))
                 (when error                                 ;; error
-                  (pc4.ui.ui/box-error-message :message error))
+                  (ui/box-error-message :message error))
                 (div
                   (dom/button :.mt-4.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.bg-indigo-600.hover:bg-indigo-700
                               {:type     "submit"
@@ -127,10 +126,10 @@
   [this {:t_user/keys [id title first_names last_name initials] :as params}]
   {:ident         :t_user/id
    :query         [:t_user/id :t_user/title :t_user/first_names :t_user/last_name :t_user/initials]}
-  (pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
-                         :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
-                         :initials  initials
-                         :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}))
+  (ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
+                  :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
+                  :initials  initials
+                  :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}))
 
 (def ui-nav-bar (comp/factory NavBar))
 

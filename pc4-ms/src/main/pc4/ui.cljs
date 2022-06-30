@@ -1,11 +1,14 @@
-(ns pc4.ui.ui
+(ns pc4.ui
   "Stateless plain components."
   (:require
+    [clojure.string :as str]
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [pc4.route :as route])
+    [com.fulcrologic.fulcro.dom.inputs]
+    [pc4.route :as route]
+    [com.fulcrologic.fulcro.dom.events :as evt])
   (:import [goog.date Date]))
+
 
 (def months-en
   {0  "Jan"
@@ -28,6 +31,26 @@
                   "-"
                   (.getYear date))))
 
+
+(defsc PlaceholderImage
+  "Generates an SVG image placeholder of the given size and with the given label
+  (defaults to showing 'w x h'.
+
+  ```
+  (ui-placeholder {:w 50 :h 50 :label \"avatar\"})
+  ```
+  "
+  [this {:keys [w h label]}]
+  (let [label (or label (str w "x" h))]
+    (dom/svg #js {:width w :height h}
+             (dom/rect #js {:width w :height h :style #js {:fill        "rgb(200,200,200)"
+                                                           :strokeWidth 2
+                                                           :stroke      "black"}})
+             (dom/text #js {:textAnchor "middle" :x (/ w 2) :y (/ h 2)} label))))
+
+(def ui-placeholder (comp/factory PlaceholderImage))
+
+
 (defn icon-chevron-down []
   (svg :.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
        (path {:fillRule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clipRule "evenodd"})))
@@ -47,12 +70,12 @@
   - select-fn   : function to call on select with the identifier"
   [items & {:keys [selected-id select-fn]}]
   (dom/ul :.flex
-   (for [item items
-         :let [id (:id item) title (:title item)]]
-     (dom/li :.mr3 {:key id}
-      (if (= selected-id id)
-        (dom/a :.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title)
-        (dom/a :.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:onClick #(when select-fn (select-fn id))} title))))))
+          (for [item items
+                :let [id (:id item) title (:title item)]]
+            (dom/li :.mr3 {:key id}
+                    (if (= selected-id id)
+                      (dom/a :.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title)
+                      (dom/a :.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:onClick #(when select-fn (select-fn id))} title))))))
 
 
 
@@ -141,3 +164,61 @@
 
 
 (def ui-nav-bar (comp/factory nav-bar))
+
+
+(defsc UILabel
+  [this {:keys [for label]}]
+  (dom/label :.block.text-sm.font-medium.text-gray-600 {:htmlFor for} label))
+
+(def ui-label (comp/factory UILabel))
+
+(defsc UITextField
+  "A styled textfield control."
+  [this
+   {:keys [id value type label placeholder required auto-focus disabled help-text] :or {type "text"}}
+   {:keys [onChange onBlur onEnter]}]
+  (div
+    (when label (ui-label {:for id :label label}))
+    (div :.mt-1
+         (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+                    {:name      id :type type :placeholder placeholder
+                     :required  required :className (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+                     :disabled  disabled :value (or value "")
+                     :autoFocus auto-focus
+                     :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
+                     :onBlur    #(when onBlur (onBlur))
+                     :onKeyDown #(when (and onEnter (evt/enter-key? %)) (onEnter))
+                     :onWheel   #(when (= type "number") (-> % .-target .blur))})
+         (when help-text (dom/p :.text-sm.text-gray-500.italic help-text)))))
+
+(def ui-textfield (comp/computed-factory UITextField))
+
+
+(defn unparse-local-date [^Date d]
+  (when d (.toIsoString d true)))
+
+(defn parse-local-date [s]
+  (Date/fromIsoString s))
+
+(def ui-local-date-input
+  "A goog.Date input. Can be used like `dom/input` but onChange and onBlur handlers will be passed a Date instead
+  of a raw react event, and you should supply a goog.Date for `:value` instead of a string.
+  All other attributes passed in props are passed through to the contained `dom/input`."
+  (comp/factory (com.fulcrologic.fulcro.dom.inputs/StringBufferedInput ::DateInput {:model->string #(or (unparse-local-date %) "")
+                                                                                    :string->model #(or (parse-local-date %) nil)})))
+
+(defsc UILocalDate
+  [this {:keys [id label value min-date max-date]} {:keys [onBlur onChange]}]
+  (div
+    (when label (ui-label {:for id :label label}))
+    (div :.mt-1
+      (ui-local-date-input (cond-> {:type "date" :value value}
+                                   id (assoc :name id)
+                                   min-date (assoc :min (unparse-local-date min-date))
+                                   max-date (assoc :max (unparse-local-date max-date))
+                                   onBlur (assoc :onBlur onBlur)
+                                   onChange (assoc :onChange onChange))))))
+
+(def ui-local-date
+  "A UI control to edit a date."
+  (comp/computed-factory UILocalDate))

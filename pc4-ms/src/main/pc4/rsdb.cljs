@@ -19,16 +19,19 @@
 
 (defmutation search-patient-by-pseudonym
   [params]
-  (search-patient-by-pseudonym
+  (remote
     [env]
     (-> env
-        (m/returning PseudonymousPatient)))
-  (remote [env] true))
+        (m/returning PseudonymousPatient))))
 
-(defmutation register-pseudonymous-patient
+(defmutation register-patient-by-pseudonym
   [params]
-  (register-pseudonymous-patient
+  (remote
     [env]
+    (js/console.log "Registering pseudonymous patient:" env)
     (-> env
         (m/returning PseudonymousPatient)))
-  (remote [env] true)) ;;TODO:validate parameters before sending
+  (ok-action [env]
+             (js/console.log "Success register patient" env))
+  (error-action [env]
+                (js/console.error "Failed to register patient" env)))
