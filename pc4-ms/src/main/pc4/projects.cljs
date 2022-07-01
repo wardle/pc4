@@ -94,7 +94,7 @@
                         (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
                                          {:onChange #(m/set-string! this :ui/nhs-number :value %)})
                         (ui/ui-local-date {:id "date-birth" :value date-birth :label "Date of birth:" :min-date (Date. 1900 1 1) :max-date (Date.)}
-                                          {:onChange #(m/set-value! this :ui/date-birth %)}))))
+                                          {:onChange #(m/set-value!! this :ui/date-birth %)}))))
          (div :.flex.justify-end.mr-8
               (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
                           {:type      "submit"
