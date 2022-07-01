@@ -45,19 +45,35 @@
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
+
+
+(defn clear-register-pseudonymous-form*
+  [state-map]
+  (-> state-map
+      (assoc-in [:component-id :register-pseudonymous-patient]
+        {:ui/nhs-number ""
+         :ui/gender     nil
+         :ui/date-birth nil})
+      (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym) [:component-id :register-pseudonymous-patient])))
+
+(defmutation clear-register-pseudonymous-form [_]
+  (action [{:keys [state]}]
+          (swap! state clear-register-pseudonymous-form*)))
+
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
          :ui/keys   [nhs-number date-birth gender] :as params}]
-  {:query         [:t_project/id
-                   :ui/nhs-number :ui/date-birth :ui/gender
-                   :ui/error fs/form-config-join]
-   :initial-state (fn [_]
-                    (fs/add-form-config RegisterByPseudonym
-                                        {:ui/nhs-number ""
-                                         :ui/gender     nil
-                                         :ui/date-birth nil}))
-   :form-fields   #{:ui/nhs-number :ui/date-birth :ui/gender}
-   :ident         (fn [] [:component-id :register-pseudonymous-patient])}
+  {:ident             (fn [] [:component-id :register-pseudonymous-patient])
+   :query             [:t_project/id
+                       :ui/nhs-number :ui/date-birth :ui/gender
+                       :ui/error fs/form-config-join]
+   :initial-state     (fn [_]
+                        (fs/add-form-config RegisterByPseudonym
+                                            {:ui/nhs-number ""
+                                             :ui/gender     nil
+                                             :ui/date-birth nil}))
+   :form-fields       #{:ui/nhs-number :ui/date-birth :ui/gender}
+   :componentDidMount (fn [this] (comp/transact! this [(list 'pc4.projects/clear-register-pseudonymous-form)]))}
   (let [valid? true
         do-register (fn [] (do (println "Attempting to register" params)
                                (comp/transact! @SPA [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
@@ -67,7 +83,7 @@
     (div :.space-y-6
          (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
               (div :.md:grid.md:grid-cols-3.md:gap-6
-                   (div :.md:col-span-1
+                   (div :.md:col-span-1.pr-6
                         (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
                         (div :.mt-1.mr-12.text-sm.text-gray-500)
                         (p "Enter patient details.")
@@ -113,7 +129,6 @@
                    {:t_project/users (comp/get-query ProjectUser)}]
    :route-segment ["users"]
    :initial-state {}}
-  (js/console.log "users: " props)
   (div :.flex.flex-col
        (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
             (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
