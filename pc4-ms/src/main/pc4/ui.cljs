@@ -200,6 +200,7 @@
 (defn parse-local-date [s]
   (Date/fromIsoString s))
 
+
 (def ui-local-date-input
   "A goog.Date input. Can be used like `dom/input` but onChange and onBlur handlers will be passed a Date instead
   of a raw react event, and you should supply a goog.Date for `:value` instead of a string.
@@ -209,15 +210,16 @@
 
 (defsc UILocalDate
   [this {:keys [id label value min-date max-date]} {:keys [onBlur onChange]}]
+  (println "UILocalDate value: " value)
   (div
     (when label (ui-label {:for id :label label}))
     (div :.mt-1
-      (ui-local-date-input (cond-> {:type "date" :value value}
-                                   id (assoc :name id)
-                                   min-date (assoc :min (unparse-local-date min-date))
-                                   max-date (assoc :max (unparse-local-date max-date))
-                                   onBlur (assoc :onBlur onBlur)
-                                   onChange (assoc :onChange onChange))))))
+         (ui-local-date-input (cond-> {:type "date" :value value}
+                                      id (assoc :name id)
+                                      min-date (assoc :min (unparse-local-date min-date))
+                                      max-date (assoc :max (unparse-local-date max-date))
+                                      onBlur (assoc :onBlur onBlur)
+                                      onChange (assoc :onChange onChange))))))
 
 (def ui-local-date
   "A UI control to edit a date."
