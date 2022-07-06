@@ -25,8 +25,7 @@
             [com.eldrix.pc4.rsdb.patients :as patients]
             [com.eldrix.pc4.rsdb.projects :as projects]
             [com.eldrix.pc4.rsdb.results :as results]
-            [com.eldrix.pc4.rsdb.users :as users]
-            [com.eldrix.pc4.rsdb.patients :as patients])
+            [com.eldrix.pc4.rsdb.users :as users])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)
@@ -734,7 +733,6 @@
                                                    :sex        :MALE
                                                    :date-birth (LocalDate/of 1970 1 1)}))
 
-
 (pco/defmutation register-patient-by-pseudonym!
   "Register a legacy pseudonymous patient. This will be deprecated in the
   future.
@@ -758,7 +756,10 @@
       (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch
                                   :salt global-salt
                                   :nhs-number (str/replace nhs-number #"\s" "") ;; TODO: better automated coercion
-                                  :date-birth (LocalDate/parse date-birth))] ;; TODO: better automated coercion
+                                  :date-birth (cond
+                                                (instance? LocalDate date-birth) date-birth
+                                                (string? date-birth) (LocalDate/parse date-birth)
+                                                :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
         (if (s/valid? ::register-patient-by-pseudonym params')
           (projects/register-legacy-pseudonymous-patient conn params')
           (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))
