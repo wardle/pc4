@@ -109,10 +109,10 @@
  :com.eldrix.deprivare/ops
  #ig/ref :com.eldrix/deprivare
 
- :pathom/ops
+ :pathom/ops                                                ;; operations are defined either statically (via #clj/var) or dynamically (via #ig/ref).
  [#clj/var com.eldrix.clods.graph/all-resolvers
   #clj/var com.eldrix.odsweekly.graph/all-resolvers
-  #ig/ref :com.eldrix.deprivare/ops
+  #ig/ref :com.eldrix.deprivare/ops                         ;; operations for deprivare are determined dynamically at runtime
   #clj/var com.eldrix.dmd.graph/all-resolvers
   #clj/var com.eldrix.pc4.rsdb/all-resolvers
   #clj/var com.eldrix.hermes.graph/all-resolvers
