@@ -308,7 +308,7 @@
                                                          :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
           _ (log/info "saved encounter, result:" {:encounter encounter})
           data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
-      (save-form! tx :t_form_edss data')
+      (save-form! tx :t_form_edss data' :t_form_edss/edss_score)
       (save-form! tx :t_form_ms_relapse data')
       (save-form! tx :t_smoking_history data')
       (save-form! tx :t_form_weight_height data')
