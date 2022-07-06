@@ -656,7 +656,7 @@
        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "in-relapse"} ""]
         [:div.mt-1.sm:mt-0.sm:col-span-2
-         [ui/checkbox :name "edss"
+         [ui/checkbox :name "in-relapse"
           :label "In relapse?"
           :description "Tick if the EDSS was recorded when patient in relapse."
           :checked (:t_form_ms_relapse/in_relapse encounter)
