@@ -39,8 +39,8 @@
 
 (defn execute-pathom [ctx env params]
   (let [pathom (:pathom-boundary-interface ctx)
-        result (pathom env params)
-        mutation-error (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
+        result (try  (pathom env params) (catch Throwable e e))
+        mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
     (if-not mutation-error
       (do (log/debug "mutation success: " {:request params
                                            :result  result})
@@ -81,20 +81,6 @@
                 (assoc ctx :authenticated-claims claims)
                 (throw (ex-info "Unauthorized." {:status 401})))))})
 
-(defn make-authenticated-env
-  "Given claims containing `system` and `value`, create an environment.
-  - conn   : rsdb database connection
-  - system : namespace
-  - value  : username."
-  [conn {:keys [system value] :as claims}]
-  (let [rsdb-user? (when claims (users/is-rsdb-user? conn system value))]
-    (cond-> {}
-            claims
-            (assoc :authenticated-user (select-keys claims [:system :value]))
-            rsdb-user?
-            (assoc :authorization-manager (users/make-authorization-manager conn system value)))))
-
-
 (def ping
   "A simple health check. Pass in a uuid to test the resolver backend.
   This means the health check can potentially be extended to include additional
@@ -125,7 +111,7 @@
             (let [params (get-in ctx [:request :transit-params])
                   rsdb-conn (:com.eldrix.rsdb/conn ctx)
                   claims (:authenticated-claims ctx)
-                  env (make-authenticated-env rsdb-conn claims)]
+                  env (users/make-authenticated-env rsdb-conn claims)]
               (execute-pathom ctx env params)))})
 
 (def routes

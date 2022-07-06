@@ -2,13 +2,15 @@
   (:require [buddy.sign.jwt :as jwt]
             [clojure.tools.logging.readable :as log]
             [clojure.spec.alpha :as s]
-            [com.eldrix.concierge.wales.nadex :as nadex]
-            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
-            [com.wsscode.pathom3.connect.operation :as pco]
             [clojure.string :as str]
+            [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.pc4.rsdb.auth]
-            [com.eldrix.pc4.rsdb.users :as rsdb-users])
+            [com.eldrix.pc4.rsdb.users :as rsdb-users]
+            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
+            [com.wsscode.pathom3.connect.operation :as pco])
   (:import (java.time Instant LocalDateTime)))
+
+(s/def ::conn any?)
 
 (pco/defmutation ping-operation
   "Return service status."
@@ -73,6 +75,24 @@
     (throw (ex-info "cannot make authorization manager for user"
                     {:namespace namespace :username username})))
   (rsdb-users/make-authorization-manager conn username))
+
+(s/def ::system string?)
+(s/def ::value string?)
+
+(s/fdef make-authenticated-env
+  :args (s/cat :conn ::conn :claims (s/keys :req-un [::system ::value])))
+(defn make-authenticated-env
+  "Given claims containing `system` and `value`, create an environment.
+  - conn   : rsdb database connection
+  - system : namespace
+  - value  : username."
+  [conn {:keys [system value] :as claims}]
+  (let [rsdb-user? (when claims (is-rsdb-user? conn system value))]
+    (cond-> {}
+            claims
+            (assoc :authenticated-user (select-keys claims [:system :value]))
+            rsdb-user?
+            (assoc :authorization-manager (make-authorization-manager conn system value)))))
 
 (pco/defmutation login-operation
   "Perform a login.
