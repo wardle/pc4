@@ -119,11 +119,15 @@
               sort
               (map #(log/info "op: " %))))
   (merge (dissoc env :pathom/ops)
-         (-> (pci/register {::p.error/lenient-mode? true} ops))))
-
-#_(defmacro connect-viz [env config]
-    `(do (require [com.wsscode.pathom-viz.ws-connector.pathom3])
-         (com.wsscode.pathom-viz.ws-connector.pathom3/connect-env ~env (merge {:com.wsscode.pathom.viz.ws-connector.core pc4} ~config))))
+         (-> (pci/register {::p.error/lenient-mode? true} ops)
+             (com.wsscode.pathom3.plugin/register {:com.wsscode.pathom3.plugin/id 'err
+                                                   :com.wsscode.pathom3.connect.runner/wrap-resolver-error
+                                                   (fn [_] (fn [env node error]
+                                                             (log/error "Resolver error " (ex-message error))))
+                                                   :com.wsscode.pathom3.connect.runner/wrap-mutation-error
+                                                   (fn [_]
+                                                     (fn [env ast error]
+                                                       (log/error "Mutation error " {:key (:key ast) :error (ex-message error)})))}))))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
