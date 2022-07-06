@@ -149,12 +149,18 @@
       (dissoc :secrets)))
 
 (defn load-namespaces
+  "Load any required namespaces for the profile and, optionally, services
+  specified.
+  Parameters:
+  profile   : a defined profile
+  keys      : a vector of keys in a configuration to be loaded."
   ([profile]
    (ig/load-namespaces (config profile)))
   ([profile keys]
    (ig/load-namespaces (config profile) keys)))
 
 (defn init
+  "Create a pc4 'system' using the profile and keys specified."
   ([profile]
    (ig/init (config profile)))
   ([profile keys]
