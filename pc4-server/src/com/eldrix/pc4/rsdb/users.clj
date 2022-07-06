@@ -213,13 +213,13 @@
   (->> roles
        (filter #(contains? (:t_project_user/permissions %) permission))))
 
-(defn- ^AuthorizationManager make-authorization-manager'
+(defn-  make-authorization-manager'
   "Create an authorization manager for the user specified, providing subsequent
   decisions on authorization for a given action via an open-ended permission
   system. The manager is an immutable service; it closes over the permissions
   at the time of creation. The manager is principally designed for use in a
   single request-response cycle."
-  [roles]
+  ^AuthorizationManager [roles]
   (if (:t_role/is_system (first roles))
     (reify auth/AuthorizationManager                        ;; system user: can do everything...
       (authorized? [_ patient-project-ids permission] true)
@@ -230,8 +230,8 @@
       (authorized-any? [_ permission]
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
-(defn ^AuthorizationManager make-authorization-manager
-  [conn username]
+(defn make-authorization-manager
+  ^AuthorizationManager [conn username]
   (make-authorization-manager' (roles-for-user conn username)))
 
 (def fetch-user-query
