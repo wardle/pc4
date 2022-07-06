@@ -22,7 +22,7 @@
   [handler login-config]
   (fn [request]
     (let [auth-header (get-in request [:headers "authorization"])
-          _ (log/info "request auth:" auth-header)
+          _ (log/debug "request auth:" auth-header)
           [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
           claims (when (and token login-config) (users/check-user-token token login-config))]
       (when (and token (not login-config))
@@ -69,29 +69,33 @@
   "Attach an authenticated environment into the request, if possible."
   [handler {conn :com.eldrix.rsdb/conn pathom-boundary-interface :pathom-boundary-interface}]
   (fn [{claims :authenticated-claims :as req}]
-    (let [{:keys [system value]} claims
-          rsdb-user? (when claims (users/is-rsdb-user? conn system value))
-          env (cond-> {}
-                      claims
-                      (assoc :authenticated-user (select-keys claims [:system :value]))
-                      rsdb-user?
-                      (assoc :authorization-manager (users/make-authorization-manager conn system value)))]
+    (let [env (users/make-authenticated-env conn claims)]
       (handler (assoc req :pathom (partial pathom-boundary-interface env))))))
 
 (defn wrap-api
+  "Process an API call at the /api endpoint. This handles exceptions thrown or
+  mutation errors captured by pathom.
+  This is based on fulcro's [[com.fulcrologic.fulcro.server.api-middleware/handle-api-request]] but with additional
+  support for handling captured pathom errors from any resolvers."
   [handler {:keys [uri]}]
   (when-not (string? uri)
     (throw (ex-info "Invalid parameters to `wrap-api`. :uri required." {})))
-  (fn [req]
-    (if (= uri (:uri req))
-      (do
-        (log/info "processing API call " req)
-        (com.fulcrologic.fulcro.server.api-middleware/handle-api-request (:transit-params req) (:pathom req)))
-      (handler req))))
+  (fn [{:keys [pathom transit-params] :as req}]
+    (if-not (= uri (:uri req))
+      (handler req)
+      (let [_ (log/info "processing API call " req)
+            result (try (pathom transit-params) (catch Throwable e e))
+            error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
+        (if-not error
+          (com.fulcrologic.fulcro.server.api-middleware/generate-response (merge {:status 200 :body result} (com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations result)))
+          (let [error-result {:error (-> (Throwable->map error) :via first :message)}
+                error-response (merge {:status 200 :body error-result} (com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations error-result))]
+            (log/error "error for request" {:request transit-params :error (:error error-result)})
+            (com.fulcrologic.fulcro.server.api-middleware/generate-response error-response)))))))
 
 (defn wrap-log-response [handler]
   (fn [req]
-    (log/info "request:" req)
+    (log/error "request:" req)
     (let [response (handler req)]
       (log/info "response:" response)
       response)))
@@ -123,8 +127,8 @@
                                         "accept-language"
                                         "authorization"
                                         "content-type"
-                                        "origin"})))
-;(wrap-log-response)
+                                        "origin"})
+      (wrap-log-response)))
 
 
 (defmethod ig/init-key ::server [_ {:keys [port allowed-origins host handler] :as config}]
