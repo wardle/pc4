@@ -395,6 +395,8 @@
                           (assoc :t_encounter/encounter_template_fk (:t_encounter_template/id params))
                           (:t_ms_disease_course/id params)
                           (assoc :t_form_ms_relapse/ms_disease_course_fk (:t_ms_disease_course/id params))
+                          (and (:t_ms_disease_course/id params) (not (:t_form_ms_relapse/in_relapse params)))
+                          (assoc :t_form_ms_relapse/in_relapse false)
                           (and (:t_form_edss/edss_score params) (not (:t_form_ms_relapse/in_relapse params)))
                           (assoc :t_form_ms_relapse/in_relapse false)
                           (and (nil? (:t_ms_disease_course/id params)) ;; this would be better as a database default value!
