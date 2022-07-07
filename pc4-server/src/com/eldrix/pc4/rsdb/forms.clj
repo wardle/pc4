@@ -149,54 +149,48 @@
    "SCORE10_0"         "10.0"
    "SCORE_LESS_THAN_4" "<4"})
 
-(defn encounters->form_edss
-  "Return a form EDSS for each encounter in the sequence."
-  [conn encounters]
-  (when (seq encounters)
-    (next.jdbc/execute! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
-                                                      :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
-                                          :from      [:t_encounter]
-                                          :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
-                                                                    [:<> :t_form_edss/is_deleted "true"]]
-                                                      :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
-                                                                       [:<> :t_form_edss_fs/is_deleted "true"]]]
-                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
+(defn encounter->form_edss
+  "Return a form EDSS for the encounter."
+  [conn encounter-id]
+  (next.jdbc/execute-one! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
+                                                        :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
+                                            :from      [:t_encounter]
+                                            :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
+                                                                      [:<> :t_form_edss/is_deleted "true"]]
+                                                        :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
+                                                                         [:<> :t_form_edss_fs/is_deleted "true"]]]
+                                            :where     [:= :t_encounter/id encounter-id]})))
 
-(defn encounters->form_ms_relapse
-  "Return a form ms relapse for each encounter in the sequence, if it exists."
-  [conn encounters]
-  (when (seq encounters)
-    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
-                                                           :t_ms_disease_course/id :t_ms_disease_course/name
-                                                           :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
-                                               :from      [:t_encounter]
-                                               :left-join [:t_form_ms_relapse [:and [:= :t_form_ms_relapse/encounter_fk :t_encounter/id]
-                                                                               [:<> :t_form_ms_relapse/is_deleted "true"]]
-                                                           :t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
-                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
-         (map db/parse-entity))))
+(defn encounter->form_ms_relapse
+  "Return a form ms relapse for the encounter."
+  [conn encounter-id]
+  (db/parse-entity (next.jdbc/execute-one! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
+                                                                         :t_ms_disease_course/id :t_ms_disease_course/name
+                                                                         :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
+                                                             :from      [:t_form_ms_relapse]
+                                                             :left-join [:t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
+                                                             :where     [:and [:= :t_form_ms_relapse/encounter_fk encounter-id]
+                                                                         [:<> :t_form_ms_relapse/is_deleted "true"]]}))))
 
-(defn encounters->form_smoking_history
-  "Return a form smoking history for each encounter in the sequence, if it exists."
-  [conn encounters]
-  (when (seq encounters)
-    (->> (next.jdbc/execute! conn (sql/format {:select    [:t_smoking_history/id :t_smoking_history/status
-                                                           :t_smoking_history/current_cigarettes_per_day]
-                                               :from      [:t_encounter]
-                                               :left-join [:t_smoking_history [:and [:= :t_smoking_history/encounter_fk :t_encounter/id]
-                                                                               [:<> :t_smoking_history/is_deleted "true"]]]
-                                               :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))
-         (map db/parse-entity))))
 
-(defn encounters->form_weight_height
-  "Return a form weight height for each encounter in the sequence."
-  [conn encounters]
-  (when (seq encounters)
-    (next.jdbc/execute! conn (sql/format {:select    [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
-                                          :from      [:t_encounter]
-                                          :left-join [:t_form_weight_height [:and [:= :t_form_weight_height/encounter_fk :t_encounter/id]
-                                                                             [:<> :t_form_weight_height/is_deleted "true"]]]
-                                          :where     [:in :t_encounter/id (mapv :t_encounter/id encounters)]}))))
+(defn encounter->form_smoking_history
+  "Return a form smoking history for the encounter."
+  [conn encounter-id]
+  (db/parse-entity (next.jdbc/execute-one! conn (sql/format {:select [:t_smoking_history/id :t_smoking_history/status
+                                                                      :t_smoking_history/current_cigarettes_per_day]
+                                                             :from   [:t_smoking_history]
+                                                             :where  [:and
+                                                                      [:= :t_smoking_history/encounter_fk encounter-id]
+                                                                      [:<> :t_smoking_history/is_deleted "true"]]}))))
+
+(defn encounter->form_weight_height
+  "Return a form weight height for the encounter."
+  [conn encounter-id]
+  (next.jdbc/execute-one! conn (sql/format {:select [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
+                                            :from   [:t_form_weight_height]
+                                            :where  [:and
+                                                     [:= :t_form_weight_height/encounter_fk encounter-id]
+                                                     [:<> :t_form_weight_height/is_deleted "true"]]})))
 
 
 (defn select-keys-by-namespace
@@ -250,6 +244,7 @@
 (defn delete-form!
   [conn table data]
   (when-let [id (get data (keyword (name table) "id"))]
+    (log/info "Deleting form" {:table table :id id})
     (jdbc/execute-one! conn (sql/format {:update table
                                          :where  [:= :id id]
                                          :set    {:is_deleted "true"}}))))
@@ -281,11 +276,18 @@
          data' (dissoc data form-id-key)                    ;; data without the identifier
          has-data? (pred' data')]
      (when (get data form-id-key)                           ;; when we have an existing form - delete it
+       (log/info "Marking existing form as deleted" {:data data :form-id-key form-id-key})
        (delete-form! tx table data))
-     (if has-data? (if-not (= 0 (count-forms tx encounter-id table)) ;; check we have no existing form...
-                     (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data}))
-                     (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id)))
-                   (log/info "skipping writing form; no data" {:table table :data data})))))
+     (if-not has-data?
+       (log/info "skipping writing form; no data" {:table table :data data})
+       (if (= 0 (count-forms tx encounter-id table))        ;; check we have no existing form...
+         (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id))
+         (do
+           (log/error "A form already exists!" {:table table
+                                                :data  data :form-id-key form-id-key :n-forms (count-forms tx encounter-id table)})
+           (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data}))))))))
+
+
 
 
 (s/def ::save-encounter-with-forms (s/keys :req [:t_encounter/date_time

@@ -553,49 +553,42 @@
 
 
 (pco/defresolver encounter->form_edss
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_edss [:t_form_edss/id
                                           :t_form_edss/edss
                                           :t_form_edss/edss_score
                                           :t_form_edss_fs/id
-                                          :t_form_edss_fs/edss_score]}]
-   ::pco/batch? true}
-  (mapv #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
-       (forms/encounters->form_edss conn encounters)))
+                                          :t_form_edss_fs/edss_score]}]}
+  {:t_encounter/form_edss (forms/encounter->form_edss conn encounter-id)})
 
 (pco/defresolver encounter->form_ms_relapse
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_ms_relapse [:t_form_ms_relapse/id
                                                 :t_form_ms_relapse/in_relapse
                                                 :t_form_ms_relapse/activity
                                                 :t_form_ms_relapse/progression
                                                 :t_form_ms_disease_course/id
-                                                :t_form_ms_disease_course/name]}]
-   ::pco/batch? true}
-  (mapv #(when-not (every? nil? (vals %))
-           (hash-map :t_encounter/form_ms_relapse %)) (forms/encounters->form_ms_relapse conn encounters)))
+                                                :t_form_ms_disease_course/name]}]}
+  {:t_encounter/form_ms_relapse (forms/encounter->form_ms_relapse conn encounter-id)})
 
 (pco/defresolver encounter->form_weight_height
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_weight_height [:t_form_weight_height/id
                                                    :t_form_weight_height/weight_kilogram
-                                                   :t_form_weight_height/height_metres]}]
-   ::pco/batch? true}
-  (mapv #(when-not (every? nil? (vals %))
-           (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_weight_height conn encounters)))
+                                                   :t_form_weight_height/height_metres]}]}
+  {:t_encounter/form_weight_height (forms/encounter->form_weight_height conn encounter-id)})
+
 
 (pco/defresolver encounter->form_smoking
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_smoking_history [:t_smoking_history/id
                                                      :t_smoking_history/current_cigarettes_per_day
-                                                     :t_smoking_history/status]}]
-   ::pco/batch? true}
-  (mapv #(when-not (every? nil? (vals %))
-           (hash-map :t_encounter/form_smoking_history %)) (forms/encounters->form_smoking_history conn encounters)))
+                                                     :t_smoking_history/status]}]}
+  {:t_encounter/form_smoking_history (forms/encounter->form_smoking_history conn encounter-id)})
 
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
