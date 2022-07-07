@@ -140,6 +140,8 @@
 
  :com.eldrix.pc4.pedestal/server
  {:port            #long #or [#env PORT 8080]
+  :join?           #profile {:default false
+                             :pc4     true}
   :allowed-origins "*"
   :host            "0.0.0.0"
   :join?           #profile {:default false
