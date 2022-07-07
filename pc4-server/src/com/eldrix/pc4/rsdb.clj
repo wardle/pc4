@@ -561,7 +561,7 @@
                                           :t_form_edss_fs/id
                                           :t_form_edss_fs/edss_score]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
+  (mapv #(when-not (every? nil? (vals %)) (hash-map :t_encounter/form_edss %))
        (forms/encounters->form_edss conn encounters)))
 
 (pco/defresolver encounter->form_ms_relapse
@@ -574,8 +574,8 @@
                                                 :t_form_ms_disease_course/id
                                                 :t_form_ms_disease_course/name]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
-          (hash-map :t_encounter/form_ms_relapse %)) (forms/encounters->form_ms_relapse conn encounters)))
+  (mapv #(when-not (every? nil? (vals %))
+           (hash-map :t_encounter/form_ms_relapse %)) (forms/encounters->form_ms_relapse conn encounters)))
 
 (pco/defresolver encounter->form_weight_height
   [{:com.eldrix.rsdb/keys [conn]} encounters]
@@ -584,8 +584,8 @@
                                                    :t_form_weight_height/weight_kilogram
                                                    :t_form_weight_height/height_metres]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
-          (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_weight_height conn encounters)))
+  (mapv #(when-not (every? nil? (vals %))
+           (hash-map :t_encounter/form_weight_height %)) (forms/encounters->form_weight_height conn encounters)))
 
 (pco/defresolver encounter->form_smoking
   [{:com.eldrix.rsdb/keys [conn]} encounters]
@@ -594,8 +594,8 @@
                                                      :t_smoking_history/current_cigarettes_per_day
                                                      :t_smoking_history/status]}]
    ::pco/batch? true}
-  (map #(when-not (every? nil? (vals %))
-          (hash-map :t_encounter/form_smoking_history %)) (forms/encounters->form_smoking_history conn encounters)))
+  (mapv #(when-not (every? nil? (vals %))
+           (hash-map :t_encounter/form_smoking_history %)) (forms/encounters->form_smoking_history conn encounters)))
 
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
