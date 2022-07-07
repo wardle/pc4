@@ -503,7 +503,7 @@
                                                              :from     [:t_encounter]
                                                              :where    [:= :patient_fk patient-id]
                                                              :order-by [[:date_time :desc]]}))
-                              (map #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
+                              (mapv #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
 
 (pco/defresolver patient->results
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
@@ -518,7 +518,7 @@
                                       :t_result_urinalysis/date :t_result_urinalysis/notes
                                       :t_result_liver_function/date :t_result_liver_function/notes]}]}
 
-  {:t_patient/results (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)})
+  {:t_patient/results (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier))})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -530,7 +530,7 @@
                                          :from   [:t_encounter_user]
                                          :where  [:= :encounterid encounter-id]}))
         (map :t_encounter_user/userid)
-        (map #(hash-map :t_user/id %)))})
+        (mapv #(hash-map :t_user/id %)))})
 
 (pco/defresolver encounter->hospital
   [{hospital-id :t_encounter/hospital_fk}]
