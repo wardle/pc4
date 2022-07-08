@@ -276,16 +276,12 @@
          data' (dissoc data form-id-key)                    ;; data without the identifier
          has-data? (pred' data')]
      (when (get data form-id-key)                           ;; when we have an existing form - delete it
-       (log/info "Marking existing form as deleted" {:data data :form-id-key form-id-key})
        (delete-form! tx table data))
      (if-not has-data?
-       (log/info "skipping writing form; no data" {:table table :data data})
+       (log/debug "skipping writing form; no data" {:table table :data data})
        (if (= 0 (count-forms tx encounter-id table))        ;; check we have no existing form...
          (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id))
-         (do
-           (log/error "A form already exists!" {:table table
-                                                :data  data :form-id-key form-id-key :n-forms (count-forms tx encounter-id table)})
-           (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data}))))))))
+         (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data})))))))
 
 
 
