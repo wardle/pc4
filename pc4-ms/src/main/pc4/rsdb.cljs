@@ -4,34 +4,26 @@
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]))
 
 
-(defsc PseudonymousPatient
-  [this {:t_patient/keys [id sex date_birth]}]
-  {:query [:t_patient/id :t_patient/sex :t_patient/date_birth]}
-  (div "Pseudonymous patient:" id)
-  (div :.bg-white.shadow.sm:rounded-lg.mt-4
-       (div :.px-4.py-5.sm:p-6
-            (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900
-                    (str (name sex))
-                    " "
-                    "born: " (.getYear date_birth)))))
-
-(def ui-pseudonymous-patient (comp/factory PseudonymousPatient))
-
 (defmutation search-patient-by-pseudonym
   [params]
   (remote
     [env]
     (-> env
-        (m/returning PseudonymousPatient))))
+        (m/with-target [:ui/search-patient-pseudonymous])
+        (m/returning 'pc4.patients/PatientBanner))))
+
 
 (defmutation register-patient-by-pseudonym
   [params]
-  (remote
-    [env]
-    (js/console.log "Registering pseudonymous patient:" env)
-    (-> env
-        (m/returning PseudonymousPatient)))
+  (remote [env]
+          (js/console.log "Registering pseudonymous patient:" env)
+          (-> env
+              (m/returning 'pc4.patients/PatientPage)))
   (ok-action [env]
-             (js/console.log "Success register patient" env))
+             (js/console.log "Response register patient" env)
+             (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
+               (do (js/console.log "register patient : patient id: " patient-id)
+                   (pc4.route/route-to! ["patients" patient-id]))
+               (do (js/console.log "failed to register patient:" env))))
   (error-action [env]
                 (js/console.error "Failed to register patient" env)))

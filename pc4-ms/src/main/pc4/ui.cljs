@@ -5,8 +5,8 @@
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
     [com.fulcrologic.fulcro.dom.inputs]
-    [pc4.route :as route]
-    [com.fulcrologic.fulcro.dom.events :as evt])
+    [com.fulcrologic.fulcro.dom.events :as evt]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr])
   (:import [goog.date Date]))
 
 
@@ -165,6 +165,13 @@
 
 (def ui-nav-bar (comp/factory nav-bar))
 
+(defsc UIBadge
+  "Display a small badge with the text specified."
+  [this {:keys [label text-color bg-color uppercase?] :or {text-color "text-red-200" bg-color "bg-red-500" uppercase? true}}]
+  (span :.text-xs.text-center.font-semibold.inline-block.py-1.px-2.uppercase.rounded-full.ml-1.last:mr-0.mr-1
+        {:className (str/join " " [text-color bg-color (when uppercase? "uppercase")])} label))
+
+(def ui-badge (comp/factory UIBadge))
 
 (defsc UILabel
   [this {:keys [for label]}]
@@ -176,7 +183,7 @@
   "A styled textfield control."
   [this
    {:keys [id value type label placeholder required auto-focus disabled help-text] :or {type "text"}}
-   {:keys [onChange onBlur onEnter]}]
+   {:keys [onChange onBlur onEnterKey]}]
   (div
     (when label (ui-label {:for id :label label}))
     (div :.mt-1
@@ -187,7 +194,7 @@
                      :autoFocus auto-focus
                      :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
                      :onBlur    #(when onBlur (onBlur))
-                     :onKeyDown #(when (and onEnter (evt/enter-key? %)) (onEnter))
+                     :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
                      :onWheel   #(when (= type "number") (-> % .-target .blur))})
          (when help-text (dom/p :.text-sm.text-gray-500.italic help-text)))))
 
@@ -209,7 +216,7 @@
                                                                                     :string->model #(or (parse-local-date %) nil)})))
 
 (defsc UILocalDate
-  [this {:keys [id label value min-date max-date]} {:keys [onBlur onChange]}]
+  [this {:keys [id label value min-date max-date]} {:keys [onBlur onChange onEnterKey]}]
   (println "UILocalDate value: " value)
   (div
     (when label (ui-label {:for id :label label}))
@@ -219,8 +226,57 @@
                                       min-date (assoc :min (unparse-local-date min-date))
                                       max-date (assoc :max (unparse-local-date max-date))
                                       onBlur (assoc :onBlur onBlur)
+                                      onEnterKey (assoc :onKeyDown #(when (evt/enter-key? %) (onEnterKey)))
                                       onChange (assoc :onChange onChange))))))
 
 (def ui-local-date
   "A UI control to edit a date."
   (comp/computed-factory UILocalDate))
+
+
+(defsc UISelectPopupButton
+  "See [[ui-select-popup-button]] for documentation."
+  [this
+   {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort?]
+    :or   {id-key identity display-key identity sort? true}}
+   {:keys [onChange onEnterKey sort-fn]}]
+  (let [all-options (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
+                      (conj options value) options)
+        sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
+        default-value (or default-value (when (str/blank? no-selection-string) (first sorted-options)))]
+    (when (and onChange default-value (nil? value))
+      (onChange default-value))
+    (div
+      (when label (ui-label {:for name :label label}))
+      (dom/select :#location.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+                  {:name      name
+                   :disabled  disabled?
+                   :value     (str (id-key value))
+                   :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
+                   :onChange  #(when onChange
+                                 (let [idx (-> % .-target .-selectedIndex)]
+                                   (if (and no-selection-string (= 0 idx))
+                                     (onChange nil)
+                                     (onChange (get sorted-options (if no-selection-string (- idx 1) idx))))))}
+                  (when no-selection-string [:option.py-1 {:value nil :id "none"} no-selection-string])
+                  (println "options:" sorted-options)
+                  (for [option sorted-options
+                        :let [id (id-key option)]]
+                    ^{:key id} (dom/option :.py-1 {:value (str id)} (display-key option)))))))
+
+(def ui-select-popup-button
+  "A select control that appears as a pop-up.
+    Callbacks are:
+    onChange  : called with the value selected
+    onEnter   : called when enter key pressed"
+  (comp/computed-factory UISelectPopupButton))
+
+(defsc UISubmitButton
+  [this {:keys [label disabled?]} {:keys [onClick]}]
+  (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
+              {:type      "submit"
+               :className (if disabled? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
+               :onClick   #(when (and onClick (not disabled?)) (onClick))}
+              label))
+
+(def ui-submit-button (comp/computed-factory UISubmitButton))

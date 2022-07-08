@@ -10,6 +10,7 @@
 
             [clojure.string :as str]
             [pc4.ui :as ui]
+            [pc4.patients :as patients]
             [pc4.rsdb]
             [taoensso.timbre :as log]
             [com.fulcrologic.fulcro.mutations :as m])
@@ -19,7 +20,7 @@
   [this {project-id :t_project/id
          patient    :ui/search-patient-pseudonymous}]
   {:query         [:t_project/id
-                   {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.rsdb/PseudonymousPatient)}]
+                   {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.patients/PatientBanner)}]
    :initial-state {:t_project/id :param/id}}
   (div
     :.bg-white.overflow-hidden.shadow.sm:rounded-lg
@@ -34,14 +35,16 @@
                (div :.mt-4
                     (dom/label :.sr-only {:for "pseudonym"} "Pseudonym")
                     (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-                               {:type      "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
+                               {:type      "text" :placeholder "Start typing pseudonym"
+                                :autoFocus true
                                 :onKeyDown #(when (and patient (evt/enter-key? %))
                                               (println "Will go to patient!" patient))
                                 :onChange  #(let [s (evt/target-value %)]
                                               (println "Patient search " s)
                                               (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
-               (when patient
-                 (pc4.rsdb/ui-pseudonymous-patient patient))))))))
+               (when (:t_patient/id patient)
+                 (println "Patient:" patient)
+                 (pc4.patients/ui-patient-banner patient))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
@@ -50,36 +53,37 @@
 (defn clear-register-pseudonymous-form*
   [state-map]
   (-> state-map
-      (assoc-in [:component-id :register-pseudonymous-patient]
-        {:ui/nhs-number ""
-         :ui/gender     nil
-         :ui/date-birth nil})
+      (update-in [:component-id :register-pseudonymous-patient]
+                #(merge % {:ui/nhs-number ""
+                           :ui/sex        nil
+                           :ui/date-birth nil}))
       (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym) [:component-id :register-pseudonymous-patient])))
 
 (defmutation clear-register-pseudonymous-form [_]
   (action [{:keys [state]}]
           (swap! state clear-register-pseudonymous-form*)))
 
+
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
-         :ui/keys   [nhs-number date-birth gender] :as params}]
+         :ui/keys   [nhs-number date-birth sex] :as params}]
   {:ident             (fn [] [:component-id :register-pseudonymous-patient])
    :query             [:t_project/id
-                       :ui/nhs-number :ui/date-birth :ui/gender
+                       :ui/nhs-number :ui/date-birth :ui/sex
                        :ui/error fs/form-config-join]
    :initial-state     (fn [_]
                         (fs/add-form-config RegisterByPseudonym
                                             {:ui/nhs-number ""
-                                             :ui/gender     nil
+                                             :ui/sex        nil
                                              :ui/date-birth nil}))
-   :form-fields       #{:ui/nhs-number :ui/date-birth :ui/gender}
-   :componentDidMount (fn [this] (comp/transact! this [(list 'pc4.projects/clear-register-pseudonymous-form)]))}
+   :form-fields       #{:ui/nhs-number :ui/date-birth :ui/sex}
+   :componentWillUnmount (fn [this] (comp/transact! this [(list 'pc4.projects/clear-register-pseudonymous-form)]))}
   (let [valid? true
         do-register (fn [] (do (println "Attempting to register" params)
                                (comp/transact! @SPA [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
                                                                                               :nhs-number nhs-number
                                                                                               :date-birth date-birth
-                                                                                              :gender     gender})])))]
+                                                                                              :sex        sex})])))]
     (div :.space-y-6
          (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
               (div :.md:grid.md:grid-cols-3.md:gap-6
@@ -92,15 +96,16 @@
                    (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
                         (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
                         (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                                         {:onChange #(m/set-string! this :ui/nhs-number :value %)})
+                                         {:onChange  #(m/set-string!! this :ui/nhs-number :value %)
+                                          :onEnterKey do-register})
                         (ui/ui-local-date {:id "date-birth" :value date-birth :label "Date of birth:" :min-date (Date. 1900 1 1) :max-date (Date.)}
-                                          {:onChange #(m/set-value!! this :ui/date-birth %)}))))
+                                          {:onChange  #(m/set-value!! this :ui/date-birth %)
+                                           :onEnterKey do-register})
+                        (ui/ui-select-popup-button {:id "sex" :value sex :label "Sex" :options [:MALE :FEMALE] :display-key name}
+                                                   {:onChange  #(m/set-value!! this :ui/sex %)
+                                                    :onEnterKey do-register}))))
          (div :.flex.justify-end.mr-8
-              (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
-                          {:type      "submit"
-                           :className (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
-                           :onClick   #(when valid? (do-register))}
-                          "Search or register patient »")))))
+              (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not valid?)} {:onClick do-register})))))
 
 
 (def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
@@ -199,7 +204,6 @@
          search          :>/search
          register        :>/register
          users           :>/users}]
-
   {:ident               :t_project/id
    :route-segment       ["project" :t_project/id]
    :query               [:t_project/id :t_project/title
@@ -212,13 +216,13 @@
                           (when-let [project-id (some-> id (js/parseInt))]
                             (println "entering project page: project-id" project-id)
                             (dr/route-deferred [:t_project/id project-id]
-                                               (fn [] (df/load! app [:t_project/id project-id] ProjectPage
-                                                                {:target               [:session/current-project]
-                                                                 :post-mutation        `dr/target-ready
-                                                                 :post-mutation-params {:target [:t_project/id project-id]}})))))
-   :allow-route-change? (constantly true)
-   :will-leave          (fn [this props]
-                          (comp/transact! this [(list 'pc4.users/close-project)]))}
+                                               (fn []
+                                                 (log/info "Loading project: " project-id)
+                                                 (df/load! app [:t_project/id project-id] ProjectPage
+                                                           {:target               [:session/current-project]
+                                                            :post-mutation        `dr/target-ready
+                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :allow-route-change? (constantly true)}
   (let [selected-page (or (comp/get-state this :selected-page) :home)]
     (comp/fragment
       (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
