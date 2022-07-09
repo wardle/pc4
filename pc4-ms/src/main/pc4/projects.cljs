@@ -42,12 +42,11 @@
                                 :onChange  #(let [s (evt/target-value %)]
                                               (println "Patient search " s)
                                               (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
-               (when (:t_patient/id patient)
+               (when (:t_patient/patient_identifier patient)
                  (println "Patient:" patient)
                  (pc4.patients/ui-patient-banner patient))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
-
 
 
 (defn clear-register-pseudonymous-form*
