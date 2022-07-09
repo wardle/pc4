@@ -41,15 +41,15 @@
           (-> ast :type #{:root})
           (update :children conj (eql/expr->ast :com.wsscode.pathom.core/errors))))
 
+(transit/install-type-handler!
+  (transit/type-handler goog.date.Date "LocalDate"
+                        (fn [^goog.date.Date d] (.toIsoString d true))
+                        #(Date/fromIsoString %)))
+(transit/install-type-handler!
+  (transit/type-handler goog.date.DateTime "LocalDateTime"
+                        (fn [^goog.date.DateTime dt] (.toIsoString dt true))
+                        #(DateTime/fromIsoString %)))
 (defn make-SPA []
-  (transit/install-type-handler!
-    (transit/type-handler goog.date.Date "LocalDate"
-                          (fn [^goog.date.Date d] (.toIsoString d true))
-                          #(Date/fromIsoString %)))
-  (transit/install-type-handler!
-    (transit/type-handler goog.date.Date "LocalDateTime"
-                          (fn [^goog.date.DateTime dt] (.toIsoString dt true))
-                          #(DateTime/fromIsoString %)))
   (app/fulcro-app
     {:global-eql-transform
      global-eql-transform
