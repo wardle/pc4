@@ -51,8 +51,6 @@
            {[:session/current-project '_] [:t_project/id]}]}
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
-    (println "project-id" project-id)
-    (println "pseudonym" pseudonym)
     (ui-patient-banner* {:name     (name sex)
                          :born     (ui/format-date date_birth)
                          :address  pseudonym
