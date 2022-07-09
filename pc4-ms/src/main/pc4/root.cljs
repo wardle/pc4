@@ -16,6 +16,7 @@
     [pc4.ui :as ui]
     [pc4.users]
     [pc4.projects :as projects]
+    [pc4.route :as route]
     [taoensso.timbre :as log]
     [com.fulcrologic.fulcro.data-fetch :as df]))
 
@@ -129,7 +130,8 @@
   (ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                   :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                   :initials  initials
-                  :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}))
+                  :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}
+                 {:on-home #(comp/transact! @SPA [(route/route-to {:path ["home"]})])}))
 
 (def ui-nav-bar (comp/factory NavBar))
 

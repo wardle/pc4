@@ -6,9 +6,8 @@
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
     [com.fulcrologic.fulcro.dom.inputs]
     [com.fulcrologic.fulcro.dom.events :as evt]
-    [pc4.route :as route])
+    [taoensso.timbre :as log])
   (:import [goog.date Date]))
-
 
 (def months-en
   {0  "Jan"
@@ -97,11 +96,16 @@
   - full-name  : full name of user
   - initials   : initials of user (for display on small devices)
   - photo      : photo to show for user  [todo: URL or something else?]
+  - on-home    : function if home button clicked
   - on-notify  : function if notify button should appear (and call if clicked)"
-  [this {:keys [title menu selected user-menu show-user? full-name initials photo on-notify] :or {show-user? false}}]
+  [this
+   {:keys [title menu selected user-menu show-user? full-name initials photo] :or {show-user? false}}
+   {:keys [on-home on-notify]}]
   (let [show-menu? (or (comp/get-state this :show-menu) false)
         show-user-menu? (or (comp/get-state this :show-user-menu) false)
         _ (println "show user:" show-user?)]
+    (when-not on-home
+      (log/warn "Missing 'on-home' handler for navigation bar"))
     (nav :.bg-gray-800
          (div :.mx-auto.px-2.sm:px-6.lg:px-8
               (div :.relative.flex.items-center.justify-between.h-16
@@ -118,9 +122,7 @@
                    (div :.flex-1.flex.items-center.justify-center.sm:items-stretch.sm:justify-start
                         (div :.flex-shrink-0.flex.items-center
                              (span :.text-white.rounded-md.text-lg.font-large.font-bold.cursor-pointer
-                                   (a {:onClick #(comp/transact! this
-                                                                 [(route/route-to {:path ["home"]})])}
-                                      #_{:onClick #(dr/change-route! this ["home"])} title)))
+                                   (a {:onClick #(when on-home (on-home))} title)))
                         (when (seq menu)
                           (div :.hidden.sm:block.sm:ml-6
                                (div :.flex.space-x-4
@@ -163,7 +165,7 @@
                                  {:key (:id item) :onClick (:onClick item)} (:title item)))))))))))
 
 
-(def ui-nav-bar (comp/factory nav-bar))
+(def ui-nav-bar (comp/computed-factory nav-bar))
 
 (defsc UIBadge
   "Display a small badge with the text specified."
