@@ -34,18 +34,20 @@
                (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
                        (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
                (div :.mt-4
-                    (dom/label :.sr-only {:for "pseudonym"} "Pseudonym")
+                    (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
                     (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
                                {:type      "text" :placeholder "Start typing pseudonym"
                                 :autoFocus true
                                 :onKeyDown #(when (and patient (evt/enter-key? %))
-                                              (println "Will go to patient!" patient))
+                                              (pc4.route/route-to! ["patients" (:t_patient/patient_identifier patient)]))
                                 :onChange  #(let [s (evt/target-value %)]
                                               (println "Patient search " s)
                                               (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
                (when (:t_patient/patient_identifier patient)
-                 (println "Patient:" patient)
-                 (pc4.patients/ui-patient-banner patient))))))))
+                 (div
+                   (pc4.patients/ui-patient-banner patient)
+                   (ui/ui-submit-button {:label "View patient record..."}
+                                        {:onClick #(pc4.route/route-to! ["patients" (:t_patient/patient_identifier patient)])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
@@ -133,7 +135,7 @@
    :query         [:t_project/id
                    {:t_project/users (comp/get-query ProjectUser)}]
    :route-segment ["users"]
-   :initial-state {}}
+   :initial-state {:t_project/users []}}
   (div :.flex.flex-col
        (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
             (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
