@@ -8,7 +8,8 @@
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.users :as users]
             [integrant.core :as ig]
-            [io.pedestal.http.route :as route])
+            [io.pedestal.http.route :as route]
+            [clojure.spec.alpha :as s])
   (:import (clojure.lang ExceptionInfo)))
 
 
@@ -27,7 +28,6 @@
 
 (def ok (partial response 200))
 
-
 (def service-error-handler
   (int-err/error-dispatch [ctx ex]
                           [{:interceptor ::login}]
@@ -39,7 +39,7 @@
 
 (defn execute-pathom [ctx env params]
   (let [pathom (:pathom-boundary-interface ctx)
-        result (try  (pathom env params) (catch Throwable e e))
+        result (try (pathom env params) (catch Throwable e e))
         mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
     (if-not mutation-error
       (do (log/debug "mutation success: " {:request params
@@ -48,7 +48,7 @@
       (let [error (Throwable->map mutation-error)
             error-data (ex-data mutation-error)]
         (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                      :cause   (:cause error)})
+                                      :cause   error})
         (tap> error)
         (when error-data (log/info "error" error-data))
         (assoc ctx :response {:status 400
@@ -64,6 +64,27 @@
               (execute-pathom ctx nil [{(list 'pc4.users/login
                                               {:system system :value value :password password})
                                         query}])))})
+
+(s/def ::operation symbol?)
+(s/def ::params map?)
+(s/def ::login-op (s/cat :operation ::operation :params ::params))
+(s/def ::login-mutation (s/map-of ::login-op vector?))
+(s/def ::login (s/coll-of ::login-mutation :kind vector? :count 1))
+
+(def login-mutation
+  "A login endpoint designed for fulcro clients in which login is simply a mutation. We need to take special
+  measures to prevent arbitrary pathom queries at this endpoint. The alternative here would be to use a different pathom
+   environment that contains only a single resolver, login."
+  {:name  ::login-mutation
+   :enter (fn [{:keys [request] :as ctx}]
+            (let [params (:transit-params request)          ;; [(pc4.users/login {:username "system", :password "password"})]
+                  _ (log/info "login request:" params)
+                  op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
+              (if-not (= 'pc4.users/login op-name)
+                (do
+                  (log/info "invalid request at /login-mutation endpoint" params)
+                  (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
+                (execute-pathom ctx nil params))))})
 
 (def attach-claims
   "Interceptor to check request claims and add them to the context under the key
@@ -107,7 +128,7 @@
   authorization information may be sourced from another system of record."
   {:name  ::api
    :enter (fn [ctx]
-            (log/debug "api request: " (get-in ctx [:request :transit-params]))
+            (log/info "api request: " (get-in ctx [:request :transit-params]))
             (let [params (get-in ctx [:request :transit-params])
                   rsdb-conn (:com.eldrix.rsdb/conn ctx)
                   claims (:authenticated-claims ctx)
@@ -116,25 +137,30 @@
 
 (def routes
   (route/expand-routes
-    #{["/login" :post [service-error-handler
-                       login]]
+    #{["/login" :post [service-error-handler login]]        ;; for legacy clients (re-frame / pc4-ward)
+      ["/login-mutation" :post [login-mutation]]            ;; for fulcro clients (fulcro / pc4-ms)
       ["/ping" :post [ping]]
-      ["/api" :post [service-error-handler
-                     attach-claims
-                     api]]}))
+      ["/api" :post [service-error-handler attach-claims api]]}))
 
-(defmethod ig/init-key ::server [_ {:keys [port allowed-origins host env join?] :or {port 8080 join? false} :as config}]
+
+(defn make-service-map
+  [{:keys [port allowed-origins host join?] :or {port 8080 join? false}}]
+  {::http/type            :jetty
+   ::http/join?           join?
+   ::http/log-request     true
+   ::http/routes          routes
+   ::http/port            port
+   ::http/allowed-origins (cond
+                            (= "*" allowed-origins)
+                            (constantly true)
+                            :else
+                            allowed-origins)
+   ::http/host            (or host "127.0.0.1")})
+
+
+(defmethod ig/init-key ::server [_ {:keys [env] :as config}]
   (log/info "Running HTTP server" (dissoc config :env))
-  (-> {::http/type            :jetty
-       ::http/join?           join?
-       ::http/routes          routes
-       ::http/port            port
-       ::http/allowed-origins (cond
-                                (= "*" allowed-origins)
-                                (constantly true)
-                                :else
-                                allowed-origins)
-       ::http/host            (or host "127.0.0.1")}
+  (-> (make-service-map config)
       (http/default-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))

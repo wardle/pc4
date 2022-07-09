@@ -113,7 +113,7 @@
       (wrap-api {:uri "/api"})
       (wrap-authenticated-pathom config)
       (wrap-claims login-config)
-      (wrap-login {:pathom pathom-boundary-interface :uri "/login"})
+      (wrap-login {:pathom pathom-boundary-interface :uri "/login-mutation"})
       (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-params {:opts {:handlers dates/transit-readers}})
       (com.fulcrologic.fulcro.server.api-middleware/wrap-transit-response {:opts {:handlers dates/transit-writers}})
       ; (wrap-hello "/hello")
