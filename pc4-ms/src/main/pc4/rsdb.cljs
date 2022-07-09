@@ -8,10 +8,12 @@
 (defmutation search-patient-by-pseudonym
   [params]
   (remote
-    [env]
-    (-> env
-        (m/with-target [:ui/search-patient-pseudonymous])
-        (m/returning 'pc4.patients/PatientBanner))))
+    [{:keys [state] :as env}]
+    (if (empty? params)
+      (swap! state dissoc :ui/search-patient-pseudonymous)
+      (-> env
+          (m/with-target [:ui/search-patient-pseudonymous])
+          (m/returning 'pc4.patients/PatientBanner)))))
 
 
 (defmutation register-patient-by-pseudonym

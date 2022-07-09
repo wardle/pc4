@@ -21,7 +21,8 @@
          patient    :ui/search-patient-pseudonymous}]
   {:query         [:t_project/id
                    {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.patients/PatientBanner)}]
-   :initial-state {:t_project/id :param/id}}
+   :initial-state {:t_project/id :param/id}
+   :componentWillUnmount #(comp/transact! @SPA [(pc4.rsdb/search-patient-by-pseudonym {})])}
   (div
     :.bg-white.overflow-hidden.shadow.sm:rounded-lg
     (div
