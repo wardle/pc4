@@ -6,7 +6,7 @@
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
     [com.fulcrologic.fulcro.dom.inputs]
     [com.fulcrologic.fulcro.dom.events :as evt]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr])
+    [pc4.route :as route])
   (:import [goog.date Date]))
 
 

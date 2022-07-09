@@ -1,7 +1,8 @@
 (ns pc4.rsdb
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
-            [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]))
+            [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
+            [pc4.route :as route]))
 
 
 (defmutation search-patient-by-pseudonym
