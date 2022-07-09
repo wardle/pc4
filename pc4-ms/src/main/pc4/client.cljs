@@ -62,7 +62,7 @@
                                (wrap-authentication-token))})
       :login
       (net/fulcro-http-remote
-        {:url                "http://localhost:8080/login"
+        {:url                "http://localhost:8080/login-mutation"
          :request-middleware (-> (net/wrap-fulcro-request))})}}))
 
 
