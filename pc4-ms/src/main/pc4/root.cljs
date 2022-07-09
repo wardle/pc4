@@ -134,7 +134,7 @@
 (def ui-nav-bar (comp/factory NavBar))
 
 (defrouter MainRouter [this props]
-  {:router-targets [HomePage projects/ProjectPage]})
+  {:router-targets [HomePage projects/ProjectPage pc4.patients/PatientPage]})
 
 (def ui-main-router (comp/factory MainRouter))
 
