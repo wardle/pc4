@@ -2,7 +2,8 @@
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
-            [pc4.route :as route]))
+            [pc4.route :as route]
+            [taoensso.timbre :as log]))
 
 
 (defmutation search-patient-by-pseudonym
@@ -20,14 +21,12 @@
 (defmutation register-patient-by-pseudonym
   [params]
   (remote [env]
-          (js/console.log "Registering pseudonymous patient:" env)
+          (log/debug "Registering pseudonymous patient:" env)
           (-> env
               (m/returning 'pc4.patients/PatientPage)))
-  (ok-action [env]
-             (js/console.log "Response register patient" env)
+  (ok-action [{:keys [state ref] :as env}]   ;; ref = ident of the component
              (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
-               (do (js/console.log "register patient : patient id: " patient-id)
+               (do (log/debug "register patient : patient id: " patient-id)
                    (pc4.route/route-to! ["patients" patient-id]))
-               (do (js/console.log "failed to register patient:" env))))
-  (error-action [env]
-                (js/console.error "Failed to register patient" env)))
+               (do (log/debug "failed to register patient:" env)
+                   (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))

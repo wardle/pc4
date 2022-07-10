@@ -19,9 +19,9 @@
 (defsc PatientSearchByPseudonym
   [this {project-id :t_project/id
          patient    :ui/search-patient-pseudonymous}]
-  {:query         [:t_project/id
-                   {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.patients/PatientBanner)}]
-   :initial-state {:t_project/id :param/id}
+  {:query                [:t_project/id
+                          {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.patients/PatientBanner)}]
+   :initial-state        {:t_project/id :param/id}
    :componentWillUnmount #(comp/transact! @SPA [(pc4.rsdb/search-patient-by-pseudonym {})])}
   (div
     :.bg-white.overflow-hidden.shadow.sm:rounded-lg
@@ -46,7 +46,7 @@
                (when (:t_patient/patient_identifier patient)
                  (div
                    (pc4.patients/ui-patient-banner patient)
-                   (ui/ui-submit-button {:label "View patient record..."}
+                   (ui/ui-submit-button {:label "View patient record »"}
                                         {:onClick #(pc4.route/route-to! ["patients" (:t_patient/patient_identifier patient)])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
@@ -56,9 +56,10 @@
   [state-map]
   (-> state-map
       (update-in [:component-id :register-pseudonymous-patient]
-                #(merge % {:ui/nhs-number ""
-                           :ui/sex        nil
-                           :ui/date-birth nil}))
+                 #(merge % {:ui/nhs-number ""
+                            :ui/sex        nil
+                            :ui/error      nil
+                            :ui/date-birth nil}))
       (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym) [:component-id :register-pseudonymous-patient])))
 
 (defmutation clear-register-pseudonymous-form [_]
@@ -68,21 +69,21 @@
 
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
-         :ui/keys   [nhs-number date-birth sex] :as params}]
-  {:ident             (fn [] [:component-id :register-pseudonymous-patient])
-   :query             [:t_project/id
-                       :ui/nhs-number :ui/date-birth :ui/sex
-                       :ui/error fs/form-config-join]
-   :initial-state     (fn [_]
-                        (fs/add-form-config RegisterByPseudonym
-                                            {:ui/nhs-number ""
-                                             :ui/sex        nil
-                                             :ui/date-birth nil}))
-   :form-fields       #{:ui/nhs-number :ui/date-birth :ui/sex}
+         :ui/keys   [nhs-number date-birth sex error] :as params}]
+  {:ident                (fn [] [:component-id :register-pseudonymous-patient])
+   :query                [:t_project/id
+                          :ui/nhs-number :ui/date-birth :ui/sex
+                          :ui/error fs/form-config-join]
+   :initial-state        (fn [_]
+                           (fs/add-form-config RegisterByPseudonym
+                                               {:ui/nhs-number ""
+                                                :ui/sex        nil
+                                                :ui/date-birth nil}))
+   :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
    :componentWillUnmount (fn [this] (comp/transact! this [(list 'pc4.projects/clear-register-pseudonymous-form)]))}
   (let [valid? true
         do-register (fn [] (do (println "Attempting to register" params)
-                               (comp/transact! @SPA [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
+                               (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
                                                                                               :nhs-number nhs-number
                                                                                               :date-birth date-birth
                                                                                               :sex        sex})])))]
@@ -98,14 +99,15 @@
                    (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
                         (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
                         (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                                         {:onChange  #(m/set-string!! this :ui/nhs-number :value %)
+                                         {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
                                           :onEnterKey do-register})
                         (ui/ui-local-date {:id "date-birth" :value date-birth :label "Date of birth:" :min-date (Date. 1900 1 1) :max-date (Date.)}
-                                          {:onChange  #(m/set-value!! this :ui/date-birth %)
+                                          {:onChange   #(m/set-value!! this :ui/date-birth %)
                                            :onEnterKey do-register})
                         (ui/ui-select-popup-button {:id "sex" :value sex :label "Sex" :options [:MALE :FEMALE] :display-key name}
-                                                   {:onChange  #(m/set-value!! this :ui/sex %)
-                                                    :onEnterKey do-register}))))
+                                                   {:onChange   #(m/set-value!! this :ui/sex %)
+                                                    :onEnterKey do-register})
+                        (when error (ui/box-error-message {:message error})))))
          (div :.flex.justify-end.mr-8
               (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not valid?)} {:onClick do-register})))))
 

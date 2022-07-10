@@ -268,9 +268,14 @@
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
     (js/console.log "register pseudonymous patient response: " result)
-    {:db (assoc-in db [:patient/current :patient] result)
-     :fx [[:dispatch [::events/push-state :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
-                                                                         :pseudonym  (:t_episode/stored_pseudonym result)}]]]}))
+    (if result
+      {:db (assoc-in db [:patient/current :patient] result)
+       :fx [[:dispatch [::events/push-state :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
+                                                                           :pseudonym  (:t_episode/stored_pseudonym result)}]]]}
+      {:db (-> db
+               (dissoc :patient/current)
+               (assoc-in [:errors :open-patient] "Mismatch in patient demographics."))})))
+
 
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
   []
@@ -406,6 +411,7 @@
                           (and (:t_smoking_history/status params) (not (:t_smoking_history/current_cigarettes_per_day params)))
                           (assoc :t_smoking_history/current_cigarettes_per_day 0))]
       (js/console.log "saving encounter" params)
+      (tap> {:operation ::save-encounter :params params'})
       {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-encounter params')
                                     ['*]}]
                       :token      (get-in db [:authenticated-user :io.jwt/token])

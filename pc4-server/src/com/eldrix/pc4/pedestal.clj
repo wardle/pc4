@@ -34,7 +34,8 @@
                           (assoc ctx :response {:status 400 :body (ex-message ex)})
                           [{:interceptor ::attach-claims}]
                           (assoc ctx :response {:status 401 :body "Unauthenticated."})
-                          :else (assoc ctx :io.pedestal.interceptor.chain/error ex)))
+                          :else
+                          (assoc ctx :io.pedestal.interceptor.chain/error ex)))
 
 
 (defn execute-pathom [ctx env params]
@@ -47,12 +48,11 @@
           (assoc ctx :response (ok result)))
       (let [error (Throwable->map mutation-error)
             error-data (ex-data mutation-error)]
-        (log/info "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                      :cause   error})
+        (log/error "mutation error: " {:request (get-in ctx [:request :transit-params])
+                                       :cause   error})
         (tap> error)
         (when error-data (log/info "error" error-data))
-        (assoc ctx :response {:status 400
-                              :body   {:message (:cause error)}})))))
+        (assoc ctx :response (ok {:error (:cause error)}))))))
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
