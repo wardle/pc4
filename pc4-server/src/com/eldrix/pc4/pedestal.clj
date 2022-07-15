@@ -40,19 +40,26 @@
                           (assoc ctx :io.pedestal.interceptor.chain/error ex)))
 
 
-(defn execute-pathom [ctx env params]
+(defn execute-pathom
+  "Executes a pathom query from the body of the request.
+
+  Fulcro response augmentations are applied to the result, so that resolvers can
+  modify response headers and other aspects of the response (e.g. to update
+  session data).
+  See [[com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations]]"
+  [ctx env params]
   (let [pathom (:pathom-boundary-interface ctx)
         result (try (pathom env params) (catch Throwable e e))
         mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
     (if-not mutation-error
       (do (log/debug "mutation success: " {:request params
                                            :result  result})
-          (assoc ctx :response (ok result)))
+          (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result))))
       (let [error (Throwable->map mutation-error)
             error-data (ex-data mutation-error)]
         (log/error "mutation error: " {:request (get-in ctx [:request :transit-params])
                                        :cause   error})
-        (tap> error)
+        (tap> {:mutation-error error})
         (when error-data (log/info "error" error-data))
         (assoc ctx :response (ok {:error (:cause error)}))))))
 
