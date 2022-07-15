@@ -8,7 +8,9 @@
                        ;; guardrails checks only during dev
                        :dev             {:build-hooks      [(teknql.tailwind/start-watch!)]
                                          :compiler-options
-                                         {:external-config {:guardrails {}}}}
+                                         {:closure-defines {pc4.client.api-url "http://localhost:8080/api"
+                                                            pc4.client.login-url "http://localhost:8080/login-mutation"}
+                                          :external-config {:guardrails {}}}}
 
                        :devtools        {:http-port  8022
                                          :http-root  "resources/public"
@@ -18,7 +20,10 @@
                        :tailwind/output "resources/public/css/site.css"
                        :tailwind/files  {:base-path    "./." ;; Path to directory housing `tailwind.config.js` and `postcss.config.js`
                                          :tailwind.css "./resources/public/css/tailwind.css"}
-                       :release         {:build-hooks [(teknql.tailwind/compile-release!)]}}
+                       :release         {:build-hooks [(teknql.tailwind/compile-release!)]
+                                         :compiler-options
+                                         {:closure-defines {pc4.client.api-url "https://patientcare.app/api"
+                                                            pc4.client.login-url "https://patientcare.app/login-mutation"}}}}
 
           :workspaces {:target     nubank.workspaces.shadow-cljs.target
                        :ns-regexp  "-(test|ws)$"
