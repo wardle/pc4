@@ -124,14 +124,17 @@
 (def ui-home-page (comp/factory HomePage))
 
 (defsc NavBar
-  [this {:t_user/keys [id title first_names last_name initials] :as params}]
-  {:ident         :t_user/id
-   :query         [:t_user/id :t_user/title :t_user/first_names :t_user/last_name :t_user/initials]}
+  [this {:t_user/keys [id username title first_names last_name initials photo has_photo] :as params}]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/username :t_user/title :t_user/first_names :t_user/last_name :t_user/initials
+           :t_user/photo :t_user/has_photo]}
   (ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                   :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                   :initials  initials
+                  :photo     (when has_photo (str "http://localhost:8080/users/cymru.nhs.uk/" username "/photo"))
                   :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}
                  {:on-home #(comp/transact! @SPA [(route/route-to {:path ["home"]})])}))
+
 
 (def ui-nav-bar (comp/factory NavBar))
 
