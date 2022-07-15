@@ -13,7 +13,8 @@
             [pc4.patients :as patients]
             [pc4.rsdb]
             [taoensso.timbre :as log]
-            [com.fulcrologic.fulcro.mutations :as m])
+            [com.fulcrologic.fulcro.mutations :as m]
+            [cljs.spec.alpha :as s])
   (:import [goog.date Date]))
 
 (defsc PatientSearchByPseudonym
@@ -55,34 +56,38 @@
 (defn clear-register-pseudonymous-form*
   [state-map]
   (-> state-map
+      (fs/clear-complete* [:component-id :register-pseudonymous-patient])
       (update-in [:component-id :register-pseudonymous-patient]
-                 #(merge % {:ui/nhs-number ""
-                            :ui/sex        nil
-                            :ui/error      nil
-                            :ui/date-birth nil}))
+                 merge {:ui/nhs-number ""
+                        :ui/sex        nil
+                        :ui/error      nil
+                        :ui/date-birth nil})
       (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym) [:component-id :register-pseudonymous-patient])))
 
 (defmutation clear-register-pseudonymous-form [_]
   (action [{:keys [state]}]
           (swap! state clear-register-pseudonymous-form*)))
 
+(s/def :ui/nhs-number (s/and string? #(re-matches #"\d{10}" (str/replace % #" " ""))))
+(s/def :ui/date-birth (s/and #(instance? Date %)
+                             #(pos-int? (Date/compare % (Date. 1900 1 1)))
+                             #(pos-int? (Date/compare (Date.) %))))
+(s/def :ui/sex #{:MALE :FEMALE})
 
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
-         :ui/keys   [nhs-number date-birth sex error] :as params}]
+         :ui/keys   [nhs-number date-birth sex error] :as props}]
   {:ident                (fn [] [:component-id :register-pseudonymous-patient])
    :query                [:t_project/id
-                          :ui/nhs-number :ui/date-birth :ui/sex
-                          :ui/error fs/form-config-join]
-   :initial-state        (fn [_]
-                           (fs/add-form-config RegisterByPseudonym
-                                               {:ui/nhs-number ""
-                                                :ui/sex        nil
-                                                :ui/date-birth nil}))
+                          :ui/nhs-number :ui/date-birth :ui/sex :ui/error
+                          fs/form-config-join]
+   :initial-state        (fn [_] (fs/add-form-config RegisterByPseudonym
+                                                     {:ui/nhs-number ""
+                                                      :ui/sex        nil
+                                                      :ui/date-birth nil}))
    :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
-   :componentWillUnmount (fn [this] (comp/transact! this [(list 'pc4.projects/clear-register-pseudonymous-form)]))}
-  (let [valid? true
-        do-register (fn [] (do (println "Attempting to register" params)
+   :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))}
+  (let [do-register (fn [] (do (println "Attempting to register" props)
                                (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
                                                                                               :nhs-number nhs-number
                                                                                               :date-birth date-birth
@@ -93,23 +98,35 @@
                    (div :.md:col-span-1.pr-6
                         (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
                         (div :.mt-1.mr-12.text-sm.text-gray-500)
-                        (p "Enter patient details.")
-                        (p :.mt-4 "This is safe even if patient already registered")
+                        (p "Please enter patient details.")
+                        (p :.mt-4 "This is safe to use even if patient already registered.")
                         (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
                    (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
                         (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
                         (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
                                          {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+                                          :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
                                           :onEnterKey do-register})
-                        (ui/ui-local-date {:id "date-birth" :value date-birth :label "Date of birth:" :min-date (Date. 1900 1 1) :max-date (Date.)}
+                        (when (fs/invalid-spec? props :ui/nhs-number)
+                          (ui/box-error-message {:message "Invalid NHS number"}))
+                        (ui/ui-local-date {:id       "date-birth" :value date-birth :label "Date of birth:"
+                                           :min-date (Date. 1900 1 1) :max-date (Date.)}
                                           {:onChange   #(m/set-value!! this :ui/date-birth %)
+                                           :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
                                            :onEnterKey do-register})
+                        (when (fs/invalid-spec? props :ui/date-birth)
+                          (ui/box-error-message {:message "Invalid date of birth"}))
                         (ui/ui-select-popup-button {:id "sex" :value sex :label "Sex" :options [:MALE :FEMALE] :display-key name}
-                                                   {:onChange   #(m/set-value!! this :ui/sex %)
+                                                   {:onChange   #(do (m/set-value!! this :ui/sex %)
+                                                                     (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
                                                     :onEnterKey do-register})
-                        (when error (ui/box-error-message {:message error})))))
+                        (when (fs/invalid-spec? props :ui/sex)
+                          (ui/box-error-message {:message "Invalid sex"}))
+                        (when error
+                          (div (ui/box-error-message {:message error}))))))
          (div :.flex.justify-end.mr-8
-              (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not valid?)} {:onClick do-register})))))
+
+              (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
 
 
 (def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
