@@ -635,12 +635,14 @@
       user)))
 
 (pco/defresolver user->photo
+  "Returns the user photo as binary data."
   [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
   {::pco/output [{:t_user/photo [:t_photo/data
                                  :t_photo/mime_type]}]}
-  (when-let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn username)]
-    {:t_user/photo {:t_photo/data      (.encodeToString (Base64/getEncoder) (:data photo))
-                    :t_photo/mime_type (:mimetype photo)}}))
+  (let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn username)]
+    {:t_user/photo (when photo {:t_photo/data      (:erattachmentdata/data photo)
+                                :t_photo/mime_type (:erattachment/mimetype photo)})}))
+
 
 (pco/defresolver user->full-name
   [{:t_user/keys [title first_names last_name]}]
