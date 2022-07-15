@@ -108,8 +108,8 @@
 
 (defn count-unread-messages
   [conn username]
-  (jdbc/execute-one!
-    conn
+  (next.jdbc.plan/select-one!
+    conn :unread_messages
     (sql/format {:select [[:%count.t_message/id :unread_messages]]
                  :from   [:t_message :t_user]
                  :where  [:and
@@ -119,8 +119,8 @@
 
 (defn count-incomplete-messages
   [conn username]
-  (jdbc/execute-one!
-    conn
+  (next.jdbc.plan/select-one!
+    conn :incomplete_messages
     (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
                  :from   [:t_message :t_user]
                  :where  [:and

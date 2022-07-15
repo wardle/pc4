@@ -624,7 +624,6 @@
   {::pco/output user-properties}
   (users/fetch-user-by-id conn id))
 
-
 (pco/defresolver user-by-nadex
   "Resolves rsdb user properties from a NADEX username if that user is
    registered with rsdb with NADEX authentication."
@@ -712,6 +711,14 @@
                                        {:t_news/author [:t_user/id]}]}]}
   {:t_user/latest_news (vec (->> (users/fetch-latest-news conn username)
                                  (map #(assoc % :t_news/author (select-keys % [:t_user/id :t_user/first_names :t_user/last_name])))))})
+
+(pco/defresolver user->count-unread-messages
+  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  {:t_user/count_unread_messages (users/count-unread-messages conn username)})
+
+(pco/defresolver user->count-incomplete-messages
+  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  {:t_user/count_incomplete_messages (users/count-incomplete-messages conn username)})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -1194,6 +1201,8 @@
    user->initials
    user->active-projects
    user->latest-news
+   user->count-unread-messages
+   user->count-incomplete-messages
    patient->fhir-human-name
    patient->fhir-gender
    multiple-sclerosis-diagnoses
