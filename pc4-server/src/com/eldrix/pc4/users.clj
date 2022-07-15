@@ -7,7 +7,8 @@
             [com.eldrix.pc4.rsdb.auth]
             [com.eldrix.pc4.rsdb.users :as rsdb-users]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
-            [com.wsscode.pathom3.connect.operation :as pco])
+            [com.wsscode.pathom3.connect.operation :as pco]
+            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware])
   (:import (java.time Instant LocalDateTime)))
 
 (s/def ::conn any?)
@@ -64,7 +65,9 @@
    ::pco/output  [:io.jwt.token]}
   (when-not (s/valid? ::login-configuration login)
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
-  {:io.jwt/token (refresh-user-token token login)})
+  (let [new-token (refresh-user-token token login)]
+    (api-middleware/augment-response {:io.jwt/token new-token}
+                                     #(assoc-in % [:response :session :authenticated-user :io.jwt/token] new-token))))
 
 
 (defn is-rsdb-user? [conn system value]
@@ -127,17 +130,19 @@
     (cond
       ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
       rsdb-user?
-      (do
+      (let [user (rsdb-users/fetch-user rsdb-conn value)]
         (log/info "login for " system value ": using rsdb backend")
-        (assoc (rsdb-users/fetch-user rsdb-conn value) :io.jwt/token token))
+        (api-middleware/augment-response (assoc user :io.jwt/token token)
+                                         (fn [response] (assoc-in response [:session :authenticated-user] user))))
 
       ;; do we have the NHS Wales' NADEX configured, and is it a namespace it can handle?
       (and wales-nadex (= system "cymru.nhs.uk"))
       (do
         (log/info "login for " system value "; config:" wales-nadex)
         (if-let [user (first (nadex/search (:connection-pool wales-nadex) value password))]
-          (assoc (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {} user)
-            :io.jwt/token token)
+          (-> (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {} user)
+              (assoc :io.jwt/token token)
+              (api-middleware/augment-response (fn [response] (assoc-in response [:session :authenticated-user] user))))
           (log/info "failed to authenticate user " system "/" value)))
 
       ;; if nothing else has worked....
@@ -147,16 +152,18 @@
         (log/info "attempting fake login for " system value)
         (when (and (= (:username fake-login) value) (= (:password fake-login) password))
           (log/info "successful fake login")
-          (-> {:sAMAccountName           value
-               :sn                       "Wardle"
-               :givenName                "Mark"
-               :personalTitle            "Dr."
-               :mail                     "mark@wardle.org"
-               :telephoneNumber          "02920747747"
-               :professionalRegistration {:regulator "GMC" :code "4624000"}
-               :title                    "Consultant Neurologist"}
-              (update-keys #(keyword "wales.nhs.nadex" (name %)))
-              (assoc :io.jwt/token token))))
+          (let [user {:sAMAccountName           value
+                      :sn                       "Wardle"
+                      :givenName                "Mark"
+                      :personalTitle            "Dr."
+                      :mail                     "mark@wardle.org"
+                      :telephoneNumber          "02920747747"
+                      :professionalRegistration {:regulator "GMC" :code "4624000"}
+                      :title                    "Consultant Neurologist"}]
+            (-> user
+                (update-keys #(keyword "wales.nhs.nadex" (name %)))
+                (assoc :io.jwt/token token)
+                (api-middleware/augment-response #(assoc-in % [:session :authenticated-user] user))))))
 
       ;; no login provider found for the namespace provided
       :else
