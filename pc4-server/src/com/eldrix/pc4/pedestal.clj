@@ -144,13 +144,29 @@
                   env (users/make-authenticated-env rsdb-conn claims)]
               (execute-pathom ctx env params)))})
 
+(def get-user-photo
+  "Return a user photograph.
+  This endpoint is designed to flexibly handle lookup of a user photograph."
+  {:name  ::get-user-photo
+   :enter (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
+            (let [system (get-in ctx [:request :path-params :system])
+                  value (get-in ctx [:request :path-params :value])]
+              (log/info "user photo request" {:system system :value value})
+              (if (or (= "patientcare.app" system) (= "cymru.nhs.uk" system))
+                (if-let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn value)]
+                  (do (println "photo:" photo)
+                      (assoc ctx :response {:status  200
+                                            :headers {"Content-Type" (:erattachment/mimetype photo)}
+                                            :body    (:erattachmentdata/data photo)}))
+                  ctx)
+                ctx)))})
 (def routes
   (route/expand-routes
     #{["/login" :post [service-error-handler login]]        ;; for legacy clients (re-frame / pc4-ward)
       ["/login-mutation" :post [login-mutation]]            ;; for fulcro clients (fulcro / pc4-ms)
       ["/ping" :post [ping]]
-      ["/api" :post [service-error-handler attach-claims api]]}))
-
+      ["/api" :post [service-error-handler attach-claims api]]
+      ["/users/:system/:value/photo" :get [get-user-photo]]}))
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080 join? false}}]
