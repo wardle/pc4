@@ -1,15 +1,17 @@
 (ns com.eldrix.pc4.pedestal
-  (:require [clojure.tools.logging.readable :as log]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.tools.logging.readable :as log]
+            [cognitect.transit :as transit]
+            [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.users :as users]
+            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor.error :as int-err]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.http.body-params :as body-params]
-            [cognitect.transit :as transit]
-            [com.eldrix.pc4.dates :as dates]
-            [com.eldrix.pc4.users :as users]
-            [integrant.core :as ig]
             [io.pedestal.http.route :as route]
-            [clojure.spec.alpha :as s])
+            [integrant.core :as ig]
+            [ring.middleware.session.cookie])
   (:import (clojure.lang ExceptionInfo)))
 
 
@@ -144,22 +146,24 @@
 
 
 (defn make-service-map
-  [{:keys [port allowed-origins host join?] :or {port 8080 join? false}}]
+  [{:keys [port allowed-origins host join? session-key] :or {port 8080 join? false}}]
   {::http/type            :jetty
    ::http/join?           join?
    ::http/log-request     true
    ::http/routes          routes
    ::http/port            port
-   ::http/allowed-origins (cond
-                            (= "*" allowed-origins)
-                            (constantly true)
-                            :else
-                            allowed-origins)
-   ::http/host            (or host "127.0.0.1")})
+   ::http/allowed-origins (cond (= "*" allowed-origins) (constantly true)
+                                :else allowed-origins)
+   ::http/host            (or host "127.0.0.1")
+   ::http/enable-session  {:store (ring.middleware.session.cookie/cookie-store
+                                    (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+                           :cookie-attrs {:same-site :lax}}})
 
 
-(defmethod ig/init-key ::server [_ {:keys [env] :as config}]
-  (log/info "Running HTTP server" (dissoc config :env))
+(defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
+  (log/info "Running HTTP server" (dissoc config :env :session-key))
+  (when-not session-key
+    (log/warn "No explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (-> (make-service-map config)
       (http/default-interceptors)
       (update ::http/interceptors conj
