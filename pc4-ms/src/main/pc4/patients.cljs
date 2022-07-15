@@ -58,14 +58,28 @@
 
 (def ui-patient-banner (comp/factory PatientBanner))
 
+(defsc PatientDemographics
+  [this {:t_patient/keys [patient_identifier first_names last_name title date_birth sex date_death nhs_number]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/first_names :t_patient/last_name :t_patient/title
+           :t_patient/date_birth :t_patient/date_death :t_patient/sex
+           :t_patient/nhs_number :t_patient/status]
+   :initial-state {}}
+  (comp/fragment
+    (div (dom/h1 "Name:" (str/join " " [title first_names last_name])))))
+
+(def ui-patient-demographics (comp/factory PatientDemographics))
+
 (defsc PatientPage
   [this {:t_patient/keys [patient_identifier first_names last_name date_birth sex date_death nhs_number]
-         banner          :>/banner}]
+         banner          :>/banner
+         demographics    :>/demographics}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patients" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
                          :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
-                         {:>/banner (comp/get-query PatientBanner)}]
+                         {:>/banner (comp/get-query PatientBanner)}
+                         {:>/demographics (comp/get-query PatientDemographics)}]
    :will-enter          (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                             (println "entering patient page: patient-identifier" patient-identifier)
@@ -77,11 +91,10 @@
    :allow-route-change? (constantly true)
    :will-leave          (fn [this props]
                           (comp/transact! this [(list 'pc4.users/close-patient)]))}
-  (println "banner:" banner)
-  (div (dom/h1 "Name: " first_names " " last_name)
-       (dom/h1 "ID: " patient_identifier)
-       (dom/h2 "DOB: " (ui/format-date date_birth))
-       (dom/h2 "Sex: " (name sex))
-       (ui-patient-banner banner)))
+
+  (comp/fragment
+    (ui-patient-banner banner)
+    (ui-patient-demographics demographics)))
+
 
 (def ui-patient-page (comp/factory PatientPage))
