@@ -643,6 +643,13 @@
     {:t_user/photo (when photo {:t_photo/data      (:erattachmentdata/data photo)
                                 :t_photo/mime_type (:erattachment/mimetype photo)})}))
 
+(pco/defresolver user->has-photo?
+  "Does the user have an available photograph?
+  At the moment, this simply checks the rsdb database, but this could use other
+  logic - such as checking Active Directory if the user is managed by that
+  service."
+  [{:com.eldrix.rsdb/keys [login conn]} {:t_user/keys [username]}]
+  {:t_user/has_photo (com.eldrix.pc4.rsdb.users/has-photo? conn username)})
 
 (pco/defresolver user->full-name
   [{:t_user/keys [title first_names last_name]}]
@@ -1182,6 +1189,7 @@
    user->nadex
    user->fhir-name
    user->photo
+   user->has-photo?
    user->full-name
    user->initials
    user->active-projects

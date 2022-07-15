@@ -21,6 +21,7 @@
             [buddy.core.codecs]
             [buddy.core.nonce]
             [next.jdbc :as jdbc]
+            [next.jdbc.plan]
             [honey.sql :as sql]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.pc4.rsdb.auth :as auth]
@@ -311,6 +312,10 @@
                 [:= :erattachment/attachmentdataid :erattachmentdata/id]
                 [:= :erattachment/id :t_user/photo_fk]
                 [:= :t_user/username username]]})))
+
+(defn has-photo? [conn username]
+  (next.jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user
+                                                          :where [:= :t_user/username username]})))
 
 (defn fetch-latest-news
   "Returns the latest news items for this user. Note: each news item can be
