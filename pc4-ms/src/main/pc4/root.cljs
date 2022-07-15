@@ -123,6 +123,17 @@
 
 (def ui-home-page (comp/factory HomePage))
 
+
+(defsc UserPhoto
+  [this _]
+  {:query                [:t_photo/data :t_photo/mime_type]
+   :componentDidMount    #(let [{:t_photo/keys [data mime_type]} (comp/props %)]
+                            (comp/set-state! % {:url (js/URL.createObjectURL (js/Blob. (clj->js [data]) #js {:type mime_type}))}))
+   :componentWillUnmount #(when-let [url (comp/get-state % :url)] (js/URL.revokeObjectURL url))}
+  (dom/img {:src (comp/get-state this :url)}))
+
+(def ui-user-photo (comp/factory UserPhoto))
+
 (defsc NavBar
   [this {:t_user/keys [id username title first_names last_name initials photo has_photo] :as params}]
   {:ident :t_user/id
