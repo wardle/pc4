@@ -56,13 +56,14 @@
 (defn clear-register-pseudonymous-form*
   [state-map]
   (-> state-map
-      (fs/clear-complete* [:component-id :register-pseudonymous-patient])
       (update-in [:component-id :register-pseudonymous-patient]
                  merge {:ui/nhs-number ""
                         :ui/sex        nil
                         :ui/error      nil
                         :ui/date-birth nil})
-      (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym) [:component-id :register-pseudonymous-patient])))
+      (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym)
+                           [:component-id :register-pseudonymous-patient]
+                           {:destructive? true})))
 
 (defmutation clear-register-pseudonymous-form [_]
   (action [{:keys [state]}]
