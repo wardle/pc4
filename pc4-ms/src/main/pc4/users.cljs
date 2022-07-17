@@ -17,11 +17,9 @@
   [params]
   (action [{:keys [state]}]
           (js/console.log "Performing login action" params)
-          (js/console.log "state:" (get-in @state [:component/id :login]))
           (swap! state #(-> %
                             (update-in [:component/id :login] dissoc :ui/error)
-                            (assoc-in [:component/id :login :ui/loading?] true)))
-          (js/console.log "state2:" (get-in @state [:component/id :login])))
+                            (assoc-in [:component/id :login :ui/loading?] true))))
 
   (login [env]
          (js/console.log "Sending login action to remote" env)
