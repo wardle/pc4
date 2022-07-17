@@ -259,11 +259,11 @@
                                    (if (and no-selection-string (= 0 idx))
                                      (onChange nil)
                                      (onChange (get sorted-options (if no-selection-string (- idx 1) idx))))))}
-                  (when no-selection-string [:option.py-1 {:value nil :id "none"} no-selection-string])
+                  (when no-selection-string (dom/option :.py-1 {:value nil :id "none"} no-selection-string))
                   (println "options:" sorted-options)
                   (for [option sorted-options
                         :let [id (id-key option)]]
-                    ^{:key id} (dom/option :.py-1 {:value (str id)} (display-key option)))))))
+                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
 
 (def ui-select-popup-button
   "A select control that appears as a pop-up.
