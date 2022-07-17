@@ -81,19 +81,22 @@
 
 (s/def ::system string?)
 (s/def ::value string?)
+(s/def ::claims (s/keys :req-un [::system ::value]
+                        :opt [:t_user/id :t_user/username]))
 
 (s/fdef make-authenticated-env
-  :args (s/cat :conn ::conn :claims (s/keys :req-un [::system ::value])))
+  :args (s/cat :conn ::conn :claims ::claims))
 (defn make-authenticated-env
-  "Given claims containing `system` and `value`, create an environment.
+  "Given claims containing at least `:system` and `:value`, create an environment.
   - conn   : rsdb database connection
   - system : namespace
   - value  : username."
-  [conn {:keys [system value] :as claims}]
-  (let [rsdb-user? (when claims (is-rsdb-user? conn system value))]
+  [conn {rsdb-user-id :t_user/id
+         :keys [system value] :as claims}]
+  (let [rsdb-user? (when claims (or rsdb-user-id (is-rsdb-user? conn system value)))]
     (cond-> {}
             claims
-            (assoc :authenticated-user (select-keys claims [:system :value]))
+            (assoc :authenticated-user claims)
             rsdb-user?
             (assoc :authorization-manager (make-authorization-manager conn system value)))))
 
@@ -104,6 +107,9 @@
     |- :value              : the username.
     |- :password           : the password.
   Returns a user.
+
+  A token is generated with claims containing at least :system and :value,
+  but possibly other information as well in order to permit ongoing resolution.
 
   We could make a LoginProtocol for each provider, but we still need to map to
   the keys specified here so it is simpler to use `cond` and choose the correct
@@ -124,12 +130,13 @@
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration pc4-login))))
   (let [wales-nadex (get-in pc4-login [:providers :com.eldrix.concierge/nadex])
         fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
-        rsdb-user? (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
-        token (make-user-token {:system system :value value} pc4-login)]
-    (log/info "login-operation:" {:system system :value value :rsdb-user? rsdb-user?})
+        rsdb-user (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
+        claims (merge rsdb-user {:system system :value value})
+        token (make-user-token claims pc4-login)]
+    (log/info "login-operation:" claims)
     (cond
       ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
-      rsdb-user?
+      rsdb-user
       (let [user (rsdb-users/fetch-user rsdb-conn value)]
         (log/info "login for " system value ": using rsdb backend")
         (api-middleware/augment-response (assoc user :io.jwt/token token)
@@ -168,6 +175,14 @@
       ;; no login provider found for the namespace provided
       :else
       (log/info "no login provider found for namespace" {:system system :providers (keys pc4-login)}))))
+
+(pco/defresolver authenticated-user
+  "Returns the authenticated user based on parameters in"
+  [{user    :authenticated-user} _]
+  {::pco/output [{:session/authenticated-user [:system :value
+                                               (pco/? :t_user/id)
+                                               (pco/? :t_user/username)]}]}
+  {:session/authenticated-user user})
 
 (def regulator->namespace
   {"GMC"  :uk.org.hl7.fhir.id/gmc-number
@@ -246,6 +261,7 @@
   [ping-operation
    login-operation
    refresh-token-operation
+   authenticated-user
    (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
    (pbir/equivalence-resolver :urn:oid:2.5.4/surname :urn:oid:2.5.4.4)
    (pbir/equivalence-resolver :urn:oid:2.5.4/givenName :urn:oid:2.5.4.42)

@@ -63,6 +63,8 @@
 
 (defn check-password
   "Check a user's credentials.
+  Returns a map containing :t_user/id and :t_user/username if the password is
+  correct.
   Parameters:
    - conn     : database connection
    - nadex    : LDAP connection pool
@@ -70,10 +72,11 @@
    - password : password."
   [conn nadex username password]
   (let [user (jdbc/execute-one!
-               conn (sql/format {:select [:username :credential :authentication_method]
+               conn (sql/format {:select [:id :username :credential :authentication_method]
                                  :from   [:t_user]
                                  :where  [:= :username (.toLowerCase username)]}))]
-    (can-authenticate-with-password? nadex user password)))
+    (when (can-authenticate-with-password? nadex user password)
+      (select-keys user [:t_user/id :t_user/username]))))
 
 (defn is-rsdb-user?
   [conn namespace username]
@@ -347,6 +350,7 @@
 
   (fetch-user-photo conn "rh084967")
   (fetch-user conn "ma090906")
+  (check-password conn nil "system" "password")
   (can-authenticate-with-password? nil (fetch-user conn "system") "password")
   (group-by :t_project_user/role (roles-for-user conn "ma090906"))
   (map :t_project/id (roles-for-user conn "ma090906"))
