@@ -44,7 +44,8 @@
           (when (:message params)
             (swap! state assoc-in [:component/id :login :ui/error] (:message params)))
           (route/route-to! ["home"])
-          (reset! session/authentication-token nil)))
+          (reset! session/authentication-token nil)
+          (swap! state dissoc :session/authenticated-user)))
 
 (defmutation refresh-token
   [params]
