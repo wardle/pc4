@@ -84,11 +84,8 @@
    :query                [:t_project/id
                           :ui/nhs-number :ui/date-birth :ui/sex :ui/error
                           fs/form-config-join]
-   :initial-state        (fn [_] (fs/add-form-config RegisterByPseudonym
-                                                     {:ui/nhs-number ""
-                                                      :ui/sex        nil
-                                                      :ui/date-birth nil}))
    :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
+   :componentDidMount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))
    :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))}
   (let [do-register (fn [] (do (println "Attempting to register" props)
                                (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
@@ -236,7 +233,6 @@
                          {:>/users (comp/get-query ProjectUsers)}
                          {:>/register (comp/get-query RegisterByPseudonym)}
                          {:>/search (comp/get-query PatientSearchByPseudonym)}]
-   :initial-state       {:>/home {} :>/users {} :>/register {} :>/search {}}
    :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
                           (when-let [project-id (some-> id (js/parseInt))]
                             (println "entering project page: project-id" project-id)

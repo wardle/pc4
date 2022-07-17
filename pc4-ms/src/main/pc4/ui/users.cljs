@@ -89,7 +89,8 @@
                    :urn:oid:2.5.4/commonName :urn:oid:2.5.4/initials
                    {:>/projects (comp/get-query ListUserProjects)}
                    {:t_user/latest_news (comp/get-query NewsItem)}]
-   :initial-state {:>/projects {}}}
+   :initial-state {:>/projects []
+                   :t_user/latest_news []}}
 
   (tap> user)
   (div
@@ -124,7 +125,6 @@
                           :photo     (when has_photo (str "http://localhost:8080/users/cymru.nhs.uk/" username "/photo"))
                           :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}
                          {:on-home #(comp/transact! @SPA [(route/route-to {:path ["home"]})])}))
-
 
 (def ui-nav-bar (comp/factory NavBar))
 
