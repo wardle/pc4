@@ -66,3 +66,7 @@
 (defmutation close-project [params]
   (action [{:keys [state]}]
           (swap! state dissoc :session/current-project)))
+
+(defmutation close-patient [params]
+  (action [{:keys [state]}]
+          (swap! state dissoc :session/current-patient)))

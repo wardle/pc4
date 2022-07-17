@@ -7,12 +7,11 @@
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
-
             [clojure.string :as str]
             [pc4.ui.core :as ui]
             [pc4.rsdb]
+            [pc4.users]
             [taoensso.timbre :as log])
-
   (:import [goog.date Date]))
 
 
@@ -90,7 +89,7 @@
                                                                  :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :allow-route-change? (constantly true)
    :will-leave          (fn [this props]
-                          (comp/transact! this [(list 'pc4.users/close-patient)]))}
+                          (comp/transact! this [(pc4.users/close-patient nil)]))}
 
   (comp/fragment
     (ui-patient-banner banner)
