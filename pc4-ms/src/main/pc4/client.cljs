@@ -1,6 +1,5 @@
 (ns pc4.client
   (:require
-    [clojure.string :as str]
     [com.fulcrologic.fulcro.application :as app]
     [com.fulcrologic.fulcro.networking.http-remote :as net]
     [com.fulcrologic.fulcro.data-fetch :as df]
@@ -9,13 +8,12 @@
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [com.fulcrologic.fulcro.inspect.inspect-client :as inspect]
     [edn-query-language.core :as eql]
-    [pushy.core :as pushy]
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.root :as root]
     [pc4.route :as route]
-    [pc4.users]
+    [pc4.ui.root :as root]
+    [pc4.ui.users]
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
 
@@ -124,5 +122,4 @@
   @SPA
   (pc4.users/login {:username "system" :password "password"})
   (pc4.users/refresh-token {:token "abc"})
-  (reset! authentication-token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJjeW1ydS5uaHMudWsiLCJ2YWx1ZSI6InN5c3RlbSIsImV4cCI6MTYzNzM5ODY5NX0.lU8CRsyvF6EfJIDbsO_-R9BJCNvqpV4YTgb2jrx3fI4")
-  )
+  (reset! authentication-token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJjeW1ydS5uaHMudWsiLCJ2YWx1ZSI6InN5c3RlbSIsImV4cCI6MTYzNzM5ODY5NX0.lU8CRsyvF6EfJIDbsO_-R9BJCNvqpV4YTgb2jrx3fI4"))

@@ -1,4 +1,4 @@
-(ns pc4.projects
+(ns pc4.ui.projects
   (:require [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
@@ -7,10 +7,9 @@
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
-
             [clojure.string :as str]
-            [pc4.ui :as ui]
-            [pc4.patients :as patients]
+            [pc4.ui.core :as ui]
+            [pc4.ui.patients]
             [pc4.rsdb]
             [taoensso.timbre :as log]
             [com.fulcrologic.fulcro.mutations :as m]
@@ -20,8 +19,9 @@
 (defsc PatientSearchByPseudonym
   [this {project-id :t_project/id
          patient    :ui/search-patient-pseudonymous}]
-  {:query                [:t_project/id
-                          {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.patients/PatientBanner)}]
+  {:ident                (fn [] [:component/id :patient-search-by-pseudonym])
+   :query                [:t_project/id
+                          {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.ui.patients/PatientBanner)}]
    :initial-state        {:t_project/id :param/id}
    :componentWillUnmount #(comp/transact! @SPA [(pc4.rsdb/search-patient-by-pseudonym {})])}
   (div
@@ -39,14 +39,16 @@
                     (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
                                {:type      "text" :placeholder "Start typing pseudonym"
                                 :autoFocus true
+                                :value (or (comp/get-state this :s) "")
                                 :onKeyDown #(when (and patient (evt/enter-key? %))
                                               (pc4.route/route-to! ["patients" (:t_patient/patient_identifier patient)]))
                                 :onChange  #(let [s (evt/target-value %)]
                                               (println "Patient search " s)
+                                              (comp/set-state! this {:s s})
                                               (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
                (when (:t_patient/patient_identifier patient)
                  (div
-                   (pc4.patients/ui-patient-banner patient)
+                   (pc4.ui.patients/ui-patient-banner patient)
                    (ui/ui-submit-button {:label "View patient record »"}
                                         {:onClick #(pc4.route/route-to! ["patients" (:t_patient/patient_identifier patient)])})))))))))
 
@@ -56,14 +58,14 @@
 (defn clear-register-pseudonymous-form*
   [state-map]
   (-> state-map
-      (update-in [:component-id :register-pseudonymous-patient]
-                 merge {:ui/nhs-number ""
-                        :ui/sex        nil
-                        :ui/error      nil
-                        :ui/date-birth nil})
       (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym)
-                           [:component-id :register-pseudonymous-patient]
-                           {:destructive? true})))
+                           [:component/id :register-pseudonymous-patient]
+                           {:destructive? true})
+      (update-in [:component/id :register-pseudonymous-patient]
+                 #(-> %
+                      (dissoc :ui/error)
+                      (assoc :ui/nhs-number "" :ui/sex nil :ui/date-birth nil)))))
+
 
 (defmutation clear-register-pseudonymous-form [_]
   (action [{:keys [state]}]
@@ -78,7 +80,7 @@
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
          :ui/keys   [nhs-number date-birth sex error] :as props}]
-  {:ident                (fn [] [:component-id :register-pseudonymous-patient])
+  {:ident                (fn [] [:component/id :register-pseudonymous-patient])
    :query                [:t_project/id
                           :ui/nhs-number :ui/date-birth :ui/sex :ui/error
                           fs/form-config-join]
@@ -117,7 +119,8 @@
                                            :onEnterKey do-register})
                         (when (fs/invalid-spec? props :ui/date-birth)
                           (ui/box-error-message {:message "Invalid date of birth"}))
-                        (ui/ui-select-popup-button {:id "sex" :value sex :label "Sex" :options [:MALE :FEMALE] :display-key name}
+                        (ui/ui-select-popup-button {:id      "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
+                                                    :options [:MALE :FEMALE] :display-key name}
                                                    {:onChange   #(do (m/set-value!! this :ui/sex %)
                                                                      (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
                                                     :onEnterKey do-register})
@@ -126,7 +129,6 @@
                         (when error
                           (div (ui/box-error-message {:message error}))))))
          (div :.flex.justify-end.mr-8
-
               (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
 
 
@@ -155,7 +157,7 @@
    :query         [:t_project/id
                    {:t_project/users (comp/get-query ProjectUser)}]
    :route-segment ["users"]
-   :initial-state {:t_project/users []}}
+   :initial-state {:t_project/users {}}}
   (div :.flex.flex-col
        (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
             (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
@@ -234,6 +236,7 @@
                          {:>/users (comp/get-query ProjectUsers)}
                          {:>/register (comp/get-query RegisterByPseudonym)}
                          {:>/search (comp/get-query PatientSearchByPseudonym)}]
+   :initial-state       {:>/home {} :>/users {} :>/register {} :>/search {}}
    :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
                           (when-let [project-id (some-> id (js/parseInt))]
                             (println "entering project page: project-id" project-id)
