@@ -19,10 +19,7 @@
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
 
-
-(goog-define login-url "http://127.0.0.1:8080/login-mutation")
-(goog-define api-url "http://127.0.0.1:8080/api")
-
+(goog-define server-url "http://127.0.0.1:8080")
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
@@ -61,13 +58,13 @@
      :remotes
      {:remote
       (net/fulcro-http-remote
-        {:url                api-url
+        {:url                (str server-url "/api")
          :request-middleware (->
                                (net/wrap-fulcro-request)
                                (wrap-authentication-token))})
       :login
       (net/fulcro-http-remote
-        {:url                login-url
+        {:url                (str server-url "/login-mutation")
          :request-middleware (-> (net/wrap-fulcro-request))})}}))
 
 

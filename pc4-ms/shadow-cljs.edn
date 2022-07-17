@@ -8,8 +8,7 @@
                        ;; guardrails checks only during dev
                        :dev             {:build-hooks      [(teknql.tailwind/start-watch!)]
                                          :compiler-options
-                                         {:closure-defines {pc4.client.api-url "http://localhost:8080/api"
-                                                            pc4.client.login-url "http://localhost:8080/login-mutation"}
+                                         {:closure-defines {pc4.client.server-url "http://localhost:8080"}
                                           :external-config {:guardrails {}}}}
 
                        :devtools        {:http-port  8022
@@ -22,8 +21,7 @@
                                          :tailwind.css "./resources/public/css/tailwind.css"}
                        :release         {:build-hooks [(teknql.tailwind/compile-release!)]
                                          :compiler-options
-                                         {:closure-defines {pc4.client.api-url "https://patientcare.app/api"
-                                                            pc4.client.login-url "https://patientcare.app/login-mutation"}}}}
+                                         {:closure-defines {pc4.client.server-url "https://patientcare.app:8080"}}}}
 
           :workspaces {:target     nubank.workspaces.shadow-cljs.target
                        :ns-regexp  "-(test|ws)$"
