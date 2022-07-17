@@ -20,7 +20,8 @@
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
        (when onClose
          (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
-              (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1 {:on-click onClose :title "Close patient record"}
+              (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
+                          {:onClick onClose :title "Close patient record"}
                           (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
        (when deceased
          (div :.grid.grid-cols-1.pb-2
@@ -43,7 +44,8 @@
 (def ui-patient-banner* (comp/computed-factory PatientBanner*))
 
 (defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth sex date_death episodes]
-                            current-project :session/current-project}]
+                            current-project :session/current-project}
+                      {:keys [onClose] :as computed-props}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex :t_patient/date_birth
            :t_patient/date_death :t_patient/episodes
@@ -53,9 +55,9 @@
     (ui-patient-banner* {:name     (name sex)
                          :born     (ui/format-date date_birth)
                          :address  pseudonym
-                         :deceased date_death})))
+                         :deceased date_death} computed-props)))
 
-(def ui-patient-banner (comp/factory PatientBanner))
+(def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc PatientDemographics
   [this {:t_patient/keys [patient_identifier first_names last_name title date_birth sex date_death nhs_number]}]
@@ -92,7 +94,7 @@
                           (comp/transact! this [(pc4.users/close-patient nil)]))}
 
   (comp/fragment
-    (ui-patient-banner banner)
+    (ui-patient-banner banner {:onClose #(js/history.back)})
     (ui-patient-demographics demographics)))
 
 
