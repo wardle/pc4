@@ -25,9 +25,12 @@
                           (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
        (when deceased
          (div :.grid.grid-cols-1.pb-2
-              (ui/ui-badge {:label (if (instance? goog.date.Date deceased)
+              (ui/ui-badge {:label (cond
+                                     (instance? goog.date.Date deceased)
                                      (str "Died " (ui/format-date deceased))
-                                     "Deceased")})))
+                                     (string? deceased)
+                                     (str "Died " deceased)
+                                     :else "Deceased")})))
        (div :.grid.grid-cols-2.lg:grid-cols-5.pt-1
             (when name (div :.font-bold.text-lg.min-w-min name))
             (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender (dom/span :.text-sm.font-thin.hidden.sm:inline "Gender ")
@@ -53,7 +56,7 @@
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (ui-patient-banner* {:name     (name sex)
-                         :born     (ui/format-date date_birth)
+                         :born     (if (= :PSEUDONYMOUS status)  (ui/format-month-year date_birth) (ui/format-date date_birth))
                          :address  pseudonym
                          :deceased date_death} computed-props)))
 
