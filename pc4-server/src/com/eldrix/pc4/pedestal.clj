@@ -48,7 +48,7 @@
   session data).
   See [[com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations]]"
   [ctx env params]
-  (let [pathom (:pathom-boundary-interface ctx)
+  (let [pathom (:pathom/boundary-interface ctx)
         result (try (pathom env params) (catch Throwable e e))
         mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
     (if-not mutation-error
@@ -126,7 +126,7 @@
   The pathom boundary interface provides resolution of EQL in context as per
   https://pathom3.wsscode.com/docs/eql/#boundary-interface
   This is injected into the environment by integrant - under the key
-  :pathom-boundary-interface.
+  :pathom/boundary-interface.
 
   Authenticated claims are merged into the pathom environment under the key
   :authenticated-user.
@@ -183,8 +183,18 @@
                            :cookie-attrs {:same-site :lax}}})
 
 
+
+(s/def ::env (s/keys :req [:pathom/boundary-interface
+                           :com.eldrix.rsdb/conn
+                           :com.eldrix.pc4/login]))
+
+(s/def ::config (s/keys :req-un [::env]
+                        :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
+
 (defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
   (log/info "Running HTTP server" (dissoc config :env :session-key))
+  (when-not (s/valid? ::config config)
+    (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
     (log/warn "No explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (-> (make-service-map config)

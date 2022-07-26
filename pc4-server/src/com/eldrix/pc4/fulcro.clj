@@ -67,7 +67,7 @@
 
 (defn wrap-authenticated-pathom
   "Attach an authenticated environment into the request, if possible."
-  [handler {conn :com.eldrix.rsdb/conn pathom-boundary-interface :pathom-boundary-interface}]
+  [handler {conn :com.eldrix.rsdb/conn pathom-boundary-interface :pathom/boundary-interface}]
   (fn [{claims :authenticated-claims :as req}]
     (let [env (users/make-authenticated-env conn claims)]
       (handler (assoc req :pathom (partial pathom-boundary-interface env))))))
