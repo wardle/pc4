@@ -29,13 +29,13 @@
     (ig/halt! system)
     (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
 
-  ;; start a server using pedestal/jetty   - for re-frame clients
-  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.pedestal/server])
+  ;; start a server using pedestal/jetty   - for all clients
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (ig/halt! system)
 
-  ;; start a server using http-kit/ring    - for fulcro clients
-  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.fulcro/server])
+  ;; start a server using http-kit/ring    - for fulcro clients only
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.fulcro/server])
   (def system (pc4/init :dev [:com.eldrix.pc4.fulcro/server]))
   (ig/halt! system)
 
