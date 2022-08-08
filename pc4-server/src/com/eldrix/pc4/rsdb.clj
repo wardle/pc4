@@ -86,6 +86,13 @@
                  :t_patient/occupation_concept_fk]}
   (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]})))
 
+(pco/defresolver patient-by-pseudonym
+  "Resolves patient identifier by a tuple of project id and pseudonym."
+  [{conn :com.eldrix.rsdb/conn} {project-pseudonym :t_patient/project_pseudonym}]
+  {::pco/output  [:t_patient/patient_identifier]}
+  (let [[project-id pseudonym] project-pseudonym]
+    (projects/search-by-project-pseudonym conn project-id pseudonym)))
+
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
@@ -519,6 +526,7 @@
                                       :t_result_liver_function/date :t_result_liver_function/notes]}]}
 
   {:t_patient/results (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier))})
+
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -1143,6 +1151,7 @@
 
 (def all-resolvers
   [patient-by-identifier
+   patient-by-pseudonym
    patient->hospitals
    patient-hospital->flat-hospital
    patient-hospital->nested-hospital
