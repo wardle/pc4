@@ -1755,6 +1755,29 @@
     (pc4/halt! system)))
 
 
+(defn update-admissions
+  [{:keys [profile project-id]}]
+  (let [{conn :com.eldrix.rsdb/conn :as system} (pc4/init profile [:pathom/boundary-interface :wales.nhs.cavuhb/pms])
+        admission-project (projects/project-with-name conn "ADMISSION")
+        project-id' (if (string? project-id) (parse-long project-id) project-id)]
+    (println "Fetching admissions for project" project-id')
+    (let [patient-ids (patients/patient-ids-in-projects conn [project-id'])]
+      (println "Patients in projecT:" (count patient-ids))
+      (dorun (->> patient-ids
+                  (map #(do (println "patient:" %) %))
+                  (mapcat #(admissions-for-patient system %))
+                  (remove nil?)
+                  (map #(assoc % :t_episode/project_fk (:t_project/id admission-project)))
+                  (map #(do (println %) %))
+                  (map #(projects/register-completed-episode! conn %)))))
+    (pc4/halt! system)))
+
+(comment
+  (def system (pc4/init :cvx [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
+  (fetch-patient-admissions system 132502)
+  (update-admissions {:profile :cvx :project-id 29})
+  )
+
 (defn matching-filenames
   "Return a sequence of filenames from the directory specified, in a map keyed
   by the filename."
