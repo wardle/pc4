@@ -119,7 +119,7 @@
 
 
 (pco/defresolver patient-hospital->authority
-  [{clods :com.eldrix/clods} {hospital_fk         :t_patient_hospital/hospital_fk
+  [{clods :com.eldrix.clods.graph/svc} {hospital_fk         :t_patient_hospital/hospital_fk
                               hospital_identifier :t_patient_hospital/hospital_identifier}]
   {::pco/input  [:t_patient_hospital/hospital_fk
                  :t_patient_hospital/hospital_identifier]
@@ -141,7 +141,7 @@
   As this resolves to a local hospital CRN, clients can then resolve FHIR
   properties against this record to fetch FHIR-flavoured data.
   TODO: switch to using a parameterised resolver to check match status."
-  [{clods :com.eldrix/clods} {auth :t_patient_hospital/authoritative_demographics
+  [{clods :com.eldrix.clods.graph/svc} {auth :t_patient_hospital/authoritative_demographics
                               crn  :t_patient_hospital/patient_identifier}]
   {::pco/input  [:t_patient_hospital/authoritative_demographics
                  :t_patient_hospital/patient_identifier]
