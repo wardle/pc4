@@ -147,32 +147,5 @@
   :session-key     #ref [:secrets :pc4 :session-key]
   :env             {:pathom/boundary-interface #ig/ref :pathom/boundary-interface
                     :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                    :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+                    :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}
 
- :com.eldrix.pc4.fulcro/handler
- {:login-config              #ig/ref :com.eldrix.pc4/login
-  :pathom/boundary-interface #ig/ref :pathom/boundary-interface
-  :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-  :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login
-  :ring-defaults             {:params    {:keywordize true
-                                          :multipart  true
-                                          :nested     true
-                                          :urlencoded true}
-                              :cookies   true
-                              :responses {:absolute-redirects     true
-                                          :content-types          true
-                                          :default-charset        "utf-8"
-                                          :not-modified-responses true}
-                              :session   true
-                              :static    {:resources "public"}
-                              :security  {:anti-forgery   false
-                                          :hsts           true
-                                          :ssl-redirect   false
-                                          :frame-options  :sameorigin
-                                          :xss-protection {:enable? true
-                                                           :mode    :block}}}}
-
- :com.eldrix.pc4.fulcro/server
- {:port    #long #or [#env PORT 8080]
-  :host    "0.0.0.0"
-  :handler #ig/ref :com.eldrix.pc4.fulcro/handler}}
