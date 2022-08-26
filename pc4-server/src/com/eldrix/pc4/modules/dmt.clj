@@ -1762,7 +1762,7 @@
         project-id' (if (string? project-id) (parse-long project-id) project-id)]
     (println "Fetching admissions for project" project-id')
     (let [patient-ids (patients/patient-ids-in-projects conn [project-id'])]
-      (println "Patients in projecT:" (count patient-ids))
+      (println "Patients in project:" (count patient-ids))
       (dorun (->> patient-ids
                   (map #(do (println "patient:" %) %))
                   (mapcat #(admissions-for-patient system %))
@@ -1774,9 +1774,7 @@
 
 (comment
   (def system (pc4/init :cvx [:pathom/boundary-interface :wales.nhs.cavuhb/pms]))
-  (fetch-patient-admissions system 132502)
-  (update-admissions {:profile :cvx :project-id 29})
-  )
+  (update-admissions {:profile :cvx :project-id 29}))
 
 (defn matching-filenames
   "Return a sequence of filenames from the directory specified, in a map keyed
