@@ -11,7 +11,6 @@
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.route :as route]
     [pc4.ui.root :as root]
     [pc4.ui.users]
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
@@ -72,7 +71,6 @@
   ;(inspect/app-started! @SPA)
   (app/set-root! @SPA root/Root {:initialize-state? true})
   (dr/initialize! @SPA)
-  (route/routing-start!)
   (app/mount! @SPA root/Root "app" {:initialize-state? false}))
 
 (comment

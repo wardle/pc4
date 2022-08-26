@@ -6,9 +6,7 @@
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [pc4.app :refer [SPA]]
-    [pc4.session :as session]
-    [pc4.route :as route]))
+    [pc4.session :as session]))
 
 
 (defmutation login
@@ -26,24 +24,24 @@
          (-> env
              (m/returning 'pc4.ui.users/UserHomePage)
              (m/with-target [:session/authenticated-user])))
-  (ok-action [{:keys [result state] :as env}]
+  (ok-action [{:keys [result state app] :as env}]
              (swap! state assoc-in [:component/id :login :ui/loading?] false)
              (let [token (get-in result [:body 'pc4.users/login :io.jwt/token])]
                (js/console.log "response from remote: " result)
                (if token (swap! state update-in [:component/id :login] dissoc :ui/error)
                          (swap! state assoc-in [:component/id :login :ui/error] "Invalid username or password"))
                (reset! session/authentication-token token)
-               (route/route-to! ["home"])))
+               (dr/change-route! app ["home"])))
   (error-action [{:keys [state]}]
                 (swap! state assoc-in [:component/id :login :ui/loading?] false)))
 
 (defmutation logout
   [params]
-  (action [{:keys [state]}]
+  (action [{:keys [app state]}]
           (js/console.log "Performing logout action" params)
           (when (:message params)
             (swap! state assoc-in [:component/id :login :ui/error] (:message params)))
-          (route/route-to! ["home"])
+          (dr/change-route! app ["home"])
           (reset! session/authentication-token nil)
           (swap! state dissoc :session/authenticated-user)))
 

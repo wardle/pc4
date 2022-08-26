@@ -10,7 +10,6 @@
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
     [com.fulcrologic.fulcro.ui-state-machines :as uism :refer [defstatemachine]]
-    [com.fulcrologic.fulcro-css.css :as css]
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [pc4.app :refer [SPA]]
     [pc4.ui.core :as ui]

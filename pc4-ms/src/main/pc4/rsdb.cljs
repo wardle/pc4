@@ -2,7 +2,6 @@
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
-            [pc4.route :as route]
             [taoensso.timbre :as log]))
 
 
@@ -25,9 +24,10 @@
     (log/debug "Registering pseudonymous patient:" env)
     (m/returning env 'pc4.ui.patients/PatientPage))
   (ok-action
-    [{:keys [state ref] :as env}]                           ;; ref = ident of the component
+    [{:keys [state ref] :as env}]
+    (tap> {:mutation-env env}) ;; ref = ident of the component
     (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
       (do (log/debug "register patient : patient id: " patient-id)
-          (pc4.route/route-to! ["patients" patient-id]))
+          (com.fulcrologic.fulcro.routing.dynamic-routing/change-route! @pc4.app/SPA ["patient" patient-id]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))

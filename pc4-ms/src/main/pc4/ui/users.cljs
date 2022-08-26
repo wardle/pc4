@@ -8,7 +8,6 @@
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [pc4.app :refer [SPA]]
     [pc4.session :as session]
-    [pc4.route :as route]
     [pc4.ui.core :as ui]
     [pc4.ui.nav]
     [pc4.ui.projects]
@@ -47,8 +46,7 @@
    :ident :t_project/id}
   (dom/a :.cursor-pointer
          {:onClick #(do (js/console.log "selecting project " id name title)
-                        (comp/transact! this
-                                        [(route/route-to {:path (dr/path-to pc4.ui.projects/ProjectPage id)})]))}
+                        (dr/change-route! this (dr/path-to pc4.ui.projects/ProjectPage id)))}
          (dom/div :.px-3.py-1.text-sm.border
                   {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
                   title)))
@@ -89,7 +87,7 @@
                    :urn:oid:2.5.4/commonName :urn:oid:2.5.4/initials
                    {:>/projects (comp/get-query ListUserProjects)}
                    {:t_user/latest_news (comp/get-query NewsItem)}]
-   :initial-state {:>/projects []
+   :initial-state {:>/projects         []
                    :t_user/latest_news []}}
 
   (tap> user)
@@ -124,10 +122,9 @@
                           :initials  initials
                           :photo     (when has_photo (str "http://localhost:8080/users/cymru.nhs.uk/" username "/photo"))
                           :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}
-                         {:on-home #(comp/transact! @SPA [(route/route-to {:path ["home"]})])}))
+                         {:on-home #(dr/change-route! this ["home"])}))
 
 (def ui-nav-bar (comp/factory NavBar))
-
 
 (defsc Login
   "Login component that keeps user credentials in local state."
