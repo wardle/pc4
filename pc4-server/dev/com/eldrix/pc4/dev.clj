@@ -9,16 +9,19 @@
     [portal.api :as portal]
     [com.eldrix.pc4.rsdb.results :as results]
     [clojure.spec.alpha :as s]
-    [clojure.spec.gen.alpha :as gen]))
+    [clojure.spec.gen.alpha :as gen]
+    [cognitect.transit :as transit]
+    [com.eldrix.pc4.users :as users])
+  (:import (java.io ByteArrayOutputStream)))
 
 (stest/instrument)                                          ;; turn on instrumentation for development
 
 
 (comment
   (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
-  (def p (portal/open))                                     ;; open browser-based portal
+  (def p (portal/open))                                     ;; or... open browser-based portal
   (add-tap #'portal/submit)
-  (pc4/load-namespaces :dev [:pathom/env :com.eldrix.pc4.server/fulcro])
+
   (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
@@ -29,14 +32,9 @@
     (ig/halt! system)
     (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
 
-  ;; start a server using pedestal/jetty   - for all clients
+  ;; start a server using pedestal/jetty
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
-  (ig/halt! system)
-
-  ;; start a server using http-kit/ring    - for fulcro clients only
-  (pc4/load-namespaces :dev [:com.eldrix.pc4.fulcro/server])
-  (def system (pc4/init :dev [:com.eldrix.pc4.fulcro/server]))
   (ig/halt! system)
 
   ;; exercise some of the components...
@@ -53,11 +51,21 @@
 
   (require '[com.eldrix.pc4.rsdb.patients :as patients])
   (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
-  (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8}))
+  (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
 
-
-
-
+  (:pathom/ops system)
+  ;; for experimentation, we can create an authenticated environment in which we have a valid user:
+  (def env (com.eldrix.pc4.users/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
+  env
+  (def resp ((:pathom/boundary-interface system) env [(list 'pc4.rsdb/register-patient-by-pseudonym
+                                                            {:project-id 84, :nhs-number "111", :date-birth nil, :gender nil})]))
+  (def out (java.io.ByteArrayOutputStream. 4096))
+  (def writer (cognitect.transit/writer out :json))
+  (cognitect.transit/write writer resp)
+  (str out)
+  resp
+  (type resp)
+  (keys (get resp 'pc4.rsdb/register-patient-by-pseudonym)))
 
 
 (comment
@@ -209,14 +217,16 @@
   (com.eldrix.pc4.modules.dmt/write-data system :cambridge)
   (com.eldrix.pc4.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
-  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "username"
-                                                                         :t_user/first_names  "First names"
-                                                                         :t_user/last_name    "Last name"
-                                                                         :t_user/title        "Title"
+  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "jhunkin"
+                                                                         :t_user/first_names  "Josie"
+                                                                         :t_user/last_name    "Hunkin"
+                                                                         :t_user/title        "Ms"
+                                                                         :t_user/email        "josie.hunkin@nhs.net"
                                                                          :t_user/job_title_fk 8})
-  (def random-password (RandomStringUtils/randomAlphabetic 32))
-  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "username" random-password)
-  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "username"))
+  (def random-password (org.apache.commons.lang3.RandomStringUtils/randomAlphabetic 32))
+  random-password
+  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "jhunkin" random-password)
+  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "jhunkin"))
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
@@ -240,6 +250,10 @@
   (com.eldrix.pc4.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
                                                                  {:salt       global-salt :project-id 126 :nhs-number "4290060692"
                                                                   :date-birth (java.time.LocalDate/of 1983 7 3)})
+  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 126)
+  (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) 126 "0ef84a958ff85bf9e7ea022b73268952fdccf06f866efe794a7a0c4c5d7a8d8c")
+
+  (com.eldrix.pc4.rsdb.projects/discharge-episode! (:com.eldrix.rsdb/conn system) 1 {:t_episode/id 48256})
 
   (require '[com.eldrix.pc4.modules.dmt])
   (com.eldrix.pc4.modules.dmt/make-patient-identifiers-table system
