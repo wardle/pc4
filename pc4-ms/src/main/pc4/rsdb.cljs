@@ -1,5 +1,6 @@
 (ns pc4.rsdb
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+            [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [taoensso.timbre :as log]))
@@ -16,7 +17,6 @@
                 (m/with-target [:ui/search-patient-pseudonymous])
                 (m/returning 'pc4.ui.patients/PatientBanner)))))
 
-
 (defmutation register-patient-by-pseudonym
   [params]
   (remote
@@ -28,6 +28,6 @@
     (tap> {:mutation-env env}) ;; ref = ident of the component
     (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
       (do (log/debug "register patient : patient id: " patient-id)
-          (com.fulcrologic.fulcro.routing.dynamic-routing/change-route! @pc4.app/SPA ["patient" patient-id]))
+          (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))
