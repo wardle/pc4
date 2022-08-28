@@ -47,12 +47,12 @@
 (def ui-patient-banner* (comp/computed-factory PatientBanner*))
 
 (defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth sex date_death episodes]
-                            current-project :session/current-project}
+                            current-project :ui/current-project}
                       {:keys [onClose] :as computed-props}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex :t_patient/date_birth
            :t_patient/date_death :t_patient/episodes
-           {[:session/current-project '_] [:t_project/id]}]}
+           {[:ui/current-project '_] [:t_project/id]}]}
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (ui-patient-banner* {:name     (name sex)
@@ -61,7 +61,6 @@
                          :deceased date_death} computed-props)))
 
 (def ui-patient-banner (comp/computed-factory PatientBanner))
-
 
 (defsc PatientEncounters
   [this {:t_patient/keys [patient_identifier encounters]}]
@@ -77,15 +76,15 @@
 (def ui-patient-router (comp/factory PatientRouter))
 
 (defsc PatientPage
-  [this {:t_patient/keys [patient_identifier first_names last_name date_birth sex date_death nhs_number]
-         current-project :session/current-project
+  [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number]
+         current-project :ui/current-project
          banner          :>/banner
          router          :patient/router :as params}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patient" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
                          :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
-                         {[:session/current-project '_] [:t_project/id]}
+                         {[:ui/current-project '_] [:t_project/id]}
                          {:>/banner (comp/get-query PatientBanner)}
                          {:patient/router (comp/get-query PatientRouter)}]
    :initial-state       {:patient/router {}}
@@ -95,7 +94,7 @@
                             (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                                (fn []
                                                  (df/load! app [:t_patient/patient_identifier patient-identifier] PatientPage
-                                                           {:target               [:session/current-patient]
+                                                           {:target               [:ui/current-patient]
                                                             :post-mutation        `dr/target-ready
                                                             :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :allow-route-change? (constantly true)
@@ -103,10 +102,7 @@
                           (comp/transact! this [(pc4.users/close-patient nil)]))}
 
   (comp/fragment
-    (ui-patient-banner banner {:onClose #(do (tap> {:project current-project
-                                                    :params params})
-                                             (dr/change-route! this ["project" (:t_project/id current-project)]))})
-    (ui-patient-router router)
-    #_(ui-patient-demographics demographics)))
+    (ui-patient-banner banner {:onClose #(dr/change-route! this ["project" (:t_project/id current-project)])})
+    (ui-patient-router router)))
 
 (def ui-patient-page (comp/factory PatientPage))

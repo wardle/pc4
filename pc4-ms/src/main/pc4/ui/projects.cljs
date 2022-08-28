@@ -240,7 +240,7 @@
                                                (fn []
                                                  (log/info "Loading project: " project-id)
                                                  (df/load! app [:t_project/id project-id] ProjectPage
-                                                           {:target               [:session/current-project]
+                                                           {:target               [:ui/current-project]
                                                             :post-mutation        `dr/target-ready
                                                             :post-mutation-params {:target [:t_project/id project-id]}})))))
    :allow-route-change? (constantly true)}
