@@ -84,6 +84,7 @@
    :query                [:t_project/id
                           :ui/nhs-number :ui/date-birth :ui/sex :ui/error
                           fs/form-config-join]
+   :initial-state {}
    :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
    :componentDidMount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))
    :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))}
