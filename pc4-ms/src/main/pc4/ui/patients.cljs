@@ -90,7 +90,7 @@
    :initial-state       {:patient/router {}}
    :will-enter          (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                            (println "entering patient page: patient-identifier" patient-identifier)
+                            (println "entering patient page; patient-identifier:" patient-identifier)
                             (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                                (fn []
                                                  (df/load! app [:t_patient/patient_identifier patient-identifier] PatientPage
@@ -99,6 +99,7 @@
                                                             :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :allow-route-change? (constantly true)
    :will-leave          (fn [this props]
+                          (log/info "leaving patient page; patient identifier: " (:t_patient/patient_identifier props))
                           (comp/transact! this [(pc4.users/close-patient nil)]))}
 
   (comp/fragment
