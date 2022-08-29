@@ -15,6 +15,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [com.eldrix.concierge.nhs-number :as nhs-number]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.verhoeff :as verhoeff]
@@ -39,7 +40,7 @@
 ;;
 (s/def ::user-id int?)
 (s/def ::project-id int?)
-(s/def ::nhs-number #(com.eldrix.concierge.nhs-number/valid? (clojure.string/replace % " " "")))
+(s/def ::nhs-number #(nhs-number/valid? (str/replace % " " "")))
 (s/def ::sex #{:MALE :FEMALE :UNKNOWN})
 (s/def ::date-birth #(instance? LocalDate %))
 (s/def ::register-patient-by-pseudonym
