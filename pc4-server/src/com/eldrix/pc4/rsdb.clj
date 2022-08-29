@@ -90,7 +90,7 @@
 (pco/defresolver patient-by-pseudonym
   "Resolves patient identifier by a tuple of project id and pseudonym."
   [{conn :com.eldrix.rsdb/conn} {project-pseudonym :t_patient/project_pseudonym}]
-  {::pco/output  [:t_patient/patient_identifier]}
+  {::pco/output [:t_patient/patient_identifier]}
   (let [[project-id pseudonym] project-pseudonym]
     (projects/search-by-project-pseudonym conn project-id pseudonym)))
 
@@ -121,7 +121,7 @@
 
 (pco/defresolver patient-hospital->authority
   [{clods :com.eldrix.clods.graph/svc} {hospital_fk         :t_patient_hospital/hospital_fk
-                              hospital_identifier :t_patient_hospital/hospital_identifier}]
+                                        hospital_identifier :t_patient_hospital/hospital_identifier}]
   {::pco/input  [:t_patient_hospital/hospital_fk
                  :t_patient_hospital/hospital_identifier]
    ::pco/output [:t_patient_hospital/authoritative_demographics]}
@@ -143,7 +143,7 @@
   properties against this record to fetch FHIR-flavoured data.
   TODO: switch to using a parameterised resolver to check match status."
   [{clods :com.eldrix.clods.graph/svc} {auth :t_patient_hospital/authoritative_demographics
-                              crn  :t_patient_hospital/patient_identifier}]
+                                        crn  :t_patient_hospital/patient_identifier}]
   {::pco/input  [:t_patient_hospital/authoritative_demographics
                  :t_patient_hospital/patient_identifier]
    ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
@@ -790,7 +790,8 @@
   This uses the legacy approach, which *will* be deprecated."
   [{conn :com.eldrix.rsdb/conn} {:keys [project-id pseudonym] :as params}]
   {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
-   ::pco/output  [:t_patient/patient_identifier
+   ::pco/output  [:t_patient/id
+                  :t_patient/patient_identifier
                   :t_episode/stored_pseudonym
                   :t_episode/project_fk]}
   (log/debug "search-patient-by-pseudonym" params)
