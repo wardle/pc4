@@ -230,8 +230,8 @@
 
          [select-patients @search-results
           :select-fn (fn [pt] (rf/dispatch [::patient-events/set-current-patient pt]))
-          :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)]
-         ]))))
+          :is-selectable-fn (complement :org.hl7.fhir.Patient/deceased)]]))))
+
 
 (def menu
   {:title "Make a referral"
@@ -270,8 +270,8 @@
   (render-menu (assoc menu
                  :selected ::who-are-you?
                  :enabled #{::who-are-you? ::who-is-patient?}
-                 :choose-fn nil))
-  )
+                 :choose-fn nil)))
+
 
 (defn login-panel
   []

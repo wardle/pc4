@@ -25,9 +25,9 @@
         [:label.block.text-sm.font-medium.text-gray-700 {:for "about"} "About"]
         [:div.mt-1
          [:textarea#about.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-300.rounded-md {:name "about" :rows "3"}]]
-        [:p.mt-2.text-sm.text-gray-500 "Write a few sentences about yourself."]]
+        [:p.mt-2.text-sm.text-gray-500 "Write a few sentences about yourself."]]]]]]
 
-       ]]]]
+
    [:p "Read back: " values]
 
    [:input
