@@ -41,16 +41,16 @@
                                 :autoFocus true
                                 :value (or (comp/get-state this :s) "")
                                 :onKeyDown #(when (and patient (evt/enter-key? %))
-                                              (dr/change-route! this ["patient" (:t_patient/patient_identifier patient)]))
+                                              (dr/change-route! this ["patient" (:t_patient/patient_identifier patient) "demographics"]))
                                 :onChange  #(let [s (evt/target-value %)]
-                                              (println "Patient search " s)
                                               (comp/set-state! this {:s s})
-                                              (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})]))}))
+                                              (when (>= (count s) 3)
+                                                (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])))}))
                (when (:t_patient/patient_identifier patient)
                  (div
                    (pc4.ui.patients/ui-patient-banner patient)
                    (ui/ui-submit-button {:label "View patient record »"}
-                                        {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient)])})))))))))
+                                        {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient) "demographics"])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 

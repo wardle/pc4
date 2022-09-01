@@ -14,7 +14,6 @@
             [taoensso.timbre :as log])
   (:import [goog.date Date]))
 
-
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased content]} {:keys [onClose]}]
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
@@ -55,7 +54,7 @@
            {[:ui/current-project '_] [:t_project/id]}]}
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
-    (ui-patient-banner* {:name     (name sex)
+    (ui-patient-banner* {:name     (when sex (name sex))
                          :born     (if (= :PSEUDONYMOUS status) (ui/format-month-year date_birth) (ui/format-date date_birth))
                          :address  pseudonym
                          :deceased date_death} computed-props)))
@@ -63,39 +62,50 @@
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc PatientEncounters
-  [this {:t_patient/keys [patient_identifier encounters]}]
+  [this {:t_patient/keys [patient_identifier encounters]
+         banner          :>/banner
+         current-project :ui/current-project}]
   {:ident         :t_patient/patient_identifier
-   :route-segment ["encounters"]
+   :route-segment ["patient" :t_patient/patient_identifier "encounters"]
    :query         [:t_patient/patient_identifier
-                   :t_patient/encounters]}
-  (div (dom/h1 "Encounters")))
+                   {:>/banner (comp/get-query PatientBanner)}
+                   {[:ui/current-project '_] [:t_project/id]}
+                   {:t_patient/encounters [:t_encounter/date_time
+                                           :t_encounter/is_deleted
+                                           :t_encounter/users]}]
+   :will-enter    (fn [app {:t_patient/keys [patient_identifier]}]
+                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
+                      (println "entering patient encounters page; patient-identifier:" patient-identifier " : " PatientEncounters)
+                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                         (fn []
+                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientEncounters
+                                                     {:post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
+   :initial-state {}}
+  (comp/fragment
+    (ui-patient-banner banner {:onClose #(dr/change-route! this ["project" (:t_project/id current-project)])})
+    (dom/h1 "Encounters: " patient_identifier ": " (count encounters))
+    (dom/a {:onClick #(dr/change-route! this ["patient" patient_identifier "demographics"])} "Demographics")))
 
-(defrouter PatientRouter [this props]
-  {:router-targets [ PatientEncounters]})
-
-(def ui-patient-router (comp/factory PatientRouter))
 
 (defsc PatientPage
   [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number]
          current-project :ui/current-project
-         banner          :>/banner
-         router          :patient/router :as params}]
+         banner          :>/banner}]
   {:ident               :t_patient/patient_identifier
-   :route-segment       ["patient" :t_patient/patient_identifier]
+   :route-segment       ["patient" :t_patient/patient_identifier "demographics"]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
                          :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
                          {[:ui/current-project '_] [:t_project/id]}
-                         {:>/banner (comp/get-query PatientBanner)}
-                         {:patient/router (comp/get-query PatientRouter)}]
-   :initial-state       {:patient/router {}}
-   :will-enter          (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+                         {:>/banner (comp/get-query PatientBanner)}]
+   :initial-state       {}
+   :will-enter          (fn [app {:t_patient/keys [patient_identifier]}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                            (println "entering patient page; patient-identifier:" patient-identifier)
+                            (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientPage)
                             (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                                (fn []
                                                  (df/load! app [:t_patient/patient_identifier patient-identifier] PatientPage
-                                                           {:target               [:ui/current-patient]
-                                                            :post-mutation        `dr/target-ready
+                                                           {:post-mutation        `dr/target-ready
                                                             :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :allow-route-change? (constantly true)
    :will-leave          (fn [this props]
@@ -104,6 +114,10 @@
 
   (comp/fragment
     (ui-patient-banner banner {:onClose #(dr/change-route! this ["project" (:t_project/id current-project)])})
-    (ui-patient-router router)))
+    (dom/h1 "Main demographics page")
+    (dom/ul
+      (dom/li "id:" patient_identifier)
+      (dom/li "Name: " first_names " " last_name))
+    (dom/a {:onClick #(dr/change-route! this ["patient" patient_identifier "encounters"])} "Encounters")))
 
 (def ui-patient-page (comp/factory PatientPage))

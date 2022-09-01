@@ -77,18 +77,21 @@
 
 
 (defrouter MainRouter [this props]
-  {:router-targets [HomePage pc4.ui.projects/ProjectPage pc4.ui.patients/PatientPage]})
+  {:router-targets [HomePage
+                    pc4.ui.projects/ProjectPage
+                    pc4.ui.patients/PatientPage
+                    pc4.ui.patients/PatientEncounters]})
 
 (def ui-main-router (comp/factory MainRouter))
 
 (defsc Root [this {authenticated-user :session/authenticated-user
-                   router             :root/router
-                   login              :root/login}]
+                   router             :ui/main-router
+                   login              :ui/login}]
   {:query         [{:session/authenticated-user (comp/get-query users/NavBar)}
-                   {:root/router (comp/get-query MainRouter)}
-                   {:root/login (comp/get-query users/Login)}]
-   :initial-state {:root/router {}
-                   :root/login  {}
+                   {:ui/main-router (comp/get-query MainRouter)}
+                   {:ui/login (comp/get-query users/Login)}]
+   :initial-state {:ui/main-router {}
+                   :ui/login  {}
                    :session/authenticated-user {}}}
 
   (if-not (seq authenticated-user)
