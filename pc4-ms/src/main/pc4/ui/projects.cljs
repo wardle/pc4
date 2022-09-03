@@ -39,9 +39,9 @@
                     (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
                                {:type      "text" :placeholder "Start typing pseudonym"
                                 :autoFocus true
-                                :value (or (comp/get-state this :s) "")
+                                :value     (or (comp/get-state this :s) "")
                                 :onKeyDown #(when (and patient (evt/enter-key? %))
-                                              (dr/change-route! this ["patient" (:t_patient/patient_identifier patient) "demographics"]))
+                                              (dr/change-route! this ["patient" (:t_patient/patient_identifier patient)]))
                                 :onChange  #(let [s (evt/target-value %)]
                                               (comp/set-state! this {:s s})
                                               (when (>= (count s) 3)
@@ -50,7 +50,7 @@
                  (div
                    (pc4.ui.patients/ui-patient-banner patient)
                    (ui/ui-submit-button {:label "View patient record »"}
-                                        {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient) "demographics"])})))))))))
+                                        {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient)])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
@@ -84,9 +84,9 @@
    :query                [:t_project/id
                           :ui/nhs-number :ui/date-birth :ui/sex :ui/error
                           fs/form-config-join]
-   :initial-state {}
+   :initial-state        {}
    :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
-   :componentDidMount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))
+   :componentDidMount    (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))
    :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))}
   (let [do-register (fn [] (do (println "Attempting to register" props)
                                (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id

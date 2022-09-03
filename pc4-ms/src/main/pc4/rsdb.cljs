@@ -15,7 +15,7 @@
           (when (seq params)
             (-> env
                 (m/with-target [:ui/search-patient-pseudonymous])
-                (m/returning 'pc4.ui.patients/PatientPage)))))
+                (m/returning 'pc4.ui.patients/PatientBanner)))))
 
 (defmutation register-patient-by-pseudonym
   [params]
@@ -28,6 +28,6 @@
     (tap> {:mutation-env env}) ;; ref = ident of the component
     (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
       (do (log/debug "register patient : patient id: " patient-id)
-          (dr/change-route! @pc4.app/SPA ["patient" patient-id "demographics"]))
+          (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))
