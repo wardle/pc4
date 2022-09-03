@@ -74,7 +74,7 @@
 (s/def :ui/nhs-number (s/and string? #(re-matches #"\d{10}" (str/replace % #" " ""))))
 (s/def :ui/date-birth (s/and #(instance? Date %)
                              #(pos-int? (Date/compare % (Date. 1900 1 1)))
-                             #(pos-int? (Date/compare (Date.) %))))
+                             #(nat-int? (Date/compare (Date.) %))))
 (s/def :ui/sex #{:MALE :FEMALE})
 
 (defsc RegisterByPseudonym
