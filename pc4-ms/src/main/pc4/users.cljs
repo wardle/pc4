@@ -57,12 +57,12 @@
 (defmutation open-project [{:t_project/keys [id]}]
   (action [{:keys [state]}]
           (js/console.log "Opening project " id)
-          (swap! state assoc :session/current-project [:t_project/id id])))
+          (swap! state assoc :ui/current-project [:t_project/id id])))
 
 (defmutation close-project [params]
   (action [{:keys [state]}]
-          (swap! state dissoc :session/current-project)))
+          (swap! state dissoc :ui/current-project)))
 
 (defmutation close-patient [params]
   (action [{:keys [state]}]
-          (swap! state dissoc :session/current-patient)))
+          (swap! state dissoc :ui/current-patient)))
