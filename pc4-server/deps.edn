@@ -26,7 +26,7 @@
              com.fulcrologic/fulcro            {:mvn/version "3.5.24"}
              com.github.seancorfield/honeysql  {:mvn/version "2.3.911"}
              com.github.seancorfield/next.jdbc {:mvn/version "1.2.796"}
-             com.wsscode/pathom3               {:mvn/version "2022.08.26-alpha"}
+             com.wsscode/pathom3               {:mvn/version "2022.08.29-alpha"}
              com.zaxxer/HikariCP               {:mvn/version "5.0.1"}
 
              expound/expound                   {:mvn/version "0.9.0"}
