@@ -43,7 +43,7 @@
                            :ns-default build}
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-beta0"}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.0"}
                                         io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                                         io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
                                         ring/ring-core                 {:mvn/version "1.9.5"}
@@ -55,7 +55,7 @@
                                         "--illegal-access=permit"]}
 
              :repl-server {:exec-fn    clojure.core.server/start-server
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.3.0-beta0"}}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.0"}}
                            :exec-args  {:name          "repl-server"
                                         :port          5555
                                         :accept        clojure.core.server/repl
@@ -64,7 +64,7 @@
              :dev         {:extra-paths ["dev"]
                            :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                                          com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
-                                         ch.qos.logback/logback-classic           {:mvn/version "1.3.0-beta0"}
+                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.0"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}}
 
              :portal      {:extra-deps {djblue/portal {:mvn/version "0.29.1"}}}
