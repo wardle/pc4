@@ -251,13 +251,13 @@
            (dom/ul :.flex
                    (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
                    (ui/flat-menu [{:title "Home" :id :home}
-                                  {:title "Search" :id :search}
                                   {:title "Register" :id :register}
+                                  {:title "Search" :id :search}
                                   {:title "Users" :id :users}]
                                  :selected-id selected-page
-                                 :select-fn #(do
-                                               (println "selected " %)
-                                               (comp/set-state! this {:selected-page %})))))
+                                 :select-fn (fn [{:keys [id] :as item}]
+                                              (println "selected " item)
+                                              (comp/set-state! this {:selected-page id})))))
       (case selected-page
         :home (ui-project-home home)
         :search (ui-patient-search-by-pseudonym search)
