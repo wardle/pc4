@@ -226,3 +226,25 @@
               label))
 
 (def ui-submit-button (comp/computed-factory UISubmitButton))
+
+(defn ui-table [content]
+  (dom/div :.mt-8.flex.flex-col
+    (dom/div :.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
+      (dom/div :.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8
+               (dom/div :.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
+                        (dom/table :.min-w-full.divide-y.divide-gray-200 content))))))
+
+(defn ui-table-head [content]
+  (dom/thead :.bg-gray-50 content))
+
+(defn ui-table-heading [content]
+  (dom/th :.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider content))
+
+(defn ui-table-body [content]
+  (dom/tbody :.bg-white content))
+
+(defn ui-table-row [content]
+  (dom/tr content))
+
+(defn ui-table-cell [content]
+  (dom/td :.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500 content))
