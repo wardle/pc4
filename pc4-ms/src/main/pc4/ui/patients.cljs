@@ -11,8 +11,19 @@
             [pc4.ui.core :as ui]
             [pc4.rsdb]
             [pc4.users]
-            [taoensso.timbre :as log])
+            [taoensso.timbre :as log]
+            [cljs.spec.alpha :as s])
   (:import [goog.date Date]))
+
+(defn most-recent-edss-encounter
+  "From a collection of encounters, return the most recent containing an EDSS result."
+  [encounters]
+  (->> encounters
+       (filter :t_encounter/active)
+       (sort-by :t_encounter/date_time)
+       (filter #(or (:t_encounter/form_edss %) (:t_encounter/form_edss_fs %)))
+       reverse
+       first))
 
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased content]} {:keys [onClose]}]
@@ -21,7 +32,8 @@
          (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
               (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
                           {:onClick onClose :title "Close patient record"}
-                          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
+                          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
+                                   (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
        (when deceased
          (div :.grid.grid-cols-1.pb-2
               (ui/ui-badge {:label (cond
@@ -61,6 +73,39 @@
 
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
+(defsc EncounterListItem [this {:t_encounter/keys [date_time encounter_template form_edss form_edss_fs form_ms_relapse form_weight_height]}]
+  {:ident :t_encounter/id
+   :query [:t_encounter/id :t_encounter/date_time :t_encounter/active
+           {:t_encounter/encounter_template [:t_encounter_template/title]}
+           :t_encounter/notes
+           {:t_encounter/form_edss [:t_form_edss/score]}
+           {:t_encounter/form_edss_fs [:t_form_edss_fs/score]}
+           {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse :t_ms_disease_course/name]}
+           {:t_encounter/form_weight_height [:t_form_weight_height/weight_kilogram]}]}
+  (ui/ui-table-row
+          [(ui/ui-table-cell (ui/format-date date_time))
+           (ui/ui-table-cell (:t_encounter_template/title encounter_template))
+           (ui/ui-table-cell (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss_fs)))
+           (ui/ui-table-cell (:t_ms_disease_course/name form_ms_relapse))
+           (ui/ui-table-cell (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
+           (ui/ui-table-cell (when-let [wt (:t_form_weight_height/weight_kilogram form_weight_height)] (str wt "kg")))]))
+
+(def ui-encounter-list-item (comp/factory EncounterListItem))
+
+(defsc MostRecentEDSS [this props]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier
+           {:t_patient/encounters [:t_encounter/active
+                                   :t_encounter/date_time
+                                   :t_encounter/form_edss
+                                   :t_encounter/form_edss_fs]}]})
+
+(defsc PatientMultipleSclerosisSummary [this props]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier
+           :t_summary_multiple_sclerosis/diagnosis
+           {:>/most-recent-edss (comp/get-query MostRecentEDSS)}]})
+
 (defsc PatientDemographics
   [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex]}]
   {:ident :t_patient/patient_identifier
@@ -78,15 +123,21 @@
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/patient_identifier
                    [df/marker-table :patient-encounters]
-                   {:t_patient/encounters [:t_encounter/date_time
-                                           :t_encounter/is_deleted
-                                           :t_encounter/users]}]
+                   {:t_patient/encounters (comp/query EncounterListItem)}]
    :initial-state {}}
   (let [load-marker (get props [df/marker-table :patient-encounters])]
     (comp/fragment
-      (dom/h1 "Encounters: " patient_identifier ": " (count encounters))
-      (when (df/loading? load-marker) (dom/p "Loading"))
-      (dom/button {:onClick #(df/load-field! this :t_patient/encounters {})} "LOAD ENCOUNTERS"))))
+      (when (df/loading? load-marker) (ui/ui-loading {}))
+      (ui/ui-table
+        [(ui/ui-table-head
+           (ui/ui-table-row
+             [(ui/ui-table-heading "Date")
+              (ui/ui-table-heading "Type")
+              (ui/ui-table-heading "EDSS")
+              (ui/ui-table-heading "Disease course")
+              (ui/ui-table-heading "In relapse?")
+              (ui/ui-table-heading "Weight")]))
+         (ui/ui-table-body (map ui-encounter-list-item encounters))]))))
 
 (def ui-patient-encounters (comp/factory PatientEncounters))
 
@@ -100,7 +151,7 @@
    :route-segment       ["patient" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
                          :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
-                         :t_patient/encounters
+                         {:t_patient/encounters (comp/get-query EncounterListItem)}
                          {[:ui/current-project '_] [:t_project/id]}
                          {:>/banner (comp/get-query PatientBanner)}
                          {:>/demographics (comp/get-query PatientDemographics)}
@@ -132,8 +183,10 @@
         (dom/li (dom/button {:onClick #(do (df/load-field! this [:t_patient/patient_identifier :t_patient/encounters] {:marker :patient-encounters})
                                            (comp/set-state! this {:selected-page :encounters}))} "Encounters")))
 
-      (case selected-page
-        :home (ui-patient-demographics demographics)
-        :encounters (ui-patient-encounters encounters)))))
+      (dom/div :.pt-3.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+               (dom/div :.px-4.py-5.sm:p-6
+                        (case selected-page
+                          :home (ui-patient-demographics demographics)
+                          :encounters (ui-patient-encounters encounters)))))))
 
 (def ui-patient-page (comp/factory PatientPage))
