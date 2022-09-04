@@ -79,8 +79,7 @@
 (defrouter MainRouter [this props]
   {:router-targets [HomePage
                     pc4.ui.projects/ProjectPage
-                    pc4.ui.patients/PatientPage
-                    pc4.ui.patients/PatientEncounters]})
+                    pc4.ui.patients/PatientPage]})
 
 (def ui-main-router (comp/factory MainRouter))
 
