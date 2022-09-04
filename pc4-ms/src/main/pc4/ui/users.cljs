@@ -126,6 +126,14 @@
 
 (def ui-user-photo (comp/factory UserPhoto))
 
+(defsc GlobalNetworkActivity [this {active-remotes :com.fulcrologic.fulcro.application/active-remotes}]
+  {:query [[:com.fulcrologic.fulcro.application/active-remotes '_]]
+   :ident (fn [] [:component/id :global-activity])
+   :initial-state {}}
+  (when (seq active-remotes)
+    (ui/ui-loading {})))
+
+
 (defsc NavBar
   [this {:t_user/keys [id username title first_names last_name initials has_photo] :as params}]
   {:ident :t_user/id
