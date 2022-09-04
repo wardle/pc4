@@ -13,6 +13,7 @@
     [pc4.session :as session]
     [pc4.ui.root :as root]
     [pc4.ui.users]
+    ["big.js" :as Big]
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
 
@@ -20,7 +21,8 @@
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
-  (app/mount! @SPA root/Root "app"))
+  (app/mount! @SPA root/Root "app")
+  (comp/refresh-dynamic-queries! @SPA))
 
 (defn wrap-authentication-token
   "Client Remote Middleware to add bearer token to outgoing requests."
@@ -48,6 +50,10 @@
   (transit/type-handler goog.date.DateTime "LocalDateTime"
                         (fn [^goog.date.DateTime dt] (.toIsoString dt true))
                         #(DateTime/fromIsoString %)))
+(transit/install-type-handler!
+  (transit/type-handler Big "f"
+                        (fn [^Big x] (.toString x))
+                        #(Big. %)))
 (defn make-SPA []
   (app/fulcro-app
     {:global-eql-transform
