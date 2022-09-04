@@ -53,6 +53,19 @@
 
 (def ui-project-button (comp/factory ProjectButton {:keyfn :t_project/id}))
 
+
+(defsc PatientById [this props]
+  (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+             {:type      "text" :placeholder "Patient identifier"
+              :autoFocus true
+              :value     (or (comp/get-state this :s) "")
+              :onKeyDown #(when (evt/enter-key? %)
+                            (dr/change-route! this ["patient" (js/parseInt (comp/get-state this :s))]))
+              :onChange  #(let [s (evt/target-value %)]
+                            (comp/set-state! this {:s s}))}))
+
+(def ui-patient-by-id (comp/factory PatientById))
+
 (defsc ListUserProjects [this {:t_user/keys [active_projects]}]
   {:query [:t_user/id {:t_user/active_projects (comp/get-query ProjectButton)}]
    :ident :t_user/id}
@@ -60,6 +73,7 @@
         has-clinical? (seq (:NHS grouped))
         has-research? (seq (:RESEARCH grouped))]
     (div :.border-solid.border-gray-800.bg-gray-50.border.rounded.shadow-lg
+         (ui-patient-by-id {})
          (div :.bg-gray-800.text-white.px-2.py-2.border-solid.border-grey-800 "My projects / services")
          (when has-clinical?
            (comp/fragment
