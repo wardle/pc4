@@ -369,7 +369,7 @@
                    :t_result_mri_brain/t2_range_upper t2-upper')
             (and t2-lower' t2-upper' old-t2-upper old-t2-lower)
             (assoc :t_result_mri_brain/calc_change_t2 (math/round (-  (/ (+ t2-lower' t2-upper') 2) (/ (+ old-t2-lower old-t2-upper) 2))))
-            (pos-int? t2-change)
+            (nat-int? t2-change)
             (assoc :t_result_mri_brain/calc_change_t2 t2-change))))
 
 
