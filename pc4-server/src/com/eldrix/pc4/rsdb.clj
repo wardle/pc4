@@ -226,7 +226,7 @@
                                                  :from   [:t_diagnosis]
                                                  :where  [:= :patient_fk patient-pk]}))]
     {:t_patient/diagnoses
-     (map #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
+     (mapv #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
@@ -280,7 +280,7 @@
                                                   :from   [:t_medication]
                                                   :where  [:= :patient_fk patient-pk]}))]
     {:t_patient/medications                                 ;; and now just add a property to permit walking to SNOMED CT
-     (map #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
+     (mapv #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -360,7 +360,7 @@
                                                              :order-by [[:t_episode/date_registration :asc]
                                                                         [:t_episode/date_referral :asc]
                                                                         [:t_episode/date_discharge :asc]]}))
-                            (map #(assoc % :t_episode/status (projects/episode-status %))))})
+                            (mapv #(assoc % :t_episode/status (projects/episode-status %))))})
 
 
 (def project-properties
