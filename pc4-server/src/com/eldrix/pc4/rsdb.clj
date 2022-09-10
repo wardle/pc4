@@ -571,6 +571,18 @@
                                           :t_form_edss_fs/edss_score]}]}
   {:t_encounter/form_edss (forms/encounter->form_edss conn encounter-id)})
 
+(pco/defresolver form_edss-score->score
+  [{edss_score :t_form_edss/edss_score}]
+  {::pco/input [:t_form_edss/edss_score]
+   ::pco/output [:t_form_edss/score]}
+  {:t_form_edss/score (forms/edss-score->score edss_score)})
+
+(pco/defresolver form_edss_fs-score->score
+  [{edss_score :t_form_edss_fs/edss_score}]
+  {::pco/input [:t_form_edss_fs/edss_score]
+   ::pco/output [:t_form_edss_fs/score]}
+  {:t_form_edss_fs/score (forms/edss-score->score edss_score)})
+
 (pco/defresolver encounter->form_ms_relapse
   [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
@@ -1197,6 +1209,8 @@
    encounter->hospital
    encounter_template->encounter_type
    encounter->form_edss
+   form_edss-score->score
+   form_edss_fs-score->score
    encounter->form_ms_relapse
    encounter->form_weight_height
    encounter->form_smoking
