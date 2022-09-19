@@ -27,7 +27,7 @@
 
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
-  (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.relative
+  (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
        (when onClose
          (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
               (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
@@ -89,7 +89,7 @@
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc EncounterListItem
-  [this {:t_encounter/keys [date_time encounter_template form_edss form_edss_fs form_ms_relapse form_weight_height]}]
+  [this {:t_encounter/keys [id date_time encounter_template form_edss form_edss_fs form_ms_relapse form_weight_height]}]
   {:ident :t_encounter/id
    :query [:t_encounter/id :t_encounter/date_time :t_encounter/active
            {:t_encounter/encounter_template [:t_encounter_template/title]}
@@ -98,13 +98,13 @@
            {:t_encounter/form_edss_fs [:t_form_edss_fs/score]}
            {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse :t_ms_disease_course/name]}
            {:t_encounter/form_weight_height [:t_form_weight_height/weight_kilogram]}]}
-  (ui/ui-table-row
-    [(ui/ui-table-cell (ui/format-date date_time))
-     (ui/ui-table-cell (:t_encounter_template/title encounter_template))
-     (ui/ui-table-cell (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss_fs)))
-     (ui/ui-table-cell (:t_ms_disease_course/name form_ms_relapse))
-     (ui/ui-table-cell (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
-     (ui/ui-table-cell (when-let [wt (:t_form_weight_height/weight_kilogram form_weight_height)] (str wt "kg")))]))
+  (ui/ui-table-row {}
+                   (ui/ui-table-cell {} (ui/format-date date_time))
+                   (ui/ui-table-cell {} (:t_encounter_template/title encounter_template))
+                   (ui/ui-table-cell {} (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss_fs)))
+                   (ui/ui-table-cell {} (:t_ms_disease_course/name form_ms_relapse))
+                   (ui/ui-table-cell {} (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
+                   (ui/ui-table-cell {} (when-let [wt (:t_form_weight_height/weight_kilogram form_weight_height)] (str wt "kg")))))
 
 (def ui-encounter-list-item (comp/factory EncounterListItem {:keyfn :t_encounter/id}))
 
@@ -143,60 +143,82 @@
   (let [load-marker (get props [df/marker-table :patient-encounters])]
     (comp/fragment
       (when (df/loading? load-marker) (ui/ui-loading-screen {:dim? false}))
-      (ui/ui-table
-        [(ui/ui-table-head
-           (ui/ui-table-row
-             [(ui/ui-table-heading "Date")
-              (ui/ui-table-heading "Type")
-              (ui/ui-table-heading "EDSS")
-              (ui/ui-table-heading "Disease course")
-              (ui/ui-table-heading "In relapse?")
-              (ui/ui-table-heading "Weight")]))
-         (ui/ui-table-body (->> encounters
-                                (filter :t_encounter/active)
-                                (map ui-encounter-list-item)))]))))
+      (ui/ui-table {}
+                   (ui/ui-table-head {}
+                                     (ui/ui-table-row {}
+                                                      (ui/ui-table-heading {} "Date")
+                                                      (ui/ui-table-heading {} "Type")
+                                                      (ui/ui-table-heading {} "EDSS")
+                                                      (ui/ui-table-heading {} "Disease course")
+                                                      (ui/ui-table-heading {} "In relapse?")
+                                                      (ui/ui-table-heading {} "Weight")))
+                   (ui/ui-table-body {} (->> encounters
+                                             (filter :t_encounter/active)
+                                             (map ui-encounter-list-item)))))))
 
 (def ui-patient-encounters (comp/factory PatientEncounters))
 
 (defsc DiagnosisListItem
-  [this {:t_diagnosis/keys [date_onset date_diagnosis date_to status diagnosis]}]
+  [this {:t_diagnosis/keys [id date_onset date_diagnosis date_to status diagnosis]}]
   {:ident :t_diagnosis/id
    :query [:t_diagnosis/id :t_diagnosis/date_diagnosis :t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/status
            {:t_diagnosis/diagnosis [:info.snomed.Concept/id
                                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
-  (ui/ui-table-row
-    [(ui/ui-table-cell (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-     (ui/ui-table-cell (ui/format-date date_onset))
-     (ui/ui-table-cell (ui/format-date date_diagnosis))
-     (ui/ui-table-cell (ui/format-date date_to))
-     (ui/ui-table-cell (str status))
-     (ui/ui-table-cell "")]))
+  (ui/ui-table-row {}
+                   (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                   (ui/ui-table-cell {} (ui/format-date date_onset))
+                   (ui/ui-table-cell {} (ui/format-date date_diagnosis))
+                   (ui/ui-table-cell {} (ui/format-date date_to))
+                   (ui/ui-table-cell {} (str status))
+                   (ui/ui-table-cell {} "")))
 
 (def ui-diagnosis-list-item (comp/factory DiagnosisListItem {:keyfn :t_diagnosis/id}))
 
+(defn diagnoses-table
+  [{:keys [title diagnoses onAddDiagnosis]}]
+  (dom/div
+    (ui/ui-title
+      {:title title}
+      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis" :onClick onAddDiagnosis})))
+    (ui/ui-table
+      {}
+      (ui/ui-table-head {}
+                        (ui/ui-table-row
+                          {} (map #(ui/ui-table-heading {:react-key %} %)) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""]))
+      (ui/ui-table-body {} (->> diagnoses
+                                (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                                (map ui-diagnosis-list-item))))))
 
 (defsc PatientDiagnoses
-  [this {:t_patient/keys [diagnoses]}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier
-           {:t_patient/diagnoses (comp/query DiagnosisListItem)}]}
-  (ui/ui-table
-    [(ui/ui-table-head
-       (ui/ui-table-row
-         (map ui/ui-table-heading ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""])))
-     (ui/ui-table-body
-       (->> diagnoses
-            (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-            (map ui-diagnosis-list-item)))]))
+  [this {:t_patient/keys [diagnoses] :ui/keys [edit-diagnosis]}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/patient_identifier
+                   {:t_patient/diagnoses (comp/query DiagnosisListItem)}
+                   :ui/edit-diagnosis]
+   :initial-state {:ui/edit-diagnosis {}}}
+  (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
+        inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
+    (comp/fragment
+      (when (seq edit-diagnosis)
+        (dom/p "Editing"))
+      (diagnoses-table {:title          "Active diagnoses"
+                        :diagnoses      active-diagnoses
+                        :onAddDiagnosis #(println "OOO")})
+      (when (seq inactive-diagnoses)
+        (diagnoses-table {:title     "Inactive diagnoses"
+                          :diagnoses inactive-diagnoses})))))
 
-(def ui-patient-diagnoses (comp/factory PatientDiagnoses))
+
+
+(def ui-patient-diagnoses (comp/computed-factory PatientDiagnoses))
 
 
 (defsc MedicationListItem
-  [this {:t_medication/keys [date_from date_to medication]}]
+  [this {:t_medication/keys [date_from date_to medication] :as params}]
   {:ident :t_medication/id
    :query [:t_medication/id :t_medication/date_from :t_medication/date_to
            {:t_medication/medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]}]}
+  (println "medication: " params)
   (ui/ui-table-row
     [(ui/ui-table-cell (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
      (ui/ui-table-cell (ui/format-date date_from))
@@ -216,7 +238,6 @@
          (map ui/ui-table-heading ["Treatment" "Date from" "Date to" ""])))
      (ui/ui-table-body
        (->> medications
-            #_(sort-by :t_medication/date_from)
             (map ui-medication-list-item)))]))
 
 (def ui-patient-medication (comp/factory PatientMedication))
@@ -273,10 +294,10 @@
                                                (when load-field (df/load-field! this load-field {:marker load-marker}))
                                                (comp/set-state! this {:selected-page id}))))})
 
-      (dom/div :.m-2.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+      (dom/div :.lg:m-4.sm:m-0.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
                (case selected-page
                  :home (ui-patient-demographics demographics)
-                 :diagnoses (ui-patient-diagnoses diagnoses)
+                 :diagnoses (ui-patient-diagnoses diagnoses {:title "Active diagnoses"})
                  :medication (ui-patient-medication medication)
                  :encounters (ui-patient-encounters encounters)
                  (div "Page not found"))))))

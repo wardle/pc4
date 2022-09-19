@@ -228,7 +228,35 @@
 
 (def ui-submit-button (comp/computed-factory UISubmitButton))
 
-(defn ui-table [content]
+(defsc UITitleButton [this {:keys [title]} {:keys [onClick]}]
+  (dom/button
+    :.inline-flex.items-center.justify-center.rounded-md.border.border-transparent.bg-indigo-600.px-4.py-2.text-sm.font-medium.text-white.shadow-sm.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-indigo-500.focus:ring-offset-2.sm:w-auto
+    {:type    "button"
+     :onClick onClick}
+    title))
+
+(def ui-title-button (comp/computed-factory UITitleButton))
+
+(defsc UITitle [this {:keys [key title subtitle]}]
+  (let [content (comp/children this)]
+    (dom/div
+      :.sm:flex.sm:items-center.p-4 {:key key}
+      (dom/div
+        :.sm:flex-auto
+        (dom/h1 :.text-xl.font-semibold.text-gray-900 title)
+        (when subtitle
+          (dom/p
+            :.mt-2.text-sm.text-gray-700
+            subtitle)))
+      (when content
+        (dom/div
+          :.mt-4.sm:mt-0.sm:ml-16.sm:flex-none
+          content)))))
+
+(def ui-title (comp/factory UITitle))
+
+(defsc UITable
+  [this props]
   (dom/div
     :.flex.flex-col
     (dom/div
@@ -238,19 +266,58 @@
         (dom/div
           :.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg)
         (dom/table
-          :.min-w-full.divide-y.divide-gray-200 content)))))
+          :.min-w-full.divide-y.divide-gray-200 (comp/children this))))))
 
-(defn ui-table-head [content]
-  (dom/thead :.bg-gray-50 content))
+(def ui-table (comp/factory UITable))
 
-(defn ui-table-heading [content]
-  (dom/th :.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider content))
+(defsc UITableHead [this props]
+  (dom/thead :.bg-gray-50 (comp/children this)))
 
-(defn ui-table-body [content]
-  (dom/tbody :.bg-white content))
+(def ui-table-head (comp/factory UITableHead))
 
-(defn ui-table-row [content]
-  (dom/tr content))
+(defsc UITableHeading [this props]
+  (dom/th :.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider
+          (comp/children this)))
 
-(defn ui-table-cell [content]
-  (dom/td :.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500 content))
+(def ui-table-heading (comp/factory UITableHeading))
+
+(defsc UITableBody [this props]
+  (dom/tbody :.bg-white
+             (comp/children this)))
+
+(def ui-table-body (comp/factory UITableBody))
+
+(defsc UITableRow [this props]
+  (dom/tr (comp/children this)))
+
+(def ui-table-row (comp/factory UITableRow))
+
+(defsc UITableCell
+  [this props]
+  (dom/td :.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500
+          (comp/children this)))
+
+(def ui-table-cell (comp/factory UITableCell))
+
+(defsc UIButtonWithDropdown [this props]
+  (let [choices []
+        show-menu? (comp/get-state this :show-menu)]
+    (div :.absolute.inset-y-0.right-0.flex.items-center.pr-2.sm:static.sm:inset-auto.sm:ml-6.sm:pr-0
+         (div :.ml-3.relative
+              (div
+                (button :.user-menu-button.bg-gray-800.flex.text-sm.rounded-full
+                        {:type    "button" :aria-expanded "false" :aria-haspopup "true"
+                         :onClick #(comp/set-state! this {:show-menu show-menu?})}
+                        (span :.sr-only "Open menu")
+                        (span :.text-white (div :.flex "User" (icon-chevron-down)))))
+              (when show-menu?
+                (div :.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
+                     {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
+                     (for [item choices]
+                       (if (:onClick item)
+                         (a :.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white.cursor-pointer
+                            {:key (:id item) :onClick #(do (comp/set-state! this {:show-menu (not show-menu?)})
+                                                           ((:onClick item))) :role "menuitem" :tabIndex "-1"} (:title item))
+                         (a :.block.px-4.py-2.text-sm.text-gray-700.italic {:key (:id item) :role "menuitem" :tabIndex "-1"} (:title item))))))))))
+
+(def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
