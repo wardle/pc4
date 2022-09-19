@@ -179,7 +179,7 @@
   (dom/div
     (ui/ui-title
       {:title title}
-      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis" :onClick onAddDiagnosis})))
+      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
     (ui/ui-table
       {}
       (ui/ui-table-head {}
@@ -199,16 +199,12 @@
   (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
         inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
     (comp/fragment
-      (when (seq edit-diagnosis)
-        (dom/p "Editing"))
       (diagnoses-table {:title          "Active diagnoses"
                         :diagnoses      active-diagnoses
-                        :onAddDiagnosis #(println "OOO")})
+                        :onAddDiagnosis #(println "Action: add diagnosis")})
       (when (seq inactive-diagnoses)
         (diagnoses-table {:title     "Inactive diagnoses"
                           :diagnoses inactive-diagnoses})))))
-
-
 
 (def ui-patient-diagnoses (comp/computed-factory PatientDiagnoses))
 
@@ -219,11 +215,11 @@
    :query [:t_medication/id :t_medication/date_from :t_medication/date_to
            {:t_medication/medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]}]}
   (println "medication: " params)
-  (ui/ui-table-row
-    [(ui/ui-table-cell (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-     (ui/ui-table-cell (ui/format-date date_from))
-     (ui/ui-table-cell (ui/format-date date_to))
-     (ui/ui-table-cell "")]))
+  (ui/ui-table-row {}
+                   [(ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                    (ui/ui-table-cell {} (ui/format-date date_from))
+                    (ui/ui-table-cell {} (ui/format-date date_to))
+                    (ui/ui-table-cell {} "")]))
 
 (def ui-medication-list-item (comp/factory MedicationListItem {:keyfn :t_medication/id}))
 
@@ -232,13 +228,16 @@
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier
            {:t_patient/medications (comp/query MedicationListItem)}]}
-  (ui/ui-table
-    [(ui/ui-table-head
-       (ui/ui-table-row
-         (map ui/ui-table-heading ["Treatment" "Date from" "Date to" ""])))
-     (ui/ui-table-body
-       (->> medications
-            (map ui-medication-list-item)))]))
+  (comp/fragment
+    (ui/ui-title
+      {:title "Medication"}
+      (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
+    (ui/ui-table
+      {} (ui/ui-table-head
+           {} (ui/ui-table-row
+                {} (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" ""])))
+      (ui/ui-table-body {} (->> medications
+                                (map ui-medication-list-item))))))
 
 (def ui-patient-medication (comp/factory PatientMedication))
 
