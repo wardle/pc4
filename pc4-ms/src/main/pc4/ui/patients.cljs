@@ -184,7 +184,7 @@
       {}
       (ui/ui-table-head {}
                         (ui/ui-table-row
-                          {} (map #(ui/ui-table-heading {:react-key %} %)) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""]))
+                          {} (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""])))
       (ui/ui-table-body {} (->> diagnoses
                                 (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
                                 (map ui-diagnosis-list-item))))))
