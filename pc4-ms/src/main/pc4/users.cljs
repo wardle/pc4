@@ -32,8 +32,10 @@
                          (swap! state assoc-in [:component/id :login :ui/error] "Invalid username or password"))
                (reset! session/authentication-token token)
                (dr/change-route! app ["home"])))
-  (error-action [{:keys [state]}]
-                (swap! state assoc-in [:component/id :login :ui/loading?] false)))
+  (error-action [{:keys [state] :as env}]
+                (swap! state #(-> %
+                                  (assoc-in [:component/id :login :ui/loading?] false)
+                                  (assoc-in [:component/id :login :ui/error] "Network error. Please try again.")))))
 
 (defmutation logout
   [params]
