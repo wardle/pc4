@@ -281,6 +281,7 @@
 
 (defsc UITableHeading [this props]
   (dom/th :.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider
+          (select-keys props [:title])
           (comp/children this)))
 
 (def ui-table-heading (comp/factory UITableHeading))
@@ -299,6 +300,7 @@
 (defsc UITableCell
   [this props]
   (dom/td :.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500
+          (select-keys props [:title])
           (comp/children this)))
 
 (def ui-table-cell (comp/factory UITableCell))
