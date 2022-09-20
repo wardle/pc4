@@ -253,7 +253,11 @@
           :.mt-4.sm:mt-0.sm:ml-16.sm:flex-none
           content)))))
 
-(def ui-title (comp/factory UITitle))
+(def ui-title
+  "A simple section title. Properties:
+  - title    : title
+  - subtitle : subtitle"
+  (comp/factory UITitle))
 
 (defsc UITable
   [this props]
