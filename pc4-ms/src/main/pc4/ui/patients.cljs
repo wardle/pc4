@@ -25,6 +25,24 @@
        reverse
        first))
 
+(def ms-event-type-help-text
+  {"UK" "Unknown"
+   "UE" "Upper limb motor"
+   "LE" "Lower limb motor"
+   "SS" "Limb sensory"
+   "SP" "Sphincter"
+   "SX" "Sexual"
+   "FM" "Face motor"
+   "FS" "Face sensory"
+   "OM" "Oculomotor"
+   "VE" "Vestibular"
+   "BB" "Bulbar"
+   "CB" "Cerebellar"
+   "ON" "Optic neuritis"
+   "PS" "Psychiatric"
+   "OT" "Other"
+   "MT" "Cognitive"})
+
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
@@ -116,11 +134,90 @@
                                    :t_encounter/form_edss
                                    :t_encounter/form_edss_fs]}]})
 
-(defsc PatientMultipleSclerosisSummary [this props]
+(defsc RelapseListItem
+  [this {:t_ms_event/keys  [id date is_relapse site_arm_motor site_ataxia site_bulbar
+                            site_cognitive site_diplopia site_face_motor
+                            site_face_sensory site_leg_motor site_limb_sensory
+                            site_optic_nerve site_other site_psychiatric
+                            site_sexual site_sphincter site_unknown site_vestibular source impact]
+         event-type-abbrev :t_ms_event_type/abbreviation
+         event-type-name   :t_ms_event_type/name}]
+  {:ident :t_ms_event/id
+   :query [:t_ms_event/id
+           :t_ms_event/date :t_ms_event/date_accuracy
+           :t_ms_event/is_relapse
+           :t_ms_event_type/abbreviation :t_ms_event_type/name
+           :t_ms_event/site_arm_motor :t_ms_event/site_ataxia :t_ms_event/site_bulbar
+           :t_ms_event/site_cognitive :t_ms_event/site_diplopia :t_ms_event/site_face_motor
+           :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor :t_ms_event/site_limb_sensory
+           :t_ms_event/site_optic_nerve :t_ms_event/site_other :t_ms_event/site_psychiatric
+           :t_ms_event/site_sexual :t_ms_event/site_sphincter :t_ms_event/site_unknown
+           :t_ms_event/site_vestibular
+           :t_ms_event/source
+           :t_ms_event/impact]}
+  (ui/ui-table-row
+    {}
+    (ui/ui-table-cell {} (ui/format-date date))
+    (ui/ui-table-cell {:title event-type-name} event-type-abbrev)
+    (ui/ui-table-cell {} (str impact))
+    (ui/ui-table-cell {} (when site_unknown "UK"))
+    (ui/ui-table-cell {} (when site_arm_motor "UE"))
+    (ui/ui-table-cell {} (when site_leg_motor "LE"))
+    (ui/ui-table-cell {} (when site_limb_sensory "SS"))
+    (ui/ui-table-cell {} (when site_sphincter "SP"))
+    (ui/ui-table-cell {} (when site_sexual "SX"))
+    (ui/ui-table-cell {} (when site_face_motor "FM"))
+    (ui/ui-table-cell {} (when site_face_sensory "FS"))
+    (ui/ui-table-cell {} (when site_diplopia "OM"))
+    (ui/ui-table-cell {} (when site_vestibular "VE"))
+    (ui/ui-table-cell {} (when site_bulbar "BB"))
+    (ui/ui-table-cell {} (when site_ataxia "CB"))
+    (ui/ui-table-cell {} (when site_optic_nerve "ON"))
+    (ui/ui-table-cell {} (when site_psychiatric "PS"))
+    (ui/ui-table-cell {} (when site_other "OT"))
+    (ui/ui-table-cell {} (when site_cognitive "MT"))))
+
+
+
+
+
+(def ui-relapse-list-item (comp/factory RelapseListItem {:keyfn :t_ms_event/id}))
+
+(defsc SummaryMultipleSclerosis [this {:t_summary_multiple_sclerosis/keys [events]}]
+  {:ident :t_summary_multiple_sclerosis/id
+   :query [:t_summary_multiple_sclerosis/id
+           {:t_summary_multiple_sclerosis/events (comp/get-query RelapseListItem)}]}
+  (comp/fragment
+    (ui/ui-title {:title "Relapses"})
+    (ui/ui-table
+      {}
+      (ui/ui-table-head
+        {}
+        (ui/ui-table-row
+          {}
+          (map #(let [help-text (get ms-event-type-help-text %)]
+                  (ui/ui-table-heading (cond-> {:react-key %}
+                                               help-text (assoc :title (str "Site of event: " help-text))) %))
+               ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS"
+                "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"])))
+      (ui/ui-table-body
+        {}
+        (map ui-relapse-list-item
+             (->> events
+                  (filter :t_ms_event/is_relapse)
+                  (sort-by #(-> ^Date % :t_ms_event/date .getTime))
+                  reverse))))))
+
+(def ui-summary-multiple-sclerosis (comp/factory SummaryMultipleSclerosis))
+
+(defsc PatientRelapses [this {:t_patient/keys [summary_multiple_sclerosis]}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier
-           :t_summary_multiple_sclerosis/diagnosis
-           {:>/most-recent-edss (comp/get-query MostRecentEDSS)}]})
+           {:t_patient/summary_multiple_sclerosis (comp/get-query SummaryMultipleSclerosis)}
+           #_{:>/most-recent-edss (comp/get-query MostRecentEDSS)}]}
+  (ui-summary-multiple-sclerosis summary_multiple_sclerosis))
+
+(def ui-patient-relapses (comp/factory PatientRelapses))
 
 (defsc PatientDemographics
   [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex]}]
@@ -241,6 +338,7 @@
 
 (def ui-patient-medication (comp/factory PatientMedication))
 
+
 (defsc PatientPage
   [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number] :as props
          current-project :ui/current-project
@@ -248,6 +346,7 @@
          demographics    :>/demographics
          diagnoses       :>/diagnoses
          medication      :>/medication
+         relapses        :>/relapses
          encounters      :>/encounters}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patient" :t_patient/patient_identifier]
@@ -258,6 +357,7 @@
                          {:>/demographics (comp/get-query PatientDemographics)}
                          {:>/diagnoses (comp/get-query PatientDiagnoses)}
                          {:>/medication (comp/get-query PatientMedication)}
+                         {:>/relapses (comp/get-query PatientRelapses)}
                          {:>/encounters (comp/get-query PatientEncounters)}]
    :will-enter          (fn [app {:t_patient/keys [patient_identifier]}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
@@ -298,6 +398,7 @@
                  :home (ui-patient-demographics demographics)
                  :diagnoses (ui-patient-diagnoses diagnoses {:title "Active diagnoses"})
                  :medication (ui-patient-medication medication)
+                 :relapses (ui-patient-relapses relapses)
                  :encounters (ui-patient-encounters encounters)
                  (div "Page not found"))))))
 
