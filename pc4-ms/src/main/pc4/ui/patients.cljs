@@ -25,23 +25,41 @@
        reverse
        first))
 
+(def ms-event-types
+  [{:abbreviation "UK" :label "Unknown" :key :t_ms_event/site_unknown}
+   {:abbreviation "UE" :label "Upper limb motor" :key :t_ms_event/site_arm_motor}
+   {:abbreviation "LE" :label "Lower limb motor" :key :t_ms_event/site_leg_motor}
+   {:abbreviation "SS" :label "Limb sensory" :key :t_ms_event/site_limb_sensory}
+   {:abbreviation "SP" :label "Sphincter" :key :t_ms_event/site_sphincter}
+   {:abbreviation "SX" :label "Sexual" :key :t_ms_event/site_sexual}
+   {:abbreviation "FM" :label "Face motor" :key :t_ms_event/site_face_motor}
+   {:abbreviation "FS" :label "Face sensory" :key :t_ms_event/site_face_sensory}
+   {:abbreviation "OM" :label "Oculomotor" :key :t_ms_event/site_diplopia}
+   {:abbreviation "VE" :label "Vestibular" :key :t_ms_event/site_vestibular}
+   {:abbreviation "BB" :label "Bulbar" :key :t_ms_event/site_bulbar}
+   {:abbreviation "CB" :label "Cerebellar" :key :t_ms_event/site_cerebellar}
+   {:abbreviation "ON" :label "Optic neuritis" :key :t_ms_event/site_optic_nerve}
+   {:abbreviation "PS" :label "Psychiatric" :key :t_ms_event/site_psychiatric}
+   {:abbreviation "OT" :label "Other" :key :t_ms_event/site_other}
+   {:abbreviation "MT" :label "Cognitive" :key :t_ms_event/site_cognitive}])
+
 (def ms-event-type-help-text
-  {"UK" "Unknown"
-   "UE" "Upper limb motor"
-   "LE" "Lower limb motor"
-   "SS" "Limb sensory"
-   "SP" "Sphincter"
-   "SX" "Sexual"
-   "FM" "Face motor"
-   "FS" "Face sensory"
-   "OM" "Oculomotor"
-   "VE" "Vestibular"
-   "BB" "Bulbar"
-   "CB" "Cerebellar"
-   "ON" "Optic neuritis"
-   "PS" "Psychiatric"
-   "OT" "Other"
-   "MT" "Cognitive"})
+  "A lookup from abbreviation to label"
+  (reduce (fn [acc {:keys [abbreviation label]}] (assoc acc abbreviation label)) {} ms-event-types))
+
+(defn make-table-cells
+  [relapse]
+  (reduce (fn [acc {:keys [abbreviation label key]}]
+            (conj acc (if (get relapse key)
+                        (ui/ui-table-cell {:react-key abbreviation :title label} abbreviation)
+                        (ui/ui-table-cell {:react-key abbreviation} "")))) [] ms-event-types))
+
+(defn format-nnn
+  "Formats an NHS number for display purposes into 'XXX XXX XXXX'"
+  [nnn]
+  (if-not (= 10 (count nnn))
+    nnn
+    (str (subs nnn 0 3) " " (subs nnn 3 6) " " (subs nnn 6))))
 
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
@@ -66,7 +84,7 @@
                                                                                             (dom/span :.font-bold gender)))
             (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
             (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
-            (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ") (dom/span :.font-bold nhs-number)))
+            (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ") (dom/span :.font-bold (format-nnn nhs-number))))
             (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
        (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
             (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
@@ -141,7 +159,7 @@
                             site_optic_nerve site_other site_psychiatric
                             site_sexual site_sphincter site_unknown site_vestibular source impact]
          event-type-abbrev :t_ms_event_type/abbreviation
-         event-type-name   :t_ms_event_type/name}]
+         event-type-name   :t_ms_event_type/name :as props}]
   {:ident :t_ms_event/id
    :query [:t_ms_event/id
            :t_ms_event/date :t_ms_event/date_accuracy
@@ -160,22 +178,7 @@
     (ui/ui-table-cell {} (ui/format-date date))
     (ui/ui-table-cell {:title event-type-name} event-type-abbrev)
     (ui/ui-table-cell {} (str impact))
-    (ui/ui-table-cell {} (when site_unknown "UK"))
-    (ui/ui-table-cell {} (when site_arm_motor "UE"))
-    (ui/ui-table-cell {} (when site_leg_motor "LE"))
-    (ui/ui-table-cell {} (when site_limb_sensory "SS"))
-    (ui/ui-table-cell {} (when site_sphincter "SP"))
-    (ui/ui-table-cell {} (when site_sexual "SX"))
-    (ui/ui-table-cell {} (when site_face_motor "FM"))
-    (ui/ui-table-cell {} (when site_face_sensory "FS"))
-    (ui/ui-table-cell {} (when site_diplopia "OM"))
-    (ui/ui-table-cell {} (when site_vestibular "VE"))
-    (ui/ui-table-cell {} (when site_bulbar "BB"))
-    (ui/ui-table-cell {} (when site_ataxia "CB"))
-    (ui/ui-table-cell {} (when site_optic_nerve "ON"))
-    (ui/ui-table-cell {} (when site_psychiatric "PS"))
-    (ui/ui-table-cell {} (when site_other "OT"))
-    (ui/ui-table-cell {} (when site_cognitive "MT"))))
+    (make-table-cells props)))
 
 
 
@@ -205,7 +208,7 @@
         (map ui-relapse-list-item
              (->> events
                   (filter :t_ms_event/is_relapse)
-                  (sort-by #(-> ^Date % :t_ms_event/date .getTime))
+                  (sort-by #(some-> % :t_ms_event/date .getTime))
                   reverse))))))
 
 (def ui-summary-multiple-sclerosis (comp/factory SummaryMultipleSclerosis))
@@ -240,6 +243,8 @@
   (let [load-marker (get props [df/marker-table :patient-encounters])]
     (comp/fragment
       (when (df/loading? load-marker) (ui/ui-loading-screen {:dim? false}))
+      (ui/ui-title
+        {:title "Encounters"})
       (ui/ui-table {}
                    (ui/ui-table-head {}
                                      (ui/ui-table-row {}
@@ -311,12 +316,11 @@
   {:ident :t_medication/id
    :query [:t_medication/id :t_medication/date_from :t_medication/date_to
            {:t_medication/medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]}]}
-  (println "medication: " params)
   (ui/ui-table-row {}
-                   [(ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                    (ui/ui-table-cell {} (ui/format-date date_from))
-                    (ui/ui-table-cell {} (ui/format-date date_to))
-                    (ui/ui-table-cell {} "")]))
+                   (ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                   (ui/ui-table-cell {} (ui/format-date date_from))
+                   (ui/ui-table-cell {} (ui/format-date date_to))
+                   (ui/ui-table-cell {} "")))
 
 (def ui-medication-list-item (comp/factory MedicationListItem {:keyfn :t_medication/id}))
 
@@ -334,6 +338,8 @@
            {} (ui/ui-table-row
                 {} (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" ""])))
       (ui/ui-table-body {} (->> medications
+                                (sort-by (juxt #(some-> % :t_medication/date_from .getTime)
+                                               #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
                                 (map ui-medication-list-item))))))
 
 (def ui-patient-medication (comp/factory PatientMedication))
