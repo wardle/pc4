@@ -118,7 +118,7 @@
         (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
                              :born       (ui/format-date date_birth)
                              :nhs-number nhs_number
-                             :address    (str/join ", " (remove nil? [address1 address2 address3 address4 address5 postcode]))
+                             :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
                              :deceased   date_death} computed-props)))))
 
 
