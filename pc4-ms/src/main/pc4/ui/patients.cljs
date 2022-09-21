@@ -115,7 +115,7 @@
                            :address  pseudonym
                            :deceased (ui/format-month-year date_death)} computed-props)
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
-        (ui-patient-banner* {:name       (str (str/join ", " [(str/upper-case last_name) first_names]) (when title (str " (" title ")")))
+        (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
                              :born       (ui/format-date date_birth)
                              :nhs-number nhs_number
                              :address    (str/join ", " (remove nil? [address1 address2 address3 address4 address5 postcode]))
