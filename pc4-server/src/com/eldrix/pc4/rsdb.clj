@@ -1203,6 +1203,7 @@
    project->count_discharged_episodes
    project->all-children
    project->all-parents
+   (pbir/alias-resolver :t_project/admission :t_project/is_admission)
    patient->encounters
    encounter->users
    encounter->encounter_template
