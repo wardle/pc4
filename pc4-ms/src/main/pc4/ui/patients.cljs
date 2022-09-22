@@ -69,7 +69,7 @@
         (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
           {:onClick onClose :title "Close patient record"}
           (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
-                   (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
+            (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
     (when deceased
       (div :.grid.grid-cols-1.pb-2
         (ui/ui-badge {:label (cond (instance? goog.date.Date deceased) (str "Died " (ui/format-date deceased))
@@ -274,7 +274,7 @@
   [{:keys [title diagnoses onAddDiagnosis]}]
   (dom/div
     (ui/ui-title {:title title}
-      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
+                 (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -324,7 +324,7 @@
            {:t_patient/medications (comp/query MedicationListItem)}]}
   (comp/fragment
     (ui/ui-title {:title "Medication"}
-      (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
+                 (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -337,6 +337,75 @@
 
 (def ui-patient-medication (comp/factory PatientMedication))
 
+(defsc ResultListItem
+  [this {:t_result/keys [id date summary]
+         entity-name    :t_result_type/result_entity_name
+         result-name    :t_result_type/name
+         result-desc    :t_result_type/description}]
+  {:ident :t_result/id
+   :query [:t_result/id :t_result/date :t_result/summary
+           :t_result_type/result_entity_name :t_result-type/id
+           :t_result_type/name :t_result_type/description]}
+  (ui/ui-table-row {}
+    (ui/ui-table-cell {} (ui/format-date date))
+    (ui/ui-table-cell {} result-name)
+    (ui/ui-table-cell {} (div :.overflow-hidden (ui/truncate summary 120)))
+    (ui/ui-table-cell {} "")))
+
+(def ui-result-list-item (comp/factory ResultListItem {:keyfn :t_result/id}))
+
+(defsc PatientResults [this {:t_patient/keys [results]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier
+           {:t_patient/results (comp/get-query ResultListItem)}]}
+  (comp/fragment
+    (ui/ui-title {:title "Investigations"}
+                 (ui/ui-title-button {:title "Add result"} {:onClick #(println "Action: add result")}))
+    (ui/ui-table {}
+      (ui/ui-table-head {}
+        (ui/ui-table-row {}
+          (map #(ui/ui-table-heading {:react-key %} %) ["Date" "Investigation" "Result" ""])))
+      (ui/ui-table-body {}
+        (->> results
+             (sort-by #(some-> % :t_result/date .getTime))
+             (map ui-result-list-item))))))
+
+(def ui-patient-results (comp/factory PatientResults))
+
+(defsc AdmissionListItem
+  [this {:t_episode/keys [id date_registration date_discharge]}]
+  {:ident :t_episode/id
+   :query [:t_episode/id
+           :t_episode/date_registration
+           :t_episode/date_discharge
+           {:t_episode/project [:t_project/admission]}]}
+  (ui/ui-table-row {}
+    (ui/ui-table-cell {} (ui/format-date date_registration))
+    (ui/ui-table-cell {} (ui/format-date date_discharge))
+    (ui/ui-table-cell {} "")))
+
+(def ui-admission-list-item (comp/factory AdmissionListItem {:keyfn :t_episode/id}))
+
+(defsc PatientAdmissions
+  [this {:t_patient/keys [episodes]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier
+           {:t_patient/episodes (comp/get-query AdmissionListItem)}]}
+  (comp/fragment
+    (ui/ui-title {:title "Admissions"}
+                 (ui/ui-title-button {:title "Add admission"} {:onClick #(println "Action: add admission")}))
+    (ui/ui-table {}
+      (ui/ui-table-head {}
+        (ui/ui-table-row {}
+          (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" ""])))
+      (ui/ui-table-body {}
+        (->> episodes
+             (filter #(-> % :t_episode/project :t_project/admission))
+             (sort-by #(some-> % :t_episode/date_registration .getTime))
+             (map ui-admission-list-item))))))
+
+(def ui-patient-admissions (comp/factory PatientAdmissions))
+
 (defsc PatientPage
   [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number] :as props
          current-project :ui/current-project
@@ -345,7 +414,9 @@
          diagnoses       :>/diagnoses
          medication      :>/medication
          relapses        :>/relapses
-         encounters      :>/encounters}]
+         encounters      :>/encounters
+         results         :>/results
+         admissions      :>/admissions}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patient" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
@@ -356,7 +427,9 @@
                          {:>/diagnoses (comp/get-query PatientDiagnoses)}
                          {:>/medication (comp/get-query PatientMedication)}
                          {:>/relapses (comp/get-query PatientRelapses)}
-                         {:>/encounters (comp/get-query PatientEncounters)}]
+                         {:>/encounters (comp/get-query PatientEncounters)}
+                         {:>/results (comp/get-query PatientResults)}
+                         {:>/admissions (comp/get-query PatientAdmissions)}]
    :will-enter          (fn [app {:t_patient/keys [patient_identifier]}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                             (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientPage)
@@ -382,9 +455,10 @@
                                    {:id :diagnoses :title "Diagnoses"}
                                    {:id :medication :title "Treatment"}
                                    {:id :relapses :title "Relapses"}
-                                   {:id         :encounters :title "Encounters"
+                                   {:id         :encounters
+                                    :title      "Encounters"
                                     :load-field [:t_patient/patient_identifier :>/encounters] :load-marker :patient-encounters}
-                                   {:id :investigations :title "Investigations"}
+                                   {:id :results :title "Investigations"}
                                    {:id :admissions :title "Admissions"}]
                                   :selected-id selected-page
                                   :select-fn (fn [{:keys [id load-field load-marker]}]
@@ -398,6 +472,8 @@
           :medication (ui-patient-medication medication)
           :relapses (ui-patient-relapses relapses)
           :encounters (ui-patient-encounters encounters)
+          :results (ui-patient-results results)
+          :admissions (ui-patient-admissions admissions)
           (div "Page not found"))))))
 
 (def ui-patient-page (comp/factory PatientPage))
