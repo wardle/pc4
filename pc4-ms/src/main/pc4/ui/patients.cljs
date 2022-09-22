@@ -64,32 +64,29 @@
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
-       (when onClose
-         (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
-              (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
-                          {:onClick onClose :title "Close patient record"}
-                          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
-                                   (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
-       (when deceased
-         (div :.grid.grid-cols-1.pb-2
-              (ui/ui-badge {:label (cond
-                                     (instance? goog.date.Date deceased)
-                                     (str "Died " (ui/format-date deceased))
-                                     (string? deceased)
-                                     (str "Died " deceased)
-                                     :else "Deceased")})))
-       (div :.grid.grid-cols-2.lg:grid-cols-5.pt-1
-            (when name (div :.font-bold.text-lg.min-w-min name))
-            (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender (dom/span :.text-sm.font-thin.hidden.sm:inline "Gender ")
-                                                                                            (dom/span :.font-bold gender)))
-            (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
-            (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
-            (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ") (dom/span :.font-bold (format-nnn nhs-number))))
-            (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
-       (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
-            (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
-       (when content
-         (div content))))
+    (when onClose
+      (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
+        (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
+          {:onClick onClose :title "Close patient record"}
+          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
+                   (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
+    (when deceased
+      (div :.grid.grid-cols-1.pb-2
+        (ui/ui-badge {:label (cond (instance? goog.date.Date deceased) (str "Died " (ui/format-date deceased))
+                                   (string? deceased) (str "Died " deceased)
+                                   :else "Deceased")})))
+    (div :.grid.grid-cols-2.lg:grid-cols-5.pt-1
+      (when name (div :.font-bold.text-lg.min-w-min name))
+      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender (dom/span :.text-sm.font-thin.hidden.sm:inline "Gender ")
+                                                                                      (dom/span :.font-bold gender)))
+      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
+      (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
+      (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ") (dom/span :.font-bold (format-nnn nhs-number))))
+      (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
+    (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
+      (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
+    (when content
+      (div content))))
 
 (def ui-patient-banner* (comp/computed-factory PatientBanner*))
 
@@ -135,12 +132,12 @@
            {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse :t_ms_disease_course/name]}
            {:t_encounter/form_weight_height [:t_form_weight_height/weight_kilogram]}]}
   (ui/ui-table-row {}
-                   (ui/ui-table-cell {} (ui/format-date date_time))
-                   (ui/ui-table-cell {} (:t_encounter_template/title encounter_template))
-                   (ui/ui-table-cell {} (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss_fs)))
-                   (ui/ui-table-cell {} (:t_ms_disease_course/name form_ms_relapse))
-                   (ui/ui-table-cell {} (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
-                   (ui/ui-table-cell {} (when-let [wt (:t_form_weight_height/weight_kilogram form_weight_height)] (str wt "kg")))))
+    (ui/ui-table-cell {} (ui/format-date date_time))
+    (ui/ui-table-cell {} (:t_encounter_template/title encounter_template))
+    (ui/ui-table-cell {} (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss_fs)))
+    (ui/ui-table-cell {} (:t_ms_disease_course/name form_ms_relapse))
+    (ui/ui-table-cell {} (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
+    (ui/ui-table-cell {} (when-let [wt (:t_form_weight_height/weight_kilogram form_weight_height)] (str wt "kg")))))
 
 (def ui-encounter-list-item (comp/factory EncounterListItem {:keyfn :t_encounter/id}))
 
@@ -192,19 +189,15 @@
            {:t_summary_multiple_sclerosis/events (comp/get-query RelapseListItem)}]}
   (comp/fragment
     (ui/ui-title {:title "Relapses"})
-    (ui/ui-table
-      {}
-      (ui/ui-table-head
-        {}
-        (ui/ui-table-row
-          {}
+    (ui/ui-table {}
+      (ui/ui-table-head {}
+        (ui/ui-table-row {}
           (map #(let [help-text (get ms-event-type-help-text %)]
                   (ui/ui-table-heading (cond-> {:react-key %}
                                                help-text (assoc :title (str "Site of event: " help-text))) %))
                ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS"
                 "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"])))
-      (ui/ui-table-body
-        {}
+      (ui/ui-table-body {}
         (map ui-relapse-list-item
              (->> events
                   (filter :t_ms_event/is_relapse)
@@ -246,17 +239,18 @@
       (ui/ui-title
         {:title "Encounters"})
       (ui/ui-table {}
-                   (ui/ui-table-head {}
-                                     (ui/ui-table-row {}
-                                                      (ui/ui-table-heading {} "Date")
-                                                      (ui/ui-table-heading {} "Type")
-                                                      (ui/ui-table-heading {} "EDSS")
-                                                      (ui/ui-table-heading {} "Disease course")
-                                                      (ui/ui-table-heading {} "In relapse?")
-                                                      (ui/ui-table-heading {} "Weight")))
-                   (ui/ui-table-body {} (->> encounters
-                                             (filter :t_encounter/active)
-                                             (map ui-encounter-list-item)))))))
+        (ui/ui-table-head {}
+          (ui/ui-table-row {}
+            (ui/ui-table-heading {} "Date")
+            (ui/ui-table-heading {} "Type")
+            (ui/ui-table-heading {} "EDSS")
+            (ui/ui-table-heading {} "Disease course")
+            (ui/ui-table-heading {} "In relapse?")
+            (ui/ui-table-heading {} "Weight")))
+        (ui/ui-table-body {}
+          (->> encounters
+               (filter :t_encounter/active)
+               (map ui-encounter-list-item)))))))
 
 (def ui-patient-encounters (comp/factory PatientEncounters))
 
@@ -267,29 +261,28 @@
            {:t_diagnosis/diagnosis [:info.snomed.Concept/id
                                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
   (ui/ui-table-row {}
-                   (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                   (ui/ui-table-cell {} (ui/format-date date_onset))
-                   (ui/ui-table-cell {} (ui/format-date date_diagnosis))
-                   (ui/ui-table-cell {} (ui/format-date date_to))
-                   (ui/ui-table-cell {} (str status))
-                   (ui/ui-table-cell {} "")))
+    (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+    (ui/ui-table-cell {} (ui/format-date date_onset))
+    (ui/ui-table-cell {} (ui/format-date date_diagnosis))
+    (ui/ui-table-cell {} (ui/format-date date_to))
+    (ui/ui-table-cell {} (str status))
+    (ui/ui-table-cell {} "")))
 
 (def ui-diagnosis-list-item (comp/factory DiagnosisListItem {:keyfn :t_diagnosis/id}))
 
 (defn diagnoses-table
   [{:keys [title diagnoses onAddDiagnosis]}]
   (dom/div
-    (ui/ui-title
-      {:title title}
+    (ui/ui-title {:title title}
       (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
-    (ui/ui-table
-      {}
+    (ui/ui-table {}
       (ui/ui-table-head {}
-                        (ui/ui-table-row
-                          {} (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""])))
-      (ui/ui-table-body {} (->> diagnoses
-                                (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                                (map ui-diagnosis-list-item))))))
+        (ui/ui-table-row {}
+          (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""])))
+      (ui/ui-table-body {}
+        (->> diagnoses
+             (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+             (map ui-diagnosis-list-item))))))
 
 (defsc PatientDiagnoses
   [this {:t_patient/keys [diagnoses] :ui/keys [edit-diagnosis]}]
@@ -317,10 +310,10 @@
    :query [:t_medication/id :t_medication/date_from :t_medication/date_to
            {:t_medication/medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]}]}
   (ui/ui-table-row {}
-                   (ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                   (ui/ui-table-cell {} (ui/format-date date_from))
-                   (ui/ui-table-cell {} (ui/format-date date_to))
-                   (ui/ui-table-cell {} "")))
+    (ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+    (ui/ui-table-cell {} (ui/format-date date_from))
+    (ui/ui-table-cell {} (ui/format-date date_to))
+    (ui/ui-table-cell {} "")))
 
 (def ui-medication-list-item (comp/factory MedicationListItem {:keyfn :t_medication/id}))
 
@@ -330,20 +323,19 @@
    :query [:t_patient/patient_identifier
            {:t_patient/medications (comp/query MedicationListItem)}]}
   (comp/fragment
-    (ui/ui-title
-      {:title "Medication"}
+    (ui/ui-title {:title "Medication"}
       (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
-    (ui/ui-table
-      {} (ui/ui-table-head
-           {} (ui/ui-table-row
-                {} (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" ""])))
-      (ui/ui-table-body {} (->> medications
-                                (sort-by (juxt #(some-> % :t_medication/date_from .getTime)
-                                               #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
-                                (map ui-medication-list-item))))))
+    (ui/ui-table {}
+      (ui/ui-table-head {}
+        (ui/ui-table-row {}
+          (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" ""])))
+      (ui/ui-table-body {}
+        (->> medications
+             (sort-by (juxt #(some-> % :t_medication/date_from .getTime)
+                            #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+             (map ui-medication-list-item))))))
 
 (def ui-patient-medication (comp/factory PatientMedication))
-
 
 (defsc PatientPage
   [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number] :as props
@@ -400,12 +392,12 @@
                                                (comp/set-state! this {:selected-page id}))))})
 
       (dom/div :.lg:m-4.sm:m-0.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
-               (case selected-page
-                 :home (ui-patient-demographics demographics)
-                 :diagnoses (ui-patient-diagnoses diagnoses {:title "Active diagnoses"})
-                 :medication (ui-patient-medication medication)
-                 :relapses (ui-patient-relapses relapses)
-                 :encounters (ui-patient-encounters encounters)
-                 (div "Page not found"))))))
+        (case selected-page
+          :home (ui-patient-demographics demographics)
+          :diagnoses (ui-patient-diagnoses diagnoses {:title "Active diagnoses"})
+          :medication (ui-patient-medication medication)
+          :relapses (ui-patient-relapses relapses)
+          :encounters (ui-patient-encounters encounters)
+          (div "Page not found"))))))
 
 (def ui-patient-page (comp/factory PatientPage))
