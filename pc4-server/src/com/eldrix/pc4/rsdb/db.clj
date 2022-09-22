@@ -44,6 +44,7 @@
    :t_project/can_own_equipment                parse-boolean
    :t_project/date_from                        parse-local-date
    :t_project/date_to                          parse-local-date
+   :t_project/admission                        parse-boolean
    :t_project/is_private                       parse-boolean
    :t_project/type                             keyword
    :t_project/virtual                          parse-boolean
