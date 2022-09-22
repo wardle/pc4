@@ -29,6 +29,11 @@
 (defn format-month-year [^Date date]
   (when date (str (get months-en (.getMonth date)) " " (.getYear date))))
 
+(defn truncate [s length]
+  (when s (let [len (count s)]
+            (if (> len length) (str (subs s 0 length) "…") s))))
+
+
 (defsc PlaceholderImage
   "Generates an SVG image placeholder of the given size and with the given label
   (defaults to showing 'w x h'.
