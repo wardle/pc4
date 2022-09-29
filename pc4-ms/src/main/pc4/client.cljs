@@ -56,8 +56,7 @@
                         #(Big. %)))
 (defn make-SPA []
   (app/fulcro-app
-    {:global-eql-transform
-     global-eql-transform
+    {;:global-eql-transform global-eql-transform
      :remotes
      {:remote
       (net/fulcro-http-remote
