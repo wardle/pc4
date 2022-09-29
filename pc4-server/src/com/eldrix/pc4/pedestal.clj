@@ -52,13 +52,13 @@
         result (try (pathom env params) (catch Throwable e e))
         mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
     (if-not mutation-error
-      (do (log/debug "mutation success: " {:request params
-                                           :result  result})
+      (do (log/debug "pathom success: " {:request params
+                                         :result  result})
           (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result))))
       (let [error (Throwable->map mutation-error)
             error-data (ex-data mutation-error)]
-        (log/error "mutation error: " {:request (get-in ctx [:request :transit-params])
-                                       :cause   error})
+        (log/error "pathom error: " {:request (get-in ctx [:request :transit-params])
+                                     :cause   error})
         (tap> {:mutation-error error})
         (when error-data (log/info "error" error-data))
         (assoc ctx :response (ok {:error (:cause error)}))))))
