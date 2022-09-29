@@ -2,7 +2,7 @@
  :deps      {org.clojure/clojure               {:mvn/version "1.11.1"}
              org.clojure/core.async            {:mvn/version "1.5.648"}
              org.clojure/data.csv              {:mvn/version "1.0.1"}
-             org.clojure/data.xml              {:mvn/version "0.2.0-alpha7"}
+             org.clojure/data.xml              {:mvn/version "0.2.0-alpha8"}
              org.clojure/data.zip              {:mvn/version "1.0.0"}
              org.clojure/tools.cli             {:mvn/version "1.0.206"}
              org.clojure/tools.logging         {:mvn/version "1.2.4"}
@@ -17,15 +17,15 @@
              com.eldrix/concierge              {:mvn/version "1.0.150"}
              com.eldrix/deprivare              {:mvn/version "1.0.54"}
              com.eldrix/dmd                    {:mvn/version "0.6.146"}
-             com.eldrix/hermes                 {:mvn/version "1.0.712"}
+             com.eldrix/hermes                 {:mvn/version "1.0.717"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
 
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}
              buddy/buddy-sign                  {:mvn/version "3.4.333"}
-             com.fulcrologic/fulcro            {:mvn/version "3.5.24"}
-             com.github.seancorfield/honeysql  {:mvn/version "2.3.911"}
-             com.github.seancorfield/next.jdbc {:mvn/version "1.2.796"}
+             com.fulcrologic/fulcro            {:mvn/version "3.5.27"}
+             com.github.seancorfield/honeysql  {:mvn/version "2.3.928"}
+             com.github.seancorfield/next.jdbc {:mvn/version "1.3.834"}
              com.wsscode/pathom3               {:mvn/version "2022.08.29-alpha"}
              com.zaxxer/HikariCP               {:mvn/version "5.0.1"}
 
@@ -43,19 +43,19 @@
                            :ns-default build}
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.0"}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.1"}
                                         io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                                         io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
-                                        ring/ring-core                 {:mvn/version "1.9.5"}
+                                        ring/ring-core                 {:mvn/version "1.9.6"}
                                         ring-cors/ring-cors            {:mvn/version "0.1.13"}
-                                        ring/ring-defaults             {:mvn/version "0.3.3"}
+                                        ring/ring-defaults             {:mvn/version "0.3.4"}
                                         http-kit/http-kit              {:mvn/version "2.6.0"}}
                            :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                         "--illegal-access=permit"]}
 
              :repl-server {:exec-fn    clojure.core.server/start-server
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.0"}}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.1"}}
                            :exec-args  {:name          "repl-server"
                                         :port          5555
                                         :accept        clojure.core.server/repl
@@ -64,12 +64,12 @@
              :dev         {:extra-paths ["dev"]
                            :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                                          com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
-                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.0"}
+                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.1"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}}
 
-             :portal      {:extra-deps {djblue/portal {:mvn/version "0.29.1"}}}
+             :portal      {:extra-deps {djblue/portal {:mvn/version "0.30.0"}}}
 
-             :reveal      {:extra-deps {vlaaad/reveal {:mvn/version "1.3.274"}}
+             :reveal      {:extra-deps {vlaaad/reveal {:mvn/version "1.3.276"}}
                            :main-opts  ["-m" "vlaaad.reveal" "repl"]}
 
              :test        {:extra-paths ["test" "test/resources"]
