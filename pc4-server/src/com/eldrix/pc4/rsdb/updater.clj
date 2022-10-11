@@ -21,17 +21,7 @@
 
   The following reference data are stored:
   * SNOMED CT RF1 - in tables
-        - t_concept
-        - t_description
-        - t_relationship
-        - t_cached_parent_concepts
-  * UK organisation data
-        - t_health_authority
-        - t_trust
-        - t_hospital
-        - t_surgery
-        - t_general_practitioner
-        - t_postcode
+        - t_concept  - simply for referential integrity
 
   This namespace provides functions that can take modern reference data sources
   and update the v3 backend so it may continue to run safely."
