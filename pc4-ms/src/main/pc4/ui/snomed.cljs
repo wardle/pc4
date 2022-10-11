@@ -5,7 +5,8 @@
     [com.fulcrologic.fulcro.mutations :as m]
     [com.fulcrologic.fulcro.data-fetch :as df]
     [clojure.string :as str]
-    [goog.functions :as gf]))
+    [goog.functions :as gf]
+    [com.fulcrologic.fulcro.dom.events :as evt]))
 
 
 (defn autocomplete-ident
@@ -15,12 +16,13 @@
     [:autocomplete/by-id (:db/id id-or-props)]
     [:autocomplete/by-id id-or-props]))
 
-(defsc CompletionList [this {:keys [values onValueSelect]}]
+(defsc CompletionList [this {:keys [values onValueSelect idKey displayPropertyKey size] :or {size 10}}]
   (tap> {:completion-list values})
-  (dom/select {:size 10}
-    (map (fn [v]
-           (dom/option {:value (str (:info.snomed.Description/id v))}
-             (:info.snomed.Description/term v ))) values)))
+  (let [values' (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)]
+    (dom/select {:size size :onChange #(do (println "Selecting" (evt/target-value %))
+                                           (onValueSelect (get values' (evt/target-value %))))}
+      (map (fn [v]
+             (dom/option {:key (str (idKey v)) :value (str (idKey v))} (displayPropertyKey v))) values))))
 
 (def ui-completion-list (comp/factory CompletionList))
 
@@ -30,8 +32,8 @@
   [{:keys [id]}]
   (action [{:keys [state]}]
           (let [autocomplete-path (autocomplete-ident id)
-                source-path       (conj autocomplete-path :autocomplete/loaded-suggestions)
-                target-path       (conj autocomplete-path :autocomplete/suggestions)]
+                source-path (conj autocomplete-path :autocomplete/loaded-suggestions)
+                target-path (conj autocomplete-path :autocomplete/suggestions)]
             (swap! state assoc-in target-path (get-in @state source-path)))))
 
 (def get-suggestions
@@ -46,42 +48,39 @@
                        :target               (conj (autocomplete-ident id) :autocomplete/loaded-suggestions)}))]
     (gf/debounce load-suggestions 200)))
 
-(defsc Autocomplete [this {:keys [db/id autocomplete/suggestions autocomplete/value] :as props}]
+(defsc Autocomplete [this {:keys [db/id autocomplete/suggestions autocomplete/stringValue autocomplete/selected] :as props} {:keys [onSelect]}]
   {:query         [:db/id                                   ; the component's ID
                    :autocomplete/loaded-suggestions         ; A place to do the loading, so we can prevent flicker in the UI
                    :autocomplete/suggestions                ; the current completion suggestions
-                   :autocomplete/value]                     ; the current user-entered value
+                   :autocomplete/selected                   ; the currently selected option
+                   :autocomplete/stringValue]               ; the current user-entered value
    :ident         (fn [] (autocomplete-ident props))
-   :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/suggestions [] :autocomplete/value ""})}
-  (let [field-id             (str "autocomplete-" id)       ; for html label/input association
-        ;; server gives us a few, and as the user types we need to filter it further.
-        filtered-suggestions suggestions #_(when (vector? suggestions)
-                                             (filter #(str/includes? (str/lower-case (:term %)) (str/lower-case value)) suggestions))
-        ; We want to not show the list if they've chosen something valid
-        exact-match?         (and (= 1 (count filtered-suggestions)) (= value (first filtered-suggestions)))
-        ; When they select an item, we place it's value in the input
-        onSelect             (fn [v] (m/set-string! this :autocomplete/value :value v))
+   :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/suggestions [] :autocomplete/stringValue ""})}
+  (let [field-id (str "autocomplete-" id)                   ; for html label/input association
+        onSelect' (fn [v]
+                    (m/set-value! this :autocomplete/selected v)
+                    (when onSelect (onSelect v)))
         _ (tap> {:autocomplete suggestions})]
     (comp/fragment
       (dom/div
         (dom/label {:htmlFor field-id} "Enter search term: ")
         (dom/input {:id       field-id
-                    :value    value
+                    :value    stringValue
                     :onChange (fn [evt]
                                 (let [new-value (.. evt -target -value)]
-                                  ; we avoid even looking for help until they've typed a couple of letters
-                                  (if (>= (.-length new-value) 2)
+                                  (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
                                     (get-suggestions this new-value id)
-                                    ; if they shrink the value too much, clear suggestions
-                                    (m/set-value! this :autocomplete/suggestions []))
-                                  ; always update the input itself (controlled)
-                                  (m/set-string! this :autocomplete/value :value new-value)))}))
-      ; show the completion list when it exists and isn't just exactly what they've chosen
+                                    (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
+                                  (m/set-value! this :autocomplete/selected nil) ;clear selection
+                                  (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div
-        (when (and (vector? suggestions) (seq suggestions) (not exact-match?)))
-        (ui-completion-list {:values filtered-suggestions :onValueSelect onSelect})))))
+        (when (and (> (count suggestions) 0) (not selected))
+          (onSelect' (first suggestions)))
+        (ui-completion-list {:values suggestions :onValueSelect onSelect' :idKey :info.snomed.Description/id :displayPropertyKey :info.snomed.Description/term})
+        (when selected
+          (str (:info.snomed.Description/term selected) " (" (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]) ")"))))))
 
-(def ui-autocomplete (comp/factory Autocomplete))
+(def ui-autocomplete (comp/computed-factory Autocomplete))
 
 (defsc AutocompleteRoot [this {:keys [airport-input]}]
   {:initial-state (fn [p] {:airport-input (comp/get-initial-state Autocomplete {:id :airports})})
