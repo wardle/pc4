@@ -41,11 +41,13 @@
   [params]
   (action [{:keys [app state]}]
           (js/console.log "Performing logout action" params)
+          (dr/change-route! app ["home"])
+
           (when (:message params)
             (swap! state assoc-in [:component/id :login :ui/error] (:message params)))
-          (dr/change-route! app ["home"])
           (reset! session/authentication-token nil)
-          (swap! state dissoc :session/authenticated-user)))
+          (swap! state dissoc :session/authenticated-user)
+          (.reload js/window.location true)))  ;; reload the page - note once HTML5 routing in place, change route before this))
 
 (defmutation refresh-token
   [params]
