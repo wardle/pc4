@@ -4,7 +4,7 @@
              org.clojure/data.csv              {:mvn/version "1.0.1"}
              org.clojure/data.xml              {:mvn/version "0.2.0-alpha8"}
              org.clojure/data.zip              {:mvn/version "1.0.0"}
-             org.clojure/tools.cli             {:mvn/version "1.0.206"}
+             org.clojure/tools.cli             {:mvn/version "1.0.214"}
              org.clojure/tools.logging         {:mvn/version "1.2.4"}
 
              wonder.core/ERExtensions          {:mvn/version "7.3"
@@ -17,16 +17,16 @@
              com.eldrix/concierge              {:mvn/version "1.0.150"}
              com.eldrix/deprivare              {:mvn/version "1.0.54"}
              com.eldrix/dmd                    {:mvn/version "0.6.146"}
-             com.eldrix/hermes                 {:mvn/version "1.0.717"}
+             com.eldrix/hermes                 {:mvn/version "1.0.754"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
 
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}
              buddy/buddy-sign                  {:mvn/version "3.4.333"}
-             com.fulcrologic/fulcro            {:mvn/version "3.5.27"}
+             com.fulcrologic/fulcro            {:mvn/version "3.5.28"}
              com.github.seancorfield/honeysql  {:mvn/version "2.3.928"}
              com.github.seancorfield/next.jdbc {:mvn/version "1.3.834"}
-             com.wsscode/pathom3               {:mvn/version "2022.08.29-alpha"}
+             com.wsscode/pathom3               {:mvn/version "2022.10.19-alpha"}
              com.zaxxer/HikariCP               {:mvn/version "5.0.1"}
 
              expound/expound                   {:mvn/version "0.9.0"}
@@ -43,7 +43,7 @@
                            :ns-default build}
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.1"}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.4"}
                                         io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
                                         io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
                                         ring/ring-core                 {:mvn/version "1.9.6"}
@@ -55,7 +55,7 @@
                                         "--illegal-access=permit"]}
 
              :repl-server {:exec-fn    clojure.core.server/start-server
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.1"}}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.4"}}
                            :exec-args  {:name          "repl-server"
                                         :port          5555
                                         :accept        clojure.core.server/repl
@@ -64,10 +64,10 @@
              :dev         {:extra-paths ["dev"]
                            :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                                          com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
-                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.1"}
+                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.4"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}}
 
-             :portal      {:extra-deps {djblue/portal {:mvn/version "0.30.0"}}}
+             :portal      {:extra-deps {djblue/portal {:mvn/version "0.33.0"}}}
 
              :reveal      {:extra-deps {vlaaad/reveal {:mvn/version "1.3.276"}}
                            :main-opts  ["-m" "vlaaad.reveal" "repl"]}
