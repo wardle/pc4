@@ -22,10 +22,10 @@
 (defn field [{:keys [label valid? error-message] :as props}]
   (let [input-props (-> props (assoc :name label) (dissoc :label :valid? :error-message))]
     (div :.ui.field
-         (dom/label {:htmlFor label} label)
-         (dom/input input-props)
-         (dom/div :.ui.error.message {:classes [(when valid? "hidden")]}
-                  error-message))))
+      (dom/label {:htmlFor label} label)
+      (dom/input input-props)
+      (dom/div :.ui.error.message {:classes [(when valid? "hidden")]}
+        error-message))))
 
 
 (defsc Main [this props]
@@ -34,11 +34,11 @@
    :ident         (fn [] [:component/id :main])
    :route-segment ["home"]}
   (div :.ui.container.segment
-       (h3 "Main")
-       (p (str "Welcome to the Fulcro template. "
-               "The Sign up and login functionalities are partially implemented, "
-               "but mostly this is just a blank slate waiting "
-               "for your project."))))
+    (h3 "Main")
+    (p (str "Welcome to the Fulcro template. "
+            "The Sign up and login functionalities are partially implemented, "
+            "but mostly this is just a blank slate waiting "
+            "for your project."))))
 
 (defsc Settings [this {:keys [:account/time-zone :account/real-name] :as props}]
   {:query         [:account/time-zone :account/real-name :account/crap]
@@ -46,8 +46,8 @@
    :route-segment ["settings"]
    :initial-state {}}
   (div :.ui.container.segment
-       (h3 "Settings")
-       (div "TODO")))
+    (h3 "Settings")
+    (div "TODO")))
 
 
 (defsc SnomedDescription [this {:info.snomed.Description/keys [term] :as props}]
