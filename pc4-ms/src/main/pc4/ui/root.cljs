@@ -85,18 +85,26 @@
 
 (defsc Root [this {authenticated-user :session/authenticated-user
                    router             :ui/main-router
-                   login              :ui/login}]
-  {:query         [{:session/authenticated-user (comp/get-query users/NavBar)}
-                   {:ui/main-router (comp/get-query MainRouter)}
-                   {:ui/login (comp/get-query users/Login)}]
-   :initial-state {:ui/main-router {}
-                   :ui/login  {}
-                   :session/authenticated-user {}}}
-
-  (if-not (seq authenticated-user)
-    (users/ui-login login)
-    (comp/fragment (users/ui-nav-bar authenticated-user)
-                   (ui-main-router router))))
+                   login              :ui/login
+                   :ui/keys           [airport-input]}]
+  {:query [{:session/authenticated-user (comp/get-query users/NavBar)}
+           {:ui/main-router (comp/get-query MainRouter)}
+           {:ui/login (comp/get-query users/Login)}
+           {:ui/airport-input (comp/get-query pc4.ui.snomed/Autocomplete)}]
+   :initial-state #_{:ui/main-router             {}
+                     :ui/login                   {}
+                     :session/authenticated-user {}}
+   (fn [p] {:ui/main-router             (comp/get-initial-state MainRouter)
+            :ui/login                   (comp/get-initial-state users/Login)
+            :session/authenticated-user (comp/get-initial-state users/NavBar)
+            :ui/airport-input           (comp/get-initial-state pc4.ui.snomed/Autocomplete {:id :airports})})}
+  (div
+    (if-not (seq authenticated-user)
+      (users/ui-login login)
+      (comp/fragment (users/ui-nav-bar authenticated-user)
+                     (dom/div :.m-8.p-8 {:class "w-1/4"}
+                       (pc4.ui.snomed/ui-autocomplete airport-input {:onSelect #(println "SELECTED " %)}))
+                     #_(ui-main-router router)))))
 
 (comment
   (comp/get-query Root))
