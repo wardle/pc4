@@ -17,7 +17,7 @@
              com.eldrix/concierge              {:mvn/version "1.0.150"}
              com.eldrix/deprivare              {:mvn/version "1.0.54"}
              com.eldrix/dmd                    {:mvn/version "0.6.146"}
-             com.eldrix/hermes                 {:mvn/version "1.0.754"}
+             com.eldrix/hermes                 {:mvn/version "1.0.772"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
 
              aero/aero                         {:mvn/version "1.1.6"}
