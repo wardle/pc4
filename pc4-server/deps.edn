@@ -65,6 +65,7 @@
              :dev         {:extra-paths ["dev"]
                            :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                                          com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
+                                         com.hypalynx/sail                        {:mvn/version "0.7.10"}
                                          ch.qos.logback/logback-classic           {:mvn/version "1.4.4"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}}
 
