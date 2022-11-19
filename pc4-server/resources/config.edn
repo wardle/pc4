@@ -138,7 +138,7 @@
                     :dev     {:connect-viz true}}
   :env    #ig/ref :pathom/env}
 
- :com.eldrix.pc4.pedestal/server
+ :com.eldrix.pc4.api/server                                 ;; This is a graph API server
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
   :host            "0.0.0.0"
@@ -147,5 +147,14 @@
   :session-key     #ref [:secrets :pc4 :session-key]
   :env             {:pathom/boundary-interface #ig/ref :pathom/boundary-interface
                     :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
+                    :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}
+ :com.eldrix.pc4.www/server
+ {:port            8090
+  :allowed-origins "*"
+  :host            "0.0.0.0"
+  :join?           false
+  :session-key     #ref [:secrets :pc4 :session-key]
+  :debug?          #profile {:dev true :default false}
+  :env             {:pathom/boundary-interface #ig/ref :pathom/boundary-interface
+                    :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
                     :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}
-

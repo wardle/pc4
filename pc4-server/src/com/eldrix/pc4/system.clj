@@ -117,7 +117,7 @@
   (dorun (->> ops
               (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))))
               sort
-              (map #(log/info "op: " %))))
+              (map #(log/debug "op: " %))))
   (merge (dissoc env :pathom/ops)
          (-> (pci/register {::p.error/lenient-mode? true} ops)
              (com.wsscode.pathom3.plugin/register {:com.wsscode.pathom3.plugin/id 'err
@@ -185,8 +185,8 @@
   (ig/halt! system)
 
   ;; this creates a fake authenticated environment and injects it into our system
-  (def authenticated-env (com.eldrix.pc4.pedestal/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
-  (def authenticated-env (com.eldrix.pc4.pedestal/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
+  (def authenticated-env (com.eldrix.pc4.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "ma090906"}))
+  (def authenticated-env (com.eldrix.pc4.api/make-authenticated-env (:com.eldrix.rsdb/conn system) {:system "cymru.nhs.uk" :value "system"}))
   (rsdb/delete-ms-event! (merge (:pathom/env system) authenticated-env) {:t_ms_event/id 1381})
   (ig/halt! system)
 

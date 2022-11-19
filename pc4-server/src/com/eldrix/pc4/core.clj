@@ -8,8 +8,8 @@
     (log/error "Missing :profile")
     (System/exit 0))
   (log/info "starting pc4-server with profile" {:profile profile})
-  (pc4/load-namespaces profile [:com.eldrix.pc4.pedestal/server])
-  (pc4/init profile [:com.eldrix.pc4.pedestal/server]))
+  (pc4/load-namespaces profile [:com.eldrix.pc4.api/server])
+  (pc4/init profile [:com.eldrix.pc4.api/server]))
 
 (defn -main [& args]
   (if-let [profile (first args)]

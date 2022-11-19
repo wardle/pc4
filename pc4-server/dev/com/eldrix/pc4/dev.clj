@@ -6,13 +6,13 @@
     [integrant.core :as ig]
     [com.eldrix.clods.core :as clods]
     [com.eldrix.pc4.rsdb.patients :as patients]
-    [portal.api :as portal]
     [com.eldrix.pc4.rsdb.results :as results]
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [cognitect.transit :as transit]
-    [com.eldrix.pc4.users :as users])
-  (:import (java.io ByteArrayOutputStream)))
+    [com.eldrix.pc4.users :as users]
+    [portal.api :as portal]
+    [com.eldrix.pc4.rsdb.projects :as projects]))
 
 (stest/instrument)                                          ;; turn on instrumentation for development
 
@@ -32,14 +32,26 @@
     (ig/halt! system)
     (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
 
-  ;; start a server using pedestal/jetty
-  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
-  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
+  ;; start a graph API server
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.api/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.api/server]))
   (ig/halt! system)
 
+  ;; start a www server
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.www/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.www/server]))
+  (ig/halt! system)
+
+  (do (ig/halt! system)
+      (pc4/load-namespaces :dev [:com.eldrix.pc4.www/server])
+      (def system (pc4/init :dev [:com.eldrix.pc4.www/server])))
+  (tap> system)
+
+  (com.eldrix.pc4.rsdb.projects/common-concepts-for-project (:com.eldrix.rsdb/conn system) 5)
+  (com.eldrix.pc4.rsdb.users/all-projects-and-children-identifiers (:com.eldrix.rsdb/conn system) "ma090906")
   ;; exercise some of the components...
   (keys system)
-  (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7a4")
+  (tap> (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7a4"))
   (com.eldrix.hermes.core/search (:com.eldrix/hermes system) {:s "amlodipine" :max-hits 1 :constraint "<10363601000001109"})
   (com.eldrix.hermes.core/get-extended-concept (:com.eldrix/hermes system) 108537001)
   (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))
@@ -217,25 +229,25 @@
   (com.eldrix.pc4.modules.dmt/write-data system :cambridge)
   (com.eldrix.pc4.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
-  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "jhunkin"
-                                                                         :t_user/first_names  "Josie"
-                                                                         :t_user/last_name    "Hunkin"
+  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "er528"
+                                                                         :t_user/first_names  "Eleanor"
+                                                                         :t_user/last_name    "Reffin"
                                                                          :t_user/title        "Ms"
-                                                                         :t_user/email        "josie.hunkin@nhs.net"
-                                                                         :t_user/job_title_fk 8})
+                                                                         :t_user/email        "er528@cam.ac.uk"
+                                                                         :t_user/job_title_fk 1})
   (def random-password (org.apache.commons.lang3.RandomStringUtils/randomAlphabetic 32))
   random-password
-  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "jhunkin" random-password)
-  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "jhunkin"))
+  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "er528" random-password)
+  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "er528")
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
+  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 1) ;; TEST
+  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 126) ;; cambridge
+  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 127) ;; plymouth
 
-  ;; start a server using http-kit/ring - suitable for a fulcro front-end
-  (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
-
-  (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "cpizot"
-                                                                                      :project-id 1})
+  (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "er528"
+                                                                                      :project-id 126})
 
   (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot")
 
@@ -271,12 +283,9 @@
 (comment
   (def x (com.eldrix.pc4.rsdb.results/parse-count-lesions "5+/-2"))
 
-
   (results/lesion-range (com.eldrix.pc4.rsdb.results/parse-count-lesions ">12"))
 
   (gen/generate (s/gen ::lesion-count))
   (gen/generate (s/gen ::lesion-number))
   (s/valid? ::lesion-count [:plus-minus 4 1])
-  (com.eldrix.pc4.rsdb.results/parse-count-lesions "6-3")
-  x)
-
+  (com.eldrix.pc4.rsdb.results/parse-count-lesions "6-3"))

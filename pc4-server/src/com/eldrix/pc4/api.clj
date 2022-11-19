@@ -1,4 +1,5 @@
-(ns com.eldrix.pc4.pedestal
+(ns com.eldrix.pc4.api
+  "An API server, designed to provide a graph API for front-end client apps."
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [cognitect.transit :as transit]
@@ -192,7 +193,7 @@
                         :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
 
 (defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
-  (log/info "Running HTTP server" (dissoc config :env :session-key))
+  (log/info "Running API HTTP server" (dissoc config :env :session-key))
   (when-not (s/valid? ::config config)
     (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
