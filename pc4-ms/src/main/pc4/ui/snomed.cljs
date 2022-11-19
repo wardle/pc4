@@ -15,29 +15,54 @@
     [:autocomplete/by-id (:db/id id-or-props)]
     [:autocomplete/by-id id-or-props]))
 
-(defsc CompletionList [this {:keys [value values onValueSelect idKey displayPropertyKey size] :or {size 10}}]
-  (tap> {:completion-list values})
-  (let [values' (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)]
-    (dom/select :.bg-none
-      {:value    (when value (str (idKey value)))
-       :size     size
-       :onChange #(do (println "Selecting" (evt/target-value %))
-                      (onValueSelect (get values' (evt/target-value %))))}
+(defsc SelectOption
+  [this {:info.snomed.Concept/keys [id preferredDescription]}]
+  {:ident :info.snomed.Concept/id
+   :query [:info.snomed.Concept/id
+           {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+  (dom/option {:value id} (:info.snomed.Description/term preferredDescription)))
+
+(def ui-select-option (comp/factory SelectOption))
+
+(defsc Select
+  [this {id :db/id :autocomplete/keys [selected options] :as props} {:keys [onSelect]}]
+  {:query [:db/id
+           :autocomplete/selected
+           {:autocomplete/options (comp/query SelectOption)}]
+   :ident (fn [] (autocomplete-ident props))
+   :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/selected nil :autocomplete/options []})}
+  (let [options' (conj (set options) selected)]
+    (dom/div :.w-full
+      (dom/select
+        {:value    selected
+         :onChange #(when onSelect (onSelect (evt/target-value %)))}
+        (map ui-select-option options')))))
+
+(def ui-select (comp/computed-factory Select))
+
+(defsc CompletionList
+  [this {:keys [value values idKey displayPropertyKey size] :or {size 8}}
+   {:keys [onValueSelect]}]
+  (let [values# (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)] ;; generate a lookup map
+    (dom/select
+      {:className (when (> size 1) "bg-none")
+       :value     (if value (str (idKey value)) "")
+       :size      size
+       :onChange  #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))}
       (map (fn [v]
              (dom/option {:key (str (idKey v)) :value (str (idKey v))} (displayPropertyKey v))) values))))
 
-(def ui-completion-list (comp/factory CompletionList))
-
+(def ui-completion-list (comp/computed-factory CompletionList))
 
 (defsc Synonyms [this {:info.snomed.Concept/keys [id synonyms]}]
   {:ident :info.snomed.Concept/id
    :query [:info.snomed.Concept/id
            {:info.snomed.Concept/preferredDescription [:info.snomed.Description/id :info.snomed.Description/term]}
-           {:info.snomed.Concept/synonyms [:info.snomed.Description/id :info.snomed.Description/term :info.snomed.Description/typeId]}]}
+           {:info.snomed.Concept/synonyms [:info.snomed.Description/id :info.snomed.Description/term]}]}
   (dom/div :.text-gray-600.text-sm.italic.pl-4
     (dom/ul
       (map (fn [{:info.snomed.Description/keys [id term]}]
-             (dom/li {:key id} term)) synonyms))))
+             (dom/li {:key id} term)) (sort-by :info.snomed.Description/term synonyms)))))
 
 (def ui-synonyms (comp/factory Synonyms))
 
@@ -79,7 +104,7 @@
 (defsc Autocomplete
   [this
    {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
-   {:keys [onSelect autoFocus] :or {autoFocus "false"}}]
+   {:keys [onSelect autoFocus label placeholder] :or {autoFocus false placeholder ""}}]
   {:query         [:db/id                                   ; the component's ID
                    :autocomplete/loaded-suggestions         ; A place to do the loading, so we can prevent flicker in the UI
                    :autocomplete/suggestions                ; the current completion suggestions
@@ -96,29 +121,29 @@
         _ (tap> {:autocomplete suggestions})]
     (comp/fragment
       (dom/div
-        (dom/label {:htmlFor field-id} "Enter search term: ")
-        (dom/input :.w-full.caret-black.p-1
-          {:id        field-id
-           :value     stringValue
-           :autoFocus autoFocus
-           :onChange  (fn [evt]
-                        (let [new-value (evt/target-value evt)]
-                          (if (>= (.-length new-value) 2)   ; avoid autocompletion until they've typed a couple of letters
-                            (get-suggestions this new-value id)
-                            (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
-                          (comp/transact! this [(clear-selected {:id id})])
-                          (m/set-value! this :autocomplete/selected nil) ;clear selection
-                          #_(m/set-value! this :autocomplete/selected-synonyms nil)
-                          (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
+        (when label (dom/label {:htmlFor field-id} "Enter search term: "))
+        (dom/input :.w-full.p-1.block.border.rounded-md.border-gray-300.shadow-sm
+          {:id          field-id
+           :placeholder placeholder
+           :value       stringValue
+           :autoFocus   autoFocus
+           :onChange    (fn [evt]
+                          (let [new-value (evt/target-value evt)]
+                            (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
+                              (get-suggestions this new-value id)
+                              (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
+                            (comp/transact! this [(clear-selected {:id id})])
+                            (m/set-value! this :autocomplete/selected nil) ;clear selection
+                            #_(m/set-value! this :autocomplete/selected-synonyms nil)
+                            (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div :.grid.grid-cols-1
-        (ui-completion-list {:value selected :values suggestions :onValueSelect onSelect' :idKey :info.snomed.Description/id :displayPropertyKey :info.snomed.Description/term})
+        (ui-completion-list {:value selected :values suggestions :idKey :info.snomed.Description/id :displayPropertyKey :info.snomed.Description/term}
+                            {:onValueSelect onSelect'})
         (when selected
           (dom/div :.p-4.border-2.shadow-inner
             (let [term (:info.snomed.Description/term selected)
                   preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-              (dom/span :.font-bold (:info.snomed.Description/term selected)
-                (when-not (= term preferred)
-                  (dom/span :.font-bold " (\"" preferred "\")"))
+              (dom/span :.font-bold preferred
                 (ui-synonyms selected-synonyms)))))))))
 
 (def ui-autocomplete (comp/computed-factory Autocomplete))

@@ -90,6 +90,7 @@
 
 (def ui-list-user-projects (comp/factory ListUserProjects))
 
+
 (defsc UserHomePage
   [this {:>/keys      [projects]
          :t_user/keys [id username title first_names last_name latest_news]

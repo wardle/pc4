@@ -10,6 +10,7 @@
             [clojure.string :as str]
             [pc4.ui.core :as ui]
             [pc4.rsdb]
+            [pc4.ui.snomed :as snomed]
             [pc4.users]
             [taoensso.timbre :as log]
             [cljs.spec.alpha :as s])
@@ -217,10 +218,10 @@
 
 (defsc PatientDemographics
   [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex]}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier
-           :t_patient/first_names :t_patient/last_name
-           :t_patient/sex :t_patient/date_birth :t_patient/date_death]}
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/patient_identifier
+                   :t_patient/first_names :t_patient/last_name
+                   :t_patient/sex :t_patient/date_birth :t_patient/date_death]}
   (comp/fragment
     (dom/h1 "Patient demographics")
     (dom/p "ID: " patient_identifier)))
@@ -378,7 +379,7 @@
    :query [:t_episode/id
            :t_episode/date_registration
            :t_episode/date_discharge
-           {:t_episode/project [:t_project/admission]}]}
+           {:t_episode/project [:t_project/is_admission]}]}
   (ui/ui-table-row {}
     (ui/ui-table-cell {} (ui/format-date date_registration))
     (ui/ui-table-cell {} (ui/format-date date_discharge))
@@ -386,23 +387,34 @@
 
 (def ui-admission-list-item (comp/factory AdmissionListItem {:keyfn :t_episode/id}))
 
+(defsc AdmissionEdit [this props]
+  {:ident :t_episode/id
+   :query [:t_episode/id
+           :t_episode/date_registration
+           :t_episode/date_discharge]})
+
 (defsc PatientAdmissions
-  [this {:t_patient/keys [episodes]}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier
-           {:t_patient/episodes (comp/get-query AdmissionListItem)}]}
-  (comp/fragment
-    (ui/ui-title {:title "Admissions"}
-                 (ui/ui-title-button {:title "Add admission"} {:onClick #(println "Action: add admission")}))
-    (ui/ui-table {}
-      (ui/ui-table-head {}
-        (ui/ui-table-row {}
-          (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" ""])))
-      (ui/ui-table-body {}
-        (->> episodes
-             (filter #(-> % :t_episode/project :t_project/admission))
-             (sort-by #(some-> % :t_episode/date_registration .getTime))
-             (map ui-admission-list-item))))))
+  [this {:t_patient/keys [episodes] :ui/keys [editing-admission]}]
+  {:ident     :t_patient/patient_identifier
+   :query     [:t_patient/patient_identifier
+               {:ui/editing-admission (comp/get-query AdmissionEdit)}
+               {:t_patient/episodes (comp/get-query AdmissionListItem)}]
+   :pre-merge (fn [{:keys [current-normalized data-tree]}]
+                (merge {:ui/editing-admission nil} current-normalized data-tree))}
+  (if editing-admission
+    (div "Editing admission" (str editing-admission))
+    (comp/fragment
+      (ui/ui-title {:title "Admissions"}
+                   (ui/ui-title-button {:title "Add admission"} {:onClick #(println "Action: add admission")}))
+      (ui/ui-table {}
+        (ui/ui-table-head {}
+          (ui/ui-table-row {}
+            (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" ""])))
+        (ui/ui-table-body {}
+          (->> episodes
+               (filter #(-> % :t_episode/project :t_project/is_admission))
+               (sort-by #(some-> % :t_episode/date_registration .getTime))
+               (map ui-admission-list-item)))))))
 
 (def ui-patient-admissions (comp/factory PatientAdmissions))
 
@@ -444,6 +456,7 @@
    :will-leave          (fn [this props]
                           (log/info "leaving patient page; patient identifier: " (:t_patient/patient_identifier props))
                           (comp/transact! this [(pc4.users/close-patient nil)]))}
+  (tap> props)
   (let [selected-page (or (comp/get-state this :selected-page) :home)]
     (comp/fragment
       (ui-patient-banner
