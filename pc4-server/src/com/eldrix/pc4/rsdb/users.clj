@@ -143,6 +143,39 @@
                                                       [:= :t_project_user/user_fk :t_user/id]
                                                       [:= :t_user/username username]]}]})))
 
+(defn sql-active-project-ids
+  "Generate SQL to return a user's active project identifiers.
+  If `active-projects?` is `true`, then both registration and project must be
+  active on the date specified."
+  [user-id on-date active-projects?]
+  (if active-projects?
+    (sql/format {:select-distinct [:t_project/id] :from [:t_project :t_project_user]
+                 :where           [:and
+                                   [:= :t_project_user/user_fk user-id]
+                                   [:= :t_project_user/project_fk :t_project/id]
+                                   [:or [:is :t_project/date_from nil] [:<= :t_project/date_from on-date]]
+                                   [:or [:is :t_project/date_to nil] [:> :t_project/date_to on-date]]
+                                   [:or [:is :t_project_user/date_from nil] [:<= :t_project_user/date_from on-date]]
+                                   [:or [:is :t_project_user/date_to nil] [:> :t_project_user/date_to on-date]]]})
+    (sql/format {:select-distinct [[:project_fk :id]] :from [:t_project_user]
+                 :where           [:and
+                                   [:= :t_project_user/user_fk user-id]
+                                   [:or [:is :date_to nil] [:> :date_to on-date]]
+                                   [:or [:is :date_from nil] [:<= :date_from on-date]]]})))
+
+(defn active-project-ids
+  "Return a collection of project identifiers representing projects to which the
+  user is actively registered. To be active, the user has to have an active
+  registration, on the date specified, or today if omitted. Additionally,
+  results can be limited to only projects that are themselves active."
+  ([conn user-id] (active-project-ids conn user-id {}))
+  ([conn user-id {:keys [^LocalDate on-date only-active-projects?] :or {only-active-projects? false}}]
+   (next.jdbc.plan/select! conn :id (sql-active-project-ids user-id (or on-date (LocalDate/now)) only-active-projects?))))
+
+(defn common-concepts [conn user-id]
+  (let [project-ids (active-project-ids conn user-id {:only-active-projects? true})]
+    (com.eldrix.pc4.rsdb.projects/common-concepts conn project-ids)))
+
 (defn all-projects-and-children-identifiers
   "Returns identifiers for all projects to which user is registered, together
   with any sub-projects. In general, "
@@ -217,7 +250,7 @@
   (->> roles
        (filter #(contains? (:t_project_user/permissions %) permission))))
 
-(defn-  make-authorization-manager'
+(defn- make-authorization-manager'
   "Create an authorization manager for the user specified, providing subsequent
   decisions on authorization for a given action via an open-ended permission
   system. The manager is an immutable service; it closes over the permissions
@@ -301,8 +334,8 @@
 
 (defn set-must-change-password! [conn username]
   (next.jdbc/execute-one! conn (sql/format {:update [:t_user]
-                                            :where [:= :username username]
-                                            :set {:must_change_password true}})))
+                                            :where  [:= :username username]
+                                            :set    {:must_change_password true}})))
 
 
 (defn fetch-user-photo [conn username]
@@ -318,7 +351,7 @@
 
 (defn has-photo? [conn username]
   (next.jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user
-                                                          :where [:= :t_user/username username]})))
+                                                          :where  [:= :t_user/username username]})))
 
 (defn fetch-latest-news
   "Returns the latest news items for this user. Note: each news item can be

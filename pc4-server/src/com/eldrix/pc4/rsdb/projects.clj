@@ -19,7 +19,8 @@
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.plan]
-            [next.jdbc.sql])
+            [next.jdbc.sql]
+            [clojure.set :as set])
   (:import (java.time LocalDate)
            (java.text Normalizer Normalizer$Form)
            (java.time.format DateTimeFormatter)
@@ -85,11 +86,22 @@
                :from   :parents
                :where  [:!= :id project-id]}))
 
-(defn all-children-ids [conn project-id]
-  (map :id (db/execute! conn (all-children-sql project-id))))
+(defn all-children-ids
+  "Return a set of project identifiers representing the children of the given
+  project(s)."
+  [conn project-id-or-project-ids]
+  (set (cond (number? project-id-or-project-ids)
+             (next.jdbc.plan/select! conn :id (all-children-sql project-id-or-project-ids))
+             (coll? project-id-or-project-ids)
+             (mapcat #(next.jdbc.plan/select! conn :id (all-children-sql %)) project-id-or-project-ids))))
 
-(defn all-parents-ids [conn project-id]
-  (map :id (db/execute! conn (all-parents-sql project-id))))
+(defn all-parents-ids
+  "Return a set of project ids representing the parents of the given project(s)."
+  [conn project-id-or-project-ids]
+  (set (cond (number? project-id-or-project-ids)
+             (next.jdbc.plan/select! conn :id (all-parents-sql project-id-or-project-ids))
+             (coll? project-id-or-project-ids)
+             (mapcat #(next.jdbc.plan/select! conn :id (all-parents-sql %)) project-id-or-project-ids))))
 
 (defn all-children [conn project-id]
   (when-let [children-ids (seq (all-children-ids conn project-id))]
@@ -103,9 +115,13 @@
   (db/execute-one! conn (fetch-project-sql project-id)))
 
 (defn common-concepts
-  "Return a vector of common concepts for the project and its ancestors."
-  [conn project-id]
-  (let [project-ids (conj (all-parents-ids conn project-id) project-id)]
+  "Return a vector of common concepts for the project(s) and its ancestors."
+  [conn project-id-or-project-ids]
+  (let [all-parents (all-parents-ids conn project-id-or-project-ids)
+        project-ids (cond (number? project-id-or-project-ids)
+                          (conj all-parents project-id-or-project-ids)
+                          (coll? project-id-or-project-ids)
+                          (set/union (all-parents-ids conn project-id-or-project-ids) (set project-id-or-project-ids)))]
     (next.jdbc.plan/select! conn :conceptconceptid
                             (sql/format {:select-distinct :conceptconceptid
                                          :from            :t_project_concept
@@ -145,7 +161,7 @@
                                                    [:= :t_episode/date_discharge on-date]
                                                    [:< :date_discharge on-date]]]})))))
 (defn count-pending-referrals
-  "Returns the number of referrals pending for the project"
+  "Returns the number of referrals pending for the projects"
   ([conn project-ids] (count-pending-referrals conn project-ids (LocalDate/now)))
   ([conn project-ids on-date]
    (:count (db/execute-one! conn
@@ -568,8 +584,8 @@
                                    {:id patient-pk})
             (next.jdbc.sql/update! tx :t_episode
                                    {:stored_pseudonym (:project-pseudonym updated)}
-                                   {:patient_fk       patient-pk
-                                    :project_fk       project-id})))))))
+                                   {:patient_fk patient-pk
+                                    :project_fk project-id})))))))
 
 
 
@@ -613,7 +629,8 @@
                                     :nhs-number "4965575768"
                                     :date-birth (LocalDate/of 1975 1 1))
 
-  (search-by-project-pseudonym conn 124 "e657")
+  (project-with-name conn "")
+  (search-by-project-pseudonym conn 84 "24e")
 
   (fetch-by-nhs-number conn "4965575768")
 

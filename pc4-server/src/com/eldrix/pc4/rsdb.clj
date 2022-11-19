@@ -26,7 +26,8 @@
             [com.eldrix.pc4.rsdb.patients :as patients]
             [com.eldrix.pc4.rsdb.projects :as projects]
             [com.eldrix.pc4.rsdb.results :as results]
-            [com.eldrix.pc4.rsdb.users :as users])
+            [com.eldrix.pc4.rsdb.users :as users]
+            [clojure.set :as set])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
            (java.util Base64)
@@ -484,11 +485,11 @@
   (let [concept-ids (projects/common-concepts conn id)
         ecl (:ecl (pco/params env))]
     (when (seq concept-ids)
-      (if (str/blank? ecl)
-        (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
-        (let [concepts (str/join " OR " concept-ids)]
-          (->> (com.eldrix.hermes.core/expand-ecl hermes (str "(" concepts ") AND " ecl))
-               (map #(hash-map :info.snomed.Concept/id (:conceptId %)))))))))
+      {:t_project/common_concepts
+       (if (str/blank? ecl)
+         (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
+         (->> (hermes/intersect-ecl hermes concept-ids ecl)
+              (mapv #(hash-map :info.snomed.Concept/id %))))})))
 
 (pco/defresolver project->users
   [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
@@ -527,7 +528,6 @@
                                       :t_result_liver_function/date :t_result_liver_function/notes]}]}
 
   {:t_patient/results (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier))})
-
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -573,13 +573,13 @@
 
 (pco/defresolver form_edss-score->score
   [{edss_score :t_form_edss/edss_score}]
-  {::pco/input [:t_form_edss/edss_score]
+  {::pco/input  [:t_form_edss/edss_score]
    ::pco/output [:t_form_edss/score]}
   {:t_form_edss/score (forms/edss-score->score edss_score)})
 
 (pco/defresolver form_edss_fs-score->score
   [{edss_score :t_form_edss_fs/edss_score}]
-  {::pco/input [:t_form_edss_fs/edss_score]
+  {::pco/input  [:t_form_edss_fs/edss_score]
    ::pco/output [:t_form_edss_fs/score]}
   {:t_form_edss_fs/score (forms/edss-score->score edss_score)})
 
@@ -723,6 +723,26 @@
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
   {:t_user/active_projects (vec (filter projects/active? (users/projects conn username)))})
+
+(pco/defresolver user->common-concepts
+  "Resolve common concepts for the user, based on project membership, optionally
+  filtering by a SNOMED expression (ECL)."
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {user-id :t_user/id}]
+  {::pco/output [{:t_user/common_concepts [:info.snomed.Concept/id]}]}
+  (let [project-ids (users/active-project-ids conn user-id {:only-active-projects? true})
+        concept-ids (projects/common-concepts conn project-ids)
+        ecl (:ecl (pco/params env))
+        _ (println {:project-ids project-ids
+                    :concept-ids concept-ids
+                    :ecl         ecl
+                    :result      (->> (hermes/intersect-ecl hermes concept-ids ecl)
+                                      (mapv #(hash-map :info.snomed.Concept/id %)))})]
+    {:t_user/common_concepts
+     (when (seq concept-ids)
+       (if (str/blank? ecl)
+         (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
+         (->> (hermes/intersect-ecl hermes concept-ids ecl)
+              (mapv #(hash-map :info.snomed.Concept/id %)))))}))
 
 (pco/defresolver user->latest-news
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
@@ -1136,9 +1156,6 @@
       (next.jdbc.sql/delete! conn :t_episode {:id episode-id}))
     (throw (ex-info "Invalid parameters:" params))))
 
-
-
-
 (pco/defresolver multiple-sclerosis-diagnoses
   [{conn :com.eldrix.rsdb/conn} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
@@ -1226,6 +1243,7 @@
    user->full-name
    user->initials
    user->active-projects
+   user->common-concepts
    user->latest-news
    user->count-unread-messages
    user->count-incomplete-messages
