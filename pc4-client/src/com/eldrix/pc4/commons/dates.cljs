@@ -53,5 +53,4 @@
   (def d (transit/read r "[\"~#LocalDate\",\"2021-06-07\"]"))
   (println d)
   (transit/write w d)
-  (.equals (Date/fromIsoString "20200101") (Date/fromIsoString "2020-01-01"))
-  )
+  (.equals (Date/fromIsoString "20200101") (Date/fromIsoString "2020-01-01")))
