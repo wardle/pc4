@@ -447,7 +447,7 @@
   "Returns a map of patient identifiers to a collection of sorted addresses."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
   (group-by :t_patient/patient_identifier
-            (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier :t_address/date_from :t_address/date_to :t_address/postcode_raw]
+            (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier :t_address/address1 :t_address/date_from :t_address/date_to :t_address/postcode_raw]
                                            :from     [:t_address]
                                            :order-by [[:t_patient/patient_identifier :asc] [:date_to :desc] [:date_from :desc]]
                                            :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
@@ -761,6 +761,7 @@
     (and (not (str/blank? address1)) (re-matches #"^[E|W]\d*" address1))
     (deprivation-quartile-for-lsoa system address1)
     :else nil))
+
 (defn deprivation-quartiles-for-patients
   "Determine deprivation quartile for the patients specified.
   Deprivation indices are calculated based on address history, on the date
@@ -784,6 +785,7 @@
      (update-vals (addresses-for-patients system patient-ids)
                   #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
                           (patients/address-for-date % date)) ;; address-for-date will use 'now' if date nil, so wrap
+                        (deprivation-quartile-for-address system))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
