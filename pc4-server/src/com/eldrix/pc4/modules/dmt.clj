@@ -750,6 +750,17 @@
         (>= x 1/4) 2
         :else 1))))
 
+(defn deprivation-quartile-for-address
+  "Given an address, determine a deprivation quartile.
+  We use postal code when possible, but fallback to looking for a stored LSOA
+  in the 'address1' field if available."
+  [system {:t_address/keys [address1 postcode_raw]}]
+  (cond
+    (not (str/blank? postcode_raw))
+    (deprivation-quartile-for-lsoa system (lsoa-for-postcode system postcode_raw))
+    (and (not (str/blank? address1)) (re-matches #"^[E|W]\d*" address1))
+    (deprivation-quartile-for-lsoa system address1)
+    :else nil))
 (defn deprivation-quartiles-for-patients
   "Determine deprivation quartile for the patients specified.
   Deprivation indices are calculated based on address history, on the date
@@ -773,9 +784,6 @@
      (update-vals (addresses-for-patients system patient-ids)
                   #(->> (when-let [date (date-fn (:t_patient/patient_identifier (first %)))]
                           (patients/address-for-date % date)) ;; address-for-date will use 'now' if date nil, so wrap
-                        :t_address/postcode_raw
-                        (lsoa-for-postcode system)
-                        (deprivation-quartile-for-lsoa system))))))
 
 (defn all-recorded-medications [{conn :com.eldrix.rsdb/conn}]
   (into #{} (map :t_medication/medication_concept_fk)
