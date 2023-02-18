@@ -115,17 +115,17 @@
   (db/execute-one! conn (fetch-project-sql project-id)))
 
 (defn common-concepts
-  "Return a vector of common concepts for the project(s) and its ancestors."
+  "Return a set of common concepts for the project(s) and its ancestors."
   [conn project-id-or-project-ids]
   (let [all-parents (all-parents-ids conn project-id-or-project-ids)
         project-ids (cond (number? project-id-or-project-ids)
                           (conj all-parents project-id-or-project-ids)
                           (coll? project-id-or-project-ids)
                           (set/union (all-parents-ids conn project-id-or-project-ids) (set project-id-or-project-ids)))]
-    (next.jdbc.plan/select! conn :conceptconceptid
-                            (sql/format {:select-distinct :conceptconceptid
-                                         :from            :t_project_concept
-                                         :where           [:in :projectid project-ids]}))))
+    (into #{} (map :conceptconceptid)
+          (jdbc/plan conn (sql/format {:select-distinct :conceptconceptid
+                                       :from            :t_project_concept
+                                       :where           [:in :projectid project-ids]})))))
 
 (defn project-with-name [conn nm]
   (db/execute-one! conn (sql/format {:select :* :from :t_project

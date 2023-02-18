@@ -110,6 +110,16 @@
   ([connectable sql-params opts]
    (parse-entity (jdbc/execute-one! connectable sql-params opts))))
 
+(defn date-in-range?
+  "Is the date in the range specified, or is the range 'current'?
+  Handles open ranges if `from` or `to` nil."
+  ([^LocalDate from ^LocalDate to]
+   (date-in-range? from to nil))
+  ([^LocalDate from ^LocalDate to ^LocalDate date]
+   (let [date' (or date (LocalDate/now))]
+     (and (or (nil? from) (not (.isBefore date' from)))
+          (or (nil? to) (.isBefore date' to))))))
+
 (s/def :t_death_certificate/part1a (s/nilable string?))
 (s/def :t_death_certificate/part1b (s/nilable string?))
 (s/def :t_death_certificate/part1c (s/nilable string?))
@@ -153,3 +163,11 @@
 (s/def :t_smoking_history/id int?)
 (s/def :t_smoking_history/current_cigarettes_per_day int?)
 (s/def :t_smoking_history/status #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
+
+(s/def :t_address/address1 (s/nilable string?))
+(s/def :t_address/address2 (s/nilable string?))
+(s/def :t_address/address3 (s/nilable string?))
+(s/def :t_address/address4 (s/nilable string?))
+(s/def :t_address/postcode_raw (s/nilable string?))
+(s/def :t_address/date_from (s/nilable #(instance? LocalDate %)))
+(s/def :t_address/date_to (s/nilable #(instance? LocalDate %)))

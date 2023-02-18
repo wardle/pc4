@@ -5,7 +5,6 @@
             [honey.sql :as sql]
             [com.eldrix.pc4.rsdb.db :as db]
             [com.eldrix.pc4.rsdb.projects :as projects]
-            [com.eldrix.pc4.dates :as dates]
             [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.clods.core :as clods])
@@ -61,10 +60,15 @@
                                            :set    {:authoritative false}
                                            :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
 
+(defn fetch-patient [conn {patient-pk :t_patient/id}]
+  (db/execute-one! conn (sql/format {:select :*
+                                     :from :t_patient
+                                     :where [:= :id patient-pk]})))
+
 (s/fdef fetch-patient-addresses
   :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
 (defn fetch-patient-addresses
-  "Returns patient addresses."
+  "Returns patient addresses ordered using date_from descending."
   [conn {patient-pk :t_patient/id}]
   (db/execute! conn (sql/format {:select   [:id :address1 :address2 :address3 :address4 [:postcode_raw :postcode]
                                             :date_from :date_to :housing_concept_fk :ignore_invalid_address]
@@ -76,12 +80,13 @@
   :args (s/cat :addresses (s/coll-of (s/keys :req [:t_address/date_from :t_address/date_to]))
                :on-date (s/? (s/nilable #(instance? LocalDate %)))))
 (defn address-for-date
-  "Determine the address on a given date, the current date if none given."
+  "Given a collection of addresses sorted by date_from in descending order,
+  determine the address on a given date, the current date if none given."
   ([sorted-addresses]
    (address-for-date sorted-addresses nil))
   ([sorted-addresses ^LocalDate date]
    (->> sorted-addresses
-        (filter #(dates/in-range? (:t_address/date_from %) (:t_address/date_to %) date))
+        (filter #(db/date-in-range? (:t_address/date_from %) (:t_address/date_to %) date))
         first)))
 
 (defn fetch-episodes

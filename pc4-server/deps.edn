@@ -19,6 +19,7 @@
              com.eldrix/dmd                    {:mvn/version "0.6.146"}
              com.eldrix/hermes                 {:mvn/version "1.0.772"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
+             com.eldrix.pc4/rsdb               {:local/root "../pc4-rsdb"}
 
              aero/aero                         {:mvn/version "1.1.6"}
              buddy/buddy-core                  {:mvn/version "1.10.413"}

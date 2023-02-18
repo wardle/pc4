@@ -28,8 +28,6 @@
   (:require [clojure.core.async :as a]
             [clojure.string :as str]
             [com.eldrix.hermes.core :as hermes]
-            [com.eldrix.hermes.impl.store]
-            [com.eldrix.hermes.snomed :as snomed]
             [next.jdbc.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.connection])
@@ -37,10 +35,9 @@
 
 (defn stream-concept-identifiers
   "Return a channel on which all concept identifiers will be returned."
-  [hermes & {:keys [ batch-size] :or {batch-size 5000}}]
-  (let [xf-concept-id (map :id)
-        ch (a/chan 5 (comp xf-concept-id (partition-all batch-size)))]
-    (com.eldrix.hermes.impl.store/stream-all-concepts (.-store hermes) ch)
+  [hermes & {:keys [batch-size] :or {batch-size 5000}}]
+  (let [ch (a/chan 5 (comp (map :id) (partition-all batch-size)))]
+    (a/thread (hermes/stream-all-concepts (.-store hermes) ch))
     ch))
 
 (def upsert-concepts-sql
@@ -71,6 +68,12 @@
   (println "Updating concepts")
   (update-concepts conn hermes))
 
+(defn need-update?
+  "Does the database need updating from the hermes service specified?"
+  [conn hermes]
+  (not= (:count (next.jdbc/execute-one! conn ["select count(*) from t_concept"]))
+        (get-in (hermes/status* hermes {:counts? true}) [:components :concepts])))
+
 (defn update-snomed
   "Update the database db-name (default 'rsdb') with data from hermes.
   e.g
@@ -78,10 +81,10 @@
 
   will update the database 'rsdb' from data in the hermes file specified."
   [{:keys [db-name hermes] :or {db-name "rsdb"}}]
-  (let [hermes-svc (hermes/open hermes)
-        conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
-                                                            :dbname          db-name
-                                                            :maximumPoolSize 10})]
+  (with-open [hermes-svc (hermes/open hermes)
+              conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
+                                                                  :dbname          db-name
+                                                                  :maximumPoolSize 10})]
     (update-snomed' conn hermes-svc)))
 
 (comment
@@ -94,6 +97,8 @@
                                                            :maximumPoolSize 10}))
   (sql/get-by-id conn :t_concept 104001 :concept_id {})
   (sql/get-by-id conn :t_concept 38097211000001103 :concept_id {})
+  (:count (next.jdbc/execute-one! conn ["select count(*) from t_concept"]))
+  (get-in (hermes/status* hermes {:counts? true}) [:components :concepts])
   (update-concepts conn hermes))
 
 

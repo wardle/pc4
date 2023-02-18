@@ -48,8 +48,8 @@
   (com.eldrix.deprivare.core/fetch-installed (:com.eldrix/deprivare system))
   (com.eldrix.deprivare.core/fetch-lsoa (:com.eldrix/deprivare system) "W01001770")
 
-
   (require '[com.eldrix.pc4.rsdb.patients :as patients])
+  (com.eldrix.pc4.rsdb.patients/fetch-patient (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
   (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
   (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
 
@@ -205,6 +205,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   THIS COMMENT BLOCK IS FOR INTERACTIVE USE WITH THE REMOTE SERVER PC4   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (comment
   ;; just connect to remote database
   (def system (pc4/init :pc4-dev [:com.eldrix.rsdb/conn :com.eldrix.rsdb/config]))
@@ -217,16 +218,25 @@
   (com.eldrix.pc4.modules.dmt/write-data system :cambridge)
   (com.eldrix.pc4.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
-  (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) {:t_user/username     "jhunkin"
-                                                                         :t_user/first_names  "Josie"
-                                                                         :t_user/last_name    "Hunkin"
-                                                                         :t_user/title        "Ms"
-                                                                         :t_user/email        "josie.hunkin@nhs.net"
-                                                                         :t_user/job_title_fk 8})
-  (def random-password (org.apache.commons.lang3.RandomStringUtils/randomAlphabetic 32))
-  random-password
-  (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "jhunkin" random-password)
-  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system "jhunkin"))
+  (def users
+    [{:t_user/username     "jgl45"
+      :t_user/first_names  "Jacob"
+      :t_user/last_name    "Lundie-Fallon"
+      :t_user/title        "Mr"
+      :t_user/email        "jgl45@cam.ac.uk"
+      :t_user/job_title_fk 8}
+     {:t_user/username     "riy20"
+      :t_user/first_names  "Rohan"
+      :t_user/last_name    "Yesudian"
+      :t_user/title        "Mr"
+      :t_user/email        "riy20@cam.ac.uk"
+      :t_user/job_title_fk 8}])
+  (def project-id 126)
+  (map (fn [{:t_user/keys [username] :as user}]
+         (let [user (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) user)]
+           (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   username :project-id project-id})
+           user)) users)
+
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
@@ -243,15 +253,15 @@
   global-salt
   (com.eldrix.pc4.rsdb.projects/update-legacy-pseudonymous-patient! (:com.eldrix.rsdb/conn system)
                                                                     global-salt
-                                                                    124064
-                                                                    {:nhs-number "4290060692"
-                                                                     :date-birth (java.time.LocalDate/of 1983 7 3)
+                                                                    125221
+                                                                    {:nhs-number "6269753848"
+                                                                     :date-birth (java.time.LocalDate/of 1978 12 1)
                                                                      :sex        :MALE})
   (com.eldrix.pc4.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
                                                                  {:salt       global-salt :project-id 126 :nhs-number "4290060692"
                                                                   :date-birth (java.time.LocalDate/of 1983 7 3)})
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 126)
-  (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) 126 "0ef84a958ff85bf9e7ea022b73268952fdccf06f866efe794a7a0c4c5d7a8d8c")
+  (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) "CAMBRIDGEMS" "3624ddabcbe682fd4143654afa28fcf76c1fa3bba46bf90a1b2182bc8a4f3d3d")
 
   (com.eldrix.pc4.rsdb.projects/discharge-episode! (:com.eldrix.rsdb/conn system) 1 {:t_episode/id 48256})
 

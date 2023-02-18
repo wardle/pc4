@@ -172,7 +172,9 @@
   ([conn user-id {:keys [^LocalDate on-date only-active-projects?] :or {only-active-projects? false}}]
    (next.jdbc.plan/select! conn :id (sql-active-project-ids user-id (or on-date (LocalDate/now)) only-active-projects?))))
 
-(defn common-concepts [conn user-id]
+(defn common-concepts
+  "Return a set of the common concepts for the user."
+  [conn user-id]
   (let [project-ids (active-project-ids conn user-id {:only-active-projects? true})]
     (com.eldrix.pc4.rsdb.projects/common-concepts conn project-ids)))
 

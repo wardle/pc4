@@ -1,18 +1,16 @@
 (ns com.eldrix.pc4.rsdb.results-test
-  (:require [clojure.test :as test :refer [deftest is use-fixtures]]
-            [com.eldrix.pc4.system :as pc4]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [com.eldrix.pc4.rsdb.patients :as patients]
-            [com.eldrix.pc4.rsdb.projects :as projects]
             [com.eldrix.pc4.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
-            [clojure.spec.gen.alpha :as gen])
+            [clojure.spec.gen.alpha :as gen]
+            [next.jdbc :as jdbc])
   (:import (java.time LocalDate)
-           (clojure.lang ExceptionInfo)
-           (java.time.temporal ChronoUnit)))
+           (clojure.lang ExceptionInfo)))
 
 (stest/instrument)
-(def ^:dynamic *system* nil)
+(def ^:dynamic *conn* nil)
 (def ^:dynamic *patient* nil)
 
 
@@ -57,7 +55,7 @@
 
 
 (deftest save-mri-brain-with-annotations
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*]
     (let [date (LocalDate/of 2020 1 1)
           data {:t_result_type/result_entity_name               "ResultMriBrain"
@@ -79,7 +77,7 @@
       (is (= (:t_result_mri_brain/total_t2_hyperintense data) (:t_result_mri_brain/total_t2_hyperintense result) (:t_result_mri_brain/total_t2_hyperintense fetched))))))
 
 (deftest save-mri-brain-without-annotations
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
                                        {:t_result_type/result_entity_name   "ResultMriBrain"
@@ -90,7 +88,7 @@
                                         :t_result_mri_brain/patient_fk      (:t_patient/id patient)})])))
 
 (deftest save-and-update-brain
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
                                        {:t_result_type/result_entity_name   "ResultMriBrain"
@@ -106,7 +104,7 @@
 
 
 (deftest save-full-blood-count
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 4)
         result (results/save-result! conn {:t_result_type/result_entity_name "ResultFullBloodCount"
@@ -118,7 +116,7 @@
     (is (= "ResultFullBloodCount" (:t_result_type/result_entity_name fetched)))))
 
 (deftest save-and-update-ecg
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
                                        {:t_result_type/result_entity_name "ResultECG"
@@ -132,7 +130,7 @@
       (is (= (:t_result_ecg/id updated) (:t_result_ecg/id result))))))
 
 (deftest invalid-mri-brain-annotations
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+  (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 6)
         base {:t_result_type/result_entity_name   "ResultMriBrain"
@@ -161,8 +159,8 @@
                                                                        :t_result_mri_brain/change_t2_hyperintense      "+2"
                                                                        :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"}))))))
 
-(deftest save-thyroid-function
-  (let [conn (:com.eldrix.rsdb/conn *system*)
+(deftest ^:live save-thyroid-function
+  (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 7)
         result (results/save-result! conn {:t_result_type/result_entity_name  "ResultThyroidFunction"
@@ -175,27 +173,34 @@
     (is (.isEqual date (:t_result_thyroid_function/date fetched)))))
 
 
-(defn with-system [f]
-  (pc4/load-namespaces :dev [:pathom/env])
-  (binding [*system* (pc4/init :dev [:pathom/env])]
-    (f)
-    (pc4/halt! *system*)))
+(def test-db-connection-spec
+  "Database connection specification for tests."
+  {:dbtype "postgresql" :dbname "rsdb"})
+
+(defn with-live-conn [f]
+  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
+    (binding [*conn* conn]
+      (f))))
 
 (defn with-patient
   [f]
-  (binding [*patient* (projects/register-legacy-pseudonymous-patient ;; this is an idempotent operation, by design
-                        (:com.eldrix.rsdb/conn *system*)
-                        {:salt       (get-in *system* [:pathom/env :com.eldrix.rsdb/config :legacy-global-pseudonym-salt])
-                         :user-id    1
-                         :project-id 10
-                         :nhs-number "2222222222"
-                         :sex        :FEMALE
-                         :date-birth (LocalDate/of 2000 1 1)})]
-    (results/delete-all-results!! (:com.eldrix.rsdb/conn *system*) (:t_patient/patient_identifier *patient*))
-    (f)
-    (results/delete-all-results!! (:com.eldrix.rsdb/conn *system*) (:t_patient/patient_identifier *patient*))))
+  (if-let [patient (patients/fetch-patient *conn* {:t_patient/id 129410})]
+    (binding [*patient* patient]
+      ;;*patient* (projects/register-legacy-pseudonymous-patient ;; this is an idempotent operation, by design
+      ;;            *conn*
+      ;;            {:salt       (get-in *system* [:pathom/env :com.eldrix.rsdb/config :legacy-global-pseudonym-salt])
+      ;;             :user-id    1
+      ;;             :project-id 10
+      ;;             :nhs-number "2222222222"
+      ;;             :sex        :FEMALE
+      ;;             :date-birth (LocalDate/of 2000 1 1)})]
+      (results/delete-all-results!! *conn* (:t_patient/patient_identifier *patient*))
+      (f)
+      (results/delete-all-results!! *conn* (:t_patient/patient_identifier *patient*)))
+    (throw (ex-info "Unable to find well-known test patient. Has test database been properly initialised?"
+                    {:n-patients (:count (jdbc/execute-one! *conn* ["select count(id) from t_patient"]))}))))
 
-(use-fixtures :once with-system with-patient)
+(use-fixtures :once with-live-conn with-patient)
 
 (defn make-mri-results
   "Creates a lazy sequence of base MRI results for the patient specified."
@@ -243,7 +248,6 @@
   (t2-counts)
   (parsing-lesions)
   (take 5 (make-mri-results 1))
-
-  (def *system* (pc4/init :dev [:pathom/env]))
+  (def *conn* (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
   (clojure.test/run-tests)
   (save-full-blood-count))

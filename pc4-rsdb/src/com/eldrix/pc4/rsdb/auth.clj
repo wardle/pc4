@@ -15,7 +15,7 @@
   to define which users are system users.")
 
 (def all-permissions
-  "All of the legacy permissions that are used."
+  "All used legacy permissions."
   #{:LOGIN,                                                 ;; can this user login?
 
     :PATIENT_REGISTER,                                      ;; register and de-register patients?
