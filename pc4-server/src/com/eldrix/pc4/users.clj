@@ -177,7 +177,7 @@
       (log/info "no login provider found for namespace" {:system system :providers (keys pc4-login)}))))
 
 (pco/defresolver authenticated-user
-  "Returns the authenticated user based on parameters in"
+  "Returns the authenticated user based on parameters in the environment"
   [{user    :authenticated-user} _]
   {::pco/output [{:session/authenticated-user [:system :value
                                                (pco/? :t_user/id)
