@@ -95,6 +95,11 @@
   (let [[project-id pseudonym] project-pseudonym]
     (projects/search-by-project-pseudonym conn project-id pseudonym)))
 
+(pco/defresolver patient->current-age
+  [{:t_patient/keys [date_birth date_death]}]
+  {:t_patient/current_age (when-not date_death (dates/age-display date_birth (LocalDate/now)))})
+
+
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
@@ -152,7 +157,6 @@
     :CAVUHB {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}
     :ABUHB {:wales.nhs.abuhb.Patient/CRN crn}
     nil))
-
 
 (pco/defresolver patient->demographics-authority
   [{authoritative_demographics :t_patient/authoritative_demographics
@@ -1183,6 +1187,7 @@
 (def all-resolvers
   [patient-by-identifier
    patient-by-pseudonym
+   patient->current-age
    patient->hospitals
    patient-hospital->flat-hospital
    patient-hospital->nested-hospital
