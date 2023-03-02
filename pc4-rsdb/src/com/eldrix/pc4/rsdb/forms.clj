@@ -42,8 +42,7 @@
             [next.jdbc :as jdbc]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.rsdb.patients :as patients])
-  (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDateTime)))
+  (:import (java.time LocalDateTime)))
 
 (def forms
   [{:form-type-id 1 :table "t_form_ace_r" :title "ACE-R" :key nil :entity-name "FormAceR"}
@@ -113,18 +112,16 @@
    {:form-type-id nil                                       ;;; the consent form is a special form, that is not listed as an official form in t_form_type.
     :table        "t_form_consent" :title "Consent form" :key nil :entity-name "FormConsent"}])
 
-(defn all-active-encounter-ids [conn patient-identifier]
-  (transduce
-    (map :t_encounter/id)
-    conj
-    #{}
-    (next.jdbc/plan conn
-                    (sql/format
-                      {:select [:t_encounter/id]
-                       :from   :t_encounter
-                       :where  [:and
-                                [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
-                                [:<> :t_encounter/is_deleted "true"]]}))))
+(defn all-active-encounter-ids
+  "Return a set of encounter ids for active encounters of the given patient."
+  [conn patient-identifier]
+  (into #{} (map :t_encounter/id)
+        (jdbc/plan conn (sql/format
+                          {:select [:t_encounter/id]
+                           :from   :t_encounter
+                           :where  [:and
+                                    [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                    [:<> :t_encounter/is_deleted "true"]]}))))
 
 (def edss-score->score
   {"SCORE0_0"          "0.0"
@@ -152,45 +149,45 @@
 (defn encounter->form_edss
   "Return a form EDSS for the encounter."
   [conn encounter-id]
-  (next.jdbc/execute-one! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
-                                                        :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
-                                            :from      [:t_encounter]
-                                            :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
-                                                                      [:<> :t_form_edss/is_deleted "true"]]
-                                                        :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
-                                                                         [:<> :t_form_edss_fs/is_deleted "true"]]]
-                                            :where     [:= :t_encounter/id encounter-id]})))
+  (db/execute-one! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
+                                                 :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
+                                     :from      [:t_encounter]
+                                     :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
+                                                               [:<> :t_form_edss/is_deleted "true"]]
+                                                 :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
+                                                                  [:<> :t_form_edss_fs/is_deleted "true"]]]
+                                     :where     [:= :t_encounter/id encounter-id]})))
 
 (defn encounter->form_ms_relapse
   "Return a form ms relapse for the encounter."
   [conn encounter-id]
-  (db/parse-entity (next.jdbc/execute-one! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
-                                                                         :t_ms_disease_course/id :t_ms_disease_course/name
-                                                                         :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
-                                                             :from      [:t_form_ms_relapse]
-                                                             :left-join [:t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
-                                                             :where     [:and [:= :t_form_ms_relapse/encounter_fk encounter-id]
-                                                                         [:<> :t_form_ms_relapse/is_deleted "true"]]}))))
+  (db/execute-one! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
+                                                 :t_ms_disease_course/id :t_ms_disease_course/name
+                                                 :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
+                                     :from      [:t_form_ms_relapse]
+                                     :left-join [:t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
+                                     :where     [:and [:= :t_form_ms_relapse/encounter_fk encounter-id]
+                                                 [:<> :t_form_ms_relapse/is_deleted "true"]]})))
 
 
 (defn encounter->form_smoking_history
   "Return a form smoking history for the encounter."
   [conn encounter-id]
-  (db/parse-entity (next.jdbc/execute-one! conn (sql/format {:select [:t_smoking_history/id :t_smoking_history/status
-                                                                      :t_smoking_history/current_cigarettes_per_day]
-                                                             :from   [:t_smoking_history]
-                                                             :where  [:and
-                                                                      [:= :t_smoking_history/encounter_fk encounter-id]
-                                                                      [:<> :t_smoking_history/is_deleted "true"]]}))))
+  (db/execute-one! conn (sql/format {:select [:t_smoking_history/id :t_smoking_history/status
+                                              :t_smoking_history/current_cigarettes_per_day]
+                                     :from   [:t_smoking_history]
+                                     :where  [:and
+                                              [:= :t_smoking_history/encounter_fk encounter-id]
+                                              [:<> :t_smoking_history/is_deleted "true"]]})))
 
 (defn encounter->form_weight_height
   "Return a form weight height for the encounter."
   [conn encounter-id]
-  (next.jdbc/execute-one! conn (sql/format {:select [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
-                                            :from   [:t_form_weight_height]
-                                            :where  [:and
-                                                     [:= :t_form_weight_height/encounter_fk encounter-id]
-                                                     [:<> :t_form_weight_height/is_deleted "true"]]})))
+  (db/execute-one! conn (sql/format {:select [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
+                                     :from   [:t_form_weight_height]
+                                     :where  [:and
+                                              [:= :t_form_weight_height/encounter_fk encounter-id]
+                                              [:<> :t_form_weight_height/is_deleted "true"]]})))
 
 
 (defn select-keys-by-namespace
@@ -228,10 +225,10 @@
                    {:return-keys true}))
 
 (defn count-forms [conn encounter-id form-name]
-  (:count (next.jdbc/execute-one! conn (sql/format {:select [:%count.id]
-                                                    :from   [form-name]
-                                                    :where  [:and [:= :encounter_fk encounter-id]
-                                                             [:<> :is_deleted "true"]]}))))
+  (:count (jdbc/execute-one! conn (sql/format {:select [:%count.id]
+                                               :from   [form-name]
+                                               :where  [:and [:= :encounter_fk encounter-id]
+                                                        [:<> :is_deleted "true"]]}))))
 
 (defn delete-all-forms!
   "Delete all forms of the specific type 'table' from the encounter."
@@ -314,10 +311,7 @@
 
 
 (comment
-  (require '[next.jdbc.connection])
-  (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
-                                                           :dbname          "rsdb"
-                                                           :maximumPoolSize 1}))
+  (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
 
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (encounters->form_ms_relapse conn encounters)
