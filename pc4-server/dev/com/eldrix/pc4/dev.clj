@@ -36,6 +36,9 @@
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (ig/halt! system)
+  (do (ig/halt! system)
+      (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
+      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server])))
 
   ;; exercise some of the components...
   (keys system)
@@ -234,7 +237,7 @@
   (def project-id 126)
   (map (fn [{:t_user/keys [username] :as user}]
          (let [user (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) user)]
-           (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   username :project-id project-id})
+           (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username username :project-id project-id})
            user)) users)
 
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
