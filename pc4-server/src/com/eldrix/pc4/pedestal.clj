@@ -1,17 +1,22 @@
 (ns com.eldrix.pc4.pedestal
   (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [cognitect.transit :as transit]
+            [com.eldrix.pc4.app :as app]
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.users :as users]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
+            [io.pedestal.http.csrf :as csrf]
+            [io.pedestal.interceptor.chain :as chain]
             [io.pedestal.interceptor.error :as int-err]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.http.body-params :as body-params]
             [io.pedestal.http.route :as route]
             [integrant.core :as ig]
-            [ring.middleware.session.cookie])
+            [ring.middleware.session.cookie]
+            [rum.core :as rum])
   (:import (clojure.lang ExceptionInfo)))
 
 
@@ -38,7 +43,6 @@
                           (assoc ctx :response {:status 401 :body "Unauthenticated."})
                           :else
                           (assoc ctx :io.pedestal.interceptor.chain/error ex)))
-
 
 (defn execute-pathom
   "Executes a pathom query from the body of the request.
@@ -160,16 +164,61 @@
                                             :body    (:erattachmentdata/data photo)}))
                   ctx)
                 ctx)))})
+
+(def execute-eql
+  "An interceptor that will execute the EQL in the context :query adding the
+  result to the context in the :result key."
+  {:enter (fn [{q :query, pathom :pathom/boundary-interface, :as ctx}]
+            (log/info "executing EQL" q)
+            (if q (assoc ctx :result (pathom q))
+                  (throw (ex-info "Missing query in context" ctx))))})
+
+(def render-component
+  "Renders :component from the context as the response."
+  {:leave
+   (fn [{response :response, component :component, :as ctx}]
+     (log/info "rendering component " component)
+     (when-not (or response component)
+       (log/warn "No content generated" ctx))
+     (if (or response (not component))
+       ctx
+       (assoc ctx :response {:status  200
+                             :headers {"Content-Type" "text/html"}
+                             :body    (rum/render-html component)})))})
+
+
+(def check-authenticated
+  "An interceptor that checks that for an authenticated user. If none, a login
+  page is returned instead."
+  {:enter (fn [ctx]
+            (log/warn "checking authenticated user" (get-in ctx [:request :session :authenticated-user]))
+            (if-let [user (get-in ctx [:request :session :authenticated-user])]
+              (do (log/info "authenticated user " user)
+                  ctx)
+              (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
+                  (-> (assoc ctx :login {:login-url (route/url-for :post-login-page)
+                                         :url (get-in ctx [:request :uri])})
+                      (chain/terminate)
+                      (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
+
 (def routes
   (route/expand-routes
     #{["/login" :post [service-error-handler login]]        ;; for legacy clients (re-frame / pc4-ward)
       ["/login-mutation" :post [login-mutation]]            ;; for fulcro clients (fulcro / pc4-ms)
       ["/ping" :post [ping]]
       ["/api" :post [service-error-handler attach-claims api]]
-      ["/users/:system/:value/photo" :get [get-user-photo]]}))
+      ["/users/:system/:value/photo" :get [get-user-photo]]
+      ;;
+      ["/app/home" :get [check-authenticated render-component app/home-page] :route-name :home]
+      ["/app/login" :post [render-component app/login app/view-login-page] :route-name :post-login-page]
+      ["/app/login" :get [render-component app/login app/view-login-page] :route-name :get-login-page]
+      ["/app/logout" :post [app/logout] :route-name :logout]
+      ["/app/patient/:patient-id" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-page] :route-name :get-patient]
+      ["/app/patient/:patient-id/home" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-demographics] :route-name :patient-demog]
+      ["/app/project/:project-id/patient/:pseudonym" :get [check-authenticated render-component app/get-pseudonymous-patient execute-eql app/view-patient-page] :route-name :get-pseudonymous-patient]}))
 
 (defn make-service-map
-  [{:keys [port allowed-origins host join? session-key] :or {port 8080 join? false}}]
+  [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
   {::http/type            :jetty
    ::http/join?           join?
    ::http/log-request     true
@@ -177,12 +226,11 @@
    ::http/port            port
    ::http/allowed-origins (cond (= "*" allowed-origins) (constantly true)
                                 :else allowed-origins)
+   ::http/secure-headers  {:content-security-policy-settings {:object-src "none"}}
    ::http/host            (or host "127.0.0.1")
-   ::http/enable-session  {:store (ring.middleware.session.cookie/cookie-store
-                                    (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+   ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
+                                           (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
                            :cookie-attrs {:same-site :lax}}})
-
-
 
 (s/def ::env (s/keys :req [:pathom/boundary-interface
                            :com.eldrix.rsdb/conn
@@ -202,6 +250,7 @@
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
+              (csrf/anti-forgery)
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
