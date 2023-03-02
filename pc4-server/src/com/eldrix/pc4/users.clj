@@ -187,7 +187,7 @@
 (def regulator->namespace
   {"GMC"  :uk.org.hl7.fhir.id/gmc-number
    "GPhC" :uk.org.hl7.fhir.id/gphc-number
-   "NMC"  :uk.org.hl7.fhir.id/nms-pin})
+   "NMC"  :uk.org.hl7.fhir.id/nmc-pin})
 
 (pco/defresolver professional-regulators
   "Resolves a professional regulator.
