@@ -672,7 +672,8 @@
     (->> (db/execute! conn (sql/format {:union-all
                                         [{:select [:t_patient/patient_identifier
                                                    :t_encounter/date_time
-                                                   :t_form_edss/edss_score]
+                                                   :t_form_edss/edss_score
+                                                   :t_encounter/id]
                                           :from   [:t_encounter]
                                           :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
                                                    :t_form_edss [:= :t_form_edss/encounter_fk :t_encounter/id]]
@@ -683,7 +684,8 @@
                                                    [:in :t_patient/patient_identifier patient-ids]]}
                                          {:select [:t_patient/patient_identifier
                                                    :t_encounter/date_time
-                                                   :t_form_edss_fs/edss_score]
+                                                   :t_form_edss_fs/edss_score
+                                                   :t_encounter/id]
                                           :from   [:t_encounter]
                                           :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
                                                    :t_form_edss_fs [:= :t_form_edss_fs/encounter_fk :t_encounter/id]]
@@ -694,7 +696,8 @@
                                                    [:in :t_patient/patient_identifier patient-ids]]}]}))
          (map #(update-keys % {:patient_identifier :t_patient/patient_identifier
                                :date_time          :t_encounter/date_time
-                               :edss_score         :t_form_edss/edss_score}))
+                               :edss_score         :t_form_edss/edss_score
+                               :id                 :t_encounter/id}))
          (map #(if-let [form-relapse (get-most-recent (get form-relapses (:t_patient/patient_identifier %)) :t_encounter/date_time (to-local-date (:t_encounter/date_time %)) (Period/ofWeeks 12))]
                  (merge form-relapse % {:t_form_ms_relapse/date_status_recorded (to-local-date (:t_encounter/date_time form-relapse))})
                  (assoc % :t_form_ms_relapse/in_relapse false)))   ;; if no recent relapse recorded, record as FALSE explicitly.
