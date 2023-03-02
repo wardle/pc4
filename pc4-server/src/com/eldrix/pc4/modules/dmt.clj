@@ -700,7 +700,7 @@
                                :id                 :t_encounter/id}))
          (map #(if-let [form-relapse (get-most-recent (get form-relapses (:t_patient/patient_identifier %)) :t_encounter/date_time (to-local-date (:t_encounter/date_time %)) (Period/ofWeeks 12))]
                  (merge form-relapse % {:t_form_ms_relapse/date_status_recorded (to-local-date (:t_encounter/date_time form-relapse))})
-                 (assoc % :t_form_ms_relapse/in_relapse false)))   ;; if no recent relapse recorded, record as FALSE explicitly.
+                 (assoc % :t_form_ms_relapse/in_relapse false))) ;; if no recent relapse recorded, record as FALSE explicitly.
          (map #(assoc % :t_form_edss/edss_score (convert-edss-score (:t_form_edss/edss_score %))
                         :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
                         :t_encounter/date (to-local-date (:t_encounter/date_time %))))
@@ -1252,10 +1252,10 @@
 
 (def patient-identifiers-table
   {:filename "patient-identifiers.csv"
-   :data-fn make-patient-identifiers-table
-   :columns [::patient-id
-             :t_project/name
-             :t_episode/stored_pseudonym]})
+   :data-fn  make-patient-identifiers-table
+   :columns  [::patient-id
+              :t_project/name
+              :t_episode/stored_pseudonym]})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-raw-dmt-medications-table
