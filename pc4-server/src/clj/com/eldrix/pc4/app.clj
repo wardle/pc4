@@ -41,9 +41,10 @@
                                            :hx-target "#nav-bar" :hx-swap "outerHTML"}
                               :menu-open? show-user-menu?
                               :menu       [{:id    :logout :title "Logout"
-                                            :attrs {:hx-post   (route/url-for :logout)
-                                                    :hx-target "body"
-                                                    :hx-vals   (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]}})))
+                                            :attrs {:hx-post     (route/url-for :logout)
+                                                    :hx-push-url "true"
+                                                    :hx-target   "body"
+                                                    :hx-vals     (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]}})))
 
 (def home-page
   {:enter
