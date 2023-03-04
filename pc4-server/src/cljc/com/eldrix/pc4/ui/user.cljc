@@ -107,3 +107,21 @@
           [:a.cursor-default (merge {:key      (:t_project/id project)} (make-attrs project))
            [:div.px-3.py-1.text-sm.bg-pink-50.hover:bg-pink-100.border
             (:t_project/title project)]])])]))
+
+;; TODO: make compatible with cljs
+(def dtf (java.time.format.DateTimeFormatter/ofPattern "dd MMM yyyy"))
+
+(rum/defc list-news [{:keys [news-items]}]
+  [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
+   [:ul.divide-y.divide-gray-200 {:role "list"}
+    (for [article news-items]
+      [:li {:key (:t_news/id article)}
+       [:div.px-4.py-4.sm:px-6
+        [:div.flex.items-center.justify-between
+         [:p.text-lg.font-medium.text-indigo-600.truncate (:t_news/title article)]
+         [:div.ml-2.flex-shrink-0.flex
+          [:p.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800 [:time {:date-time (:t_news/date_time article)} (.format dtf (:t_news/date_time article))]]]]
+        [:div.sm:flex.sm:justify-between
+         [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
+          [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
+        [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])

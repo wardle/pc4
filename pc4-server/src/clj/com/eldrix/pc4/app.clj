@@ -49,7 +49,8 @@
   {:enter
    (fn [{conn :com.eldrix.rsdb/conn :as ctx}]
      (let [authenticated-user (get-in ctx [:request :session :authenticated-user])
-           active-projects (com.eldrix.pc4.rsdb.users/projects conn (:t_user/username authenticated-user))]
+           active-projects (com.eldrix.pc4.rsdb.users/projects conn (:t_user/username authenticated-user))
+           latest-news (com.eldrix.pc4.rsdb.users/fetch-latest-news conn (:t_user/username authenticated-user))]
        (assoc ctx
          :component
                   (page [:div
@@ -58,7 +59,7 @@
                           [:div.md:mr-2
                            (ui-user/project-panel {:projects active-projects :make-attrs #(hash-map :href (route/url-for :get-project :params {:project-id (:t_project/id %)}))})]
                           [:div.col-span-3
-                           "Latest news"]]]))))})
+                           (ui-user/list-news {:news-items latest-news})]]]))))})
 
 
 (def nav-bar
