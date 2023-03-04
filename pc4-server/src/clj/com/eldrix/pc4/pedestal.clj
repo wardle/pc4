@@ -197,7 +197,7 @@
                   ctx)
               (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
                   (-> (assoc ctx :login {:login-url (route/url-for :post-login-page)
-                                         :url (get-in ctx [:request :uri])})
+                                         :url       (get-in ctx [:request :uri])})
                       (chain/terminate)
                       (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
 
@@ -213,8 +213,10 @@
       ["/app/login" :post [render-component app/login app/view-login-page] :route-name :post-login-page]
       ["/app/login" :get [render-component app/login app/view-login-page] :route-name :get-login-page]
       ["/app/logout" :post [app/logout] :route-name :logout]
+      ["/app/nav-bar" :get [render-component app/nav-bar] :route-name :nav-bar]
       ["/app/patient/:patient-id" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-page] :route-name :get-patient]
       ["/app/patient/:patient-id/home" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-demographics] :route-name :patient-demog]
+      ["/app/project/:project-id" :get [] :route-name :get-project]
       ["/app/project/:project-id/patient/:pseudonym" :get [check-authenticated render-component app/get-pseudonymous-patient execute-eql app/view-patient-page] :route-name :get-pseudonymous-patient]}))
 
 (defn make-service-map

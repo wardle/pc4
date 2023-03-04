@@ -11,7 +11,8 @@
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [cognitect.transit :as transit]
-    [com.eldrix.pc4.users :as users])
+    [com.eldrix.pc4.users :as users]
+    [com.eldrix.pc4.pedestal])
   (:import (java.io ByteArrayOutputStream)))
 
 (stest/instrument)                                          ;; turn on instrumentation for development

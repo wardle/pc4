@@ -29,14 +29,40 @@
    [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
    [:button "Logout"]])
 
+(defn navigation-bar [ctx]
+  (let [authenticated-user (get-in ctx [:request :session :authenticated-user])
+        _ (println "navbar user:" authenticated-user)
+        show-user-menu? (some-> (get-in ctx [:request :params :show-user-menu]) parse-boolean)]
+    (ui-user/nav-bar {:id    "nav-bar"
+                      :title {:s "PatientCare" :attrs {:href (route/url-for :home)}}
+                      :user  {:full-name  (:t_user/full_name authenticated-user)
+                              :initials   (:t_user/initials authenticated-user)
+                              :attrs      {:hx-get    (route/url-for :nav-bar :params {:show-user-menu (not show-user-menu?)})
+                                           :hx-target "#nav-bar" :hx-swap "outerHTML"}
+                              :menu-open? show-user-menu?
+                              :menu       [{:id    :logout :title "Logout"
+                                            :attrs {:hx-post   (route/url-for :logout)
+                                                    :hx-target "body"
+                                                    :hx-vals   (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]}})))
 
 (def home-page
-  {:enter (fn [ctx]
-            (assoc ctx :component (page [:div [:h1 "Hello, World"]
-                                         (logout-button ctx)])))})
+  {:enter
+   (fn [{conn :com.eldrix.rsdb/conn :as ctx}]
+     (let [authenticated-user (get-in ctx [:request :session :authenticated-user])
+           active-projects (com.eldrix.pc4.rsdb.users/projects conn (:t_user/username authenticated-user))]
+       (assoc ctx
+         :component
+                  (page [:div
+                         (navigation-bar ctx)
+                         [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+                          [:div.md:mr-2
+                           (ui-user/project-panel {:projects active-projects :make-attrs #(hash-map :href (route/url-for :get-project :params {:project-id (:t_project/id %)}))})]
+                          [:div.col-span-3
+                           "Latest news"]]]))))})
 
 
-
+(def nav-bar
+  {:enter (fn [ctx] (assoc ctx :component (navigation-bar ctx)))})
 
 (def patient-properties
   [:t_patient/id
@@ -113,7 +139,8 @@
            url (get-in request [:params "url"])
            user (when (and username password)
                   (-> (pathom [{(list 'pc4.users/login {:system "cymru.nhs.uk" :value username :password password})
-                                [:t_user/username :t_user/id]}])
+                                [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
+                                 :t_user/last_name :t_user/initials]}])
                       (get 'pc4.users/login)))]
        (if user                                             ;; if we have logged in, route to the requested URL, or to home
          (assoc ctx :login {:user user :url (or url (route/url-for :home))})

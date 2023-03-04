@@ -1,4 +1,4 @@
-{:paths     ["src" "resources"]
+{:paths     ["src/clj" "src/cljc" "resources"]
  :deps      {org.clojure/clojure               {:mvn/version "1.11.1"}
              org.clojure/core.async            {:mvn/version "1.5.648"}
              org.clojure/data.csv              {:mvn/version "1.0.1"}
@@ -34,7 +34,8 @@
              integrant/integrant               {:mvn/version "0.8.0"}
 
              org.jsoup/jsoup                   {:mvn/version "1.15.3"}
-             org.postgresql/postgresql         {:mvn/version "42.5.0"}}
+             org.postgresql/postgresql         {:mvn/version "42.5.0"}
+             rum/rum                           {:mvn/version "0.12.10"}}
 
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}

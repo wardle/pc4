@@ -134,6 +134,8 @@
         claims (merge rsdb-user {:system system :value value})
         token (make-user-token claims pc4-login)]
     (log/info "login-operation:" claims)
+    #_(log/warn " *** DELIBERATELY PAUSING ***")
+    #_(Thread/sleep 2000)
     (cond
       ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
       rsdb-user

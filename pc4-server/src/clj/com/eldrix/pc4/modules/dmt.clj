@@ -1089,7 +1089,7 @@
   (let [all-dmts (all-he-dmt-identifiers system)]
     (->> (fetch-project-patient-identifiers system (get-in study-centres [centre :projects]))
          (medications-for-patients system)
-         (filter #(all-dmts (:t_medication/medication_concept_fk %)))
+         #_(filter #(all-dmts (:t_medication/medication_concept_fk %)))
          (map :t_patient/patient_identifier)
          set)))
 
@@ -1838,6 +1838,34 @@
   [{:keys [dir out]}]
   (merge-matching-data (str dir) (str out)))
 
+
+;; experimental JSON output
+
+
+(comment
+  (def system (pc4/init :dev [:pathom/boundary-interface]))
+  (def patient-ids (take 100 (fetch-study-patient-identifiers system :cardiff)))
+  (def patients (fetch-patients system patient-ids))
+  (def ms-events (ms-events-for-patients system patient-ids))
+  (def dmt-regimens (group-by :t_patient/patient_identifier (make-dmt-regimens-table system patient-ids)))
+  (def non-dmt-meds (group-by :t_patient/patient_identifier (fetch-non-dmt-medications system patient-ids)))
+  (def encounters (active-encounters-for-patients system patient-ids))
+  (def mri-brains (group-by :t_patient/patient_identifier (mri-brains-for-patients system patient-ids)))
+  (def edss (edss-scores system patient-ids))
+  (def diagnoses (group-by :t_patient/patient_identifier (all-patient-diagnoses system patient-ids)))
+
+  (def data (map (fn [{:t_patient/keys [patient_identifier] :as patient}]
+                   (assoc patient
+                     :diagnoses (get diagnoses patient_identifier)
+                     :medication (get non-dmt-meds patient_identifier)
+                     :ms-events (get ms-events patient_identifier)
+                     :dmts (get dmt-regimens patient_identifier)
+                     ;:encounters (get encounters patient_identifier)
+                     :edss (get edss patient_identifier)
+                     :mri-brain (get mri-brains patient_identifier))) patients))
+  (with-open [writer (io/writer (io/file "patients.json"))]
+    (json/write data writer)))
+
 ;;;
 ;;; Write out data
 ;;; zip all csv files with the metadata.json
@@ -1918,6 +1946,12 @@
                                             {:t_medication/medication [:info.snomed.Concept/id
                                                                        {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
                                                                        :uk.nhs.dmd/NM]}]}]}])))
+
+
+
+
+
+
 
 (comment
   (require '[portal.api :as p])
