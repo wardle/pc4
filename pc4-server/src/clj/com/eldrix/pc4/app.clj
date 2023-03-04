@@ -54,13 +54,13 @@
            latest-news (com.eldrix.pc4.rsdb.users/fetch-latest-news conn (:t_user/username authenticated-user))]
        (assoc ctx
          :component
-                  (page [:div
-                         (navigation-bar ctx)
-                         [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-                          [:div.md:mr-2
-                           (ui-user/project-panel {:projects active-projects :make-attrs #(hash-map :href (route/url-for :get-project :params {:project-id (:t_project/id %)}))})]
-                          [:div.col-span-3
-                           (ui-user/list-news {:news-items latest-news})]]]))))})
+         (page [:<>
+                (navigation-bar ctx)
+                [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+                 [:div.md:mr-2
+                  (ui-user/project-panel {:projects active-projects :make-attrs #(hash-map :href (route/url-for :get-project :params {:project-id (:t_project/id %)}))})]
+                 [:div.col-span-3
+                  (ui-user/list-news {:news-items latest-news})]]]))))})
 
 
 (def nav-bar
@@ -106,15 +106,17 @@
        (if-not patient_identifier
          ctx
          (assoc ctx :component
-                    (page [:div (ui-patient/patient-banner
-                                  {:patient-name (str last_name ", " (str/join " " [title first_names]))
-                                   :born         date_birth
-                                   :approximate  (= :PSEUDONYMOUS status)
-                                   :age          current_age
-                                   :nhs-number   nhs_number
-                                   :address      (str/join ", " (remove str/blank? [(:t_address/address1 address) (:t_address/address2 address)
-                                                                                    (:t_address/address3 address) (:t_address/postcode address)]))
-                                   :deceased     date_death})])))))})
+                    (page [:<>
+                           (navigation-bar ctx)
+                           (ui-patient/patient-banner
+                             {:patient-name (str last_name ", " (str/join " " [title first_names]))
+                              :born         date_birth
+                              :approximate  (= :PSEUDONYMOUS status)
+                              :age          current_age
+                              :nhs-number   nhs_number
+                              :address      (str/join ", " (remove str/blank? [(:t_address/address1 address) (:t_address/address2 address)
+                                                                               (:t_address/address3 address) (:t_address/postcode address)]))
+                              :deceased     date_death})])))))})
 
 (def view-patient-demographics
   {:enter
