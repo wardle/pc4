@@ -74,7 +74,7 @@
      (when error
        (misc/box-error-message {:message error}))
      [:div.mt-2
-      [:button#my-button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
+      [:button.group.relative.w-full.flex.justify-center.py-2.px-4.border.border-transparent.text-sm.font-medium.rounded-md.text-white.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500
        {:type "" :disabled disabled :class (if disabled "bg-gray-400 animate-pulse" "bg-indigo-600 hover:bg-indigo-700")}
        [:span.absolute.left-0.inset-y-0.flex.items-center.pl-3
         [:svg.h-5.w-5.text-indigo-500.group-hover:text-indigo-400 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true" :class (when disabled "animate-bounce")}
@@ -124,4 +124,4 @@
         [:div.sm:flex.sm:justify-between
          [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
           [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
-        [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])
+        [:article.prose.lg:prose-xl.pb-4 {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])

@@ -15,6 +15,9 @@
             [io.pedestal.http.body-params :as body-params]
             [io.pedestal.http.route :as route]
             [integrant.core :as ig]
+            [reitit.core :as r]
+            [reitit.http]
+            [reitit.pedestal]
             [ring.middleware.session.cookie]
             [rum.core :as rum])
   (:import (clojure.lang ExceptionInfo)))
@@ -190,14 +193,14 @@
 (def check-authenticated
   "An interceptor that checks that for an authenticated user. If none, a login
   page is returned instead."
-  {:enter (fn [ctx]
+  {:enter (fn [{:keys [router] :as ctx}]
             (log/warn "checking authenticated user" (get-in ctx [:request :session :authenticated-user]))
             (if-let [user (get-in ctx [:request :session :authenticated-user])]
               (do (log/info "authenticated user " user)
                   ctx)
               (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
-                  (-> (assoc ctx :login {:login-url (route/url-for :post-login-page)
-                                         :url       (get-in ctx [:request :uri])})
+                  (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! router :login-page))
+                                         :url (get-in ctx [:request :uri])})
                       (chain/terminate)
                       (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
 
@@ -216,15 +219,47 @@
       ["/app/nav-bar" :get [render-component app/nav-bar] :route-name :nav-bar]
       ["/app/patient/:patient-id" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-page] :route-name :get-patient]
       ["/app/patient/:patient-id/home" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-demographics] :route-name :patient-demog]
-      ["/app/project/:project-id" :get [] :route-name :get-project]
+
+      ["/app/project/:project-id/home" :get [check-authenticated render-component app/get-project-home execute-eql app/view-project-home] :route-name :get-project]
+      ["/app/project/:project-id/team" :get [check-authenticated render-component app/get-project-users execute-eql app/view-project-users] :route-name :get-project-users]
       ["/app/project/:project-id/patient/:pseudonym" :get [check-authenticated render-component app/get-pseudonymous-patient execute-eql app/view-patient-page] :route-name :get-pseudonymous-patient]}))
+
+
+(def routes*
+  [["/login" {:name ::login :post {:interceptors [login]}}]
+   ["/login-mutation" {:name ::login-mutation :post {:interceptors [login-mutation]}}]
+   ["/ping" {:name ::ping :post {:interceptors [ping]}}]
+   ["/api" {:name ::api :post {:interceptors [attach-claims api]}}]
+   ["/users/:system/:value/photo" {:get {:interceptors [get-user-photo]}}]
+   ;;
+   ["/app/home"
+    {:name :home
+     :get  {:interceptors [check-authenticated render-component app/home-page]}}]
+   ["/app/login"
+    {:name :login-page
+     :post {:interceptors [render-component app/login app/view-login-page]}}]
+   ["/app/logout"
+    {:name :logout
+     :get  {:interceptors [app/logout]}
+     :post {:interceptors [app/logout]}}]
+   ["/app/nav-bar"
+    {:name :nav-bar :get {:interceptors [render-component app/nav-bar]}}]
+   ["/app/patient/:patient-id"
+    {:name :get-patient
+     :get  {:interceptors [check-authenticated render-component app/get-patient execute-eql app/view-patient-page]}}]
+   ["/app/project/:project-id/home"
+    {:name :get-project
+     :get  {:interceptors [check-authenticated render-component app/get-project-home execute-eql app/view-project-home]}}]
+   ["/app/project/:project-id/team"
+    {:name :get-project-team
+     :get  {:interceptors [check-authenticated render-component app/get-project-users execute-eql app/view-project-users]}}]])
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
   {::http/type            :jetty
    ::http/join?           join?
    ::http/log-request     true
-   ::http/routes          routes
+   ::http/routes          []
    ::http/port            port
    ::http/allowed-origins (cond (= "*" allowed-origins) (constantly true)
                                 :else allowed-origins)
@@ -247,20 +282,24 @@
     (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
     (log/warn "No explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
-  (-> (make-service-map config)
-      (http/default-interceptors)
-      (update ::http/interceptors conj
-              (intc/interceptor (inject env))
-              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
-              (csrf/anti-forgery)
-              (http/transit-body-interceptor ::transit-json-body
-                                             "application/transit+json;charset=UTF-8"
-                                             :json
-                                             {:handlers (merge dates/transit-writers
-                                                               {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
-      (http/create-server)
-      (http/start)))
+  (let [router (reitit.http/router routes*)]
+    (-> (make-service-map config)
+        (http/default-interceptors)
+        (reitit.pedestal/replace-last-interceptor
+          (reitit.pedestal/routing-interceptor router))
+        (http/dev-interceptors)
+        (update ::http/interceptors conj
+                (intc/interceptor (inject (assoc env :router router)))
+                (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
+                (csrf/anti-forgery)
+                (http/transit-body-interceptor ::transit-json-body
+                                               "application/transit+json;charset=UTF-8"
+                                               :json
+                                               {:handlers (merge dates/transit-writers
+                                                                 {ExceptionInfo (transit/write-handler "ex-info" ex-data)
+                                                                  Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
+        (http/create-server)
+        (http/start))))
 
 (defmethod ig/halt-key! ::server [_ service-map]
   (http/stop service-map))

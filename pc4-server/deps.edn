@@ -35,7 +35,9 @@
 
              org.jsoup/jsoup                   {:mvn/version "1.15.3"}
              org.postgresql/postgresql         {:mvn/version "42.5.0"}
-             rum/rum                           {:mvn/version "0.12.10"}}
+             rum/rum                           {:mvn/version "0.12.10"}
+             metosin/reitit-core               {:mvn/version "0.5.18"}
+             metosin/reitit-pedestal           {:mvn/version "0.5.18"}}
 
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
