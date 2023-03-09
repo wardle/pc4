@@ -497,7 +497,20 @@
 
 (pco/defresolver project->users
   "Returns a vector of users for the project. An individual may be listed more
-  than once, although this will depend on the parameters specified."
+  than once, although this will depend on the parameters specified.
+  Parameters:
+   :group-by   - either :none (default when omitted) or :user
+   :active     - true, false or nil.
+
+  For example, to get a list of no longer active users for a project:
+  ```
+  {:pathom/entity {:t_project/id 5}
+   :pathom/eql    [:t_project/id :t_project/title
+                  {(list :t_project/users {:group-by :user :active false})
+                   [:t_user/full_name]}]}
+  ```
+  This will group results by user, returning only users that are not currently
+  active."
   [{conn :com.eldrix.rsdb/conn, :as env} {id :t_project/id}]
   {::pco/output [{:t_project/users [:t_user/id
                                     {:t_user/roles [:t_project_user/role
