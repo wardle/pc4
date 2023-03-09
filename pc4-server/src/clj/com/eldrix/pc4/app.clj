@@ -150,7 +150,7 @@
                                      [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
                                      [:select.w-full.p-2.border
                                       {:name "active"}
-                                      [:option {:value "active"} "Active"] [:option {:value "inactive"} "Inactive"]]
+                                      [:option {:value "active"} "Active"] [:option {:value "inactive"} "Inactive"] [:option {:value "all"} "All users"]]
                                      [:input.border.p-2.w-full
                                       {:type    "search" :name "search" :placeholder "Search..."
                                        :hx-post url :hx-trigger "keyup changed delay:500ms"}]])}]}
@@ -182,14 +182,12 @@
        (let [hx-request? (parse-boolean (or (get-in request [:headers "hx-request"]) "false"))
              hx-boosted? (parse-boolean (or (get-in request [:headers "hx-boosted"]) "false"))
              router (::r/router request)
-             ;; make a predicate to match text search, if exists
-             search (let [s (get-in ctx [:request :form-params :search])]
-                      (if (str/blank? s) (constantly true) (fn [u] (str/includes? (str/lower-case (:t_user/full_name u)) (str/lower-case s)))))
+             s (some-> (get-in ctx [:request :form-params :search]) str/trim str/lower-case)
              users' (->> users
                          (map #(assoc % :photo-url (when (:t_user/has_photo %) (r/match->path (r/match-by-name router :get-user-photo {:system "patientcare.app" :value (:t_user/username %)})))))
-                         (filter search))]
+                         (filter #(or (nil? s) (str/includes? (str/lower-case (:t_user/full_name %)) s) (str/includes? (str/lower-case (:t_user/job_title %)) s))))]
          (assoc ctx :component
-                    (if (and hx-request? (not hx-boosted?))                         ;; if we have a htmx request, just return content... otherwise, build whole page
+                    (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
                       (ui-project/project-users users')
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6

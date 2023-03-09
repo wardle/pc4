@@ -257,7 +257,7 @@
      :post {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
      :eql  (fn [req]
              (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
-                   active (case (get-in req [:form-params :active]) "active" true "inactive" false nil)]
+                   active (case (get-in req [:form-params :active]) "active" true "inactive" false "all" nil true)]  ;; default to true
                {:pathom/entity {:t_project/id project-id}
                 :pathom/eql    [:t_project/id :t_project/title
                                 {(list :t_project/users {:group-by :user :active active})
