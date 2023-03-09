@@ -5,6 +5,7 @@
             [cognitect.transit :as transit]
             [com.eldrix.pc4.app :as app]
             [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.system :as pc4]
             [com.eldrix.pc4.users :as users]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
@@ -153,7 +154,8 @@
 
 (def get-user-photo
   "Return a user photograph.
-  This endpoint is designed to flexibly handle lookup of a user photograph."
+  This endpoint is designed to flexibly handle lookup of a user photograph.
+  TODO: fallback to active directory photograph."
   {:name  ::get-user-photo
    :enter (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
             (let [system (get-in ctx [:request :path-params :system])
@@ -161,26 +163,34 @@
               (log/info "user photo request" {:system system :value value})
               (if (or (= "patientcare.app" system) (= "cymru.nhs.uk" system))
                 (if-let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn value)]
-                  (do (println "photo:" photo)
-                      (assoc ctx :response {:status  200
-                                            :headers {"Content-Type" (:erattachment/mimetype photo)}
-                                            :body    (:erattachmentdata/data photo)}))
+                  (assoc ctx :response {:status  200
+                                        :headers {"Content-Type" (:erattachment/mimetype photo)}
+                                        :body    (:erattachmentdata/data photo)})
                   ctx)
                 ctx)))})
 
 (def execute-eql
-  "An interceptor that will execute the EQL in the context :query adding the
-  result to the context in the :result key."
-  {:enter (fn [{q :query, pathom :pathom/boundary-interface, :as ctx}]
-            (log/info "executing EQL" q)
-            (if q (assoc ctx :result (pathom q))
-                  (throw (ex-info "Missing query in context" ctx))))})
+  "An interceptor that will execute the EQL in the context using :query or
+  from the routing data under key :eql. Both can either be EQL directly, or
+  a function that will take the current request and return EQL. The result
+  will be added to the context in the :result key."
+  {:enter (fn [{pathom :pathom/boundary-interface, :as ctx}]
+            (let [q (or (get-in ctx [:request ::r/match :data :eql]) (:query ctx))
+                  q' (if (fn? q) (q (:request ctx)) q)]
+              (if q' (do
+                       (tap> {:execute-eql q'})
+                       (assoc ctx :result (pathom q')))
+                     (throw (ex-info "Missing query in context" ctx)))))})
+
+(def tap-result
+  {:enter (fn [{result :result, :as ctx}]
+            (tap> result)
+            ctx)})
 
 (def render-component
   "Renders :component from the context as the response."
   {:leave
    (fn [{response :response, component :component, :as ctx}]
-     (log/info "rendering component " component)
      (when-not (or response component)
        (log/warn "No content generated" ctx))
      (if (or response (not component))
@@ -193,44 +203,24 @@
 (def check-authenticated
   "An interceptor that checks that for an authenticated user. If none, a login
   page is returned instead."
-  {:enter (fn [{:keys [router] :as ctx}]
+  {:enter (fn [ctx]
+            (tap> ctx)
             (log/warn "checking authenticated user" (get-in ctx [:request :session :authenticated-user]))
             (if-let [user (get-in ctx [:request :session :authenticated-user])]
               (do (log/info "authenticated user " user)
                   ctx)
               (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
-                  (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! router :login-page))
-                                         :url (get-in ctx [:request :uri])})
+                  (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! (get-in ctx [:request ::r/router]) :login-page))
+                                         :url       (get-in ctx [:request :uri])})
                       (chain/terminate)
                       (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
 
-(def routes
-  (route/expand-routes
-    #{["/login" :post [service-error-handler login]]        ;; for legacy clients (re-frame / pc4-ward)
-      ["/login-mutation" :post [login-mutation]]            ;; for fulcro clients (fulcro / pc4-ms)
-      ["/ping" :post [ping]]
-      ["/api" :post [service-error-handler attach-claims api]]
-      ["/users/:system/:value/photo" :get [get-user-photo]]
-      ;;
-      ["/app/home" :get [check-authenticated render-component app/home-page] :route-name :home]
-      ["/app/login" :post [render-component app/login app/view-login-page] :route-name :post-login-page]
-      ["/app/login" :get [render-component app/login app/view-login-page] :route-name :get-login-page]
-      ["/app/logout" :post [app/logout] :route-name :logout]
-      ["/app/nav-bar" :get [render-component app/nav-bar] :route-name :nav-bar]
-      ["/app/patient/:patient-id" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-page] :route-name :get-patient]
-      ["/app/patient/:patient-id/home" :get [check-authenticated render-component app/get-patient execute-eql app/view-patient-demographics] :route-name :patient-demog]
-
-      ["/app/project/:project-id/home" :get [check-authenticated render-component app/get-project-home execute-eql app/view-project-home] :route-name :get-project]
-      ["/app/project/:project-id/team" :get [check-authenticated render-component app/get-project-users execute-eql app/view-project-users] :route-name :get-project-users]
-      ["/app/project/:project-id/patient/:pseudonym" :get [check-authenticated render-component app/get-pseudonymous-patient execute-eql app/view-patient-page] :route-name :get-pseudonymous-patient]}))
-
-
 (def routes*
-  [["/login" {:name ::login :post {:interceptors [login]}}]
-   ["/login-mutation" {:name ::login-mutation :post {:interceptors [login-mutation]}}]
-   ["/ping" {:name ::ping :post {:interceptors [ping]}}]
-   ["/api" {:name ::api :post {:interceptors [attach-claims api]}}]
-   ["/users/:system/:value/photo" {:get {:interceptors [get-user-photo]}}]
+  [["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
+   ["/login-mutation" {:name :login-mutation :post {:interceptors [login-mutation]}}] ;; for fulcro clients (fulcro / pc4-ms)
+   ["/ping" {:name :ping :post {:interceptors [ping]}}]
+   ["/api" {:name :api :post {:interceptors [attach-claims api]}}]
+   ["/users/:system/:value/photo" {:name :get-user-photo :get {:interceptors [get-user-photo]}}]
    ;;
    ["/app/home"
     {:name :home
@@ -246,13 +236,51 @@
     {:name :nav-bar :get {:interceptors [render-component app/nav-bar]}}]
    ["/app/patient/:patient-id"
     {:name :get-patient
-     :get  {:interceptors [check-authenticated render-component app/get-patient execute-eql app/view-patient-page]}}]
+     :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}
+     :eql  (fn [req] {:pathom/entity {:t_patient/patient_identifier (some-> (get-in req [:path-params :patient-id]) parse-long)}
+                      :pathom/eql    app/patient-properties})}]
    ["/app/project/:project-id/home"
     {:name :get-project
-     :get  {:interceptors [check-authenticated render-component app/get-project-home execute-eql app/view-project-home]}}]
+     :get  {:interceptors [check-authenticated render-component execute-eql app/view-project-home]}
+     :eql  (fn [req] {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
+                      :pathom/eql    [:t_project/id :t_project/title :t_project/name :t_project/inclusion_criteria :t_project/exclusion_criteria
+                                      :t_project/date_from :t_project/date_to :t_project/address1 :t_project/address2
+                                      :t_project/address3 :t_project/address4 :t_project/postcode
+                                      {:t_project/administrator_user [:t_user/full_name :t_user/username]}
+                                      :t_project/active? :t_project/long_description :t_project/type
+                                      :t_project/count_registered_patients :t_project/count_discharged_episodes :t_project/count_pending_referrals
+                                      {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                                      {:t_project/parent_project [:t_project/id :t_project/title]}]})}]
    ["/app/project/:project-id/team"
     {:name :get-project-team
-     :get  {:interceptors [check-authenticated render-component app/get-project-users execute-eql app/view-project-users]}}]])
+     :get  {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
+     :post {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
+     :eql  (fn [req]
+             (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
+                   active (case (get-in req [:form-params :active]) "active" true "inactive" false nil)]
+               {:pathom/entity {:t_project/id project-id}
+                :pathom/eql    [:t_project/id :t_project/title
+                                {(list :t_project/users {:group-by :user :active active})
+                                 [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
+                                  :t_user/first_names :t_user/last_name :t_user/job_title
+                                  {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))}]
+   ["/app/project/:project-id/patient/:pseudonym"
+    {:name :get-pseudonymous-patient
+     :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}
+     :eql  (fn [req] {:pathom/entity {:t_patient/project_pseudonym [(some-> (get-in req [:path-params :project-id]) parse-long) (get-in req [:path-params :pseudonym])]}
+                      :pathom/eql    app/patient-properties})}]])
+
+
+(comment
+  (require '[com.eldrix.pc4.system :as pc4])
+  (require '[portal.api :as portal])
+  (def p (portal/open))                                     ;; or... open browser-based portal
+  (add-tap #'portal/submit)
+  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
+  (pc4/halt! system)
+  (do (pc4/halt! system)
+      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
+
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
@@ -260,6 +288,7 @@
    ::http/join?           join?
    ::http/log-request     true
    ::http/routes          []
+   ::http/resource-path   "/public"
    ::http/port            port
    ::http/allowed-origins (cond (= "*" allowed-origins) (constantly true)
                                 :else allowed-origins)
@@ -282,24 +311,23 @@
     (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
     (log/warn "No explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
-  (let [router (reitit.http/router routes*)]
-    (-> (make-service-map config)
-        (http/default-interceptors)
-        (reitit.pedestal/replace-last-interceptor
-          (reitit.pedestal/routing-interceptor router))
-        (http/dev-interceptors)
-        (update ::http/interceptors conj
-                (intc/interceptor (inject (assoc env :router router)))
-                (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
-                (csrf/anti-forgery)
-                (http/transit-body-interceptor ::transit-json-body
-                                               "application/transit+json;charset=UTF-8"
-                                               :json
-                                               {:handlers (merge dates/transit-writers
-                                                                 {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-                                                                  Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
-        (http/create-server)
-        (http/start))))
+  (-> (make-service-map config)
+      (http/default-interceptors)
+      (reitit.pedestal/replace-last-interceptor
+        (reitit.pedestal/routing-interceptor (reitit.http/router routes*)))
+      (http/dev-interceptors)
+      (update ::http/interceptors conj
+              (intc/interceptor (inject env))
+              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
+              (csrf/anti-forgery)
+              (http/transit-body-interceptor ::transit-json-body
+                                             "application/transit+json;charset=UTF-8"
+                                             :json
+                                             {:handlers (merge dates/transit-writers
+                                                               {ExceptionInfo (transit/write-handler "ex-info" ex-data)
+                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
+      (http/create-server)
+      (http/start)))
 
 (defmethod ig/halt-key! ::server [_ service-map]
   (http/stop service-map))

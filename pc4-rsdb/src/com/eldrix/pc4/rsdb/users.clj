@@ -185,16 +185,6 @@
   (let [project-ids (set (map :t_project/id (projects conn username)))]
     (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
 
-(defn role-active?
-  "Determine the status of the role as of now, or on the specified date."
-  ([role] (role-active? role (LocalDate/now)))
-  ([{:t_project_user/keys [^LocalDate date_from ^LocalDate date_to]} ^LocalDate on-date]
-   (and (or (nil? date_from)
-            (.equals on-date date_from)
-            (.isAfter on-date date_from))
-        (or (nil? date_to)
-            (.isBefore on-date date_to)))))
-
 (defn roles-for-user
   "Return the roles for the given user, each flattened and pre-fetched to
   include keys from the 't_project_user' and related 't_project' tables.
@@ -225,7 +215,7 @@
                                :t_project [:= :project_fk :t_project/id]
                                :t_role [:= :role_fk :t_role/id]]
                       :where  [:= :t_user/username username]}))
-       (map #(assoc % :t_project_user/active? (role-active? %)
+       (map #(assoc % :t_project_user/active? (projects/role-active? %)
                       :t_project/active? (projects/active? %)
                       :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %))))))
 
@@ -275,7 +265,7 @@
 
 (def fetch-user-query
   {:select    [:t_user/id :username :title :first_names :last_name :postnomial :custom_initials
-               :email :custom_job_title :t_job_title/name
+               :email :custom_job_title :t_job_title/name :photo_fk
                :can_be_responsible_clinician :is_clinical
                :send_email_for_messages
                :must_change_password
@@ -294,6 +284,8 @@
   (db/execute-one! conn (sql/format (assoc fetch-user-query
                                       :where [:= :t_user/id user-id]))))
 
+(defn job-title [{custom-job-title :t_user/custom_job_title, job-title :t_job_title/name}]
+  (if (str/blank? custom-job-title) job-title custom-job-title))
 
 (s/def ::create-user (s/keys :req [:t_user/username
                                    :t_user/title

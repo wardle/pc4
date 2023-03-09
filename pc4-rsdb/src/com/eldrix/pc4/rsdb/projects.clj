@@ -40,22 +40,75 @@
 (s/def ::project-name string?)
 (s/def ::adopt-pending? boolean?)
 (s/def ::pseudonym string?)
+(s/def ::group-by #{:none :user})
+(s/def ::active? boolean?)
 
+
+(defn role-active?
+  "Determine the status of the role as of now, or on the specified date."
+  ([role] (role-active? role (LocalDate/now)))
+  ([{:t_project_user/keys [^LocalDate date_from ^LocalDate date_to]} ^LocalDate on-date]
+   (and (or (nil? date_from)
+            (.equals on-date date_from)
+            (.isAfter on-date date_from))
+        (or (nil? date_to)
+            (.isBefore on-date date_to)))))
+
+(defn- fetch-users*
+  "Fetch all users for the project specified, with an individual potentially
+  being listed more than once if they have more than one 'role'."
+  [conn project-id]
+  (db/execute! conn (sql/format
+                      {:select    [:t_user/id :role :date_from :date_to :title
+                                   :first_names :last_name :email :username
+                                   :t_job_title/name :custom_job_title]
+                       :from      [:t_project_user]
+                       :left-join [:t_user [:= :user_fk :t_user/id]
+                                   :t_job_title [:= :job_title_fk :t_job_title/id]]
+                       :where     [:= :project_fk project-id]
+                       :order-by  [:last_name :first_names]})))
+
+(s/fdef fetch-users
+  :args (s/cat :conn ::conn :project-id ::project-id :params (s/? (s/keys :opt-un [::group-by ::active?]))))
 (defn fetch-users
   "Fetch users for the project specified. An individual may be listed more than
-  once if they have more than one 'role' within the project."
-  [conn project-id]
-  (db/execute!
-    conn
-    (sql/format
-      {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
-                   :t_job_title/name :custom_job_title]
-       :from      [:t_project_user]
-       :left-join [:t_user [:= :user_fk :t_user/id]
-                   :t_job_title [:= :job_title_fk :t_job_title/id]]
-       :where     [:= :project_fk project-id]
-       :order-by  [:last_name :first_names]})))
+  once if they have more than one 'role' within the project although this
+  depends on the :group-by parameter.
+  Parameters:
+  - conn       : database connection
+  - project-id : project identifier
+  - params     : optional parameters:
+                 |- :active   - true, false or nil
+                       |- true  : only active records are returned.
+                       |- false : only inactive records are returned
+                       |- nil   : all records are returned
+                 |- :on-date   - date on which 'active' will be determined
+                 |- :group-by - one of :none or :user.
 
+  The operation of :active depends on whether records are grouped by user. "
+  ([conn project-id] (fetch-users conn project-id {}))
+  ([conn project-id {grp-by :group-by, active :active, on-date :on-date, :or {grp-by :none}}]
+   (let [on-date' (or on-date (LocalDate/now))
+         users (->> (fetch-users* conn project-id) (map #(assoc % :t_project_user/active? (role-active? % on-date'))))]
+     (case grp-by
+       :user ;; if we are grouping by user, implement our own 'group-by', returning :t_user/roles containing all roles for that user
+       (cond->> (vals (reduce (fn [acc {id :t_user/id ractive :t_project_user/active? :as user}]
+                                (let [roles (conj (get-in acc [id :t_user/roles]) (select-keys user [:t_project_user/date_to :t_project_user/date_from :t_project_user/role :t_project_user/active?]))]
+                                  (assoc acc id (-> user
+                                                    (update :t_user/active? #(or % ractive))   ;; a user is active if any of their roles for this project are active
+                                                    (dissoc :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?)
+                                                    (assoc :t_user/roles roles))))) {} users))
+                (true? active) (filter :t_user/active?)
+                (false? active) (remove :t_user/active?))
+       (cond->> users
+                (true? active) (filter :t_project_user/active?)
+                (false? active) (remove :t_project_user/active?))))))
+
+(comment
+  (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
+  (require '[clojure.spec.test.alpha :as stest])
+  (clojure.spec.test.alpha/instrument)
+  (fetch-users conn 5))
 
 (defn fetch-project-sql [project-id]
   (sql/format {:select :* :from :t_project

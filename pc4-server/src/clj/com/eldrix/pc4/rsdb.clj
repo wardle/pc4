@@ -403,7 +403,7 @@
                  {:t_project/parent_project [:t_project/id]}
                  :t_project/virtual
                  :t_project/can_own_equipment
-                 {:t_project/specialty [:info.snomed.Concept/id]}
+                 :t_project/specialty_concept_fk
                  :t_project/advertise_to_all
                  :t_project/care_plan_information
                  :t_project/is_private]}
@@ -496,9 +496,18 @@
               (mapv #(hash-map :info.snomed.Concept/id %))))})))
 
 (pco/defresolver project->users
-  [{conn :com.eldrix.rsdb/conn} {id :t_project/id}]
-  {::pco/output [{:t_project/users [:t_user/id]}]}
-  {:t_project/users (vec (projects/fetch-users conn id))})
+  "Returns a vector of users for the project. An individual may be listed more
+  than once, although this will depend on the parameters specified."
+  [{conn :com.eldrix.rsdb/conn, :as env} {id :t_project/id}]
+  {::pco/output [{:t_project/users [:t_user/id
+                                    {:t_user/roles [:t_project_user/role
+                                                    :t_project_user/date_from
+                                                    :t_project_user/date_to]}
+                                    :t_project_user/role
+                                    :t_project_user/date_from
+                                    :t_project_user/date_to
+                                    :t_project_user/active?]}]}
+  {:t_project/users (projects/fetch-users conn id (pco/params env))})
 
 (pco/defresolver patient->encounters
   [{:com.eldrix.rsdb/keys [conn]} {patient-id :t_patient/id}]
@@ -635,6 +644,7 @@
    :t_user/email
    :t_user/custom_job_title
    :t_user/job_title_fk
+   :t_user/photo_fk
    :t_user/send_email_for_messages
    :t_user/authentication_method
    :t_user/professional_registration])
@@ -672,8 +682,8 @@
   At the moment, this simply checks the rsdb database, but this could use other
   logic - such as checking Active Directory if the user is managed by that
   service."
-  [{:com.eldrix.rsdb/keys [login conn]} {:t_user/keys [username]}]
-  {:t_user/has_photo (com.eldrix.pc4.rsdb.users/has-photo? conn username)})
+  [{:t_user/keys [photo_fk]}]
+  {:t_user/has_photo (boolean photo_fk)})
 
 (pco/defresolver user->full-name
   [{:t_user/keys [title first_names last_name]}]
@@ -726,7 +736,7 @@
 (pco/defresolver user->active-projects
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
-  {:t_user/active_projects (vec (filter projects/active? (users/projects conn username)))})
+  {:t_user/active_projects (filterv projects/active? (users/projects conn username))})
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
@@ -754,8 +764,14 @@
                                        :t_news/title
                                        :t_news/body
                                        {:t_news/author [:t_user/id]}]}]}
-  {:t_user/latest_news (vec (->> (users/fetch-latest-news conn username)
-                                 (map #(assoc % :t_news/author (select-keys % [:t_user/id :t_user/first_names :t_user/last_name])))))})
+  {:t_user/latest_news (->> (users/fetch-latest-news conn username)
+                            (mapv #(assoc % :t_news/author (select-keys % [:t_user/id :t_user/first_names :t_user/last_name]))))})
+
+(pco/defresolver user->job-title
+  [{custom-job-title :t_user/custom_job_title job-title :t_job_title/name :as user}]
+  {::pco/input [:t_user/custom_job_title (pco/? :t_job_title/name)]
+   ::pco/output [:t_user/job_title]}
+  {:t_user/job_title (users/job-title user)})
 
 (pco/defresolver user->count-unread-messages
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
@@ -1250,6 +1266,7 @@
    user->active-projects
    user->common-concepts
    user->latest-news
+   user->job-title
    user->count-unread-messages
    user->count-incomplete-messages
    patient->fhir-human-name

@@ -33,9 +33,11 @@
           [:button#user-menu-button.bg-gray-800.flex.text-sm.rounded-full
            (merge {:type "button" :aria-expanded "false" :aria-haspopup "true"} (:attrs user))
            [:span.sr-only "Open user menu"]
-           [:span.hidden.sm:block.text-white [:div.flex (or (:full-name user) "User") (misc/icon-chevron-down)]]
-           [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]
-           (when (:photo user) [:img.h-8.w-8.rounded-full (:photo user)])]]
+           [:span.hidden.sm:block.text-white [:span.flex (or (:full-name user) "User")
+                                              (when (:photo user) [:span.pl-4 [:img.h-8.w-8.rounded (:photo user)]])
+                                              (misc/icon-chevron-down)]]
+           [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]]]
+
          (when (and (:menu-open? user) (seq (:menu user)))
            [:div.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
             {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
@@ -52,7 +54,7 @@
   - disabled  : if login form should be disabled
   - error     : an error message to be shown"
   [{:keys [form username password hidden disabled error]}]
-  [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8.h-screen
+  [:div.flex.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
    [:div.max-w-md.w-full.space-y-8
     [:form form
      (for [[k v] hidden
