@@ -73,7 +73,9 @@
 (defn fetch-users
   "Fetch users for the project specified. An individual may be listed more than
   once if they have more than one 'role' within the project although this
-  depends on the :group-by parameter.
+  depends on the :group-by parameter. For backwards-compatibility, no grouping
+  is used, by default. However, it would be usual to use {:group-by :user} for
+  most use cases.
   Parameters:
   - conn       : database connection
   - project-id : project identifier
