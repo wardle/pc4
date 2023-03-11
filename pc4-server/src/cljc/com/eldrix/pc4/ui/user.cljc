@@ -28,22 +28,20 @@
        [:span.text-white.rounded-md.text-lg.font-large.font-bold [:a (:attrs title) (:s title)]]]]
      [:div.absolute.inset-y-0.right-0.flex.items-center.pr-2.sm:static.sm:inset-auto.sm:ml-6.sm:pr-0
       (when (seq user)
-        [:div.ml-3.relative
-         [:div
-          [:button#user-menu-button.bg-gray-800.flex.text-sm.rounded-full
-           (merge {:type "button" :aria-expanded "false" :aria-haspopup "true"} (:attrs user))
-           [:span.sr-only "Open user menu"]
-           [:span.hidden.sm:block.text-white [:span.flex (or (:full-name user) "User")
-                                              (when (:photo user) [:span.pl-4 [:img.h-8.w-8.rounded (:photo user)]])
-                                              (misc/icon-chevron-down)]]
-           [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]]]
+         [:div.ml-3.relative
+          [:div
+           [:button#user-menu-button.bg-gray-800.flex.text-sm.rounded-full
+            (merge {:type "button" :aria-expanded "false" :aria-haspopup "true"} (:attrs user))
+            [:span.sr-only "Open user menu"]
+            [:span.hidden.sm:block.text-white [:span.flex (or (:full-name user) "User") (misc/icon-chevron-down)]]
+            [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]]]
 
-         (when (and (:menu-open? user) (seq (:menu user)))
-           [:div.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
-            {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
-            (for [item (:menu user)]
-              [:a.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white
-               (merge {:role "menuitem" :tabIndex "-1"} (:attrs item)) (:title item)])])])]]]])
+          (when (and (:menu-open? user) (seq (:menu user)))
+            [:div.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
+             {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
+             (for [item (:menu user)]
+               [:a.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white
+                (merge {:role "menuitem" :tabIndex "-1"} (:attrs item)) (:title item)])])])]]]])
 
 
 (rum/defc login-panel
