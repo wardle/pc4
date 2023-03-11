@@ -435,8 +435,9 @@
   {:t_project/slug (projects/make-slug title)})
 
 (pco/defresolver project->active?
-  [{date-from :t_project/date_from date-to :t_project/date_to :as project}]
-  {::pco/output [:t_project/active?]}
+  [project]
+  {::pco/input [:t_project/date_from :t_project/date_to]
+   ::pco/output [:t_project/active?]}
   {:t_project/active? (projects/active? project)})
 
 (pco/defresolver project->long-description-text
@@ -750,6 +751,19 @@
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
   {:t_user/active_projects (filterv projects/active? (users/projects conn username))})
+
+(pco/defresolver user->roles
+  [{conn :com.eldrix.rsdb/conn, :as env} {username :t_user/username}]
+  {::pco/output [{:t_user/roles [:t_project_user/date_from
+                                 :t_project_user/date_to
+                                 :t_project_user/active?
+                                 :t_project_user/permissions
+                                 :t_project/id
+                                 :t_project/active?]}]}
+  (let [{:keys [project-id]} (pco/params env)]   ;; if project-id is nil, then roles-for-user returns all roles
+      {:t_user/roles (users/roles-for-user conn username {:t_project/id project-id})}))
+
+
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
@@ -1277,6 +1291,7 @@
    user->full-name
    user->initials
    user->active-projects
+   user->roles
    user->common-concepts
    user->latest-news
    user->job-title

@@ -191,7 +191,7 @@
 
   In essence, a user will have roles as defined by `t_project_user` rows.
 
-  For convenience, the following properties are included:
+  For convenience, the following properties are also included:
   - :t_project_user/active?     - whether the role is active
   - :t_project/active?          - whether the project is active
   - :t_project_user/permissions - set of permissions for project
@@ -205,19 +205,21 @@
 
   Permissions are *not* inherited under the legacy model; users must be
   explicitly added to sub-projects. Patients *are* inherited."
-  [conn username]
-  (->> (db/execute!
-         conn
-         (sql/format {:select [:t_user/id :t_user/username :t_role/name :t_role/is_system
-                               :t_project/* :t_project_user/*]
-                      :from   :t_project_user
-                      :join   [:t_user [:= :user_fk :t_user/id]
-                               :t_project [:= :project_fk :t_project/id]
-                               :t_role [:= :role_fk :t_role/id]]
-                      :where  [:= :t_user/username username]}))
-       (map #(assoc % :t_project_user/active? (projects/role-active? %)
-                      :t_project/active? (projects/active? %)
-                      :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %))))))
+  ([conn username] (roles-for-user conn username {}))
+  ([conn username {:keys [project-id]}]
+   (->> (db/execute!
+          conn
+          (sql/format {:select [:t_user/id :t_user/username :t_role/name :t_role/is_system
+                                :t_project/id :t_project/title :t_project_user/*]
+                       :from   :t_project_user
+                       :join   [:t_user [:= :user_fk :t_user/id]
+                                :t_project [:= :project_fk :t_project/id]
+                                :t_role [:= :role_fk :t_role/id]]
+                       :where  (if project-id [:and [:= :t_user/username username] [:= :t_project/id project-id]]
+                                              [:= :t_user/username username])}))
+        (map #(assoc % :t_project_user/active? (projects/role-active? %)
+                       :t_project/active? (projects/active? %)
+                       :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
 
 (defn permissions-for-project
   "Given a sequence of roles for a user, derive a set of permissions for the
