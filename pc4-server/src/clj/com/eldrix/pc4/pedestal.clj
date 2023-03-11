@@ -264,6 +264,13 @@
                                  [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
                                   :t_user/first_names :t_user/last_name :t_user/job_title
                                   {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))}]
+   ["/app/user/:user-id"
+    {:name :get-user
+     :get {:interceptors [check-authenticated render-component execute-eql tap-result app/view-user]}
+     :eql (fn [req]
+            {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+             :pathom/eql [:t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
+                          :t_user/postnomial :t_user/roles]})}]
    ["/app/project/:project-id/patient/:pseudonym"
     {:name :get-pseudonymous-patient
      :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}
@@ -278,9 +285,9 @@
   (add-tap #'portal/submit)
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (pc4/halt! system)
+
   (do (pc4/halt! system)
       (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
-
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]

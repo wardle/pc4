@@ -184,7 +184,8 @@
              router (::r/router request)
              s (some-> (get-in ctx [:request :form-params :search]) str/trim str/lower-case)
              users' (->> users
-                         (map #(assoc % :photo-url (when (:t_user/has_photo %) (r/match->path (r/match-by-name router :get-user-photo {:system "patientcare.app" :value (:t_user/username %)})))))
+                         (map #(assoc % :user-url (r/match->path (r/match-by-name! router :get-user {:user-id (:t_user/id %)}) {:project-id id})
+                                        :photo-url (when (:t_user/has_photo %) (r/match->path (r/match-by-name router :get-user-photo {:system "patientcare.app" :value (:t_user/username %)})))))
                          (filter #(or (nil? s) (str/includes? (str/lower-case (:t_user/full_name %)) s) (str/includes? (str/lower-case (:t_user/job_title %)) s))))]
          (assoc ctx :component
                     (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
@@ -195,7 +196,14 @@
                               [:div#list-users.col-span-5.p-6
                                (ui-project/project-users users')]]]))))))})
 
-
+(def view-user
+  {:enter
+   (fn [{user :result, request :request, :as ctx}]
+     (if-not user
+       ctx
+       (assoc ctx :component
+                  (page [:<> (navigation-bar ctx)
+                         [:div.container (ui-user/view-user user)]]))))})
 
 
 (def login

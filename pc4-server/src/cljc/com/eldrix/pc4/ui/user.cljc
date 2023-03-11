@@ -125,3 +125,9 @@
          [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
           [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
         [:article.prose.lg:prose-xl.pb-4 {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])
+
+
+
+
+
+(rum/defc view-user [user])
