@@ -42,15 +42,16 @@
   [users]
   (let [users* (->> users (sort-by (juxt :t_user/last_name :t_user/first_names)))]
     (misc/grid-list
-      (for [{roles' :t_user/roles, photo-url :photo-url, active? :t_user/active?, :t_user/keys [full_name job_title email]} users*]
-        (misc/grid-list-item {:title     full_name
-                              :subtitle  job_title
-                              :image-url photo-url
-                              :content   [:div.flex.w-full.items-center.p-6
-                                          [:p.space-x-6
-                                           (when active?
-                                             (for [{role :t_project_user/role} roles'
-                                                   :when :t_project_user/active?]
-                                               [:span.inline-block.flex-shrink-0.rounded-full.px-2.py-0.5.text-xs.font-medium
-                                                {:class (role->badge-class role)}
-                                                (str/replace (name role) #"_" " ")]))]]})))))
+      (for [{roles'  :t_user/roles, user-url :user-url, photo-url :photo-url,
+             active? :t_user/active?, :t_user/keys [full_name job_title]} users*]
+        (misc/grid-list-item {:title    [:a.underline.text-blue-600.hover:text-blue-800 {:href user-url} full_name]
+                              :subtitle job_title
+                              :image    (if photo-url {:url photo-url} {:content (misc/avatar-14)})
+                              :content  [:div.flex.w-full.items-center.p-6
+                                         [:p.space-x-6
+                                          (when active?
+                                            (for [{role :t_project_user/role} roles'
+                                                  :when :t_project_user/active?]
+                                              [:span.inline-block.flex-shrink-0.rounded-full.px-2.py-0.5.text-xs.font-medium
+                                               {:class (role->badge-class role)}
+                                               (str/replace (name role) #"_" " ")]))]]})))))

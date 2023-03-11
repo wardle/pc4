@@ -35,6 +35,16 @@
   [:svg.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
    [:path {:fill-rule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clip-rule "evenodd"}]])
 
+(rum/defc avatar-8 []
+  [:span.inline-block.h-8.w-8.overflow-hidden.rounded-full.bg-gray-100
+   [:svg.h-full.w-full.text-gray-300 {:fill "currentColor" :viewBox "0 0 24 24"}
+    [:path {:d "M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"}]]])
+
+(rum/defc avatar-14 []
+  [:span.inline-block.h-14.w-14.overflow-hidden.rounded-full.bg-gray-100
+   [:svg.h-full.w-full.text-gray-300 {:fill "currentColor" :viewBox "0 0 24 24"}
+    [:path {:d "M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"}]]])
+
 (rum/defc badge
   "Display a small badge with the text specified."
   [{:keys [s text-color bg-color uppercase?] :or {text-color "text-red-200" bg-color "bg-red-500" uppercase? true}}]
@@ -90,12 +100,14 @@
   [:ul.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3 {:role "list"}
    items])
 
-(rum/defc grid-list-item [{:keys [title subtitle image-url content]}]
+(rum/defc grid-list-item [{:keys [title subtitle image content]}]
   [:li.col-span-1.divide-y.divide-gray-200.rounded-lg.bg-white.shadow
     [:div.flex.w-full.items-center.justify-between.space-x-6.p-6
      [:div.flex-1.truncate
       [:div.flex.items-center.space-x-3
        [:h3.truncate.text-sm.font-medium.text-gray-900 title]]
       [:p.mt-1.truncate.text-sm.text-gray-500 subtitle]]
-     (when image-url [:img.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src image-url :alt title}])]
+     (when image (cond
+                   (:url image) [:img.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src (:url image) :alt title}]
+                   (:content image) (:content image)))]
     [:div content]])
