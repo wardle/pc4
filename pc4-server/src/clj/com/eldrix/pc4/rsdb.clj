@@ -661,7 +661,9 @@
    :t_user/photo_fk
    :t_user/send_email_for_messages
    :t_user/authentication_method
-   :t_user/professional_registration])
+   :t_user/professional_registration
+   :t_professional_registration_authority/abbreviation
+   :t_professional_registration_authority/name])
 
 (pco/defresolver user-by-username
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
@@ -672,6 +674,18 @@
   [{conn :com.eldrix.rsdb/conn} {id :t_user/id}]
   {::pco/output user-properties}
   (users/fetch-user-by-id conn id))
+
+(pco/defresolver user->link-to-regulator
+  [{reg :t_user/professional_registration, authority :t_professional_registration_authority/abbreviation}]
+  {::pco/input [:t_user/professional_registration
+                :t_professional_registration_authority/abbreviation]
+   ::pco/output [:t_user/professional_registration_url]}
+  {:t_user/professional_registration_url
+   (when-not (str/blank? reg)
+     (case authority
+       "GMC" (str "https://www.gmc-uk.org/doctors/" reg)
+       nil))})
+
 
 (pco/defresolver user-by-nadex
   "Resolves rsdb user properties from a NADEX username if that user is
@@ -1284,6 +1298,7 @@
    user-by-username
    user-by-id
    user-by-nadex
+   user->link-to-regulator
    user->nadex
    user->fhir-name
    user->photo
