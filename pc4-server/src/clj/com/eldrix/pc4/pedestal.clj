@@ -257,7 +257,7 @@
      :post {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
      :eql  (fn [req]
              (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
-                   active (case (get-in req [:form-params :active]) "active" true "inactive" false "all" nil true)]  ;; default to true
+                   active (case (get-in req [:form-params :active]) "active" true "inactive" false "all" nil true)] ;; default to true
                {:pathom/entity {:t_project/id project-id}
                 :pathom/eql    [:t_project/id :t_project/title
                                 {(list :t_project/users {:group-by :user :active active})
@@ -266,11 +266,13 @@
                                   {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))}]
    ["/app/user/:user-id"
     {:name :get-user
-     :get {:interceptors [check-authenticated render-component execute-eql tap-result app/view-user]}
-     :eql (fn [req]
-            {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
-             :pathom/eql [:t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
-                          :t_user/postnomial :t_user/roles]})}]
+     :get  {:interceptors [check-authenticated render-component execute-eql tap-result app/view-user]}
+     :eql  (fn [req]
+             {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+              :pathom/eql    [:t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
+                              :t_user/postnomial :t_user/professional_registration :t_user/professional_registration_url
+                              :t_professional_registration_authority/abbreviation
+                              :t_user/roles]})}]
    ["/app/project/:project-id/patient/:pseudonym"
     {:name :get-pseudonymous-patient
      :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}

@@ -111,3 +111,17 @@
                    (:url image) [:img.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src (:url image) :alt title}]
                    (:content image) (:content image)))]
     [:div content]])
+
+(rum/defc description-list-item [{:keys [label content]}]
+  [:div.py-4.sm:grid.sm:grid-cols-3.sm:gap-4.sm:py-5.sm:px-6
+   [:dt.text-sm.font-medium.text-gray-500 label]
+   [:dd.mt-1.text-sm.text-gray-900.sm:col-span-2.sm:mt-0 content]])
+
+(rum/defc description-list [{:keys [title subtitle]} items]
+  [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
+   [:div.px-4.py-5.sm:px-6
+    [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
+    [:p.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
+   [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
+    [:dl.sm:divide-y.sm:divide-gray-200
+     items]]])

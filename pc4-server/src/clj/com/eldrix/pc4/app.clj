@@ -48,7 +48,12 @@
                                          :hx-target "#nav-bar" :hx-swap "outerHTML"}
                             :photo      (when (:t_user/has_photo authenticated-user) {:src (r/match->path (r/match-by-name! router :get-user-photo {:system "patientcare.app" :value (:t_user/username authenticated-user)}))})
                             :menu-open? show-user-menu?
-                            :menu       [{:id    :logout :title "Logout"
+                            :menu       [{:id    :about
+                                          :title (:t_user/job_title authenticated-user)}
+                                         {:id    :view-profile
+                                          :title "My profile"
+                                          :attrs {:href (r/match->path (r/match-by-name! router :get-user {:user-id (:t_user/id authenticated-user)}))}}
+                                         {:id    :logout :title "Logout"
                                           :attrs {:hx-post     (r/match->path (r/match-by-name router :logout))
                                                   :hx-push-url "true"
                                                   :hx-target   "body"
@@ -201,9 +206,11 @@
    (fn [{user :result, request :request, :as ctx}]
      (if-not user
        ctx
-       (assoc ctx :component
-                  (page [:<> (navigation-bar ctx)
-                         [:div.container (ui-user/view-user user)]]))))})
+       (let [project-id (some-> (get-in request [:params :project-id]) parse-long)]
+         (assoc ctx :component
+                    (page [:<> (navigation-bar ctx)
+                           [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
+                            (ui-user/view-user {:project-id project-id} user)]])))))})
 
 
 (def login
@@ -218,7 +225,7 @@
            user (when (and username password)
                   (-> (pathom [{(list 'pc4.users/login {:system "cymru.nhs.uk" :value username :password password})
                                 [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
-                                 :t_user/last_name :t_user/initials :t_user/has_photo]}])
+                                 :t_user/last_name :t_user/initials :t_user/has_photo :t_user/job_title]}])
                       (get 'pc4.users/login)))]
        (if user                                             ;; if we have logged in, route to the requested URL, or to home
          (assoc ctx :login {:user user :url (or url (r/match->path (r/match-by-name! router :home)))})

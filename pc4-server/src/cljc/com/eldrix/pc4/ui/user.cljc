@@ -1,5 +1,6 @@
 (ns com.eldrix.pc4.ui.user
-  (:require [com.eldrix.pc4.ui.misc :as misc]
+  (:require [clojure.string :as str]
+            [com.eldrix.pc4.ui.misc :as misc]
             [rum.core :as rum]))
 
 
@@ -28,20 +29,22 @@
        [:span.text-white.rounded-md.text-lg.font-large.font-bold [:a (:attrs title) (:s title)]]]]
      [:div.absolute.inset-y-0.right-0.flex.items-center.pr-2.sm:static.sm:inset-auto.sm:ml-6.sm:pr-0
       (when (seq user)
-         [:div.ml-3.relative
-          [:div
-           [:button#user-menu-button.bg-gray-800.flex.text-sm.rounded-full
-            (merge {:type "button" :aria-expanded "false" :aria-haspopup "true"} (:attrs user))
-            [:span.sr-only "Open user menu"]
-            [:span.hidden.sm:block.text-white [:span.flex (or (:full-name user) "User") (misc/icon-chevron-down)]]
-            [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]]]
+        [:div.ml-3.relative
+         [:div
+          [:button#user-menu-button.bg-gray-800.flex.text-sm.rounded-full
+           (merge {:type "button" :aria-expanded "false" :aria-haspopup "true"} (:attrs user))
+           [:span.sr-only "Open user menu"]
+           [:span.hidden.sm:block.text-white [:span.flex (or (:full-name user) "User") (misc/icon-chevron-down)]]
+           [:span.sm:hidden.text-white [:div.flex (when (:initials user) (:initials user)) (misc/icon-chevron-down)]]]]
 
-          (when (and (:menu-open? user) (seq (:menu user)))
-            [:div.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
-             {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
-             (for [item (:menu user)]
-               [:a.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white
-                (merge {:role "menuitem" :tabIndex "-1"} (:attrs item)) (:title item)])])])]]]])
+         (when (and (:menu-open? user) (seq (:menu user)))
+           [:div.origin-top-right.absolute.z-50.right-0.mt-2.w-48.rounded-md.shadow-lg.py-1.bg-white.ring-1.ring-black.ring-opacity-5.focus:outline-none
+            {:role "menu" :aria-orientation "vertical" :aria-labelledby "user-menu-button" :tabIndex "-1"}
+            (for [item (:menu user)]
+              (if (:attrs item)
+                [:a.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white
+                 (merge {:role "menuitem" :tabIndex "-1"} (:attrs item)) (:title item)]
+                [:span.block.px-4.py-2.text-sm.italic.text-gray-600 (:title item)]))])])]]]])
 
 
 (rum/defc login-panel
@@ -104,7 +107,7 @@
         [:div
          [:span.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"]]
         (for [project (sort-by :t_project/title (:RESEARCH grouped))]
-          [:a.cursor-default (merge {:key      (:t_project/id project)} (make-attrs project))
+          [:a.cursor-default (merge {:key (:t_project/id project)} (make-attrs project))
            [:div.px-3.py-1.text-sm.bg-pink-50.hover:bg-pink-100.border
             (:t_project/title project)]])])]))
 
@@ -127,7 +130,76 @@
         [:article.prose.lg:prose-xl.pb-4 {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])
 
 
+(rum/defc list-role [{:t_project/keys [title] :t_project_user/keys [date_from date_to role]}]
+  [:tr
+   [:td.whitespace-nowrap.py-4.pl-4.pr-3.text-sm.font-medium.text-gray-900.sm:pl-0 title]
+   [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 date_from]
+   [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 date_to]
+   [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 (name role)]
+   #_[:td.relative.whitespace-nowrap.py-4.pl-3.pr-4.text-right.text-sm.font-medium.sm:pr-0
+      [:a.text-indigo-600.hover:text-indigo-900 {:href "#"} "Edit" [:span.sr-only ", Lindsay Walton"]]]])
+
+(rum/defc list-roles [roles]
+  [:div.mt-8.flow-root
+   [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.inline-block.min-w-full.py-2.align-middle.sm:px-6.lg:px-8
+     [:table.min-w-full.divide-y.divide-gray-300
+      [:thead
+       [:tr
+        [:th.py-3.5.pl-4.pr-3.text-left.text-sm.font-semibold.text-gray-900.sm:pl-0 {:scope "col"} "Project"]
+        [:th.py-3.5.px-3.text-left.text-sm.font-semibold.text-gray-900 {:scope "col"} "Date from"]
+        [:th.py-3.5.px-3.text-left.text-sm.font-semibold.text-gray-900 {:scope "col"} "Date to"]
+        [:th.py-3.5.px-3.text-left.text-sm.font-semibold.text-gray-900 {:scope "col"} "Role"]
+        #_[:th.relative.py-3.5.pl-3.pr-4.sm:pr-0 {:scope "col"}
+           [:span.sr-only "Edit"]]]]
+      [:tbody.divide-y.divide-gray-200
+       (for [role roles]
+         (list-role role))]]]]])
+
+(rum/defc view-user
+  "View a user with optional context. If context is provided, the view will be
+  modified accordingly.
+  Context options
+  :project-id : if provided, roles will be shown for the project specified"
+  ([user] (view-user {} user))
+  ([{project-id :t_project/id project-title :t_project/title :as ctx}
+    {:t_user/keys [full_name first_names last_name postnomial title authentication_method job_title roles] :as user}]
+   (tap> {:ctx ctx :user user})
+   (misc/description-list {:title    (str full_name " " postnomial)
+                           :subtitle job_title}
+                          [:<>
+                           (misc/description-list-item {:label "Title"
+                                                        :content title})
+                           (misc/description-list-item {:label   (if (> (count (str/split first_names #"\s")) 1) "First names:" "First name:")
+                                                        :content first_names})
+                           (misc/description-list-item {:label   "Last name:"
+                                                        :content last_name})
+                           (misc/description-list-item {:label   "Authentication method:"
+                                                        :content (name authentication_method)})
+                           (misc/description-list-item {:label   "Professional registration:"
+                                                        :content (let [s (str (:t_professional_registration_authority/abbreviation user) " "
+                                                                              (:t_user/professional_registration user))
+                                                                       href (:t_user/professional_registration_url user)]
+                                                                   (if href [:a.underline.text-blue-600.hover:text-blue-800 {:href href} s] s))})
+
+                           (misc/description-list-item {:label   "Active roles"
+                                                        :content (list-roles (->> roles
+                                                                                  (filter #(and (:t_project/active? %) (:t_project_user/active? %)))
+                                                                                  (sort-by :t_project/title)))})
+                           (misc/description-list-item {:label "Inactive roles"
+                                                        :content (list-roles (->> roles
+                                                                                  (remove #(or (:t_project/active %) (:t_project_user/active? %)))
+                                                                                  (sort-by :t_project/title)))})])))
 
 
 
-(rum/defc view-user [user])
+
+
+
+
+
+
+
+
+
+
