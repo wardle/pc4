@@ -106,9 +106,9 @@
 (rf/reg-event-fx ::handle-ping-failure
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
-    {:db (assoc-in db [:errors :ping] response)
+    {:db (assoc-in db [:errors :ping] response)}))
      ;:fx [[:dispatch-later [{:ms 10000 :dispatch [::ping-server]}]]]
-     }))
+
 
 (rf/reg-event-db ::clear-ping-failure
   []
@@ -146,8 +146,8 @@
      :fx [[:pathom {:params     [(list 'pc4.rsdb/change-password params)]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-change-password-success]
-                    :on-failure [::handle-change-password-failure]}]]}
-    ))
+                    :on-failure [::handle-change-password-failure]}]]}))
+
 
 (rf/reg-event-fx ::handle-change-password-success
   []
@@ -197,6 +197,5 @@
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/token])
   (rf/dispatch-sync [::ping-server])
   (rf/dispatch-sync [::check-token])
-  (rf/dispatch-sync [::refresh-token])
+  (rf/dispatch-sync [::refresh-token]))
 
-  )

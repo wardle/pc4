@@ -135,9 +135,9 @@
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
   (init-routes!)
-  (rdom/render [router-component {:router router}] (.getElementById js/document "app"))
+  (rdom/render [router-component {:router router}] (.getElementById js/document "app")))
   ;;(rdom/render [refer3/refer-page] (.getElementById js/document "app"))
-  )
+
 
 (defn init []
   (re-frame/dispatch-sync [::events/initialize-db])
@@ -147,5 +147,4 @@
 
 (comment
   (init-routes!)
-  (rfe/href :projects {:project-name "NINFLAMMCARDIFF"})
-  )
+  (rfe/href :projects {:project-name "NINFLAMMCARDIFF"}))

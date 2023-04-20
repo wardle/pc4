@@ -97,6 +97,6 @@
   @(rf/subscribe [:eldrix.pc4-ward.snomed.subs/search-results :wibble])
   (tap> @(rf/subscribe [:eldrix.pc4-ward.snomed.subs/search-results :wibble]))
   (rf/dispatch-sync [::fetch-concept :wibble 24700007])
-  (tap> @(rf/subscribe [:eldrix.pc4-ward.snomed.subs/fetch-result :wibble]))
-  )
+  (tap> @(rf/subscribe [:eldrix.pc4-ward.snomed.subs/fetch-result :wibble])))
+
 
