@@ -93,11 +93,11 @@
    (let [on-date' (or on-date (LocalDate/now))
          users (->> (fetch-users* conn project-id) (map #(assoc % :t_project_user/active? (role-active? % on-date'))))]
      (case grp-by
-       :user ;; if we are grouping by user, implement our own 'group-by', returning :t_user/roles containing all roles for that user
+       :user                                                ;; if we are grouping by user, implement our own 'group-by', returning :t_user/roles containing all roles for that user
        (cond->> (vals (reduce (fn [acc {id :t_user/id ractive :t_project_user/active? :as user}]
                                 (let [roles (conj (get-in acc [id :t_user/roles]) (select-keys user [:t_project_user/date_to :t_project_user/date_from :t_project_user/role :t_project_user/active?]))]
                                   (assoc acc id (-> user
-                                                    (update :t_user/active? #(or % ractive))   ;; a user is active if any of their roles for this project are active
+                                                    (update :t_user/active? #(or % ractive)) ;; a user is active if any of their roles for this project are active
                                                     (dissoc :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?)
                                                     (assoc :t_user/roles roles))))) {} users))
                 (true? active) (filter :t_user/active?)
