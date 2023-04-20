@@ -107,6 +107,30 @@
                 (false? active) (remove :t_project_user/active?))))))
 
 
+(def consented-patients-sql
+  "SQL returning patient identifiers for those who have consented using the
+  consent form with an identifier in `consent-form`ids`. This looks for the most
+  recent consent forms of those identifiers for each patient and then looks to
+  see whether any of the responses of behaviour 'PARTICIPATE' has been agreed."
+  {:with   [[:consent-forms {:select-distinct-on [[:patient_identifier] :patient_identifier :t_form_consent/id :t_encounter/date_time]
+                             :from               [:t_form_consent :t_encounter :t_patient]
+                             :where              [:and
+                                                  [:= :encounter_fk :t_encounter/id]
+                                                  [:= :patient_fk :t_patient/id]
+                                                  [:= :t_form_consent/is_deleted "false"]
+                                                  [:= :t_encounter/is_deleted "false"]
+                                                  [:in :consent_form_fk :?consent-form-ids]]
+                             :order-by           [[:patient_identifier :asc] [:date_time :desc]]}]
+            [:consent-items {:select :* :from :t_consent_item :where [:and [:in :consent_form_fk :?consent-form-ids]
+                                                                      [:= :behaviour "PARTICIPATE"]]}]]
+   :select :consent-forms/patient_identifier :from [:t_consent_item_response :consent-items :consent-forms]
+   :where  [:and [:= :consent_item_fk :consent-items/id]
+            [:= :form_consent_fk :consent-forms/id]
+            [:= :t_consent_item_response/response "AGREE"]]})
+
+(defn consented-patients [conn consent-form-ids]
+  (into #{} (map :t_patient/patient_identifier)
+        (jdbc/plan conn (sql/format consented-patients-sql {:params {:consent-form-ids consent-form-ids}}))))
 
 
 (comment
