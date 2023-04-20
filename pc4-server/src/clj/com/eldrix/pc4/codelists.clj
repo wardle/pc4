@@ -75,7 +75,7 @@
 
 
 (defn tf-for-product [hermes concept-id]
-  (filter #(seq (hermes/get-component-refset-items hermes % 999000631000001100)) (hermes/get-all-parents hermes concept-id)))
+  (filter #(seq (hermes/component-refset-items hermes % 999000631000001100)) (hermes/all-parents hermes concept-id)))
 
 (defn atc->snomed-ecl
   "Map an ATC regexp into a SNOMED expression that can include all UK product
@@ -149,7 +149,7 @@
   "Map a collection of concept identifiers to a set of ICD-10 codes."
   [{:com.eldrix/keys [hermes]} concept-ids]
   (->> (hermes/with-historical hermes concept-ids)
-       (mapcat #(hermes/get-component-refset-items hermes % 447562003))
+       (mapcat #(hermes/component-refset-items hermes % 447562003))
        (map :mapTarget)
        (filter identity)
        (into #{})))
@@ -158,7 +158,7 @@
   "Is the product a type of trade family product?
   We simply use the TF reference set as a check for membership."
   [{:com.eldrix/keys [hermes]} concept-id]
-  (seq (hermes/get-component-refset-items hermes concept-id 999000631000001100)))
+  (seq (hermes/component-refset-items hermes concept-id 999000631000001100)))
 
 (defn to-atc
   "Map a collection of concept identifiers to a set of ATC codes.
@@ -169,7 +169,7 @@
   (->> (hermes/with-historical hermes concept-ids)
        (mapcat (fn [concept-id]
                  (if (is-trade-family? system concept-id)
-                   (distinct (map #(dmd/atc-for-product dmd %) (hermes/get-child-relationships-of-type hermes concept-id snomed/IsA)))
+                   (distinct (map #(dmd/atc-for-product dmd %) (hermes/child-relationships-of-type hermes concept-id snomed/IsA)))
                    (vector (dmd/atc-for-product dmd concept-id)))))
        (filter identity)
        set))
@@ -213,7 +213,7 @@
 
   (require '[com.eldrix.pc4.system :as pc4])
   (def system (pc4/init :dev [:pathom/env]))
-  (defn ps [id] (vector id (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB"))))
+  (defn ps [id] (vector id (:term (hermes/preferred-synonym (:com.eldrix/hermes system) id "en-GB"))))
   (ps 24700007)
   (def multiple-sclerosis (expand-codelist system {:inclusions {:icd10 "G35"}}))
   (member? multiple-sclerosis 24700007)
