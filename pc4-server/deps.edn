@@ -17,7 +17,7 @@
              com.eldrix/concierge              {:mvn/version "1.0.150"}
              com.eldrix/deprivare              {:mvn/version "1.0.54"}
              com.eldrix/dmd                    {:mvn/version "0.6.146"}
-             com.eldrix/hermes                 {:mvn/version "1.0.960"}
+             com.eldrix/hermes                 {:mvn/version "1.2.1026"}
              com.eldrix/comprehend             {:mvn/version "0.0.5"}
              com.eldrix.pc4/rsdb               {:local/root "../pc4-rsdb"}
 
