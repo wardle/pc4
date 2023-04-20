@@ -2,6 +2,8 @@
 with
   /* A list of concepts that reflect multiple sclerosis.
    * (Essentially we use the MS concept and get its child concepts from our cache)
+   * TODO: switch to passing in the list of concepts which we will derive outside
+   * of this SQL
   */
 multiple_sclerosis_concepts as (
 /*  select child_concept_id as concept_id from t_cached_parent_concepts where parent_concept_id=24700007
