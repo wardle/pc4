@@ -151,16 +151,14 @@
                        :or   {on-date        (LocalDate/now)
                               patient-status #{:FULL :PSEUDONYMOUS}
                               discharged? false}}]
-  (transduce
+  (into #{}
     (map :t_patient/patient_identifier)
-    conj
-    #{}
     (jdbc/plan conn (sql/format {:select-distinct :patient_identifier
                                  :from            :t_patient
                                  :left-join       [:t_episode [:= :patient_fk :t_patient/id]]
                                  :where           [:and
                                                    [:in :project_fk project-ids]
-                                                   [:in :t_patient/status (map name patient-status)]
+                                                   [:in :t_patient/status (mapv name patient-status)]
                                                    (when-not discharged?
                                                      [:or
                                                       [:is :t_episode/date_discharge nil]
@@ -174,12 +172,10 @@
 (s/fdef pks->identifiers
   :args (s/cat :conn ::conn :pks (s/coll-of pos-int?)))
 (defn pks->identifiers
-  "Turn patient primary keys into identifiers."
+  "Return a set of patient identifiers given a collection of primary keys."
   [conn pks]
-  (transduce
+  (into #{}
     (map :t_patient/patient_identifier)
-    conj
-    #{}
     (jdbc/plan conn (sql/format {:select :patient_identifier :from :t_patient :where [:in :id pks]}))))
 
 (defn pk->identifier
