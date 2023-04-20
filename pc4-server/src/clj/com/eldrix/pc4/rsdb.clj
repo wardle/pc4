@@ -436,7 +436,7 @@
 
 (pco/defresolver project->active?
   [project]
-  {::pco/input [:t_project/date_from :t_project/date_to]
+  {::pco/input  [:t_project/date_from :t_project/date_to]
    ::pco/output [:t_project/active?]}
   {:t_project/active? (projects/active? project)})
 
@@ -677,8 +677,8 @@
 
 (pco/defresolver user->link-to-regulator
   [{reg :t_user/professional_registration, authority :t_professional_registration_authority/abbreviation}]
-  {::pco/input [:t_user/professional_registration
-                :t_professional_registration_authority/abbreviation]
+  {::pco/input  [:t_user/professional_registration
+                 :t_professional_registration_authority/abbreviation]
    ::pco/output [:t_user/professional_registration_url]}
   {:t_user/professional_registration_url
    (when-not (str/blank? reg)
@@ -774,8 +774,8 @@
                                  :t_project_user/permissions
                                  :t_project/id
                                  :t_project/active?]}]}
-  (let [{:keys [project-id]} (pco/params env)]   ;; if project-id is nil, then roles-for-user returns all roles
-      {:t_user/roles (users/roles-for-user conn username {:t_project/id project-id})}))
+  (let [{:keys [project-id]} (pco/params env)]              ;; if project-id is nil, then roles-for-user returns all roles
+    {:t_user/roles (users/roles-for-user conn username {:t_project/id project-id})}))
 
 
 
@@ -810,7 +810,7 @@
 
 (pco/defresolver user->job-title
   [{custom-job-title :t_user/custom_job_title job-title :t_job_title/name :as user}]
-  {::pco/input [:t_user/custom_job_title (pco/? :t_job_title/name)]
+  {::pco/input  [:t_user/custom_job_title (pco/? :t_job_title/name)]
    ::pco/output [:t_user/job_title]}
   {:t_user/job_title (users/job-title user)})
 
