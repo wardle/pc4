@@ -37,7 +37,7 @@
   "Return a channel on which all concept identifiers will be returned."
   [hermes & {:keys [batch-size] :or {batch-size 5000}}]
   (let [ch (a/chan 5 (comp (map :id) (partition-all batch-size)))]
-    (a/thread (hermes/stream-all-concepts (.-store hermes) ch))
+    (a/thread (hermes/stream-all-concepts hermes ch))
     ch))
 
 (def upsert-concepts-sql
