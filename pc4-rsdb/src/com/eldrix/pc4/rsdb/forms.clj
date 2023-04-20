@@ -45,6 +45,7 @@
   (:import (java.time LocalDateTime)))
 
 (def forms
+  "Support for legacy forms. Here each form is represented by a database table and a form type. "
   [{:form-type-id 1 :table "t_form_ace_r" :title "ACE-R" :key nil :entity-name "FormAceR"}
    {:form-type-id 2 :table "t_form_edss" :title "EDSS (short form)" :key nil :entity-name "FormEdss"}
    {:form-type-id 3 :table "t_form_edss_full" :title "EDSS (Neurostatus)" :key nil :entity-name "FormEdssFull"}
