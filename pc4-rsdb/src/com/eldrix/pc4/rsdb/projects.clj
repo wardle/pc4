@@ -106,11 +106,28 @@
                 (true? active) (filter :t_project_user/active?)
                 (false? active) (remove :t_project_user/active?))))))
 
+
+(s/fdef consent-forms
+  :args (s/cat :conn ::conn :project-ids (s/coll-of ::project-id)))
+(defn consent-forms
+  "Return consent forms for project specified."
+  [conn project-id {:keys [versions active]}]
+  (db/execute! conn (sql/format
+                      {:select    :*
+                       :from      [:t_consent_form]
+                       :where     [:and [:= :project_fk project-id]
+                                   [:= :version_string vers]]})))
+;; get most recent consent form:
+;; select distinct on (patient_fk) patient_fk,t_form_consent.id,t_encounter.date_time from t_form_consent,t_encounter where encounter_fk=t_encounter.id and t_form_consent.is_deleted = 'false' and t_encounter.is_deleted = 'false' and consent_form_fk=12  order by patient_fk,date_time desc;
+
+
+
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
   (require '[clojure.spec.test.alpha :as stest])
   (clojure.spec.test.alpha/instrument)
-  (fetch-users conn 5))
+  (fetch-users conn 5)
+  (consent-forms conn [10]))
 
 (defn fetch-project-sql [project-id]
   (sql/format {:select :* :from :t_project
