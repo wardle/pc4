@@ -81,16 +81,16 @@
 
   will update the database 'rsdb' from data in the hermes file specified."
   [{:keys [db-name hermes] :or {db-name "rsdb"}}]
-  (with-open [hermes-svc (hermes/open hermes)
+  (with-open [hermes (hermes/open hermes)
               conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                                   :dbname          db-name
                                                                   :maximumPoolSize 10})]
-    (update-snomed' conn hermes-svc)))
+    (update-snomed' conn hermes)))
 
 (comment
 
   (def hermes (hermes/open "/Users/mark/Dev/hermes/snomed.db"))
-  (hermes/get-extended-concept hermes 24700007)
+  (hermes/extended-concept hermes 24700007)
   (require '[next.jdbc.connection])
   (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
                                                            :dbname          "rsdb"
