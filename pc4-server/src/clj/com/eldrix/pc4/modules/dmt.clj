@@ -41,9 +41,13 @@
 (def study-centres
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
-  {:cardiff   {:projects ["NINFLAMMCARDIFF"] :prefix "CF"}
-   :cambridge {:projects ["CAMBRIDGEMS"] :prefix "CB"}
-   :plymouth  {:projects ["PLYMOUTH"] :prefix "PL"}})
+  {:cardiff   {:prefix           "CF" :only-dmt-patients true
+               :projects         ["NINFLAMMCARDIFF"]
+               :consent-form-ids [12]}
+   :cambridge {:prefix   "CB"
+               :projects ["CAMBRIDGEMS"]}
+   :plymouth  {:prefix   "PL"
+               :projects ["PLYMOUTH"]}})
 
 (s/def ::centre (set (keys study-centres)))
 
@@ -1085,13 +1089,19 @@
   :args (s/cat :system any? :centre ::centre))
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
-  [system centre]
-  (let [all-dmts (all-he-dmt-identifiers system)]
-    (->> (fetch-project-patient-identifiers system (get-in study-centres [centre :projects]))
-         (medications-for-patients system)
-         #_(filter #(all-dmts (:t_medication/medication_concept_fk %)))
-         (map :t_patient/patient_identifier)
-         set)))
+  [{conn :com.eldrix.rsdb/conn :as system} centre]
+  (let [all-dmts (all-he-dmt-identifiers system)
+        ids-by-project (fetch-project-patient-identifiers system (get-in study-centres [centre :projects]))
+        consent-form-ids (get-in study-centres [centre :consent-form-ids])
+        ids-by-consent (when consent-form-ids (projects/consented-patients conn consent-form-ids {}))
+        patient-ids (if-not consent-form-ids ids-by-project (set/intersection ids-by-project ids-by-consent))
+        only-dmt-patients (get-in study-centres [centre :only-dmt-patients])]
+    (if-not only-dmt-patients
+      patient-ids
+      (into #{}  ;; filter to include only patients who have had a DMT
+            (comp (filter #(all-dmts (:t_medication/medication_concept_fk %)))
+                  (map :t_patient/patient_identifier))
+            (medications-for-patients system patient-ids)))))
 
 (defn patients-with-more-than-one-death-certificate
   [{conn :com.eldrix.rsdb/conn}]
