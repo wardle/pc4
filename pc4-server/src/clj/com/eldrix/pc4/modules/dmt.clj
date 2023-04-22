@@ -41,7 +41,8 @@
 (def study-centres
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
-  {:cardiff   {:prefix           "CF" :only-dmt-patients true
+  {:cardiff   {:prefix           "CF"
+               :only-dmt-patients true
                :projects         ["NINFLAMMCARDIFF"]
                :consent-form-ids [12]}
    :cambridge {:prefix   "CB"
@@ -1098,7 +1099,7 @@
         only-dmt-patients (get-in study-centres [centre :only-dmt-patients])]
     (if-not only-dmt-patients
       patient-ids
-      (into #{}  ;; filter to include only patients who have had a DMT
+      (into #{}                                             ;; filter to include only patients who have had a DMT
             (comp (filter #(all-dmts (:t_medication/medication_concept_fk %)))
                   (map :t_patient/patient_identifier))
             (medications-for-patients system patient-ids)))))
