@@ -130,14 +130,27 @@
         [:article.prose.lg:prose-xl.pb-4 {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]])
 
 
+
+(def role->badge-class
+  {:INACTIVE              "bg-black text-white"
+   :NORMAL_USER           "bg-green-100 text-green-800"
+   :POWER_USER            "bg-red-200 text-red-800"
+   :PID_DATA              "bg-yellow-200 text-black"
+   :LIMITED_USER          "bg-teal-600 text-teal-600"
+   :BIOBANK_ADMINISTRATOR "bg-blue-600 text-blue-600"})
+
+(rum/defc role-badge [role]
+  [:span.inline-block.flex-shrink-0.rounded-full.px-2.py-0.5.text-xs.font-medium
+   {:class (role->badge-class role)}
+   (str/replace (name role) #"_" " ")])
+
+
 (rum/defc list-role [{:t_project/keys [title] :t_project_user/keys [date_from date_to role]}]
   [:tr
    [:td.whitespace-nowrap.py-4.pl-4.pr-3.text-sm.font-medium.text-gray-900.sm:pl-0 title]
    [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 date_from]
    [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 date_to]
-   [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 (name role)]
-   #_[:td.relative.whitespace-nowrap.py-4.pl-3.pr-4.text-right.text-sm.font-medium.sm:pr-0
-      [:a.text-indigo-600.hover:text-indigo-900 {:href "#"} "Edit" [:span.sr-only ", Lindsay Walton"]]]])
+   [:td.whitespace-nowrap.py-4.px-3.text-sm.text-gray-500 (role-badge role)]])
 
 (rum/defc list-roles [roles]
   [:div.mt-8.flow-root
