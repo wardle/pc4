@@ -2,6 +2,7 @@
   (:require
     [clojure.string :as str]
     [com.eldrix.pc4.ui.misc :as misc]
+    [com.eldrix.pc4.ui.user :as ui.user]
     [rum.core :as rum]))
 
 
@@ -44,14 +45,14 @@
     (misc/grid-list
       (for [{roles'  :t_user/roles, user-url :user-url, photo-url :photo-url,
              active? :t_user/active?, :t_user/keys [full_name job_title]} users*]
-        (misc/grid-list-item {:title    [:a.underline.text-blue-600.hover:text-blue-800 {:href user-url} full_name]
-                              :subtitle job_title
-                              :image    (if photo-url {:url photo-url} {:content (misc/avatar-14)})
-                              :content  [:div.flex.w-full.items-center.p-6
-                                         [:p.space-x-6
-                                          (when active?
-                                            (for [{role :t_project_user/role} roles'
-                                                  :when :t_project_user/active?]
-                                              [:span.inline-block.flex-shrink-0.rounded-full.px-2.py-0.5.text-xs.font-medium
-                                               {:class (role->badge-class role)}
-                                               (str/replace (name role) #"_" " ")]))]]})))))
+        (misc/grid-list-item
+          {:title    [:a.underline.text-blue-600.hover:text-blue-800 {:href user-url} full_name]
+           :subtitle job_title
+           :image    (if photo-url {:url photo-url} {:content (misc/avatar-14)})
+           :content  [:div.flex.w-full.items-center.p-6
+                      [:p.space-x-6
+                       (when active?
+                         (for [{role :t_project_user/role} roles'
+                               :when :t_project_user/active?]
+                           (ui.user/role-badge role)))]]})))))
+
