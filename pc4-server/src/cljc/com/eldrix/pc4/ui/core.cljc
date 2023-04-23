@@ -1,6 +1,6 @@
 (ns com.eldrix.pc4.ui.core
      (:require [dommy.core :as dommy :refer-macros [sel sel1]]
-               [com.eldrix.pc4.ui.user :as ui-user]))
+               [com.eldrix.pc4.ui.user :as ui.user]))
 
 #?(:cljs
    (defn ^:export init []
@@ -16,4 +16,4 @@
 
 (dommy/listen! (sel1 :#my-button) :click click-handler)
 
-(rum.core/hydrate "login-panel" (ui-user/login-panel {}))
+(rum.core/hydrate "login-panel" (ui.user/login-panel {}))

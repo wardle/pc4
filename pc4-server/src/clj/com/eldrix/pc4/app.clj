@@ -5,10 +5,10 @@
             [io.pedestal.interceptor.chain :as chain]
             [io.pedestal.http.route :as route]
             [com.eldrix.pc4.rsdb.users]
-            [com.eldrix.pc4.ui.misc :as ui-misc]
-            [com.eldrix.pc4.ui.patient :as ui-patient]
-            [com.eldrix.pc4.ui.project :as ui-project]
-            [com.eldrix.pc4.ui.user :as ui-user]
+            [com.eldrix.pc4.ui.misc :as ui.misc]
+            [com.eldrix.pc4.ui.patient :as ui.patient]
+            [com.eldrix.pc4.ui.project :as ui.project]
+            [com.eldrix.pc4.ui.user :as ui.user]
             [reitit.core :as r]))
 
 
@@ -38,7 +38,7 @@
   (let [router (get-in ctx [:request ::r/router])
         authenticated-user (get-in ctx [:request :session :authenticated-user])
         show-user-menu? (some-> (get-in ctx [:request :params :show-user-menu]) parse-boolean)]
-    (ui-user/nav-bar
+    (ui.user/nav-bar
       (cond-> {:id    "nav-bar"
                :title {:s "PatientCare" :attrs {:href (r/match->path (r/match-by-name! router :home))}}}
               authenticated-user
@@ -72,10 +72,10 @@
                 (navigation-bar ctx)
                 [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
                  [:div.md:mr-2
-                  (ui-user/project-panel {:projects   active-projects
+                  (ui.user/project-panel {:projects   active-projects
                                           :make-attrs #(hash-map :href (r/match->path (r/match-by-name router :get-project {:project-id (:t_project/id %)})))})]
                  [:div.col-span-3
-                  (ui-user/list-news {:news-items latest-news})]]]))))})
+                  (ui.user/list-news {:news-items latest-news})]]]))))})
 
 (def nav-bar
   {:enter (fn [ctx] (assoc ctx :component (navigation-bar ctx)))})
@@ -105,7 +105,7 @@
        (assoc ctx :component
                   (page [:<>
                          (navigation-bar ctx)
-                         (ui-patient/patient-banner
+                         (ui.patient/patient-banner
                            {:patient-name (str last_name ", " (str/join " " [title first_names]))
                             :born         date_birth
                             :approximate  (= :PSEUDONYMOUS status)
@@ -121,7 +121,7 @@
      (if-not patient_identifier
        ctx
        (assoc ctx :component
-                  (ui-patient/patient-banner
+                  (ui.patient/patient-banner
                     {:patient-name (str last_name ", " (str/join " " [title first_names]))
                      :born         date_birth
                      :approximate  (= :PSEUDONYMOUS status)
@@ -133,18 +133,18 @@
 (defn project-menu [ctx {:keys [project-id title selected-id]}]
   (let [router (get-in ctx [:request ::r/router])
         content (fn [s] (vector :span.truncate s))]
-    (ui-misc/vertical-navigation
+    (ui.misc/vertical-navigation
       {:selected-id selected-id
        :items       [{:id      :home
-                      :icon    (ui-misc/icon-home)
+                      :icon    (ui.misc/icon-home)
                       :content (content (or title "Home"))
                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id project-id}))}}
                      {:id      :team
-                      :icon    (ui-misc/icon-team)
+                      :icon    (ui.misc/icon-team)
                       :content (content "Team")
                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))}}
                      {:id      :reports
-                      :icon    (ui-misc/icon-reports)
+                      :icon    (ui.misc/icon-reports)
                       :content (content "Downloads")}]
        :sub-menu
        (case selected-id
@@ -177,7 +177,7 @@
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6 (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :home})]
                               [:div.col-span-5.p-6
-                               (ui-project/project-home project*)]]]))))))})
+                               (ui.project/project-home project*)]]]))))))})
 
 (def view-project-users
   {:enter
@@ -194,12 +194,12 @@
                          (filter #(or (nil? s) (str/includes? (str/lower-case (:t_user/full_name %)) s) (str/includes? (str/lower-case (:t_user/job_title %)) s))))]
          (assoc ctx :component
                     (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
-                      (ui-project/project-users users')
+                      (ui.project/project-users users')
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6 (project-menu ctx (merge (:params request) {:project-id id :title title :selected-id :team}))]
                               [:div#list-users.col-span-5.p-6
-                               (ui-project/project-users users')]]]))))))})
+                               (ui.project/project-users users')]]]))))))})
 
 (def view-user
   {:enter
@@ -210,7 +210,7 @@
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
-                            (ui-user/view-user {:project-id project-id} user)]])))))})
+                            (ui.user/view-user {:project-id project-id} user)]])))))})
 
 
 (def login
@@ -251,7 +251,7 @@
        (assoc ctx :component (page
                                [:<>
                                 (navigation-bar ctx)
-                                (ui-user/login-panel {:form     {:method "post" :action login-url}
+                                (ui.user/login-panel {:form     {:method "post" :action login-url}
                                                       :hidden   {:url url :__anti-forgery-token (get-in ctx [:request ::csrf/anti-forgery-token])}
                                                       :username {:value username}
                                                       :error    error})]))))})
