@@ -56,6 +56,12 @@ variables. For example:
 PORT=9000 clj -X:run :profile :dev
 ```
 
+Use tailwind to generate CSS:
+
+```shell
+npx tailwindcss -i ./resources/input.css -o ./resources/public/css/output.css --watch
+```
+
 View dependencies:
 ```shell
 clj -X:deps tree
