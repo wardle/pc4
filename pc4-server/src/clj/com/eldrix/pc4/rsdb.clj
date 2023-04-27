@@ -479,7 +479,7 @@
 (pco/defresolver project->specialty
   [{specialty-concept-fk :t_project/specialty_concept_fk}]
   {::pco/output [{:t_project/specialty [:info.snomed.Concept/id]}]}
-  {:t_project/specialty {:info.snomed.Concept/id specialty-concept-fk}})
+  {:t_project/specialty (when specialty-concept-fk {:info.snomed.Concept/id specialty-concept-fk})})
 
 (pco/defresolver project->common-concepts
   "Resolve common concepts for the project, optionally filtering by a SNOMED
