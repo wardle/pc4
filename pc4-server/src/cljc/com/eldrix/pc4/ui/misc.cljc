@@ -125,3 +125,11 @@
    [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
     [:dl.sm:divide-y.sm:divide-gray-200
      items]]])
+
+(rum/defc button [{s :s}]
+  [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l s])
+(rum/defc button-small [{s :s}]
+  [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.text-xs.py-1.px-2.rounded-l s])
+(rum/defc button-group [& content]
+  [:div.inline-flex
+   content])
