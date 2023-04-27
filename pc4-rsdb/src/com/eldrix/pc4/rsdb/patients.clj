@@ -184,7 +184,7 @@
                                 (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
 
 (defn patient-identifier->pk
-  "Turn a single patient patient identifier into the primary key."
+  "Turn a single patient identifier into the primary key."
   [conn patient-identifier]
   (:t_patient/id
     (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
