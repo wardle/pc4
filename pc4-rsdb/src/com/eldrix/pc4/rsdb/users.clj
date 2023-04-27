@@ -33,6 +33,17 @@
            (java.time LocalDate)
            (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
 
+
+(s/def ::role
+  (s/keys :req [:t_project_user/id
+                :t_project_user/date_from :t_project_user/date_to
+                :t_project_user/active?
+                :t_project_user/permissions
+                :t_project/active?
+                :t_role/is_system
+                :t_role/name]))
+
+
 (defn- can-authenticate-with-password?
   "Support for legacy rsdb authentication.
   For development, we temporarily use the fallback local authentication
@@ -185,6 +196,9 @@
   (let [project-ids (set (map :t_project/id (projects conn username)))]
     (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
 
+(s/fdef roles-for-user
+  :args (s/cat :conn ::conn :username string?)
+  :ret (s/coll-of ::role))
 (defn roles-for-user
   "Return the roles for the given user, each flattened and pre-fetched to
   include keys from the 't_project_user' and related 't_project' tables.
@@ -221,6 +235,9 @@
                        :t_project/active? (projects/active? %)
                        :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
 
+
+(s/fdef permissions-for-project
+  :args (s/cat :roles (s/coll-of ::role) :project-id int?))
 (defn permissions-for-project
   "Given a sequence of roles for a user, derive a set of permissions for the
   project specified.
@@ -244,7 +261,10 @@
   (->> roles
        (filter #(contains? (:t_project_user/permissions %) permission))))
 
-(defn- make-authorization-manager'
+
+(s/fdef authorization-manager
+  :args (s/cat :roles (s/coll-of ::role)))
+(defn authorization-manager
   "Create an authorization manager for the user specified, providing subsequent
   decisions on authorization for a given action via an open-ended permission
   system. The manager is an immutable service; it closes over the permissions
@@ -261,9 +281,12 @@
       (authorized-any? [_ permission]
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
-(defn make-authorization-manager
+(defn ^:deprecated make-authorization-manager
+  "Create an authorization manager for the user with `username`. It is usually
+   more appropriate to use [[authorization-manager]] directly with a list of
+   roles."
   ^AuthorizationManager [conn username]
-  (make-authorization-manager' (roles-for-user conn username)))
+  (authorization-manager (roles-for-user conn username)))
 
 (def fetch-user-query
   {:select    [:t_user/id :username :title :first_names :last_name :postnomial :custom_initials
