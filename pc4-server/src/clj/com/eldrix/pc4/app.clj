@@ -96,7 +96,7 @@
                           :t_patient_hospital/hospital]}])
 
 (def view-patient-page
-  "Takes first result from :result in context and generates a component"
+  "Takes result from :result in context and generates a component"
   {:enter
    (fn [{{:t_patient/keys [patient_identifier status nhs_number last_name first_names title current_age date_birth date_death address] :as patient} :result, :as ctx}]
      (log/info {:name :view-patient-page :patient patient})
