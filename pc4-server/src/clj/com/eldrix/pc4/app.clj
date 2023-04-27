@@ -1,9 +1,10 @@
 (ns com.eldrix.pc4.app
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.pc4.rsdb.auth :as rsdb.auth]
+            [com.eldrix.pc4.rsdb.users :as rsdb.users]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.chain :as chain]
-            [io.pedestal.http.route :as route]
             [com.eldrix.pc4.rsdb.users]
             [com.eldrix.pc4.ui.misc :as ui.misc]
             [com.eldrix.pc4.ui.patient :as ui.patient]
@@ -189,7 +190,7 @@
              router (::r/router request)
              s (some-> (get-in ctx [:request :form-params :search]) str/trim str/lower-case)
              users' (->> users
-                         (map #(assoc % :user-url (r/match->path (r/match-by-name! router :get-user {:user-id (:t_user/id %)}) {:project-id id})
+                         (map #(assoc % :user-url (r/match->path (r/match-by-name! router :get-project-user {:project-id id :user-id (:t_user/id %)}))
                                         :photo-url (when (:t_user/has_photo %) (r/match->path (r/match-by-name router :get-user-photo {:system "patientcare.app" :value (:t_user/username %)})))))
                          (filter #(or (nil? s) (str/includes? (str/lower-case (:t_user/full_name %)) s) (str/includes? (str/lower-case (:t_user/job_title %)) s))))]
          (assoc ctx :component
@@ -206,7 +207,7 @@
    (fn [{user :result, request :request, :as ctx}]
      (if-not user
        ctx
-       (let [project-id (some-> (get-in request [:params :project-id]) parse-long)]
+       (let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
@@ -215,22 +216,27 @@
 
 (def login
   "Logic for application login. This is currently only designed for users
-   registered on rsdb, rather than handling multiple user types."
+   registered on rsdb, rather than handling multiple user types. Adds :login
+   to the context with a result indicating success or failure by the presence
+   of a value for :user."
   {:enter
-   (fn [{request :request, pathom :pathom/boundary-interface, :as ctx}]
+   (fn [{request :request, pathom :pathom/boundary-interface, conn :com.eldrix.rsdb/conn, :as ctx}]
      (let [router (::r/router request)
            username (get-in request [:params "username"])
            password (get-in request [:params "password"])
            url (get-in request [:params "url"])
            user (when (and username password)
-                  (-> (pathom [{(list 'pc4.users/login {:system "cymru.nhs.uk" :value username :password password})
-                                [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
-                                 :t_user/last_name :t_user/initials :t_user/has_photo :t_user/job_title]}])
-                      (get 'pc4.users/login)))]
+                  (-> (pathom nil [{(list 'pc4.users/login {:system "cymru.nhs.uk" :value username :password password})
+                                    [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
+                                     :t_user/last_name :t_user/initials :t_user/has_photo :t_user/job_title]}])
+                      (get 'pc4.users/login)))
+           can-login? (when user (rsdb.auth/authorized-any? (rsdb.users/make-authorization-manager conn username) :LOGIN))]
+       (clojure.pprint/pprint user)
        (if user                                             ;; if we have logged in, route to the requested URL, or to home
          (assoc ctx :login {:user user :url (or url (r/match->path (r/match-by-name! router :home)))})
          (assoc ctx :login {:username  username :url (or url (r/match->path (r/match-by-name! router :home)))
-                            :error     (when (and (= :post (:request-method request)) (not (str/blank? username))) "Invalid username or password")
+                            :error     (if can-login? (when (and (= :post (:request-method request)) (not (str/blank? username))) "Invalid username or password")
+                                                      "You are not registered to any active services or research projects.")
                             :login-url (r/match->path (r/match-by-name! router :login-page))}))))})
 
 (def logout

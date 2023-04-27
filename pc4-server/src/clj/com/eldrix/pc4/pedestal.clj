@@ -5,6 +5,8 @@
             [cognitect.transit :as transit]
             [com.eldrix.pc4.app :as app]
             [com.eldrix.pc4.dates :as dates]
+            [com.eldrix.pc4.rsdb.auth :as rsdb.auth]        ;; TODO: switch to non-rsdb impl
+            [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.system :as pc4]
             [com.eldrix.pc4.users :as users]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
@@ -14,7 +16,6 @@
             [io.pedestal.interceptor.error :as int-err]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.http.body-params :as body-params]
-            [io.pedestal.http.route :as route]
             [integrant.core :as ig]
             [reitit.core :as r]
             [reitit.http]
@@ -174,17 +175,26 @@
   from the routing data under key :eql. Both can either be EQL directly, or
   a function that will take the current request and return EQL. The result
   will be added to the context in the :result key."
-  {:enter (fn [{pathom :pathom/boundary-interface, :as ctx}]
-            (let [q (or (get-in ctx [:request ::r/match :data :eql]) (:query ctx))
+  {:enter (fn [{conn :com.eldrix.rsdb/conn, pathom :pathom/boundary-interface, :as ctx}]
+            (let [user (get-in ctx [:request :session :authenticated-user])
+                  env (when user (users/make-authenticated-env conn (assoc user :system "cymru.nhs.uk" :value (:t_user/username user))))
+                  q (or (get-in ctx [:request ::r/match :data :eql]) (:query ctx))
                   q' (if (fn? q) (q (:request ctx)) q)]
               (if q' (do
                        (tap> {:execute-eql q'})
-                       (assoc ctx :result (pathom q')))
+                       (assoc ctx :result (pathom env q')))
                      (throw (ex-info "Missing query in context" ctx)))))})
 
 (def tap-result
   {:enter (fn [{result :result, :as ctx}]
             (tap> result)
+            ctx)})
+
+(def local-ctx (atom nil))
+
+(def repl-result
+  {:enter (fn [ctx]
+            (reset! local-ctx ctx)
             ctx)})
 
 (def render-component
@@ -202,18 +212,32 @@
 
 (def check-authenticated
   "An interceptor that checks that for an authenticated user. If none, a login
-  page is returned instead."
-  {:enter (fn [ctx]
+  page is returned instead. Returns a context with :authorization-manager if
+  there is an authenticated user."
+  {:enter (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
             (tap> ctx)
             (log/warn "checking authenticated user" (get-in ctx [:request :session :authenticated-user]))
             (if-let [user (get-in ctx [:request :session :authenticated-user])]
               (do (log/info "authenticated user " user)
-                  ctx)
+                  (assoc ctx :authorization-manager (rsdb.users/make-authorization-manager conn (:t_user/username user))))
               (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
                   (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! (get-in ctx [:request ::r/router]) :login-page))
                                          :url       (get-in ctx [:request :uri])})
                       (chain/terminate)
                       (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
+
+(def add-authorizer
+  "Interceptor to add an authorizer for the context. An authorizer is a 1-arity function that takes any permission."
+  {:enter (fn [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, :as ctx}]
+            (let [project-id (some-> (get-in ctx [:request :path-params :project-id]) parse-long)
+                  patient-id (some-> (get-in ctx [:request :path-params :patient-id]) parse-long)]
+              (cond
+                project-id
+                (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized? manager [project-id] permission)))
+                patient-id
+                (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized? manager (com.eldrix.pc4.rsdb.patients/active-project-identifiers conn patient-id) permission)))
+                :else
+                (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized-any? manager permission))))))})
 
 (def routes*
   [["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
@@ -236,24 +260,25 @@
     {:name :nav-bar :get {:interceptors [render-component app/nav-bar]}}]
    ["/app/patient/:patient-id"
     {:name :get-patient
-     :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}
+     :get  {:interceptors [check-authenticated add-authorizer render-component execute-eql app/view-patient-page]}
      :eql  (fn [req] {:pathom/entity {:t_patient/patient_identifier (some-> (get-in req [:path-params :patient-id]) parse-long)}
                       :pathom/eql    app/patient-properties})}]
    ["/app/project/:project-id/home"
-    {:name :get-project
-     :get  {:interceptors [check-authenticated render-component execute-eql app/view-project-home]}
-     :eql  (fn [req] {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
-                      :pathom/eql    [:t_project/id :t_project/title :t_project/name :t_project/inclusion_criteria :t_project/exclusion_criteria
-                                      :t_project/date_from :t_project/date_to :t_project/address1 :t_project/address2
-                                      :t_project/address3 :t_project/address4 :t_project/postcode
-                                      {:t_project/administrator_user [:t_user/full_name :t_user/username]}
-                                      :t_project/active? :t_project/long_description :t_project/type
-                                      :t_project/count_registered_patients :t_project/count_discharged_episodes :t_project/count_pending_referrals
-                                      {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                                      {:t_project/parent_project [:t_project/id :t_project/title]}]})}]
+    {:name       :get-project
+     :get        {:interceptors [check-authenticated add-authorizer render-component execute-eql repl-result app/view-project-home]}
+     :permission :LOGIN
+     :eql        (fn [req] {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
+                            :pathom/eql    [:t_project/id :t_project/title :t_project/name :t_project/inclusion_criteria :t_project/exclusion_criteria
+                                            :t_project/date_from :t_project/date_to :t_project/address1 :t_project/address2
+                                            :t_project/address3 :t_project/address4 :t_project/postcode
+                                            {:t_project/administrator_user [:t_user/full_name :t_user/username]}
+                                            :t_project/active? :t_project/long_description :t_project/type
+                                            :t_project/count_registered_patients :t_project/count_discharged_episodes :t_project/count_pending_referrals
+                                            {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                                            {:t_project/parent_project [:t_project/id :t_project/title]}]})}]
    ["/app/project/:project-id/team"
     {:name :get-project-team
-     :get  {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
+     :get  {:interceptors [check-authenticated add-authorizer render-component execute-eql tap-result app/view-project-users]}
      :post {:interceptors [check-authenticated render-component execute-eql tap-result app/view-project-users]}
      :eql  (fn [req]
              (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
@@ -264,8 +289,17 @@
                                  [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
                                   :t_user/first_names :t_user/last_name :t_user/job_title
                                   {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))}]
-   ["/app/user/:user-id"
-    {:name :get-user
+   ["/app/project/:project-id/users/:user-id"
+    {:name :get-project-user                                ;; view profile in context of a project or service
+     :get  {:interceptors [check-authenticated add-authorizer render-component execute-eql tap-result app/view-user]}
+     :eql  (fn [req]
+             {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+              :pathom/eql    [:t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
+                              :t_user/postnomial :t_user/professional_registration :t_user/professional_registration_url
+                              :t_professional_registration_authority/abbreviation
+                              :t_user/roles]})}]
+   ["/app/users/:user-id"
+    {:name :get-user                                        ;; view profile independent on any project or service
      :get  {:interceptors [check-authenticated render-component execute-eql tap-result app/view-user]}
      :eql  (fn [req]
              {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
