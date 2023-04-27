@@ -408,11 +408,12 @@
                  :t_project/care_plan_information
                  :t_project/is_private]}
   (when-let [p (projects/fetch-project conn project-id)]
-    (cond-> p
-            (:t_project/administrator_user_fk p)
-            (assoc :t_project/administrator_user {:t_user/id (:t_project/administrator_user_fk p)})
-            (:t_project/parent_project_fk p)
-            (assoc :t_project/parent_project {:t_project/id (:t_project/parent_project_fk p)}))))
+    (-> p
+        (assoc :t_project/administrator_user
+               (when-let [admin-user-id (:t_project/administrator_user_fk p)] {:t_user/id admin-user-id}))
+        (assoc :t_project/parent_project
+               (when-let [parent-project-id (:t_project/parent_project_fk p)]
+                 {:t_project/id parent-project-id})))))
 
 (pco/defresolver project->count_registered_patients         ;; TODO: should include child projects?
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
