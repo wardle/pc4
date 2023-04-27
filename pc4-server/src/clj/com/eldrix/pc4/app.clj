@@ -17,7 +17,7 @@
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    [:script {:src "https://unpkg.com/htmx.org@1.8.5"}]
+    [:script {:src "https://unpkg.com/htmx.org@1.9.1"}]
     [:link {:href "/css/output.css" :rel "stylesheet"}]]
    [:body.h-full.bg-gray-100
     {:hx-boost "true"}
