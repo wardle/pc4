@@ -123,7 +123,8 @@
              (com.wsscode.pathom3.plugin/register {:com.wsscode.pathom3.plugin/id 'err
                                                    :com.wsscode.pathom3.connect.runner/wrap-resolver-error
                                                    (fn [_] (fn [env node error]
-                                                             (log/error "Resolver error " {:error (ex-message error) :cause (ex-data error)})))
+                                                             (when error (.printStackTrace error))
+                                                             (log/error "Resolver error " {:error error :message (ex-message error) :cause (ex-data error)})))
                                                    :com.wsscode.pathom3.connect.runner/wrap-mutation-error
                                                    (fn [_]
                                                      (fn [env ast error]
