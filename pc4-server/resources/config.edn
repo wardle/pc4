@@ -66,6 +66,19 @@
   :access-key-id     #ref [:secrets :aws :comprehend :access-key-id]
   :secret-access-key #ref [:secrets :aws :comprehend :secret-access-key]}
 
+ :com.eldrix.pc4/filestorage
+ #profile {:cvx     {:kind               :local
+                     :dir                "/opt/Local/var/db/pc4/filestore"
+                     :link-duration      "PT24H"            ;; links are valid for 24 hours
+                     :retention-duration "PT24H"}           ;; files are retained for 24 hours
+           :default {:kind               :s3
+                     :region             #ref [:secrets :aws :s3 :patientcare4 :region]
+                     :bucket-name        #ref [:secrets :aws :s3 :patientcare4 :bucket-name]
+                     :access-key-id      #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
+                     :secret-access-key  #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]
+                     :link-duration      "PT12H"            ;; links are available for 12 hours
+                     :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
+
  :com.eldrix.concierge/nadex
  #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
                                                "7A4BVSRVDOM0002.cymru.nhs.uk"
@@ -145,7 +158,8 @@
   :join?           #profile {:default false
                              :pc4     true}
   :session-key     #ref [:secrets :pc4 :session-key]
-  :env             {:pathom/boundary-interface #ig/ref :pathom/boundary-interface
-                    :com.eldrix.rsdb/conn      #ig/ref :com.eldrix.rsdb/conn
-                    :com.eldrix.pc4/login      #ig/ref :com.eldrix.pc4/login}}}
+  :env             {:pathom/boundary-interface  #ig/ref :pathom/boundary-interface
+                    :com.eldrix.rsdb/conn       #ig/ref :com.eldrix.rsdb/conn
+                    :com.eldrix.pc4/login       #ig/ref :com.eldrix.pc4/login
+                    :com.eldrix.pc4/filestorage #ig/ref :com.eldrix.pc4/filestorage}}}
 
