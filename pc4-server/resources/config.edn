@@ -14,9 +14,9 @@
 
  :pc4-db-conn
  {:dbtype          "postgresql"
-  :host            #ref [:secrets :pc4-db :host]
-  :username        #ref [:secrets :pc4-db :username]
-  :password        #ref [:secrets :pc4-db :password]
+  :host            #ref [:secrets :pc4 :db :host]
+  :username        #ref [:secrets :pc4 :db :username]
+  :password        #ref [:secrets :pc4 :db :password]
   :dbname          "rsdb"
   :maximumPoolSize 10}
 
@@ -28,7 +28,7 @@
            :pc4-dev #ref [:pc4-db-conn]}
 
  :com.eldrix.rsdb/config
- {:legacy-global-pseudonym-salt #ref [:secrets :eldrix.pseudonym.global-salt]}
+ {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
  :com.eldrix/nhspd
  {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
@@ -63,8 +63,8 @@
 
  :com.eldrix/comprehend
  {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
-  :access-key-id     #ref [:secrets :aws-access-key-id]
-  :secret-access-key #ref [:secrets :aws-secret-access-key]}
+  :access-key-id     #ref [:secrets :aws :comprehend :access-key-id]
+  :secret-access-key #ref [:secrets :aws :comprehend :secret-access-key]}
 
  :com.eldrix.concierge/nadex
  #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
@@ -74,8 +74,8 @@
                      :pool-size               5
                      :trust-all-certificates? true
                      :follow-referrals?       true
-                     :default-bind-username   #ref [:secrets :nadex-bind-username]
-                     :default-bind-password   #ref [:secrets :nadex-bind-password]}
+                     :default-bind-username   #ref [:secrets :nadex :bind-username]
+                     :default-bind-password   #ref [:secrets :nadex :bind-password]}
            :default {}}
 
  :com.eldrix.pc4/fake-login-provider
@@ -84,18 +84,18 @@
 
  :com.eldrix.pc4/login
  #profile {:cvx     {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
                      :jwt-expiry-seconds 300}
            :pc4     {:providers          {}
-                     :jwt-secret-key     #ref [:secrets :jwt-secret-key]
+                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
                      :jwt-expiry-seconds 300}
            :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
                      :jwt-secret-key     "secret"
                      :jwt-expiry-seconds 300}}
 
  :wales.nhs.cavuhb/pms
- #profile {:cvx     {:username    #ref [:secrets :cav-pms-username]
-                     :password    #ref [:secrets :cav-pms-password]
+ #profile {:cvx     {:username    #ref [:secrets :cav :pms :username]
+                     :password    #ref [:secrets :cav :pms :password]
                      :database    "vpmslive.world"
                      :user-string "patientcare-concierge"}
            :default {}}
