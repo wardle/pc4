@@ -315,18 +315,6 @@
                       :pathom/eql    app/patient-properties})}]])
 
 
-(comment
-  (require '[com.eldrix.pc4.system :as pc4])
-  (require '[portal.api :as portal])
-  (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
-  (def p (portal/open))                                     ;; or... open browser-based portal
-  (add-tap #'portal/submit)
-  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
-  (pc4/halt! system)
-  (tap> system)
-  (do (pc4/halt! system)
-      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
-
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
   {::http/type            :jetty
@@ -376,3 +364,17 @@
 
 (defmethod ig/halt-key! ::server [_ service-map]
   (http/stop service-map))
+
+
+(comment
+  (require '[com.eldrix.pc4.system :as pc4])
+  (require '[portal.api :as portal])
+  (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
+  (def p (portal/open))                                     ;; or... open browser-based portal
+  (add-tap #'portal/submit)
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
+  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
+  (pc4/halt! system)
+  (tap> system)
+  (do (pc4/halt! system)
+      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
