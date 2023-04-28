@@ -193,7 +193,7 @@
                         link-duration (assoc :link-duration (Duration/parse link-duration))
                         retention-duration (assoc :retention-duration (Duration/parse retention-duration)))]
     (log/info "registering filestore service" (select-keys config' [:kind :region :bucket-name :dir :link-duration :retention-duration])
-      (make-file-store config'))))
+              (make-file-store config'))))
 
 (defmethod ig/halt-key! :com.eldrix.pc4/filestorage [_ fs]
   (close fs))
@@ -217,8 +217,8 @@
   (local-put-object dir "README.md" "README.md" "text/plain")
   (local-get-object dir "README.md")
 
-  (def store-s3 (make-file-store (merge config {:kind        :s3
-                                                :bucket-name "patientcare4"
+  (def store-s3 (make-file-store (merge config {:kind               :s3
+                                                :bucket-name        "patientcare4"
                                                 :retention-duration (Duration/ofSeconds 5)})))
   (put-object store-s3 "README.md" "README.md" "text/plain")
   (put-object store-fs "deps.edn" "deps.edn" "application/edn")
