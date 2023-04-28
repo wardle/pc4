@@ -7,6 +7,7 @@
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]        ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
+            [com.eldrix.pc4.rsdb.patients :as rsdb.patients]
             [com.eldrix.pc4.system :as pc4]
             [com.eldrix.pc4.users :as users]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
@@ -235,7 +236,7 @@
                 project-id
                 (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized? manager [project-id] permission)))
                 patient-id
-                (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized? manager (com.eldrix.pc4.rsdb.patients/active-project-identifiers conn patient-id) permission)))
+                (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized? manager (rsdb.patients/active-project-identifiers conn patient-id) permission)))
                 :else
                 (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized-any? manager permission))))))})
 
