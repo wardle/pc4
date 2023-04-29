@@ -368,13 +368,10 @@
 
 (comment
   (require '[com.eldrix.pc4.system :as pc4])
-  (require '[portal.api :as portal])
-  (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
-  (def p (portal/open))                                     ;; or... open browser-based portal
-  (add-tap #'portal/submit)
-  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
+  (require '[dev.nu.morse :as morse])
+  (morse/launch-in-proc)
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (pc4/halt! system)
-  (tap> system)
+  (morse/inspect system)
   (do (pc4/halt! system)
       (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
