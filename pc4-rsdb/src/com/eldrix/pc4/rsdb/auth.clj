@@ -56,31 +56,36 @@
     :SYSTEM})
 
 (def permission-sets
-  {:POWER_USER            #{:LOGIN,
-                            :USER_REGISTER,
-                            :USER_EDIT,
-                            :DATA_DOWNLOAD,
-                            :PATIENT_REGISTER,
-                            :PATIENT_EDIT,
-                            :PATIENT_VIEW,
-                            :PATIENT_VIEWPID,
-                            :PATIENT_UNLOCK,
-                            :NEWS_CREATE}
+  {:POWER_USER
+   #{:LOGIN,
+     :USER_REGISTER,
+     :USER_EDIT,
+     :DATA_DOWNLOAD,
+     :PATIENT_REGISTER,
+     :PATIENT_EDIT,
+     :PATIENT_VIEW,
+     :PATIENT_VIEWPID,
+     :PATIENT_UNLOCK,
+     :NEWS_CREATE}
 
-   :PID_DATA              #{:DATA_DOWNLOAD_PID},
+   :PID_DATA
+   #{:DATA_DOWNLOAD_PID},
 
-   :NORMAL_USER           #{:LOGIN,
-                            :DATA_DOWNLOAD,
-                            :PATIENT_REGISTER,
-                            :PATIENT_EDIT,
-                            :PATIENT_VIEW,
-                            :PATIENT_VIEWPID},
+   :NORMAL_USER
+   #{:LOGIN,
+     :DATA_DOWNLOAD,
+     :PATIENT_REGISTER,
+     :PATIENT_EDIT,
+     :PATIENT_VIEW,
+     :PATIENT_VIEWPID},
 
-   :LIMITED_USER          #{:LOGIN,
-                            :PATIENT_VIEW},
+   :LIMITED_USER
+   #{:LOGIN,
+     :PATIENT_VIEW},
 
-   :BIOBANK_ADMINISTRATOR #{:LOGIN,
-                            :BIOBANK_UPLOAD}})
+   :BIOBANK_ADMINISTRATOR
+   #{:LOGIN,
+     :BIOBANK_UPLOAD}})
 
 (defprotocol AuthorizationManager
   "Finely-grained authorization, based upon users, roles and projects.
