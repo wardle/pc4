@@ -12,7 +12,7 @@
 {:secrets
  #include #join [#env HOME "/.secrets.edn"]
 
- :pc4-db-conn
+ :pc4-aws-db-conn
  {:dbtype          "postgresql"
   :host            #ref [:secrets :pc4 :db :host]
   :username        #ref [:secrets :pc4 :db :username]
@@ -24,8 +24,8 @@
  #profile {:default {:dbtype          "postgresql"
                      :dbname          "rsdb"
                      :maximumPoolSize 10}
-           :pc4     #ref [:pc4-db-conn]
-           :pc4-dev #ref [:pc4-db-conn]}
+           :pc4     #ref [:pc4-aws-db-conn]
+           :pc4-dev #ref [:pc4-aws-db-conn]}
 
  :com.eldrix.rsdb/config
  {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
@@ -66,20 +66,7 @@
   :access-key-id     #ref [:secrets :aws :comprehend :access-key-id]
   :secret-access-key #ref [:secrets :aws :comprehend :secret-access-key]}
 
- :com.eldrix.pc4/filestorage
- #profile {:cvx     {:kind               :local
-                     :dir                "/opt/Local/var/db/pc4/filestore"
-                     :link-duration      "PT24H"            ;; links are valid for 24 hours
-                     :retention-duration "PT24H"}           ;; files are retained for 24 hours
-           :default {:kind               :s3
-                     :region             #ref [:secrets :aws :s3 :patientcare4 :region]
-                     :bucket-name        #ref [:secrets :aws :s3 :patientcare4 :bucket-name]
-                     :access-key-id      #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
-                     :secret-access-key  #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]
-                     :link-duration      "PT12H"            ;; links are available for 12 hours
-                     :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
-
- :com.eldrix.concierge/nadex
+ :wales.nhs/nadex
  #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
                                                "7A4BVSRVDOM0002.cymru.nhs.uk"
                                                "7A4BVSRVDOM0003.cymru.nhs.uk"]
@@ -90,21 +77,6 @@
                      :default-bind-username   #ref [:secrets :nadex :bind-username]
                      :default-bind-password   #ref [:secrets :nadex :bind-password]}
            :default {}}
-
- :com.eldrix.pc4/fake-login-provider
- {:username "ma090906'"
-  :password "password"}
-
- :com.eldrix.pc4/login
- #profile {:cvx     {:providers          {:com.eldrix.concierge/nadex #ig/ref :com.eldrix.concierge/nadex}
-                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
-                     :jwt-expiry-seconds 300}
-           :pc4     {:providers          {}
-                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
-                     :jwt-expiry-seconds 300}
-           :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
-                     :jwt-secret-key     "secret"
-                     :jwt-expiry-seconds 300}}
 
  :wales.nhs.cavuhb/pms
  #profile {:cvx     {:username    #ref [:secrets :cav :pms :username]
@@ -118,6 +90,38 @@
  #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                      :processing-id "P"}
            :default {}}
+
+
+ ;;
+ ;; pc4 services
+ ;;
+ :com.eldrix.pc4/filestorage
+ #profile {:cvx     {:kind               :local
+                     :dir                "/opt/Local/var/db/pc4/filestore"
+                     :link-duration      "PT24H"            ;; links are valid for 24 hours
+                     :retention-duration "PT24H"}           ;; files are retained for 24 hours
+           :default {:kind               :s3
+                     :region             #ref [:secrets :aws :s3 :patientcare4 :region]
+                     :bucket-name        #ref [:secrets :aws :s3 :patientcare4 :bucket-name]
+                     :access-key-id      #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
+                     :secret-access-key  #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]
+                     :link-duration      "PT12H"            ;; links are available for 12 hours
+                     :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
+
+ :com.eldrix.pc4/fake-login-provider
+ {:username "ma090906'"
+  :password "password"}
+
+ :com.eldrix.pc4/login
+ #profile {:cvx     {:providers          {:wales.nhs/nadex #ig/ref :wales.nhs/nadex}
+                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
+                     :jwt-expiry-seconds 300}
+           :pc4     {:providers          {}
+                     :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
+                     :jwt-expiry-seconds 300}
+           :default {:providers          {:com.eldrix.pc4/fake-login-provider #ig/ref :com.eldrix.pc4/fake-login-provider}
+                     :jwt-secret-key     "secret"
+                     :jwt-expiry-seconds 300}}
 
  :com.eldrix.deprivare/ops
  #ig/ref :com.eldrix/deprivare

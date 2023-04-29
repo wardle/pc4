@@ -128,7 +128,7 @@
   {::pco/op-name 'pc4.users/login}
   (when-not (s/valid? ::login-configuration pc4-login)
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration pc4-login))))
-  (let [wales-nadex (get-in pc4-login [:providers :com.eldrix.concierge/nadex])
+  (let [wales-nadex (get-in pc4-login [:providers :wales.nhs/nadex])
         fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
         rsdb-user (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
         claims (merge rsdb-user {:system system :value value})
