@@ -26,22 +26,27 @@
 
 
 (s/fdef dequeue-jobs
-  :args (s/cat :txn any? :topic (s/? (s/nilable keyword?)) :n pos-int?))
+  :args (s/cat :txn any? :topic (s/? (s/nilable keyword?)) :n pos-int?)
+  :ret (s/coll-of (s/cat :topic keyword? :payload any?)))
 (defn dequeue-jobs
   "Return pending jobs, or nil. Perform in a transaction so that jobs
-  remains queued until transaction complete."
+  remains queued until transaction complete. Each job is a vector of 'topic'
+  and 'payload'"
   ([txn n] (dequeue-jobs txn nil n))
   ([txn topic n]
-   (reduce (fn [acc {payload :payload}] (conj acc (edn/read-string payload)))
+   (reduce (fn [acc {topic :topic, payload :payload}] (conj acc (vector (keyword topic) (edn/read-string payload))))
            []
            (jdbc/plan txn (pending-jobs-sql topic n)))))
 
 (s/fdef dequeue-job
-  :args (s/cat :txn any? :topic (s/? (s/nilable keyword?))))
+  :args (s/cat :txn any? :topic (s/? (s/nilable keyword?)))
+  :ret (s/cat :topic keyword? :payload any?))
 (defn dequeue-job
+  "Returns a single job from the queue as a vector of 'topic' and 'payload'."
   ([txn] (dequeue-job txn nil))
   ([txn topic]
-   (edn/read-string (:t_job_queue/payload (jdbc/execute-one! txn (pending-jobs-sql topic 1))))))
+   (when-let [{:t_job_queue/keys [topic payload]} (jdbc/execute-one! txn (pending-jobs-sql topic 1))]
+     (vector (keyword topic) (edn/read-string payload)))))
 
 (s/fdef enqueue-job
   :args (s/cat :conn any? :topic keyword? :job any?))
@@ -64,8 +69,8 @@
                                        :group-by :topic}))))
 
 (comment
-  (require '[clojure.spec.test.alpha])
-  (clojure.spec.test.alpha/instrument)
+  (require '[orchestra.spec.test :as stest])
+  (stest/instrument)
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
   (jdbc/execute! conn (pending-jobs-sql 5))
   (jdbc/with-transaction [txn conn]
@@ -73,7 +78,10 @@
       (log/info "Processing job" job)
       (throw (ex-info "I failed to perform job" {:job job}))))
   (dotimes [n 5] (enqueue-job conn :user/message {:from_user_id 1 :t_user_id 5 :message "Hello"}))
+  (dotimes [n 5] (enqueue-job conn :user/report {:user_id 1 :report_id 5}))
+  (dotimes [n 5] (enqueue-job conn :user/message {:message-id (random-uuid) :from_user_id 1 :t_user_id 5 :message "Goodbye"}))
   (dequeue-job conn :user/message)
-  (dequeue-jobs conn 5)
+  (dequeue-jobs conn 50000)
+  (dequeue-job conn)
   (queue-stats conn)
   (jdbc/execute! conn ["vacuum full verbose t_job_queue"]))
