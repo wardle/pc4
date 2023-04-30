@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.rsdb.job
+(ns com.eldrix.pc4.rsdb.queue
   "Queue for asynchronous jobs built using PostgreSQL.
   The current design deletes completed jobs, and keeps a long-running transaction for the length of the job. This
   could cause difficulties in certain circumstances such as large numbers of jobs but the current plan is this will
