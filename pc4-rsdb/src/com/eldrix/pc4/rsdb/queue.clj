@@ -58,7 +58,8 @@
   (jdbc/execute! conn
                  (sql/format {:insert-into :t_job_queue
                               :columns     [:topic :payload]
-                              :values      [[(pr-topic topic) (pr-str job)]]})))
+                              :values      [[(pr-topic topic) (pr-str job)]]})
+                 {:return-keys true}))
 
 
 (defn queue-stats
