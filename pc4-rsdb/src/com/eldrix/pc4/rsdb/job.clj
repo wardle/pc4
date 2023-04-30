@@ -76,7 +76,7 @@
     (when-let [job (dequeue-job txn :basic/report)]
       (log/info "Processing job" job)
       (throw (ex-info "I failed to perform job" {:job job}))))
-  (dotimes [n 5] (enqueue-job conn :user/message {:from_user_id 1 :t_user_id 5 :message "Hello"}))
+  (dotimes [n 5] (enqueue-job conn :user/message {:uuid (random-uuid) :from_user_id 1 :t_user_id 5 :message "Hello"}))
   (dequeue-job conn :user/message)
   (dequeue-jobs conn 5)
   (queue-stats conn)
