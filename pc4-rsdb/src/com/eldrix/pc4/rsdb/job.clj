@@ -1,5 +1,9 @@
 (ns com.eldrix.pc4.rsdb.job
-  "Queue for asynchronous jobs built using PostgreSQL."
+  "Queue for asynchronous jobs built using PostgreSQL.
+  The current design deletes completed jobs, and keeps a long-running transaction for the length of the job. This
+  could cause difficulties in certain circumstances such as large numbers of jobs but the current plan is this will
+  support low frequency asynchronous tasks. The other option is to keep jobs, update their status as they are
+  dequeued and then on a per-job basis given a timeout such that a transaction doesn't have to be held open."
   (:require [clojure.edn :as edn]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
