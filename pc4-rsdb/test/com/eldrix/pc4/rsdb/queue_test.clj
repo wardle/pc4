@@ -59,4 +59,5 @@
           (recur)))
       (is (= n @processed))
       (.shutdown executor)
-      (.awaitTermination executor 5 TimeUnit/SECONDS))))
+      (when-not (.awaitTermination executor 1 TimeUnit/SECONDS)
+        (println "ERROR: timeout while waiting for executor service to shutdown")))))
