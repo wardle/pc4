@@ -1,5 +1,9 @@
 (ns com.eldrix.pc4.rsdb.job
-  "Queue for asynchronous jobs built using PostgreSQL."
+  "Queue for asynchronous jobs built using PostgreSQL.
+  The current design deletes completed jobs, and keeps a long-running transaction for the length of the job. This
+  could cause difficulties in certain circumstances such as large numbers of jobs but the current plan is this will
+  support low frequency asynchronous tasks. The other option is to keep jobs, update their status as they are
+  dequeued and then on a per-job basis given a timeout such that a transaction doesn't have to be held open."
   (:require [clojure.edn :as edn]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
@@ -80,8 +84,9 @@
   (dotimes [n 5] (enqueue-job conn :user/message {:from_user_id 1 :t_user_id 5 :message "Hello"}))
   (dotimes [n 5] (enqueue-job conn :user/report {:user_id 1 :report_id 5}))
   (dotimes [n 5] (enqueue-job conn :user/message {:message-id (random-uuid) :from_user_id 1 :t_user_id 5 :message "Goodbye"}))
+  (dotimes [n 5] (enqueue-job conn :user/message {:uuid (random-uuid) :from_user_id 1 :t_user_id 5 :message "Hello"}))
   (dequeue-job conn :user/message)
-  (dequeue-jobs conn 50000)
+  (dequeue-jobs conn 5)
   (dequeue-job conn)
   (queue-stats conn)
   (jdbc/execute! conn ["vacuum full verbose t_job_queue"]))
