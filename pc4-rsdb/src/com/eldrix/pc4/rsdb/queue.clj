@@ -46,7 +46,9 @@
   :args (s/cat :txn any? :topic (s/? (s/nilable keyword?)))
   :ret (s/cat :topic keyword? :payload any?))
 (defn dequeue-job
-  "Returns a single job from the queue as a vector of 'topic' and 'payload'."
+  "Returns a single job from the queue as a vector of 'topic' and 'payload'.
+  Perform in a transaction so that the job remains queued until transaction
+  complete."
   ([txn] (dequeue-job txn nil))
   ([txn topic]
    (when-let [{:t_job_queue/keys [topic payload]} (jdbc/execute-one! txn (pending-jobs-sql topic 1))]
