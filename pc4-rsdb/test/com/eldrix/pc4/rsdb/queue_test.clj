@@ -30,8 +30,9 @@
     (run! #(queue/enqueue-job *conn* :test/topic %) jobs)
     (is (= jobs (map second (queue/dequeue-jobs *conn* :test/topic n))))))
 
+
 (deftest ^:live test-concurrent-queue
-  (let [conn *conn*
+  (let [conn *conn*                                         ;; take care to close over data source for any child threads
         stats (queue/queue-stats *conn*)
         n 100
         jobs (repeatedly n #(hash-map :uuid (random-uuid)))
@@ -41,18 +42,20 @@
                     (jdbc/with-transaction [txn conn]
                       (if-let [job (queue/dequeue-job txn topic)]
                         (do (log/debug "processing job " job)
-                            (Thread/sleep duration-milliseconds)
-                            (if (> (rand) 0.8) (throw (ex-info "failed to process" {:job job})))
-                            (swap! processed inc))
-                        (log/debug "no job in queue")))
-                    (catch Exception e (log/debug (ex-message e) (ex-data e)))))]
-
+                            (Thread/sleep (rand-int duration-milliseconds))
+                            (when (> (rand) 0.8) (throw (ex-info "pretending to fail processing" {:job job})))
+                            (swap! processed inc)
+                            (not (Thread/interrupted)))     ;; return true if we've done work and we're not interrupted...
+                        (log/debug "no job in queue" topic)))
+                    (catch Exception e (log/debug (ex-message e) (ex-data e)))))
+        looper (fn [w] #(loop [] (if-not (w) (log/debug "looper suspending") (recur))))]
     (when-not (empty? stats)
       (throw (ex-info "error: job queue is not empty at start of test" stats)))
-    (run! #(queue/enqueue-job *conn* (rand-nth [:test/email :test/sms]) %) jobs)
-    (let [executor (ScheduledThreadPoolExecutor. 5)]
-      (.scheduleWithFixedDelay executor (worker :test/sms 20) 0 10 TimeUnit/MILLISECONDS)
-      (.scheduleWithFixedDelay executor (worker :test/email 50) 0 10 TimeUnit/MILLISECONDS)
+    (let [executor (ScheduledThreadPoolExecutor. 2)]
+      (.scheduleWithFixedDelay executor (looper (worker :test/sms 300)) 0 200 TimeUnit/MILLISECONDS)
+      (.scheduleWithFixedDelay executor (looper (worker :test/email 500)) 0 200 TimeUnit/MILLISECONDS)
+      (run! #(do (queue/enqueue-job *conn* (rand-nth [:test/email :test/sms]) %)
+                 (Thread/sleep (rand-int 100))) jobs)
       (loop []
         (when (seq (queue/queue-stats *conn*))
           (Thread/sleep 200)

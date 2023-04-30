@@ -20,7 +20,7 @@
                 :using       [[(cond-> {:select   :*
                                         :from     :t_job_queue
                                         :limit    n
-                                        :order-by [[:created :asc]]
+                                        :order-by [[:created :asc] [:id :asc]]
                                         :for      [:update :skip-locked]}
                                        topic (assoc :where [:= :topic (pr-topic topic)]))
                                :q]]
