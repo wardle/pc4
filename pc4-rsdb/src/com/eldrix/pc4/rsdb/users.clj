@@ -129,7 +129,7 @@
                  :where  [:and
                           [:= :t_user/username username]
                           [:= :t_message/to_user_fk :t_user/id]
-                          [:= :is_unread "false"]]})))
+                          [:= :is_unread "true"]]})))
 
 (defn count-incomplete-messages
   [conn username]
