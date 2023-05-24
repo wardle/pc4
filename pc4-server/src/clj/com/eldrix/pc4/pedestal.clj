@@ -352,7 +352,7 @@
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
-              (csrf/anti-forgery)
+              #_(csrf/anti-forgery)
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
@@ -370,6 +370,8 @@
   (require '[com.eldrix.pc4.system :as pc4])
   (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
+  (morse/inspect (pc4/config :dev))
   (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
   (pc4/halt! system)
   (morse/inspect system)
