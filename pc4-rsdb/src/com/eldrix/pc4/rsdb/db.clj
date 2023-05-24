@@ -151,6 +151,8 @@
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
+(s/def :t_medication/reason_for_stopping (s/nilable #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR}))
+
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
 (s/def :t_ms_event/impact string?)
