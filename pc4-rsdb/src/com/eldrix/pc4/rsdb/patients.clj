@@ -62,8 +62,8 @@
 
 (defn fetch-patient [conn {patient-pk :t_patient/id}]
   (db/execute-one! conn (sql/format {:select :*
-                                     :from :t_patient
-                                     :where [:= :id patient-pk]})))
+                                     :from   :t_patient
+                                     :where  [:= :id patient-pk]})))
 
 (s/fdef fetch-patient-addresses
   :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
@@ -150,22 +150,22 @@
   [conn project-ids & {:keys [^LocalDate on-date patient-status discharged?]
                        :or   {on-date        (LocalDate/now)
                               patient-status #{:FULL :PSEUDONYMOUS}
-                              discharged? false}}]
+                              discharged?    false}}]
   (into #{} (map :t_patient/patient_identifier)
-    (jdbc/plan conn (sql/format {:select-distinct :patient_identifier
-                                 :from            :t_patient
-                                 :left-join       [:t_episode [:= :patient_fk :t_patient/id]]
-                                 :where           [:and
-                                                   [:in :project_fk project-ids]
-                                                   [:in :t_patient/status (map name patient-status)]
-                                                   (when-not discharged?
-                                                     [:or
-                                                      [:is :t_episode/date_discharge nil]
-                                                      [:> :date_discharge on-date]])
-                                                   [:or
-                                                    [:is :date_registration nil]
-                                                    [:< :date_registration on-date]
-                                                    [:= :date_registration on-date]]]}))))
+        (jdbc/plan conn (sql/format {:select-distinct :patient_identifier
+                                     :from            :t_patient
+                                     :left-join       [:t_episode [:= :patient_fk :t_patient/id]]
+                                     :where           [:and
+                                                       [:in :project_fk project-ids]
+                                                       [:in :t_patient/status (map name patient-status)]
+                                                       (when-not discharged?
+                                                         [:or
+                                                          [:is :t_episode/date_discharge nil]
+                                                          [:> :date_discharge on-date]])
+                                                       [:or
+                                                        [:is :date_registration nil]
+                                                        [:< :date_registration on-date]
+                                                        [:= :date_registration on-date]]]}))))
 
 
 (s/fdef pks->identifiers
@@ -174,7 +174,7 @@
   "Turn patient primary keys into identifiers."
   [conn pks]
   (into #{} (map :t_patient/patient_identifier)
-    (jdbc/plan conn (sql/format {:select :patient_identifier :from :t_patient :where [:in :id pks]}))))
+        (jdbc/plan conn (sql/format {:select :patient_identifier :from :t_patient :where [:in :id pks]}))))
 
 (defn pk->identifier
   "Turn a single patient primary key into a patient identifier."
