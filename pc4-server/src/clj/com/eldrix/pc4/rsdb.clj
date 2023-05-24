@@ -285,7 +285,9 @@
                                                   :from   [:t_medication]
                                                   :where  [:= :patient_fk patient-pk]}))]
     {:t_patient/medications                                 ;; and now just add a property to permit walking to SNOMED CT
-     (mapv #(assoc % :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)}) medication)}))
+     (mapv #(-> %
+                (update :t_medication/reason_for_stopping keyword)
+                (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})) medication)}))
 
 (def address-properties [:t_address/address1
                          :t_address/address2

@@ -415,7 +415,13 @@
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-to"} "Date to"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
         [ui/html-date-picker :name "date-to" :value (:t_medication/date_to medication)
-         :on-change #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/date_to %)])]]]]]]])
+         :on-change #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/date_to %)])]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "reason-for-stopping"} "Reason for stopping"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/select :name "reason-for-stopping" :value (some-> (:t_medication/reason_for_stopping medication) name)
+         :choices (map name #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR})
+         :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/reason_for_stopping  (if (str/blank? %) nil (keyword %)))])]]]]]]])
 
 (defn list-medications []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
@@ -447,16 +453,17 @@
         :on-close #(rf/dispatch [::patient-events/clear-medication])])
      [ui/section-heading "Medications"
       :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
-                {:on-click #(rf/dispatch [::patient-events/set-current-medication {}])} "Add medication"]]
+                {:on-click #(rf/dispatch [::patient-events/set-current-medication {:t_medication/reason_for_stopping :NOT_APPLICABLE}])} "Add medication"]]
      [ui/list-entities-fixed
       :items sorted-medications
-      :headings ["Medication" "From" "To"]
-      :width-classes {"Medication" "w-4/6" "From" "w-1/6" "To" "w-1/6"}
+      :headings ["Medication" "From" "To" "Reason for stopping"]
+      :width-classes {"Medication" "w-3/6" "From" "w-1/6" "To" "w-1/6" "Reason for stopping" "w-1/6"}
 
       :id-key :t_medication/id
       :value-keys [#(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])
                    #(dates/format-date (:t_medication/date_from %))
-                   #(dates/format-date (:t_medication/date_to %))]
+                   #(dates/format-date (:t_medication/date_to %))
+                   #(some-> % :t_medication/reason_for_stopping name)]
       :on-edit (fn [medication] (rf/dispatch [::patient-events/set-current-medication medication]))]]))
 
 

@@ -234,29 +234,32 @@
 
 (s/fdef create-medication
   :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to])))
-(defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to]
+                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
+(defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping]
                                patient-identifier :t_patient/patient_identifier}]
-  (db/execute-one! conn
-                   (sql/format {:insert-into [:t_medication]
-                                :values      [{:medication_concept_fk medication_concept_fk
-                                               :date_from             date_from
-                                               :date_to               date_to
-                                               :patient_fk            {:select :t_patient/id
-                                                                       :from   [:t_patient]
-                                                                       :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
-                   {:return-keys true}))
+  (-> (db/execute-one! conn
+                       (sql/format {:insert-into [:t_medication]
+                                    :values      [{:medication_concept_fk medication_concept_fk
+                                                   :date_from             date_from
+                                                   :date_to               date_to
+                                                   :reason_for_stopping   (some-> reason_for_stopping name)
+                                                   :patient_fk            {:select :t_patient/id
+                                                                           :from   [:t_patient]
+                                                                           :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
+                       {:return-keys true})
+      (update :t_medication/reason_for_stopping #(if % (keyword %) nil))))
 
 (s/fdef update-medication
   :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to])))
+                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
 (defn update-medication
-  [conn {:t_medication/keys [medication_concept_fk id date_from date_to]}]
+  [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping]}]
   (db/execute-one! conn
                    (sql/format {:update [:t_medication]
                                 :set    {:medication_concept_fk medication_concept_fk
                                          :date_from             date_from
-                                         :date_to               date_to}
+                                         :date_to               date_to
+                                         :reason_for_stopping   (name reason_for_stopping)}
                                 :where  [:and
                                          [:= :t_medication/medication_concept_fk medication_concept_fk]
                                          [:= :t_medication/id id]]})

@@ -36,6 +36,7 @@
   [:t_medication/id
    :t_medication/date_from
    :t_medication/date_to
+   :t_medication/reason_for_stopping
    :t_medication/more_information
    {:t_medication/medication [:info.snomed.Concept/id
                               :info.snomed.Concept/preferredDescription
