@@ -420,7 +420,11 @@
        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "reason-for-stopping"} "Reason for stopping"]
        [:div.mt-1.sm:mt-0.sm:col-span-2
         [ui/select :name "reason-for-stopping" :value (some-> (:t_medication/reason_for_stopping medication) name)
-         :choices (map name #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR})
+         :choices (map name #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR
+                              :ALLERGIC_REACTION :ANTI_JCV_POSITIVE__PML_RISK :LACK_OF_TOLERANCE
+                              :NON_ADHERENCE :OTHER
+                              :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
+                              :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
          :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/reason_for_stopping  (if (str/blank? %) nil (keyword %)))])]]]]]]])
 
 (defn list-medications []
