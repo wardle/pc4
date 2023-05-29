@@ -15,3 +15,4 @@ pc4-ward/pkg/mod/cache/lock
 pc4-ms/resources/public/css/site.css
 .DS_Store
 pc4-server/.portal/intellij.edn
+pc4-server/resources/public/js/compiled
