@@ -73,6 +73,24 @@
         (when error-data (log/info "error" error-data))
         (assoc ctx :response (ok {:error (:cause error)}))))))
 
+(defn landing-page []
+  [:html {:lang "en"}
+   [:head
+    [:meta {:charset "UTF-8"}]
+    [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
+    [:link {:href "css/site.css" :rel "stylesheet" :type "text/css"}]
+    [:title "pc4"]]
+   [:body
+    [:noscript "'PatientCare v4:ward' is a JavaScript app. Please enable JavaScript to continue."]
+    [:div#app]
+    [:script {:src "js/compiled/app.js"}]]])
+
+(def landing
+  {:name  ::landing
+   :enter (fn [ctx]
+            (assoc ctx :response {:status 200 :headers {"Content-Type" "text/html"}
+                                  :body   (rum/render-html (landing-page))}))})
+
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
   arbitrary requests. "
@@ -241,7 +259,8 @@
                 (assoc ctx :authorizer (fn [permission] (rsdb.auth/authorized-any? manager permission))))))})
 
 (def routes*
-  [["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
+  [["/" {:name :landing :get {:interceptors [landing]}}]
+   ["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
    ["/login-mutation" {:name :login-mutation :post {:interceptors [login-mutation]}}] ;; for fulcro clients (fulcro / pc4-ms)
    ["/ping" {:name :ping :post {:interceptors [ping]}}]
    ["/api" {:name :api :post {:interceptors [attach-claims api]}}]
