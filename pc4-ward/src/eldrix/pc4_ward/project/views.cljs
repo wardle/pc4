@@ -426,7 +426,15 @@
                               :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
                               :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
          :disabled? (nil? (:t_medication/date_to medication))
-         :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/reason_for_stopping (if (str/blank? %) nil (keyword %)))])]]]]]]])
+         :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication
+                                        (assoc medication :t_medication/reason_for_stopping (if (str/blank? %) nil (keyword %)))])]]]
+      [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+       [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "more_information"} "More information"]
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        [ui/textarea :name "more_information"
+         :value (:t_medication/more_information medication)
+         :on-change #(rf/dispatch-sync [::patient-events/set-current-medication
+                                        (assoc medication :t_medication/more_information %)])]]]]]]])
 
 (defn list-medications []
   (let [current-patient @(rf/subscribe [::patient-subs/current])

@@ -943,7 +943,8 @@
             :opt [:t_medication/id
                   :t_medication/medication
                   :t_medication/date_from
-                  :t_medication/date_to])))
+                  :t_medication/date_to
+                  :t_medication/more_information])))
 
 (pco/defmutation save-medication!
   [{conn    :com.eldrix.rsdb/conn

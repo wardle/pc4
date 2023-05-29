@@ -234,8 +234,9 @@
 
 (s/fdef create-medication
   :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
-(defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping]
+                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping
+                                                      :t_medication/more_information])))
+(defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping more_information]
                                patient-identifier :t_patient/patient_identifier}]
   (-> (db/execute-one! conn
                        (sql/format {:insert-into [:t_medication]
@@ -243,6 +244,7 @@
                                                    :date_from             date_from
                                                    :date_to               date_to
                                                    :reason_for_stopping   (some-> reason_for_stopping name)
+                                                   :more_information      more_information
                                                    :patient_fk            {:select :t_patient/id
                                                                            :from   [:t_patient]
                                                                            :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
@@ -253,13 +255,14 @@
   :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
                                                 :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
 (defn update-medication
-  [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping]}]
+  [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping more_information]}]
   (db/execute-one! conn
                    (sql/format {:update [:t_medication]
                                 :set    {:medication_concept_fk medication_concept_fk
                                          :date_from             date_from
                                          :date_to               date_to
-                                         :reason_for_stopping   (name reason_for_stopping)}
+                                         :reason_for_stopping   (name reason_for_stopping)
+                                         :more_information      more_information}
                                 :where  [:and
                                          [:= :t_medication/medication_concept_fk medication_concept_fk]
                                          [:= :t_medication/id id]]})
