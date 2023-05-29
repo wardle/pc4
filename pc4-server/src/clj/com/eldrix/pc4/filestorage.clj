@@ -209,8 +209,8 @@
   (let [config' (cond-> config
                         link-duration (assoc :link-duration (Duration/parse link-duration))
                         retention-duration (assoc :retention-duration (Duration/parse retention-duration)))]
-    (log/info "registering filestore service" (select-keys config' [:kind :region :bucket-name :dir :link-duration :retention-duration])
-              (make-file-store config'))))
+    (log/info "registering filestore service" (select-keys config' [:kind :region :bucket-name :dir :link-duration :retention-duration]))
+    (make-file-store config')))
 
 (defmethod ig/halt-key! :com.eldrix.pc4/filestorage [_ fs]
   (close fs))
