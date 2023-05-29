@@ -30,47 +30,62 @@
  :com.eldrix.rsdb/config
  {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
- :com.eldrix.rsdb/migrations
+ ;; database migrations configuration
+ :com.eldrix.rsdb/migration-config
  {:store         :database
   :migration-dir "migrations/"
   :db            {:datasource #ig/ref :com.eldrix.rsdb/conn}}
 
+ ;; service to check for any pending migrations
+ :com.eldrix.rsdb/check-migrations #ig/ref :com.eldrix.rsdb/migration-config
+
+ ;; service to run pending migrations
+ :com.eldrix.rsdb/run-migrations   #ig/ref :com.eldrix.rsdb/migration-config
+
+ ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
  {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
                   :pc4     "/var/pc4/nhspd-2021-08-16.db"
                   :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
+ ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
  {:path  #profile {:default "/Users/mark/Dev/clods/ods-2023-03-01.db"
                    :pc4     "/var/pc4/ods-2021-06-25.db"
                    :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
   :nhspd #ig/ref :com.eldrix/nhspd}
 
+ ;; service providing access to the ODS weekly dataset
  :com.eldrix/ods-weekly
  {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
                   :pc4     "/var/pc4/ods-weekly-2022-06-09.db"
                   :cvx     "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
+ ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
  {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
                   :pc4     "/var/pc4/depriv.db"
                   :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
 
+ ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
  {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2023-04-24.db"
                   :pc4     "/var/pc4/dmd-2021-09-27.db"
                   :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
+ ;; service providing access to SNOMED CT
  :com.eldrix/hermes
  {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
                   :pc4     "/var/pc4/snomed-2022-05-17.db"
                   :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
+ ;; service providing access to the AWS Comprehend service
  :com.eldrix/comprehend
  {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
   :access-key-id     #ref [:secrets :aws :comprehend :access-key-id]
   :secret-access-key #ref [:secrets :aws :comprehend :secret-access-key]}
 
+ ;; service providing access to the NHS Wales' NADEX (Active Directory) service
  :wales.nhs/nadex
  #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
                                                "7A4BVSRVDOM0002.cymru.nhs.uk"
@@ -83,6 +98,7 @@
                      :default-bind-password   #ref [:secrets :nadex :bind-password]}
            :default {}}
 
+ ;; service providing access to the Cardiff and Vale PAS (Patient Management System - PMS)
  :wales.nhs.cavuhb/pms
  #profile {:cvx     {:username    #ref [:secrets :cav :pms :username]
                      :password    #ref [:secrets :cav :pms :password]
@@ -90,7 +106,7 @@
                      :user-string "patientcare-concierge"}
            :default nil}
 
-
+ ;; service providing access to the NHS Wales enterprise master patient index (eMPI)
  :wales.nhs/empi
  #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                      :processing-id "P"}
@@ -167,8 +183,9 @@
   :join?           #profile {:default false
                              :pc4     true}
   :session-key     #ref [:secrets :pc4 :session-key]
-  :env             {:pathom/boundary-interface  #ig/ref :pathom/boundary-interface
-                    :com.eldrix.rsdb/conn       #ig/ref :com.eldrix.rsdb/conn
-                    :com.eldrix.pc4/login       #ig/ref :com.eldrix.pc4/login
-                    :com.eldrix.pc4/filestorage #ig/ref :com.eldrix.pc4/filestorage}}}
+  :env             {:pathom/boundary-interface       #ig/ref :pathom/boundary-interface
+                    :com.eldrix.rsdb/conn            #ig/ref :com.eldrix.rsdb/conn
+                    :com.eldrix.pc4/login            #ig/ref :com.eldrix.pc4/login
+                    :com.eldrix.pc4/filestorage      #ig/ref :com.eldrix.pc4/filestorage
+                    :com.eldrix.pc4/check-migrations #ig/ref :com.eldrix.rsdb/check-migrations}}}
 

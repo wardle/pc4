@@ -49,6 +49,13 @@ To run in a production environment (this uses :cvx)
 clj -X:run :profile :cvx
 ```
 
+To run any pending database migrations
+
+```shell
+clj -X:migrate :profile :dev
+```
+
+
 Some configuration options are customisable at runtime using environmental
 variables. For example:
 

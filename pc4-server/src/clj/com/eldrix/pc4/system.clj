@@ -81,12 +81,27 @@
   [_ conn]
   (.close conn))
 
-(defmethod ig/init-key :com.eldrix.rsdb/migrations
+(defmethod ig/init-key :com.eldrix.rsdb/migration-config
   [_ config]
-  (log/info "checking for pending migrations")
-  (when-let [migrations (seq (migrations/pending-list config))]
-    (throw (ex-info "Error: pending database migrations" {:pending migrations})))
-  (assoc config :n-pending-migrations 0))
+  config)
+
+(defmethod ig/init-key :com.eldrix.rsdb/check-migrations
+  [_ config]
+  (if-let [migrations (seq (migrations/pending-list config))]
+    (throw (ex-info (str "Error: " (count migrations) " pending database migration(s): " migrations) {:pending migrations}))
+    config))
+
+(defmethod ig/init-key :com.eldrix.rsdb/run-migrations
+  [_ config]
+  (if-let [migrations (seq (migrations/pending-list config))]
+    (do (log/info "Running migrations:" migrations)
+        (if (migrations/migrate config)
+          (throw (ex-info "Failed to perform migrations" {:config  config
+                                                          :pending migrations}))
+          (log/info "Migrations finished successfully")))
+    (log/info "No migrations pending")))
+
+
 
 (defmethod ig/init-key :com.eldrix.rsdb/config [_ config]
   config)
@@ -156,7 +171,7 @@
   Removes any non-namespaced keys from the configuration."
   [profile]
   (let [conf (aero/read-config (io/resource "config.edn") {:profile profile})
-        kws-without-ns (seq (remove namespace (keys conf)))]      ;; get any non-namespaced keys
+        kws-without-ns (seq (remove namespace (keys conf)))] ;; get any non-namespaced keys
     (apply dissoc conf kws-without-ns)))
 
 (defn load-namespaces

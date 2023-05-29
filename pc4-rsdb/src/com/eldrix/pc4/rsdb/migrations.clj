@@ -3,9 +3,15 @@
             [migratus.core :as migratus]))
 
 (def default-config
-  {:store :database
+  {:store         :database
    :migration-dir "migrations/"})
 
+
+(defn pending-list [config]
+  (migratus/pending-list config))
+
+(defn migrate [config]
+  (migratus/migrate config))
 
 (comment
   (require '[next.jdbc.connection])
@@ -17,4 +23,4 @@
   (migratus/pending-list conf)
   (migratus/migrate conf)
   (migratus/rollback conf)
-  (migratus/create conf "create-queue"))
+  (migratus/create conf "add-ms-event-note"))
