@@ -13,6 +13,7 @@
             [com.eldrix.nhspd.core :as nhspd]
             [com.eldrix.odsweekly.core :as odsweekly]
             [com.eldrix.pc4.rsdb :as rsdb]
+            [com.eldrix.pc4.rsdb.migrations :as migrations]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
@@ -79,6 +80,13 @@
 (defmethod ig/halt-key! :com.eldrix.rsdb/conn
   [_ conn]
   (.close conn))
+
+(defmethod ig/init-key :com.eldrix.rsdb/migrations
+  [_ config]
+  (log/info "checking for pending migrations")
+  (when-let [migrations (seq (migrations/pending-list config))]
+    (throw (ex-info "Error: pending database migrations" {:pending migrations})))
+  (assoc config :n-pending-migrations 0))
 
 (defmethod ig/init-key :com.eldrix.rsdb/config [_ config]
   config)
