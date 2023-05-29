@@ -1,0 +1,1 @@
+ALTER TABLE t_ms_event DROP COLUMN notes;

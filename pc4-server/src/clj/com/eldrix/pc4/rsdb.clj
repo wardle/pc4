@@ -1010,7 +1010,8 @@
   (s/keys :req [:t_ms_event/date
                 :t_ms_event_type/id
                 :t_ms_event/impact
-                :t_ms_event/summary_multiple_sclerosis_fk]))
+                :t_ms_event/summary_multiple_sclerosis_fk]
+          :opt [:t_ms_event/notes]))
 
 (pco/defmutation save-ms-event!
   [{conn    :com.eldrix.rsdb/conn
