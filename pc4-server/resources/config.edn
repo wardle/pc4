@@ -36,18 +36,18 @@
   :db            {:datasource #ig/ref :com.eldrix.rsdb/conn}}
 
  :com.eldrix/nhspd
- {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
+ {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
                   :pc4     "/var/pc4/nhspd-2021-08-16.db"
                   :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
  :com.eldrix/clods
- {:path  #profile {:default "/Users/mark/Dev/clods/ods-2022-01-24.db"
+ {:path  #profile {:default "/Users/mark/Dev/clods/ods-2023-03-01.db"
                    :pc4     "/var/pc4/ods-2021-06-25.db"
                    :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  :com.eldrix/ods-weekly
- {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2022-06-09.db"
+ {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
                   :pc4     "/var/pc4/ods-weekly-2022-06-09.db"
                   :cvx     "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
@@ -57,7 +57,7 @@
                   :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
 
  :com.eldrix/dmd
- {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2022-02-21.db"
+ {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2023-04-24.db"
                   :pc4     "/var/pc4/dmd-2021-09-27.db"
                   :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
