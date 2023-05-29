@@ -26,21 +26,22 @@
     (throw (ex-info "missing parameter(s)" {:id id :constraint constraint :select-fn select-fn})))
   [:<>
    [ui/select-or-autocomplete
-    :label                label
-     :id                   id
-     :value                value
-     :id-key               :info.snomed.Description/id
-     :display-key          term-for-description
-     :select-display-key   #(get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
-     :no-selection-string  "-Choose-"
-     :common-choices       common-choices
-     :autocomplete-fn      (debounce/debounce #(rf/dispatch [::events/search id {:s              %
-                                                                                 :constraint     constraint
-                                                                                 :max-hits       max-hits
-                                                                                 :fallback-fuzzy 2}]) 200)
-     :autocomplete-results @(rf/subscribe [::subs/search-results id])
-     :clear-fn             #(rf/dispatch [::events/clear-search-results id])
-     :select-fn            select-fn
-     :minimum-chars        2
-     :placeholder          placeholder
-     :size                 size]])
+    :label label
+    :id id
+    :value value
+    :id-key :info.snomed.Description/id
+    :display-key term-for-description
+    :select-display-key #(get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+    :no-selection-string "-Choose-"
+    :common-choices common-choices
+    :autocomplete-fn (debounce/debounce #(rf/dispatch [::events/search id {:s                  %
+                                                                           :constraint         constraint
+                                                                           :max-hits           max-hits
+                                                                           :remove-duplicates? true
+                                                                           :fallback-fuzzy     2}]) 200)
+    :autocomplete-results @(rf/subscribe [::subs/search-results id])
+    :clear-fn #(rf/dispatch [::events/clear-search-results id])
+    :select-fn select-fn
+    :minimum-chars 2
+    :placeholder placeholder
+    :size size]])
