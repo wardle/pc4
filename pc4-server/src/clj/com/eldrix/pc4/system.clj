@@ -144,10 +144,12 @@
   (var-get (requiring-resolve x)))
 
 (defn config
-  "Reads configuration from the resources directory using the profile specified."
+  "Reads configuration from the resources directory using the profile specified.
+  Removes any non-namespaced keys from the configuration."
   [profile]
-  (-> (aero/read-config (io/resource "config.edn") {:profile profile})
-      (dissoc :secrets)))
+  (let [conf (aero/read-config (io/resource "config.edn") {:profile profile})
+        kws-without-ns (seq (remove namespace (keys conf)))]      ;; get any non-namespaced keys
+    (apply dissoc conf kws-without-ns)))
 
 (defn load-namespaces
   "Load any required namespaces for the profile and, optionally, services
