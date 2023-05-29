@@ -425,7 +425,8 @@
                               :NON_ADHERENCE :OTHER
                               :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
                               :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
-         :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/reason_for_stopping  (if (str/blank? %) nil (keyword %)))])]]]]]]])
+         :disabled? (nil? (:t_medication/date_to medication))
+         :select-fn #(rf/dispatch-sync [::patient-events/set-current-medication (assoc medication :t_medication/reason_for_stopping (if (str/blank? %) nil (keyword %)))])]]]]]]])
 
 (defn list-medications []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
