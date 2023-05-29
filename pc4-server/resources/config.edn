@@ -30,6 +30,11 @@
  :com.eldrix.rsdb/config
  {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
+ :com.eldrix.rsdb/migrations
+ {:store         :database
+  :migration-dir "migrations/"
+  :db            {:datasource #ig/ref :com.eldrix.rsdb/conn}}
+
  :com.eldrix/nhspd
  {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-02-01.db"
                   :pc4     "/var/pc4/nhspd-2021-08-16.db"
