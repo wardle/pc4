@@ -79,12 +79,6 @@
                   :pc4     "/var/pc4/snomed-2022-05-17.db"
                   :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
- ;; service providing access to the AWS Comprehend service
- :com.eldrix/comprehend
- {:com.eldrix/hermes #ig/ref :com.eldrix/hermes
-  :access-key-id     #ref [:secrets :aws :comprehend :access-key-id]
-  :secret-access-key #ref [:secrets :aws :comprehend :secret-access-key]}
-
  ;; service providing access to the NHS Wales' NADEX (Active Directory) service
  :wales.nhs/nadex
  #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
