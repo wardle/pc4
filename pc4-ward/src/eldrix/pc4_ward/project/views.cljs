@@ -522,7 +522,12 @@
                   :t_ms_event/site_other :t_ms_event/site_cognitive]
            :display-key ms-event-site-to-string
            :on-change on-change]]]]
-       ]]]))
+       [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+        [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "notes"} "Notes"]
+        [:div.mt-1.sm:mt-0.sm:col-span-2
+         [ui/textarea :name "notes"
+          :value (:t_ms_event/notes event)
+          :on-change #(on-change (assoc event :t_ms_event/notes %))]]]]]]))
 
 
 (s/def :t_ms_event/date #(instance? goog.date.Date %))
