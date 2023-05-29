@@ -5,7 +5,6 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
-            [com.eldrix.comprehend.core :as comprehend]
             [com.eldrix.deprivare.core :as deprivare]
             [com.eldrix.deprivare.graph]
             [com.eldrix.dmd.core :as dmd]
