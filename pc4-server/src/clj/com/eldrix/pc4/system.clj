@@ -121,10 +121,6 @@
 (defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
   (.close svc))
 
-(defmethod ig/init-key :com.eldrix/comprehend [_ config]
-  (log/info "registering comprehend service")
-  (comprehend/open config))
-
 (defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
   config)
 
