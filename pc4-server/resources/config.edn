@@ -88,13 +88,13 @@
                      :password    #ref [:secrets :cav :pms :password]
                      :database    "vpmslive.world"
                      :user-string "patientcare-concierge"}
-           :default {}}
+           :default nil}
 
 
  :wales.nhs/empi
  #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
                      :processing-id "P"}
-           :default {}}
+           :default nil}
 
 
  ;;
