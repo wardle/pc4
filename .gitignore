@@ -16,3 +16,5 @@ pc4-ms/resources/public/css/site.css
 .DS_Store
 pc4-server/.portal/intellij.edn
 pc4-server/resources/public/js/compiled
+pc4-server/resources/public/css/site.css
+pc4-server/resources/public/css/tailwind.css
