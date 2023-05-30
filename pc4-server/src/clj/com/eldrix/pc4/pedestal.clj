@@ -119,7 +119,7 @@
                   op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
               (if-not (= 'pc4.users/login op-name)
                 (do
-                  (log/info "invalid request at /login-mutation endpoint" params)
+                  (log/warn "invalid request at /login-mutation endpoint" params)
                   (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
                 (execute-pathom ctx nil params))))})
 
