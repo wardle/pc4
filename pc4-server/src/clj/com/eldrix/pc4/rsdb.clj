@@ -761,7 +761,7 @@
   {:org.hl7.fhir.Practitioner/name [{:org.hl7.fhir.HumanName/prefix [title]
                                      :org.hl7.fhir.HumanName/given  (str/split first_names #"\s")
                                      :org.hl7.fhir.HumanName/family last_name
-                                     :org.hl7.fhir.HumanName/suffix (str/split postnomial #"\s")
+                                     :org.hl7.fhir.HumanName/suffix (when-not (str/blank? postnomial) (str/split postnomial #"\s"))
                                      :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
 
 (pco/defresolver user->active-projects
