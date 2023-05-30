@@ -83,7 +83,7 @@
    [:body
     [:noscript "'PatientCare v4:ward' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
-    [:script {:src "js/compiled/app.js"}]]])
+    [:script {:src "js/compiled/app-2023-05-30.js"}]]])
 
 (def landing
   {:name  ::landing
