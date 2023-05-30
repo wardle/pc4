@@ -81,7 +81,7 @@
     [:link {:href "css/site.css" :rel "stylesheet" :type "text/css"}]
     [:title "pc4"]]
    [:body
-    [:noscript "'PatientCare v4:ward' is a JavaScript app. Please enable JavaScript to continue."]
+    [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
     [:script {:src "js/compiled/app-2023-05-30.js"}]]])
 
