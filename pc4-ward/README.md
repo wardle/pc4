@@ -172,7 +172,7 @@ without needing to `require`.
 See a list of [`shadow-cljs CLI`](https://shadow-cljs.github.io/docs/UsersGuide.html#_command_line)
 actions:
 ```sh
-shadow-cljs --help
+yarn shadow-cljs --help
 ```
 
 Please be patient; it may take over 10 seconds to see any output. Also note that some actions shown
@@ -180,7 +180,7 @@ may not actually be supported, outputting "Unknown action." when run.
 
 Run a shadow-cljs action on this project's build id (without the colon, just `app`):
 ```sh
-shadow-cljs -A <env> <action> app
+yarn shadow-cljs -A <env> <action> app
 ```
 ### Debug Logging
 
@@ -202,7 +202,7 @@ Use `debug?` for logging or other tasks that should run only on `dev` builds:
 Build the app with the `prod` profile:
 
 ```sh
-shadow-cljs -A prod release app
+yarn shadow-cljs -A prod release app
 ```
 
 Please be patient; it may take over 15 seconds to see any output, and over 30 seconds to complete.
@@ -214,3 +214,6 @@ The [`resources/public`](resources/public/) directory contains the complete, pro
 end of your app.
 
 Always inspect the `resources/public/js/compiled` directory prior to deploying the app.
+
+For example, this might be uploaded into pc4-server /resources/public so that it can serve
+these files statically, or use something like caddy instead.
