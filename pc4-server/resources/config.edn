@@ -149,7 +149,8 @@
   #clj/var com.eldrix.pc4.rsdb/all-resolvers
   #clj/var com.eldrix.hermes.graph/all-resolvers
   #clj/var com.eldrix.pc4.users/all-resolvers
-  #clj/var com.eldrix.pc4.patients/all-resolvers]
+  #clj/var com.eldrix.pc4.patients/all-resolvers
+  #clj/var com.eldrix.pc4.modules.msbase/all-resolvers]
 
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
