@@ -127,8 +127,9 @@
      :org.msbase.msDiagnosis/clMcDonald (get-in ms-diagnosis-categories [(:t_ms_diagnosis/id sms) :mcDonald])
      :org.msbase.msDiagnosis/clPoser    (get-in ms-diagnosis-categories [(:t_ms_diagnosis/id sms) :poser])}))
 
+
 (pco/defresolver visit
-  [{:t_encounter/keys [id active date_time form_edss form_ms_relapse]}]
+  [{:t_encounter/keys [id date_time form_edss]}]
   {::pco/input  [:t_encounter/id :t_encounter/active :t_encounter/date
                  {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]
    ::pco/output [:org.msbase.visit/localId
@@ -137,7 +138,98 @@
                  :org.msbase.visit/status]}
   {:org.msbase.visit/localId     id
    :org.msbase.visit/visitDate   (format-iso-date date_time)
-   :org.msbase.visit/currDisease nil})
+   :org.msbase.visit/currDisease nil
+   :org.msbase.visit/status      nil
+   :org.msbase.visit/edss        (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss))})
+
+(pco/defresolver relapse
+  [{:t_ms_event/keys [id date notes
+                      site_arm_motor site_ataxia site_bulbar site_cognitive
+                      site_diplopia site_face_motor site_face_sensory
+                      site_leg_motor site_limb_sensory site_optic_nerve
+                      site_other site_psychiatric site_sexual site_sphincter site_unknown
+                      site_vestibular]}]
+  {::pco/input  [:t_ms_event/id :t_ms_event/date :t_ms_event_type/id :t_ms_event_type/abbreviation :t_ms_event/notes
+                 :t_ms_event/site_arm_motor :t_ms_event/site_ataxia :t_ms_event/site_bulbar :t_ms_event/site_cognitive
+                 :t_ms_event/site_diplopia :t_ms_event/site_face_motor :t_ms_event/site_face_sensory
+                 :t_ms_event/site_leg_motor :t_ms_event/site_limb_sensory :t_ms_event/site_optic_nerve
+                 :t_ms_event/site_other :t_ms_event/site_psychiatric :t_ms_event/site_sexual :t_ms_event/site_sphincter :t_ms_event/site_unknown
+                 :t_ms_event/site_vestibular]
+   ::pco/output [:org.msbase.relapse/localId
+                 :org.msbase.relapse/currDisease
+                 :org.msbase.relapse/onsetDate
+                 :org.msbase.relapse/fsAffected]}
+  {:org.msbase.relapse/localId     (str id)
+   :org.msbase.relapse/currDisease nil
+   :org.msbase.relapse/onsetDate   (format-iso-date date)
+   :org.msbase.relapse/duration    nil
+   :org.msbase.relapse/impactADL   "unk"
+   :org.msbase.relapse/severity    "unk"
+   :org.msbase.relapse/fsAffected  (cond-> []
+                                           (or site_cognitive site_psychiatric)
+                                           (conj "neu")
+                                           site_optic_nerve
+                                           (conj "vis")
+                                           site_ataxia
+                                           (conj "cer")
+                                           (or site_bulbar site_diplopia site_face_motor site_face_sensory site_vestibular)
+                                           (conj "bra")
+                                           (or site_arm_motor site_leg_motor site_limb_sensory)
+                                           (conj "pyr")
+                                           (or site_sexual site_sphincter)
+                                           (conj "bow"))
+   :org.msbase.relapse/fsOther     notes})
+
+
+(def stop-causes
+  {:CHANGE_OF_DOSE              "scheduled"
+   :ADVERSE_EVENT               "adverse"
+   :NOT_APPLICABLE              nil
+   :PREGNANCY                   "pregconf"
+   :LACK_OF_EFFICACY            "efficacy"
+   :PLANNING_PREGNANCY          "pregplan"
+   :RECORDED_IN_ERROR           :error
+   :ALLERGIC_REACTION           "allergic"
+   :ANTI_JCV_POSITIVE__PML_RISK "adverse"
+   :LACK_OF_TOLERANCE           "tolerance"
+   :NON_ADHERENCE               "adherence"
+   :OTHER                       nil
+   :PATIENT_CHOICE_CONVENIENCE  "convenience"
+   :PERSISTENCE_OF_RELAPSES     "relapses"
+   :PERSISTING_MRI_ACTIVITY     "mri"
+   :DISEASE_PROGRESSION         "disprog"
+   :SCHEDULED_STOP              "scheduled"})
+
+(pco/defresolver treatment
+  [{:t_medication/keys [id date_from date_to reason_for_stopping medication]}]
+  {::pco/input [:t_medication/id
+                :t_medication/date_from
+                :t_medication/date_to
+                :t_medication/reason_for_stopping
+                {:t_medication/medication
+                 [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+   ::pco/output [:org.msbase.pharmaTrts/localId
+                 :org.msbase.pharmaTrts/currDisease
+                 :org.msbase.pharmaTrts/type
+                 :org.msbase.pharmaTrts/startDate
+                 :org.msbase.pharmaTrts/endDate
+                 :org.msbase.pharmaTrts/name
+                 :org.msbase.pharmaTrts/dose
+                 :org.msbase.pharmaTrts/unit
+                 :org.msbase.pharmaTrts/period
+                 :org.msbase.pharmaTrts/route
+                 :org.msbase.pharmaTrts/stopCause]}
+  {:org.msbase.pharmaTrts/localId (str id)
+   :org.msbase.pharmaTrts/currDisease nil
+   :org.msbase.pharmaTrts/type nil
+   :org.msbase.pharmaTrts/startDate (format-iso-date date_from)
+   :org.msbase.pharmaTrts/endDate (format-iso-date date_to)
+   :org.msbase.pharmaTrts/name (get-in medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term)
+   :org.msbase.pharmaTrts/dose nil
+   :org.msbase.pharmaTrts/unit nil
+   :org.msbase.pharmaTrts/period nil
+   :org.msbase.pharmaTrts/route nil
+   :org.msbase.pharmaTrts/stopCause (get stop-causes reason_for_stopping)})
 
 (def all-resolvers
   [patient-identification
@@ -145,7 +237,9 @@
    medical-history
    ms-event-symptoms
    ms-diagnosis
-   visit])
+   visit
+   relapse
+   treatment])
 
 
 
