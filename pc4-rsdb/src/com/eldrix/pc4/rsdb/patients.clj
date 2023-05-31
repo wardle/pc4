@@ -189,6 +189,13 @@
   (:t_patient/id
     (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
 
+
+(defn diagnosis-active?
+  ([diagnosis] (diagnosis-active? diagnosis (LocalDate/now)))
+  ([{:t_diagnosis/keys [^LocalDate date_diagnosis ^LocalDate date_to]} ^LocalDate on-date]
+   (and (or (nil? date_diagnosis) (.isBefore date_diagnosis on-date) (.isEqual date_diagnosis on-date))
+        (or (nil? date_to) (.isAfter date_to on-date)))))
+
 (s/fdef create-diagnosis
   :args (s/cat :conn ::conn
                :diagnosis (s/keys :req [:t_patient/patient_identifier
