@@ -179,31 +179,30 @@
       (log/error "More than one authoritative demographic source:" params))
     {:t_patient/demographics_authority (first result)}))
 
-
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
   {::pco/output [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
-  (when concept-id {:t_patient/country_of_birth {:info.snomed.Concept/id concept-id}}))
+  {:t_patient/country_of_birth (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->ethnic-origin
   [{concept-id :t_patient/ethnic_origin_concept_fk}]
   {::pco/output [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
-  (when concept-id {:t_patient/ethnic_origin {:info.snomed.Concept/id concept-id}}))
+  {:t_patient/ethnic_origin (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->racial-group
   [{concept-id :t_patient/racial_group_concept_fk}]
   {::pco/output [{:t_patient/racial_group [:info.snomed.Concept/id]}]}
-  (when concept-id {:t_patient/racial_group {:info.snomed.Concept/id concept-id}}))
+  {:t_patient/racial_group (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->occupation
   [{concept-id :t_patient/occupation_concept_fk}]
   {::pco/output [{:t_patient/occupation [:info.snomed.Concept/id]}]}
-  (when concept-id {:t_patient/occupation {:info.snomed.Concept/id concept-id}}))
+  {:t_patient/occupation (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->surgery
   [{surgery-fk :t_patient/surgery_fk}]
   {::pco/output [{:t_patient/surgery [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
-  (when surgery-fk {:t_patient/surgery {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk}}))
+  {:t_patient/surgery (when surgery-fk {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk})})
 
 (pco/defresolver patient->death_certificate
   [{conn :com.eldrix.rsdb/conn} patient]
@@ -212,11 +211,12 @@
                                                 :t_death_certificate/part1b
                                                 :t_death_certificate/part1c
                                                 :t_death_certificate/part2]}]}
-  (when-let [certificate (patients/fetch-death-certificate conn patient)]
-    {:t_patient/death_certificate certificate}))
+  {:t_patient/death_certificate (patients/fetch-death-certificate conn patient)})
 
 (pco/defresolver patient->diagnoses
-  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
+  "Returns diagnoses for a patient. Optionally takes a parameter:
+  - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
+  [{hermes :com.eldrix.hermes.graph/svc, conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/diagnoses [:t_diagnosis/concept_fk
                                         {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
                                         :t_diagnosis/date_diagnosis
@@ -229,9 +229,37 @@
                                         :t_diagnosis/full_description]}]}
   (let [diagnoses (db/execute! conn (sql/format {:select [:*]
                                                  :from   [:t_diagnosis]
-                                                 :where  [:= :patient_fk patient-pk]}))]
+                                                 :where  [:and
+                                                          [:= :patient_fk patient-pk]
+                                                          [:!= :status "INACTIVE_IN_ERROR"]]}))
+
+        ecl (:ecl (pco/params env))
+        diagnoses' (if (str/blank? ecl)
+                     diagnoses
+                     (let [concept-ids (hermes/intersect-ecl hermes (map :t_diagnosis/concept_fk diagnoses) ecl)]
+                       (filter #(concept-ids (:t_diagnosis/concept_fk %)) diagnoses)))]
     {:t_patient/diagnoses
-     (mapv #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses)}))
+     (mapv #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses')}))
+
+
+(pco/defresolver patient->has-diagnosis
+  [{hermes :com.eldrix.hermes.graph/svc, :as env} {diagnoses :t_patient/diagnoses}]
+  {::pco/input [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
+   ::pco/output [:t_patient/has_diagnosis]}
+  (let [params (pco/params env)
+        ecl (or (:ecl params) (throw (ex-info "Missing mandatory parameter: ecl" env)))
+        on-date (:on-date params)
+        on-date' (cond (nil? on-date) (LocalDate/now)
+                       (string? on-date) (LocalDate/parse on-date)
+                       :else on-date)]
+    {:t_patient/has_diagnosis
+     (let [concept-ids (->> diagnoses
+                            (filter #(patients/diagnosis-active? % on-date'))
+                            (map :t_diagnosis/concept_fk diagnoses))]
+       (boolean (seq (hermes/intersect-ecl hermes concept-ids ecl))))}))
+
+
+
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
@@ -487,7 +515,7 @@
 (pco/defresolver project->common-concepts
   "Resolve common concepts for the project, optionally filtering by a SNOMED
   expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {:t_project/keys [id]}]
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {:t_project/keys [id]}]
   {::pco/input  [:t_project/id]
    ::pco/output [{:t_project/common_concepts [:info.snomed.Concept/id]}]}
   (let [concept-ids (projects/common-concepts conn id)
@@ -785,7 +813,7 @@
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
   filtering by a SNOMED expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {user-id :t_user/id}]
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {user-id :t_user/id}]
   {::pco/output [{:t_user/common_concepts [:info.snomed.Concept/id]}]}
   (let [project-ids (users/active-project-ids conn user-id {:only-active-projects? true})
         concept-ids (projects/common-concepts conn project-ids)
@@ -1263,6 +1291,7 @@
    patient->surgery
    patient->death_certificate
    patient->diagnoses
+   patient->has-diagnosis
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
    patient->medications
