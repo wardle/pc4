@@ -2,6 +2,7 @@
   "Provides functionality to resolve the Unified MSBase JSON model from PatientCare."
   (:require [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.system :as pc4]
+            [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco])
   (:import (java.time.format DateTimeFormatter)
            (java.time.temporal TemporalAccessor)))
@@ -128,9 +129,15 @@
      :org.msbase.msDiagnosis/clPoser    (get-in ms-diagnosis-categories [(:t_ms_diagnosis/id sms) :poser])}))
 
 
+(pco/defresolver visits
+  [{encounters :t_patient/encounters}]
+  {::pco/input [{:t_patient/encounters [:t_encounter/id :t_encounter/active]}]
+   ::pco/output [{:org.msbase/visits [:t_encounter/id]}]}
+  {:org.msbase/visits (filterv :t_encounter/active encounters)})
+
 (pco/defresolver visit
   [{:t_encounter/keys [id date_time form_edss]}]
-  {::pco/input  [:t_encounter/id :t_encounter/active :t_encounter/date
+  {::pco/input  [:t_encounter/id :t_encounter/active :t_encounter/date_time
                  {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]
    ::pco/output [:org.msbase.visit/localId
                  :org.msbase.visit/currDisease
@@ -237,6 +244,7 @@
    medical-history
    ms-event-symptoms
    ms-diagnosis
+   visits
    visit
    relapse
    treatment])
@@ -248,21 +256,43 @@
   (morse/launch-in-proc)
   (require '[com.eldrix.pc4.system :as pc4])
   (pc4/load-namespaces :dev)
-  (def system (pc4/init :dev))
+  (def system (pc4/init :dev/dell))
   (pc4/halt! system)
   (def pathom (:pathom/boundary-interface system))
-  (do (pc4/halt! system) (def system (pc4/init :dev)) (def pathom (:pathom/boundary-interface system)))
+  (morse/inspect (:pathom/env system))
+  (do (pc4/halt! system) (def system (pc4/init :dev/dell)) (def pathom (:pathom/boundary-interface system)))
   (keys system)
 
-  (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
-                           [:org.msbase.msDiagnosis/firstSympt
-                            :org.msbase.msDiagnosis/clMcDonald
-                            :org.msbase.msDiagnosis/progOnset
-                            :org.msbase.msDiagnosis/diagDate
-                            :org.msbase.msDiagnosis/progDate
-                            :t_patient/diagnoses
-                            {:>/multiple_sclerosis ['(:t_patient/has_diagnosis {:ecl "<<24700007"})]}
-                            :t_patient/patient_identifier]}]))
+  (morse/inspect (pathom [{[:t_patient/patient_identifier 8876]
+                           [:t_patient/patient_identifier
+                            {:>/patientIdentification
+                             [:org.msbase.identification/localId
+                              :org.msbase.identification/isActive
+                              :org.msbase.identification/gender
+                              :org.msbase.identification/ethnicity]}
+                            {:>/medicalHistory
+                             [:org.msbase.medicalHistory/entryDate]}
+                            {:>/msDiagnosis
+                             [:org.msbase.msDiagnosis/onsetDate
+                              :org.msbase.msDiagnosis/diagDate
+                              :org.msbase.msDiagnosis/firstSympt
+                              :org.msbase.msDiagnosis/progOnset
+                              :org.msbase.msDiagnosis/progDate
+                              :org.msbase.msDiagnosis/diagConfBy
+                              :org.msbase.msDiagnosis/clMcDonald
+                              :org.msbase.msDiagnosis/clPoser]}
+                            {:>/demographics
+                             [:org.msbase.demographics/birthDate
+                              :org.msbase.demographics/firstName
+                              :org.msbase.demographics/lastName
+                              :org.msbase.demographics/nhsNumber]}
+                            {:org.msbase/visits
+                             [:org.msbase.visit/localId
+                              :org.msbase.visit/currDisease
+                              :org.msbase.visit/visitDate
+                              :org.msbase.visit/status
+                              :org.msbase.visit/edss]}]}]))
+
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
                            [{:t_patient/encounters [:t_encounter/date_time
