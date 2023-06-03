@@ -297,7 +297,7 @@
     spine-type :t_result_mri_spine/type, :as result}]
   {::pco/input [:t_result/id :t_result/date :t_result_type/result_entity_name
                 (pco/? :t_result_mri_spine/type)]}
-  {:org.msbase.mri/localId     (str "com.eldrix.pc4.result/" id)
+  {:org.msbase.mri/localId     (str "com.eldrix.pc4.t_result_mri_brain/" id)
    :org.msbase.mri/currDisease nil
    :org.msbase.mri/examDate    (format-iso-date date)
    :org.msbase.mri/cnsRegion   (clojure.core.match/match [entity-name spine-type]
@@ -324,7 +324,21 @@
   {::pco/input  [:t_patient/results]
    ::pco/output [:org.msbase/cerebrospinalFluid]}
   {:org.msbase/cerebrospinalFluid
-   (filterv #(#{"CSF oligoclonal bands"} (:t_result_type/name %)) results)})
+   (filterv #(#{"ResultCsfOcb"} (:t_result_type/result_entity_name %)) results)})
+
+(pco/defresolver csf
+  [{id :t_result/id, date :t_result/date, ocb :t_result_csf_ocb/result}]
+  {::pco/input [:t_result/id :t_result/date :t_result_csf_ocb/result]}
+  {:org.msbase.csf/localId     (str "com.eldrix.pc4.t_result_csf_ocb/" id)
+   :org.msbase.csf/currDisease nil
+   :org.msbase.csf/examDate    (format-iso-date date)
+   :org.msbase.csf/csf         nil
+   :org.msbase.csf/olgBand     (case ocb "POSITIVE" "det"
+                                         "PAIRED" "det"
+                                         "NEGATIVE" "abs" nil)
+   :org.msbase.csf/nbOlig      nil
+   :org.msbase.csf/matchOCB    (case ocb "POSITIVE" "no"
+                                         "PAIRED" "yes" nil)})
 
 (def all-resolvers
   [patient-identification
@@ -341,7 +355,8 @@
    treatment
    magnetic-resonance-imaging-results
    magnetic-resonance-imaging
-   cerebrospinal-fluid-results])
+   cerebrospinal-fluid-results
+   csf])
 
 
 (comment
@@ -359,51 +374,58 @@
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 84686]
                            [:t_patient/patient_identifier
-                            {:>/patientIdentification
-                             [:org.msbase.identification/localId
-                              :org.msbase.identification/isActive
-                              :org.msbase.identification/gender
-                              :org.msbase.identification/ethnicity]}
-                            {:>/medicalHistory
-                             [:org.msbase.medicalHistory/entryDate]}
-                            {:>/msDiagnosis
-                             [:org.msbase.msDiagnosis/onsetDate
-                              :org.msbase.msDiagnosis/diagDate
-                              :org.msbase.msDiagnosis/firstSympt
-                              :org.msbase.msDiagnosis/progOnset
-                              :org.msbase.msDiagnosis/progDate
-                              :org.msbase.msDiagnosis/diagConfBy
-                              :org.msbase.msDiagnosis/clMcDonald
-                              :org.msbase.msDiagnosis/clPoser]}
-                            {:>/demographics
-                             [:org.msbase.demographics/birthDate
-                              :org.msbase.demographics/firstName
-                              :org.msbase.demographics/lastName
-                              :org.msbase.demographics/nhsNumber]}
-                            {:org.msbase/visits
-                             [:org.msbase.visit/localId
-                              :org.msbase.visit/currDisease
-                              :org.msbase.visit/visitDate
-                              :org.msbase.visit/status
-                              :org.msbase.visit/edss]}
-                            {:org.msbase/relapses
-                             [:org.msbase.relapse/localId
-                              :org.msbase.relapse/currDisease
-                              :org.msbase.relapse/onsetDate
-                              :org.msbase.relapse/fsAffected]}
-                            {:org.msbase/treatments
-                             [:org.msbase.pharmaTrts/localId
-                              :org.msbase.pharmaTrts/currDisease
-                              :org.msbase.pharmaTrts/type
-                              :org.msbase.pharmaTrts/startDate
-                              :org.msbase.pharmaTrts/endDate
-                              :org.msbase.pharmaTrts/name
-                              :org.msbase.pharmaTrts/dose
-                              :org.msbase.pharmaTrts/unit
-                              :org.msbase.pharmaTrts/period
-                              :org.msbase.pharmaTrts/route
-                              :org.msbase.pharmaTrts/stopCause]}
+                            #_{:>/patientIdentification
+                               [:org.msbase.identification/localId
+                                :org.msbase.identification/isActive
+                                :org.msbase.identification/gender
+                                :org.msbase.identification/ethnicity]}
+                            #_{:>/medicalHistory
+                               [:org.msbase.medicalHistory/entryDate]}
+                            #_{:>/msDiagnosis
+                               [:org.msbase.msDiagnosis/onsetDate
+                                :org.msbase.msDiagnosis/diagDate
+                                :org.msbase.msDiagnosis/firstSympt
+                                :org.msbase.msDiagnosis/progOnset
+                                :org.msbase.msDiagnosis/progDate
+                                :org.msbase.msDiagnosis/diagConfBy
+                                :org.msbase.msDiagnosis/clMcDonald
+                                :org.msbase.msDiagnosis/clPoser]}
+                            #_{:>/demographics
+                               [:org.msbase.demographics/birthDate
+                                :org.msbase.demographics/firstName
+                                :org.msbase.demographics/lastName
+                                :org.msbase.demographics/nhsNumber]}
+                            #_{:org.msbase/visits
+                               [:org.msbase.visit/localId
+                                :org.msbase.visit/currDisease
+                                :org.msbase.visit/visitDate
+                                :org.msbase.visit/status
+                                :org.msbase.visit/edss]}
+                            #_{:org.msbase/relapses
+                               [:org.msbase.relapse/localId
+                                :org.msbase.relapse/currDisease
+                                :org.msbase.relapse/onsetDate
+                                :org.msbase.relapse/fsAffected]}
+                            #_{:org.msbase/treatments
+                               [:org.msbase.pharmaTrts/localId
+                                :org.msbase.pharmaTrts/currDisease
+                                :org.msbase.pharmaTrts/type
+                                :org.msbase.pharmaTrts/startDate
+                                :org.msbase.pharmaTrts/endDate
+                                :org.msbase.pharmaTrts/name
+                                :org.msbase.pharmaTrts/dose
+                                :org.msbase.pharmaTrts/unit
+                                :org.msbase.pharmaTrts/period
+                                :org.msbase.pharmaTrts/route
+                                :org.msbase.pharmaTrts/stopCause]}
                             :t_patient/results
+                            {:org.msbase/cerebrospinalFluid [:org.msbase.csf/localId
+                                                             :org.msbase.csf/currDisease
+                                                             :org.msbase.csf/examDate
+                                                             :org.msbase.csf/csf
+                                                             :org.msbase.csf/olgBand
+                                                             :org.msbase.csf/nbOlig
+                                                             :org.msbase.csf/matchOCB]}
                             {:org.msbase/magneticResonanceImaging [:t_result/id :t_result_type/result_entity_name
                                                                    :org.msbase.mri/localId
                                                                    :org.msbase.mri/currDisease
