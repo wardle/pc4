@@ -134,7 +134,6 @@
   [{encounters :t_patient/encounters}]
   {::pco/input [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
    ::pco/output [{:org.msbase/visits [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
-  (morse/inspect {:resolver/visits {:encounters encounters}})
   {:org.msbase/visits (filterv :t_encounter/active encounters)})
 
 (pco/defresolver visit
@@ -159,6 +158,16 @@
      (or (when-not (str/blank? edss) (parse-double edss))
          (when-not (str/blank? edss-fs) (parse-double edss-fs))))})
 
+
+(pco/defresolver relapses
+  "Resolves 'relapse' type events for a given patient."
+  [{sms :t_patient/summary_multiple_sclerosis}]
+  {::pco/input [{:t_patient/summary_multiple_sclerosis
+                 [:t_summary_multiple_sclerosis/events]}]
+   ::pco/output [:org.msbase/relapses]}
+  {:org.msbase/relapses
+   (filterv :t_ms_event/is_relapse (:t_summary_multiple_sclerosis/events sms))})
+
 (pco/defresolver relapse
   [{:t_ms_event/keys [id date notes
                       site_arm_motor site_ataxia site_bulbar site_cognitive
@@ -176,7 +185,7 @@
                  :org.msbase.relapse/currDisease
                  :org.msbase.relapse/onsetDate
                  :org.msbase.relapse/fsAffected]}
-  {:org.msbase.relapse/localId     (str id)
+  {:org.msbase.relapse/localId     (str "com.eldrix.pc4.ms-event/" id)
    :org.msbase.relapse/currDisease nil
    :org.msbase.relapse/onsetDate   (format-iso-date date)
    :org.msbase.relapse/duration    nil
@@ -236,7 +245,7 @@
                  :org.msbase.pharmaTrts/period
                  :org.msbase.pharmaTrts/route
                  :org.msbase.pharmaTrts/stopCause]}
-  {:org.msbase.pharmaTrts/localId (str id)
+  {:org.msbase.pharmaTrts/localId (str "com.eldrix.pc4.medication/" id)
    :org.msbase.pharmaTrts/currDisease nil
    :org.msbase.pharmaTrts/type nil
    :org.msbase.pharmaTrts/startDate (format-iso-date date_from)
@@ -257,6 +266,7 @@
    visits
    visit
    visit->edss
+   relapses
    relapse
    treatment])
 
@@ -302,7 +312,11 @@
                               :org.msbase.visit/currDisease
                               :org.msbase.visit/visitDate
                               :org.msbase.visit/status
-                              :org.msbase.visit/edss]}]}]))
+                              :org.msbase.visit/edss]}
+                            {:org.msbase/relapses [:org.msbase.relapse/localId
+                                                   :org.msbase.relapse/currDisease
+                                                   :org.msbase.relapse/onsetDate
+                                                   :org.msbase.relapse/fsAffected]}]}]))
 
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
