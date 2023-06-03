@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.modules.msbase
   "Provides functionality to resolve the Unified MSBase JSON model from PatientCare."
-  (:require [clojure.java.process :as proc]
+  (:require [clojure.data.json :as json]
+            [clojure.java.process :as proc]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.hermes.core :as hermes]
@@ -173,6 +174,24 @@
      :org.msbase.msDiagnosis/clPoser    (get-in ms-diagnosis-categories [(:t_ms_diagnosis/id sms) :poser])}))
 
 
+(pco/defresolver medical-conditions
+  [{:t_patient/keys [diagnoses]}]
+  {::pco/input [:t_patient/diagnoses]
+   ::pco/output [:org.msbase/medicalConditions]}
+  (morse/inspect {:resolver/medicalConditions {:diagnoses diagnoses}})
+  {:org.msbase/medicalConditions
+   (remove #(= "INACTIVE_IN_ERROR" (:t_diagnosis/status %)) diagnoses)})
+
+(pco/defresolver medical-condition
+  [{:t_diagnosis/keys [id date_onset date_to diagnosis]}]
+  {::pco/input [:t_diagnosis/id (pco/? :t_diagnosis/date_onset) (pco/? :t_diagnosis/date_to)
+                {:t_diagnosis/diagnosis [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+  {:org.msbase.medicalCondition/localId (str "com.eldrix.pc4.diagnosis/" id)
+   :org.msbase.medicalCondition/currDisease nil
+   :org.msbase.medicalCondition/startDate (format-iso-date date_onset)
+   :org.msbase.medicalCondition/endDate (format-iso-date date_to)
+   :org.msbase.medicalCondition/name (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
+
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
   {::pco/input  [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
@@ -194,10 +213,11 @@
 (pco/defresolver visit->edss
   [{:t_encounter/keys [form_edss]}]
   {::pco/input  [{:t_encounter/form_edss [(pco/? :t_form_edss/score) (pco/? :t_form_edss_fs/score)]}]
-   ::pco/output [:org.msbase.visit/edss]}
-  {:org.msbase.visit/edss
-   (or (some-> (:t_form_edss/score form_edss) parse-double)
-       (some-> (:t_form_edss_fs/score form_edss) parse-double))})
+   ::pco/output [{:org.msbase.visit/basicMS [:org.msbase.basicMS/edss]}]}
+  (let [edss (or (some-> (:t_form_edss/score form_edss) parse-double)
+                 (some-> (:t_form_edss_fs/score form_edss) parse-double))]
+    {:org.msbase.visit/basicMS
+     (when edss {:org.msbase.basicMS/edss edss})}))
 
 (pco/defresolver relapses
   "Resolves 'relapse' type events for a given patient."
@@ -336,6 +356,14 @@
    (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
 
 (pco/defresolver magnetic-resonance-imaging
+  "This currently resolves using a generic results mechanism. In order to include imputed
+  lesion counts, the results could instead be generated using
+  ```
+  (-> (com.eldrix.pc4.rsdb.results/fetch-mri-brain-results (:com.eldrix.rsdb/conn system) nil {:t_patient/patient_identifier 84686})
+      (com.eldrix.pc4.rsdb.results/all-t2-counts))
+  ```
+
+  which would a) include detailed annotations and b) calculate lesions over time."
   [{id         :t_result/id date, :t_result/date, entity-name :t_result_type/result_entity_name
     spine-type :t_result_mri_spine/type, :as result}]
   {::pco/input [:t_result/id :t_result/date :t_result_type/result_entity_name
@@ -393,6 +421,8 @@
    medical-history
    ms-event-symptoms
    ms-diagnosis
+   medical-conditions
+   medical-condition
    visits
    visit
    visit->edss
@@ -441,12 +471,18 @@
      :org.msbase.demographics/firstName
      :org.msbase.demographics/lastName
      :org.msbase.demographics/nhsNumber]}
+   {:org.msbase/medicalConditions
+    [:org.msbase.medicalCondition/localId
+     :org.msbase.medicalCondition/currDisease
+     :org.msbase.medicalCondition/startDate
+     :org.msbase.medicalCondition/endDate
+     :org.msbase.medicalCondition/name]}
    {:org.msbase/visits
     [:org.msbase.visit/localId
      :org.msbase.visit/currDisease
      :org.msbase.visit/visitDate
      :org.msbase.visit/status
-     :org.msbase.visit/edss]}
+     {:org.msbase.visit/basicMS [:org.msbase.basicMS/edss]}]}
    {:org.msbase/relapses
     [:org.msbase.relapse/localId
      :org.msbase.relapse/currDisease
@@ -473,8 +509,7 @@
      :org.msbase.csf/nbOlig
      :org.msbase.csf/matchOCB]}
    {:org.msbase/magneticResonanceImaging
-    [:t_result/id :t_result_type/result_entity_name
-     :org.msbase.mri/localId
+    [:org.msbase.mri/localId
      :org.msbase.mri/currDisease
      :org.msbase.mri/examDate
      :org.msbase.mri/cnsRegion
@@ -490,6 +525,31 @@
      :org.msbase.mri/nbNewEnlarg]}])
 
 
+(defn fetch-patient
+  "Generates a single patient record in a format matching the Unified MSBase JSON model.
+  Parameters:
+  - pathom             : a Pathom boundary interface
+  - patient-identifier : patient identifier."
+  [pathom patient-identifier]
+  (let [result (get (pathom [{[:t_patient/patient_identifier patient-identifier] msbase-query}])
+                    [:t_patient/patient_identifier patient-identifier])]
+    {:identifiers {:resourceType (:>/resourceType result)
+                   :centreSource (:>/centreSource result)
+                   :appSource (:>/appSource result)}
+     :medicalRecords {:profile {:identification (:>/patientIdentification result)
+                                :demographics (:>/demographics result)
+                                :msDiagnosis (:>/msDiagnosis result)}
+                      :visits (:org.msbase/visits result)
+                      :relapses (:org.msbase/relapses result)
+                      :malignancies []
+                      :medicalConditions (:org.msbase/medicalConditions result)
+                      :mri (:org.msbase/magneticResonanceImaging result)
+                      :csf (:org.msbase/cerebrospinalFluid result)
+                      :pregnancies []
+                      :pharmaTrts (:org.msbase/treatments result)
+                      :nonPharmaTrts []}}))
+
+
 (comment
   (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
@@ -503,8 +563,9 @@
   (keys system)
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 84686] msbase-query}]))
-
-
+  (morse/inspect (fetch-patient pathom 84686))
+  (-> (com.eldrix.pc4.rsdb.results/fetch-mri-brain-results (:com.eldrix.rsdb/conn system) nil {:t_patient/patient_identifier 84686})
+      (com.eldrix.pc4.rsdb.results/all-t2-counts))
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
                            [{:t_patient/encounters [:t_encounter/date_time
