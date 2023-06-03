@@ -132,7 +132,7 @@
 
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
-  {::pco/input [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
+  {::pco/input  [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
    ::pco/output [{:org.msbase/visits [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
   {:org.msbase/visits (filterv :t_encounter/active encounters)})
 
@@ -150,20 +150,17 @@
 
 (pco/defresolver visit->edss
   [{:t_encounter/keys [form_edss]}]
-  {::pco/input [{:t_encounter/form_edss [(pco/? :t_form_edss/score) (pco/? :t_form_edss_fs/score)]}]
+  {::pco/input  [{:t_encounter/form_edss [(pco/? :t_form_edss/score) (pco/? :t_form_edss_fs/score)]}]
    ::pco/output [:org.msbase.visit/edss]}
   {:org.msbase.visit/edss
-   (let [edss (:t_form_edss/score form_edss)
-         edss-fs (:t_form_edss_fs/score form_edss)]
-     (or (when-not (str/blank? edss) (parse-double edss))
-         (when-not (str/blank? edss-fs) (parse-double edss-fs))))})
-
+   (or (some-> (:t_form_edss/score form_edss) parse-double)
+       (some-> (:t_form_edss_fs/score form_edss) parse-double))})
 
 (pco/defresolver relapses
   "Resolves 'relapse' type events for a given patient."
   [{sms :t_patient/summary_multiple_sclerosis}]
-  {::pco/input [{:t_patient/summary_multiple_sclerosis
-                 [:t_summary_multiple_sclerosis/events]}]
+  {::pco/input  [{:t_patient/summary_multiple_sclerosis
+                  [:t_summary_multiple_sclerosis/events]}]
    ::pco/output [:org.msbase/relapses]}
   {:org.msbase/relapses
    (filterv :t_ms_event/is_relapse (:t_summary_multiple_sclerosis/events sms))})
@@ -206,6 +203,35 @@
                                            (conj "bow"))
    :org.msbase.relapse/fsOther     notes})
 
+(pco/defresolver treatments
+  [{meds :t_patient/medications}]
+  {::pco/input  [:t_patient/medications]
+   ::pco/output [:org.msbase/treatments]}
+  {:org.msbase/treatments (remove #(= :RECORDED_IN_ERROR (:t_medication/reason_for_stopping %)) meds)})
+
+
+(def dmts
+  ["(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
+                  (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
+   "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
+                  OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
+   "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
+                            (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
+   "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
+                  (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
+   "<<12222201000001108|Plegridy|"
+   "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
+   (str/join " OR "
+             ["(<<108809004|Rituximab product|)"
+              "(<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
+              "(<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
+              "(<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
+   "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
+   "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
+   "<<108791001|Mitoxantrone| OR <<9482901000001102|Novantrone|"
+   "<<715640009|Fingolimod| OR <<10975301000001100|Gilenya|"
+   "<<414804006|Natalizumab| OR <<9375201000001103|Tysabri|"
+   "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"])
 
 (def stop-causes
   {:CHANGE_OF_DOSE              "scheduled"
@@ -227,13 +253,15 @@
    :SCHEDULED_STOP              "scheduled"})
 
 (pco/defresolver treatment
-  [{:t_medication/keys [id date_from date_to reason_for_stopping medication]}]
-  {::pco/input [:t_medication/id
-                :t_medication/date_from
-                :t_medication/date_to
-                :t_medication/reason_for_stopping
-                {:t_medication/medication
-                 [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+  [{hermes :com.eldrix.hermes.graph/svc}
+   {:t_medication/keys [id medication_concept_fk date_from date_to reason_for_stopping medication]}]
+  {::pco/input  [:t_medication/id
+                 :t_medication/medication_concept_fk
+                 :t_medication/date_from
+                 :t_medication/date_to
+                 :t_medication/reason_for_stopping
+                 {:t_medication/medication
+                  [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
    ::pco/output [:org.msbase.pharmaTrts/localId
                  :org.msbase.pharmaTrts/currDisease
                  :org.msbase.pharmaTrts/type
@@ -245,17 +273,18 @@
                  :org.msbase.pharmaTrts/period
                  :org.msbase.pharmaTrts/route
                  :org.msbase.pharmaTrts/stopCause]}
-  {:org.msbase.pharmaTrts/localId (str "com.eldrix.pc4.medication/" id)
+  {:org.msbase.pharmaTrts/localId     (str "com.eldrix.pc4.medication/" id)
    :org.msbase.pharmaTrts/currDisease nil
-   :org.msbase.pharmaTrts/type nil
-   :org.msbase.pharmaTrts/startDate (format-iso-date date_from)
-   :org.msbase.pharmaTrts/endDate (format-iso-date date_to)
-   :org.msbase.pharmaTrts/name (get-in medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term)
-   :org.msbase.pharmaTrts/dose nil
-   :org.msbase.pharmaTrts/unit nil
-   :org.msbase.pharmaTrts/period nil
-   :org.msbase.pharmaTrts/route nil
-   :org.msbase.pharmaTrts/stopCause (get stop-causes reason_for_stopping)})
+   :org.msbase.pharmaTrts/type        (when (seq (hermes/intersect-ecl hermes [medication_concept_fk] (str/join " OR " dmts))) "dmt")
+   :org.msbase.pharmaTrts/startDate   (format-iso-date date_from)
+   :org.msbase.pharmaTrts/endDate     (format-iso-date date_to)
+   :org.msbase.pharmaTrts/name        (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+   :org.msbase.pharmaTrts/dose        (:t_medication/dose medication)
+   :org.msbase.pharmaTrts/unit        (:t_medication/units medication)
+   :org.msbase.pharmaTrts/period      nil
+   :org.msbase.pharmaTrts/route       (some-> (:t_medication/route medication) name)
+   :org.msbase.pharmaTrts/stopCause   (get stop-causes reason_for_stopping)})
+
 
 (def all-resolvers
   [patient-identification
@@ -268,11 +297,12 @@
    visit->edss
    relapses
    relapse
+   treatments
    treatment])
 
 
-
 (comment
+  (java.util.Locale/getDefault)
   (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
   (require '[com.eldrix.pc4.system :as pc4])
@@ -284,7 +314,7 @@
   (do (pc4/halt! system) (def system (pc4/init :dev/dell)) (def pathom (:pathom/boundary-interface system)))
   (keys system)
 
-  (morse/inspect (pathom [{[:t_patient/patient_identifier 8876]
+  (morse/inspect (pathom [{[:t_patient/patient_identifier 84686]
                            [:t_patient/patient_identifier
                             {:>/patientIdentification
                              [:org.msbase.identification/localId
@@ -313,13 +343,28 @@
                               :org.msbase.visit/visitDate
                               :org.msbase.visit/status
                               :org.msbase.visit/edss]}
-                            {:org.msbase/relapses [:org.msbase.relapse/localId
-                                                   :org.msbase.relapse/currDisease
-                                                   :org.msbase.relapse/onsetDate
-                                                   :org.msbase.relapse/fsAffected]}]}]))
+                            {:org.msbase/relapses
+                             [:org.msbase.relapse/localId
+                              :org.msbase.relapse/currDisease
+                              :org.msbase.relapse/onsetDate
+                              :org.msbase.relapse/fsAffected]}
+                            {:org.msbase/treatments
+                             [:org.msbase.pharmaTrts/localId
+                              :org.msbase.pharmaTrts/currDisease
+                              :org.msbase.pharmaTrts/type
+                              :org.msbase.pharmaTrts/startDate
+                              :org.msbase.pharmaTrts/endDate
+                              :org.msbase.pharmaTrts/name
+                              :org.msbase.pharmaTrts/dose
+                              :org.msbase.pharmaTrts/unit
+                              :org.msbase.pharmaTrts/period
+                              :org.msbase.pharmaTrts/route
+                              :org.msbase.pharmaTrts/stopCause]}]}]))
 
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
                            [{:t_patient/encounters [:t_encounter/date_time
                                                     :t_encounter/form_ms_relapse
-                                                    {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]}]}])))
+                                                    {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]}]}]))
+  (require '[com.eldrix.pc4.modules.dmt :as dmt])
+  (hermes/intersect-ecl (:com.eldrix/hermes system) [321958004] (str/join " OR " dmts)))
