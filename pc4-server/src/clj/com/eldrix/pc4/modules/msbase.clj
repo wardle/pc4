@@ -6,18 +6,53 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.system :as pc4]
             [com.wsscode.pathom3.connect.operation :as pco])
-  (:import (java.time.format DateTimeFormatter)
+  (:import (java.time Instant)
+           (java.time.format DateTimeFormatter)
            (java.time.temporal TemporalAccessor)))
 
 (defn format-iso-date [^TemporalAccessor d]
   (when d (.format (DateTimeFormatter/ISO_LOCAL_DATE) d)))
 
-(def application-id #uuid"c626da87-82a7-49ce-9449-bcbbd3c36dc6")
+(def application-id
+  "This is the unique and persistent identifier for PatientCare within MSBase."
+  #uuid"c626da87-82a7-49ce-9449-bcbbd3c36dc6")
 
 (pco/defresolver app-source []
-  {:org.msbase.appSource/appId application-id
-   :org.msbase.appSource/appName "PatientCare"
+  {:org.msbase.appSource/appId      application-id
+   :org.msbase.appSource/appName    "PatientCare"
    :org.msbase.appSource/appVersion (try (proc/exec "git" "describe") (catch RuntimeException e (log/error "Failed to execute process" e)))})
+
+(pco/defresolver resource-type []
+  {:org.msbase.resourceType/objectType     "MSBaseMedicalRecords"
+   :org.msbase.resourceType/schemaVersion  "1.0.0"
+   :org.msbase.resourceType/generationDate (.format (DateTimeFormatter/ISO_INSTANT) (Instant/now))})
+
+
+(def centres
+  [{:id      #uuid"03ba14b7-3fda-43e0-ab9d-f8bbac648706"
+    :name    "cardiff"
+    :project "NINFLAMMCARDIFF"}
+   {:id      #uuid"28c35eb0-22a9-4d9e-9d8b-70021002fa6a"
+    :name    "cambridge"
+    :project nil}
+   {:id      #uuid"d67203ea-7518-4f9d-84c5-128f291b25bf"
+    :name    "plymouth"
+    :project nil}])
+
+(pco/defresolver centre-source
+  "Resolve a 'centre' for a patient based upon the episode registration data.
+  This simply iterates the known centres and looks for matching project registrations
+  for the patient. TODO: This doesn't limit to active episodes."
+  [{episodes :t_patient/episodes}]
+  {::pco/input  [{:t_patient/episodes [{:t_episode/project [:t_project/id :t_project/name :t_project/title]}]}]
+   ::pco/output [:org.msbase.centreSource/centreId
+                 :org.msbase.centreSource/centreName
+                 :org.msbase.centreSource/centreCountry]}
+  (let [project-names (set (map #(get-in % [:t_episode/project :t_project/name]) episodes))
+        centre (first (filter #(project-names (:project %)) centres))]
+    {:org.msbase.centreSource/centreId      (:id centre)
+     :org.msbase.centreSource/centreName    (:name centre)
+     :org.msbase.centreSource/centreCountry (or (:country centre) "UK")}))
 
 (pco/defresolver patient-identification
   "Resolves MSBase 'identification' data. See https://msbasecloud.prosynergie.ch/docs/demographics"
@@ -351,6 +386,8 @@
 
 (def all-resolvers
   [app-source
+   resource-type
+   centre-source
    patient-identification
    demographics
    medical-history
@@ -375,6 +412,14 @@
     [:org.msbase.appSource/appId
      :org.msbase.appSource/appName
      :org.msbase.appSource/appVersion]}
+   {:>/resourceType
+    [:org.msbase.resourceType/objectType
+     :org.msbase.resourceType/schemaVersion
+     :org.msbase.resourceType/generationDate]}
+   {:>/centreSource
+    [:org.msbase.centreSource/centreId
+     :org.msbase.centreSource/centreName
+     :org.msbase.centreSource/centreCountry]}
    {:>/patientIdentification
     [:org.msbase.identification/localId
      :org.msbase.identification/isActive
@@ -457,7 +502,10 @@
   (do (pc4/halt! system) (def system (pc4/init :dev/dell)) (def pathom (:pathom/boundary-interface system)))
   (keys system)
 
-  (morse/inspect (pathom [{[:t_patient/patient_identifier 84686] msbase-query}]))
+  (morse/inspect (pathom [{[:t_patient/patient_identifier 84686]
+                           (conj msbase-query
+                                 {:t_patient/episodes [:t_episode/date_referral :t_episode/date_registration :t_episode/date_discharge
+                                                       {:t_episode/project [:t_project/name]}]})}]))
 
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
