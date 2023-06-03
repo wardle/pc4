@@ -285,6 +285,46 @@
    :org.msbase.pharmaTrts/route       (some-> (:t_medication/route medication) name)
    :org.msbase.pharmaTrts/stopCause   (get stop-causes reason_for_stopping)})
 
+(pco/defresolver magnetic-resonance-imaging-results
+  [{results :t_patient/results}]
+  {::pco/input  [:t_patient/results]
+   ::pco/output [:org.msbase/magneticResonanceImaging]}
+  {:org.msbase/magneticResonanceImaging
+   (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
+
+(pco/defresolver magnetic-resonance-imaging
+  [{id         :t_result/id date, :t_result/date, entity-name :t_result_type/result_entity_name
+    spine-type :t_result_mri_spine/type, :as result}]
+  {::pco/input [:t_result/id :t_result/date :t_result_type/result_entity_name
+                (pco/? :t_result_mri_spine/type)]}
+  {:org.msbase.mri/localId     (str "com.eldrix.pc4.result/" id)
+   :org.msbase.mri/currDisease nil
+   :org.msbase.mri/examDate    (format-iso-date date)
+   :org.msbase.mri/cnsRegion   (clojure.core.match/match [entity-name spine-type]
+                                 ["ResultMriBrain" nil] "brai"
+                                 ["ResultMriSpine" "CERVICAL_AND_THORACIC"] "spin"
+                                 ["ResultMriSpine" "CERVICAL"] "cerv"
+                                 ["ResultMriSpine" "WHOLE_SPINE"] "spin"
+                                 ["ResultMriSpine" "THORACIC"] "thor"
+                                 ["ResultMriSpine" nil] "spin"
+                                 :else nil)
+   :org.msbase.mri/isT1        nil
+   :org.msbase.mri/t1Status    nil
+   :org.msbase.mri/nbT1Les     nil
+   :org.msbase.mri/isT1Gd      (:t_result_mri_brain/with_gadolinium result)
+   :org.msbase.mri/t1GdStatus  nil
+   :org.msbase.mri/nbT1GdLes   nil
+   :org.msbase.mri/isT2        nil
+   :org.msbase.mri/t2Status    nil
+   :org.msbase.mri/nbT2Les     nil
+   :org.msbase.mri/nbNewEnlarg nil})
+
+(pco/defresolver cerebrospinal-fluid-results
+  [{results :t_patient/results}]
+  {::pco/input  [:t_patient/results]
+   ::pco/output [:org.msbase/cerebrospinalFluid]}
+  {:org.msbase/cerebrospinalFluid
+   (filterv #(#{"CSF oligoclonal bands"} (:t_result_type/name %)) results)})
 
 (def all-resolvers
   [patient-identification
@@ -298,7 +338,10 @@
    relapses
    relapse
    treatments
-   treatment])
+   treatment
+   magnetic-resonance-imaging-results
+   magnetic-resonance-imaging
+   cerebrospinal-fluid-results])
 
 
 (comment
@@ -359,7 +402,23 @@
                               :org.msbase.pharmaTrts/unit
                               :org.msbase.pharmaTrts/period
                               :org.msbase.pharmaTrts/route
-                              :org.msbase.pharmaTrts/stopCause]}]}]))
+                              :org.msbase.pharmaTrts/stopCause]}
+                            :t_patient/results
+                            {:org.msbase/magneticResonanceImaging [:t_result/id :t_result_type/result_entity_name
+                                                                   :org.msbase.mri/localId
+                                                                   :org.msbase.mri/currDisease
+                                                                   :org.msbase.mri/examDate
+                                                                   :org.msbase.mri/cnsRegion
+                                                                   :org.msbase.mri/isT1
+                                                                   :org.msbase.mri/t1Status
+                                                                   :org.msbase.mri/nbT1Les
+                                                                   :org.msbase.mri/isT1Gd
+                                                                   :org.msbase.mri/t1GdStatus
+                                                                   :org.msbase.mri/nbT1GdLes
+                                                                   :org.msbase.mri/isT2
+                                                                   :org.msbase.mri/t2Status
+                                                                   :org.msbase.mri/nbT2Les
+                                                                   :org.msbase.mri/nbNewEnlarg]}]}]))
 
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
