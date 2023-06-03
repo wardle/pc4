@@ -132,8 +132,9 @@
 
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
-  {::pco/input [{:t_patient/encounters [:t_encounter/id :t_encounter/active]}]
-   ::pco/output [{:org.msbase/visits [:t_encounter/id]}]}
+  {::pco/input [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
+   ::pco/output [{:org.msbase/visits [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
+  (morse/inspect {:resolver/visits {:encounters encounters}})
   {:org.msbase/visits (filterv :t_encounter/active encounters)})
 
 (pco/defresolver visit
@@ -296,7 +297,7 @@
                               :org.msbase.demographics/firstName
                               :org.msbase.demographics/lastName
                               :org.msbase.demographics/nhsNumber]}
-                            {:t_patient/encounters
+                            {:org.msbase/visits
                              [:org.msbase.visit/localId
                               :org.msbase.visit/currDisease
                               :org.msbase.visit/visitDate
