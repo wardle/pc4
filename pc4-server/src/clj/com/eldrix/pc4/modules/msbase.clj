@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.modules.msbase
   "Provides functionality to resolve the Unified MSBase JSON model from PatientCare."
-  (:require [com.eldrix.hermes.core :as hermes]
+  (:require [clojure.string :as str]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.system :as pc4]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco])
@@ -136,9 +137,8 @@
   {:org.msbase/visits (filterv :t_encounter/active encounters)})
 
 (pco/defresolver visit
-  [{:t_encounter/keys [id date_time form_edss]}]
-  {::pco/input  [:t_encounter/id :t_encounter/active :t_encounter/date_time
-                 {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]
+  [{:t_encounter/keys [id date_time]}]
+  {::pco/input  [:t_encounter/id :t_encounter/active :t_encounter/date_time]
    ::pco/output [:org.msbase.visit/localId
                  :org.msbase.visit/currDisease
                  :org.msbase.visit/visitDate
@@ -146,8 +146,17 @@
   {:org.msbase.visit/localId     id
    :org.msbase.visit/visitDate   (format-iso-date date_time)
    :org.msbase.visit/currDisease nil
-   :org.msbase.visit/status      nil
-   :org.msbase.visit/edss        (or (:t_form_edss/score form_edss) (:t_form_edss_fs/score form_edss))})
+   :org.msbase.visit/status      nil})
+
+(pco/defresolver visit->edss
+  [{:t_encounter/keys [form_edss]}]
+  {::pco/input [{:t_encounter/form_edss [(pco/? :t_form_edss/score) (pco/? :t_form_edss_fs/score)]}]
+   ::pco/output [:org.msbase.visit/edss]}
+  {:org.msbase.visit/edss
+   (let [edss (:t_form_edss/score form_edss)
+         edss-fs (:t_form_edss_fs/score form_edss)]
+     (or (when-not (str/blank? edss) (parse-double edss))
+         (when-not (str/blank? edss-fs) (parse-double edss-fs))))})
 
 (pco/defresolver relapse
   [{:t_ms_event/keys [id date notes
@@ -246,6 +255,7 @@
    ms-diagnosis
    visits
    visit
+   visit->edss
    relapse
    treatment])
 
@@ -286,7 +296,7 @@
                               :org.msbase.demographics/firstName
                               :org.msbase.demographics/lastName
                               :org.msbase.demographics/nhsNumber]}
-                            {:org.msbase/visits
+                            {:t_patient/encounters
                              [:org.msbase.visit/localId
                               :org.msbase.visit/currDisease
                               :org.msbase.visit/visitDate
