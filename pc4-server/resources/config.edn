@@ -2,9 +2,11 @@
 ;; This is an integrant configuration file
 ;;
 ;; There are three main profiles currently:
-;; - :dev     : this profile is used during development
-;; - :cvx     : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
-;; - :pc4     : this profile is active when deployed on AWS infrastructure
+;; - :dev      : this profile is used during development
+;; - :dev/dell : profile on Dell arch linux laptop
+;; - :dev/nuc  : profile on nuc arch linux desktop
+;; - :cvx      : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
+;; - :pc4      : this profile is active when deployed on AWS infrastructure
 ;;
 ;; There is an additional development profile:
 ;; - ::pc4-dev : this profile is for use in development but connects to the remote live AWS infrastructure
@@ -44,40 +46,46 @@
 
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
- {:path #profile {:default "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
-                  :pc4     "/var/pc4/nhspd-2021-08-16.db"
-                  :cvx     "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
+ {:path #profile {:default  "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
+                  :dev/dell "/home/mark/Dev/nhspd/nhspd-2022-11-10.db"
+                  :pc4      "/var/pc4/nhspd-2021-08-16.db"
+                  :cvx      "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
  ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
- {:path  #profile {:default "/Users/mark/Dev/clods/ods-2023-03-01.db"
-                   :pc4     "/var/pc4/ods-2021-06-25.db"
-                   :cvx     "/opt/Local/var/db/pc4/ods-2021-08-24"}
+ {:path  #profile {:default  "/Users/mark/Dev/clods/ods-2023-03-01.db"
+                   :dev/dell "/home/mark/Dev/clods/ods-2023-05-22.db"
+                   :pc4      "/var/pc4/ods-2021-06-25.db"
+                   :cvx      "/opt/Local/var/db/pc4/ods-2021-08-24"}
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  ;; service providing access to the ODS weekly dataset
  :com.eldrix/ods-weekly
- {:path #profile {:default "/Users/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
-                  :pc4     "/var/pc4/ods-weekly-2022-06-09.db"
-                  :cvx     "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
+                  :dev/dell "/home/mark/Dev/ods-weekly/ods-weekly-2023-06-01.db"
+                  :pc4      "/var/pc4/ods-weekly-2022-06-09.db"
+                  :cvx      "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
- {:path #profile {:default "/Users/mark/Dev/deprivare/depriv.db"
-                  :pc4     "/var/pc4/depriv.db"
-                  :cvx     "/opt/Local/var/db/pc4/depriv.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/deprivare/depriv.db"
+                  :dev/dell "/home/mark/Dev/deprivare/depriv.db"
+                  :pc4      "/var/pc4/depriv.db"
+                  :cvx      "/opt/Local/var/db/pc4/depriv.db"}}
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
- {:path #profile {:default "/Users/mark/Dev/dmd/dmd-2023-04-24.db"
-                  :pc4     "/var/pc4/dmd-2021-09-27.db"
-                  :cvx     "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/dmd/dmd-2023-04-24.db"
+                  :dev/dell "/home/mark/Dev/dmd/dmd-2023-05-29.db"
+                  :pc4      "/var/pc4/dmd-2021-09-27.db"
+                  :cvx      "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
  ;; service providing access to SNOMED CT
  :com.eldrix/hermes
- {:path #profile {:default "/Users/mark/Dev/hermes/snomed.db"
-                  :pc4     "/var/pc4/snomed-2022-05-17.db"
-                  :cvx     "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/hermes/snomed.db"
+                  :dev/dell "/home/mark/Dev/hermes/snomed-2023-05-10.db"
+                  :pc4      "/var/pc4/snomed-2022-05-17.db"
+                  :cvx      "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
  ;; service providing access to the NHS Wales' NADEX (Active Directory) service
  :wales.nhs/nadex
