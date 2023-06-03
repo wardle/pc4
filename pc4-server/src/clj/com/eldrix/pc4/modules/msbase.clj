@@ -502,10 +502,8 @@
   (do (pc4/halt! system) (def system (pc4/init :dev/dell)) (def pathom (:pathom/boundary-interface system)))
   (keys system)
 
-  (morse/inspect (pathom [{[:t_patient/patient_identifier 84686]
-                           (conj msbase-query
-                                 {:t_patient/episodes [:t_episode/date_referral :t_episode/date_registration :t_episode/date_discharge
-                                                       {:t_episode/project [:t_project/name]}]})}]))
+  (morse/inspect (pathom [{[:t_patient/patient_identifier 84686] msbase-query}]))
+
 
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
