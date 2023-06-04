@@ -178,7 +178,6 @@
   [{:t_patient/keys [diagnoses]}]
   {::pco/input [:t_patient/diagnoses]
    ::pco/output [:org.msbase/medicalConditions]}
-  (morse/inspect {:resolver/medicalConditions {:diagnoses diagnoses}})
   {:org.msbase/medicalConditions
    (remove #(= "INACTIVE_IN_ERROR" (:t_diagnosis/status %)) diagnoses)})
 
