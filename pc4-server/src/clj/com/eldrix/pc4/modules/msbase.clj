@@ -562,9 +562,19 @@
   (keys system)
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 84686] msbase-query}]))
-  (morse/inspect (fetch-patient pathom 84686))
+  (morse/inspect (json/write-str (fetch-patient pathom 84686)))
   (-> (com.eldrix.pc4.rsdb.results/fetch-mri-brain-results (:com.eldrix.rsdb/conn system) nil {:t_patient/patient_identifier 84686})
       (com.eldrix.pc4.rsdb.results/all-t2-counts))
+
+
+  ;;; pc4 - live
+  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
+  (require '[com.eldrix.pc4.modules.dmt :as dmt])
+  (def patient-ids (dmt/fetch-study-patient-identifiers system :cambridge))
+  (count patient-ids)
+  (doseq [patient-id patient-ids]
+    (spit (str "cambridge-" patient-id ".json") (json/write-str (fetch-patient (:pathom/boundary-interface system) patient-id))))
+
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
                            [{:t_patient/encounters [:t_encounter/date_time
