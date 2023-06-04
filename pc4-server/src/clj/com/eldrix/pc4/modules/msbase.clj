@@ -35,10 +35,10 @@
     :project "NINFLAMMCARDIFF"}
    {:id      #uuid"28c35eb0-22a9-4d9e-9d8b-70021002fa6a"
     :name    "cambridge"
-    :project nil}
+    :project "CAMBRIDGEMS"}
    {:id      #uuid"d67203ea-7518-4f9d-84c5-128f291b25bf"
     :name    "plymouth"
-    :project nil}])
+    :project "PLYMOUTH"}])
 
 (pco/defresolver centre-source
   "Resolve a 'centre' for a patient based upon the episode registration data.
