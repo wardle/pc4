@@ -137,16 +137,7 @@
               sort
               (map #(log/info "op: " %))))
   (merge (dissoc env :pathom/ops)
-         (-> (pci/register {::p.error/lenient-mode? true} ops)
-             (com.wsscode.pathom3.plugin/register {:com.wsscode.pathom3.plugin/id 'err
-                                                   :com.wsscode.pathom3.connect.runner/wrap-resolver-error
-                                                   (fn [_] (fn [env node error]
-                                                             (when error (.printStackTrace error))
-                                                             (log/error "Resolver error " {:error error :message (ex-message error) :cause (ex-data error)})))
-                                                   :com.wsscode.pathom3.connect.runner/wrap-mutation-error
-                                                   (fn [_]
-                                                     (fn [env ast error]
-                                                       (log/error "Mutation error " {:key (:key ast) :error (ex-message error)})))}))))
+         (pci/register {::p.error/lenient-mode? true} ops)))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
