@@ -6,7 +6,7 @@
              com.zaxxer/HikariCP               {:mvn/version "5.0.1"}
              com.eldrix/clods                  {:mvn/version "1.1.198"}
              com.eldrix/concierge              {:mvn/version "1.0.150"}
-             com.eldrix/hermes                 {:mvn/version "1.2.1195"}
+             com.eldrix/hermes                 {:mvn/version "1.2.1208"}
              migratus/migratus                 {:mvn/version "1.5.1"}
              wonder.core/ERExtensions          {:mvn/version "7.3"
                                                 :exclusions  [log4j/log4j

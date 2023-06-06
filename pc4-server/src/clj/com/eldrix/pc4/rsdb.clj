@@ -134,13 +134,14 @@
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
                                                  (clods/parse-org-id hospital_identifier))
         org (clods/fetch-org clods root extension)]
-    (cond
-      ;; Is this a hospital within Cardiff and Vale UHB?
-      (clods/related? clods org (clods/fetch-org clods nil "7A4"))
-      {:t_patient_hospital/authoritative_demographics :CAVUHB}
-      ;; Is this a hospital within Aneurin Bevan UHB?
-      (clods/related? clods org (clods/fetch-org clods nil "7A6"))
-      {:t_patient_hospital/authoritative_demographics :ABUHB})))
+    {:t_patient_hospital/authoritative_demographics
+     (cond
+       ;; Is this a hospital within Cardiff and Vale UHB?
+       (clods/related? clods org (clods/fetch-org clods nil "7A4"))
+       :CAVUHB
+       ;; Is this a hospital within Aneurin Bevan UHB?
+       (clods/related? clods org (clods/fetch-org clods nil "7A6"))
+       :ABUHB)}))
 
 (pco/defresolver patient-hospital->hospital-crn
   "Resolves a valid namespaced hospital identifier based on the combination of
@@ -152,11 +153,10 @@
                                         crn  :t_patient_hospital/patient_identifier}]
   {::pco/input  [:t_patient_hospital/authoritative_demographics
                  :t_patient_hospital/patient_identifier]
-   ::pco/output [:wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
-  (case auth
-    :CAVUHB {:wales.nhs.cavuhb.Patient/HOSPITAL_ID crn}
-    :ABUHB {:wales.nhs.abuhb.Patient/CRN crn}
-    nil))
+   ::pco/output [:wales.nhs.abuhb.Patient/CRN
+                 :wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
+  {:wales.nhs.abuhb.Patient/CRN (when (= auth :CAVUHB) crn)
+   :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB crn))})
 
 (pco/defresolver patient->demographics-authority
   [{authoritative_demographics :t_patient/authoritative_demographics
@@ -373,7 +373,7 @@
 (pco/defresolver address->housing
   [{concept-id :t_address/housing_concept_fk}]
   {::pco/output [{:t_address/housing [:info.snomed.Concept/id]}]}
-  (when concept-id {:t_address/housing {:info.snomed.Concept/id concept-id}}))
+  {:t_address/housing (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->episodes
   [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
@@ -518,14 +518,14 @@
   [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {:t_project/keys [id]}]
   {::pco/input  [:t_project/id]
    ::pco/output [{:t_project/common_concepts [:info.snomed.Concept/id]}]}
-  (let [concept-ids (projects/common-concepts conn id)
-        ecl (:ecl (pco/params env))]
-    (when (seq concept-ids)
-      {:t_project/common_concepts
+  {:t_project/common_concepts
+   (let [concept-ids (projects/common-concepts conn id)
+         ecl (:ecl (pco/params env))]
+     (when (seq concept-ids)
        (if (str/blank? ecl)
          (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
          (->> (hermes/intersect-ecl hermes concept-ids ecl)
-              (mapv #(hash-map :info.snomed.Concept/id %))))})))
+              (mapv #(hash-map :info.snomed.Concept/id %))))))})
 
 (pco/defresolver project->users
   "Returns a vector of users for the project. An individual may be listed more
@@ -602,7 +602,7 @@
 (pco/defresolver encounter->hospital
   [{hospital-id :t_encounter/hospital_fk}]
   {::pco/output [{:t_encounter/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
-  (when hospital-id {:t_encounter/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id}}))
+  {:t_encounter/hospital (when hospital-id {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id})})
 
 (pco/defresolver encounter->encounter_template
   [{:com.eldrix.rsdb/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]

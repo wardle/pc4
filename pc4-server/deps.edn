@@ -1,5 +1,5 @@
 {:paths     ["src/clj" "src/cljc" "resources"]
- :deps      {org.clojure/clojure               {:mvn/version "1.11.1"}
+ :deps      {org.clojure/clojure               {:mvn/version "1.12.0-alpha2"}
              org.clojure/core.async            {:mvn/version "1.6.673"}
              org.clojure/data.csv              {:mvn/version "1.0.1"}
              org.clojure/data.xml              {:mvn/version "0.2.0-alpha8"}
@@ -17,7 +17,7 @@
              com.eldrix/concierge              {:mvn/version "1.0.150"}
              com.eldrix/deprivare              {:mvn/version "1.0.59"}
              com.eldrix/dmd                    {:mvn/version "0.6.153"}
-             com.eldrix/hermes                 {:mvn/version "1.2.1201-alpha"}
+             com.eldrix/hermes                 {:mvn/version "1.2.1208"}
              com.eldrix.pc4/rsdb               {:local/root "../pc4-rsdb"}
 
              aero/aero                         {:mvn/version "1.1.6"}
