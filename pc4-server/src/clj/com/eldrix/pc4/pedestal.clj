@@ -60,18 +60,30 @@
   [ctx env params]
   (let [pathom (:pathom/boundary-interface ctx)
         result (try (pathom env params) (catch Throwable e e))
-        mutation-error (if (instance? Throwable result) result (some identity (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result))))]
-    (if-not mutation-error
-      (do (log/debug "pathom success: " {:request params
-                                         :result  result})
-          (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result))))
-      (let [error (Throwable->map mutation-error)
-            error-data (ex-data mutation-error)]
-        (log/error "pathom error: " {:request (get-in ctx [:request :transit-params])
-                                     :cause   error})
+        exception? (instance? Throwable result)             ;; in lenient mode, Pathom should not throw exceptions
+        errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
+    (morse/inspect {:pathom {:request (get-in ctx [:request :transit-params])
+                             :exception? exception?
+                             :result result
+                             :errors (seq errors)}})
+    (cond
+      exception?
+      (let [error (Throwable->map result)
+            error-data (ex-data result)]
+        (log/error "pathom exception: " {:request (get-in ctx [:request :transit-params])
+                                         :cause   error})
         (tap> {:mutation-error error})
         (when error-data (log/info "error" error-data))
-        (assoc ctx :response (ok {:error (:cause error)}))))))
+        (assoc ctx :response (ok {:error (:cause error)}))) ;; TODO: should be a server error
+      (seq errors)
+      (do
+        (log/error "pathom errors" {:request (get-in ctx [:request :transit-params])
+                                    :errors  (map :cause errors)})
+        (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result))))
+      :else
+      (do (log/debug "pathom success: " {:request params :result result})
+          (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))))
+
 
 (defn landing-page []
   [:html {:lang "en"}
@@ -129,7 +141,7 @@
   {:name  ::attach-claims
    :enter (fn [ctx]
             (let [auth-header (get-in ctx [:request :headers "authorization"])
-                  _ (log/debug "request auth:" auth-header)
+                  _ (log/trace "request auth:" auth-header)
                   [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
                   login-config (:com.eldrix.pc4/login ctx)
                   claims (when (and token login-config) (users/check-user-token token login-config))]
