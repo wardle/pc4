@@ -62,10 +62,6 @@
         result (try (pathom env params) (catch Throwable e e))
         exception? (instance? Throwable result)             ;; in lenient mode, Pathom should not throw exceptions
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
-    (morse/inspect {:pathom {:request (get-in ctx [:request :transit-params])
-                             :exception? exception?
-                             :result result
-                             :errors (seq errors)}})
     (cond
       exception?
       (let [error (Throwable->map result)
