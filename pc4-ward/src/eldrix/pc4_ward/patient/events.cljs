@@ -269,13 +269,13 @@
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
     (js/console.log "register pseudonymous patient response: " result)
-    (if result
-      {:db (assoc-in db [:patient/current :patient] result)
-       :fx [[:dispatch [::events/push-state :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
-                                                                           :pseudonym  (:t_episode/stored_pseudonym result)}]]]}
+    (if (:com.wsscode.pathom3.connect.runner/mutation-error result)
       {:db (-> db
                (dissoc :patient/current)
-               (assoc-in [:errors :open-patient] "Mismatch in patient demographics."))})))
+               (assoc-in [:errors :open-patient] "Mismatch in patient demographics."))}
+      {:db (assoc-in db [:patient/current :patient] result)
+       :fx [[:dispatch [::events/push-state :patient-by-project-pseudonym {:project-id (:t_episode/project_fk result)
+                                                                           :pseudonym  (:t_episode/stored_pseudonym result)}]]]})))
 
 
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
