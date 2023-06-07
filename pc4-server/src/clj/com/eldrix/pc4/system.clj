@@ -142,8 +142,10 @@
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
     (log/info "Connecting pathom-viz" config)
-    (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
-      (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config))))
+    (try
+      (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
+        (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config)))
+      (catch Exception e (log/warn "Unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))
 
 (defmethod aero/reader 'ig/ref [_ _ x]
