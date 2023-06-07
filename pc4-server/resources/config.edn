@@ -179,6 +179,11 @@
                     :dev     {:connect-viz true}}
   :env    #ig/ref :pathom/env}
 
+ ;; front-end components are compiled and available in public/js/compiled. The output names
+ ;; are described in a shadow cljs manifest file
+ :com.eldrix.pc4/cljs-modules
+ {:manifest-path "public/js/compiled/manifest.edn"}
+
  :com.eldrix.pc4.pedestal/server
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
@@ -190,5 +195,6 @@
                     :com.eldrix.rsdb/conn            #ig/ref :com.eldrix.rsdb/conn
                     :com.eldrix.pc4/login            #ig/ref :com.eldrix.pc4/login
                     :com.eldrix.pc4/filestorage      #ig/ref :com.eldrix.pc4/filestorage
-                    :com.eldrix.pc4/check-migrations #ig/ref :com.eldrix.rsdb/check-migrations}}}
+                    :com.eldrix.pc4/check-migrations #ig/ref :com.eldrix.rsdb/check-migrations
+                    :com.eldrix.pc4/cljs-modules     #ig/ref :com.eldrix.pc4/cljs-modules}}}
 

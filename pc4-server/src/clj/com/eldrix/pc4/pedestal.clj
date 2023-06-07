@@ -75,13 +75,13 @@
       (do
         (log/error "pathom errors" {:request (get-in ctx [:request :transit-params])
                                     :errors  (map :cause errors)})
-        (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result))))
+        (assoc ctx :response (merge {:status 400 :body result} (api-middleware/apply-response-augmentations result))))
       :else
       (do (log/debug "pathom success: " {:request params :result result})
           (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))))
 
 
-(defn landing-page []
+(defn landing-page [src]
   [:html {:lang "en"}
    [:head
     [:meta {:charset "UTF-8"}]
@@ -91,13 +91,14 @@
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
-    [:script {:src "js/compiled/app-2023-05-30.js"}]]])
+    [:script {:src (str "js/compiled/" src)}]]])
 
 (def landing
   {:name  ::landing
    :enter (fn [ctx]
-            (assoc ctx :response {:status 200 :headers {"Content-Type" "text/html"}
-                                  :body   (rum/render-html (landing-page))}))})
+            (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :app :output-name])]
+              (assoc ctx :response {:status 200 :headers {"Content-Type" "text/html"}
+                                    :body   (rum/render-html (landing-page app))})))})
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
