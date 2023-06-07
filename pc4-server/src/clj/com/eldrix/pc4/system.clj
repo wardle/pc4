@@ -132,10 +132,10 @@
 
 (defmethod ig/init-key :pathom/env [_ {:pathom/keys [ops] :as env}]
   (log/info "creating pathom registry" {:n-operations (count ops)})
-  (dorun (->> ops
-              (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))))
-              sort
-              (map #(log/info "op: " %))))
+  (->> ops
+       (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))))
+       sort
+       (run! #(log/trace "op: " %)))
   (merge (dissoc env :pathom/ops)
          (pci/register {::p.error/lenient-mode? true} ops)))
 
