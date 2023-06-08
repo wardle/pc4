@@ -13,12 +13,12 @@
             [reitit.core :as r]))
 
 
-(defn page [content]                                        ;; TODO: use locally installed CSS and scripts
+(defn page [content]
   [:html
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width, initial-scale=1.0"}]
-    [:script {:src "https://unpkg.com/htmx.org@1.9.1"}]
+    [:script {:src "/js/htmx.org-v1.9.2_dist_htmx.min.js"}]
     [:link {:href "/css/output.css" :rel "stylesheet"}]]
    [:body.h-full.bg-gray-100
     {:hx-boost "true"}
