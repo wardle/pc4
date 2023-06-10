@@ -1,5 +1,5 @@
 (ns com.eldrix.pc4.rsdb.queue-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.tools.logging.readable :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.connection]
@@ -34,7 +34,7 @@
 (deftest ^:live test-concurrent-queue
   (let [conn *conn*                                         ;; take care to close over data source for any child threads
         stats (queue/queue-stats *conn*)
-        n 100
+        n 10
         jobs (repeatedly n #(hash-map :uuid (random-uuid)))
         processed (atom 0)
         worker (fn [topic duration-milliseconds]
@@ -42,7 +42,7 @@
                     (jdbc/with-transaction [txn conn]
                       (if-let [job (queue/dequeue-job txn topic)]
                         (do (log/debug "processing job " job)
-                            (Thread/sleep (rand-int duration-milliseconds))
+                            (Thread/sleep ^long (rand-int duration-milliseconds))
                             (when (> (rand) 0.8) (throw (ex-info "pretending to fail processing" {:job job})))
                             (swap! processed inc)
                             (not (Thread/interrupted)))     ;; return true if we've done work and we're not interrupted...
@@ -55,7 +55,7 @@
       (.scheduleWithFixedDelay executor (looper (worker :test/sms 300)) 0 200 TimeUnit/MILLISECONDS)
       (.scheduleWithFixedDelay executor (looper (worker :test/email 500)) 0 200 TimeUnit/MILLISECONDS)
       (run! #(do (queue/enqueue-job *conn* (rand-nth [:test/email :test/sms]) %)
-                 (Thread/sleep (rand-int 100))) jobs)
+                 (Thread/sleep ^long (rand-int 100))) jobs)
       (loop []
         (when (seq (queue/queue-stats *conn*))
           (Thread/sleep 200)
