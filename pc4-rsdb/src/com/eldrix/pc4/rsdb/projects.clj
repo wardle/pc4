@@ -202,7 +202,7 @@
   (db/execute-one! conn (fetch-project-sql project-id)))
 
 (defn common-concepts
-  "Return a set of common concepts for the project(s) and its ancestors."
+  "Return a set of common concept ids for the project(s) and its ancestors."
   [conn project-id-or-project-ids]
   (let [all-parents (all-parents-ids conn project-id-or-project-ids)
         project-ids (cond (number? project-id-or-project-ids)
