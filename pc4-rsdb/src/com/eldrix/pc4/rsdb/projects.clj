@@ -130,7 +130,7 @@
 
 (defn consented-patients
   "Return a set of patient identifiers who have given the specified response
-  to participate on the most recent completion of any of the the consent forms
+  to participate on the most recent completion of any of the consent forms
   specified."
   [conn consent-form-ids {:keys [response] :or {response "AGREE"}}]
   (into #{} (map :t_patient/patient_identifier)
