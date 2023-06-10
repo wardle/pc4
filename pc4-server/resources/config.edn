@@ -45,7 +45,7 @@
  :com.eldrix.rsdb/check-migrations #ig/ref :com.eldrix.rsdb/migration-config
 
  ;; service to run pending migrations
- :com.eldrix.rsdb/run-migrations #ig/ref :com.eldrix.rsdb/migration-config
+ :com.eldrix.rsdb/run-migrations   #ig/ref :com.eldrix.rsdb/migration-config
 
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
@@ -56,7 +56,8 @@
 
  ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
- {:path  #profile {:default  "/Users/mark/Dev/clods/ods-2023-03-01.db"
+ {:path  #profile {:dev      "/Users/mark/Dev/clods/ods-2022-01-24.db"
+                   :dev/nuc  "/Users/mark/Dev/clods/ods-2023-03-01.db"
                    :dev/dell "/home/mark/Dev/clods/ods-2023-05-22.db"
                    :pc4      "/var/pc4/ods-2021-06-25.db"
                    :cvx      "/opt/Local/var/db/pc4/ods-2021-08-24"}
@@ -64,7 +65,8 @@
 
  ;; service providing access to the ODS weekly dataset
  :com.eldrix/ods-weekly
- {:path #profile {:default  "/Users/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
+ {:path #profile {:dev      "/Users/mark/Dev/ods-weekly/ods-weekly-2023-06-08.db"
+                  :dev/nuc  "/home/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
                   :dev/dell "/home/mark/Dev/ods-weekly/ods-weekly-2023-06-01.db"
                   :pc4      "/var/pc4/ods-weekly-2022-06-09.db"
                   :cvx      "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
@@ -78,7 +80,8 @@
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
- {:path #profile {:default  "/Users/mark/Dev/dmd/dmd-2023-04-24.db"
+ {:path #profile {:dev      "/Users/mark/Dev/dmd/dmd-2023-06-05.db"
+                  :dev/nuc  "/home/mark/Dev/dmd/dmd-2023-04-24.db"
                   :dev/dell "/home/mark/Dev/dmd/dmd-2023-05-29.db"
                   :pc4      "/var/pc4/dmd-2021-09-27.db"
                   :cvx      "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
@@ -140,9 +143,7 @@
                      :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
 
  ;; SMTP service; we don't use SMTP currently outside of cvx, preferring instead to use gov notify for email...
- :com.eldrix.pc4.mail/smtp
- #profile {:cvx     {:host "cavmail.cymru.nhs.uk"}
-           :default nil}
+ ;; :com.eldrix.pc4.mail/smtp #profile {:cvx     {:host "cavmail.cymru.nhs.uk"} :default nil}
 
  ;; asynchronous queue job processing service
  :com.eldrix.pc4/jobs
@@ -197,9 +198,7 @@
   :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
   :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
   :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
-  ;;;; :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
   :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
-  :com.eldrix.pc4.mail/smtp       #ig/ref :com.eldrix.pc4.mail/smtp
   :com.eldrix.pc4/jobs            #ig/ref :com.eldrix.pc4/jobs
   :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
   :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
