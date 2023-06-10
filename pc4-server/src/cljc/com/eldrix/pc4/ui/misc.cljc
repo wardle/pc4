@@ -102,15 +102,15 @@
 
 (rum/defc grid-list-item [{:keys [title subtitle image content]}]
   [:li.col-span-1.divide-y.divide-gray-200.rounded-lg.bg-white.shadow
-    [:div.flex.w-full.items-center.justify-between.space-x-6.p-6
-     [:div.flex-1.truncate
-      [:div.flex.items-center.space-x-3
-       [:h3.truncate.text-sm.font-medium.text-gray-900 title]]
-      [:p.mt-1.truncate.text-sm.text-gray-500 subtitle]]
-     (when image (cond
-                   (:url image) [:img.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src (:url image) :alt title}]
-                   (:content image) (:content image)))]
-    [:div content]])
+   [:div.flex.w-full.items-center.justify-between.space-x-6.p-6
+    [:div.flex-1.truncate
+     [:div.flex.items-center.space-x-3
+      [:h3.truncate.text-sm.font-medium.text-gray-900 title]]
+     [:p.mt-1.truncate.text-sm.text-gray-500 subtitle]]
+    (when image (cond
+                  (:url image) [:img.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src (:url image) :alt title}]
+                  (:content image) (:content image)))]
+   [:div content]])
 
 (rum/defc description-list-item [{:keys [label content]}]
   [:div.py-4.sm:grid.sm:grid-cols-3.sm:gap-4.sm:py-5.sm:px-6
@@ -133,3 +133,56 @@
 (rum/defc button-group [& content]
   [:div.inline-flex
    content])
+
+(rum/defc action-button [props s]
+  [:div.mt-5.sm:ml-6.sm:mt-0.sm:flex.sm:flex-shrink-0.sm:items-center
+   [:button.inline-flex.items-center.rounded-md.bg-indigo-600.px-3.py-2.text-sm.font-semibold.text-white.shadow-sm.hover:bg-indigo-500.focus-visible:outline.focus-visible:outline-2.focus-visible:outline-offset-2.focus-visible:outline-indigo-600
+    (merge {:type "button"} props) s]])
+
+(rum/defc action-panel [{:keys [title description button]}]
+  [:div.bg-white.shadow.sm:rounded-lg
+   [:div.px-4.py-5.sm:p-6
+    [:div.sm:flex.sm:items-start.sm:justify-between
+     [:div
+      [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
+      [:div.mt-2.max-w-xl.text-sm.text-gray-500
+       [:p description]]]
+     [:div.mt-5.sm:ml-6.sm:mt-0.sm:flex.sm:flex-shrink-0.sm:items-center
+      button]]]])
+
+
+(rum/defc breadcrumb-home
+  "A breadcrumb home button. Designed to be used within a [[breadcrumbs]]
+  component. Set props to configure the properties on the anchor tag.
+  e.g.
+  ```
+    (breadcrumb-home {:href \"#\"})
+  ```"
+  [props]
+  [:li.flex
+   [:div.flex.items-center
+    [:a.text-gray-400.hover:text-gray-500 props
+     [:svg.h-5.w-5.flex-shrink-0 {:viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true"}
+      [:path {:fill-rule "evenodd" :d "M9.293 2.293a1 1 0 011.414 0l7 7A1 1 0 0117 11h-1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-3a1 1 0 00-1-1H9a1 1 0 00-1 1v3a1 1 0 01-1 1H5a1 1 0 01-1-1v-6H3a1 1 0 01-.707-1.707l7-7z" :clip-rule "evenodd"}]]
+     [:span.sr-only "Home"]]]])
+
+(rum/defc breadcrumb-item
+  [props title]
+  [:li.flex
+   [:div.flex.items-center
+    [:svg.h-full.w-6.flex-shrink-0.text-gray-200 {:viewBox "0 0 24 44" :preserveAspectRatio "none" :fill "currentColor" :aria-hidden "true"}
+     [:path {:d "M.293 0l22 22-22 22h1.414l22-22-22-22H.293z"}]]
+    [:a.ml-4.text-sm.font-medium.text-gray-500.hover:text-gray-700 props title]]])
+
+(rum/defc breadcrumbs
+  "A breadcrumb component. Use with [[breadcrumb-item]] and [[breadcrumb-home]].
+  e.g.
+  ```
+  (breadcrumbs
+    (breadcrumb-home {:href \"/app/home\"})
+    (breadcrumb-item {:href \"#\"} \"Projects\"))
+  ```"
+  [& items]
+  [:nav.flex.border-b.border-gray-200.bg-white {:aria-label "Breadcrumb"}
+   [:ol.mx-auto.flex.w-full.max-w-screen-xl.space-x-4.px-4.sm:px-6.lg:px-8 {:role "list"}
+    items]])
