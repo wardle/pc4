@@ -142,8 +142,7 @@
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
   (require '[clojure.spec.test.alpha :as stest])
   (clojure.spec.test.alpha/instrument)
-  (fetch-users conn 5)
-  (consent-forms conn [10]))
+  (fetch-users conn 5))
 
 (defn fetch-project-sql [project-id]
   (sql/format {:select :* :from :t_project
