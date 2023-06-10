@@ -189,7 +189,7 @@
    :enter (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
             (let [system (get-in ctx [:request :path-params :system])
                   value (get-in ctx [:request :path-params :value])]
-              (log/info "user photo request" {:system system :value value})
+              (log/debug "user photo request" {:system system :value value})
               (if (or (= "patientcare.app" system) (= "cymru.nhs.uk" system))
                 (if-let [photo (com.eldrix.pc4.rsdb.users/fetch-user-photo conn value)]
                   (assoc ctx :response {:status  200
