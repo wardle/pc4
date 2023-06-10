@@ -6,7 +6,6 @@
              org.clojure/data.zip              {:mvn/version "1.0.0"}
              org.clojure/tools.cli             {:mvn/version "1.0.219"}
              org.clojure/tools.logging         {:mvn/version "1.2.4"}
-
              wonder.core/ERExtensions          {:mvn/version "7.3"
                                                 :exclusions  [log4j/log4j
                                                               commons-logging/commons-logging]}
@@ -58,8 +57,8 @@
                                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                         "--illegal-access=permit"]}
 
-             :migrate {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
-                       :exec-fn com.eldrix.pc4.core/migrate}
+             :migrate     {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
+                           :exec-fn    com.eldrix.pc4.core/migrate}
 
              :repl-server {:exec-fn    clojure.core.server/start-server
                            :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
