@@ -23,6 +23,7 @@
              buddy/buddy-core                  {:mvn/version "1.11.418"}
              buddy/buddy-sign                  {:mvn/version "3.5.346"}
              com.amazonaws/aws-java-sdk-s3     {:mvn/version "1.12.477"}
+             com.draines/postal                {:mvn/version "2.0.5"}
              com.fulcrologic/fulcro            {:mvn/version "3.6.4"}
              com.github.seancorfield/honeysql  {:mvn/version "2.4.1033"}
              com.github.seancorfield/next.jdbc {:mvn/version "1.3.874"}
