@@ -103,7 +103,7 @@
 
 
 (s/fdef -insert-result!
-  :args (s/cat :conn ::conn :table keyword? :entity-name string? :result-data map?))
+  :args (s/cat :conn ::db/conn :table keyword? :entity-name string? :result-data map?))
 (defn ^:private -insert-result!
   "Inserts a result
 
@@ -131,16 +131,15 @@
 
 
 (s/fdef -update-result!
-  :args (s/cat :conn ::conn :table keyword? :result-id int? :data map?))
+  :args (s/cat :conn ::db/conn :table keyword? :result-id int? :data map?))
 (defn -update-result! [conn table result-id data]
   (log/info "updating result" {:table table :data data})
   (db/execute-one! conn (sql/format {:update [table]
                                      :where  [:= :id result-id]
                                      :set    data}) {:return-keys true}))
 
-
 (s/fdef save-result*
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/conn
                :result-type (s/keys :req [::entity-name ::table ::spec])
                :result-data (s/keys :opt-un [::user_fk ::patient_fk])))
 (defn- save-result*
@@ -173,7 +172,6 @@
 
 (def annotation-multiple-sclerosis-summary #{"TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"})
 
-(s/def ::conn identity)
 (s/def :t_result_mri_brain/multiple_sclerosis_summary annotation-multiple-sclerosis-summary)
 (s/def :t_result_mri_brain/total_gad_enhancing_lesions (s/nilable parse-count-lesions))
 (s/def :t_result_mri_brain/total_t2_hyperintense (s/nilable parse-count-lesions))
@@ -295,7 +293,7 @@
                                                  :t_result_liver_function/tsh]))
 
 (s/fdef default-fetch-fn
-  :args (s/cat :conn ::conn :table keyword? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
+  :args (s/cat :conn ::db/conn :table keyword? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn- default-fetch-fn [conn table {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
   (db/execute! conn (sql/format {:select    [:*]
                                  :from      [table]
@@ -318,7 +316,7 @@
       :t_result/summary (when summary-fn (summary-fn result)))))
 
 (s/fdef -results-from-table
-  :args (s/cat :conn identity
+  :args (s/cat :conn ::db/conn
                :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])
                :result-type (s/keys :req [::entity-name ::table] :opt [::fetch-fn ::summary-fn])))
 (defn ^:private -results-from-table
@@ -373,16 +371,13 @@
             (assoc :t_result_mri_brain/calc_change_t2 t2-change))))
 
 
-(s/fdef all-t2-counts
-  :args (s/cat ::results (s/coll-of (s/keys :req [:t_result_mri_brain/date]
-                                            :opt [:t_result_mri_brain/total_t2_hyperintense
-                                                  :t_result_mri_brain/change_t2_hyperintense
-                                                  :t_result_mri_brain/compare_to_result_mri_brain_fk]))))
+
 
 (defn ^:private every-equal?
   "Are all elements of 'coll' equal?"
   [coll]
   (or (not (seq coll)) (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll)))
+
 
 (s/fdef all-t2-counts
   :args (s/cat :results (s/coll-of (s/keys :req [:t_result_mri_brain/patient_fk
@@ -455,7 +450,7 @@
 
 
 (s/fdef fetch-mri-brain-results
-  :args (s/cat :conn ::conn :table any? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
+  :args (s/cat :conn ::db/conn :table any? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn fetch-mri-brain-results
   "Fetch MRI brain scan results for the given patient.
 
@@ -496,13 +491,13 @@
        (map normalize-mri-brain)))
 
 (s/fdef -save-mri-brain-ms-annotation!
-  :args (s/cat :conn ::conn
+  :args (s/cat :txn ::db/txn
                :result (s/keys :req [:t_result_mri_brain/id :t_result_mri_brain/user_fk])
                :annotation ::t_annotation_mri_brain_multiple_sclerosis))
 (defn -save-mri-brain-ms-annotation!
   "Save an MRI brain multiple sclerosis annotation.
-  - tx - a connection that *must* be within a transaction as multiple operations should either succeed or fail as one. "
-  [tx {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
+  - txn - a connection that *must* be within a transaction as multiple operations should either succeed or fail as one. "
+  [txn {result-id :t_result_mri_brain/id user-id :t_result_mri_brain/user_fk} annotation]
   (when (and (:t_result_mri_brain/total_t2_hyperintense annotation)
              (:t_result_mri_brain/change_t2_hyperintense annotation))
     (throw (ex-info "Invalid annotation data: cannot specify both absolute and relative T2 counts" annotation)))
@@ -517,18 +512,19 @@
                                :t2_hyperintense_lesions "NONE"
                                :summary (:t_result_mri_brain/multiple_sclerosis_summary annotation)))]
     (log/info "Saving annotation for result " annotation')
-    (jdbc/execute-one! tx (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
-                                       :where       [:= :result_fk result-id]}))
-    (-insert-annotation! tx :t_annotation_mri_brain_multiple_sclerosis_new annotation')))
+    (jdbc/execute-one! txn (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
+                                        :where       [:= :result_fk result-id]}))
+    (-insert-annotation! txn :t_annotation_mri_brain_multiple_sclerosis_new annotation')))
 
 (s/fdef save-mri-brain!
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/txn
                :result-type (s/keys :req [::entity-name ::table])
                :data (s/keys :req [(or ::patient_fk :t_result_mri_brain/patient_fk)
                                    (or ::user_fk :t_result_mri_brain/user_fks)])))
 (defn- save-mri-brain!
-  "Customised save for MRI brain scan to include flattened annotation data."
-  [conn result-type data]
+  "Customised save for MRI brain scan to include flattened annotation data. Should be performed in a transaction as
+  the multiple operations executed here should succeed or fail as one."
+  [txn result-type data]
   (log/info "saving MRI brain:" data)
   (let [data' (select-keys data [:t_result_mri_brain/id :t_result_mri_brain/report
                                  :t_result_mri_brain/date :t_result_mri_brain/with_gadolinium
@@ -541,18 +537,16 @@
                                     :t_result_mri_brain/multiple_sclerosis_summary])]
     (when-not (or (empty? ms-annot) (s/valid? ::t_annotation_mri_brain_multiple_sclerosis ms-annot))
       (throw (ex-info "Invalid MRI brain annotation data" (s/explain-data ::t_annotation_mri_brain_multiple_sclerosis ms-annot))))
-    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
-      (let [result (save-result* tx result-type data')]     ;; this will validate the MRI data
-        (when-not result
-          (throw (ex-info "failed to save MRI brain result" data')))
-        (if (empty? ms-annot)
-          (normalize-result result result-type)
-          (let [annot-result (-save-mri-brain-ms-annotation! tx result ms-annot)]
-            (-> result
-                (merge annot-result)
-                (normalize-mri-brain)
-                (normalize-result result-type))))))))
-
+    (let [result (save-result* txn result-type data')]     ;; this will validate the MRI data
+      (when-not result
+        (throw (ex-info "failed to save MRI brain result" data')))
+      (if (empty? ms-annot)
+        (normalize-result result result-type)
+        (let [annot-result (-save-mri-brain-ms-annotation! txn result ms-annot)]
+          (-> result
+              (merge annot-result)
+              (normalize-mri-brain)
+              (normalize-result result-type)))))))
 
 (defn summary-thyroid-function [result]
   (let [t4 (:t_result_thyroid_function/free_t4 result)
@@ -616,14 +610,14 @@
   (zipmap (map ::table result-types) result-types))
 
 (s/fdef save-result!
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/txn
                :result (s/keys :req [:t_result_type/result_entity_name])))
 (defn save-result!
   "Save an investigation result. Parameters:
-  - conn   : database connection, or pool
+  - conn   : database connection, in a transaction
   - result : data of the result
   The data must include :t_result_type/result_entity_name with the type of result"
-  [conn {entity-name :t_result_type/result_entity_name :as result}]
+  [txn {entity-name :t_result_type/result_entity_name :as result}]
   (let [result-type (or (result-type-by-entity-name entity-name)
                         (throw (ex-info "Failed to save result: unknown result type" result)))
         save-fn (::save-fn result-type)
@@ -632,12 +626,12 @@
                                          (if (or (nil? nspace) (= nspace table))
                                            (assoc m k v) m))) {} result)]
     (if save-fn
-      (save-fn conn result-type result')
-      (-> (save-result* conn result-type result')
+      (save-fn txn result-type result')
+      (-> (save-result* txn result-type result')
           (normalize-result result-type)))))
 
 (s/fdef delete-result!
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/conn
                :result (s/keys :req [:t_result_type/result_entity_name])))
 (defn delete-result! [conn {entity-name :t_result_type/result_entity_name :as result}]
   (if-let [result-type (result-type-by-entity-name entity-name)]
@@ -658,12 +652,11 @@
 
 
 (defn results-for-patient
-  "Returns all of the results for a patient by patient-identifier.
+  "Returns all the results for a patient by patient-identifier.
   Normalizes results, to include generic result properties to simplify generic processing of all results, and may
   include annotations if supported by that result type."
   [conn patient-identifier]
-  (let [patient {:t_patient/patient_identifier patient-identifier}]
-    (apply concat (map #(-results-from-table conn patient %) result-types))))
+  (mapcat #(-results-from-table conn {:t_patient/patient_identifier patient-identifier} %) result-types))
 
 (comment
   (require '[next.jdbc.connection])
@@ -676,7 +669,7 @@
   (-results-from-table conn {:t_patient/id 100197} (get result-type-by-table :t_result_renal))
   (default-fetch-fn conn :t_result_renal {:t_patient/id 100197})
 
-  (results-for-patient conn 129409)
+  (results-for-patient conn 13042)
 
   (->> (results-for-patient conn 129409)
        (filter #(= (:t_result/date %) (LocalDate/now))))

@@ -11,12 +11,9 @@
   (:import (java.time LocalDate LocalDateTime)))
 
 (s/def ::clods #(satisfies? clods/ODS %))
-(s/def ::conn identity)
-
 
 (s/fdef set-cav-authoritative-demographics!
-  :args (s/cat :clods ::clods
-               :conn ::conn
+  :args (s/cat :clods ::clods, :txn ::db/txn
                :pt (s/keys :req [:t_patient/id])
                :ph (s/keys :req [:t_patient_hospital/id
                                  :t_patient_hospital/patient_fk
@@ -28,14 +25,11 @@
   the authoritative source for demographics data for the patient specified.
   Parameters:
   - ods  - 'clods' organisational data services instance
-  - conn - database connection
+  - txn  - database connection [in a transaction]
   - pt   - patient, with key :t_patient/id
   - ph   - patient-hospital, with keys referencing hospital and patient identifier"
-  [ods conn
-   {patient-pk :t_patient/id :as pt}
-   {ph-id                    :t_patient_hospital/id
-    crn                      :t_patient_hospital/patient_identifier
-    :t_patient_hospital/keys [patient_fk hospital_fk hospital_identifier] :as ph}]
+  [ods txn {patient-pk :t_patient/id :as pt}
+   {ph-id :t_patient_hospital/id crn :t_patient_hospital/patient_identifier :t_patient_hospital/keys [patient_fk hospital_fk hospital_identifier] :as ph}]
   (when-not (= patient-pk patient_fk)
     (throw (ex-info "Mismatch between patient ids:" {:patient pt :patient-hospital ph})))
   (when (str/blank? crn)
@@ -46,19 +40,19 @@
         cavuhb (clods/fetch-org ods nil "7A4")]
     (if-not (clods/related? ods org cavuhb)
       (throw (ex-info "Invalid organisation. Must be CAVUHB." {:patient ph :org org}))
-      (jdbc/with-transaction [tx conn]
-        ;; first, set patient record so it uses an authority for demographics
-        (jdbc/execute-one! tx (sql/format {:update :t_patient
-                                           :set    {:authoritative_demographics "CAVUHB"}
-                                           :where  [:= :id patient-pk]}))
+      ;; first, set patient record so it uses an authority for demographics
+      (do
+        (jdbc/execute-one! txn (sql/format {:update :t_patient
+                                            :set    {:authoritative_demographics "CAVUHB"}
+                                            :where  [:= :id patient-pk]}))
         ;; next, set the patient_hospital record to be authoritative
-        (jdbc/execute-one! tx (sql/format {:update :t_patient_hospital
-                                           :set    {:authoritative true}
-                                           :where  [:and [:= :id ph-id] [:= :patient_fk patient-pk]]}))
+        (jdbc/execute-one! txn (sql/format {:update :t_patient_hospital
+                                            :set    {:authoritative true}
+                                            :where  [:and [:= :id ph-id] [:= :patient_fk patient-pk]]}))
         ;; and finally, ensure all other hospital numbers are not authoritative
-        (jdbc/execute-one! tx (sql/format {:update :t_patient_hospital
-                                           :set    {:authoritative false}
-                                           :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
+        (jdbc/execute-one! txn (sql/format {:update :t_patient_hospital
+                                            :set    {:authoritative false}
+                                            :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
 
 (defn fetch-patient [conn {patient-pk :t_patient/id}]
   (db/execute-one! conn (sql/format {:select :*
@@ -66,7 +60,7 @@
                                      :where  [:= :id patient-pk]})))
 
 (s/fdef fetch-patient-addresses
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
+  :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id])))
 (defn fetch-patient-addresses
   "Returns patient addresses ordered using date_from descending."
   [conn {patient-pk :t_patient/id}]
@@ -107,7 +101,7 @@
         (filter #(contains? #{:referred :registered} (projects/episode-status % on-date))))))
 
 (s/fdef fetch-death-certificate
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id])))
+  :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id])))
 (defn fetch-death-certificate
   "Return a death certificate for the patient specified.
   Parameters:
@@ -136,7 +130,7 @@
 (s/def ::patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})
 (s/def ::discharged? boolean?)
 (s/fdef patient-ids-in-projects
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/conn
                :project-ids (s/coll-of pos-int?)
                :opts (s/keys* :opt-un [::on-date ::patient-status ::discharged?])))
 (defn patient-ids-in-projects
@@ -169,7 +163,7 @@
 
 
 (s/fdef pks->identifiers
-  :args (s/cat :conn ::conn :pks (s/coll-of pos-int?)))
+  :args (s/cat :conn ::db/conn :pks (s/coll-of pos-int?)))
 (defn pks->identifiers
   "Turn patient primary keys into identifiers."
   [conn pks]
@@ -197,7 +191,7 @@
         (or (nil? date_to) (.isAfter date_to on-date)))))
 
 (s/fdef create-diagnosis
-  :args (s/cat :conn ::conn
+  :args (s/cat :conn ::db/conn
                :diagnosis (s/keys :req [:t_patient/patient_identifier
                                         :t_diagnosis/concept_fk :t_diagnosis/status]
                                   :opt [:t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
@@ -240,9 +234,9 @@
                    {:return-keys true}))
 
 (s/fdef create-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping
-                                                      :t_medication/more_information])))
+  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
+                                                   :opt [:t_medication/date_to :t_medication/reason_for_stopping
+                                                         :t_medication/more_information])))
 (defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping more_information]
                                patient-identifier :t_patient/patient_identifier}]
   (-> (db/execute-one! conn
@@ -259,8 +253,8 @@
       (update :t_medication/reason_for_stopping #(if % (keyword %) nil))))
 
 (s/fdef update-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
-                                                :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
+  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
+                                                   :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
 (defn update-medication
   [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping more_information]}]
   (db/execute-one! conn
@@ -276,7 +270,7 @@
                    {:return-keys true}))
 
 (s/fdef delete-medication
-  :args (s/cat :conn ::conn :medication (s/keys :req [:t_medication/id])))
+  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id])))
 
 (defn delete-medication
   [conn {:t_medication/keys [id]}]
@@ -330,39 +324,37 @@
                                                                     :where  [:= :t_ms_event/id ms-event-id]}))))
 
 (s/fdef delete-ms-event!
-  :args (s/cat :conn ::conn :event (s/keys :req [:t_ms_event/id])))
+  :args (s/cat :conn ::db/conn :event (s/keys :req [:t_ms_event/id])))
 
 (defn delete-ms-event! [conn {ms-event-id :t_ms_event/id}]
   (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
                                      :where       [:= :t_ms_event/id ms-event-id]})))
 
 (s/fdef save-ms-diagnosis!
-  :args (s/cat :conn ::conn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
-(defn save-ms-diagnosis! [conn {ms-diagnosis-id    :t_ms_diagnosis/id
-                                patient-identifier :t_patient/patient_identifier
-                                user-id            :t_user/id
-                                :as                params}]
-  (jdbc/with-transaction
-    [tx conn {:isolation :serializable}]
-    (if-let [sms (fetch-summary-multiple-sclerosis tx patient-identifier)]
-      (do
-        (next.jdbc.sql/update! tx :t_summary_multiple_sclerosis
-                               {:ms_diagnosis_fk ms-diagnosis-id
-                                :user_fk         user-id}
-                               {:id (:t_summary_multiple_sclerosis/id sms)}))
+  :args (s/cat :txn ::db/repeatable-read-txn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
+(defn save-ms-diagnosis! [txn {ms-diagnosis-id    :t_ms_diagnosis/id
+                               patient-identifier :t_patient/patient_identifier
+                               user-id            :t_user/id
+                               :as                params}]
+  (if-let [sms (fetch-summary-multiple-sclerosis txn patient-identifier)]
+    (do
+      (next.jdbc.sql/update! txn :t_summary_multiple_sclerosis
+                             {:ms_diagnosis_fk ms-diagnosis-id
+                              :user_fk         user-id}
+                             {:id (:t_summary_multiple_sclerosis/id sms)}))
 
-      (jdbc/execute-one! tx (sql/format
-                              {:insert-into [:t_summary_multiple_sclerosis]
-                               ;; note as this table uses legacy WO horizontal inheritance, we use t_summary_seq to generate identifiers manually.
-                               :values      [{:t_summary_multiple_sclerosis/id                  {:select [[[:nextval "t_summary_seq"]]]}
-                                              :t_summary_multiple_sclerosis/written_information ""
-                                              :t_summary_multiple_sclerosis/under_active_review "true"
-                                              :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
-                                              :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
-                                              :t_summary_multiple_sclerosis/user_fk             user-id
-                                              :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
-                                                                                                 :from   [:t_patient]
-                                                                                                 :where  [:= :t_patient/patient_identifier patient-identifier]}}]})))))
+    (jdbc/execute-one! txn (sql/format
+                             {:insert-into [:t_summary_multiple_sclerosis]
+                              ;; note as this table uses legacy WO horizontal inheritance, we use t_summary_seq to generate identifiers manually.
+                              :values      [{:t_summary_multiple_sclerosis/id                  {:select [[[:nextval "t_summary_seq"]]]}
+                                             :t_summary_multiple_sclerosis/written_information ""
+                                             :t_summary_multiple_sclerosis/under_active_review "true"
+                                             :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
+                                             :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
+                                             :t_summary_multiple_sclerosis/user_fk             user-id
+                                             :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
+                                                                                                :from   [:t_patient]
+                                                                                                :where  [:= :t_patient/patient_identifier patient-identifier]}}]}))))
 (def default-ms-event
   {:t_ms_event/site_arm_motor    false
    :t_ms_event/site_ataxia       false
@@ -389,32 +381,33 @@
                            {:t_ms_event/id (:t_ms_event/id event)})
     (next.jdbc.sql/insert! conn :t_ms_event (merge default-ms-event event))))
 
+(s/fdef save-pseudonymous
+  :args (s/cat :txn ::db/repeatable-read-txn
+               :patient (s/keys :req [:t_patient/patient_identifier :uk.gov.ons.nhspd/LSOA11])))
 (defn save-pseudonymous-patient-lsoa!
   "Special function to store LSOA11 code in place of postal code when working
   with pseudonymous patients. We know LSOA11 represents 1000-1500 members of the
   population. We don't keep an address history, so simply write an address with
   no dates which is the 'current'."
-  [conn {patient-identifier :t_patient/patient_identifier lsoa11 :uk.gov.ons.nhspd/LSOA11 :as params}]
-  (when-let [patient (db/execute-one! conn (sql/format {:select [:id :patient_identifier :status] :from :t_patient :where [:= :patient_identifier patient-identifier]}))]
+  [txn {patient-identifier :t_patient/patient_identifier lsoa11 :uk.gov.ons.nhspd/LSOA11 :as params}]
+  (when-let [patient (db/execute-one! txn (sql/format {:select [:id :patient_identifier :status] :from :t_patient :where [:= :patient_identifier patient-identifier]}))]
     (if-not (= :PSEUDONYMOUS (:t_patient/status patient))
       (throw (ex-info "Invalid operation: cannot save LSOA for non-pseudonymous patient" params))
-      (jdbc/with-transaction
-        [tx conn {:isolation :serializable}]
-        (let [addresses (fetch-patient-addresses tx patient)
-              current-address (address-for-date addresses)]
-          ;; we currently do not support an address history for pseudonymous patients, so either edit or create
-          ;; current address
-          (if current-address
-            (next.jdbc.sql/update! tx :t_address
-                                   {:t_address/date_to                nil :t_address/date_from nil
-                                    :t_address/address1               lsoa11
-                                    :t_address/postcode_raw           nil :t_address/postcode_fk nil
-                                    :t_address/ignore_invalid_address "true"
-                                    :t_address/address2               nil :t_address/address3 nil :t_address/address4 nil}
-                                   {:t_address/id (:t_address/id current-address)})
-            (next.jdbc.sql/insert! tx :t_address {:t_address/address1               lsoa11
-                                                  :t_address/ignore_invalid_address "true"
-                                                  :t_address/patient_fk             (:t_patient/id patient)})))))))
+      (let [addresses (fetch-patient-addresses txn patient)
+            current-address (address-for-date addresses)]
+        ;; we currently do not support an address history for pseudonymous patients, so either edit or create
+        ;; current address
+        (if current-address
+          (next.jdbc.sql/update! txn :t_address
+                                 {:t_address/date_to                nil :t_address/date_from nil
+                                  :t_address/address1               lsoa11
+                                  :t_address/postcode_raw           nil :t_address/postcode_fk nil
+                                  :t_address/ignore_invalid_address "true"
+                                  :t_address/address2               nil :t_address/address3 nil :t_address/address4 nil}
+                                 {:t_address/id (:t_address/id current-address)})
+          (next.jdbc.sql/insert! txn :t_address {:t_address/address1               lsoa11
+                                                 :t_address/ignore_invalid_address "true"
+                                                 :t_address/patient_fk             (:t_patient/id patient)}))))))
 
 
 
@@ -424,6 +417,8 @@
                                       :t_encounter/date_time]
                                 :opt [:t_encounter/id]))
 
+(s/fdef save-encounter!
+  :args (s/cat :conn ::db/conn :encounter ::save-encounter))
 (defn save-encounter!
   "Save an encounter. If there is no :t_encounter/id then a new encounter will
   be created.
@@ -461,7 +456,7 @@
 
 
 (s/fdef set-date-death
-  :args (s/cat :conn ::conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
+  :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
 
 (defn set-date-death [conn {patient-pk :t_patient/id date_death :t_patient/date_death}]
   (jdbc/execute-one! conn (sql/format {:update [:t_patient]
@@ -470,47 +465,46 @@
 
 
 (s/fdef notify-death!
-  :args (s/cat :conn ::conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
-                                                   :t_patient/date_death]
-                                             :opt [:t_death_certificate/part1a
-                                                   :t_death_certificate/part1b
-                                                   :t_death_certificate/part1c
-                                                   :t_death_certificate/part2])))
+  :args (s/cat :conn ::db/serializable-txn
+               :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)
+                                      :t_patient/date_death]
+                                :opt [:t_death_certificate/part1a
+                                      :t_death_certificate/part1b
+                                      :t_death_certificate/part1c
+                                      :t_death_certificate/part2])))
 (defn notify-death!
-  [conn {patient-pk                :t_patient/id
-         patient-identifier        :t_patient/patient_identifier
-         date_death                :t_patient/date_death :as patient
-         :t_death_certificate/keys [part1a part1b part1c part2]}]
-  (jdbc/with-transaction
-    [tx conn {:isolation :serializable}]
-    (let [patient-pk (or patient-pk (patient-identifier->pk conn patient-identifier))
-          patient' (assoc patient :t_patient/id patient-pk)
-          _ (log/info "Fetching certificate " patient')
-          existing-certificate (fetch-death-certificate tx patient')]
-      (cond
-        ;; if there's a date of death, and an existing certificate, update both
-        (and date_death existing-certificate)
-        (do (set-date-death tx patient')
-            (jdbc/execute-one! tx (sql/format {:update [:t_death_certificate]
-                                               :where  [:= :id (:t_death_certificate/id existing-certificate)]
-                                               :set    {:t_death_certificate/part1a part1a
-                                                        :t_death_certificate/part1b part1b
-                                                        :t_death_certificate/part1c part1c
-                                                        :t_death_certificate/part2  part2}})))
-        ;; patient has died, but no existing certificate
-        date_death
-        (do (set-date-death tx patient')
-            (jdbc/execute-one! tx (sql/format {:insert-into :t_death_certificate
-                                               :values      [{:t_death_certificate/patient_fk patient-pk
-                                                              :t_death_certificate/part1a     part1a
-                                                              :t_death_certificate/part1b     part1b
-                                                              :t_death_certificate/part1c     part1c
-                                                              :t_death_certificate/part2      part2}]})))
-        ;; patient has not died, clear date of death and delete death certificate
-        :else
-        (do (set-date-death tx patient')
-            (jdbc/execute-one! tx (sql/format {:delete-from [:t_death_certificate]
-                                               :where       [:= :t_death_certificate/patient_fk patient-pk]})))))))
+  [txn {patient-pk                :t_patient/id
+        patient-identifier        :t_patient/patient_identifier
+        date_death                :t_patient/date_death :as patient
+        :t_death_certificate/keys [part1a part1b part1c part2]}]
+  (let [patient-pk (or patient-pk (patient-identifier->pk txn patient-identifier))
+        patient' (assoc patient :t_patient/id patient-pk)
+        _ (log/info "Fetching certificate " patient')
+        existing-certificate (fetch-death-certificate txn patient')]
+    (cond
+      ;; if there's a date of death, and an existing certificate, update both
+      (and date_death existing-certificate)
+      (do (set-date-death txn patient')
+          (jdbc/execute-one! txn (sql/format {:update [:t_death_certificate]
+                                              :where  [:= :id (:t_death_certificate/id existing-certificate)]
+                                              :set    {:t_death_certificate/part1a part1a
+                                                       :t_death_certificate/part1b part1b
+                                                       :t_death_certificate/part1c part1c
+                                                       :t_death_certificate/part2  part2}})))
+      ;; patient has died, but no existing certificate
+      date_death
+      (do (set-date-death txn patient')
+          (jdbc/execute-one! txn (sql/format {:insert-into :t_death_certificate
+                                              :values      [{:t_death_certificate/patient_fk patient-pk
+                                                             :t_death_certificate/part1a     part1a
+                                                             :t_death_certificate/part1b     part1b
+                                                             :t_death_certificate/part1c     part1c
+                                                             :t_death_certificate/part2      part2}]})))
+      ;; patient has not died, clear date of death and delete death certificate
+      :else
+      (do (set-date-death txn patient')
+          (jdbc/execute-one! txn (sql/format {:delete-from [:t_death_certificate]
+                                              :where       [:= :t_death_certificate/patient_fk patient-pk]}))))))
 
 
 

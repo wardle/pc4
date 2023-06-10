@@ -1,6 +1,6 @@
 (ns com.eldrix.pc4.rsdb.results-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [com.eldrix.pc4.rsdb.patients :as patients]
+            [com.eldrix.pc4.rsdb.projects :as projects]
             [com.eldrix.pc4.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]
@@ -13,6 +13,29 @@
 (def ^:dynamic *conn* nil)
 (def ^:dynamic *patient* nil)
 
+(def test-db-connection-spec
+  "Database connection specification for tests."
+  {:dbtype "postgresql" :dbname "rsdb"})
+
+(defn with-patient
+  [f]
+  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
+    (jdbc/with-transaction [txn conn {:rollback-only true :isolation :serializable}]
+      (if-let [patient (projects/create-patient! txn {:t_patient/sex         "MALE"
+                                                      :t_patient/date_birth  (LocalDate/of 1980 1 1)
+                                                      :t_patient/first_names "******"
+                                                      :t_patient/last_name   "******"
+                                                      :t_patient/title       "**"
+                                                      :t_patient/nhs_number  "9999999999"
+                                                      :t_patient/status      "FULL"})]
+        (binding [*conn* txn
+                  *patient* patient]
+          (results/delete-all-results!! txn (:t_patient/patient_identifier *patient*))
+          (f)
+          (results/delete-all-results!! txn (:t_patient/patient_identifier *patient*)))
+        (throw (ex-info "Unable to create test patient" {:n-patients (:count (jdbc/execute-one! *conn* ["select count(id) from t_patient"]))}))))))
+
+(use-fixtures :once with-patient)
 
 (defn fetch-result [conn patient-identifier ^LocalDate date]
   (let [results (->> (results/results-for-patient conn patient-identifier)
@@ -172,35 +195,6 @@
     (is (= "ResultThyroidFunction" (:t_result_type/result_entity_name fetched)))
     (is (.isEqual date (:t_result_thyroid_function/date fetched)))))
 
-
-(def test-db-connection-spec
-  "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "rsdb"})
-
-(defn with-live-conn [f]
-  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
-    (binding [*conn* conn]
-      (f))))
-
-(defn with-patient
-  [f]
-  (if-let [patient (patients/fetch-patient *conn* {:t_patient/id 129410})]
-    (binding [*patient* patient]
-      ;;*patient* (projects/register-legacy-pseudonymous-patient ;; this is an idempotent operation, by design
-      ;;            *conn*
-      ;;            {:salt       (get-in *system* [:pathom/env :com.eldrix.rsdb/config :legacy-global-pseudonym-salt])
-      ;;             :user-id    1
-      ;;             :project-id 10
-      ;;             :nhs-number "2222222222"
-      ;;             :sex        :FEMALE
-      ;;             :date-birth (LocalDate/of 2000 1 1)})]
-      (results/delete-all-results!! *conn* (:t_patient/patient_identifier *patient*))
-      (f)
-      (results/delete-all-results!! *conn* (:t_patient/patient_identifier *patient*)))
-    (throw (ex-info "Unable to find well-known test patient. Has test database been properly initialised?"
-                    {:n-patients (:count (jdbc/execute-one! *conn* ["select count(id) from t_patient"]))}))))
-
-(use-fixtures :once with-live-conn with-patient)
 
 (defn make-mri-results
   "Creates a lazy sequence of base MRI results for the patient specified."

@@ -21,12 +21,13 @@
             [next.jdbc.plan]
             [next.jdbc.sql]
             [clojure.set :as set])
-  (:import (java.time LocalDate)
+  (:import (java.sql Connection)
+           (java.time LocalDate)
            (java.text Normalizer Normalizer$Form)
            (java.time.format DateTimeFormatter)
            (org.apache.commons.codec.digest DigestUtils)))
 
-(s/def ::conn any?)
+
 (s/def ::date-birth
   (s/with-gen #(instance? LocalDate %)
               #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
@@ -69,7 +70,7 @@
                        :order-by  [:last_name :first_names]})))
 
 (s/fdef fetch-users
-  :args (s/cat :conn ::conn :project-id ::project-id :params (s/? (s/keys :opt-un [::group-by ::active?]))))
+  :args (s/cat :conn ::db/conn :project-id ::project-id :params (s/? (s/keys :opt-un [::group-by ::active?]))))
 (defn fetch-users
   "Fetch users for the project specified. An individual may be listed more than
   once if they have more than one 'role' within the project although this
@@ -402,9 +403,9 @@
 
 
 (s/fdef find-legacy-pseudonymous-patient
-  :args (s/cat :conn ::conn :params (s/keys* :req-un [::salt
-                                                      (or ::project-id ::project-name)
-                                                      ::nhs-number ::date-birth])))
+  :args (s/cat :conn ::db/conn
+               :params (s/keys* :req-un [::salt (or ::project-id ::project-name)
+                                         ::nhs-number ::date-birth])))
 (defn ^:deprecated find-legacy-pseudonymous-patient
   "Attempts to identify a patient using the legacy rsdb pseudonym registration.
   Parameters:
@@ -448,7 +449,7 @@
               :global-pseudonym           global-pseudonym}))))
 
 (s/fdef register-episode!
-  :args (s/cat :conn ::conn :user-id pos-int? :episode (s/keys :req-un [:t_episode/id])))
+  :args (s/cat :conn ::db/conn :user-id pos-int? :episode (s/keys :req-un [:t_episode/id])))
 (defn register-episode!
   "Sets the episode specified as registered as of now, by the user specified.
   Returns the updated episode.
@@ -462,7 +463,7 @@
                    {:return-keys true}))
 
 (s/fdef discharge-episode!
-  :args (s/cat :conn ::conn :user-id pos-int? :episode (s/keys :req [:t_episode/id])))
+  :args (s/cat :conn ::db/conn :user-id pos-int? :episode (s/keys :req [:t_episode/id])))
 (defn discharge-episode!
   "Sets the episode specified as discharged. Returns the updated episode.
   We do not worry about optimistic locking here, by design."
@@ -475,10 +476,11 @@
                    {:return-keys true}))
 
 (s/fdef create-episode!
-  :args (s/cat :conn ::conn :episode (s/keys :req [:t_episode/date_referral :t_episode/patient_fk :t_episode/project_fk :t_episode/referral_user_fk]
-                                             :opt [:t_episode/date_registration :t_episode/registration_user_fk
-                                                   :t_episode/date_discharge :t_episode/discharge_user_fk
-                                                   :t_episode/notes :t_episode/stored_pseudonym :t_episode/external_identifier])))
+  :args (s/cat :conn ::db/conn
+               :episode (s/keys :req [:t_episode/date_referral :t_episode/patient_fk :t_episode/project_fk :t_episode/referral_user_fk]
+                                :opt [:t_episode/date_registration :t_episode/registration_user_fk
+                                      :t_episode/date_discharge :t_episode/discharge_user_fk
+                                      :t_episode/notes :t_episode/stored_pseudonym :t_episode/external_identifier])))
 (defn create-episode!
   "Create a new episode, returning the data."
   [conn episode]
@@ -487,6 +489,8 @@
                                 :values      [episode]})
                    {:return-keys true}))
 
+(s/fdef create-patient!
+  :args (s/cat :txn ::db/txn :patient map?))
 (defn create-patient!
   "Creates a patient.
 
@@ -496,24 +500,23 @@
   transaction. Here we fake it by getting the next value in the sequence and
   using that. Also, all patients need to be linked to a family, which seemed
   sensible at the time, and belies its genetic research database origins."
-  [conn patient]
-  (let [{patient-id :nextval} (jdbc/execute-one! conn ["select nextval('t_patient_seq')"])
-        {family-id :nextval} (jdbc/execute-one! conn ["select nextval('t_family_seq')"])
+  [txn patient]
+  (let [{patient-id :nextval} (jdbc/execute-one! txn ["select nextval('t_patient_seq')"])
+        {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
         patient' (assoc patient
                    :t_patient/id patient-id
                    :t_patient/patient-identifier patient-id
                    :t_patient/family_fk family-id)]
-    ;; TODO: put into a transaction
-    (jdbc/execute-one! conn (sql/format {:insert-into [:t_family]
-                                         :values      [{:t_family/family_identifier (str family-id)
-                                                        :t_family/id                family-id}]}))
-    (db/execute-one! conn
+    (jdbc/execute-one! txn (sql/format {:insert-into [:t_family]
+                                        :values      [{:t_family/family_identifier (str family-id)
+                                                       :t_family/id                family-id}]}))
+    (db/execute-one! txn
                      (sql/format {:insert-into [:t_patient]
                                   :values      [patient']})
                      {:return-keys true})))
 
 (s/fdef register-completed-episode!
-  :args (s/cat :conn ::conn
+  :args (s/cat :txn ::db/serializable-txn
                :episode (s/keys :req [:t_episode/patient_fk
                                       (or :t_episode/user_fk (and :t_episode/referral_user_fk :t_episode/registration_user_fk :t_episode/discharge_user_fk))
                                       :t_episode/date_registration :t_episode/date_discharge]
@@ -523,7 +526,7 @@
   "Register a completed episode with start and end dates.
   Returns the newly created episode, or the existing episode if already exists.
   This operation is idempotent, by design."
-  [conn {:t_episode/keys [patient_fk user_fk project_fk _date_referral date_registration date_discharge] :as episode}]
+  [txn {:t_episode/keys [patient_fk user_fk project_fk _date_referral date_registration date_discharge] :as episode}]
   (when (or (nil? date_registration) (nil? date_discharge) (.isAfter date_registration date_discharge))
     (throw (ex-info "Date of registration cannot be after date of discharge" episode)))
   (let [episode' (merge {:t_episode/referral_user_fk     user_fk
@@ -531,20 +534,18 @@
                          :t_episode/discharge_user_fk    user_fk
                          :t_episode/date_referral        date_registration}
                         (dissoc episode :t_episode/user_fk))]
-    (next.jdbc/with-transaction [tx conn {:isolation :serializable}]
-      (if-let [existing (db/execute-one! tx (sql/format {:select :* :from :t_episode :where
-                                                         [:and
-                                                          [:= :patient_fk patient_fk] [:= :project_fk project_fk]
-                                                          [:= :date_registration date_registration]
-                                                          [:= :date_discharge date_discharge]]}))]
-        existing
-        (create-episode! tx episode')))))
-
-
+    (if-let [existing (db/execute-one! txn (sql/format {:select :* :from :t_episode :where
+                                                        [:and
+                                                         [:= :patient_fk patient_fk] [:= :project_fk project_fk]
+                                                         [:= :date_registration date_registration]
+                                                         [:= :date_discharge date_discharge]]}))]
+      existing
+      (create-episode! txn episode'))))
 
 
 (s/fdef register-patient-project!
-  :args (s/cat :conn ::conn :project-id pos-int? :user-id pos-int?
+  :args (s/cat :txn ::db/repeatable-read-txn
+               :project-id pos-int? :user-id pos-int?
                :patient (s/keys :req [:t_patient/id])
                :opts (s/keys* :opt-un [::adopt-pending? ::pseudonym])))
 (defn register-patient-project!
@@ -565,35 +566,33 @@
   database constraints as a patient may quite appropriately have multiple
   episodes for the same project; it is simply that a patient should not have
   more than one active episode for a project that must be enforced. As such,
-  this is processed within a serializable transaction."
-  [conn project-id user-id {patient-id :t_patient/id} & {:keys [adopt-pending? pseudonym] :or {adopt-pending? true}}]
-  (jdbc/with-transaction
-    [tx conn {:isolation :serializable}]
-    (let [episodes (->> (episodes-for-patient-in-project tx patient-id project-id)
-                        (sort-by :t_episode/date_registration)
-                        (group-by episode-status))
-          registered (first (:registered episodes))
-          pending (first (:referred episodes))]
-      (cond
-        ;; already registered? -> simply return that episode
-        registered
-        registered
-        ;; has a pending referral for this project? -> register and return it
-        (and adopt-pending? pending)
-        (register-episode! tx user-id pending)
-        ;; no current or pending referral, or we're not adopting existing referrals, so create a new episode:
-        :else
-        (create-episode! tx (cond-> {:t_episode/project_fk           project-id
-                                     :t_episode/patient_fk           patient-id
-                                     :t_episode/registration_user_fk user-id
-                                     :t_episode/referral_user_fk     user-id
-                                     :t_episode/date_referral        (LocalDate/now)
-                                     :t_episode/date_registration    (LocalDate/now)}
-                                    pseudonym (assoc :t_episode/stored_pseudonym pseudonym)))))))
-
+  this must be processed within a read-repeatable transaction."
+  [txn project-id user-id {patient-id :t_patient/id} & {:keys [adopt-pending? pseudonym] :or {adopt-pending? true}}]
+  (let [episodes (->> (episodes-for-patient-in-project txn patient-id project-id)
+                      (sort-by :t_episode/date_registration)
+                      (group-by episode-status))
+        registered (first (:registered episodes))
+        pending (first (:referred episodes))]
+    (cond
+      ;; already registered? -> simply return that episode
+      registered
+      registered
+      ;; has a pending referral for this project? -> register and return it
+      (and adopt-pending? pending)
+      (register-episode! txn user-id pending)
+      ;; no current or pending referral, or we're not adopting existing referrals, so create a new episode:
+      :else
+      (create-episode! txn (cond-> {:t_episode/project_fk           project-id
+                                    :t_episode/patient_fk           patient-id
+                                    :t_episode/registration_user_fk user-id
+                                    :t_episode/referral_user_fk     user-id
+                                    :t_episode/date_referral        (LocalDate/now)
+                                    :t_episode/date_registration    (LocalDate/now)}
+                                   pseudonym (assoc :t_episode/stored_pseudonym pseudonym))))))
 
 (s/fdef register-legacy-pseudonymous-patient
-  :args (s/cat :conn ::conn :patient (s/keys :req-un [::salt ::user-id ::project-id ::nhs-number ::sex ::date-birth])))
+  :args (s/cat :txn ::db/repeatable-read-txn
+               :patient (s/keys :req-un [::salt ::user-id ::project-id ::nhs-number ::sex ::date-birth])))
 (defn ^:deprecated register-legacy-pseudonymous-patient
   "Registers a pseudonymous patient using the legacy rsdb registration.
   This simply looks for an existing patient record, or creates a new patient
@@ -614,67 +613,63 @@
 
   If a patient exists, the month and year of birth, as well as sex, must match.
   If the existing record has an NHS number, then that must match as well."
-  [conn {:keys [_salt user-id project-id nhs-number sex date-birth] :as registration}]
+  [txn {:keys [_salt user-id project-id nhs-number sex date-birth] :as registration}]
   (when-not (nhs-number/valid? nhs-number)
     (throw (ex-info "Invalid NHS number" registration)))
-  (let [existing (find-legacy-pseudonymous-patient conn registration)]
+  (let [existing (find-legacy-pseudonymous-patient txn registration)]
     (if (:t_patient/id existing)
       ;; existing patient - so check matching core demographics, and proceed
       (if (and (.isEqual (.withDayOfMonth date-birth 1) (.withDayOfMonth (:t_patient/date_birth existing) 1))
                (= sex (:t_patient/sex existing))
                (= nhs-number (or (:t_patient/nhs_number existing) nhs-number)))
-        (do (register-patient-project! conn project-id user-id existing :pseudonym (:project-pseudonym existing))
+        (do (register-patient-project! txn project-id user-id existing :pseudonym (:project-pseudonym existing))
             existing)
         (throw (ex-info "Mismatch in patient demographics" {:expected registration :existing existing})))
       ;; no existing patient, so register a new patient and proceed
-      (let [patient (create-patient! conn {:t_patient/sex                     (name sex)
-                                           :t_patient/date_birth              (.withDayOfMonth date-birth 1)
-                                           :t_patient/first_names             "******"
-                                           :t_patient/last_name               "******"
-                                           :t_patient/title                   "**"
-                                           :t_patient/nhs_number              nhs-number
-                                           :t_patient/stored_global_pseudonym (:global-pseudonym existing)
-                                           :t_patient/status                  "PSEUDONYMOUS"})]
+      (let [patient (create-patient! txn {:t_patient/sex                     (name sex)
+                                          :t_patient/date_birth              (.withDayOfMonth date-birth 1)
+                                          :t_patient/first_names             "******"
+                                          :t_patient/last_name               "******"
+                                          :t_patient/title                   "**"
+                                          :t_patient/nhs_number              nhs-number
+                                          :t_patient/stored_global_pseudonym (:global-pseudonym existing)
+                                          :t_patient/status                  "PSEUDONYMOUS"})]
         (log/info "created patient " patient)
-        (let [episode (register-patient-project! conn project-id user-id patient :pseudonym (:project-pseudonym existing))]
+        (let [episode (register-patient-project! txn project-id user-id patient :pseudonym (:project-pseudonym existing))]
           (log/info "created episode for patient" episode))
         (assoc patient
           :t_episode/project_fk project-id
           :t_episode/stored_pseudonym (:project-pseudonym existing))))))
 
 (s/fdef update-legacy-pseudonymous-patient!
-  :args (s/cat :conn ::conn
+  :args (s/cat :txn ::db/repeatable-read-txn
                :salt ::salt
                :patient-pk int?
                :updated (s/keys :req-un [::nhs-number ::sex ::date-birth])))
 (defn update-legacy-pseudonymous-patient!
   "DANGER: updates the demographic details for the given patient. This is
-  designed to correct incorrectly entered patient registration information."
-  [conn salt
-   patient-pk
-   {:keys [nhs-number date-birth sex] :as new-details}]
-  (jdbc/with-transaction [tx conn {:isolation :serializable}]
-    (doseq [project-id (map :t_episode/project_fk (jdbc/execute! tx (sql/format {:select-distinct :project_fk
-                                                                                 :from            :t_episode
-                                                                                 :where           [:and
-                                                                                                   [:= :patient_fk patient-pk]
-                                                                                                   [:<> :stored_pseudonym nil]]})))]
-      (let [updated (find-legacy-pseudonymous-patient tx (assoc new-details :salt salt :project-id project-id :validate? false))]
-        (if (and (:t_patient/id updated) (not= (:t_patient/id updated) patient-pk))
-          (throw (ex-info "Patient already found with details:" new-details))
-          (do
-            (next.jdbc.sql/update! tx :t_patient
-                                   {:sex                     (name sex)
-                                    :date_birth              (.withDayOfMonth date-birth 1)
-                                    :nhs_number              nhs-number
-                                    :stored_global_pseudonym (:global-pseudonym updated)}
-                                   {:id patient-pk})
-            (next.jdbc.sql/update! tx :t_episode
-                                   {:stored_pseudonym (:project-pseudonym updated)}
-                                   {:patient_fk patient-pk
-                                    :project_fk project-id})))))))
-
-
+  designed to correct incorrectly entered patient registration information.
+  Must be performed in a serializable transaction."
+  [txn salt patient-pk {:keys [nhs-number date-birth sex] :as new-details}]
+  (doseq [project-id (map :t_episode/project_fk (jdbc/execute! txn (sql/format {:select-distinct :project_fk
+                                                                                :from            :t_episode
+                                                                                :where           [:and
+                                                                                                  [:= :patient_fk patient-pk]
+                                                                                                  [:<> :stored_pseudonym nil]]})))]
+    (let [updated (find-legacy-pseudonymous-patient txn (assoc new-details :salt salt :project-id project-id :validate? false))]
+      (if (and (:t_patient/id updated) (not= (:t_patient/id updated) patient-pk))
+        (throw (ex-info "Patient already found with details:" new-details))
+        (do
+          (next.jdbc.sql/update! txn :t_patient
+                                 {:sex                     (name sex)
+                                  :date_birth              (.withDayOfMonth date-birth 1)
+                                  :nhs_number              nhs-number
+                                  :stored_global_pseudonym (:global-pseudonym updated)}
+                                 {:id patient-pk})
+          (next.jdbc.sql/update! txn :t_episode
+                                 {:stored_pseudonym (:project-pseudonym updated)}
+                                 {:patient_fk patient-pk
+                                  :project_fk project-id}))))))
 
 
 (defn make-slug
