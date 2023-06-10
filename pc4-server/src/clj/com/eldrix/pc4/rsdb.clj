@@ -908,7 +908,8 @@
                                                 (string? date-birth) (LocalDate/parse date-birth)
                                                 :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
         (if (s/valid? ::register-patient-by-pseudonym params')
-          (projects/register-legacy-pseudonymous-patient conn params')
+          (jdbc/with-transaction [txn conn {:isolation :serializable}]
+            (projects/register-legacy-pseudonymous-patient txn params'))
           (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))
       (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
@@ -1016,7 +1017,8 @@
       (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (patients/save-ms-diagnosis! conn params')
+          (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+            (patients/save-ms-diagnosis! txn params'))
           (patient->summary-multiple-sclerosis env params)))))
 
 (s/def ::save-pseudonymous-postal-code
@@ -1033,12 +1035,13 @@
   (log/info "saving pseudonymous postal code" {:params params :ods ods})
   (if-not (s/valid? ::save-pseudonymous-postal-code params)
     (throw (ex-info "invalid request" (s/explain-data ::save-pseudonymous-postal-code params)))
-    (if (str/blank? postcode)
-      (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
-                                                      :uk.gov.ons.nhspd/LSOA11      ""})
-      (let [pc (clods/fetch-postcode ods postcode)]
-        (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
-                                                        :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
+    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+      (if (str/blank? postcode)
+        (patients/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
+                                                       :uk.gov.ons.nhspd/LSOA11      ""})
+        (let [pc (clods/fetch-postcode ods postcode)]
+          (patients/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
+                                                         :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")}))))))
 
 (s/def ::save-ms-event
   (s/keys :req [:t_ms_event/date
@@ -1121,7 +1124,8 @@
       (log/error "invalid call" (s/explain-data ::save-encounter params'))
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
     (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (forms/save-encounter-with-forms! conn params'))))
+        (jdbc/with-transaction [txn conn]
+          (forms/save-encounter-with-forms! conn params')))))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
@@ -1156,7 +1160,8 @@
                     (assoc :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
                            :user_fk (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
     (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (results/save-result! conn params'))))
+        (jdbc/with-transaction [txn conn]
+          (results/save-result! txn params')))))
 
 (pco/defmutation delete-result!
   [{conn    :com.eldrix.rsdb/conn
@@ -1185,7 +1190,8 @@
   (when-not (s/valid? ::notify-death params)
     (throw (ex-info "Invalid notify-death request" (s/explain-data ::notify-death params))))
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (patients/notify-death! conn params))
+  (jdbc/with-transaction [txn conn {:isolation :serializable}]
+    (patients/notify-death! txn params)))
 
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
