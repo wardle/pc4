@@ -290,25 +290,25 @@
                                                  :t_encounter_template/id
                                                  :t_user/id]
                                            :opt [:t_encounter/id]))
-
+(s/fdef save-encounter-with-forms!
+  :args (s/cat :txn ::db/txn :data ::save-encounter-with-forms))
 (defn save-encounter-with-forms!
-  [conn data]
+  [txn data]
   (log/info "saving encounter with forms" {:data data})
   (when-not (s/valid? ::save-encounter-with-forms data)
     (throw (ex-info "Invalid parameters" (s/explain-data ::save-encounter-with-forms data))))
-  (jdbc/with-transaction [tx conn {:isolation :serializable}]
-    (let [encounter (patients/save-encounter! tx (merge (when (:t_encounter/id data) {:t_encounter/id (:t_encounter/id data)})
-                                                        {:t_encounter/date_time             (:t_encounter/date_time data)
-                                                         :t_encounter/episode_fk            (:t_episode/id data)
-                                                         :t_patient/patient_identifier      (:t_patient/patient_identifier data)
-                                                         :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
-          _ (log/info "saved encounter, result:" {:encounter encounter})
-          data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
-      (save-form! tx :t_form_edss data' :t_form_edss/edss_score)
-      (save-form! tx :t_form_ms_relapse data')
-      (save-form! tx :t_smoking_history data')
-      (save-form! tx :t_form_weight_height data')
-      encounter)))
+  (let [encounter (patients/save-encounter! txn (merge (when (:t_encounter/id data) {:t_encounter/id (:t_encounter/id data)})
+                                                       {:t_encounter/date_time             (:t_encounter/date_time data)
+                                                        :t_encounter/episode_fk            (:t_episode/id data)
+                                                        :t_patient/patient_identifier      (:t_patient/patient_identifier data)
+                                                        :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
+        _ (log/info "saved encounter, result:" {:encounter encounter})
+        data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
+    (save-form! txn :t_form_edss data' :t_form_edss/edss_score)
+    (save-form! txn :t_form_ms_relapse data')
+    (save-form! txn :t_smoking_history data')
+    (save-form! txn :t_form_weight_height data')
+    encounter))
 
 
 (comment
