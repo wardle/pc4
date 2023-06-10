@@ -155,7 +155,7 @@
                  :t_patient_hospital/patient_identifier]
    ::pco/output [:wales.nhs.abuhb.Patient/CRN
                  :wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
-  {:wales.nhs.abuhb.Patient/CRN (when (= auth :CAVUHB) crn)
+  {:wales.nhs.abuhb.Patient/CRN         (when (= auth :CAVUHB) crn)
    :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB crn))})
 
 (pco/defresolver patient->demographics-authority
@@ -244,7 +244,7 @@
 
 (pco/defresolver patient->has-diagnosis
   [{hermes :com.eldrix.hermes.graph/svc, :as env} {diagnoses :t_patient/diagnoses}]
-  {::pco/input [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
+  {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
    ::pco/output [:t_patient/has_diagnosis]}
   (let [params (pco/params env)
         ecl (or (:ecl params) (throw (ex-info "Missing mandatory parameter: ecl" env)))
@@ -831,7 +831,7 @@
     {:t_user/common_concepts
      (when (seq concept-ids)
        (let [results (hermes/search-concept-ids hermes {:language-range lang} concept-ids')]
-         (mapv #(hash-map :info.snomed.Concept/id (:conceptId %)  ;; and now give shape to results
+         (mapv #(hash-map :info.snomed.Concept/id (:conceptId %) ;; and now give shape to results
                           :info.snomed.Concept/preferredDescription {:info.snomed.Description/id   (:id %)
                                                                      :info.snomed.Description/term (:term %)}) results)))}))
 
