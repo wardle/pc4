@@ -134,6 +134,8 @@
         claims (merge rsdb-user {:system system :value value})
         token (make-user-token claims pc4-login)]
     (log/info "login-operation:" claims)
+    (when rsdb-user
+      (com.eldrix.pc4.rsdb.users/record-login rsdb-conn value))
     #_(log/warn " *** DELIBERATELY PAUSING ***")
     #_(Thread/sleep 2000)
     (cond
