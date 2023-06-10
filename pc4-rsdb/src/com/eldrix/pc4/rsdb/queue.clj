@@ -100,6 +100,22 @@
                                        :from     :t_job_queue
                                        :group-by :topic}))))
 
+(defn progress
+  "Return progress of the job as a map. Currently, the result contains a
+  single key `:status` with one of the following values
+  - :queued     : job is queued but not yet started (not yet implemented)
+  - :processing : job is in progress
+  - :completed  : job has finished successfully
+  - :failed     : job has failed
+  At the moment, this is a simple implementation only checking for the existence
+  of the job in the database-backed queue. Future implementations may look for a
+  job status in the job queue to provide greater detail on job progress, such as
+  percentage complete, or more detailed status information."
+  [conn {:t_job_queue/keys [id]}]
+  (if (jdbc/execute-one! conn (sql/format {:select :id :from :t_job_queue :where [:= :id id]}))
+    {:status :queued}
+    {:status :completed}))
+
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
