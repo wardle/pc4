@@ -30,7 +30,7 @@
             [clojure.set :as set])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
-           (java.util Base64)
+           (java.util Base64 Locale)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)
            (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
@@ -742,6 +742,8 @@
   logic - such as checking Active Directory if the user is managed by that
   service."
   [{:t_user/keys [photo_fk]}]
+  {::pco/input  [(pco/? :t_user/photo_fk)]
+   ::pco/output [:t_user/has_photo]}
   {:t_user/has_photo (boolean photo_fk)})
 
 (pco/defresolver user->full-name
@@ -805,30 +807,33 @@
                                  :t_project_user/permissions
                                  :t_project/id
                                  :t_project/active?]}]}
-  (let [{:keys [project-id]} (pco/params env)]              ;; if project-id is nil, then roles-for-user returns all roles
-    {:t_user/roles (users/roles-for-user conn username {:t_project/id project-id})}))
-
+  (let [{:keys [project-id active-roles active-projects]} (pco/params env)]
+    {:t_user/roles
+     (cond->> (users/roles-for-user conn username {:t_project/id project-id})
+              active-roles (filter :t_project_user/active?)
+              active-projects (filter :t_project/active?))}))
 
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
-  filtering by a SNOMED expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {user-id :t_user/id}]
-  {::pco/output [{:t_user/common_concepts [:info.snomed.Concept/id]}]}
-  (let [project-ids (users/active-project-ids conn user-id {:only-active-projects? true})
-        concept-ids (projects/common-concepts conn project-ids)
+  filtering by a SNOMED expression (ECL). Language preferences can be specified
+  using parameter `:accept-language` with a comma-separated list of preferences."
+  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
+  {::pco/output [{:t_user/common_concepts
+                  [:info.snomed.Concept/id
+                   {:info.snomed.Concept/preferredDescription
+                    [:info.snomed.Description/id
+                     :info.snomed.Description/term]}]}]}
+  (let [concept-ids (users/common-concepts conn user-id)
         ecl (:ecl (pco/params env))
-        _ (println {:project-ids project-ids
-                    :concept-ids concept-ids
-                    :ecl         ecl
-                    :result      (->> (hermes/intersect-ecl hermes concept-ids ecl)
-                                      (mapv #(hash-map :info.snomed.Concept/id %)))})]
+        lang (or (:accept-language (pco/params env)) (.toLanguageTag (Locale/getDefault)))
+        concept-ids' (if (str/blank? ecl) concept-ids (hermes/intersect-ecl hermes concept-ids ecl))] ;; constrain concepts by ECL if present]
     {:t_user/common_concepts
      (when (seq concept-ids)
-       (if (str/blank? ecl)
-         (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
-         (->> (hermes/intersect-ecl hermes concept-ids ecl)
-              (mapv #(hash-map :info.snomed.Concept/id %)))))}))
+       (let [results (hermes/search-concept-ids hermes {:language-range lang} concept-ids')]
+         (mapv #(hash-map :info.snomed.Concept/id (:conceptId %)  ;; and now give shape to results
+                          :info.snomed.Concept/preferredDescription {:info.snomed.Description/id   (:id %)
+                                                                     :info.snomed.Description/term (:term %)}) results)))}))
 
 (pco/defresolver user->latest-news
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
