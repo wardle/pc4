@@ -1,5 +1,5 @@
 ;;
-;; This is an integrant configuration file
+;; PatientCare v4 configuration file
 ;;
 ;; There are three main profiles currently:
 ;; - :dev      : this profile is used during development
@@ -14,6 +14,7 @@
 {:secrets
  #include #join [#env HOME "/.secrets.edn"]
 
+ ;; configuration for AWS hosted rsdb database used for AWS deployment
  :pc4-aws-db-conn
  {:dbtype          "postgresql"
   :host            #ref [:secrets :pc4 :db :host]
@@ -22,6 +23,7 @@
   :dbname          "rsdb"
   :maximumPoolSize 10}
 
+ ;; rsdb conn - configuration for rsdb database
  :com.eldrix.rsdb/conn
  #profile {:default {:dbtype          "postgresql"
                      :dbname          "rsdb"
@@ -29,6 +31,7 @@
            :pc4     #ref [:pc4-aws-db-conn]
            :pc4-dev #ref [:pc4-aws-db-conn]}
 
+ ;; rsdb config - configuration for legacy rsdb services
  :com.eldrix.rsdb/config
  {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
@@ -42,7 +45,7 @@
  :com.eldrix.rsdb/check-migrations #ig/ref :com.eldrix.rsdb/migration-config
 
  ;; service to run pending migrations
- :com.eldrix.rsdb/run-migrations   #ig/ref :com.eldrix.rsdb/migration-config
+ :com.eldrix.rsdb/run-migrations #ig/ref :com.eldrix.rsdb/migration-config
 
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
@@ -96,16 +99,16 @@
                      :pool-size               5
                      :trust-all-certificates? true
                      :follow-referrals?       true
-                     :default-bind-username   #ref [:secrets :nadex :bind-username]
-                     :default-bind-password   #ref [:secrets :nadex :bind-password]}
+                     :default-bind-username   #ref [:secrets :wales :nadex :bind-username]
+                     :default-bind-password   #ref [:secrets :wales :nadex :bind-password]}
            :default {}}
 
  ;; service providing access to the Cardiff and Vale PAS (Patient Management System - PMS)
  :wales.nhs.cavuhb/pms
- #profile {:cvx     {:username    #ref [:secrets :cav :pms :username]
-                     :password    #ref [:secrets :cav :pms :password]
+ #profile {:cvx     {:username    #ref [:secrets :wales :cav :pms :username]
+                     :password    #ref [:secrets :wales :cav :pms :password]
                      :database    "vpmslive.world"
-                     :user-string "patientcare-concierge"}
+                     :user-string "patientcare-v4"}
            :default nil}
 
  ;; service providing access to the NHS Wales enterprise master patient index (eMPI)
@@ -114,10 +117,15 @@
                      :processing-id "P"}
            :default nil}
 
+ ;; Aneurin Bevan's patient administration system (PAS)
+ :wales.nhs.abuhb/pas
+ #profile {:cvx {:demographics {:url #ref [:secrets :wales :ab :demographics :url]}}}
 
  ;;
  ;; pc4 services
  ;;
+
+ ;; object / file storage using either local filesystem or AWS S3
  :com.eldrix.pc4/filestorage
  #profile {:cvx     {:kind               :local
                      :dir                "/opt/Local/var/db/pc4/filestore"
@@ -131,10 +139,29 @@
                      :link-duration      "PT12H"            ;; links are available for 12 hours
                      :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
 
+ ;; SMTP service; we don't use SMTP currently outside of cvx, preferring instead to use gov notify for email...
+ :com.eldrix.pc4.mail/smtp
+ #profile {:cvx     {:host "cavmail.cymru.nhs.uk"}
+           :default nil}
+
+ ;; asynchronous queue job processing service
+ :com.eldrix.pc4/jobs
+ {:pool-size                1
+  :delay-ms                 5000
+  :termination-timeout-secs 5
+  :com.eldrix.rsdb/conn     #ig/ref :com.eldrix.rsdb/conn
+  :uk.gov.notify/api-key    #ref [:secrets :uk.gov :notify :api-key]
+  :templates                {[:user/email :message/received] "5926fb5c-04c9-4d0f-8018-ce0e895e3641"
+                             [:user/email :extract-started]  "94f360c3-8c6b-43fc-abf9-9b57dc857b91"
+                             [:user/email :extract-finished] "dbeb7930-42d8-4eb5-af09-46d2b19433cb"
+                             [:user/sms :message/received]   "765ef309-74d0-43d8-80ea-1dbd9e92a3e8"}}
+
+
  :com.eldrix.pc4/fake-login-provider
  {:username "ma090906'"
   :password "password"}
 
+ ;; user login service
  :com.eldrix.pc4/login
  #profile {:cvx     {:providers          {:wales.nhs/nadex #ig/ref :wales.nhs/nadex}
                      :jwt-secret-key     #ref [:secrets :pc4 :jwt-secret-key]
@@ -149,7 +176,9 @@
  :com.eldrix.deprivare/ops
  #ig/ref :com.eldrix/deprivare
 
- :pathom/ops                                                ;; operations are defined either statically (via #clj/var) or dynamically (via #ig/ref).
+ ;; operations / resolvers for pathom graph
+ ;; defined either statically (via #clj/var) or dynamically (via #ig/ref).
+ :pathom/ops
  [#clj/var com.eldrix.clods.graph/all-resolvers
   #clj/var com.eldrix.odsweekly.graph/all-resolvers
   #ig/ref :com.eldrix.deprivare/ops                         ;; operations for deprivare are determined dynamically at runtime
@@ -160,6 +189,7 @@
   #clj/var com.eldrix.pc4.patients/all-resolvers
   #clj/var com.eldrix.pc4.modules.msbase/all-resolvers]
 
+ ;; pathom graph environment available to all resolvers
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
   :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
@@ -169,11 +199,14 @@
   :com.eldrix.hermes.graph/svc    #ig/ref :com.eldrix/hermes
   ;;;; :com.eldrix.comprehend.core/svc #ig/ref :com.eldrix/comprehend
   :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
+  :com.eldrix.pc4.mail/smtp       #ig/ref :com.eldrix.pc4.mail/smtp
+  :com.eldrix.pc4/jobs            #ig/ref :com.eldrix.pc4/jobs
   :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
   :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
   :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms
   :wales.nhs/empi                 #ig/ref :wales.nhs/empi}
 
+ ;; pathom boundary interface - a single fn providing graph resolution
  :pathom/boundary-interface
  {:config #profile {:default {}
                     :dev     {:connect-viz true}}
@@ -184,6 +217,7 @@
  :com.eldrix.pc4/cljs-modules
  {:manifest-path "public/js/compiled/manifest.edn"}
 
+ ;; HTTP server
  :com.eldrix.pc4.pedestal/server
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
@@ -197,4 +231,3 @@
                     :com.eldrix.pc4/filestorage      #ig/ref :com.eldrix.pc4/filestorage
                     :com.eldrix.pc4/check-migrations #ig/ref :com.eldrix.rsdb/check-migrations
                     :com.eldrix.pc4/cljs-modules     #ig/ref :com.eldrix.pc4/cljs-modules}}}
-
