@@ -15,9 +15,9 @@
           (or (nil? to) (.isBefore date' to))))))
 
 
-(defn ^Period calculate-age
+(defn calculate-age
   "Calculate the age based on the parameters specified."
-  [^LocalDate date-birth & {:keys [^LocalDate date-death is-deceased? ^LocalDate on-date]}]
+  ^Period [^LocalDate date-birth & {:keys [^LocalDate date-death is-deceased? ^LocalDate on-date]}]
   (when date-birth
     (let [on-date' ^LocalDate (or on-date (LocalDate/now))
           deceased? (or is-deceased? (and date-death (or (.isEqual on-date' date-death) (.isAfter on-date' date-death))))]
