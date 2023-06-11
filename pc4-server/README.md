@@ -63,10 +63,16 @@ variables. For example:
 PORT=9000 clj -X:run :profile :dev
 ```
 
-Use tailwind to generate CSS:
+
+Compile front-end (also builds tailwind CSS from all source files)
+```shell
+yarn shadow-cljs -A:dev watch app
+```
+
+Or manually use tailwind to generate CSS:
 
 ```shell
-npx tailwindcss -i ./resources/tailwind.css -o ./resources/public/css/output.css --watch
+yarn tailwindcss -i ./resources/tailwind.css -o ./resources/public/css/output.css --watch
 ```
 
 View dependencies:
