@@ -1,0 +1,39 @@
+;; Deployment build file
+;; This is unnecessarily complicated. pc4 should be a single repository simplifying both dev and release
+;; For now, while the structures are not finalised, this creates a build artefact that can be run in production
+
+{:tasks
+ {:requires    ([babashka.fs :as fs]
+                [babashka.process :refer [sh]]
+                [clojure.string :as str])
+
+  :init        (do
+                 (def version (str "pc4-" (str/trim (:out (sh "git describe")))))
+                 (def zip-filename (str version ".zip")))
+
+  compile-cljs (do (println "***** Building pc4 front-end for production release (pc4-ward)")
+                   (shell "yarn shadow-cljs -A prod release app"))
+
+  create-zip   (do
+                 (println "***** Zipping files for deployment: creating" zip-filename)
+                 (fs/create-dirs version)
+                 (fs/create-dirs (str version "/src"))
+                 (fs/create-dirs (str version "/resources"))
+                 (fs/copy "deps.edn" version)
+                 (fs/copy-tree "src" (str version "/src"))
+                 (fs/copy-tree "resources" (str version "/resources"))
+                 (fs/zip zip-filename version)
+                 (fs/delete-tree version))
+
+  upload       (do
+                 (println "***** Uploading to production server")
+                 (sh "scp -i " (str (fs/home) "/.aws/LightsailDefaultKey-eu-west-2.pem") zip-filename "ec2-user@patientcare.app:"))
+
+  pc4          (do
+                 (println "********** Building for production")
+                 (run 'compile-cljs)
+                 (run 'create-zip)
+                 (run 'upload))}}
+
+
+
