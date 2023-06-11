@@ -66,7 +66,7 @@ PORT=9000 clj -X:run :profile :dev
 Use tailwind to generate CSS:
 
 ```shell
-npx tailwindcss -i ./resources/input.css -o ./resources/public/css/output.css --watch
+npx tailwindcss -i ./resources/tailwind.css -o ./resources/public/css/output.css --watch
 ```
 
 View dependencies:

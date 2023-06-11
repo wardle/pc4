@@ -49,6 +49,7 @@
                           :else
                           (assoc ctx :io.pedestal.interceptor.chain/error ex)))
 
+
 (defn execute-pathom
   "Executes a pathom query from the body of the request.
 
@@ -58,27 +59,11 @@
   See [[com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations]]"
   [ctx env params]
   (let [pathom (:pathom/boundary-interface ctx)
-        result (try (pathom env params) (catch Throwable e e))
-        exception? (instance? Throwable result)             ;; in lenient mode, Pathom should not throw exceptions
+        result (pathom env params)
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
-    (cond
-      exception?
-      (let [error (Throwable->map result)
-            error-data (ex-data result)]
-        (log/error "pathom exception: " {:request (get-in ctx [:request :transit-params])
-                                         :cause   error})
-        (tap> {:mutation-error error})
-        (when error-data (log/info "error" error-data))
-        (assoc ctx :response (ok {:error (:cause error)}))) ;; TODO: should be a server error
-      (seq errors)
-      (do
-        (log/error "pathom errors" {:request (get-in ctx [:request :transit-params])
-                                    :errors  (map :cause errors)})
-        (assoc ctx :response (merge {:status 400 :body result} (api-middleware/apply-response-augmentations result))))
-      :else
-      (do (log/debug "pathom success: " {:request params :result result})
-          (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))))
-
+    (when (seq errors)
+      (log/error "pathom errors" {:request (get-in ctx [:request :transit-params]) :errors (map Throwable->map errors)}))
+    (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))
 
 (defn landing-page
   "Return a landing page for the pc4-ward CLJS front-end.
@@ -90,7 +75,7 @@
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
-    [:link {:href "css/site.css" :rel "stylesheet" :type "text/css"}]
+    [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}]
     [:title "pc4"]]
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
@@ -99,7 +84,7 @@
 
 (def landing
   "Interceptor to return the pc4-ward front-end application."
-  {:name  ::landing
+  {:name ::landing
    :enter
    (fn [ctx]
      (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :app :output-name])]
@@ -109,7 +94,7 @@
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
   arbitrary requests. "
-  {:name  ::login
+  {:name ::login
    :enter
    (fn [ctx]
      (let [{:keys [system value password query] :as params} (get-in ctx [:request :transit-params])]
@@ -128,10 +113,10 @@
   "A login endpoint designed for fulcro clients in which login is simply a mutation. We need to take special
   measures to prevent arbitrary pathom queries at this endpoint. The alternative here would be to use a different pathom
    environment that contains only a single resolver, login."
-  {:name  ::login-mutation
+  {:name ::login-mutation
    :enter
    (fn [{:keys [request] :as ctx}]
-     (let [params (:transit-params request)          ;; [(pc4.users/login {:username "system", :password "password"})]
+     (let [params (:transit-params request)                 ;; [(pc4.users/login {:username "system", :password "password"})]
            _ (log/info "login request:" (dissoc params :password))
            op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
        (if-not (= 'pc4.users/login op-name)
@@ -180,7 +165,7 @@
   :authorization-manager, if the user is valid *and* an rsdb user. In the future
   an authorization manager may be injected even if not an rsdb user, because
   authorization information may be sourced from another system of record."
-  {:name  ::api
+  {:name ::api
    :enter
    (fn [ctx]
      (log/info "api request: " (get-in ctx [:request :transit-params]))
@@ -194,7 +179,7 @@
   "Return a user photograph.
   This endpoint is designed to flexibly handle lookup of a user photograph.
   TODO: fallback to active directory photograph."
-  {:name  ::get-user-photo
+  {:name ::get-user-photo
    :enter
    (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
      (let [system (get-in ctx [:request :path-params :system])
@@ -399,7 +384,7 @@
 
    ["/app/user/:user-id/ui/common-concepts"
     {:name :get-user-common-concepts
-     :get {:interceptors [check-authenticated render-component app/user-ui-common-concepts]}}]
+     :get  {:interceptors [check-authenticated render-component app/user-ui-common-concepts]}}]
 
    ["/app/user/:user-id/impersonate"
     {:name       :impersonate-user

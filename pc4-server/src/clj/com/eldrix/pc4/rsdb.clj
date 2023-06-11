@@ -1241,11 +1241,11 @@
                               :t_episode/registration_user_fk user-id
                               :t_episode/referral_user_fk user-id
                               :t_episode/discharge_user_fk user-id)]
-    (do (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
-        (log/info "writing episode" params')
-        (if (:t_episode/id params')
-          (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
-          (next.jdbc.sql/insert! conn :t_episode params')))))
+    (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
+    (log/info "writing episode" params')
+    (if (:t_episode/id params')
+      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
+      (next.jdbc.sql/insert! conn :t_episode params'))))
 
 (pco/defmutation delete-admission!
   [{conn    :com.eldrix.rsdb/conn

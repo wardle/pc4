@@ -1,1 +1,3 @@
 resources/public/css/output.css
+/.shadow-cljs
+/node_modules
