@@ -1,5 +1,6 @@
 (ns com.eldrix.pc4.ui.user
   (:require [clojure.string :as str]
+            [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.ui.misc :as misc]
             [rum.core :as rum]))
 
@@ -170,39 +171,34 @@
          (list-role role))]]]]])
 
 (rum/defc view-user
-  "View a user with optional context. If context is provided, the view will be
-  modified accordingly.
-  Context options
-  :project-id : if provided, roles will be shown for the project specified"
-  ([user] (view-user {} user))
-  ([{project-id :t_project/id project-title :t_project/title :as ctx}
-    {:t_user/keys [full_name first_names last_name postnomial title authentication_method job_title roles] :as user}]
-   (tap> {:ctx ctx :user user})
-   (misc/description-list {:title    (str full_name " " postnomial)
-                           :subtitle job_title}
-                          [:<>
-                           (misc/description-list-item {:label "Title"
-                                                        :content title})
-                           (misc/description-list-item {:label   (if (> (count (str/split first_names #"\s")) 1) "First names:" "First name:")
-                                                        :content first_names})
-                           (misc/description-list-item {:label   "Last name:"
-                                                        :content last_name})
-                           (misc/description-list-item {:label   "Authentication method:"
-                                                        :content (name authentication_method)})
-                           (misc/description-list-item {:label   "Professional registration:"
-                                                        :content (let [s (str (:t_professional_registration_authority/abbreviation user) " "
-                                                                              (:t_user/professional_registration user))
-                                                                       href (:t_user/professional_registration_url user)]
-                                                                   (if href [:a.underline.text-blue-600.hover:text-blue-800 {:href href} s] s))})
+  [{:t_user/keys [full_name first_names last_name postnomial title authentication_method job_title roles] :as user}]
+  (let [inactive-roles (->> roles
+                            (remove #(or (:t_project/active %) (:t_project_user/active? %)))
+                            (sort-by :t_project/title))]
+    (misc/description-list {:title    (str full_name " " postnomial)
+                            :subtitle job_title}
+                           [:<>
+                            (misc/description-list-item {:label   "Title"
+                                                         :content title})
+                            (misc/description-list-item {:label   (if (> (count (str/split first_names #"\s")) 1) "First names:" "First name:")
+                                                         :content first_names})
+                            (misc/description-list-item {:label   "Last name:"
+                                                         :content last_name})
+                            (misc/description-list-item {:label   "Authentication method:"
+                                                         :content (name authentication_method)})
+                            (misc/description-list-item {:label   "Professional registration:"
+                                                         :content (let [s (str (:t_professional_registration_authority/abbreviation user) " "
+                                                                               (:t_user/professional_registration user))
+                                                                        href (:t_user/professional_registration_url user)]
+                                                                    (if href [:a.underline.text-blue-600.hover:text-blue-800 {:href href} s] s))})
 
-                           (misc/description-list-item {:label   "Active roles"
-                                                        :content (list-roles (->> roles
-                                                                                  (filter #(and (:t_project/active? %) (:t_project_user/active? %)))
-                                                                                  (sort-by :t_project/title)))})
-                           (misc/description-list-item {:label "Inactive roles"
-                                                        :content (list-roles (->> roles
-                                                                                  (remove #(or (:t_project/active %) (:t_project_user/active? %)))
-                                                                                  (sort-by :t_project/title)))})])))
+                            (misc/description-list-item {:label   "Active roles"
+                                                         :content (list-roles (->> roles
+                                                                                   (filter #(and (:t_project/active? %) (:t_project_user/active? %)))
+                                                                                   (sort-by :t_project/title)))})
+                            (when (seq inactive-roles) (misc/description-list-item {:label   "Inactive roles"
+                                                                                    :content (list-roles inactive-roles)}))])))
+
 
 
 

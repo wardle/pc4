@@ -149,16 +149,14 @@
       (catch Exception e (log/warn "Unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))
 
-
 (defmethod ig/init-key :com.eldrix.pc4/cljs-modules [_ {path :manifest-path}]
   (log/debug "looking for cljs modules in " path)
   (if-let [manifest-url (io/resource path)]
     (let [manifest (edn/read-string (slurp manifest-url))]
-      (log/info "Found cljs modules" (reduce (fn [acc {:keys [module-id output-name]}] (assoc acc module-id output-name)) {} manifest))
+      (log/info "found cljs modules" (reduce (fn [acc {:keys [module-id output-name]}] (assoc acc module-id output-name)) {} manifest))
       (reduce (fn [acc {:keys [module-id] :as module}] ;; return a map of module-id to module information
                 (assoc acc module-id module)) {} manifest))
     (log/info "no shadow cljs manifest file found")))
-
 
 (defmethod aero/reader 'ig/ref [_ _ x]
   (ig/ref x))

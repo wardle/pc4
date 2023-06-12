@@ -30,7 +30,7 @@
             [clojure.set :as set])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDate LocalDateTime)
-           (java.util Base64)
+           (java.util Base64 Locale)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)
            (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
@@ -155,7 +155,7 @@
                  :t_patient_hospital/patient_identifier]
    ::pco/output [:wales.nhs.abuhb.Patient/CRN
                  :wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
-  {:wales.nhs.abuhb.Patient/CRN (when (= auth :CAVUHB) crn)
+  {:wales.nhs.abuhb.Patient/CRN         (when (= auth :CAVUHB) crn)
    :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB crn))})
 
 (pco/defresolver patient->demographics-authority
@@ -244,7 +244,7 @@
 
 (pco/defresolver patient->has-diagnosis
   [{hermes :com.eldrix.hermes.graph/svc, :as env} {diagnoses :t_patient/diagnoses}]
-  {::pco/input [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
+  {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
    ::pco/output [:t_patient/has_diagnosis]}
   (let [params (pco/params env)
         ecl (or (:ecl params) (throw (ex-info "Missing mandatory parameter: ecl" env)))
@@ -742,6 +742,8 @@
   logic - such as checking Active Directory if the user is managed by that
   service."
   [{:t_user/keys [photo_fk]}]
+  {::pco/input  [(pco/? :t_user/photo_fk)]
+   ::pco/output [:t_user/has_photo]}
   {:t_user/has_photo (boolean photo_fk)})
 
 (pco/defresolver user->full-name
@@ -805,30 +807,33 @@
                                  :t_project_user/permissions
                                  :t_project/id
                                  :t_project/active?]}]}
-  (let [{:keys [project-id]} (pco/params env)]              ;; if project-id is nil, then roles-for-user returns all roles
-    {:t_user/roles (users/roles-for-user conn username {:t_project/id project-id})}))
-
+  (let [{:keys [project-id active-roles active-projects]} (pco/params env)]
+    {:t_user/roles
+     (cond->> (users/roles-for-user conn username {:t_project/id project-id})
+              active-roles (filter :t_project_user/active?)
+              active-projects (filter :t_project/active?))}))
 
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
-  filtering by a SNOMED expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {user-id :t_user/id}]
-  {::pco/output [{:t_user/common_concepts [:info.snomed.Concept/id]}]}
-  (let [project-ids (users/active-project-ids conn user-id {:only-active-projects? true})
-        concept-ids (projects/common-concepts conn project-ids)
+  filtering by a SNOMED expression (ECL). Language preferences can be specified
+  using parameter `:accept-language` with a comma-separated list of preferences."
+  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
+  {::pco/output [{:t_user/common_concepts
+                  [:info.snomed.Concept/id
+                   {:info.snomed.Concept/preferredDescription
+                    [:info.snomed.Description/id
+                     :info.snomed.Description/term]}]}]}
+  (let [concept-ids (users/common-concepts conn user-id)
         ecl (:ecl (pco/params env))
-        _ (println {:project-ids project-ids
-                    :concept-ids concept-ids
-                    :ecl         ecl
-                    :result      (->> (hermes/intersect-ecl hermes concept-ids ecl)
-                                      (mapv #(hash-map :info.snomed.Concept/id %)))})]
+        lang (or (:accept-language (pco/params env)) (.toLanguageTag (Locale/getDefault)))
+        concept-ids' (if (str/blank? ecl) concept-ids (hermes/intersect-ecl hermes concept-ids ecl))] ;; constrain concepts by ECL if present]
     {:t_user/common_concepts
      (when (seq concept-ids)
-       (if (str/blank? ecl)
-         (reduce (fn [acc v] (conj acc {:info.snomed.Concept/id v})) [] concept-ids)
-         (->> (hermes/intersect-ecl hermes concept-ids ecl)
-              (mapv #(hash-map :info.snomed.Concept/id %)))))}))
+       (let [results (hermes/search-concept-ids hermes {:language-range lang} concept-ids')]
+         (mapv #(hash-map :info.snomed.Concept/id (:conceptId %) ;; and now give shape to results
+                          :info.snomed.Concept/preferredDescription {:info.snomed.Description/id   (:id %)
+                                                                     :info.snomed.Description/term (:term %)}) results)))}))
 
 (pco/defresolver user->latest-news
   [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
@@ -903,7 +908,8 @@
                                                 (string? date-birth) (LocalDate/parse date-birth)
                                                 :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
         (if (s/valid? ::register-patient-by-pseudonym params')
-          (projects/register-legacy-pseudonymous-patient conn params')
+          (jdbc/with-transaction [txn conn {:isolation :serializable}]
+            (projects/register-legacy-pseudonymous-patient txn params'))
           (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))
       (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
                  {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
@@ -1011,7 +1017,8 @@
       (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (patients/save-ms-diagnosis! conn params')
+          (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+            (patients/save-ms-diagnosis! txn params'))
           (patient->summary-multiple-sclerosis env params)))))
 
 (s/def ::save-pseudonymous-postal-code
@@ -1028,12 +1035,13 @@
   (log/info "saving pseudonymous postal code" {:params params :ods ods})
   (if-not (s/valid? ::save-pseudonymous-postal-code params)
     (throw (ex-info "invalid request" (s/explain-data ::save-pseudonymous-postal-code params)))
-    (if (str/blank? postcode)
-      (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
-                                                      :uk.gov.ons.nhspd/LSOA11      ""})
-      (let [pc (clods/fetch-postcode ods postcode)]
-        (patients/save-pseudonymous-patient-lsoa! conn {:t_patient/patient_identifier patient-identifier
-                                                        :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
+    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+      (if (str/blank? postcode)
+        (patients/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
+                                                       :uk.gov.ons.nhspd/LSOA11      ""})
+        (let [pc (clods/fetch-postcode ods postcode)]
+          (patients/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
+                                                         :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")}))))))
 
 (s/def ::save-ms-event
   (s/keys :req [:t_ms_event/date
@@ -1116,7 +1124,8 @@
       (log/error "invalid call" (s/explain-data ::save-encounter params'))
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
     (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (forms/save-encounter-with-forms! conn params'))))
+        (jdbc/with-transaction [txn conn]
+          (forms/save-encounter-with-forms! conn params')))))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
@@ -1151,7 +1160,8 @@
                     (assoc :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
                            :user_fk (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
     (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (results/save-result! conn params'))))
+        (jdbc/with-transaction [txn conn]
+          (results/save-result! txn params')))))
 
 (pco/defmutation delete-result!
   [{conn    :com.eldrix.rsdb/conn
@@ -1180,7 +1190,8 @@
   (when-not (s/valid? ::notify-death params)
     (throw (ex-info "Invalid notify-death request" (s/explain-data ::notify-death params))))
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (patients/notify-death! conn params))
+  (jdbc/with-transaction [txn conn {:isolation :serializable}]
+    (patients/notify-death! txn params)))
 
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
@@ -1230,11 +1241,11 @@
                               :t_episode/registration_user_fk user-id
                               :t_episode/referral_user_fk user-id
                               :t_episode/discharge_user_fk user-id)]
-    (do (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
-        (log/info "writing episode" params')
-        (if (:t_episode/id params')
-          (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
-          (next.jdbc.sql/insert! conn :t_episode params')))))
+    (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
+    (log/info "writing episode" params')
+    (if (:t_episode/id params')
+      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
+      (next.jdbc.sql/insert! conn :t_episode params'))))
 
 (pco/defmutation delete-admission!
   [{conn    :com.eldrix.rsdb/conn

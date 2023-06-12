@@ -3,6 +3,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]
+            [com.eldrix.pc4.ui.misc :as misc]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.chain :as chain]
             [com.eldrix.pc4.rsdb.users]
@@ -62,11 +63,10 @@
 
 (def home-page
   {:enter
-   (fn [{conn :com.eldrix.rsdb/conn, :as ctx}]
+   (fn [ctx]
      (let [router (get-in ctx [:request ::r/router])
-           authenticated-user (get-in ctx [:request :session :authenticated-user])
-           active-projects (com.eldrix.pc4.rsdb.users/projects conn (:t_user/username authenticated-user))
-           latest-news (com.eldrix.pc4.rsdb.users/fetch-latest-news conn (:t_user/username authenticated-user))]
+           active-projects (get-in ctx [:result :t_user/roles])
+           latest-news (get-in ctx [:result :t_user/latest_news])]
        (assoc ctx
          :component
          (page [:<>
@@ -176,7 +176,9 @@
            (assoc ctx :component
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6
-                              [:div.col-span-1.pt-6 (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :home})]
+                              [:div.col-span-1.pt-6
+                               [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
+                                (project-menu ctx {:project-id id :title "Home" :selected-id :home})]]
                               [:div.col-span-5.p-6
                                (ui.project/project-home project*)]]]))))))})
 
@@ -197,22 +199,45 @@
                     (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
                       (ui.project/project-users users')
                       (page [:<> (navigation-bar ctx)
+                             (misc/breadcrumbs
+                               (misc/breadcrumb-home {:href "#"})
+                               (misc/breadcrumb-item {:href "#"} "Project")
+                               (misc/breadcrumb-item {:href "#"} "Team"))
                              [:div.grid.grid-cols-1.md:grid-cols-6
-                              [:div.col-span-1.pt-6 (project-menu ctx (merge (:params request) {:project-id id :title title :selected-id :team}))]
+                              [:div.col-span-1.pt-6
+                               [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
+                                (project-menu ctx (merge (:params request) {:project-id id :title "Home" :selected-id :team}))]]
                               [:div#list-users.col-span-5.p-6
                                (ui.project/project-users users')]]]))))))})
 
 (def view-user
   {:enter
-   (fn [{user :result, request :request, :as ctx}]
+   (fn [{user :result, request :request, authorizer :authorizer, :as ctx}]
      (if-not user
        ctx
-       (let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
+       (let [is-system (when authorizer (authorizer :SYSTEM))
+             project-id (some-> (get-in request [:path-params :project-id]) parse-long)
+             router (::r/router request)
+             user' (cond-> user
+                           is-system
+                           (assoc :impersonate-user-url (r/match->path (r/match-by-name! router :impersonate-user {:user-id (:t_user/id user)}))))]
+         (println "view user: " user')
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
-                            (ui.user/view-user {:project-id project-id} user)]])))))})
+                            (ui.user/view-user user')]])))))})
 
+(def user-ui-common-concepts
+  {:enter
+   (fn [{request :request, :as ctx}]
+     (if-let [user-id (some-> (get-in request [:path-params :user-id]) parse-long)]
+       ()
+       (assoc ctx :response {:status 400 :body "Invalid request: expected user-id"})))})
+
+
+(def login-user-props
+  [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
+   :t_user/last_name :t_user/initials :t_user/has_photo :t_user/job_title])
 
 (def login
   "Logic for application login. This is currently only designed for users
@@ -220,24 +245,42 @@
    to the context with a result indicating success or failure by the presence
    of a value for :user."
   {:enter
-   (fn [{request :request, pathom :pathom/boundary-interface, conn :com.eldrix.rsdb/conn, :as ctx}]
+   (fn [{request :request,
+         pathom  :pathom/boundary-interface,
+         conn    :com.eldrix.rsdb/conn, :as ctx}]
      (let [router (::r/router request)
            username (get-in request [:params "username"])
            password (get-in request [:params "password"])
            url (get-in request [:params "url"])
            user (when (and username password)
                   (-> (pathom nil [{(list 'pc4.users/login {:system "cymru.nhs.uk" :value username :password password})
-                                    [:t_user/username :t_user/id :t_user/full_name :t_user/first_names
-                                     :t_user/last_name :t_user/initials :t_user/has_photo :t_user/job_title]}])
+                                    login-user-props}])
                       (get 'pc4.users/login)))
            can-login? (when user (rsdb.auth/authorized-any? (rsdb.users/make-authorization-manager conn username) :LOGIN))]
-       (clojure.pprint/pprint user)
        (if user                                             ;; if we have logged in, route to the requested URL, or to home
          (assoc ctx :login {:user user :url (or url (r/match->path (r/match-by-name! router :home)))})
          (assoc ctx :login {:username  username :url (or url (r/match->path (r/match-by-name! router :home)))
                             :error     (if can-login? (when (and (= :post (:request-method request)) (not (str/blank? username))) "Invalid username or password")
                                                       "You are not registered to any active services or research projects.")
                             :login-url (r/match->path (r/match-by-name! router :login-page))}))))})
+
+(def impersonate
+  "A logged-in system user can choose to impersonate another user for testing
+  purposes."
+  {:enter
+   (fn [{request :request, authorizer :authorizer,
+         pathom  :pathom/boundary-interface,
+         :as     ctx}]
+     (let [router (::r/router request)
+           user-id (some-> (get-in request [:path-params :user-id]) parse-long)]
+       (if-not (when authorizer (authorizer :SYSTEM))       ;; TODO: consider switching to a dedicated permission
+         (-> ctx (chain/terminate) (assoc :response {:status 401 :body "Unauthorized"}))
+         (let [user (pathom {:pathom/entity {:t_user/id user-id}
+                             :pathom/eql    login-user-props})]
+           (log/warn "system user impersonating user" user)
+           (-> ctx
+               (dissoc :authorization-manager :authorizer)
+               (assoc :login {:user user :url (r/match->path (r/match-by-name! router :home))}))))))})
 
 (def logout
   {:enter
@@ -248,6 +291,8 @@
                               (assoc :session nil)))))})
 
 (def view-login-page
+  "Takes :login from the context and either performs the redirect for a logged-
+  in user, or shows the login page."
   {:enter
    (fn [{{:keys [url login-url user username error] :as login} :login, :as ctx}]
      (log/info "view-login-page" login)
@@ -261,3 +306,4 @@
                                                       :hidden   {:url url :__anti-forgery-token (get-in ctx [:request ::csrf/anti-forgery-token])}
                                                       :username {:value username}
                                                       :error    error})]))))})
+
