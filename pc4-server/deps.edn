@@ -62,8 +62,8 @@
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
                            :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
-                                        io.pedestal/pedestal.service   {:mvn/version "0.5.10"}
-                                        io.pedestal/pedestal.jetty     {:mvn/version "0.5.10"}
+                                        io.pedestal/pedestal.service   {:mvn/version "0.6.0"}
+                                        io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}
                                         ring/ring-core                 {:mvn/version "1.10.0"}
                                         ring-cors/ring-cors            {:mvn/version "0.1.13"}
                                         ring/ring-defaults             {:mvn/version "0.3.4"}
