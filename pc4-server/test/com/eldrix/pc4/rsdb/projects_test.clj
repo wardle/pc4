@@ -20,7 +20,7 @@
       (binding [*conn* txn]
         (f)))))
 
-(use-fixtures :once with-conn)
+(use-fixtures :each with-conn)
 
 (deftest fetch-project
   (let [project (projects/project-with-name *conn* "LEGACYMS")]
