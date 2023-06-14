@@ -254,9 +254,9 @@
                         (throw (ex-info "Either t_patient/id or t_patient/patient_identifier must be provided" req))))))
 
 (s/fdef create-medication
-  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
-                                                   :opt [:t_medication/date_to :t_medication/reason_for_stopping
-                                                         :t_medication/more_information])))
+  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from
+                                                         :t_medication/reason_for_stopping]
+                                                   :opt [:t_medication/date_to :t_medication/more_information])))
 (defn create-medication [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping more_information]
                                patient-identifier :t_patient/patient_identifier}]
   (-> (db/execute-one! conn
