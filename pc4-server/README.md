@@ -63,19 +63,12 @@ variables. For example:
 PORT=9000 clj -X:run :profile :dev
 ```
 
+# Developer information
 
-Compile front-end (also builds tailwind CSS from all source files)
-```shell
-yarn shadow-cljs -A:dev watch app
-```
-
-Or manually use tailwind to generate CSS:
+Install babashka, and run
 
 ```shell
-yarn tailwindcss -i ./resources/tailwind.css -o ./resources/public/css/output.css --watch
+bb tasks
 ```
 
-View dependencies:
-```shell
-clj -X:deps tree
-```
+for commonly needed development requirements.
