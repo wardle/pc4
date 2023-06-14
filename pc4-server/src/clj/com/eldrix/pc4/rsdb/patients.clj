@@ -233,6 +233,26 @@
                                          [:= :t_diagnosis/id id]]})
                    {:return-keys true}))
 
+
+(s/fdef fetch-all-medication
+  :args (s/cat :conn ::db/conn :patient (s/or :by-id (s/keys :req [:t_patient/patient_identifier])
+                                              :by-pk (s/keys :req [:t_patient/id]))))
+(defn fetch-all-medication
+  [conn {patient-identifier :t_patient/patient_identifier, patient-pk :t_patient/id :as req}]
+  (db/execute! conn (sql/format
+                      (cond
+                        patient-pk
+                        {:select [:*]
+                          :from   [:t_medication]
+                          :where  [:= :patient_fk patient-pk]}
+                        patient-identifier
+                        {:select [:t_medication/*]
+                                 :from   [:t_medication]
+                                 :join   [:t_patient [:= :patient_fk :t_patient/id]]
+                                 :where  [:= :patient-identifier patient-identifier]}
+                        :else
+                        (throw (ex-info "Either t_patient/id or t_patient/patient_identifier must be provided" req))))))
+
 (s/fdef create-medication
   :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/medication_concept_fk :t_medication/date_from]
                                                    :opt [:t_medication/date_to :t_medication/reason_for_stopping
