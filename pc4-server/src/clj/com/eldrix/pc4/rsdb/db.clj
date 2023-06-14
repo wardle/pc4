@@ -12,76 +12,83 @@
 (def parse-local-datetime #(when % (LocalDateTime/from %)))
 
 (def property-parsers
-  {:t_address/date_from                        parse-local-date
-   :t_address/date_to                          parse-local-date
-   :t_address/ignore_invalid_address           parse-boolean
-   :t_diagnosis/date_diagnosis                 parse-local-date
-   :t_diagnosis/date_onset                     parse-local-date
-   :t_diagnosis/date_to                        parse-local-date
-   :t_encounter/is_deleted                     parse-boolean
-   :t_encounter_template/can_change_consultant parse-boolean
-   :t_encounter_template/is_deleted            parse-boolean
-   :t_encounter_template/mandatory             parse-boolean
-   :t_encounter_template/can_change_hospital   parse-boolean
-   :t_encounter_template/allow_multiple        parse-boolean
-   :t_job_title/can_be_responsible_clinician   parse-boolean
-   :t_job_title/is_clinical                    parse-boolean
-   :t_medication/date_from                     parse-local-date
-   :t_medication/date_to                       parse-local-date
-   :t_medication/as_required                   parse-boolean
-   :t_medication/frequency                     keyword
-   :t_medication/reason_for_stopping           keyword
-   :t_medication/route                         keyword
-   :t_ms_event/date                            parse-local-date
-   :t_form_ms_relapse/in_relapse               parse-boolean
-   :t_patient/date_birth                       parse-local-date
-   :t_patient/date_death                       parse-local-date
-   :t_patient/sex                              keyword
-   :t_patient/status                           keyword
-   :t_patient/authoritative_demographics       keyword
-   :t_patient/authoritative_last_updated       parse-local-datetime
-   :t_patient_hospital/authoritative           parse-boolean
-   :t_project/advertise_to_all                 parse-boolean
-   :t_project/can_own_equipment                parse-boolean
-   :t_project/date_from                        parse-local-date
-   :t_project/date_to                          parse-local-date
-   :t_project/admission                        parse-boolean
-   :t_project/is_private                       parse-boolean
-   :t_project/type                             keyword
-   :t_project/virtual                          parse-boolean
-   :t_project_user/role                        keyword
-   :t_result_mri_brain/with_gadolinium         parse-boolean
-   :t_result_mri_brain/date                    parse-local-date
-   :t_result_full_blood_count/date             parse-local-date
-   :t_result_renal/date                        parse-local-date
-   :t_result_csf_ocb/date                      parse-local-date
-   :t_result_jc_virus/date                     parse-local-date
-   :t_result_mri_spine/date                    parse-local-date
-   :t_result_liver_function/date               parse-local-date
-   :t_result_urinalysis/date                   parse-local-date
-   :t_result_ecg/date                          parse-local-date
-   :t_result_thyroid_function/date             parse-local-date
-   :t_role/is_system                           parse-boolean
-   :t_user/authentication_method               keyword
-   :t_user/must_change_password                parse-boolean
-   :t_user/send_email_for_messages             parse-boolean
-   :t_ms_event/site_arm_motor                  parse-boolean
-   :t_ms_event/site_ataxia                     parse-boolean
-   :t_ms_event/site_bulbar                     parse-boolean
-   :t_ms_event/site_cognitive                  parse-boolean
-   :t_ms_event/site_diplopia                   parse-boolean
-   :t_ms_event/site_face_motor                 parse-boolean
-   :t_ms_event/site_face_sensory               parse-boolean
-   :t_ms_event/site_leg_motor                  parse-boolean
-   :t_ms_event/site_limb_sensory               parse-boolean
-   :t_ms_event/site_optic_nerve                parse-boolean
-   :t_ms_event/site_other                      parse-boolean
-   :t_ms_event/site_psychiatric                parse-boolean
-   :t_ms_event/site_sexual                     parse-boolean
-   :t_ms_event/site_sphincter                  parse-boolean
-   :t_ms_event/site_unknown                    parse-boolean
-   :t_ms_event/site_vestibular                 parse-boolean
-   :t_ms_events/is_relapse                     parse-boolean})
+  {:t_address/date_from                           parse-local-date
+   :t_address/date_to                             parse-local-date
+   :t_address/ignore_invalid_address              parse-boolean
+   :t_diagnosis/date_diagnosis                    parse-local-date
+   :t_diagnosis/date_onset                        parse-local-date
+   :t_diagnosis/date_to                           parse-local-date
+   :t_encounter/is_deleted                        parse-boolean
+   :t_encounter_template/can_change_consultant    parse-boolean
+   :t_encounter_template/is_deleted               parse-boolean
+   :t_encounter_template/mandatory                parse-boolean
+   :t_encounter_template/can_change_hospital      parse-boolean
+   :t_encounter_template/allow_multiple           parse-boolean
+   :t_job_title/can_be_responsible_clinician      parse-boolean
+   :t_job_title/is_clinical                       parse-boolean
+   :t_medication/date_from                        parse-local-date
+   :t_medication/date_to                          parse-local-date
+   :t_medication/date_from_accuracy               keyword
+   :t_medication/date_to_accuracy                 keyword
+   :t_medication/as_required                      parse-boolean
+   :t_medication/frequency                        keyword
+   :t_medication/reason_for_stopping              keyword
+   :t_medication/temporary_stop                   parse-boolean
+   :t_medication/route                            keyword
+   :t_medication_event/type                       {"INFUSION_REACTION" :INFUSION_REACTION ;; TODO: fix consistency of type in legacy rsdb
+                                                   "AdverseEvent"      :ADVERSE_EVENT}
+   :t_medication_event/sample_obtained_antibodies parse-boolean
+   :t_medication_event/severity                   keyword
+   :t_ms_event/date                               parse-local-date
+   :t_form_ms_relapse/in_relapse                  parse-boolean
+   :t_patient/date_birth                          parse-local-date
+   :t_patient/date_death                          parse-local-date
+   :t_patient/sex                                 keyword
+   :t_patient/status                              keyword
+   :t_patient/authoritative_demographics          keyword
+   :t_patient/authoritative_last_updated          parse-local-datetime
+   :t_patient_hospital/authoritative              parse-boolean
+   :t_project/advertise_to_all                    parse-boolean
+   :t_project/can_own_equipment                   parse-boolean
+   :t_project/date_from                           parse-local-date
+   :t_project/date_to                             parse-local-date
+   :t_project/admission                           parse-boolean
+   :t_project/is_private                          parse-boolean
+   :t_project/type                                keyword
+   :t_project/virtual                             parse-boolean
+   :t_project_user/role                           keyword
+   :t_result_mri_brain/with_gadolinium            parse-boolean
+   :t_result_mri_brain/date                       parse-local-date
+   :t_result_full_blood_count/date                parse-local-date
+   :t_result_renal/date                           parse-local-date
+   :t_result_csf_ocb/date                         parse-local-date
+   :t_result_jc_virus/date                        parse-local-date
+   :t_result_mri_spine/date                       parse-local-date
+   :t_result_liver_function/date                  parse-local-date
+   :t_result_urinalysis/date                      parse-local-date
+   :t_result_ecg/date                             parse-local-date
+   :t_result_thyroid_function/date                parse-local-date
+   :t_role/is_system                              parse-boolean
+   :t_user/authentication_method                  keyword
+   :t_user/must_change_password                   parse-boolean
+   :t_user/send_email_for_messages                parse-boolean
+   :t_ms_event/site_arm_motor                     parse-boolean
+   :t_ms_event/site_ataxia                        parse-boolean
+   :t_ms_event/site_bulbar                        parse-boolean
+   :t_ms_event/site_cognitive                     parse-boolean
+   :t_ms_event/site_diplopia                      parse-boolean
+   :t_ms_event/site_face_motor                    parse-boolean
+   :t_ms_event/site_face_sensory                  parse-boolean
+   :t_ms_event/site_leg_motor                     parse-boolean
+   :t_ms_event/site_limb_sensory                  parse-boolean
+   :t_ms_event/site_optic_nerve                   parse-boolean
+   :t_ms_event/site_other                         parse-boolean
+   :t_ms_event/site_psychiatric                   parse-boolean
+   :t_ms_event/site_sexual                        parse-boolean
+   :t_ms_event/site_sphincter                     parse-boolean
+   :t_ms_event/site_unknown                       parse-boolean
+   :t_ms_event/site_vestibular                    parse-boolean
+   :t_ms_events/is_relapse                        parse-boolean})
 
 
 (defn parse-entity
@@ -172,7 +179,18 @@
     :NON_ADHERENCE :OTHER
     :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
     :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
-
+(s/def :t_medication_event/id int?)
+(s/def :t_medication_event/type #{:INFUSION_REACTION :ADVERSE_EVENT})
+(s/def :t_medication_event/action_taken (s/nilable string?))
+(s/def :t_medication_event/description_of_reaction (s/nilable string?))
+(s/def :t_medication_event/sample_obtained_antibodies boolean?)
+(s/def :t_medication_event/severity (s/nilable #{:MILD_NO_INTERRUPTION
+                                                 :PROLONGED_REACTION
+                                                 :MODERATE_TEMPORARY_INTERRUPTION
+                                                 :LIFE_THREATENING}))
+(s/def :t_medication_event/reaction_date_time (s/nilable #(instance? LocalDateTime %)))
+(s/def :t_medication_event/infusion_start_date_time (s/nilable #(instance? LocalDateTime %)))
+(s/def :t_medication_event/event_concept_fk :info.snomed.Concept/id)
 
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
