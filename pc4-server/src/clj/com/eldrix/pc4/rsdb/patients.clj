@@ -298,6 +298,21 @@
                    (sql/format {:delete-from [:t_medication]
                                 :where       [:= :t_medication/id id]})))
 
+
+(defn fetch-medication-events
+  "Returns medication events for the medication records specified.
+  The results are guaranteed to match the ordering of the input identifiers."
+  [conn medication-ids]
+  (let [results (db/execute! conn (sql/format {:select [:*]
+                                               :from :t_medication_event
+                                               :where [:in :medication_fk medication-ids]}))
+        index (group-by :t_medication_event/medication_fk results)]
+    (reduce (fn [acc id]
+              (conj acc (get index id))) [] medication-ids)))
+
+
+
+
 (defn fetch-summary-multiple-sclerosis
   [conn patient-identifier]
   (let [sms (db/execute! conn (sql/format {:select    [:t_summary_multiple_sclerosis/id
