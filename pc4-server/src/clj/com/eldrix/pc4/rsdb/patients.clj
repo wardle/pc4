@@ -273,8 +273,9 @@
       (update :t_medication/reason_for_stopping #(if % (keyword %) nil))))
 
 (s/fdef update-medication
-  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from]
-                                                   :opt [:t_medication/date_to :t_medication/reason_for_stopping])))
+  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from
+                                                         :t_medication/reason_for_stopping]
+                                                   :opt [:t_medication/date_to :t_medication/more_information])))
 (defn update-medication
   [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping more_information]}]
   (db/execute-one! conn
