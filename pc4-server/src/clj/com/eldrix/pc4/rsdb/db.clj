@@ -190,7 +190,7 @@
                                                  :LIFE_THREATENING}))
 (s/def :t_medication_event/reaction_date_time (s/nilable #(instance? LocalDateTime %)))
 (s/def :t_medication_event/infusion_start_date_time (s/nilable #(instance? LocalDateTime %)))
-(s/def :t_medication_event/event_concept_fk :info.snomed.Concept/id)
+(s/def :t_medication_event/event_concept_fk int?)
 
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
