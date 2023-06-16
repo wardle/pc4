@@ -58,13 +58,16 @@
 (pco/defresolver patient-identification
   "Resolves MSBase 'identification' data. See https://msbasecloud.prosynergie.ch/docs/demographics"
   [{:t_patient/keys [patient_identifier sex] :as patient}]
-  {::pco/input [:t_patient/patient_identifier
-                :t_patient/sex
-                (pco/? {:t_patient/ethnic_origin [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]})]}
+  {::pco/input [:t_patient/patient_identifier :t_patient/sex]}
   {:org.msbase.identification/localId   (str "com.eldrix.pc4/" patient_identifier)
-   :org.msbase.identification/isActive  true
-   :org.msbase.identification/gender    (case sex :MALE "M" :FEMALE "F" "")
-   :org.msbase.identification/ethnicity (get-in patient [:t_patient/ethnic_origin :info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
+   :org.msbase.identification/isActive  true                ;; should this be based upon when patient last had encounter
+   :org.msbase.identification/gender    (case sex :MALE "M" :FEMALE "F" "")})
+
+(pco/defresolver patient-ethnicity
+  "Resolve MSBase 'ethnicity' data"
+  [patient]
+  {::pco/input [{:t_patient/ethnic_origin [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+  {:org.msbase.identification/ethnicity (get-in patient [:t_patient/ethnic_origin :info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
 
 (pco/defresolver demographics
   "Return MSBase 'demographics' data. See https://msbasecloud.prosynergie.ch/docs/demographics"
@@ -176,7 +179,7 @@
 
 (pco/defresolver medical-conditions
   [{:t_patient/keys [diagnoses]}]
-  {::pco/input [:t_patient/diagnoses]
+  {::pco/input  [:t_patient/diagnoses]
    ::pco/output [:org.msbase/medicalConditions]}
   {:org.msbase/medicalConditions
    (remove #(= "INACTIVE_IN_ERROR" (:t_diagnosis/status %)) diagnoses)})
@@ -185,11 +188,11 @@
   [{:t_diagnosis/keys [id date_onset date_to diagnosis]}]
   {::pco/input [:t_diagnosis/id (pco/? :t_diagnosis/date_onset) (pco/? :t_diagnosis/date_to)
                 {:t_diagnosis/diagnosis [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
-  {:org.msbase.medicalCondition/localId (str "com.eldrix.pc4.diagnosis/" id)
+  {:org.msbase.medicalCondition/localId     (str "com.eldrix.pc4.diagnosis/" id)
    :org.msbase.medicalCondition/currDisease nil
-   :org.msbase.medicalCondition/startDate (format-iso-date date_onset)
-   :org.msbase.medicalCondition/endDate (format-iso-date date_to)
-   :org.msbase.medicalCondition/name (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
+   :org.msbase.medicalCondition/startDate   (format-iso-date date_onset)
+   :org.msbase.medicalCondition/endDate     (format-iso-date date_to)
+   :org.msbase.medicalCondition/name        (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
 
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
@@ -371,13 +374,13 @@
    :org.msbase.mri/currDisease nil
    :org.msbase.mri/examDate    (format-iso-date date)
    :org.msbase.mri/cnsRegion   (clojure.core.match/match [entity-name spine-type]
-                                 ["ResultMriBrain" nil] "brai"
-                                 ["ResultMriSpine" "CERVICAL_AND_THORACIC"] "spin"
-                                 ["ResultMriSpine" "CERVICAL"] "cerv"
-                                 ["ResultMriSpine" "WHOLE_SPINE"] "spin"
-                                 ["ResultMriSpine" "THORACIC"] "thor"
-                                 ["ResultMriSpine" nil] "spin"
-                                 :else nil)
+                                                         ["ResultMriBrain" nil] "brai"
+                                                         ["ResultMriSpine" "CERVICAL_AND_THORACIC"] "spin"
+                                                         ["ResultMriSpine" "CERVICAL"] "cerv"
+                                                         ["ResultMriSpine" "WHOLE_SPINE"] "spin"
+                                                         ["ResultMriSpine" "THORACIC"] "thor"
+                                                         ["ResultMriSpine" nil] "spin"
+                                                         :else nil)
    :org.msbase.mri/isT1        nil
    :org.msbase.mri/t1Status    nil
    :org.msbase.mri/nbT1Les     nil
@@ -416,6 +419,7 @@
    resource-type
    centre-source
    patient-identification
+   patient-ethnicity
    demographics
    medical-history
    ms-event-symptoms
@@ -532,21 +536,21 @@
   [pathom patient-identifier]
   (let [result (get (pathom [{[:t_patient/patient_identifier patient-identifier] msbase-query}])
                     [:t_patient/patient_identifier patient-identifier])]
-    {:identifiers {:resourceType (:>/resourceType result)
-                   :centreSource (:>/centreSource result)
-                   :appSource (:>/appSource result)}
-     :medicalRecords {:profile {:identification (:>/patientIdentification result)
-                                :demographics (:>/demographics result)
-                                :msDiagnosis (:>/msDiagnosis result)}
-                      :visits (:org.msbase/visits result)
-                      :relapses (:org.msbase/relapses result)
-                      :malignancies []
+    {:identifiers    {:resourceType (:>/resourceType result)
+                      :centreSource (:>/centreSource result)
+                      :appSource    (:>/appSource result)}
+     :medicalRecords {:profile           {:identification (:>/patientIdentification result)
+                                          :demographics   (:>/demographics result)
+                                          :msDiagnosis    (:>/msDiagnosis result)}
+                      :visits            (:org.msbase/visits result)
+                      :relapses          (:org.msbase/relapses result)
+                      :malignancies      []
                       :medicalConditions (:org.msbase/medicalConditions result)
-                      :mri (:org.msbase/magneticResonanceImaging result)
-                      :csf (:org.msbase/cerebrospinalFluid result)
-                      :pregnancies []
-                      :pharmaTrts (:org.msbase/treatments result)
-                      :nonPharmaTrts []}}))
+                      :mri               (:org.msbase/magneticResonanceImaging result)
+                      :csf               (:org.msbase/cerebrospinalFluid result)
+                      :pregnancies       []
+                      :pharmaTrts        (:org.msbase/treatments result)
+                      :nonPharmaTrts     []}}))
 
 
 (comment
