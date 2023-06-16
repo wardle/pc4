@@ -6,7 +6,6 @@
     [integrant.core :as ig]
     [com.eldrix.clods.core :as clods]
     [com.eldrix.pc4.rsdb.patients :as patients]
-    [portal.api :as portal]
     [com.eldrix.pc4.rsdb.results :as results]
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
@@ -105,7 +104,8 @@
 
 (comment
   (def system (pc4/init :dev))
-  (def system (pc4/init :dev [:pathom/boundary-interface]))
+  (pc4/load-namespaces :dev/dell)
+  (def system (pc4/init :dev/dell [:pathom/boundary-interface]))
   (pc4/halt! system)
   (def process (:pathom/boundary-interface system))
 
@@ -213,7 +213,8 @@
 (comment
   ;; just connect to remote database
   (def system (pc4/init :pc4-dev [:com.eldrix.rsdb/conn :com.eldrix.rsdb/config]))
-  (def system (pc4/init :pc4-dev [:pathom/boundary-interface]))
+  (pc4/load-namespaces :dev/dell)
+  (def system (pc4/init :dev/dell [:pathom/boundary-interface]))
   (ig/halt! system)
   (com.eldrix.pc4.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
 
@@ -223,24 +224,25 @@
   (com.eldrix.pc4.modules.dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
   (def users
-    [{:t_user/username     "jgl45"
-      :t_user/first_names  "Jacob"
-      :t_user/last_name    "Lundie-Fallon"
-      :t_user/title        "Mr"
-      :t_user/email        "jgl45@cam.ac.uk"
-      :t_user/job_title_fk 8}
-     {:t_user/username     "riy20"
-      :t_user/first_names  "Rohan"
-      :t_user/last_name    "Yesudian"
-      :t_user/title        "Mr"
-      :t_user/email        "riy20@cam.ac.uk"
+    [{:t_user/username     ""
+      :t_user/first_names  ""
+      :t_user/last_name    ""
+      :t_user/title        ""
+      :t_user/email        ""
       :t_user/job_title_fk 8}])
+
+
   (def project-id 126)
   (map (fn [{:t_user/keys [username] :as user}]
          (let [user (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) user)]
            (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username username :project-id project-id})
            user)) users)
-
+  (def conn (:com.eldrix.rsdb/conn system))
+  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "mariadandu"))
+  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "nadirafernando"))
+  (com.eldrix.pc4.rsdb.users/reset-password! conn {:t_user/id 968})
+  (next.jdbc.sql/update! conn :t_user {:credential "$2a$10$0TnlpsytMJn9lw4En9T2BuO6zR1d3rK2K1wXu2xLnyqOSSwxlwBzO"}
+                         {:t_user/id 967})
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
