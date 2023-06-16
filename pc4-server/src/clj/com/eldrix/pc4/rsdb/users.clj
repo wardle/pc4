@@ -313,6 +313,18 @@
 (defn job-title [{custom-job-title :t_user/custom_job_title, job-title :t_job_title/name}]
   (if (str/blank? custom-job-title) job-title custom-job-title))
 
+
+(defn random-password
+  "Returns a vector of new random password and its credential.
+  Currently only the legacy bcrypt hash is supported, but this provides
+  a point of extension."
+  [{nbytes :nbytes hash-type :type :or {nbytes 8 hash-type :bcrypt} :as params}]
+  (let [new-password (str (buddy.core.codecs/bytes->hex (buddy.core.nonce/random-bytes nbytes)))
+        credential (case hash-type
+                     :bcrypt (BCrypt/hashpw new-password (BCrypt/gensalt))
+                     (throw (ex-info (str "Unsupported password hash type:" hash-type) params)))]
+    [new-password credential]))
+
 (s/def ::create-user (s/keys :req [:t_user/username
                                    :t_user/title
                                    :t_user/first_names
@@ -326,8 +338,7 @@
                                        last_name] :as params}]
   (when-not (s/valid? ::create-user params)
     (throw (ex-info "Invalid parameters" (s/explain-data ::create-user params))))
-  (let [new-password (str (buddy.core.codecs/bytes->hex (buddy.core.nonce/random-bytes 8)))
-        credential (BCrypt/hashpw new-password (BCrypt/gensalt))]
+  (let [[new-password credential] (random-password {})]
     (-> (next.jdbc/execute-one! conn (sql/format {:insert-into [:t_user]
                                                   :values      [(merge {:credential            credential
                                                                         :must_change_password  true
@@ -336,6 +347,16 @@
                                                                        params)]})
                                 {:return-keys true})
         (assoc :t_user/new_password new-password))))
+
+(defn reset-password!
+  "Reset password for a user. Returns the new randomly-generated password."
+  [conn {user-id :t_user/id}]
+  (let [[new-password credential] (random-password {:nbytes 32})]
+    (next.jdbc.sql/update! conn :t_user {:credential credential
+                                         :authentication_method "LOCAL17"
+                                         :must_change_password true}
+                           {:id user-id})
+    new-password))
 
 (defn register-user-to-project
   "Register a user to a project.
