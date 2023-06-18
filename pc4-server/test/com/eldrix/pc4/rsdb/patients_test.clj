@@ -33,28 +33,55 @@
   (is (= (:t_patient/nhs_number *patient*) (:nhs-number patient))))
 
 (deftest test-create-medication
-  (let [patient-identifier (:t_patient/patient_identifier *patient*)
-        med (patients/create-medication *conn* {:t_patient/patient_identifier       patient-identifier
-                                                :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
-                                                :t_medication/as_required           true
-                                                :t_medication/date_from             (LocalDate/of 2020 1 1)
-                                                :t_medication/date_to               nil
-                                                :t_medication/reason_for_stopping   :NOT_APPLICABLE})]
+  (let [med (patients/upsert-medication! *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
+                                                 :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
+                                                 :t_medication/as_required           true
+                                                 :t_medication/date_from             (LocalDate/of 2020 1 1)
+                                                 :t_medication/date_to               nil
+                                                 :t_medication/reason_for_stopping   :NOT_APPLICABLE})]
     (is (= 774459007 (:t_medication/medication_concept_fk med)))
     (is (= (LocalDate/of 2020 1 1) (:t_medication/date_from med)))
-    (let [med' (patients/update-medication *conn* (assoc med :t_medication/date_to (LocalDate/of 2020 1 3)))
-          meds (patients/fetch-all-medication *conn* *patient*)]
+    (let [med' (patients/upsert-medication! *conn* (assoc med :t_medication/date_to (LocalDate/of 2020 1 3)))
+          meds (patients/fetch-medications *conn* *patient*)]
       (is (= 774459007 (:t_medication/medication_concept_fk med')))
       (is (= (LocalDate/of 2020 1 1) (:t_medication/date_from med')))
       (is (= (LocalDate/of 2020 1 3) (:t_medication/date_to med')))
       (is (= med' (first meds)))
-      (patients/delete-medication *conn* med')
-      (is (empty? (patients/fetch-all-medication *conn* *patient*))))))
+      (patients/delete-medication! *conn* med')
+      (is (empty? (patients/fetch-medications *conn* *patient*))))))
 
 (deftest test-medication-with-events
-  (let [med (patients/create-medication *conn* {:t_patient/patient_identifier       (:t_patient/patient_identifier *patient*)
-                                                :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
-                                                :t_medication/as_required           true
-                                                :t_medication/date_from             (LocalDate/of 2020 1 1)
-                                                :t_medication/date_to               (LocalDate/of 2020 1 1)
-                                                :t_medication/reason_for_stopping   :ADVERSE_EVENT})]))
+  (let [events [{:t_medication_event/type             :ADVERSE_EVENT
+                 :t_medication_event/event_concept_fk 19307009}
+                {:t_medication_event/type     :INFUSION_REACTION
+                 :t_medication_event/severity :LIFE_THREATENING}]
+        med (patients/upsert-medication!
+              *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
+                      :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
+                      :t_medication/as_required           true
+                      :t_medication/date_from             (LocalDate/of 2020 1 1)
+                      :t_medication/date_to               (LocalDate/of 2020 1 1)
+                      :t_medication/reason_for_stopping   :ADVERSE_EVENT
+                      :t_medication/events                events})
+        meds (patients/fetch-medications-and-events *conn* *patient*)]
+    (is (= 2 (count (:t_medication/events (first meds)))))
+    (is (= (set (map #(merge {:t_medication_event/severity nil :t_medication_event/event_concept_fk nil} %) events))
+           (set (map #(select-keys % [:t_medication_event/type :t_medication_event/event_concept_fk :t_medication_event/severity])
+                     (:t_medication/events (first meds))))))
+    (is (= med (first meds)))
+    ;; update, this time with a single adverse event
+    (let [med2 (patients/upsert-medication! *conn* (assoc med :t_medication/events (take 1 events)))]
+      (is (= 1 (count (:t_medication/events med2))))
+      (is (= 19307009 (get-in med2 [:t_medication/events 0 :t_medication_event/event_concept_fk]))))
+    ;; update to the original... the ids might change, but the content must be the same
+    (let [med3 (patients/upsert-medication! *conn* (assoc med :t_medication/events events))]
+      (is (= (dissoc med :t_medication/events) (dissoc med3 :t_medication/events)))
+      (is (= 2 (count (:t_medication/events med3))))
+      (is (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med))))
+          (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med3))))))
+    (let [med4 (patients/upsert-medication! *conn* (assoc med :t_medication/events []))
+          meds (patients/fetch-medications-and-events *conn* *patient*)]
+      (= (= 0 (count (:t_medication/events med4))))
+      (= med4 (first meds))
+      (patients/delete-medication! *conn* med4)
+      (= 0 (count (patients/fetch-medications-and-events *conn* *patient*))))))

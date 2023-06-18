@@ -2,7 +2,8 @@
   (:require [next.jdbc.date-time]
             [next.jdbc :as jdbc]
             [clojure.spec.alpha :as s]
-            [com.eldrix.concierge.nhs-number])
+            [com.eldrix.concierge.nhs-number]
+            [next.jdbc.sql.builder :as sql.builder])
   (:import (java.sql Connection)
            (java.time LocalDate LocalDateTime)))
 
@@ -128,7 +129,6 @@
      (and (or (nil? from) (not (.isBefore date' from)))
           (or (nil? to) (.isBefore date' to))))))
 
-
 (s/def ::conn any?)
 (s/def ::txn
   #(and (instance? Connection %)
@@ -169,7 +169,18 @@
 (s/def :t_episode/registration_user_fk (s/nilable int?))
 (s/def :t_episode/stored_pseudonym (s/nilable string?))
 (s/def :t_episode/external_identifier (s/nilable string?))
-
+(s/def :t_medication_event/id int?)
+(s/def :t_medication_event/type #{:INFUSION_REACTION :ADVERSE_EVENT})
+(s/def :t_medication_event/action_taken (s/nilable string?))
+(s/def :t_medication_event/description_of_reaction (s/nilable string?))
+(s/def :t_medication_event/sample_obtained_antibodies (s/nilable boolean?))
+(s/def :t_medication_event/severity (s/nilable #{:MILD_NO_INTERRUPTION
+                                                 :PROLONGED_REACTION
+                                                 :MODERATE_TEMPORARY_INTERRUPTION
+                                                 :LIFE_THREATENING}))
+(s/def :t_medication_event/reaction_date_time (s/nilable #(instance? LocalDateTime %)))
+(s/def :t_medication_event/infusion_start_date_time (s/nilable #(instance? LocalDateTime %)))
+(s/def :t_medication_event/event_concept_fk (s/nilable int?))
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
@@ -179,18 +190,7 @@
     :NON_ADHERENCE :OTHER
     :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
     :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
-(s/def :t_medication_event/id int?)
-(s/def :t_medication_event/type #{:INFUSION_REACTION :ADVERSE_EVENT})
-(s/def :t_medication_event/action_taken (s/nilable string?))
-(s/def :t_medication_event/description_of_reaction (s/nilable string?))
-(s/def :t_medication_event/sample_obtained_antibodies boolean?)
-(s/def :t_medication_event/severity (s/nilable #{:MILD_NO_INTERRUPTION
-                                                 :PROLONGED_REACTION
-                                                 :MODERATE_TEMPORARY_INTERRUPTION
-                                                 :LIFE_THREATENING}))
-(s/def :t_medication_event/reaction_date_time (s/nilable #(instance? LocalDateTime %)))
-(s/def :t_medication_event/infusion_start_date_time (s/nilable #(instance? LocalDateTime %)))
-(s/def :t_medication_event/event_concept_fk int?)
+(s/def :t_medication/events (s/nilable (s/coll-of (s/keys :req [:t_medication_event/type]))))
 
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
