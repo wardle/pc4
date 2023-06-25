@@ -291,8 +291,9 @@
     {:t_summary_multiple_sclerosis/events events}))
 
 (pco/defresolver patient->medications
-  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
-  {::pco/output [{:t_patient/medications [:t_medication/date_from
+  [{conn :com.eldrix.rsdb/conn} patient]
+  {::pco/input  [:t_patient/id]
+   ::pco/output [{:t_patient/medications [:t_medication/date_from
                                           :t_medication/date_to
                                           :t_medication/date_from_accuracy
                                           :t_medication/date_to_accuracy
@@ -308,14 +309,22 @@
                                           :t_medication/as_required
                                           :t_medication/route
                                           :t_medication/type
-                                          :t_medication/prescriptions]}]}
-  (let [medication (db/execute! conn (sql/format {:select [:*]
-                                                  :from   [:t_medication]
-                                                  :where  [:= :patient_fk patient-pk]}))]
-    {:t_patient/medications                                 ;; and now just add a property to permit walking to SNOMED CT
+                                          :t_medication/prescriptions
+                                          {:t_medication/events [:t_medication_event/id
+                                                                 :t_medication_event/type
+                                                                 :t_medication_event/severity
+                                                                 :t_medication_event/event_concept_fk
+                                                                 {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
+  (let [medication (patients/fetch-medications-and-events conn patient)]
+    {:t_patient/medications
+     ;; and now just add additional properties to permit walking to SNOMED CT
      (mapv #(-> %
-                (update :t_medication/reason_for_stopping keyword)
-                (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})) medication)}))
+                (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
+                (update :t_medication/events
+                        (fn [evts] (map (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                          (assoc evt :t_medication_event/event_concept
+                                                     (when evt-concept-id {:info.snomed.Concept/id evt-concept-id})) evts)))))
+           medication)}))
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -996,7 +1005,7 @@
           (let [med (if (:t_medication/id params')
                       (if (:t_medication/medication_concept_fk params')
                         (patients/update-medication conn params')
-                        (patients/delete-medication conn params'))
+                        (patients/delete-medication! conn params'))
                       (patients/create-medication conn params'))]
             (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
 

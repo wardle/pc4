@@ -235,8 +235,7 @@
 
 
 (s/fdef fetch-medications
-  :args (s/cat :conn ::db/conn :patient (s/or :by-id (s/keys :req [:t_patient/patient_identifier])
-                                              :by-pk (s/keys :req [:t_patient/id]))))
+  :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
 (defn fetch-medications
   "Return all medication for a patient. Data are returned as a sequence of maps
   each representing a medication record."
@@ -267,11 +266,11 @@
               (conj acc (get index id))) [] medication-ids)))
 
 (s/fdef fetch-medications-and-events
-  :args (s/cat :conn ::db/repeatable-read-txn :patient (s/keys :req [:t_patient/patient_identifier])))
+  :args (s/cat :conn ::db/repeatable-read-txn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn fetch-medications-and-events
   "Returns a sequence of medications, as well as any medication events nested
   under key :t_medication/events. "
-  [conn {patient-identifier :t_patient/patient_identifier, :as patient}]
+  [conn patient]
   (let [meds (fetch-medications conn patient)
         evts (when (seq meds) (fetch-medication-events conn (map :t_medication/id meds)))]
     (map #(assoc %1 :t_medication/events %2) meds evts)))
