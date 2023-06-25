@@ -2,20 +2,15 @@
 ;; PatientCare v4 configuration file
 ;;
 ;; There are three main profiles currently:
-;; - :dev      : this profile is used during development and testing
+;; - :dev      : this profile is used during development
+;; - :dev/dell : profile on Dell arch linux laptop
+;; - :dev/nuc  : profile on nuc arch linux desktop
 ;; - :cvx      : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
 ;; - :pc4      : this profile is active when deployed on AWS infrastructure
 ;;
-;; Configuration is also determined by host.
-;; - jupiter     : MacBook Pro
-;; - nuc         : Nuc
-;; - dell        : Dell laptop
-;; - cvx-neuro02 : NHS Wales production server
-;; - pc4-2       : AWS EC2 production instance(s)
-;;
-;; Current versions of aero have a bug in the #hostname tagged literal.
-;; We use #host instead until it is fixed. See
-;;
+;; There is an additional development profile:
+;; - ::pc4-dev : this profile is for use in development but connects to the remote live AWS infrastructure
+
 {:secrets
  #include #join [#env HOME "/.secrets.edn"]
 
@@ -33,10 +28,8 @@
  #profile {:default {:dbtype          "postgresql"
                      :dbname          "rsdb"
                      :maximumPoolSize 10}
-           :cvx     {:dbtype          "postgresql"
-                     :dbname          "rsdb"
-                     :maximumPoolSize 10}
-           :pc4     #ref [:pc4-aws-db-conn]}
+           :pc4     #ref [:pc4-aws-db-conn]
+           :pc4-dev #ref [:pc4-aws-db-conn]}
 
  ;; rsdb config - configuration for legacy rsdb services
  :com.eldrix.rsdb/config
@@ -56,52 +49,49 @@
 
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
- {:path #host {"jupiter"     "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
-               "nuc"         "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
-               "dell"        "/home/mark/Dev/nhspd/nhspd-2022-11-10.db"
-               "pc4-2"       "/var/pc4/nhspd-2021-08-16.db"
-               "cvx-neuro02" "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
+ {:path #profile {:default  "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
+                  :dev/dell "/home/mark/Dev/nhspd/nhspd-2022-11-10.db"
+                  :pc4      "/var/pc4/nhspd-2021-08-16.db"
+                  :cvx      "/opt/Local/var/db/pc4/nhspd-2021-08-16"}}
 
  ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
- {:path  #host {"jupiter"     "/Users/mark/Dev/clods/ods-2022-01-24.db"
-                "nuc"         "/Users/mark/Dev/clods/ods-2023-03-01.db"
-                "dell"        "/home/mark/Dev/clods/ods-2023-05-22.db"
-                "pc4-2"       "/var/pc4/ods-2021-06-25.db"
-                "cvx-neuro02" "/opt/Local/var/db/pc4/ods-2021-08-24"}
+ {:path  #profile {:dev      "/Users/mark/Dev/clods/ods-2022-01-24.db"
+                   :dev/nuc  "/Users/mark/Dev/clods/ods-2023-03-01.db"
+                   :dev/dell "/home/mark/Dev/clods/ods-2023-05-22.db"
+                   :pc4      "/var/pc4/ods-2021-06-25.db"
+                   :cvx      "/opt/Local/var/db/pc4/ods-2021-08-24"}
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  ;; service providing access to the ODS weekly dataset
  :com.eldrix/ods-weekly
- {:path #host {"jupiter"     "/Users/mark/Dev/ods-weekly/ods-weekly-2023-06-08.db"
-               "nuc"         "/home/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
-               "dell"        "/home/mark/Dev/ods-weekly/ods-weekly-2023-06-01.db"
-               "pc4-2"       "/var/pc4/ods-weekly-2022-06-09.db"
-               "cvx-neuro02" "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
+ {:path #profile {:dev      "/Users/mark/Dev/ods-weekly/ods-weekly-2023-06-08.db"
+                  :dev/nuc  "/home/mark/Dev/ods-weekly/ods-weekly-2023-04-20.db"
+                  :dev/dell "/home/mark/Dev/ods-weekly/ods-weekly-2023-06-01.db"
+                  :pc4      "/var/pc4/ods-weekly-2022-06-09.db"
+                  :cvx      "/opt/Local/var/db/pc4/ods-weekly-2022-06-09.db"}}
 
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
- {:path #host {"jupiter"     "/Users/mark/Dev/deprivare/depriv.db"
-               "nuc"         "/home/mark/Dev/deprivare/depriv.db"
-               "dell"        "/home/mark/Dev/deprivare/depriv.db"
-               "pc4-2"       "/var/pc4/depriv.db"
-               "cvx-neuro02" "/opt/Local/var/db/pc4/depriv.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/deprivare/depriv.db"
+                  :dev/dell "/home/mark/Dev/deprivare/depriv.db"
+                  :pc4      "/var/pc4/depriv.db"
+                  :cvx      "/opt/Local/var/db/pc4/depriv.db"}}
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
- {:path #host {"jupiter"     "/Users/mark/Dev/dmd/dmd-2023-06-05.db"
-               "nuc"         "/home/mark/Dev/dmd/dmd-2023-04-24.db"
-               "dell"        "/home/mark/Dev/dmd/dmd-2023-05-29.db"
-               "pc4-2"       "/var/pc4/dmd-2021-09-27.db"
-               "cvx-neuro02" "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
+ {:path #profile {:dev      "/Users/mark/Dev/dmd/dmd-2023-06-05.db"
+                  :dev/nuc  "/home/mark/Dev/dmd/dmd-2023-04-24.db"
+                  :dev/dell "/home/mark/Dev/dmd/dmd-2023-05-29.db"
+                  :pc4      "/var/pc4/dmd-2021-09-27.db"
+                  :cvx      "/opt/Local/var/db/pc4/dmd-2021-09-27.db"}}
 
  ;; service providing access to SNOMED CT
  :com.eldrix/hermes
- {:path #host {"jupiter"     "/Users/mark/Dev/hermes/snomed.db"
-               "nuc"         "/home/mark/Dev/hermes/snomed-2023-05-10.db"
-               "dell"        "/home/mark/Dev/hermes/snomed-2023-05-10.db"
-               "pc4-2"       "/var/pc4/snomed-2022-05-17.db"
-               "cvx-neuro02" "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
+ {:path #profile {:default  "/Users/mark/Dev/hermes/snomed.db"
+                  :dev/dell "/home/mark/Dev/hermes/snomed-2023-05-10.db"
+                  :pc4      "/var/pc4/snomed-2022-05-17.db"
+                  :cvx      "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
  ;; service providing access to the NHS Wales' NADEX (Active Directory) service
  :wales.nhs/nadex
@@ -140,17 +130,17 @@
 
  ;; object / file storage using either local filesystem or AWS S3
  :com.eldrix.pc4/filestorage
- #host {:cvx-neuro02 {:kind               :local
-                      :dir                "/opt/Local/var/db/pc4/filestore"
-                      :link-duration      "PT24H"           ;; links are valid for 24 hours
-                      :retention-duration "PT24H"}          ;; files are retained for 24 hours
-        :default     {:kind               :s3
-                      :region             #ref [:secrets :aws :s3 :patientcare4 :region]
-                      :bucket-name        #ref [:secrets :aws :s3 :patientcare4 :bucket-name]
-                      :access-key-id      #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
-                      :secret-access-key  #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]
-                      :link-duration      "PT12H"           ;; links are available for 12 hours
-                      :retention-duration "PT12H"}}         ;; files are retained only for 12 hours
+ #profile {:cvx     {:kind               :local
+                     :dir                "/opt/Local/var/db/pc4/filestore"
+                     :link-duration      "PT24H"            ;; links are valid for 24 hours
+                     :retention-duration "PT24H"}           ;; files are retained for 24 hours
+           :default {:kind               :s3
+                     :region             #ref [:secrets :aws :s3 :patientcare4 :region]
+                     :bucket-name        #ref [:secrets :aws :s3 :patientcare4 :bucket-name]
+                     :access-key-id      #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
+                     :secret-access-key  #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]
+                     :link-duration      "PT12H"            ;; links are available for 12 hours
+                     :retention-duration "PT12H"}}          ;; files are retained only for 12 hours
 
  ;; SMTP service; we don't use SMTP currently outside of cvx, preferring instead to use gov notify for email...
  ;; :com.eldrix.pc4.mail/smtp #profile {:cvx     {:host "cavmail.cymru.nhs.uk"} :default nil}

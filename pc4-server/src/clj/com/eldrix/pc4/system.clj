@@ -178,11 +178,6 @@
 (defmethod aero/reader 'clj/var [_ _ x]
   (var-get (requiring-resolve x)))
 
-(defmethod aero.alpha.core/eval-tagged-literal 'host
-  [tl {:keys [hostname] :as opts} env ks]
-  (aero.alpha.core/expand-case (or hostname (System/getenv "HOSTNAME"))
-               tl opts env ks))
-
 (defn config
   "Reads configuration from the resources directory using the profile specified.
   Removes any non-namespaced keys from the configuration."
