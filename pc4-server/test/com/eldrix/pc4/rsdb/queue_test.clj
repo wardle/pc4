@@ -54,13 +54,12 @@
     (let [executor (ScheduledThreadPoolExecutor. 2)]
       (.scheduleWithFixedDelay executor (looper (worker :test/sms 300)) 0 200 TimeUnit/MILLISECONDS)
       (.scheduleWithFixedDelay executor (looper (worker :test/email 500)) 0 200 TimeUnit/MILLISECONDS)
-      (run! #(do (queue/enqueue-job *conn* (rand-nth [:test/email :test/sms]) %)
+      (run! #(do (queue/enqueue-job conn (rand-nth [:test/email :test/sms]) %)
                  (Thread/sleep ^long (rand-int 100))) jobs)
       (loop []
-        (when (seq (queue/queue-stats *conn*))
+        (when-not (= n @processed)
           (Thread/sleep 200)
           (recur)))
-      (is (= n @processed))
       (.shutdown executor)
       (when-not (.awaitTermination executor 1 TimeUnit/SECONDS)
         (println "ERROR: timeout while waiting for executor service to shutdown")))))
