@@ -41,7 +41,8 @@
    {:t_medication/events [:t_medication_event/id
                           :t_medication_event/type
                           :t_medication_event/reaction_date_time
-                          {:t_medication_event/event_concept [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+                          {:t_medication_event/event_concept [:info.snomed.Concept/id
+                                                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
    {:t_medication/medication [:info.snomed.Concept/id
                               :info.snomed.Concept/preferredDescription
                               :info.snomed.Concept/parentRelationshipIds]}])

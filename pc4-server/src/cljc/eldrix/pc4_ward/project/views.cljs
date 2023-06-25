@@ -13,6 +13,7 @@
     [eldrix.pc4-ward.user.events :as user-events]
     [eldrix.pc4-ward.snomed.views :as snomed]
     [eldrix.pc4-ward.ui :as ui]
+    [eldrix.pc4-ward.ui :as ui]
     [clojure.string :as str]
     [com.eldrix.pc4.commons.dates :as dates]
     [malli.core :as m]
@@ -390,6 +391,7 @@
   TODO: this should generate itself from a schema, including client side
   validation...."
   [medication]
+  (tap> medication)
   [:form.space-y-8.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div
@@ -434,7 +436,18 @@
         [ui/textarea :name "more_information"
          :value (:t_medication/more_information medication)
          :on-change #(rf/dispatch-sync [::patient-events/set-current-medication
-                                        (assoc medication :t_medication/more_information %)])]]]]]]])
+                                        (assoc medication :t_medication/more_information %)])]]]
+      (for [[idx event] (map-indexed vector (:t_medication/events medication))]
+        [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 (:t_medication_event/type event)]
+         [:div.mt-1.sm:mt-0.sm:col-span-2
+          [eldrix.pc4-ward.snomed.views/select-snomed
+           :id (str ::choose-medication-event-concept idx)
+           :common-choices []
+           :value (:t_medication_event/event_concept event)
+           :constraint "<404684003"
+           :select-fn #(rf/dispatch [::patient-events/set-current-medication
+                                     (assoc-in medication [:t_medication/events idx :t_medication_event/event_concept] %)])]]])]]]])
 
 (defn list-medications []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
@@ -452,6 +465,10 @@
                    :on-click #(rf/dispatch [::patient-events/save-medication
                                             (assoc current-medication
                                               :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
+                  {:id       ::add-event-action
+                   :title    "Add event"
+                   :on-click #(rf/dispatch [::patient-events/set-current-medication
+                                            (update current-medication :t_medication/events (fnil conj []) {:t_medication_event/type               :ADVERSE_EVENT})])}
                   {:id       ::delete-action
                    :title    "Delete"
                    :on-click #(if (:t_medication/id current-medication)

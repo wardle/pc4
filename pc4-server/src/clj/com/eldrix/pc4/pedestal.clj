@@ -62,7 +62,9 @@
         result (pathom env params)
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
     (when (seq errors)
-      (log/error "pathom errors" {:request (get-in ctx [:request :transit-params]) :errors (map Throwable->map errors)}))
+      (let [e {:request (get-in ctx [:request :transit-params]) :errors (map Throwable->map errors)}]
+        (tap> e)
+        (log/error "pathom errors" e)))
     (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))
 
 (defn landing-page

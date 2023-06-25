@@ -322,9 +322,9 @@
      (mapv #(-> %
                 (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
                 (update :t_medication/events
-                        (fn [evts] (map (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                          (assoc evt :t_medication_event/event_concept
-                                                     (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+                        (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                           (assoc evt :t_medication_event/event_concept
+                                                      (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
            medication)}))
 
 (def address-properties [:t_address/address1
@@ -999,10 +999,16 @@
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " user)
-  (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
-                              :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))]
+  (let [params' (-> params
+                    (assoc ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
+                           :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))
+                    (update :t_medication/events (fn [evts] (->> evts
+                                                                 (mapv #(hash-map :t_medication_event/type (:t_medication_event/type %)
+                                                                                  :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))]
+    (tap> params')
     (if-not (s/valid? ::save-medication params')
       (do (log/error "invalid call" (s/explain-data ::save-medication params'))
+          (tap> {:save-medication-error (s/explain-data ::save-medication params')})
           (throw (ex-info "Invalid data" (s/explain-data ::save-medication params'))))
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
           (let [med (if (:t_medication/id params')

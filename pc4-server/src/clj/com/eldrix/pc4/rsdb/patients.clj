@@ -302,7 +302,10 @@
 (defn upsert-medication!
   "Insert or update a medication record. "
   [txn {:t_medication/keys [reason_for_stopping id events] :as med}]
-  (let [med' (cond-> (dissoc med :t_medication/events)
+  (let [med' (cond-> (select-keys med [:t_medication/id :t_medication/date_from :t_medication/date_to
+                                       :t_medication/reason_for_stopping :t_medication/patient_fk
+                                       :t_medication/date_from_accuracy :t_medication/date_to_accuracy
+                                       :t_medication/temporary_stop :t_medication/more_information :t_medication/as_required])
                      reason_for_stopping (update :t_medication/reason_for_stopping name))
         med'' (db/parse-entity
                 (if id
