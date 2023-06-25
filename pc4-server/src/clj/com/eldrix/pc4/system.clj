@@ -12,6 +12,7 @@
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.nhspd.core :as nhspd]
             [com.eldrix.odsweekly.core :as odsweekly]
+            [com.eldrix.pc4.filestorage :as fstore]
             [com.eldrix.pc4.rsdb :as rsdb]
             [com.eldrix.pc4.rsdb.migrations :as migrations]
             [com.wsscode.pathom3.connect.indexes :as pci]
@@ -21,7 +22,7 @@
             [next.jdbc.connection :as connection])
 
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate)))
+           (java.time Duration LocalDate)))
 
 (defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [path]}]
   (log/info "opening nhspd index from " path)
@@ -148,6 +149,19 @@
         (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config)))
       (catch Exception e (log/warn "Unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))
+
+
+(defmethod ig/init-key :com.eldrix.pc4/filestorage [_ {:keys [link-duration retention-duration] :as config}]
+  (let [config' (cond-> config
+                        link-duration (assoc :link-duration (Duration/parse link-duration))
+                        retention-duration (assoc :retention-duration (Duration/parse retention-duration)))]
+    (log/info "registering filestore service" (select-keys config' [:kind :region :bucket-name :dir :link-duration :retention-duration]))
+
+    (com.eldrix.pc4.filestorage/make-file-store config')))
+
+(defmethod ig/halt-key! :com.eldrix.pc4/filestorage [_ fs]
+  (com.eldrix.pc4.filestorage/close fs))
+
 
 (defmethod ig/init-key :com.eldrix.pc4/cljs-modules [_ {path :manifest-path}]
   (log/debug "looking for cljs modules in " path)
