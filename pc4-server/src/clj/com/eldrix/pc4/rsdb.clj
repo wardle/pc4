@@ -313,6 +313,7 @@
                                           {:t_medication/events [:t_medication_event/id
                                                                  :t_medication_event/type
                                                                  :t_medication_event/severity
+                                                                 :t_medication_event/description_of_reaction
                                                                  :t_medication_event/event_concept_fk
                                                                  {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
   (let [medication (patients/fetch-medications-and-events conn patient)]
@@ -323,7 +324,7 @@
                 (update :t_medication/events
                         (fn [evts] (map (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
                                           (assoc evt :t_medication_event/event_concept
-                                                     (when evt-concept-id {:info.snomed.Concept/id evt-concept-id})) evts)))))
+                                                     (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
            medication)}))
 
 (def address-properties [:t_address/address1
