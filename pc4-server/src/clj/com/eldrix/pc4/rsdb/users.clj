@@ -21,7 +21,8 @@
             [buddy.core.codecs]
             [buddy.core.nonce]
             [next.jdbc :as jdbc]
-            [next.jdbc.plan]
+            [next.jdbc.plan :as jdbc.plan]
+            [next.jdbc.sql :as jdbc.sql]
             [honey.sql :as sql]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.pc4.rsdb.auth :as auth]
@@ -123,7 +124,7 @@
 
 (defn count-unread-messages
   [conn username]
-  (next.jdbc.plan/select-one!
+  (jdbc.plan/select-one!
     conn :unread_messages
     (sql/format {:select [[:%count.t_message/id :unread_messages]]
                  :from   [:t_message :t_user]
@@ -134,7 +135,7 @@
 
 (defn count-incomplete-messages
   [conn username]
-  (next.jdbc.plan/select-one!
+  (jdbc.plan/select-one!
     conn :incomplete_messages
     (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
                  :from   [:t_message :t_user]
@@ -182,7 +183,7 @@
   results can be limited to only projects that are themselves active."
   ([conn user-id] (active-project-ids conn user-id {}))
   ([conn user-id {:keys [^LocalDate on-date only-active-projects?] :or {only-active-projects? false}}]
-   (next.jdbc.plan/select! conn :id (sql-active-project-ids user-id (or on-date (LocalDate/now)) only-active-projects?))))
+   (jdbc.plan/select! conn :id (sql-active-project-ids user-id (or on-date (LocalDate/now)) only-active-projects?))))
 
 (defn common-concepts
   "Return a set of the common concepts for the user."
@@ -352,9 +353,9 @@
   "Reset password for a user. Returns the new randomly-generated password."
   [conn {user-id :t_user/id}]
   (let [[new-password credential] (random-password {:nbytes 32})]
-    (next.jdbc.sql/update! conn :t_user {:credential credential
-                                         :authentication_method "LOCAL17"
-                                         :must_change_password true}
+    (jdbc.sql/update! conn :t_user {:credential credential
+                                    :authentication_method "LOCAL17"
+                                    :must_change_password true}
                            {:id user-id})
     new-password))
 
@@ -391,8 +392,8 @@
                 [:= :t_user/username username]]})))
 
 (defn has-photo? [conn username]
-  (next.jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user
-                                                          :where  [:= :t_user/username username]})))
+  (jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user
+                                                     :where  [:= :t_user/username username]})))
 
 (defn fetch-latest-news
   "Returns the latest news items for this user. Note: each news item can be
@@ -416,7 +417,7 @@
   used to work in the legacy application."
   ([conn username] (record-login conn username (LocalDateTime/now)))
   ([conn username ^LocalDateTime date]
-   (next.jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
+   (jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
 
 
 (defn is-nhs-wales-email? [email]
@@ -445,14 +446,14 @@
   [conn from-user-id {to-user-id :t_user/id, send-email :t_user/send_email_for_messages, email :t_user/email} {patient-pk :t_patient/id} subject body]
   (jdbc/with-transaction [txn conn]
     (log/debug "message" {:from from-user-id :to to-user-id :email email :send-email? send-email})
-    (let [message (next.jdbc.sql/insert! txn :t_message {:t_message/date_time    (java.time.LocalDateTime/now)
-                                                         :t_message/from_user_fk from-user-id
-                                                         :t_message/is_unread    "true"
-                                                         :t_message/is_completed "false"
-                                                         :t_message/message      body
-                                                         :t_message/to_user_fk   to-user-id
-                                                         :t_message/patient_fk   patient-pk
-                                                         :t_message/subject      subject})]
+    (let [message (jdbc.sql/insert! txn :t_message {:t_message/date_time    (java.time.LocalDateTime/now)
+                                                    :t_message/from_user_fk from-user-id
+                                                    :t_message/is_unread    "true"
+                                                    :t_message/is_completed "false"
+                                                    :t_message/message      body
+                                                    :t_message/to_user_fk   to-user-id
+                                                    :t_message/patient_fk   patient-pk
+                                                    :t_message/subject      subject})]
       (when send-email
         (log/debug "queuing email for message" {:message-id (:t_message/id message) :to to-user-id :to-email email :from from-user-id}))
       (cond-> {:message message}
