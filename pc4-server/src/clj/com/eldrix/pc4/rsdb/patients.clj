@@ -236,7 +236,7 @@
 
 (s/fdef fetch-medications
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
-(defn ^:deprecated fetch-medications
+(defn fetch-medications
   "Return all medication for a patient. Data are returned as a sequence of maps
   each representing a medication record."
   [conn {patient-identifier :t_patient/patient_identifier, patient-pk :t_patient/id :as req}]
