@@ -26,6 +26,10 @@
                 :task (do (println "Running shadow-cljs")
                           (shell "yarn shadow-cljs -A:dev watch app"))}
 
+  serve {:doc "Run a development server. Note: it is usually to directly run from a REPL."
+         :task (do (println "Running development server")
+                   (shell "clj -X:run :profile :dev"))}
+
   compile-cljs {:doc  "Compile cljs for production"
                 :task (do (println "***** Building pc4 front-end for production release (pc4-ward)")
                           (shell "yarn shadow-cljs -A prod release app"))}
