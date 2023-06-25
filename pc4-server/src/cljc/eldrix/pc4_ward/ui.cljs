@@ -469,7 +469,7 @@
     [:input#max-w-lg.block.w-full.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.sm:max-w-xs.sm:text-sm.border-gray-300.rounded-md
      (cond-> {:type          "date"
               :name          name
-              :default-value (if (instance? goog.date.Date d) (.toIsoString d true) d)
+              :default-value (if (instance? goog.date.Date d) (.toIsoString ^js d true) d)
               :on-change     #(let [d (Date/fromIsoString (-> % .-target .-value))]
                                 (when on-change (on-change d)))}
              min-date

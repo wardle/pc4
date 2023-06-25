@@ -131,11 +131,11 @@
     (if success?
       (on-success response)
       (let [details (merge
-                      {:uri             (.getLastUri xhrio)
-                       :last-method     (.-lastMethod_ xhrio)
-                       :last-error      (.getLastError xhrio)
-                       :last-error-code (.getLastErrorCode xhrio)
-                       :debug-message   (-> xhrio .getLastErrorCode (errors/getDebugMessage))}
+                      {:uri             (.getLastUri ^js xhrio)
+                       :last-method     (.-lastMethod_ ^js xhrio)
+                       :last-error      (.getLastError ^js xhrio)
+                       :last-error-code (.getLastErrorCode ^js xhrio)
+                       :debug-message   (-> ^js xhrio .getLastErrorCode (errors/getDebugMessage))}
                       response)]
         (on-failure details)))))
 
