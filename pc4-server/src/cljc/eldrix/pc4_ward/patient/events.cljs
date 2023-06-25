@@ -38,9 +38,14 @@
    :t_medication/date_to
    :t_medication/reason_for_stopping
    :t_medication/more_information
+   {:t_medication/events [:t_medication_event/id
+                          :t_medication_event/type
+                          :t_medication_event/reaction_date_time
+                          {:t_medication_event/event_concept [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
    {:t_medication/medication [:info.snomed.Concept/id
                               :info.snomed.Concept/preferredDescription
                               :info.snomed.Concept/parentRelationshipIds]}])
+
 
 (def full-patient-properties
   ;; at the moment we download all of the data in one go - this should be replaced by
@@ -348,8 +353,6 @@
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
-
-
 
 (rf/reg-event-db ::set-current-medication
   []
