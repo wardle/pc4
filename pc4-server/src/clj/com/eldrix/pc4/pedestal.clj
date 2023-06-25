@@ -66,17 +66,17 @@
     (assoc ctx :response (merge {:status 200 :body result} (api-middleware/apply-response-augmentations result)))))
 
 (defn landing-page
-  "Return a landing page for the pc4-ward CLJS front-end.
+  "Return a landing page for a front-end.
   - src - filename of the compiled JS (usually obtained from the shadow cljs build).
   The filename changing means that version updates do not require users to forcibly refresh their browser to
   avoid using cached downloads."
-  [src]
+  [src & {:keys [title]}]
   [:html {:lang "en"}
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
     [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}]
-    [:title "pc4"]]
+    [:title (or title "pc4")]]
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
