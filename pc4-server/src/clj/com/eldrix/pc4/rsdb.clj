@@ -987,7 +987,9 @@
                   :t_medication/medication
                   :t_medication/date_from
                   :t_medication/date_to
-                  :t_medication/more_information])))
+                  :t_medication/more_information
+                  :t_medication/reason_for_stopping
+                  :t_medication/events])))
 
 (pco/defmutation save-medication!
   [{conn    :com.eldrix.rsdb/conn
@@ -1004,9 +1006,9 @@
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
           (let [med (if (:t_medication/id params')
                       (if (:t_medication/medication_concept_fk params')
-                        (patients/update-medication conn params')
+                        (patients/upsert-medication! conn params')
                         (patients/delete-medication! conn params'))
-                      (patients/create-medication conn params'))]
+                      (patients/upsert-medication! conn params'))]
             (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
 
 (s/def ::save-ms-diagnosis

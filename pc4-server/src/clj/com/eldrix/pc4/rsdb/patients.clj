@@ -236,7 +236,7 @@
 
 (s/fdef fetch-medications
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
-(defn fetch-medications
+(defn ^:deprecated fetch-medications
   "Return all medication for a patient. Data are returned as a sequence of maps
   each representing a medication record."
   [conn {patient-identifier :t_patient/patient_identifier, patient-pk :t_patient/id :as req}]
@@ -274,44 +274,6 @@
   (let [meds (fetch-medications conn patient)
         evts (when (seq meds) (fetch-medication-events conn (map :t_medication/id meds)))]
     (map #(assoc %1 :t_medication/events %2) meds evts)))
-
-(s/fdef create-medication
-  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/medication_concept_fk
-                                                         :t_medication/reason_for_stopping]
-                                                   :opt [:t_medication/date_from :t_medication/date_to :t_medication/more_information])))
-(defn create-medication
-  "Create the given medication, returning the inserted result."
-  [conn {:t_medication/keys [medication_concept_fk date_from date_to reason_for_stopping more_information]
-         patient-identifier :t_patient/patient_identifier}]
-  (db/execute-one! conn
-                   (sql/format {:insert-into [:t_medication]
-                                :values      [{:medication_concept_fk medication_concept_fk
-                                               :date_from             date_from
-                                               :date_to               date_to
-                                               :reason_for_stopping   (some-> reason_for_stopping name)
-                                               :more_information      more_information
-                                               :patient_fk            {:select :t_patient/id
-                                                                       :from   [:t_patient]
-                                                                       :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
-                   {:return-keys true}))
-
-(s/fdef update-medication
-  :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id :t_medication/medication_concept_fk :t_medication/date_from
-                                                         :t_medication/reason_for_stopping]
-                                                   :opt [:t_medication/date_to :t_medication/more_information])))
-(defn update-medication
-  [conn {:t_medication/keys [medication_concept_fk id date_from date_to reason_for_stopping more_information]}]
-  (db/execute-one! conn
-                   (sql/format {:update [:t_medication]
-                                :set    {:medication_concept_fk medication_concept_fk
-                                         :date_from             date_from
-                                         :date_to               date_to
-                                         :reason_for_stopping   (name reason_for_stopping)
-                                         :more_information      more_information}
-                                :where  [:and
-                                         [:= :t_medication/medication_concept_fk medication_concept_fk]
-                                         [:= :t_medication/id id]]})
-                   {:return-keys true}))
 
 (def default-medication-event
   {:t_medication_event/type                       :ADVERSE_EVENT
