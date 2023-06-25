@@ -439,7 +439,16 @@
                                         (assoc medication :t_medication/more_information %)])]]]
       (for [[idx event] (map-indexed vector (:t_medication/events medication))]
         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
-         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 (:t_medication_event/type event)]
+         [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2
+          (:t_medication_event/type event)
+          [ui/button :label "Delete" :on-click #(rf/dispatch [::patient-events/set-current-medication
+                                                              (update medication :t_medication/events
+                                                                      (fn [evts]
+                                                                        (->> evts
+                                                                             (map-indexed vector)
+                                                                             (filterv (fn [[i _]]
+                                                                                        (not= idx i)))
+                                                                             (map second))))])]]
          [:div.mt-1.sm:mt-0.sm:col-span-2
           [eldrix.pc4-ward.snomed.views/select-snomed
            :id (str ::choose-medication-event-concept idx)
@@ -468,7 +477,7 @@
                   {:id       ::add-event-action
                    :title    "Add event"
                    :on-click #(rf/dispatch [::patient-events/set-current-medication
-                                            (update current-medication :t_medication/events (fnil conj []) {:t_medication_event/type               :ADVERSE_EVENT})])}
+                                            (update current-medication :t_medication/events (fnil conj []) {:t_medication_event/type :ADVERSE_EVENT})])}
                   {:id       ::delete-action
                    :title    "Delete"
                    :on-click #(if (:t_medication/id current-medication)
