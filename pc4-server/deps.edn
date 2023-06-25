@@ -21,7 +21,7 @@
              com.eldrix/concierge                {:mvn/version "1.0.150"}
              com.eldrix/deprivare                {:mvn/version "1.0.59"}
              com.eldrix/dmd                      {:mvn/version "0.6.153"}
-             com.eldrix/hermes                   {:mvn/version "1.2.1208"}
+             com.eldrix/hermes                   {:mvn/version "1.2.1214"}
 
              aero/aero                           {:mvn/version "1.1.6"}
              binaryage/devtools                  {:mvn/version "1.0.7"}
@@ -51,7 +51,7 @@
              reagent/reagent                     {:mvn/version "1.2.0"}
              rum/rum                             {:mvn/version "0.12.10"}
              software.amazon.awssdk/s3           {:mvn/version "2.20.92"}
-             thheller/shadow-cljs                {:mvn/version "2.23.3"}}
+             thheller/shadow-cljs                {:mvn/version "2.24.0"}}
 
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
@@ -61,7 +61,7 @@
                            :ns-default build}
 
              :run         {:exec-fn    com.eldrix.pc4.core/run
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}
                                         io.pedestal/pedestal.service   {:mvn/version "0.6.0"}
                                         io.pedestal/pedestal.jetty     {:mvn/version "0.6.0"}
                                         ring/ring-core                 {:mvn/version "1.10.0"}
@@ -72,11 +72,11 @@
                                         "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                         "--illegal-access=permit"]}
 
-             :migrate     {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
+             :migrate     {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}}
                            :exec-fn    com.eldrix.pc4.core/migrate}
 
              :repl-server {:exec-fn    clojure.core.server/start-server
-                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.7"}}
+                           :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}}
                            :exec-args  {:name          "repl-server"
                                         :port          5555
                                         :accept        clojure.core.server/repl
@@ -84,8 +84,8 @@
 
              :dev         {:extra-paths ["dev"]
                            :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                                         com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.3"}
-                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.7"}
+                                         com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.4"}
+                                         ch.qos.logback/logback-classic           {:mvn/version "1.4.8"}
                                          org.clojure/test.check                   {:mvn/version "1.1.1"}}
                            :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                          "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
