@@ -457,7 +457,7 @@
            (when on-edit [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
                           [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-edit item)} "Edit"]])
            (when on-delete [:td.px-6.py-4.whitespace-nowrap.text-right.text-sm.font-medium
-                          [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-delete item)} "Delete"]])])]]]]]])
+                            [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 {:on-click #(on-delete item)} "Delete"]])])]]]]]])
 
 
 (defn html-date-picker [& {:keys [name value on-change min-date max-date]}]
