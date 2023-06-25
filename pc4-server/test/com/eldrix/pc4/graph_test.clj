@@ -10,8 +10,8 @@
 
 (defn with-system
   [f]
-  (pc4/load-namespaces {:profile :dev :user :jupiter})
-  (let [system (pc4/init {:profile :dev :user :jupiter} [:pathom/boundary-interface])]
+  (pc4/load-namespaces :dev)
+  (let [system (pc4/init :dev [:pathom/boundary-interface])]
     (binding [*system* system
               *pathom* (:pathom/boundary-interface system)]
       (f)
