@@ -290,7 +290,7 @@
    ;;
    ["/app/home"
     {:name :home
-     :get  {:interceptors [check-authenticated render-component execute-eql context->tap app/home-page]}
+     :get  {:interceptors [check-authenticated render-component execute-eql context->repl app/home-page]}
      :eql  (fn [req]
              (let [user (get-in req [:session :authenticated-user])]
                {:pathom/entity user
