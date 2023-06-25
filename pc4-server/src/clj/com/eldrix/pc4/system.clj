@@ -168,7 +168,7 @@
   (if-let [manifest-url (io/resource path)]
     (let [manifest (edn/read-string (slurp manifest-url))]
       (log/info "found cljs modules" (reduce (fn [acc {:keys [module-id output-name]}] (assoc acc module-id output-name)) {} manifest))
-      (reduce (fn [acc {:keys [module-id] :as module}] ;; return a map of module-id to module information
+      (reduce (fn [acc {:keys [module-id] :as module}]      ;; return a map of module-id to module information
                 (assoc acc module-id module)) {} manifest))
     (log/info "no shadow cljs manifest file found")))
 
