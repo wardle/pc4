@@ -32,7 +32,7 @@
 
   compile-cljs {:doc  "Compile cljs for production"
                 :task (do (println "***** Building pc4 front-end for production release (pc4-ward)")
-                          (shell "yarn shadow-cljs -A prod release app"))}
+                          (shell "yarn shadow-cljs release app"))}
 
   create-zip   {:doc  "Create a zip file for production"
                 :task (do
