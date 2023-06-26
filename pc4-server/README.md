@@ -55,6 +55,11 @@ To run any pending database migrations
 clj -X:migrate :profile :dev
 ```
 
+To update the legacy SNOMED database table from modern hermes:
+
+```shell
+clj -X:update-snomed :profile :dev
+```
 
 Some configuration options are customisable at runtime using environmental
 variables. For example:
