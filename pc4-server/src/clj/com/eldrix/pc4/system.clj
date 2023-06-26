@@ -15,6 +15,7 @@
             [com.eldrix.pc4.filestorage :as fstore]
             [com.eldrix.pc4.rsdb :as rsdb]
             [com.eldrix.pc4.rsdb.migrations :as migrations]
+            [com.eldrix.pc4.rsdb.updater]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
@@ -102,7 +103,12 @@
           (log/info "Migrations finished successfully")))
     (log/info "No migrations pending")))
 
-
+(defmethod ig/init-key :com.eldrix.rsdb/update-snomed
+  [_ {:keys [conn hermes]}]
+  (if (com.eldrix.pc4.rsdb.updater/need-update? conn hermes)
+    (log/info "legacy rsdb database already up to date with registered hermes service")
+    (do (log/info "updating rsdb database from hermes service")
+        (com.eldrix.pc4.rsdb.updater/update-concepts conn hermes))))
 
 (defmethod ig/init-key :com.eldrix.rsdb/config [_ config]
   config)

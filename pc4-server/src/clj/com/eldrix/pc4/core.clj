@@ -7,7 +7,7 @@
 (defn run [{:keys [profile]}]
   (when-not profile
     (log/error "Missing :profile")
-    (System/exit 0))
+    (System/exit 1))
   (log/info "starting pc4-server with profile" {:profile profile})
   (pc4/load-namespaces profile [:com.eldrix.pc4.pedestal/server])
   (pc4/init profile [:com.eldrix.pc4.pedestal/server]))
@@ -15,9 +15,16 @@
 (defn migrate [{:keys [profile]}]
   (when-not profile
     (log/error "Missing :profile")
-    (System/exit 0))
+    (System/exit 1))
   (log/info "Running database migrations with profile" {:profile profile})
   (pc4/init profile [:com.eldrix.rsdb/run-migrations]))
+
+(defn update-snomed [{:keys [profile]}]
+  (when-not profile
+    (log/error "Missing :profile")
+    (System/exit 1))
+  (pc4/load-namespaces profile [:com.eldrix.rsdb/update-snomed])
+  (pc4/init profile [:com.eldrix.rsdb/update-snomed]))
 
 (defn -main [& args]
   (if-let [profile (first args)]

@@ -47,6 +47,11 @@
  ;; service to run pending migrations
  :com.eldrix.rsdb/run-migrations   #ig/ref :com.eldrix.rsdb/migration-config
 
+ ;; service to update SNOMED in legacy rsdb database from hermes
+ :com.eldrix.rsdb/update-snomed
+ {:conn   #ig/ref :com.eldrix.rsdb/conn
+  :hermes #ig/ref :com.eldrix/hermes}
+
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
  {:path #profile {:default  "/Users/mark/Dev/nhspd/nhspd-2022-11-10.db"
