@@ -6,7 +6,6 @@
   {:store         :database
    :migration-dir "migrations/"})
 
-
 (defn pending-list [config]
   (migratus/pending-list config))
 
@@ -23,4 +22,4 @@
   (migratus/pending-list conf)
   (migratus/migrate conf)
   (migratus/rollback conf)
-  (migratus/create conf "add-ms-event-note"))
+  (migratus/create conf "remove-sct-constraints"))

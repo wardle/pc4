@@ -74,8 +74,7 @@
 
              :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}}
                              :exec-fn    com.eldrix.pc4.core/migrate}
-             :update-snomed {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}}
-                             :exec-fn com.eldrix.pc4.core/update-snomed}
+             
              :repl-server   {:exec-fn    clojure.core.server/start-server
                              :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.8"}}
                              :exec-args  {:name          "repl-server"

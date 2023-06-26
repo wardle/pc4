@@ -1,5 +1,9 @@
-(ns com.eldrix.pc4.rsdb.updater
-  "A collection of tools to support updates to the legacy rsdb backend.
+(ns ^:deprecated com.eldrix.pc4.rsdb.updater
+  "DEPRECATED: This is now only needed for a production server still running the
+  legacy rsdb application. All other modern deployments do not require any data
+  in the legacy SNOMED database tables (t_concept etc).
+
+  A collection of tools to support updates to the legacy rsdb backend.
 
   rsdb v3 and earlier were monolithic applications with a single PostgreSQL
   backend.
@@ -99,6 +103,7 @@
   (sql/get-by-id conn :t_concept 38097211000001103 :concept_id {})
   (:count (next.jdbc/execute-one! conn ["select count(*) from t_concept"]))
   (get-in (hermes/status* hermes {:counts? true}) [:components :concepts])
+  (need-update? conn hermes)
   (update-concepts conn hermes))
 
 
