@@ -338,6 +338,18 @@
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
 
+(rf/reg-event-fx ::delete-medication
+  (fn [{db :db} [_ params]]
+    {:db (-> db
+             (update-in [:errors] dissoc ::save-medication))
+     :fx [[:pathom {:params     [{(list 'pc4.rsdb/delete-medication params)
+                                  patient-medication-properties}]
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-save-diagnosis]
+                    :on-failure [::handle-failure-response]}]]}))
+
+
+
 (rf/reg-event-fx ::handle-save-diagnosis
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/save-diagnosis}]]

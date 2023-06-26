@@ -386,6 +386,18 @@
                       :t_diagnosis/status]
          :on-edit (fn [diagnosis] (rf/dispatch [::patient-events/set-current-diagnosis diagnosis]))]])]))
 
+
+(defn remove-medication-event-by-idx
+  "Returns 'medication' with the "
+  [medication event-idx]
+  (update medication :t_medication/events
+          (fn [evts]
+            (->> evts
+                 (map-indexed vector)
+                 (filterv (fn [[i _]]
+                            (not= event-idx i)))
+                 (map second)))))
+
 (defn edit-medication
   "Edit medication form.
   TODO: this should generate itself from a schema, including client side
@@ -441,14 +453,9 @@
         [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2
           (:t_medication_event/type event)
-          [ui/button :label "Delete" :on-click #(rf/dispatch [::patient-events/set-current-medication
-                                                              (update medication :t_medication/events
-                                                                      (fn [evts]
-                                                                        (->> evts
-                                                                             (map-indexed vector)
-                                                                             (filterv (fn [[i _]]
-                                                                                        (not= idx i)))
-                                                                             (map second))))])]]
+          [ui/button :label "Delete"
+           :on-click #(rf/dispatch [::patient-events/set-current-medication
+                                                              (remove-medication-event-by-idx medication idx)])]]
          [:div.mt-1.sm:mt-0.sm:col-span-2
           [eldrix.pc4-ward.snomed.views/select-snomed
            :id (str ::choose-medication-event-concept idx)
@@ -473,19 +480,18 @@
                    :title    "Save" :role :primary
                    :on-click #(rf/dispatch [::patient-events/save-medication
                                             (assoc current-medication
+                                              :t_medication/patient_fk (:t_patient/id current-patient)
                                               :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])}
+                  {:id       ::delete-action
+                   :title    "Delete"
+                   :on-click #(if (:t_medication/id current-medication)
+                                (rf/dispatch [::patient-events/delete-medication
+                                              (assoc current-medication :t_patient/patient_identifier (:t_patient/patient_identifier current-patient))])
+                                (rf/dispatch [::patient-events/clear-medication]))}
                   {:id       ::add-event-action
                    :title    "Add event"
                    :on-click #(rf/dispatch [::patient-events/set-current-medication
                                             (update current-medication :t_medication/events (fnil conj []) {:t_medication_event/type :ADVERSE_EVENT})])}
-                  {:id       ::delete-action
-                   :title    "Delete"
-                   :on-click #(if (:t_medication/id current-medication)
-                                (rf/dispatch [::patient-events/save-medication
-                                              (-> current-medication
-                                                  (dissoc :t_medication/medication)
-                                                  (assoc :t_patient/patient_identifier (:t_patient/patient_identifier current-patient)))])
-                                (rf/dispatch [::patient-events/clear-medication]))}
                   {:id       ::cancel-action
                    :title    "Cancel"
                    :on-click #(rf/dispatch [::patient-events/clear-medication])}]

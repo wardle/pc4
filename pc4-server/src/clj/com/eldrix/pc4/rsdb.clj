@@ -981,42 +981,46 @@
 
 
 (s/def ::save-medication
-  (s/and
-    (s/keys :req [::user-id
-                  :t_patient/patient_identifier]
-            :opt [:t_medication/id
-                  :t_medication/medication
-                  :t_medication/date_from
-                  :t_medication/date_to
-                  :t_medication/more_information
-                  :t_medication/reason_for_stopping
-                  :t_medication/events])))
-
+  (s/keys :req [:t_medication/patient_fk :t_medication/medication]
+          :opt [:t_patient/patient_identifier
+                :t_medication/id
+                :t_medication/date_from
+                :t_medication/date_to
+                :t_medication/more_information
+                :t_medication/reason_for_stopping
+                :t_medication/events]))
 (pco/defmutation save-medication!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
-    :as     env} params]
+  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, user :authenticated-user, :as env}
+   {patient-id :t_patient/patient_identifier, patient-pk :t_medication/patient_fk, :as params}]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " user)
   (let [params' (-> params
-                    (assoc ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
-                           :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))
+                    (assoc :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))
                     (update :t_medication/events (fn [evts] (->> evts
                                                                  (mapv #(hash-map :t_medication_event/type (:t_medication_event/type %)
                                                                                   :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))]
-    (tap> params')
     (if-not (s/valid? ::save-medication params')
-      (do (log/error "invalid call" (s/explain-data ::save-medication params'))
-          (tap> {:save-medication-error (s/explain-data ::save-medication params')})
-          (throw (ex-info "Invalid data" (s/explain-data ::save-medication params'))))
-      (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-          (let [med (if (:t_medication/id params')
-                      (if (:t_medication/medication_concept_fk params')
-                        (patients/upsert-medication! conn params')
-                        (patients/delete-medication! conn params'))
-                      (patients/upsert-medication! conn params'))]
+      (log/error "invalid call" (s/explain-data ::save-medication params'))
+      (do (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
+          (let [med (patients/upsert-medication! conn params')]
             (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
+
+(s/def ::delete-medication
+  (s/keys :req [:t_medication/id (or :t_patient/patient_identifier :t_medication/patient_fk)]))
+(pco/defmutation delete-medication!
+  "Delete a medication. Parameters are a map containing
+    :t_medication/id : (mandatory) - the identifier for the medication
+    :t_medication/patient_fk
+    :t_patient/patient_identifier "
+  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager :as env}
+   {patient-id :t_patient/patient_identifier, patient-pk :t_medication/patient_fk, :as params}]
+  {::pco/op-name 'pc4.rsdb/delete-medication}
+  (log/info "delete medication request" params)
+  (if-not (s/valid? ::delete-medication params)
+    (log/error "invalid call" (s/explain-data ::delete-medication params)))
+  (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
+  (patients/delete-medication! conn params))
+
 
 (s/def ::save-ms-diagnosis
   (s/keys :req [:t_user/id
@@ -1385,6 +1389,7 @@
    search-patient-by-pseudonym
    save-diagnosis!
    save-medication!
+   delete-medication!
    save-patient-ms-diagnosis!
    save-pseudonymous-patient-postal-code!
    save-ms-event!
