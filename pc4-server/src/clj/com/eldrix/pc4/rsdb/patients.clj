@@ -288,11 +288,13 @@
    :t_medication_event/reaction_date_time         nil})
 
 (defn unparse-medication-event
-  [{:t_medication_event/keys [severity] :as evt}]
+  [medication-id evt]
   (-> (merge default-medication-event evt)
+      (assoc :t_medication_event/medication_fk medication-id)
       (update :t_medication_event/type {:INFUSION_REACTION "INFUSION_REACTION" ;; TODO: fix consistency of type in legacy rsdb
                                         :ADVERSE_EVENT     "AdverseEvent"})
       (update :t_medication_event/severity #(when % (name %)))))
+
 
 (s/fdef upsert-medication!
   :args (s/cat :conn ::db/txn
@@ -316,7 +318,9 @@
                   ;; just create a new record
                   (next.jdbc.sql/insert! txn :t_medication med')))
         id' (:t_medication/id med'')
-        events' (mapv (fn [evt] (assoc (unparse-medication-event evt) :t_medication_event/medication_fk id')) events)]
+        events' (mapv #(unparse-medication-event id' %) events)]
+    (log/info "upserted medication" med'')
+    (log/info "upserting medication events" events')
     (if (seq events')
       (assoc med'' :t_medication/events (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true})))
       med'')))
