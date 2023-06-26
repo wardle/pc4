@@ -10,7 +10,7 @@ ALTER TABLE t_cross_map_table DROP CONSTRAINT t_cross_map_table_concept_id_conce
 --;;
 ALTER TABLE t_description DROP CONSTRAINT t_description_concept_id_concept_id_fk 
 --;;
-ALTER TABLE t_diagnosis DROP CONSTRAINT t_diagnosis_concept_fk_concept_id_fk 
+ALTER TABLE t_diagnosis DROP CONSTRAINT IF EXISTS t_diagnosis_concept_fk_concept_id_fk
 --;;
 ALTER TABLE t_document DROP CONSTRAINT t_document_concept_fk_concept_id_fk 
 --;;
@@ -44,7 +44,7 @@ ALTER TABLE t_result_eeg_ictal_findings DROP CONSTRAINT t_form_result_ictal_find
 --;;
 ALTER TABLE t_medication_event DROP CONSTRAINT t_medication_event_event_concept_fk_concept_id_fk 
 --;;
-ALTER TABLE t_medication DROP CONSTRAINT t_medication_medication_concept_fk_concept_id_fk 
+ALTER TABLE t_medication DROP CONSTRAINT IF EXISTS t_medication_medication_concept_fk_concept_id_fk
 --;;
 ALTER TABLE t_metabolic_enzyme_application DROP CONSTRAINT t_metabolic_enzyme_application_drug_concept_fk_concept_id_fk 
 --;;
