@@ -10,7 +10,7 @@
     (System/exit 1))
   (log/info "starting pc4-server with profile" {:profile profile})
   (pc4/load-namespaces profile [:com.eldrix.pc4.pedestal/server])
-  (pc4/init profile [:com.eldrix.pc4.pedestal/server]))
+  (pc4/init profile [:com.eldrix.pc4.pedestal/server :repl/server]))
 
 (defn migrate [{:keys [profile]}]
   (when-not profile
