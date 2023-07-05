@@ -199,7 +199,7 @@
     (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
 
 (s/fdef roles-for-user
-  :args (s/cat :conn ::conn :username string?)
+  :args (s/cat :conn ::db/conn :username string? :opts (s/? (s/keys :opt [:t_project/id])))
   :ret (s/coll-of ::role))
 (defn roles-for-user
   "Return the roles for the given user, each flattened and pre-fetched to
