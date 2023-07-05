@@ -199,10 +199,10 @@
                     (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
                       (ui.project/project-users users')
                       (page [:<> (navigation-bar ctx)
-                             (misc/breadcrumbs
-                               (misc/breadcrumb-home {:href "#"})
-                               (misc/breadcrumb-item {:href "#"} "Project")
-                               (misc/breadcrumb-item {:href "#"} "Team"))
+                             #_(misc/breadcrumbs
+                                 (misc/breadcrumb-home {:href "#"})
+                                 (misc/breadcrumb-item {:href "#"} "Project")
+                                 (misc/breadcrumb-item {:href "#"} "Team"))
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
                                [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
