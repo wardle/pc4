@@ -2,7 +2,7 @@
  ["src/clj" "src/cljc" "resources"]
 
  :deps
- {org.clojure/clojure                 {:mvn/version "1.12.0-alpha3"}
+ {org.clojure/clojure                 {:mvn/version "1.12.0-alpha4"}
   org.clojure/clojurescript           {:mvn/version "1.11.60"
                                        :exclusions  [com.google.javascript/closure-compiler-unshaded
                                                      org.clojure/google-closure-library
@@ -28,12 +28,12 @@
 
   aero/aero                           {:mvn/version "1.1.6"}
   binaryage/devtools                  {:mvn/version "1.0.7"}
-  buddy/buddy-core                    {:mvn/version "1.11.418"}
-  buddy/buddy-sign                    {:mvn/version "3.5.346"}
+  buddy/buddy-core                    {:mvn/version "1.11.423"}
+  buddy/buddy-sign                    {:mvn/version "3.5.351"}
   com.draines/postal                  {:mvn/version "2.0.5"}
-  com.fulcrologic/fulcro              {:mvn/version "3.6.4"}
-  com.github.seancorfield/honeysql    {:mvn/version "2.4.1033"}
-  com.github.seancorfield/next.jdbc   {:mvn/version "1.3.874"}
+  com.fulcrologic/fulcro              {:mvn/version "3.6.6"}
+  com.github.seancorfield/honeysql    {:mvn/version "2.4.1045"}
+  com.github.seancorfield/next.jdbc   {:mvn/version "1.3.883"}
   com.teknql/shadow-cljs-tailwind-jit {:mvn/version "1.0.0"}
   com.wsscode/pathom3                 {:mvn/version "2023.01.31-alpha"}
   com.zaxxer/HikariCP                 {:mvn/version "5.0.1"}
@@ -53,8 +53,8 @@
   re-frame/re-frame                   {:mvn/version "1.3.0"}
   reagent/reagent                     {:mvn/version "1.2.0"}
   rum/rum                             {:mvn/version "0.12.10"}
-  software.amazon.awssdk/s3           {:mvn/version "2.20.92"}
-  thheller/shadow-cljs                {:mvn/version "2.24.0"}}
+  software.amazon.awssdk/s3           {:mvn/version "2.20.98"}
+  thheller/shadow-cljs                {:mvn/version "2.24.1"}}
 
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
@@ -72,7 +72,7 @@
                                ring/ring-core                 {:mvn/version "1.10.0"}
                                ring-cors/ring-cors            {:mvn/version "0.1.13"}
                                ring/ring-defaults             {:mvn/version "0.3.4"}
-                               http-kit/http-kit              {:mvn/version "2.6.0"}}
+                               http-kit/http-kit              {:mvn/version "2.7.0"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                "--illegal-access=permit"]}
