@@ -121,5 +121,5 @@
                   :main-opts  ["-m" "clj-kondo.main" "--lint" "src"]}
 
   :lint/eastwood {:main-opts  ["-m" "eastwood.lint" {:source-paths ["src" "fhir_r4" "serve"]}]
-                  :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}
+                  :extra-deps {jonase/eastwood {:mvn/version "RELEASE"}}}}}
 
