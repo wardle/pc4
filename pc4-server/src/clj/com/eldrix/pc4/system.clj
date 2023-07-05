@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.system
   "Composes building blocks into a system using aero, integrant and pathom."
   (:require [aero.core :as aero]
+            [clojure.core.server]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.tools.logging.readable :as log]
@@ -169,6 +170,17 @@
       (reduce (fn [acc {:keys [module-id] :as module}]      ;; return a map of module-id to module information
                 (assoc acc module-id module)) {} manifest))
     (log/info "no shadow cljs manifest file found")))
+
+(defmethod ig/init-key :repl/server [_ {server-name :name, :as opts}]
+  (if server-name
+    (do (log/info "starting repl server" (select-keys opts [:name :port]))
+        {:server-name server-name
+         :server      (clojure.core.server/start-server opts)})
+    (log/info "skipping repl server: not configured")))
+
+(defmethod ig/halt-key! :repl/server [_ {:keys [server-name]}]
+  (clojure.core.server/stop-server server-name))
+
 
 (defmethod aero/reader 'ig/ref [_ _ x]
   (ig/ref x))

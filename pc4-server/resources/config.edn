@@ -216,6 +216,13 @@
  :com.eldrix.pc4/cljs-modules
  {:manifest-path "public/js/compiled/manifest.edn"}
 
+ ;; REPL server
+ :repl/server
+ {:name          "repl-server"
+  :port          5555
+  :accept        clojure.core.server/repl
+  :server-daemon false}
+
  ;; HTTP server
  :com.eldrix.pc4.pedestal/server
  {:port            #long #or [#env PORT 8080]
@@ -223,6 +230,7 @@
   :host            "0.0.0.0"
   :join?           #profile {:default false
                              :pc4     true}
+  :dev?             #profile {:default true :pc4 false :cvx false}
   :session-key     #ref [:secrets :pc4 :session-key]
   :env             {:pathom/boundary-interface       #ig/ref :pathom/boundary-interface
                     :com.eldrix.rsdb/conn            #ig/ref :com.eldrix.rsdb/conn
