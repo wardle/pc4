@@ -4,6 +4,7 @@
     [clojure.spec.test.alpha :as stest]
     [com.eldrix.pc4.system :as pc4]
     [integrant.core :as ig]
+    [integrant.repl :as ig.repl]
     [com.eldrix.clods.core :as clods]
     [com.eldrix.pc4.rsdb.patients :as patients]
     [com.eldrix.pc4.rsdb.results :as results]
@@ -16,11 +17,25 @@
 
 (stest/instrument)                                          ;; turn on instrumentation for development
 
+(defn prep-dev-system []
+  (pc4/load-namespaces :dev)
+  (pc4/config :dev))
+
+(ig.repl/set-prep! prep-dev-system)
+
+(defn reset-system []
+  (ig.repl/halt)
+  (ig.repl/init [:com.eldrix.pc4.pedestal/server]))
 
 (comment
-  (def p (portal/open {:launcher :intellij}))               ;; open intellij portal (needs portal inspector)
-  (def p (portal/open))                                     ;; or... open browser-based portal
-  (add-tap #'portal/submit)
+  (require '[dev.nu.morse :as morse])
+  (morse/launch-in-proc)
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
+  (morse/inspect (pc4/config :dev))
+
+  (ig.repl/go [:com.eldrix.pc4.pedestal/server])
+  (reset-system)
+
 
   (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
@@ -295,4 +310,3 @@
   (s/valid? ::lesion-count [:plus-minus 4 1])
   (com.eldrix.pc4.rsdb.results/parse-count-lesions "6-3")
   x)
-

@@ -282,7 +282,8 @@
          (assoc ctx :response {:status 401 :body "Unauthorized"}))))})
 
 
-(def routes*
+(defn routes []
+  (log/info "Loading routes")
   [["/" {:name :landing :get {:interceptors [landing]}}]
    ["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
    ["/login-mutation" {:name :login-mutation :post {:interceptors [login-mutation]}}] ;; for fulcro clients (fulcro / pc4-ms)
@@ -393,7 +394,6 @@
      :post       {:interceptors [render-component check-authenticated add-authorizer check-permission app/impersonate app/view-login-page]}
      :permission :SYSTEM}]])
 
-
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
   {::http/type            :jetty
@@ -417,7 +417,7 @@
 (s/def ::config (s/keys :req-un [::env]
                         :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
 
-(defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
+(defmethod ig/init-key ::server [_ {:keys [dev? env session-key] :as config}]
   (log/info "Running HTTP server" (dissoc config :env :session-key))
   (when-not (s/valid? ::config config)
     (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
@@ -426,7 +426,8 @@
   (-> (make-service-map config)
       (http/default-interceptors)
       (reitit.pedestal/replace-last-interceptor
-        (reitit.pedestal/routing-interceptor (reitit.http/router routes*)))
+        (reitit.pedestal/routing-interceptor (reitit.http/router
+                                               ((if dev? #'routes (constantly (#'routes)))))))
       (http/dev-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
@@ -444,15 +445,3 @@
 (defmethod ig/halt-key! ::server [_ service-map]
   (http/stop service-map))
 
-
-(comment
-  (require '[com.eldrix.pc4.system :as pc4])
-  (require '[dev.nu.morse :as morse])
-  (morse/launch-in-proc)
-  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
-  (morse/inspect (pc4/config :dev))
-  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
-  (pc4/halt! system)
-  (morse/inspect system)
-  (do (pc4/halt! system)
-      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))))
