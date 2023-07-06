@@ -3,6 +3,7 @@
     [clojure.repl :as repl :refer [doc]]
     [clojure.spec.test.alpha :as stest]
     [com.eldrix.pc4.system :as pc4]
+    [dev.nu.morse :as morse]
     [integrant.core :as ig]
     [integrant.repl :as ig.repl]
     [com.eldrix.clods.core :as clods]
@@ -27,16 +28,21 @@
   (ig.repl/halt)
   (ig.repl/init [:com.eldrix.pc4.pedestal/server]))
 
+(defn inspect-system []
+  (morse/inspect #'integrant.repl.state/system))
+
 (comment
-  (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (morse/inspect (pc4/config :dev))
+  (morse/inspect integrant.repl.state/system)
 
   (ig.repl/go [:com.eldrix.pc4.pedestal/server])
   (reset-system)
+  (def system integrant.repl.state/system)
+  (def pathom (:pathom/boundary-interface integrant.repl.state/system))
 
-
+  
   (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
