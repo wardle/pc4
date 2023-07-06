@@ -61,3 +61,15 @@
                     (get 'info.snomed.Search/search))]
     (is (= 24700007 (get-in results [0 :info.snomed.Concept/id])))
     (is (= "Multiple sclerosis" (get-in results [0 :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))))
+
+(deftest test-user-common-concepts
+    (is (->> (*pathom* {:pathom/entity {:t_user/id 1}
+                        :pathom/eql [(list :t_user/common_concepts {:ecl "<64572001|Disease|"})]})
+             :t_user/common_concepts
+             (map #(get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+             (some #{"Multiple sclerosis"}))))
+
+
+(comment
+  (with-system
+    test-user-common-concepts))

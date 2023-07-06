@@ -828,7 +828,7 @@
   "Resolve common concepts for the user, based on project membership, optionally
   filtering by a SNOMED expression (ECL). Language preferences can be specified
   using parameter `:accept-language` with a comma-separated list of preferences."
-  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
+  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix.hermes.graph/svc, :as env} {user-id :t_user/id}]
   {::pco/output [{:t_user/common_concepts
                   [:info.snomed.Concept/id
                    {:info.snomed.Concept/preferredDescription
@@ -837,7 +837,7 @@
   (let [concept-ids (users/common-concepts conn user-id)
         ecl (:ecl (pco/params env))
         lang (or (:accept-language (pco/params env)) (.toLanguageTag (Locale/getDefault)))
-        concept-ids' (if (str/blank? ecl) concept-ids (hermes/intersect-ecl hermes concept-ids ecl))] ;; constrain concepts by ECL if present]
+        concept-ids' (if (str/blank? ecl) concept-ids (hermes/intersect-ecl hermes concept-ids ecl))] ;; constrain concepts by ECL if present
     {:t_user/common_concepts
      (when (seq concept-ids)
        (let [results (hermes/search-concept-ids hermes {:language-range lang} concept-ids')]
