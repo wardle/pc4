@@ -96,12 +96,12 @@
 (defmethod ig/init-key :com.eldrix.rsdb/run-migrations
   [_ config]
   (if-let [migrations (seq (migrations/pending-list config))]
-    (do (log/info "Running migrations:" migrations)
+    (do (log/info "running migrations:" migrations)
         (if (migrations/migrate config)
-          (throw (ex-info "Failed to perform migrations" {:config  config
+          (throw (ex-info "failed to perform migrations" {:config  config
                                                           :pending migrations}))
-          (log/info "Migrations finished successfully")))
-    (log/info "No migrations pending")))
+          (log/info "migrations finished successfully")))
+    (log/info "no migrations pending")))
 
 (defmethod ig/init-key :com.eldrix.rsdb/config [_ config]
   config)
@@ -142,7 +142,7 @@
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
-    (log/info "Connecting pathom-viz" config)
+    (log/info "connecting pathom-viz" config)
     (try
       (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
         (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config)))

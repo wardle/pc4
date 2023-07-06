@@ -101,7 +101,7 @@
       :as       config :or {pool-size 2 delay-ms 500}}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid configuration" (s/explain-data ::config config))))
-  (log/info "Starting background job service" (select-keys config [:pool-size :delay-ms :termination-timeout-secs]))
+  (log/info "starting background job service" (select-keys config [:pool-size :delay-ms :termination-timeout-secs]))
   (let [executor (ScheduledThreadPoolExecutor. pool-size)
         task (.scheduleWithFixedDelay executor #(process-jobs config) 0 delay-ms TimeUnit/MILLISECONDS)]
     (assoc config :executor executor
