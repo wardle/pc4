@@ -288,7 +288,7 @@
 
 
 (defn routes []
-  (log/info "Loading routes")
+  (log/info "loading routes")
   [["/" {:name :landing :get {:interceptors [landing]}}]
    ["/login" {:name :login :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
    ["/login-mutation" {:name :login-mutation :post {:interceptors [login-mutation]}}] ;; for fulcro clients (fulcro / pc4-ms)
