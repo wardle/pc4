@@ -362,7 +362,7 @@
                                         {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))}]
    ["/app/project/:project-id/users/:user-id"
     {:name :get-project-user                                ;; view profile in context of a project or service
-     :get  {:interceptors [check-authenticated add-authorizer render-component execute-eql context->tap context->repl app/view-user]}
+     :get  {:interceptors [check-authenticated add-authorizer render-component execute-eql context->repl app/view-user]}
      :eql  (fn [req]
              {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
               :pathom/eql    [:t_user/id :t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
