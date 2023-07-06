@@ -390,9 +390,15 @@
                               :t_professional_registration_authority/abbreviation
                               :t_user/roles]})}]
 
-   ["/app/user/:user-id/ui/common-concepts"
+   ["/app/user/:user-id/ui/common-concepts" ;; TODO: should take language preferences from request as well
     {:name :get-user-common-concepts
-     :get  {:interceptors [check-authenticated render-component app/user-ui-common-concepts]}}]
+     :get  {:interceptors [check-authenticated render-component execute-eql app/user-ui-select-common-concepts]}
+     :eql (fn [req]
+            (let [ecl (get-in req [:params :ecl])]
+              {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+               :pathom/eql [{(list :t_user/common_concepts {:ecl ecl})
+                             [:info.snomed.Concept/id
+                              {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}))}]
 
    ["/app/user/:user-id/impersonate"
     {:name       :impersonate-user

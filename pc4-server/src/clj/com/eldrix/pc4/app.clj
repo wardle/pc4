@@ -1,7 +1,9 @@
 (ns com.eldrix.pc4.app
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]
+            [com.eldrix.pc4.rsdb.users :as users]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]
             [com.eldrix.pc4.ui.misc :as misc]
             [io.pedestal.http.csrf :as csrf]
@@ -227,12 +229,21 @@
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
                             (ui.user/view-user user')]])))))})
 
-(def user-ui-common-concepts
+(def user-ui-select-common-concepts
+  "Interceptor to return a HTML select list of common concepts constrained by
+  ECL. Any parameters, such as name, hx-get, or hx-post, or hx-target are passed
+  to the HTML SELECT component."
   {:enter
-   (fn [{request :request, :as ctx}]
-     (if-let [user-id (some-> (get-in request [:path-params :user-id]) parse-long)]
-       ()
-       (assoc ctx :response {:status 400 :body "Invalid request: expected user-id"})))})
+   (fn [{result :result, request :request, :as ctx}]
+     (let [concepts (->> (:t_user/common_concepts result)
+                         (map #(hash-map :id (:info.snomed.Concept/id %) :term (get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+                         (sort-by :term))]
+       (println (:params request))
+       (assoc ctx :component
+                  [:select (:params request)
+                   (for [{:keys [id term]} concepts]
+                     [:option {:value id} term])])))})
+
 
 
 (def login-user-props
