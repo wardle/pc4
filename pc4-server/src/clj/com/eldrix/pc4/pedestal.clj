@@ -250,7 +250,12 @@
            (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! (get-in ctx [:request ::r/router]) :login-page))
                                   :url       (get-in ctx [:request :uri])})
                (chain/terminate)
-               (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))})
+               (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))
+   :leave (fn [ctx]
+            (update-in ctx [:response :headers] assoc
+                       "Cache-Control" "no-cache, must-revalidate, max-age=0, no-store, private"
+                       "Pragma" "no-cache"
+                       "Expires" "0"))})
 
 (def add-authorizer
   "Interceptor to add an authorizer for the session. An authorizer is a 1-arity
