@@ -423,11 +423,11 @@
                         :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
 
 (defmethod ig/init-key ::server [_ {:keys [dev? env session-key] :as config}]
-  (log/info "Running HTTP server" (dissoc config :env :session-key))
+  (log/info "running HTTP server" (dissoc config :env :session-key))
   (when-not (s/valid? ::config config)
-    (throw (ex-info "Invalid server configuration" (s/explain-data ::config config))))
+    (throw (ex-info "invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
-    (log/warn "No explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
+    (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (-> (make-service-map config)
       (http/default-interceptors)
       (reitit.pedestal/replace-last-interceptor
