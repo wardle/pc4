@@ -237,9 +237,9 @@
 
 
 (def check-authenticated
-  "An interceptor that checks that for an authenticated user. If none, a login
+  "An interceptor that checks for an authenticated user. If none, a login
   page is returned instead. Adds ':authorization-manager' to context if there is
-  an authenticated user."
+  an authenticated user. Ensures response will not be cached."
   {:enter
    (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
      (log/warn "checking authenticated user" (get-in ctx [:request :session :authenticated-user]))
