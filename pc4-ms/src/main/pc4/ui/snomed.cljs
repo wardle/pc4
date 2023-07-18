@@ -50,15 +50,17 @@
        :size      size
        :onChange  #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))}
       (map (fn [v]
-             (dom/option {:key (str (idKey v)) :value (str (idKey v))} (displayPropertyKey v))) values))))
+             (dom/option {:key (str (idKey v))
+                          :value (str (idKey v))}
+                         (displayPropertyKey v))) values))))
 
 (def ui-completion-list (comp/computed-factory CompletionList))
 
 (defsc Synonyms [this {:info.snomed.Concept/keys [id synonyms]}]
   {:ident :info.snomed.Concept/id
-   :query [:info.snomed.Concept/id
-           {:info.snomed.Concept/preferredDescription [:info.snomed.Description/id :info.snomed.Description/term]}
-           {:info.snomed.Concept/synonyms [:info.snomed.Description/id :info.snomed.Description/term]}]}
+   :query (fn [] [:info.snomed.Concept/id
+                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/id :info.snomed.Description/term]}
+                  {(list :info.snomed.Concept/synonyms {:accept-language "en-GB"}) [:info.snomed.Description/id :info.snomed.Description/term]}])}
   (dom/div :.text-gray-600.text-sm.italic.pl-4
     (dom/ul
       (map (fn [{:info.snomed.Description/keys [id term]}]
@@ -89,12 +91,12 @@
             (swap! state assoc-in selected-path nil)
             (swap! state assoc-in selected-synonyms-path nil))))
 
-(def get-suggestions
+(def  get-suggestions
   "A debounced function that will trigger a load of the server suggestions into a temporary locations and fire
    a post mutation when that is complete to move them into the main UI view."
   (letfn [(load-suggestions [comp new-value id]
             (df/load! comp :info.snomed.Search/search nil
-                      {:params               {:s new-value :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2}
+                      {:params               {:s new-value :accept-language "en-GB" :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2}
                        :marker               false
                        :post-mutation        `populate-loaded-suggestions
                        :post-mutation-params {:id id}
@@ -137,7 +139,12 @@
                             #_(m/set-value! this :autocomplete/selected-synonyms nil)
                             (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div :.grid.grid-cols-1
-        (ui-completion-list {:value selected :values suggestions :idKey :info.snomed.Description/id :displayPropertyKey :info.snomed.Description/term}
+        (ui-completion-list {:value selected :values suggestions
+                             :idKey :info.snomed.Description/id
+                             :displayPropertyKey (fn [result]
+                                                   (let [term (:info.snomed.Description/term result)
+                                                         preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+                                                     (if (= term preferred) term (str term " (" preferred ")"))))}
                             {:onValueSelect onSelect'})
         (when selected
           (dom/div :.p-4.border-2.shadow-inner
