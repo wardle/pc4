@@ -24,7 +24,7 @@
   com.eldrix/concierge                {:mvn/version "1.0.150"}
   com.eldrix/deprivare                {:mvn/version "1.0.59"}
   com.eldrix/dmd                      {:mvn/version "0.6.153"}
-  com.eldrix/hermes                   {:mvn/version "1.2.1218"}
+  com.eldrix/hermes                   {:mvn/version "1.3.1232"}
 
   aero/aero                           {:mvn/version "1.1.6"}
   binaryage/devtools                  {:mvn/version "1.0.7"}
@@ -53,7 +53,7 @@
   re-frame/re-frame                   {:mvn/version "1.3.0"}
   reagent/reagent                     {:mvn/version "1.2.0"}
   rum/rum                             {:mvn/version "0.12.10"}
-  software.amazon.awssdk/s3           {:mvn/version "2.20.98"}
+  software.amazon.awssdk/s3           {:mvn/version "2.20.103"}
   thheller/shadow-cljs                {:mvn/version "2.24.1"}}
 
  :mvn/repos
