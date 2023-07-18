@@ -216,7 +216,7 @@
 (pco/defresolver patient->diagnoses
   "Returns diagnoses for a patient. Optionally takes a parameter:
   - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
-  [{hermes :com.eldrix.hermes.graph/svc, conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
+  [{hermes :com.eldrix/hermes, conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/diagnoses [:t_diagnosis/concept_fk
                                         {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
                                         :t_diagnosis/date_diagnosis
@@ -243,7 +243,7 @@
 
 
 (pco/defresolver patient->has-diagnosis
-  [{hermes :com.eldrix.hermes.graph/svc, :as env} {diagnoses :t_patient/diagnoses}]
+  [{hermes :com.eldrix/hermes, :as env} {diagnoses :t_patient/diagnoses}]
   {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
    ::pco/output [:t_patient/has_diagnosis]}
   (let [params (pco/params env)
@@ -525,7 +525,7 @@
 (pco/defresolver project->common-concepts
   "Resolve common concepts for the project, optionally filtering by a SNOMED
   expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix.hermes.graph/svc :as env} {:t_project/keys [id]}]
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {:t_project/keys [id]}]
   {::pco/input  [:t_project/id]
    ::pco/output [{:t_project/common_concepts [:info.snomed.Concept/id]}]}
   {:t_project/common_concepts
@@ -828,7 +828,7 @@
   "Resolve common concepts for the user, based on project membership, optionally
   filtering by a SNOMED expression (ECL). Language preferences can be specified
   using parameter `:accept-language` with a comma-separated list of preferences."
-  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix.hermes.graph/svc, :as env} {user-id :t_user/id}]
+  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
   {::pco/output [{:t_user/common_concepts
                   [:info.snomed.Concept/id
                    {:info.snomed.Concept/preferredDescription
