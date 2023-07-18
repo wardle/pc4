@@ -1,7 +1,6 @@
 (ns com.eldrix.pc4.app
   (:require [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]
             [com.eldrix.pc4.rsdb.users :as users]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]
@@ -13,7 +12,8 @@
             [com.eldrix.pc4.ui.patient :as ui.patient]
             [com.eldrix.pc4.ui.project :as ui.project]
             [com.eldrix.pc4.ui.user :as ui.user]
-            [reitit.core :as r]))
+            [reitit.core :as r])
+  (:import (java.util Locale)))
 
 
 (defn page [content]
@@ -64,7 +64,15 @@
                                                   :hx-vals     (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]})))))
 
 (def home-page
-  {:enter
+  {:eql
+   (fn [req]
+     (let [user (get-in req [:session :authenticated-user])]
+       {:pathom/entity user
+        :pathom/eql    [{(list :t_user/roles {:active-roles true})
+                         [:t_project/id :t_project_user/id :t_project_user/active? :t_project/active?
+                          :t_project/name :t_project/title :t_project/type]}
+                        :t_user/latest_news]}))
+   :enter
    (fn [ctx]
      (let [router (get-in ctx [:request ::r/router])
            active-projects (get-in ctx [:result :t_user/roles])
@@ -75,32 +83,31 @@
                 (navigation-bar ctx)
                 [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
                  [:div.md:mr-2
-                  (ui.user/project-panel {:projects   active-projects
-                                          :make-attrs #(hash-map :href (r/match->path (r/match-by-name router :get-project {:project-id (:t_project/id %)})))})]
+                  (ui.user/project-panel
+                    {:projects   active-projects
+                     :make-attrs #(hash-map :href (r/match->path (r/match-by-name router :get-project {:project-id (:t_project/id %)})))})]
                  [:div.col-span-3
                   (ui.user/list-news {:news-items latest-news})]]]))))})
 
 (def nav-bar
   {:enter (fn [ctx] (assoc ctx :component (navigation-bar ctx)))})
 
-(def patient-properties
-  [:t_patient/id
-   :t_patient/patient_identifier
-   :t_patient/title
-   :t_patient/first_names
-   :t_patient/last_name
-   :t_patient/date_birth
-   :t_patient/date_death
-   :t_patient/current_age
-   :t_patient/status
-   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/postcode]}
-   :t_patient/surgery
-   {:t_patient/hospitals [:t_patient_hospital/patient_identifier
-                          :t_patient_hospital/hospital]}])
-
 (def view-patient-page
-  "Takes result from :result in context and generates a component"
-  {:enter
+  {:eql
+   (fn [req]                                                ;; we view patient using :patient-id or  a combination of :project-id and :pseudonym
+     {:pathom/entity (if-let [patient-id (some-> (get-in req [:path-params :patient-id]) parse-long)]
+                       {:t_patient/patient_identifier patient-id}
+                       {:t_patient/project_pseudonym [(some-> (get-in req [:path-params :project-id]) parse-long)
+                                                      (get-in req [:path-params :pseudonym])]})
+      :pathom/eql    [:t_patient/id :t_patient/patient_identifier
+                      :t_patient/title :t_patient/first_names :t_patient/last_name
+                      :t_patient/date_birth :t_patient/date_death :t_patient/current_age
+                      :t_patient/status
+                      {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/postcode]}
+                      :t_patient/surgery
+                      {:t_patient/hospitals [:t_patient_hospital/patient_identifier
+                                             :t_patient_hospital/hospital]}]})
+   :enter
    (fn [{{:t_patient/keys [patient_identifier status nhs_number last_name first_names title current_age date_birth date_death address] :as patient} :result, :as ctx}]
      (log/info {:name :view-patient-page :patient patient})
      (if-not patient_identifier
@@ -142,6 +149,14 @@
                       :icon    (ui.misc/icon-home)
                       :content (content (or title "Home"))
                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id project-id}))}}
+                     {:id      :find-patient
+                      :icon    (ui.misc/icon-magnifying-glass)
+                      :content (content "Find patient")
+                      :attrs   {:href (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}}
+                     {:id      :register-patient
+                      :icon    (ui.misc/icon-plus-circle)
+                      :content (content "Register patient")
+                      :attrs   {:href (r/match->path (r/match-by-name! router :register-patient {:project-id project-id}))}}
                      {:id      :team
                       :icon    (ui.misc/icon-team)
                       :content (content "Team")
@@ -166,7 +181,17 @@
 
 
 (def view-project-home
-  {:enter
+  {:eql
+   (fn [req] {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
+              :pathom/eql    [:t_project/id :t_project/title :t_project/name :t_project/inclusion_criteria :t_project/exclusion_criteria
+                              :t_project/date_from :t_project/date_to :t_project/address1 :t_project/address2
+                              :t_project/address3 :t_project/address4 :t_project/postcode
+                              {:t_project/administrator_user [:t_user/full_name :t_user/username]}
+                              :t_project/active? :t_project/long_description :t_project/type
+                              :t_project/count_registered_patients :t_project/count_discharged_episodes :t_project/count_pending_referrals
+                              {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                              {:t_project/parent_project [:t_project/id :t_project/title]}]})
+   :enter
    (fn [{{:t_project/keys [id] :as project} :result, :as ctx}]
      (let [router (get-in ctx [:request ::r/router])]
        (log/info {:name :view-project-page :project project})
@@ -183,9 +208,103 @@
                                 (project-menu ctx {:project-id id :title "Home" :selected-id :home})]]
                               [:div.col-span-5.p-6
                                (ui.project/project-home project*)]]]))))))})
+(def find-patient
+  {:eql
+   (fn [req]
+     (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
+           pseudonym (get-in req [:params :pseudonym])]
+       [{(list :>/project {:t_project/id project-id})       ;; query current project
+         [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}
+        {(list 'pc4.rsdb/search-patient-by-pseudonym        ;; and perform pseudonymous search
+               {:project-id project-id
+                :pseudonym  pseudonym})
+         [:t_patient/patient_identifier
+          :t_patient/sex
+          :t_patient/date_birth
+          :t_patient/date_death
+          :t_episode/stored_pseudonym
+          :t_episode/project_fk]}]))
+   :enter
+   (fn [{:keys [result request] :as ctx}]
+     (let [router (get-in ctx [:request ::r/router])
+           hx-request? (parse-boolean (or (get-in request [:headers "hx-request"]) "false"))
+           hx-boosted? (parse-boolean (or (get-in request [:headers "hx-boosted"]) "false"))
+           project-id (get-in result [:>/project :t_project/id])
+           project-title (get-in result [:>/project :t_project/title])
+           pseudonym (get-in ctx [:request :params :pseudonym])
+           patient (get-in result ['pc4.rsdb/search-patient-by-pseudonym])]
+       (println (:params (:request ctx)))
+       (assoc ctx :component
+                  (if (or (not hx-request?) hx-boosted?)    ;; show full page for non HTMX request, or boosted
+                    (page [:<> (navigation-bar ctx)
+                           [:div.grid.grid-cols-1.md:grid-cols-6
+                            [:div.col-span-1.pt-6
+                             [:<> [:div.px-2.py-1.font-bold project-title]
+                              (project-menu ctx {:project-id  project-id
+                                                 :title       "Home"
+                                                 :selected-id :find-patient})]]
+                            [:div.col-span-5.p-6
+                             [:form {:method "get" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}) {:submit true})}
+                              (ui.project/project-search-pseudonymous
+                                {:hx-get        (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
+                                 :hx-trigger    "keyup changed delay:200ms, search"
+                                 :hx-target     "#search-result"
+                                 :name          "pseudonym"
+                                 :auto-complete "off"
+                                 :value         pseudonym}
+                                [:div.#search-result])]]]])
+                    [:div.bg-white.shadow.sm:rounded-lg.mt-4
+                     (when patient
+                       [:div.px-4.py-5.sm:p-6
+                        [:h3.text-lg.leading-6.font-medium.text-gray-900
+                         (str (name (:t_patient/sex patient))
+                              " "
+                              "born: " (.getYear (:t_patient/date_birth patient)))]
+                        [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
+                         [:div.max-w-xl.text-sm.text-gray-500
+                          [:p (:t_episode/stored_pseudonym patient)]]
+                         [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
+                          [:button.inline-flex.items-center.px-4.py-2.border.border-transparent.shadow-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:text-sm
+                           {:type "button"}
+                           "View patient record"]]]])]))))})
+
+
+
+(def register-patient
+  {:eql (fn [req]
+          {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
+           :pathom/eql    [:t_project/id :t_project/title :t_project/inclusion_criteria :t_project/exclusion_criteria
+                           :t_project/date_from :t_project/date_to :t_project/active? :t_project/type :t_project/pseudonymous]})
+   :enter
+   (fn [{{:t_project/keys [id] :as project} :result, :as ctx}]
+     (let [router (get-in ctx [:request ::r/router])]
+       (if-not project
+         ctx
+         (assoc ctx :component
+                    (page [:<> (navigation-bar ctx)
+                           [:div.grid.grid-cols-1.md:grid-cols-6
+                            [:div.col-span-1.pt-6
+                             [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
+                              (project-menu ctx {:project-id id :title "Home" :selected-id :register-patient})]]
+                            [:div.col-span-5.p-6
+                             (if-not (:t_project/pseudonymous project) ;; at the moment, we only support pseudonymous registration
+                               (ui.misc/box-error-message {:title   "Not yet supported"
+                                                           :message "Only pseudonymous patient registration is currently supported."})
+                               [:h1 "Register patient"])]]])))))})
+
 
 (def view-project-users
-  {:enter
+  {:eql
+   (fn [req]
+     (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
+           active (case (get-in req [:form-params :active]) "active" true "inactive" false "all" nil true)] ;; default to true
+       {:pathom/entity {:t_project/id project-id}
+        :pathom/eql    [:t_project/id :t_project/title
+                        {(list :t_project/users {:group-by :user :active active})
+                         [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
+                          :t_user/first_names :t_user/last_name :t_user/job_title
+                          {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}))
+   :enter
    (fn [{{:t_project/keys [id title users] :as project} :result, request :request, :as ctx}]
      (if-not project
        ctx
@@ -213,7 +332,14 @@
                                (ui.project/project-users users')]]]))))))})
 
 (def view-user
-  {:enter
+  {:eql
+   (fn [req]
+     {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+      :pathom/eql    [:t_user/id :t_user/username :t_user/title :t_user/full_name :t_user/first_names :t_user/last_name :t_user/job_title :t_user/authentication_method
+                      :t_user/postnomial :t_user/professional_registration :t_user/professional_registration_url
+                      :t_professional_registration_authority/abbreviation
+                      :t_user/roles]})
+   :enter
    (fn [{user :result, request :request, authorizer :authorizer, :as ctx}]
      (if-not user
        ctx
@@ -223,7 +349,6 @@
              user' (cond-> user
                            is-system
                            (assoc :impersonate-user-url (r/match->path (r/match-by-name! router :impersonate-user {:user-id (:t_user/id user)}))))]
-         (println "view user: " user')
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
@@ -233,7 +358,14 @@
   "Interceptor to return a HTML select list of common concepts constrained by
   ECL. Any parameters, such as name, hx-get, or hx-post, or hx-target are passed
   to the HTML SELECT component."
-  {:enter
+  {:eql
+   (fn [req]
+     (let [ecl (get-in req [:params :ecl])]
+       {:pathom/entity {:t_user/id (some-> (get-in req [:path-params :user-id]) parse-long)}
+        :pathom/eql    [{(list :t_user/common_concepts {:ecl ecl})
+                         [:info.snomed.Concept/id
+                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}))
+   :enter
    (fn [{result :result, request :request, :as ctx}]
      (let [concepts (->> (:t_user/common_concepts result)
                          (map #(hash-map :id (:info.snomed.Concept/id %) :term (get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
@@ -244,7 +376,55 @@
                    (for [{:keys [id term]} concepts]
                      [:option {:value id} term])])))})
 
+(def ui-view-search-concept-results
+  "Presents search for concept results as a configurable select box."
+  {:eql
+   (fn [req]
+     (let [s (get-in req [:params :s])
+           ecl (get-in req [:params :ecl])
+           max-hits (or (get-in req [:params :max-hits]) 512)]
+       (if (and s ecl)
+         [{(list 'info.snomed.Search/search
+                 {:s s, :constraint ecl, :max-hits max-hits})
+           [:info.snomed.Description/id
+            :info.snomed.Description/term
+            :info.snomed.Concept/id
+            {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+         (throw (ex-info "invalid parameters" (:params req))))))
+   :enter
+   (fn [{result :result, request :request, :as ctx}]
+     (let [results (get result 'info.snomed.Search/search)]
+       (assoc ctx :component
+                  [:select (dissoc (:params request) :s :ecl :max-hits)
+                   (for [{id        :info.snomed.Description/id
+                          term      :info.snomed.Description/term
+                          preferred :info.snomed.Concept/preferredDescription} results]
+                     [:option {:value id}
+                      (let [preferred-term (:info.snomed.Description/term preferred)]
+                        (if (= term preferred-term)
+                          term
+                          (str term " (" preferred-term ")")))])])))})
 
+(def ui-inspect-description
+  {:eql
+   (fn [req]
+     (let [langs (or (get-in req [:headers "accept-language"]) (.toLanguageTag (Locale/getDefault)))]
+       {:pathom/entity {:info.snomed.Description/id (some-> (get-in req [:path-params :description-id]) parse-long)}
+        :pathom/eql    [:info.snomed.Description/term
+                        {:info.snomed.Description/concept
+                         [{(list :info.snomed.Concept/preferredDescription {:accept-language langs})
+                           [:info.snomed.Description/term]}
+                          {(list :info.snomed.Concept/synonyms {:accept-language langs})
+                           [:info.snomed.Description/term]}]}]}))
+   :enter
+   (fn [{result :result, :as ctx}]
+     (let [term (:info.snomed.Description/term result)
+           preferred (get-in result [:info.snomed.Description/concept :info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+           synonyms (map :info.snomed.Description/term (get-in result [:info.snomed.Description/concept :info.snomed.Concept/synonyms]))]
+       (assoc ctx :component
+                  [:div preferred
+                   [:ul (for [synonym (sort (distinct synonyms))]
+                          [:li synonym])]])))})
 
 (def login-user-props
   [:t_user/username :t_user/id :t_user/full_name :t_user/first_names

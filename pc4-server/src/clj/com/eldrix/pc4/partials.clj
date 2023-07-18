@@ -13,5 +13,6 @@
   excessive client-side scripting. More complex partials may make use of
   compiled javascript if required.")
 
-
+(def inspect-edit-user
+  {:enter (fn [ctx])})
 
