@@ -270,9 +270,9 @@
 (defn fetch-medications-and-events
   "Returns a sequence of medications, as well as any medication events nested
   under key :t_medication/events. "
-  [conn patient]
-  (let [meds (fetch-medications conn patient)
-        evts (when (seq meds) (fetch-medication-events conn (map :t_medication/id meds)))]
+  [txn patient]
+  (let [meds (fetch-medications txn patient)
+        evts (when (seq meds) (fetch-medication-events txn (map :t_medication/id meds)))]
     (map #(assoc %1 :t_medication/events %2) meds evts)))
 
 (def default-medication-event

@@ -316,16 +316,17 @@
                                                                  :t_medication_event/description_of_reaction
                                                                  :t_medication_event/event_concept_fk
                                                                  {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
-  (let [medication (patients/fetch-medications-and-events conn patient)]
-    {:t_patient/medications
-     ;; and now just add additional properties to permit walking to SNOMED CT
-     (mapv #(-> %
-                (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
-                (update :t_medication/events
-                        (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                           (assoc evt :t_medication_event/event_concept
-                                                      (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
-           medication)}))
+  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+    (let [medication (patients/fetch-medications-and-events txn patient)]
+      {:t_patient/medications
+       ;; and now just add additional properties to permit walking to SNOMED CT
+       (mapv #(-> %
+                  (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
+                  (update :t_medication/events
+                          (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                             (assoc evt :t_medication_event/event_concept
+                                                        (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+             medication)})))
 
 (def address-properties [:t_address/address1
                          :t_address/address2
