@@ -1,0 +1,1 @@
+ALTER TABLE t_project ADD COLUMN pseudonymous VARCHAR(5) DEFAULT 'false' NOT NULL;

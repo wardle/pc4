@@ -22,4 +22,4 @@
   (migratus/pending-list conf)
   (migratus/migrate conf)
   (migratus/rollback conf)
-  (migratus/create conf "remove-sct-constraints"))
+  (migratus/create conf "add-project-pseudonymous"))

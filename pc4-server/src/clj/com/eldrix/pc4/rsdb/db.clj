@@ -56,6 +56,7 @@
    :t_project/admission                           parse-boolean
    :t_project/is_private                          parse-boolean
    :t_project/type                                keyword
+   :t_project/pseudonymous                        parse-boolean
    :t_project/virtual                             parse-boolean
    :t_project_user/role                           keyword
    :t_result_mri_brain/with_gadolinium            parse-boolean
