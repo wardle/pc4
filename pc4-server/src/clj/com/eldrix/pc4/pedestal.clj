@@ -115,8 +115,7 @@
    environment that contains only a single resolver, login."
   {:enter
    (fn [{:keys [request] :as ctx}]
-     (let [params (:transit-params request)                 ;; [(pc4.users/login {:username "system", :password "password"})]
-           _ (log/info "login request:" (dissoc params :password))
+     (let [params (:transit-params request)                 ;; [{(pc4.users/login {:username "system", :password "password"}) [...]]
            op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
        (if-not (= 'pc4.users/login op-name)
          (do
