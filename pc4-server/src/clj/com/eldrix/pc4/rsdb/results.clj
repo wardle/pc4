@@ -376,7 +376,8 @@
 (defn ^:private every-equal?
   "Are all elements of 'coll' equal?"
   [coll]
-  (or (not (seq coll)) (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll)))
+  (or (not (seq coll))
+      (reduce (fn [acc v] (if (or (nil? acc) (= acc v)) v false)) coll)))
 
 
 (s/fdef all-t2-counts
@@ -393,21 +394,20 @@
   [results]
   (when-not (every-equal? (map :t_result_mri_brain/patient_fk results))
     (throw (ex-info "To calculate T2 counts, all scans must be for the same patient" {:patient-ids (set (map :t_result_mri_brain/patient_fk results))})))
-  (let [sorted-results (sort-by :t_result_mri_brain/date results)] ;; sorted in ascending order
-    (loop [remaining sorted-results
-           prior-scan nil
-           result []]
-      (let [scan (first remaining)]
-        (if-not scan
-          result
-          (let [prior-scan-id (:t_result_mri_brain/compare_to_result_mri_brain_fk scan)
-                prior-scan' (or (and prior-scan-id
-                                     (first (filter #(= prior-scan-id (:t_result_mri_brain/id %)) result)))
-                                prior-scan)
-                scan' (t2-counts scan prior-scan')]
-            (recur (rest remaining)
-                   scan'
-                   (conj result scan'))))))))
+  (loop [remaining (sort-by :t_result_mri_brain/date results) ;; sorted in ascending order
+         prior-scan nil
+         result []]
+    (let [scan (first remaining)]
+      (if-not scan
+        result
+        (let [prior-scan-id (:t_result_mri_brain/compare_to_result_mri_brain_fk scan)
+              prior-scan' (or (and prior-scan-id
+                                   (first (filter #(= prior-scan-id (:t_result_mri_brain/id %)) result)))
+                              prior-scan)
+              scan' (t2-counts scan prior-scan')]
+          (recur (rest remaining)
+                 scan'
+                 (conj result scan')))))))
 
 (s/fdef gad-count-range
   :args (s/cat :result (s/keys :opt [:t_result_mri_brain/total_gad_enhancing_lesions])))
@@ -490,6 +490,11 @@
        (map first)
        (map normalize-mri-brain)))
 
+
+(defn fetch-mri-brain-results-with-counts
+  [conn _table params]
+  (all-t2-counts (fetch-mri-brain-results conn _table params)))
+
 (s/fdef -save-mri-brain-ms-annotation!
   :args (s/cat :txn ::db/txn
                :result (s/keys :req [:t_result_mri_brain/id :t_result_mri_brain/user_fk])
@@ -563,7 +568,7 @@
     ::table       :t_result_mri_brain
     ::spec        ::t_result_mri_brain
     ::summary-fn  :t_result_mri_brain/report
-    ::fetch-fn    fetch-mri-brain-results
+    ::fetch-fn    fetch-mri-brain-results-with-counts
     ::save-fn     save-mri-brain!}
    {::entity-name "ResultMriSpine"
     ::table       :t_result_mri_spine
