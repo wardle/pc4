@@ -173,13 +173,14 @@
 (def ui-project-users (comp/factory ProjectUsers))
 
 (defsc ProjectHome
-  [this {:t_project/keys [id active? title date_from date_to virtual long_description
-                          inclusion_criteria exclusion_criteria type
+  [this {:t_project/keys [id active? date_from date_to virtual long_description
+                          inclusion_criteria exclusion_criteria type pseudonymous
                           count_registered_patients count_discharged_episodes]
          :as             project}]
   {:ident         :t_project/id
-   :query         [:t_project/id :t_project/active? :t_project/title :t_project/date_from :t_project/date_to :t_project/type
-                   :t_project/virtual :t_project/long_description :t_project/inclusion_criteria :t_project/exclusion_criteria
+   :query         [:t_project/id :t_project/active? :t_project/date_from :t_project/date_to :t_project/type
+                   :t_project/virtual :t_project/pseudonymous :t_project/long_description
+                   :t_project/inclusion_criteria :t_project/exclusion_criteria
                    :t_project/count_registered_patients :t_project/count_discharged_episodes]
    :initial-state {}
    :route-segment ["home"]}
@@ -195,7 +196,10 @@
                            (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
                       (div :.sm:col-span-1
                            (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
-                           (dom/dd :.mt-1.text-sm.text-gray-900 (str/upper-case (if type (name type) "")) " " (when virtual "VIRTUAL")))
+                           (dom/dd :.mt-1.text-sm.text-gray-900
+                                   (str/join " " (remove nil? [(when virtual "VIRTUAL")
+                                                               (when pseudonymous "PSEUDONYMOUS")
+                                                               (str/upper-case (if type (name type) ""))]))))
                       (div :.sm:col-span-1
                            (dt :.text-sm.font-medium.text-gray-500 "Date from")
                            (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
