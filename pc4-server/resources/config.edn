@@ -56,7 +56,7 @@
 
  ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
- {:path  #profile {:dev      "/Users/mark/Dev/clods/ods-2022-01-24.db"
+ {:path  #profile {:default  "/Users/mark/Dev/clods/ods-2022-01-24.db"
                    :dev/nuc  "/Users/mark/Dev/clods/ods-2023-03-01.db"
                    :dev/dell "/home/mark/Dev/clods/ods-2023-05-22.db"
                    :pc4      "/var/pc4/ods-2021-06-25.db"
@@ -80,7 +80,7 @@
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
- {:path #profile {:dev      "/Users/mark/Dev/dmd/dmd-2023-06-05.db"
+ {:path #profile {:default  "/Users/mark/Dev/dmd/dmd-2023-06-05.db"
                   :dev/nuc  "/home/mark/Dev/dmd/dmd-2023-04-24.db"
                   :dev/dell "/home/mark/Dev/dmd/dmd-2023-05-29.db"
                   :pc4      "/var/pc4/dmd-2021-09-27.db"
