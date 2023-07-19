@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.modules.msbase
   "Provides functionality to resolve the Unified MSBase JSON model from PatientCare."
-  (:require [clojure.data.json :as json]
+  (:require [clojure.core.match :as m]
+            [clojure.data.json :as json]
             [clojure.java.process :as proc]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
@@ -59,9 +60,9 @@
   "Resolves MSBase 'identification' data. See https://msbasecloud.prosynergie.ch/docs/demographics"
   [{:t_patient/keys [patient_identifier sex] :as patient}]
   {::pco/input [:t_patient/patient_identifier :t_patient/sex]}
-  {:org.msbase.identification/localId   (str "com.eldrix.pc4/" patient_identifier)
-   :org.msbase.identification/isActive  true                ;; should this be based upon when patient last had encounter
-   :org.msbase.identification/gender    (case sex :MALE "M" :FEMALE "F" "")})
+  {:org.msbase.identification/localId  (str "com.eldrix.pc4/" patient_identifier)
+   :org.msbase.identification/isActive true                 ;; should this be based upon when patient last had encounter
+   :org.msbase.identification/gender   (case sex :MALE "M" :FEMALE "F" "")})
 
 (pco/defresolver patient-ethnicity
   "Resolve MSBase 'ethnicity' data"
@@ -130,7 +131,7 @@
   For onset, we use the recorded MS events, but if there are none, fallback to using
   the manually recorded onset from t_diagnosis.
   See https://msbasecloud.prosynergie.ch/docs/diagnosis-ms"
-  [{hermes :com.eldrix.hermes.graph/svc}
+  [{hermes :com.eldrix/hermes}
    {diagnoses :t_patient/diagnoses,
     sms       :t_patient/summary_multiple_sclerosis}]
   {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk
@@ -187,12 +188,13 @@
 (pco/defresolver medical-condition
   [{:t_diagnosis/keys [id date_onset date_to diagnosis]}]
   {::pco/input [:t_diagnosis/id (pco/? :t_diagnosis/date_onset) (pco/? :t_diagnosis/date_to)
-                {:t_diagnosis/diagnosis [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+                {:t_diagnosis/diagnosis [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
   {:org.msbase.medicalCondition/localId     (str "com.eldrix.pc4.diagnosis/" id)
    :org.msbase.medicalCondition/currDisease nil
    :org.msbase.medicalCondition/startDate   (format-iso-date date_onset)
    :org.msbase.medicalCondition/endDate     (format-iso-date date_to)
-   :org.msbase.medicalCondition/name        (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])})
+   :org.msbase.medicalCondition/name        (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+   :org.msbase.medicalCondition/sctId       (:info.snomed.Concept/id diagnosis)})
 
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
@@ -246,7 +248,8 @@
    ::pco/output [:org.msbase.relapse/localId
                  :org.msbase.relapse/currDisease
                  :org.msbase.relapse/onsetDate
-                 :org.msbase.relapse/fsAffected]}
+                 :org.msbase.relapse/fsAffected
+                 :org.msbase.relapse/notes]}
   {:org.msbase.relapse/localId     (str "com.eldrix.pc4.ms-event/" id)
    :org.msbase.relapse/currDisease nil
    :org.msbase.relapse/onsetDate   (format-iso-date date)
@@ -266,13 +269,8 @@
                                            (conj "pyr")
                                            (or site_sexual site_sphincter)
                                            (conj "bow"))
-   :org.msbase.relapse/fsOther     notes})
-
-(pco/defresolver treatments
-  [{meds :t_patient/medications}]
-  {::pco/input  [:t_patient/medications]
-   ::pco/output [:org.msbase/treatments]}
-  {:org.msbase/treatments (remove #(= :RECORDED_IN_ERROR (:t_medication/reason_for_stopping %)) meds)})
+   :org.msbase.relapse/fsOther     nil
+   :org.msbase.relapse/notes       notes})
 
 
 (def dmts
@@ -298,6 +296,25 @@
    "<<414804006|Natalizumab| OR <<9375201000001103|Tysabri|"
    "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"])
 
+(def all-dmts (str/join " OR " dmts))
+
+(defn medication-type
+  "Returns medication type. At the moment, this returns nil unless the
+  medication is a disease-modifying therapy (DMT)."
+  [hermes {concept-id :t_medication/medication_concept_fk, :as medication}]
+  (when (seq (hermes/intersect-ecl hermes [concept-id] all-dmts)) "dmt"))
+
+(pco/defresolver treatments
+  "Resolve treatments. We strip out all treatments that are not DMTs."
+  [{hermes :com.eldrix/hermes} {meds :t_patient/medications}]
+  {::pco/input  [:t_patient/medications]
+   ::pco/output [:org.msbase/treatments]}
+  {:org.msbase/treatments
+   (->> meds
+        (remove #(= :RECORDED_IN_ERROR (:t_medication/reason_for_stopping %)))
+        (map #(assoc % :org.msbase.pharmaTrts/type (medication-type hermes %)))
+        (filter #(= "dmt" (:org.msbase.pharmaTrts/type %))))})
+
 (def stop-causes
   {:CHANGE_OF_DOSE              "scheduled"
    :ADVERSE_EVENT               "adverse"
@@ -318,7 +335,7 @@
    :SCHEDULED_STOP              "scheduled"})
 
 (pco/defresolver treatment
-  [{hermes :com.eldrix.hermes.graph/svc}
+  [{hermes :com.eldrix/hermes}
    {:t_medication/keys [id medication_concept_fk date_from date_to reason_for_stopping medication]}]
   {::pco/input  [:t_medication/id
                  :t_medication/medication_concept_fk
@@ -340,15 +357,17 @@
                  :org.msbase.pharmaTrts/stopCause]}
   {:org.msbase.pharmaTrts/localId     (str "com.eldrix.pc4.medication/" id)
    :org.msbase.pharmaTrts/currDisease nil
-   :org.msbase.pharmaTrts/type        (when (seq (hermes/intersect-ecl hermes [medication_concept_fk] (str/join " OR " dmts))) "dmt")
+   :org.msbase.pharmaTrts/type        (:org.msbase.pharmaTrts/type medication)
    :org.msbase.pharmaTrts/startDate   (format-iso-date date_from)
    :org.msbase.pharmaTrts/endDate     (format-iso-date date_to)
    :org.msbase.pharmaTrts/name        (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+   :org.msbase.pharmaTrts/sctId       medication_concept_fk
    :org.msbase.pharmaTrts/dose        (:t_medication/dose medication)
    :org.msbase.pharmaTrts/unit        (:t_medication/units medication)
    :org.msbase.pharmaTrts/period      nil
    :org.msbase.pharmaTrts/route       (some-> (:t_medication/route medication) name)
-   :org.msbase.pharmaTrts/stopCause   (get stop-causes reason_for_stopping)})
+   :org.msbase.pharmaTrts/stopCause   (get stop-causes reason_for_stopping)
+   :org.msbase.pharmaTrts/notes       (:t_medication/notes medication)})
 
 (pco/defresolver magnetic-resonance-imaging-results
   [{results :t_patient/results}]
@@ -358,39 +377,36 @@
    (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
 
 (pco/defresolver magnetic-resonance-imaging
-  "This currently resolves using a generic results mechanism. In order to include imputed
-  lesion counts, the results could instead be generated using
-  ```
-  (-> (com.eldrix.pc4.rsdb.results/fetch-mri-brain-results (:com.eldrix.rsdb/conn system) nil {:t_patient/patient_identifier 84686})
-      (com.eldrix.pc4.rsdb.results/all-t2-counts))
-  ```
-
-  which would a) include detailed annotations and b) calculate lesions over time."
-  [{id         :t_result/id date, :t_result/date, entity-name :t_result_type/result_entity_name
-    spine-type :t_result_mri_spine/type, :as result}]
+  [{id          :t_result/id, date :t_result/date
+    entity-name :t_result_type/result_entity_name
+    spine-type  :t_result_mri_spine/type :as result}]
   {::pco/input [:t_result/id :t_result/date :t_result_type/result_entity_name
+                (pco/? :t_result_mri_brain/with_gadolinium)
+                (pco/? :t_result_mri_brain/total_gad_enhancing_lesions)
+                (pco/? :t_result_mri_brain/total_t2_hyperintense)
+                (pco/? :t_result_mri_brain/calc_change_t2)
                 (pco/? :t_result_mri_spine/type)]}
   {:org.msbase.mri/localId     (str "com.eldrix.pc4.t_result_mri_brain/" id)
    :org.msbase.mri/currDisease nil
    :org.msbase.mri/examDate    (format-iso-date date)
-   :org.msbase.mri/cnsRegion   (clojure.core.match/match [entity-name spine-type]
-                                                         ["ResultMriBrain" nil] "brai"
-                                                         ["ResultMriSpine" "CERVICAL_AND_THORACIC"] "spin"
-                                                         ["ResultMriSpine" "CERVICAL"] "cerv"
-                                                         ["ResultMriSpine" "WHOLE_SPINE"] "spin"
-                                                         ["ResultMriSpine" "THORACIC"] "thor"
-                                                         ["ResultMriSpine" nil] "spin"
-                                                         :else nil)
+   :org.msbase.mri/cnsRegion   (m/match [entity-name spine-type]
+                                        ["ResultMriBrain" nil] "brai"
+                                        ["ResultMriSpine" "CERVICAL_AND_THORACIC"] "spin"
+                                        ["ResultMriSpine" "CERVICAL"] "cerv"
+                                        ["ResultMriSpine" "WHOLE_SPINE"] "spin"
+                                        ["ResultMriSpine" "THORACIC"] "thor"
+                                        ["ResultMriSpine" nil] "spin"
+                                        :else nil)
    :org.msbase.mri/isT1        nil
    :org.msbase.mri/t1Status    nil
    :org.msbase.mri/nbT1Les     nil
    :org.msbase.mri/isT1Gd      (:t_result_mri_brain/with_gadolinium result)
    :org.msbase.mri/t1GdStatus  nil
-   :org.msbase.mri/nbT1GdLes   nil
+   :org.msbase.mri/nbT1GdLes   (some-> (:t_result_mri_brain/total_gad_enhancing_lesions result) parse-long)
    :org.msbase.mri/isT2        nil
    :org.msbase.mri/t2Status    nil
-   :org.msbase.mri/nbT2Les     nil
-   :org.msbase.mri/nbNewEnlarg nil})
+   :org.msbase.mri/nbT2Les     (some-> (:t_result_mri_brain/total_t2_hyperintense result) parse-long)
+   :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)})
 
 (pco/defresolver cerebrospinal-fluid-results
   [{results :t_patient/results}]
@@ -479,7 +495,8 @@
      :org.msbase.medicalCondition/currDisease
      :org.msbase.medicalCondition/startDate
      :org.msbase.medicalCondition/endDate
-     :org.msbase.medicalCondition/name]}
+     :org.msbase.medicalCondition/name
+     :org.msbase.medicalCondition/sctId]}
    {:org.msbase/visits
     [:org.msbase.visit/localId
      :org.msbase.visit/currDisease
@@ -490,7 +507,8 @@
     [:org.msbase.relapse/localId
      :org.msbase.relapse/currDisease
      :org.msbase.relapse/onsetDate
-     :org.msbase.relapse/fsAffected]}
+     :org.msbase.relapse/fsAffected
+     :org.msbase.relapse/notes]}
    {:org.msbase/treatments
     [:org.msbase.pharmaTrts/localId
      :org.msbase.pharmaTrts/currDisease
@@ -498,6 +516,7 @@
      :org.msbase.pharmaTrts/startDate
      :org.msbase.pharmaTrts/endDate
      :org.msbase.pharmaTrts/name
+     :org.msbase.pharmaTrts/sctId
      :org.msbase.pharmaTrts/dose
      :org.msbase.pharmaTrts/unit
      :org.msbase.pharmaTrts/period
@@ -572,13 +591,16 @@
 
 
   ;;; pc4 - live
+  (pc4/load-namespaces :pc4-dev)
+  (def system (pc4/init :pc4-dev [:pathom/boundary-interface]))
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
   (require '[com.eldrix.pc4.modules.dmt :as dmt])
   (def patient-ids (dmt/fetch-study-patient-identifiers system :cambridge))
   (count patient-ids)
-  (doseq [patient-id patient-ids]
-    (spit (str "cambridge-" patient-id ".json") (json/write-str (fetch-patient (:pathom/boundary-interface system) patient-id))))
+  (doseq [patient-id (take 10 (sort patient-ids))]
+    (spit (str "msbase/cambridge-" patient-id ".json") (json/write-str (fetch-patient (:pathom/boundary-interface system) patient-id))))
 
+  (morse/inspect (fetch-patient (:pathom/boundary-interface system) 124027))
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
                            [{:t_patient/encounters [:t_encounter/date_time
