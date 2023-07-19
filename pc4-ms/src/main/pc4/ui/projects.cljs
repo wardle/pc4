@@ -3,7 +3,7 @@
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.dom.events :as evt]
-            [com.fulcrologic.fulcro.mutations :refer [defmutation returning]]
+            [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
@@ -12,7 +12,6 @@
             [pc4.ui.patients]
             [pc4.rsdb]
             [taoensso.timbre :as log]
-            [com.fulcrologic.fulcro.mutations :as m]
             [cljs.spec.alpha :as s])
   (:import [goog.date Date]))
 
