@@ -92,23 +92,18 @@
            {:ui/login (comp/get-query users/Login)}
            {:ui/airport-input (comp/get-query pc4.ui.snomed/Autocomplete)}
            {:ui/select-airport (comp/get-query pc4.ui.snomed/Select)}]
-   :initial-state #_{:ui/main-router             {}
-                     :ui/login                   {}
-                     :session/authenticated-user {}}
-   (fn [p] {:ui/main-router             (comp/get-initial-state MainRouter)
-            :ui/login                   (comp/get-initial-state users/Login)
-            :session/authenticated-user (comp/get-initial-state users/NavBar)
-            :ui/airport-input           (comp/get-initial-state pc4.ui.snomed/Autocomplete {:id :airports})
-            :ui/select-snomed           (comp/get-initial-state pc4.ui.snomed/Select {:id :airports})})}
+   :initial-state {:session/authenticated-user {}
+                   :ui/main-router             {}
+                   :ui/login                   {}}}
   (div
     (if-not (seq authenticated-user)
       (users/ui-login login)
       (comp/fragment (users/ui-nav-bar authenticated-user)
-                     (dom/div :.m-8.p-8 {:className "w-1/4"}
-                       (pc4.ui.snomed/ui-select select-airport {})
-                       (pc4.ui.snomed/ui-autocomplete airport-input {:onSelect  #(println "SELECTED " %)
-                                                                     :autoFocus true}))
-                     #_(ui-main-router router)))))
+                     #_(dom/div :.m-8.p-8 {:className "w-1/2"}
+                         (pc4.ui.snomed/ui-select select-airport {})
+                         (pc4.ui.snomed/ui-autocomplete airport-input {:onSelect  #(println "SELECTED " %)
+                                                                       :autoFocus true}))
+                     (ui-main-router router)))))
 
 (comment
   (comp/get-query Root))
