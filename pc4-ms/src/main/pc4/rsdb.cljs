@@ -1,5 +1,6 @@
 (ns pc4.rsdb
-  (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+  (:require [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
+            [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
@@ -25,9 +26,31 @@
     (m/returning env 'pc4.ui.patients/PatientPage))
   (ok-action
     [{:keys [state ref] :as env}]
-    (tap> {:mutation-env env}) ;; ref = ident of the component
+    (tap> {:mutation-env env})                              ;; ref = ident of the component
     (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
       (do (log/debug "register patient : patient id: " patient-id)
           (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))
+
+(defmutation create-admission
+  [params]
+  (action [{:keys [ref state]}]
+          (swap! state update-in ref assoc :ui/editing-admission params)))
+
+(defmutation save-admission
+  [{:t_episode/keys [id] :as params}]
+  (remote
+    [{:keys [ref state] :as env}] true)
+  (ok-action ;; once admission is saved, close modal editing form
+    [{:keys [ref state] :as env}]
+    (swap! state assoc-in (conj ref :ui/editing-admission) nil)))
+
+(defmutation delete-admission
+  [{:t_episode/keys [id patient_fk]}]
+  (remote [_]
+          (println "Deleting admission" id)
+          true)
+  (ok-action ;; once admission is deleted, close modal editing form
+    [{:keys [ref state] :as env}]
+    (swap! state assoc-in (conj ref :ui/editing-admission) nil)))

@@ -6,6 +6,7 @@
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
+            [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [clojure.string :as str]
             [pc4.ui.core :as ui]
@@ -70,7 +71,7 @@
         (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
           {:onClick onClose :title "Close patient record"}
           (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
-            (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
+                   (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
     (when deceased
       (div :.grid.grid-cols-1.pb-2
         (ui/ui-badge {:label (cond (instance? goog.date.Date deceased) (str "Died " (ui/format-date deceased))
@@ -217,14 +218,23 @@
 (def ui-patient-relapses (comp/factory PatientRelapses))
 
 (defsc PatientDemographics
-  [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex]}]
-  {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier
-                   :t_patient/first_names :t_patient/last_name
-                   :t_patient/sex :t_patient/date_birth :t_patient/date_death]}
-  (comp/fragment
-    (dom/h1 "Patient demographics")
-    (dom/p "ID: " patient_identifier)))
+  [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex status]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/status
+           :t_patient/first_names :t_patient/last_name
+           :t_patient/sex :t_patient/date_birth :t_patient/date_death]}
+  (case status
+    :PSEUDONYMOUS
+    (comp/fragment
+      (dom/h1 "Patient demographics")
+      (dom/p "ID: " patient_identifier)
+      (dom/p "ID: " (name status))
+      (dom/p "First names" first_names)
+      (dom/p "Last name" last_name)
+      (dom/p "Date birth" (str date_birth))
+      (dom/p "Date death" (str date_death))
+      (dom/p "Sex" (name sex)))
+    (ui/box-error-message :title (str "Patient status '" (name status) "': not yet supported") :message "Can only show for pseudonymous patients")))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))
 
@@ -275,7 +285,7 @@
   [{:keys [title diagnoses onAddDiagnosis]}]
   (dom/div
     (ui/ui-title {:title title}
-                 (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
+      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -291,7 +301,8 @@
    :query         [:t_patient/patient_identifier
                    {:t_patient/diagnoses (comp/query DiagnosisListItem)}
                    :ui/edit-diagnosis]
-   :initial-state {:ui/edit-diagnosis {}}}
+   :initial-state {:ui/edit-diagnosis   {}
+                   :t_patient/diagnoses {}}}
   (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
         inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
     (comp/fragment
@@ -325,7 +336,7 @@
            {:t_patient/medications (comp/query MedicationListItem)}]}
   (comp/fragment
     (ui/ui-title {:title "Medication"}
-                 (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
+      (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -361,7 +372,7 @@
            {:t_patient/results (comp/get-query ResultListItem)}]}
   (comp/fragment
     (ui/ui-title {:title "Investigations"}
-                 (ui/ui-title-button {:title "Add result"} {:onClick #(println "Action: add result")}))
+      (ui/ui-title-button {:title "Add result"} {:onClick #(println "Action: add result")}))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -373,8 +384,9 @@
 
 (def ui-patient-results (comp/factory PatientResults))
 
+
 (defsc AdmissionListItem
-  [this {:t_episode/keys [id date_registration date_discharge]}]
+  [this {:t_episode/keys [id date_registration date_discharge]} {:keys [actions]}]
   {:ident :t_episode/id
    :query [:t_episode/id
            :t_episode/date_registration
@@ -383,29 +395,61 @@
   (ui/ui-table-row {}
     (ui/ui-table-cell {} (ui/format-date date_registration))
     (ui/ui-table-cell {} (ui/format-date date_discharge))
-    (ui/ui-table-cell {} "")))
+    (ui/ui-table-cell {}
+      (for [action actions]
+        (ui/ui-button {:key       (:id action)
+                       :disabled? (:disabled? action)
+                       :onClick   #(when-let [f (:onClick action)] (f))}
+                      (:label action))))))
 
-(def ui-admission-list-item (comp/factory AdmissionListItem {:keyfn :t_episode/id}))
 
-(defsc AdmissionEdit [this props]
-  {:ident :t_episode/id
-   :query [:t_episode/id
-           :t_episode/date_registration
-           :t_episode/date_discharge]})
+(def ui-admission-list-item (comp/computed-factory AdmissionListItem {:keyfn :t_episode/id}))
+
+
+(s/def :t_episode/date_registration #(instance? goog.date.Date %))
+(s/def :t_episode/date_discharge #(instance? goog.date.Date %))
+(s/def ::save-admission (s/keys :req [:t_episode/date_registration :t_episode/date_discharge]
+                                :opt [:t_episode/id]))
+
+(defsc AdmissionEdit [this {:t_episode/keys [id date_registration date_discharge patient_fk] :as params} {:keys [onChange onClose onSave onDelete]}]
+  (ui/ui-modal {:actions [{:id        ::save-action :title "Save" :role :primary
+                           :disabled? (not (s/valid? ::save-admission params))
+                           :onClick   onSave}
+                          {:id ::delete-action :title "Delete" :onClick onDelete :disabled? (not id)}
+                          {:id ::cancel-action :title "Cancel" :onClick onClose}]
+                :onClose onClose}
+    (ui/ui-simple-form {}
+      (ui/ui-simple-form-title {:title (if id "Edit admission" "Add admission")})
+      (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
+        (ui/ui-local-date {:value date_registration}
+                          {:onChange #(when onChange (onChange (assoc params :t_episode/date_registration %)))}))
+      (ui/ui-simple-form-item {:htmlFor "date-to" :label "Date to"}
+        (ui/ui-local-date {:value date_discharge}
+                          {:onChange #(when onChange (onChange (assoc params :t_episode/date_discharge %)))})))))
+
+
+(def ui-admission-edit (comp/computed-factory AdmissionEdit))
 
 (defsc PatientAdmissions
-  [this {:t_patient/keys [episodes] :ui/keys [editing-admission]}]
-  {:ident     :t_patient/patient_identifier
-   :query     [:t_patient/patient_identifier
-               {:ui/editing-admission (comp/get-query AdmissionEdit)}
-               {:t_patient/episodes (comp/get-query AdmissionListItem)}]
-   :pre-merge (fn [{:keys [current-normalized data-tree]}]
-                (merge {:ui/editing-admission nil} current-normalized data-tree))}
+  [this {patient-pk :t_patient/id :t_patient/keys [patient_identifier episodes] :ui/keys [editing-admission]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/id
+           :ui/editing-admission
+           {:t_patient/episodes (comp/get-query AdmissionListItem)}]}
   (if editing-admission
-    (div "Editing admission" (str editing-admission))
+    (ui-admission-edit editing-admission
+                       {:onChange #(m/set-value! this :ui/editing-admission %)
+                        :onClose  #(m/set-value! this :ui/editing-admission nil)
+                        :onDelete #(do (comp/transact! this [(pc4.rsdb/delete-admission (select-keys editing-admission [:t_episode/id :t_episode/patient_fk]))])
+                                       (df/refresh! this))
+                        :onSave   #(do (comp/transact! this [(pc4.rsdb/save-admission (select-keys editing-admission [:t_episode/id :t_episode/patient_fk :t_episode/date_registration :t_episode/date_discharge]))])
+                                       (df/refresh! this))})
+
     (comp/fragment
       (ui/ui-title {:title "Admissions"}
-                   (ui/ui-title-button {:title "Add admission"} {:onClick #(println "Action: add admission")}))
+        (ui/ui-title-button
+          {:title "Add admission"}
+          {:onClick #(comp/transact! this [(pc4.rsdb/create-admission {:t_episode/patient_fk patient-pk})])}))
       (ui/ui-table {}
         (ui/ui-table-head {}
           (ui/ui-table-row {}
@@ -414,7 +458,9 @@
           (->> episodes
                (filter #(-> % :t_episode/project :t_project/is_admission))
                (sort-by #(some-> % :t_episode/date_registration .getTime))
-               (map ui-admission-list-item)))))))
+               (reverse)
+               (map #(ui-admission-list-item % {:actions [{:id      :edit :label "Edit"
+                                                           :onClick (fn [_] (m/set-value! this :ui/editing-admission (assoc % :t_episode/patient_fk patient-pk)))}]}))))))))
 
 (def ui-patient-admissions (comp/factory PatientAdmissions))
 
@@ -462,8 +508,7 @@
       (ui-patient-banner
         banner
         {:onClose #(dr/change-route! this ["project" (:t_project/id current-project)])
-         :content (div
-                    :.mt-4
+         :content (div :.mt-4
                     (ui/flat-menu [{:id :home :title "Home"}
                                    {:id :diagnoses :title "Diagnoses"}
                                    {:id :medication :title "Treatment"}
