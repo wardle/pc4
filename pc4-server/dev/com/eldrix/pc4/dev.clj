@@ -31,6 +31,8 @@
 (defn inspect-system []
   (morse/inspect #'integrant.repl.state/system))
 
+(def system integrant.repl.state/system)
+
 (comment
   (morse/launch-in-proc)
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
