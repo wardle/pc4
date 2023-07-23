@@ -30,26 +30,26 @@
       (dom/form
         :.divide-y.divide-gray-200 {:onSubmit evt/prevent-default!}
         (div :.divide-y.divide-gray-200.sm:space-y-5
-             (div
-               (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
-                       (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
-               (div :.mt-4
-                    (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
-                    (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-                               {:type      "text" :placeholder "Start typing pseudonym"
-                                :autoFocus true
-                                :value     (or (comp/get-state this :s) "")
-                                :onKeyDown #(when (and patient (evt/enter-key? %))
-                                              (dr/change-route! this ["patient" (:t_patient/patient_identifier patient)]))
-                                :onChange  #(let [s (evt/target-value %)]
-                                              (comp/set-state! this {:s s})
-                                              (when (>= (count s) 3)
-                                                (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])))}))
-               (when (:t_patient/patient_identifier patient)
-                 (div
-                   (pc4.ui.patients/ui-patient-banner patient)
-                   (ui/ui-submit-button {:label "View patient record »"}
-                                        {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient)])})))))))))
+          (div
+            (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
+                    (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
+            (div :.mt-4
+              (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
+              (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+                {:type      "text" :placeholder "Start typing pseudonym"
+                 :autoFocus true
+                 :value     (or (comp/get-state this :s) "")
+                 :onKeyDown #(when (and patient (evt/enter-key? %))
+                               (dr/change-route! this ["patient" (:t_patient/patient_identifier patient)]))
+                 :onChange  #(let [s (evt/target-value %)]
+                               (comp/set-state! this {:s s})
+                               (when (>= (count s) 3)
+                                 (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])))}))
+            (when (:t_patient/patient_identifier patient)
+              (div
+                (pc4.ui.patients/ui-patient-banner patient)
+                (ui/ui-submit-button {:label "View patient record »"}
+                                     {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient)])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
@@ -93,40 +93,40 @@
                                                                                               :date-birth date-birth
                                                                                               :sex        sex})])))]
     (div :.space-y-6
-         (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-              (div :.md:grid.md:grid-cols-3.md:gap-6
-                   (div :.md:col-span-1.pr-6
-                        (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
-                        (div :.mt-1.mr-12.text-sm.text-gray-500)
-                        (p "Please enter patient details.")
-                        (p :.mt-4 "This is safe to use even if patient already registered.")
-                        (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
-                   (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
-                        (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-                        (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                                         {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
-                                          :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
-                                          :onEnterKey do-register})
-                        (when (fs/invalid-spec? props :ui/nhs-number)
-                          (ui/box-error-message {:message "Invalid NHS number"}))
-                        (ui/ui-local-date {:id       "date-birth" :value date-birth :label "Date of birth:"
-                                           :min-date (Date. 1900 1 1) :max-date (Date.)}
-                                          {:onChange   #(m/set-value!! this :ui/date-birth %)
-                                           :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
-                                           :onEnterKey do-register})
-                        (when (fs/invalid-spec? props :ui/date-birth)
-                          (ui/box-error-message {:message "Invalid date of birth"}))
-                        (ui/ui-select-popup-button {:id      "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
-                                                    :options [:MALE :FEMALE] :display-key name}
-                                                   {:onChange   #(do (m/set-value!! this :ui/sex %)
-                                                                     (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
-                                                    :onEnterKey do-register})
-                        (when (fs/invalid-spec? props :ui/sex)
-                          (ui/box-error-message {:message "Invalid sex"}))
-                        (when error
-                          (div (ui/box-error-message {:message error}))))))
-         (div :.flex.justify-end.mr-8
-              (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
+      (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+        (div :.md:grid.md:grid-cols-3.md:gap-6
+          (div :.md:col-span-1.pr-6
+            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
+            (div :.mt-1.mr-12.text-sm.text-gray-500)
+            (p "Please enter patient details.")
+            (p :.mt-4 "This is safe to use even if patient already registered.")
+            (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
+          (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
+            (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+            (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
+                             {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+                              :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                              :onEnterKey do-register})
+            (when (fs/invalid-spec? props :ui/nhs-number)
+              (ui/box-error-message {:message "Invalid NHS number"}))
+            (ui/ui-local-date {:id       "date-birth" :value date-birth :label "Date of birth:"
+                               :min-date (Date. 1900 1 1) :max-date (Date.)}
+                              {:onChange   #(m/set-value!! this :ui/date-birth %)
+                               :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
+                               :onEnterKey do-register})
+            (when (fs/invalid-spec? props :ui/date-birth)
+              (ui/box-error-message {:message "Invalid date of birth"}))
+            (ui/ui-select-popup-button {:id      "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
+                                        :options [:MALE :FEMALE] :display-key name}
+                                       {:onChange   #(do (m/set-value!! this :ui/sex %)
+                                                         (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
+                                        :onEnterKey do-register})
+            (when (fs/invalid-spec? props :ui/sex)
+              (ui/box-error-message {:message "Invalid sex"}))
+            (when error
+              (div (ui/box-error-message {:message error}))))))
+      (div :.flex.justify-end.mr-8
+        (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
 
 
 (def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
@@ -156,19 +156,19 @@
    :route-segment ["users"]
    :initial-state {:t_project/users {}}}
   (div :.flex.flex-col
-       (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
-            (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
-                 (div :.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
-                      (table :.min-w-full.divide-y.divide-gray-200
-                             (thead :.bg-gray-50
-                                    (tr
-                                      (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Name")
-                                      (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Title")
-                                      (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Email")))
-                             (tbody :.bg-white.divide-y.divide-gray-200
-                                    (for [user (sort-by (juxt :t_user/last_name :t_user/first_names) (reduce-kv (fn [acc k v] (conj acc (first v))) [] (group-by :t_user/id users)))
-                                          :let [id (:t_user/id user)]]
-                                      (ui-project-user user)))))))))
+    (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
+      (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
+        (div :.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
+          (table :.min-w-full.divide-y.divide-gray-200
+                 (thead :.bg-gray-50
+                        (tr
+                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Name")
+                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Title")
+                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Email")))
+                 (tbody :.bg-white.divide-y.divide-gray-200
+                        (for [user (sort-by (juxt :t_user/last_name :t_user/first_names) (reduce-kv (fn [acc k v] (conj acc (first v))) [] (group-by :t_user/id users)))
+                              :let [id (:t_user/id user)]]
+                          (ui-project-user user)))))))))
 
 (def ui-project-users (comp/factory ProjectUsers))
 
@@ -187,39 +187,39 @@
   (if-not (seq project)
     (div (ui/box-error-message :message "No project information available"))
     (div :.bg-white.shadow.overflow-hidden.sm:rounded-lg
-         (div :.px-4.py-5.sm:px-6
-              (p :.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html long_description}}))
-         (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
-              (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
-                      (div :.sm:col-span-1
-                           (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
-                           (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
-                      (div :.sm:col-span-1
-                           (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
-                           (dom/dd :.mt-1.text-sm.text-gray-900
-                                   (str/join " " (remove nil? [(when virtual "VIRTUAL")
-                                                               (when pseudonymous "PSEUDONYMOUS")
-                                                               (str/upper-case (if type (name type) ""))]))))
-                      (div :.sm:col-span-1
-                           (dt :.text-sm.font-medium.text-gray-500 "Date from")
-                           (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
-                      (div :.sm:col-span-1
-                           (dt :.text-sm.font-medium.text-gray-500 "Date to")
-                           (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
-                      (div :.sm:col-span-1
-                           (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
-                           (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
-                      (div :.sm:col-span-1
-                           (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
-                           (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
-                      (when inclusion_criteria
-                        (div :.sm:col-span-2
-                             (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
-                             (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
-                      (when exclusion_criteria
-                        (div :.sm:col-span-2
-                             (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
-                             (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
+      (div :.px-4.py-5.sm:px-6
+        (p :.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html long_description}}))
+      (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
+        (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
+                (div :.sm:col-span-1
+                  (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
+                  (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
+                (div :.sm:col-span-1
+                  (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
+                  (dom/dd :.mt-1.text-sm.text-gray-900
+                          (str/join " " (remove nil? [(when virtual "VIRTUAL")
+                                                      (when pseudonymous "PSEUDONYMOUS")
+                                                      (str/upper-case (if type (name type) ""))]))))
+                (div :.sm:col-span-1
+                  (dt :.text-sm.font-medium.text-gray-500 "Date from")
+                  (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
+                (div :.sm:col-span-1
+                  (dt :.text-sm.font-medium.text-gray-500 "Date to")
+                  (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
+                (div :.sm:col-span-1
+                  (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
+                  (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
+                (div :.sm:col-span-1
+                  (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
+                  (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
+                (when inclusion_criteria
+                  (div :.sm:col-span-2
+                    (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
+                    (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
+                (when exclusion_criteria
+                  (div :.sm:col-span-2
+                    (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
+                    (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
 
 (def ui-project-home (comp/factory ProjectHome))
 
@@ -251,16 +251,16 @@
   (let [selected-page (or (comp/get-state this :selected-page) :home)]
     (comp/fragment
       (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
-           (dom/ul :.flex
-                   (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
-                   (ui/flat-menu [{:title "Home" :id :home}
-                                  {:title "Register" :id :register}
-                                  {:title "Search" :id :search}
-                                  {:title "Users" :id :users}]
-                                 :selected-id selected-page
-                                 :select-fn (fn [{:keys [id] :as item}]
-                                              (println "selected " item)
-                                              (comp/set-state! this {:selected-page id})))))
+        (dom/ul :.flex
+          (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
+          (ui/flat-menu [{:title "Home" :id :home}
+                         {:title "Register" :id :register}
+                         {:title "Search" :id :search}
+                         {:title "Users" :id :users}]
+                        :selected-id selected-page
+                        :select-fn (fn [{:keys [id] :as item}]
+                                     (println "selected " item)
+                                     (comp/set-state! this {:selected-page id})))))
       (case selected-page
         :home (ui-project-home home)
         :search (ui-patient-search-by-pseudonym search)
