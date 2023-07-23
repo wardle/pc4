@@ -17,7 +17,8 @@
     [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
 
-(goog-define server-url "http://127.0.0.1:8080")
+
+(goog-define server-url "http://127.0.0.1:8080")            ;; this is overwritten at compile time
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
