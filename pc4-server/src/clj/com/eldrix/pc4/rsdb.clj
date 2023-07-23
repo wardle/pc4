@@ -1267,7 +1267,7 @@
     (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
     (log/info "writing episode" params')
     (if (:t_episode/id params')
-      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')})
+      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')} {:return-keys true})
       (next.jdbc.sql/insert! conn :t_episode params'))))
 
 (pco/defmutation delete-admission!
