@@ -284,7 +284,8 @@
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
 (defn ^:deprecated make-authorization-manager
-  "Create an authorization manager for the user with `username`. It is usually
+  "DEPRECATED: Use [[authorization-manager]] instead.
+   Create an authorization manager for the user with `username`. It is usually
    more appropriate to use [[authorization-manager]] directly with a list of
    roles."
   ^AuthorizationManager [conn username]
