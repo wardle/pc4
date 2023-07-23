@@ -299,6 +299,18 @@
 
 (def ui-table-cell (comp/factory UITableCell))
 
+(defsc UIButton [this {:keys [key disabled? role onClick]}]
+  (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:w-auto.sm:text-sm
+    {:key key
+     :type      "button"
+     :className (case role :primary "border-transparent text-white bg-red-600" "bg-white")
+     :classes   [(when disabled? "opacity-50")]
+     :disabled  (or disabled? (not onClick))
+     :onClick   #(when (and (not disabled?) onClick) (onClick))}
+    (comp/children this)))
+
+(def ui-button (comp/factory UIButton {:keyfn :key}))
+
 (defsc UIButtonWithDropdown [this props]
   (let [choices []
         show-menu? (comp/get-state this :show-menu)]
@@ -321,3 +333,57 @@
                 (a :.block.px-4.py-2.text-sm.text-gray-700.italic {:key (:id item) :role "menuitem" :tabIndex "-1"} (:title item))))))))))
 
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
+
+(defsc UIModal [this {:keys [disabled? title actions onClose]}]
+  (div :.fixed.z-10.inset-0.overflow-y-auto
+    {:aria-labelledby title :role "dialog" :aria-modal "true"
+     :className       (when disabled? "hidden")}
+    (div :.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+      (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
+        {:aria-hidden "true"
+         :onClick     #(when onClose (onClose))})
+      (span :.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} "&#8203;")
+      (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
+        (div
+          (div :.mt-3.text-center.sm:mt-5
+            (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
+          (div :.mt-2
+            (comp/children this)))
+        (when (seq actions)
+          (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
+            (for [action actions
+                  :when (not (:hidden? action))]
+              (ui-button
+                {:key       (:id action)
+                 :role      (:role action)
+                 :disabled? (:disabled? action)
+                 :onClick   #(when-let [f (:onClick action)] (f))}
+                (:title action)))))))))
+
+(def ui-modal (comp/factory UIModal))
+
+
+(defsc UISimpleFormTitle [this {:keys [title]}]
+  (div :.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+    (div :.mt-1.sm:mt-0.sm:col-span-2
+      (div :.w-full.rounded-md.shadow-sm.space-y-2
+        (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 title)))))
+
+(def ui-simple-form-title (comp/factory UISimpleFormTitle))
+
+(defsc UISimpleFormItem [this {:keys [htmlFor label]}]
+  (div :.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+    (dom/label :.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:htmlFor htmlFor} label)
+    (div :.mt-1.sm:mt-0.sm:col-span-2
+      (comp/children this))))
+
+(def ui-simple-form-item (comp/factory UISimpleFormItem))
+
+(defsc UISimpleForm [this params]
+  (dom/form :.space-y-8.divide-y.divide-gray-200 {:onSubmit #(.preventDefault %)}
+    (div :.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+      (div
+        (div :.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+          (comp/children this))))))
+
+(def ui-simple-form (comp/factory UISimpleForm))
