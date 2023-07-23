@@ -396,6 +396,7 @@
                                        :t_episode/id
                                        :t_episode/notes
                                        :t_episode/project_fk
+                                       {:t_episode/project [:t_project/id]}
                                        :t_episode/referral_user_fk
                                        :t_episode/registration_user_fk
                                        :t_episode/stored_pseudonym
@@ -406,8 +407,8 @@
                                                              :order-by [[:t_episode/date_registration :asc]
                                                                         [:t_episode/date_referral :asc]
                                                                         [:t_episode/date_discharge :asc]]}))
-                            (mapv #(assoc % :t_episode/status (projects/episode-status %))))})
-
+                            (mapv #(assoc % :t_episode/status (projects/episode-status %)
+                                            :t_episode/project {:t_project/id (:t_episode/project_fk %)})))})
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -481,6 +482,14 @@
   {::pco/input  [:t_project/date_from :t_project/date_to]
    ::pco/output [:t_project/active?]}
   {:t_project/active? (projects/active? project)})
+
+(pco/defresolver project->admission?
+  "At the moment, we determine whether a project is of type 'admission' simply
+  by looking at the defined name. This might be better implemented using a flag
+  on a per-project basis, and with additional data linking to the encounter
+  from an authoritative source, such as a patient administration system (PAS)."
+  [{project-name :t_project/name}]
+  {:t_project/is_admission (= "ADMISSION" project-name)})
 
 (pco/defresolver project->long-description-text
   [{desc :t_project/long_description}]
@@ -1341,6 +1350,7 @@
    project->specialty
    project->common-concepts
    project->active?
+   project->admission?
    project->slug
    project->long-description-text
    project->encounter_templates
@@ -1350,7 +1360,6 @@
    project->count_discharged_episodes
    project->all-children
    project->all-parents
-   (pbir/alias-resolver :t_project/admission :t_project/is_admission)
    patient->encounters
    encounter->users
    encounter->encounter_template
