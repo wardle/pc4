@@ -269,9 +269,10 @@
         (ui/ui-simple-form-item {:htmlFor "date-from" :label "Diagnostic criteria"}
           (ui-choose-neuroinflammatory-diagnosis sms))
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "Most recent EDSS"}
-          (dom/span :.font-light.text-gray-500 (str (ui/format-date (:t_encounter/date_time encounter)) ": "))
-          most-recent-edss)
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "LSOA (geography)"})
+          (if most-recent-edss
+            (comp/fragment (dom/span :.font-light.text-gray-500 (str (ui/format-date (:t_encounter/date_time encounter)) ": "))
+              most-recent-edss)
+            "None recorded"))
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))
