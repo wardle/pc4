@@ -263,12 +263,19 @@
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/output [{:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
-                                                         :t_summary_multiple_sclerosis/ms_diagnosis_fk
-                                                         :t_ms_diagnosis/id ; we flatten this to-one attribute
-                                                         :t_ms_diagnosis/name]}]}
-  (let [sms (patients/fetch-summary-multiple-sclerosis conn patient-identifier)]
-    {:t_patient/summary_multiple_sclerosis sms}))
+  {::pco/output [{:t_patient/summary_multiple_sclerosis
+                  [:t_summary_multiple_sclerosis/id
+                   :t_summary_multiple_sclerosis/ms_diagnosis_fk
+                   {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
+                   {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
+                   :t_ms_diagnosis/id                       ; we flatten this to-one attribute
+                   :t_ms_diagnosis/name]}]}
+  (let [sms (patients/fetch-summary-multiple-sclerosis conn patient-identifier)
+        ms-diagnosis-id (:t_ms_diagnosis/id sms)]
+    {:t_patient/summary_multiple_sclerosis
+     (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
+                :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
+                                                                                  :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
 (pco/defresolver summary-multiple-sclerosis->events
   [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
