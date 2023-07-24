@@ -243,13 +243,36 @@
 
 (def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
+(defsc InspectEditLsoa
+  [this {:t_patient/keys [patient_identifier lsoa11]}]
+  (let [editing (comp/get-state this :ui/editing)
+        postcode (comp/get-state this :ui/postcode)]
+    (if-not editing
+      (dom/a :.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
+             {:onClick #(do (comp/set-state! this {:ui/editing true :ui/postcode ""}))}
+             (or lsoa11 "Not yet set"))
+      (div :.space-y-6
+        (ui/ui-textfield {:label "Enter postal code" :value postcode}
+                         {:onChange #(comp/set-state! this {:ui/postcode %})})
+        (ui/ui-button {:role :primary
+                       :onClick #(do (println "Save address" patient_identifier postcode)
+                                     (comp/transact! (comp/get-parent this)
+                                                     [(pc4.rsdb/save-pseudonymous-patient-postal-code
+                                                        {:t_patient/patient_identifier patient_identifier
+                                                         :uk.gov.ons.nhspd/PCD2 postcode})])
+                                     (comp/set-state! this {:ui/editing false :ui/postcode ""}))
+                       :disabled? (str/blank? postcode)} "Save")
+        (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing false :ui/postcode ""})} "Cancel")))))
+
+(def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
+
 (defsc PatientDemographics
   [this {:t_patient/keys [patient_identifier date_birth date_death sex status encounters]
          sms             :t_patient/summary_multiple_sclerosis
          :as             patient}]
   {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/status
-           :t_patient/first_names :t_patient/last_name
+   :query [:t_patient/patient_identifier :t_patient/id :t_patient/status
+           :t_patient/first_names :t_patient/last_name :t_patient/lsoa11
            :t_patient/sex :t_patient/date_birth :t_patient/date_death
            {:t_patient/encounters [:t_encounter/date_time {:t_encounter/form_edss [:t_form_edss/score]}]}
            {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]}
@@ -261,7 +284,7 @@
         most-recent-edss (or (get-in encounter [:t_encounter/form_edss :t_form_edss/score])
                              (get-in encounter [:t_encounter/form_edss_fs :t_form_edss_fs/score]))]
     (dom/div :.m-4
-      (when-not (= status :PSEUDONYMOUS)                      ;; todo: switch display based on patient status
+      (when-not (= status :PSEUDONYMOUS)                    ;; todo: switch display based on patient status
         (ui/box-error-message {:title   "Warning: patient type not yet supported"
                                :message "This form supports only pseudonymous patients."}))
       (ui/ui-simple-form {}
@@ -273,6 +296,8 @@
             (comp/fragment (dom/span :.font-light.text-gray-500 (str (ui/format-date (:t_encounter/date_time encounter)) ": "))
               most-recent-edss)
             "None recorded"))
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "LSOA (geography)"}
+          (ui-inspect-edit-lsoa (select-keys patient [:t_patient/patient_identifier :t_patient/lsoa11])))
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))

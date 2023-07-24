@@ -1,6 +1,7 @@
 (ns pc4.rsdb
   (:require [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+            [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
@@ -61,3 +62,9 @@
           (let [path (conj ref :t_summary_multiple_sclerosis/ms_diagnosis)]
             (swap! state assoc-in path (select-keys params [:t_ms_diagnosis/id :t_ms_diagnosis/name]))))
   (remote [env] true))
+
+(defmutation save-pseudonymous-patient-postal-code
+  [params]
+  (remote [env] true)
+  (ok-action [{:keys [component]}]
+             (df/refresh! component)))
