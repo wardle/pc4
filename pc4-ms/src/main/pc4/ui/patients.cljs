@@ -217,6 +217,12 @@
 
 (def ui-patient-relapses (comp/factory PatientRelapses))
 
+(defsc NeuroinflammatoryDiagnosis
+  [this {:t_ms_diagnosis/keys [id name]}]
+  {:ident :t_ms_diagnosis/id
+   :query [:t_ms_diagnosis/id :t_ms_diagnosis/name]})
+
+
 (defsc ChooseNeuroinflammatoryDiagnosis
   [this {sms-id           :t_summary_multiple_sclerosis/id
          patient          :t_summary_multiple_sclerosis/patient
@@ -226,9 +232,9 @@
   {:ident :t_summary_multiple_sclerosis/id
    :query [:t_summary_multiple_sclerosis/id
            {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
-           {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
-           {:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id :t_ms_diagnosis/name]}]}
-  (println {:patient patient :ms-diagnosis ms-diagnosis :sms-id sms-id})
+           {:t_summary_multiple_sclerosis/ms_diagnosis (comp/get-query NeuroinflammatoryDiagnosis)}
+           {:com.eldrix.rsdb/all-ms-diagnoses (comp/get-query NeuroinflammatoryDiagnosis)}]}
+  (println params)
   (ui/ui-select-popup-button {:value       ms-diagnosis
                               :options     all-ms-diagnoses
                               :id-key      :t_ms_diagnosis/id
@@ -238,27 +244,35 @@
 (def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
 (defsc PatientDemographics
-  [this {:t_patient/keys [patient_identifier date_birth date_death sex status]
+  [this {:t_patient/keys [patient_identifier date_birth date_death sex status encounters]
          sms             :t_patient/summary_multiple_sclerosis
          :as             patient}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/status
            :t_patient/first_names :t_patient/last_name
            :t_patient/sex :t_patient/date_birth :t_patient/date_death
+           {:t_patient/encounters [:t_encounter/date_time {:t_encounter/form_edss [:t_form_edss/score]}]}
            {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]}
-  (case status
-    :PSEUDONYMOUS
-    (dom/div :.lg:m-4.sm:m-0.p-4.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+  (let [encounter (->> encounters
+                       (filter #(or (seq (:t_encounter/form_edss %)) (seq (:t_encounter/form_edss_fs %))))
+                       (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
+                       reverse
+                       first)
+        most-recent-edss (or (get-in encounter [:t_encounter/form_edss :t_form_edss/score])
+                             (get-in encounter [:t_encounter/form_edss_fs :t_form_edss_fs/score]))]
+    (dom/div :.m-4
+      (when-not (= status :PSEUDONYMOUS)                      ;; todo: switch display based on patient status
+        (ui/box-error-message {:title   "Warning: patient type not yet supported"
+                               :message "This form supports only pseudonymous patients."}))
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title "Neuroinflammatory disease"})
         (ui/ui-simple-form-item {:htmlFor "date-from" :label "Diagnostic criteria"}
           (ui-choose-neuroinflammatory-diagnosis sms))
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Most recent EDSS"})
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Most recent EDSS"}
+          (dom/span :.font-light.text-gray-500 (str (ui/format-date (:t_encounter/date_time encounter)) ": "))
+          most-recent-edss)
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "LSOA (geography)"})
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))
-
-
-    (ui/box-error-message :title (str "Patient status '" (name status) "': not yet supported") :message "Can only show for pseudonymous patients")))
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))
 

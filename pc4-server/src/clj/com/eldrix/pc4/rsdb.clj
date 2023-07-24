@@ -276,7 +276,6 @@
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
                 :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
                                                                                   :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
-
 (pco/defresolver summary-multiple-sclerosis->events
   [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
   {::pco/output [{:t_summary_multiple_sclerosis/events
