@@ -303,7 +303,7 @@
     {:key key
      :type      "button"
      :className (case role :primary "border-transparent text-white bg-red-600" "bg-white")
-     :classes   [(when disabled? "opacity-50")]
+     :classes   [(if disabled? "opacity-50" "cursor-pointer")]
      :disabled  (or disabled? (not onClick))
      :onClick   #(when (and (not disabled?) onClick) (onClick))}
     (comp/children this)))
