@@ -179,7 +179,7 @@
   "See [[ui-select-popup-button]] for documentation."
   [this
    {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort?]
-    :or   {id-key identity display-key identity sort? true}}
+    :or   {id-key identity, display-key identity, sort? true}}
    {:keys [onChange onEnterKey sort-fn]}]
   (let [all-options (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
                       (conj options value) options)
