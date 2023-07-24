@@ -351,7 +351,7 @@
         (when (seq actions)
           (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
             (for [action actions
-                  :when (not (:hidden? action))]
+                  :when (and action (not (:hidden? action)))]
               (ui-button
                 {:key       (:id action)
                  :role      (:role action)
