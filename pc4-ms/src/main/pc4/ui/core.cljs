@@ -200,7 +200,6 @@
                                      (onChange nil)
                                      (onChange (get sorted-options (if no-selection-string (- idx 1) idx))))))}
                   (when no-selection-string (dom/option :.py-1 {:value nil :id "none"} no-selection-string))
-                  (println "options:" sorted-options)
                   (for [option sorted-options
                         :let [id (id-key option)]]
                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
