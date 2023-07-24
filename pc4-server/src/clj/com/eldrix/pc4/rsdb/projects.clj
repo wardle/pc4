@@ -505,7 +505,7 @@
         {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
         patient' (assoc patient
                    :t_patient/id patient-id
-                   :t_patient/patient-identifier patient-id
+                   :t_patient/patient_identifier patient-id
                    :t_patient/family_fk family-id)]
     (jdbc/execute-one! txn (sql/format {:insert-into [:t_family]
                                         :values      [{:t_family/family_identifier (str family-id)

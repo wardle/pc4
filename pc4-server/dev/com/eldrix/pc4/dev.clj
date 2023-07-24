@@ -197,7 +197,7 @@
                    [:uuid]}])
 
   (p.eql/process (:pathom/env system)
-                 [{[:t_patient/patient-identifier 12182]
+                 [{[:t_patient/patient_identifier 12182]
                    [:t_patient/id
                     :t_patient/first_names
                     :t_patient/last_name
@@ -212,10 +212,10 @@
                                                                  :t_user/full_name]}]}]}])
   (require '[com.eldrix.hermes.snomed :as snomed])
   (p.eql/process (:pathom/env system)
-                 [{[:t_patient/patient-identifier 81253]
+                 [{[:t_patient/patient_identifier 81253]
                    [:t_patient/last_name]}
 
-                  {[:t_patient/patient-identifier 17490]
+                  {[:t_patient/patient_identifier 17490]
                    [:t_patient/last_name
                     :org.hl7.fhir.Patient/gender
                     {:t_patient/ethnic_origin [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}
