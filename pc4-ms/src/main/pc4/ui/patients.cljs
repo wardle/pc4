@@ -217,23 +217,47 @@
 
 (def ui-patient-relapses (comp/factory PatientRelapses))
 
+(defsc ChooseNeuroinflammatoryDiagnosis
+  [this {sms-id           :t_summary_multiple_sclerosis/id
+         patient          :t_summary_multiple_sclerosis/patient
+         ms-diagnosis     :t_summary_multiple_sclerosis/ms_diagnosis
+         all-ms-diagnoses :com.eldrix.rsdb/all-ms-diagnoses
+         :as              params}]
+  {:ident :t_summary_multiple_sclerosis/id
+   :query [:t_summary_multiple_sclerosis/id
+           {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
+           {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
+           {:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id :t_ms_diagnosis/name]}]}
+  (println {:patient patient :ms-diagnosis ms-diagnosis :sms-id sms-id})
+  (ui/ui-select-popup-button {:value       ms-diagnosis
+                              :options     all-ms-diagnoses
+                              :id-key      :t_ms_diagnosis/id
+                              :display-key :t_ms_diagnosis/name}
+                             {:onChange #(comp/transact! this [(pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
+
+(def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
+
 (defsc PatientDemographics
-  [this {:t_patient/keys [patient_identifier first_names last_name date_birth date_death sex status]}]
+  [this {:t_patient/keys [patient_identifier date_birth date_death sex status]
+         sms             :t_patient/summary_multiple_sclerosis
+         :as             patient}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/status
            :t_patient/first_names :t_patient/last_name
-           :t_patient/sex :t_patient/date_birth :t_patient/date_death]}
+           :t_patient/sex :t_patient/date_birth :t_patient/date_death
+           {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]}
   (case status
     :PSEUDONYMOUS
-    (comp/fragment
-      (dom/h1 "Patient demographics")
-      (dom/p "ID: " patient_identifier)
-      (dom/p "ID: " (name status))
-      (dom/p "First names" first_names)
-      (dom/p "Last name" last_name)
-      (dom/p "Date birth" (str date_birth))
-      (dom/p "Date death" (str date_death))
-      (dom/p "Sex" (name sex)))
+    (dom/div :.lg:m-4.sm:m-0.p-4.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-title {:title "Neuroinflammatory disease"})
+        (ui/ui-simple-form-item {:htmlFor "date-from" :label "Diagnostic criteria"}
+          (ui-choose-neuroinflammatory-diagnosis sms))
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Most recent EDSS"})
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "LSOA (geography)"})
+        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))
+
+
     (ui/box-error-message :title (str "Patient status '" (name status) "': not yet supported") :message "Can only show for pseudonymous patients")))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))
@@ -396,7 +420,8 @@
     (ui/ui-table-cell {} (ui/format-date date_registration))
     (ui/ui-table-cell {} (ui/format-date date_discharge))
     (ui/ui-table-cell {}
-      (for [action actions]
+      (for [action actions
+            :when action]
         (ui/ui-button {:key       (:id action)
                        :disabled? (:disabled? action)
                        :onClick   #(when-let [f (:onClick action)] (f))}

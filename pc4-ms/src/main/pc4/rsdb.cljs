@@ -42,7 +42,7 @@
   [{:t_episode/keys [id] :as params}]
   (remote
     [{:keys [ref state] :as env}] true)
-  (ok-action ;; once admission is saved, close modal editing form
+  (ok-action                                                ;; once admission is saved, close modal editing form
     [{:keys [ref state] :as env}]
     (swap! state assoc-in (conj ref :ui/editing-admission) nil)))
 
@@ -51,6 +51,13 @@
   (remote [_]
           (println "Deleting admission" id)
           true)
-  (ok-action ;; once admission is deleted, close modal editing form
+  (ok-action                                                ;; once admission is deleted, close modal editing form
     [{:keys [ref state] :as env}]
     (swap! state assoc-in (conj ref :ui/editing-admission) nil)))
+
+(defmutation save-ms-diagnosis
+  [params]
+  (action [{:keys [ref state]}]
+          (let [path (conj ref :t_summary_multiple_sclerosis/ms_diagnosis)]
+            (swap! state assoc-in path (select-keys params [:t_ms_diagnosis/id :t_ms_diagnosis/name]))))
+  (remote [env] true))
