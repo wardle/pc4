@@ -371,6 +371,22 @@
 
 (def lsoa-re #"^[a-zA-Z]\d{8}$")
 
+(pco/defresolver patient->lsoa11
+  "Returns a patient's LSOA as a top-level property"
+  [{conn :com.eldrix.rsdb/conn, nhspd :com.eldrix/nhspd} {addresses :t_patient/addresses :as patient}]
+  {::pco/input  [:t_patient/id
+                 (pco/? :t_patient/addresses)]
+   ::pco/output [:t_patient/lsoa11]}
+  (let [addresses' (or addresses (patients/fetch-patient-addresses conn patient))
+        current-address (patients/address-for-date addresses')
+        address1 (:t_address/address1 current-address)
+        postcode (:t_address/postcode current-address)]
+    {:t_patient/lsoa11
+     (when current-address
+       (or
+         (when (and address1 (re-matches lsoa-re address1)) address1)
+         (when postcode (get (com.eldrix.nhspd.core/fetch-postcode nhspd postcode) "LSOA11"))))}))
+
 (pco/defresolver address->stored-lsoa
   "Returns a stored LSOA for the address specified.
 
@@ -1346,6 +1362,7 @@
    patient->medications
    patient->addresses
    patient->address
+   patient->lsoa11
    (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
    address->housing
    address->stored-lsoa
