@@ -189,7 +189,7 @@
       (onChange default-value))
     (div
       (when label (ui-label {:for name :label label}))
-      (dom/select :#location.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+      (dom/select :.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
                   {:name      name
                    :disabled  disabled?
                    :value     (str (id-key value))
