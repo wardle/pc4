@@ -391,11 +391,11 @@
                                user-id            :t_user/id
                                :as                params}]
   (if-let [sms (fetch-summary-multiple-sclerosis txn patient-identifier)]
-    (do
-      (next.jdbc.sql/update! txn :t_summary_multiple_sclerosis
-                             {:ms_diagnosis_fk ms-diagnosis-id
-                              :user_fk         user-id}
-                             {:id (:t_summary_multiple_sclerosis/id sms)}))
+    (next.jdbc.sql/update! txn :t_summary_multiple_sclerosis
+                           {:ms_diagnosis_fk ms-diagnosis-id
+                            :user_fk         user-id}
+                           {:id (:t_summary_multiple_sclerosis/id sms)}
+                           {:return-keys true})
 
     (jdbc/execute-one! txn (sql/format
                              {:insert-into [:t_summary_multiple_sclerosis]
@@ -408,7 +408,8 @@
                                              :t_summary_multiple_sclerosis/user_fk             user-id
                                              :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
                                                                                                 :from   [:t_patient]
-                                                                                                :where  [:= :t_patient/patient_identifier patient-identifier]}}]}))))
+                                                                                                :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
+                       {:return-keys true})))
 (def default-ms-event
   {:t_ms_event/site_arm_motor    false
    :t_ms_event/site_ataxia       false
