@@ -37,7 +37,6 @@
 (def study-master-date
   (LocalDate/of 2014 05 01))
 
-
 (def study-centres
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
@@ -1677,10 +1676,18 @@
   Centre determines the choice of projects from which to analyse patients.
   * :cardiff
   * :plymouth
-  * :cambridge"
+  * :cambridge
+
+  So, for example, to export the Plymouth dataset from a dev laptop using live
+  system:
+  ```
+  clj -X:dev com.eldrix.pc4.modules.dmt/export :profile :pc4-dev :centre :plymouth
+  ```
+  "
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (pc4/load-namespaces profile)
   (let [system (pc4/init profile [:pathom/boundary-interface])]
     (write-data system centre)))
 
