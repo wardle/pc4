@@ -43,13 +43,15 @@
 
 (defsc CompletionList
   [this {:keys [value values idKey displayPropertyKey size] :or {size 8}}
-   {:keys [onValueSelect]}]
+   {:keys [onValueSelect onDoubleClick onEnterKey]}]
   (let [values# (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)] ;; generate a lookup map
     (dom/select
-      {:className (when (> size 1) "bg-none")
-       :value     (if value (str (idKey value)) "")
-       :size      size
-       :onChange  #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))}
+      {:className     (when (> size 1) "bg-none")
+       :value         (if value (str (idKey value)) "")
+       :size          size
+       :onChange      #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))
+       :onKeyDown     #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
+       :onDoubleClick #(when onDoubleClick (onDoubleClick))}
       (for [v values]
         (dom/option {:key   (str (idKey v))
                      :value (str (idKey v))}
@@ -134,6 +136,8 @@
            :placeholder placeholder
            :value       stringValue
            :autoFocus   autoFocus
+           :onKeyDown   (fn [evt] (when (and selected onSave (evt/enter-key? evt))
+                                    (onSave selected)))
            :onChange    (fn [evt]
                           (let [new-value (evt/target-value evt)]
                             (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
@@ -141,7 +145,7 @@
                               (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
                             (comp/transact! this [(clear-selected {:id id})])
                             (m/set-value! this :autocomplete/selected nil) ;clear selection
-                            #_(m/set-value! this :autocomplete/selected-synonyms nil)
+                            (m/set-value! this :autocomplete/selected-synonyms nil)
                             (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div :.grid.grid-cols-1
         (ui-completion-list {:value              selected
@@ -151,17 +155,19 @@
                                                    (let [term (:info.snomed.Description/term result)
                                                          preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
                                                      (if (= term preferred) term (str term " (" preferred ")"))))}
-                            {:onValueSelect onSelect'})
+                            {:onValueSelect onSelect'
+                             :onEnterKey    #(when (and selected onSave) (onSave selected))
+                             :onDoubleClick #(when (and selected onSave) (onSave selected))})
         (when selected
           (dom/div :.p-4.border-2.shadow-inner
             (let [term (:info.snomed.Description/term selected)
                   preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
               (comp/fragment
-                (dom/span :.font-bold preferred
-                          (ui-synonyms selected-synonyms))
-                (dom/div :.grid.grid-cols-2.mt-4
-                  (pc4.ui.core/ui-button {:role :primary :onClick #(when onSave (onSave selected))} "Save")
-                  (pc4.ui.core/ui-button {:onClick #(when onSave (onSave nil))} "Cancel"))))))))))
+                (when selected-synonyms
+                  (dom/span :.font-bold preferred
+                            (ui-synonyms selected-synonyms)))
+                (dom/div :.grid.grid-cols-1.mt-4
+                  (pc4.ui.core/ui-button {:onClick #(when onSave (onSave selected))} "Save"))))))))))
 
 (def ui-autocomplete (comp/computed-factory Autocomplete))
 
