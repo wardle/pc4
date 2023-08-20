@@ -9,6 +9,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.nhsnumber :as nnn]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -41,11 +42,14 @@
 ;;
 (s/def ::user-id int?)
 (s/def ::project-id int?)
-(s/def ::nhs-number #(nhs-number/valid? (str/replace % " " "")))
+(s/def ::nhs-number #(nnn/valid? (nnn/normalise %)))
 (s/def ::sex #{:MALE :FEMALE :UNKNOWN})
 (s/def ::date-birth #(instance? LocalDate %))
+(s/def ::register-patient
+  (s/keys :req-un [::project-id ::nhs-number]))
 (s/def ::register-patient-by-pseudonym
   (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
+
 
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
@@ -207,11 +211,16 @@
 (pco/defresolver patient->death_certificate
   [{conn :com.eldrix.rsdb/conn} patient]
   {::pco/input  [:t_patient/id]
-   ::pco/output [{:t_patient/death_certificate [:t_death_certificate/part1a
+   ::pco/output [:t_death_certificate/part1a  ;; flatten properties into top-level as this is a to-one relationship
+                 :t_death_certificate/part1b
+                 :t_death_certificate/part1c
+                 :t_death_certificate/part2
+                 {:t_patient/death_certificate [:t_death_certificate/part1a
                                                 :t_death_certificate/part1b
                                                 :t_death_certificate/part1c
                                                 :t_death_certificate/part2]}]}
-  {:t_patient/death_certificate (patients/fetch-death-certificate conn patient)})
+  (let [certificate (patients/fetch-death-certificate conn patient)]
+    (assoc certificate :t_patient/death_certificate certificate)))
 
 (pco/defresolver patient->diagnoses
   "Returns diagnoses for a patient. Optionally takes a parameter:
@@ -915,13 +924,38 @@
                                 :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
+
+
+(pco/defmutation register-patient!
+  "Register a patient using NHS number."
+  [{conn :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user :authenticated-user}
+   {:keys [project-id nhs-number] :as params}]
+  {::pco/op-name 'pc4.rsdb/register-patient
+   ::pco/output  [:t_patient/patient_identifier
+                  :t_episode/project_fk]}
+  (log/info "register patient:" {:user user :params params})
+  (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
+    (throw (ex-info "Not authorized" {}))
+    (let [user-id (:t_user/id (users/fetch-user conn (:value user)))] ;; TODO: include better user information in context
+      (if (s/valid? ::register-patient params)
+        (jdbc/with-transaction [txn conn {:isolation :serializable}]
+          (projects/register-patient txn project-id user-id params))
+        (do (log/error "invalid call" (s/explain-data ::register-patient params))
+            (throw (ex-info "invalid NHS number" {:nnn nhs-number})))))))
+
+
 (comment
+  (s/explain-data ::register-patient {:user-id 1
+                                      :project-id 5
+                                      :nhs-number "111 111 1121"})
+
   (s/explain-data ::register-patient-by-pseudonym {:user-id    5
                                                    :project-id 1
                                                    :nhs-number "111 111 1111"
                                                    :sex        :MALE
                                                    :date-birth (LocalDate/of 1970 1 1)}))
-
 (pco/defmutation register-patient-by-pseudonym!
   "Register a legacy pseudonymous patient. This will be deprecated in the
   future.
@@ -940,11 +974,11 @@
                   :t_episode/project_fk]}
   (log/info "register patient by pseudonym: " {:user user :params params})
   (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
-    (throw (ex-info "Not authorized" {:authorization-manager manager}))
+    (throw (ex-info "Not authorized" {}))
     (if-let [global-salt (:legacy-global-pseudonym-salt config)]
       (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch
                                   :salt global-salt
-                                  :nhs-number (str/replace nhs-number #"\s" "") ;; TODO: better automated coercion
+                                  :nhs-number (nnn/normalise nhs-number)
                                   :date-birth (cond
                                                 (instance? LocalDate date-birth) date-birth
                                                 (string? date-birth) (LocalDate/parse date-birth)
@@ -1418,6 +1452,7 @@
    all-ms-event-types
    all-ms-disease-courses
    ;; mutations - VERBS
+   register-patient!
    register-patient-by-pseudonym!
    search-patient-by-pseudonym
    save-diagnosis!
