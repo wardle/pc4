@@ -3,6 +3,7 @@
     [clojure.tools.logging.readable :as log]
     [com.eldrix.concierge.wales.cav-pms :as cavpms]
     [com.eldrix.concierge.wales.empi :as empi]
+    [com.eldrix.nhsnumber :as nnn]
     [com.eldrix.pc4.dates :as dates]
     [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
     [com.wsscode.pathom3.connect.operation :as pco]
@@ -264,7 +265,7 @@
   number formatting standard, ISB-1504.
   See https://webarchive.nationalarchives.gov.uk/20150107145557/http://www.isb.nhs.uk/library/standard/135"
   [{nnn :uk.nhs.id/nhs-number}]
-  {:uk.nhs.cfh.isb1504/nhs-number (com.eldrix.concierge.nhs-number/format-nnn nnn)})
+  {:uk.nhs.cfh.isb1504/nhs-number (com.eldrix.nhsnumber/format-nnn nnn)})
 
 (pco/defresolver cav->cui-patient-name
   "Returns a CAV patient name formatted to the NHS Connecting for Health (CfH)
