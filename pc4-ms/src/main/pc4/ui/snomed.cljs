@@ -131,7 +131,7 @@
            :autoFocus   autoFocus
            :onChange    (fn [evt]
                           (let [new-value (evt/target-value evt)]
-                            (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
+                            (when (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
                               (get-suggestions this new-value id)
                               (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
                             (comp/transact! this [(clear-selected {:id id})])
