@@ -6,7 +6,8 @@
     [com.fulcrologic.fulcro.data-fetch :as df]
     [clojure.string :as str]
     [goog.functions :as gf]
-    [com.fulcrologic.fulcro.dom.events :as evt]))
+    [com.fulcrologic.fulcro.dom.events :as evt]
+    [pc4.ui.core :as ui]))
 
 (defn autocomplete-ident
   "Returns the ident for an autocomplete control. Can be passed a map of props, or a raw ID."
@@ -108,7 +109,7 @@
 
 (defsc Autocomplete
   [this {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
-   {:keys [onSelect autoFocus label placeholder constraint] :or {autoFocus false placeholder ""}}]
+   {:keys [onSelect onSave autoFocus label placeholder constraint] :or {autoFocus false placeholder ""}}]
   {:query         [:db/id                                   ; the component's ID
                    :autocomplete/loaded-suggestions         ; A place to do the loading, so we can prevent flicker in the UI
                    :autocomplete/suggestions                ; the current completion suggestions
@@ -155,8 +156,12 @@
           (dom/div :.p-4.border-2.shadow-inner
             (let [term (:info.snomed.Description/term selected)
                   preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-              (dom/span :.font-bold preferred
-                        (ui-synonyms selected-synonyms)))))))))
+              (comp/fragment
+                (dom/span :.font-bold preferred
+                          (ui-synonyms selected-synonyms))
+                (dom/div :.grid.grid-cols-2.mt-4
+                  (pc4.ui.core/ui-button {:role :primary :onClick #(when onSave (onSave selected))} "Save")
+                  (pc4.ui.core/ui-button {:onClick #(when onSave (onSave nil))} "Cancel"))))))))))
 
 (def ui-autocomplete (comp/computed-factory Autocomplete))
 

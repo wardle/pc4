@@ -47,6 +47,16 @@
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics.")))))
 
+(defmutation create-medication
+  [params]
+  (action [{:keys [state]}]
+          (swap! state update-in [:component/id :edit-medication] merge params)))
+
+(defmutation cancel-medication-edit
+  [params]
+  (action [{:keys [state]}]
+          (swap! state update-in [:component/id :edit-medication] dissoc :t_medication/patient_fk)))
+
 (defmutation create-admission
   [params]
   (action [{:keys [ref state]}]

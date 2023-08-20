@@ -85,14 +85,11 @@
 
 (defsc Root [this {authenticated-user :session/authenticated-user
                    router             :ui/main-router
-                   login              :ui/login
-                   :ui/keys           [airport-input select-airport]}]
+                   login              :ui/login}]
   {:query         [{:session/authenticated-user (comp/get-query users/NavBar)}
                    {:ui/main-router (comp/get-query MainRouter)}
                    {:ui/login (comp/get-query users/Login)}
-                   {:ui/editing-medication (comp/get-query patients/MedicationEdit)}
-                   {:ui/airport-input (comp/get-query pc4.ui.snomed/Autocomplete)}
-                   {:ui/select-airport (comp/get-query pc4.ui.snomed/Select)}]
+                   {:ui/editing-medication (comp/get-query patients/MedicationEdit)}]
    :initial-state {:session/authenticated-user {}
                    :ui/main-router             {}
                    :ui/login                   {}

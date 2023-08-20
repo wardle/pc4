@@ -454,7 +454,13 @@
     (ui/ui-simple-form {}
       (ui/ui-simple-form-title {:title (if id "Edit medication" "Add medication")})
       (ui/ui-simple-form-item {:htmlFor "medication" :label "Medication"}
-        (snomed/ui-autocomplete choose-medication {:constraint "<10363601000001109"}))
+        (tap> {:choose-medication choose-medication})
+        (if (:info.snomed.Concept/id medication)
+          (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_medication/medication nil)}
+                                             (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+          (snomed/ui-autocomplete choose-medication {:autoFocus true, :constraint "<10363601000001109"
+                                                     :onSave #(m/set-value! this :t_medication/medication %)
+                                                     :onCancel #(m/set-value! this :t_medication/medication nil)})))
       (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
         (ui/ui-local-date {:value date_from}
                           {:onChange #(when onChange (onChange (assoc params :t_medication/date_from %)))}))
