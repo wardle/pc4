@@ -425,14 +425,63 @@
 
 (def ui-medication-list-item (comp/factory MedicationListItem {:keyfn :t_medication/id}))
 
+
+(s/def :t_medication/date_from (s/nilable #(instance? goog.date.Date %)))
+(s/def :t_medication/date_to (s/nilable #(instance? goog.date.Date %)))
+(s/def :t_medication/medication_concept_id int?)
+(s/def ::save-medication (s/keys :req [:t_medication/date_from :t_medication/date_to :t_medication/medication_concept_id]))
+
+(defsc MedicationEdit
+  [this {:t_medication/keys [id date_from date_to medication]
+         :ui/keys           [choose-medication] :as params}
+   {:keys [onChange onClose onSave onDelete]}]
+  {:ident         (fn [] [:component/id :edit-medication])  ;; singleton component
+   :query         [:t_medication/id :t_medication/date_from :t_medication/date_to :t_medication/patient_fk
+                   {:t_medication/medication [:info.snomed.Concept/id :info.snomed.Concept/preferredDescription :info.snomed.Description/term]}
+                   {:ui/choose-medication (comp/get-query snomed/Autocomplete)}]
+   :initial-state (fn [params] {:t_medication/id                    (:t_medication/id params)
+                                :t_medication/date_from             (:t_medication/date_from params)
+                                :t_medication/date_to               (:t_medication/date_to params)
+                                :t_medication/medication_concept_id (:t_medication/medication_concept_id params)
+                                :t_medication/patient_fk            (:t_medication/patient_fk params)
+                                :ui/choose-medication               (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
+  (ui/ui-modal {:actions [{:id        ::save-action :title "Save" :role :primary
+                           :disabled? (not (s/valid? ::save-medication params))
+                           :onClick   onSave}
+                          {:id ::delete-action :title "Delete" :onClick onDelete :disabled? (not id)}
+                          {:id ::cancel-action :title "Cancel" :onClick onClose}]
+                :onClose onClose}
+    (ui/ui-simple-form {}
+      (ui/ui-simple-form-title {:title (if id "Edit medication" "Add medication")})
+      (ui/ui-simple-form-item {:htmlFor "medication" :label "Medication"}
+        (snomed/ui-autocomplete choose-medication {:constraint "<10363601000001109"}))
+      (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
+        (ui/ui-local-date {:value date_from}
+                          {:onChange #(when onChange (onChange (assoc params :t_medication/date_from %)))}))
+      (ui/ui-simple-form-item {:htmlFor "date-to" :label "Date to"}
+        (ui/ui-local-date {:value date_to}
+                          {:onChange #(when onChange (onChange (assoc params :t_medication/date_to %)))})))))
+
+
+(def ui-medication-edit (comp/computed-factory MedicationEdit))
+
 (defsc PatientMedication
-  [this {:t_patient/keys [medications]}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier
-           {:t_patient/medications (comp/query MedicationListItem)}]}
+  [this {:t_patient/keys [id medications] :ui/keys [editing-medication] :as props}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/id :t_patient/patient_identifier
+                   {:t_patient/medications (comp/query MedicationListItem)}
+                   {[:ui/editing-medication '_] (comp/query MedicationEdit)}]
+   :initial-state (fn [params] {:t_patient/medications (comp/get-initial-state MedicationListItem)
+                                :ui/editing-medication (comp/get-initial-state MedicationEdit)})}
+  (tap> {:patient-medication props})
   (comp/fragment
+    (when (:t_medication/patient_fk editing-medication)
+      (ui-medication-edit editing-medication
+                          {:onClose #(comp/transact! this [(pc4.rsdb/cancel-medication-edit nil)])}))
     (ui/ui-title {:title "Medication"}
-      (ui/ui-title-button {:title "Add medication"} {:onClick #(println "Action: add medication")}))
+      (ui/ui-title-button {:title "Add medication"}
+                          {:onClick #(comp/transact! this [(pc4.rsdb/create-medication {:t_medication/patient_fk id})])}))
+
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}

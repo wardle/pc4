@@ -26,10 +26,10 @@
 
 (defsc Select
   [this {id :db/id :autocomplete/keys [selected options] :as props} {:keys [onSelect]}]
-  {:query [:db/id
-           :autocomplete/selected
-           {:autocomplete/options (comp/query SelectOption)}]
-   :ident (fn [] (autocomplete-ident props))
+  {:query         [:db/id
+                   :autocomplete/selected
+                   {:autocomplete/options (comp/query SelectOption)}]
+   :ident         (fn [] (autocomplete-ident props))
    :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/selected nil :autocomplete/options []})}
   (let [options' (conj (set options) selected)]
     (dom/div :.w-full
@@ -49,10 +49,10 @@
        :value     (if value (str (idKey value)) "")
        :size      size
        :onChange  #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))}
-      (map (fn [v]
-             (dom/option {:key (str (idKey v))
-                          :value (str (idKey v))}
-                         (displayPropertyKey v))) values))))
+      (for [v values]
+        (dom/option {:key   (str (idKey v))
+                     :value (str (idKey v))}
+                    (displayPropertyKey v))))))
 
 (def ui-completion-list (comp/computed-factory CompletionList))
 
@@ -91,12 +91,15 @@
             (swap! state assoc-in selected-path nil)
             (swap! state assoc-in selected-synonyms-path nil))))
 
-(def  get-suggestions
+(def default-search-params
+  {:accept-language "en-GB" :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2})
+
+(def get-suggestions
   "A debounced function that will trigger a load of the server suggestions into a temporary locations and fire
    a post mutation when that is complete to move them into the main UI view."
-  (letfn [(load-suggestions [comp new-value id]
+  (letfn [(load-suggestions [comp id params]
             (df/load! comp :info.snomed.Search/search nil
-                      {:params               {:s new-value :accept-language "en-GB" :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2}
+                      {:params               (merge default-search-params params)
                        :marker               false
                        :post-mutation        `populate-loaded-suggestions
                        :post-mutation-params {:id id}
@@ -104,9 +107,8 @@
     (gf/debounce load-suggestions 400)))
 
 (defsc Autocomplete
-  [this
-   {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
-   {:keys [onSelect autoFocus label placeholder] :or {autoFocus false placeholder ""}}]
+  [this {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
+   {:keys [onSelect autoFocus label placeholder constraint] :or {autoFocus false placeholder ""}}]
   {:query         [:db/id                                   ; the component's ID
                    :autocomplete/loaded-suggestions         ; A place to do the loading, so we can prevent flicker in the UI
                    :autocomplete/suggestions                ; the current completion suggestions
@@ -114,7 +116,9 @@
                    {:autocomplete/selected-synonyms (comp/query Synonyms)} ; synonyms are lazily loaded when the user selects an option
                    :autocomplete/stringValue]               ; the current user-entered value
    :ident         (fn [] (autocomplete-ident props))
-   :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/suggestions [] :autocomplete/stringValue ""})}
+   :initial-state (fn [{:keys [id]}] {:db/id                    id
+                                      :autocomplete/suggestions []
+                                      :autocomplete/stringValue ""})}
   (let [field-id (str "autocomplete-" id)                   ; for html label/input association
         onSelect' (fn [v]
                     (m/set-value! this :autocomplete/selected v)
@@ -131,16 +135,17 @@
            :autoFocus   autoFocus
            :onChange    (fn [evt]
                           (let [new-value (evt/target-value evt)]
-                            (when (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
-                              (get-suggestions this new-value id)
+                            (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
+                              (get-suggestions this id {:s new-value :constraint constraint})
                               (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
                             (comp/transact! this [(clear-selected {:id id})])
                             (m/set-value! this :autocomplete/selected nil) ;clear selection
                             #_(m/set-value! this :autocomplete/selected-synonyms nil)
                             (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div :.grid.grid-cols-1
-        (ui-completion-list {:value selected :values suggestions
-                             :idKey :info.snomed.Description/id
+        (ui-completion-list {:value              selected
+                             :values             suggestions
+                             :idKey              :info.snomed.Description/id
                              :displayPropertyKey (fn [result]
                                                    (let [term (:info.snomed.Description/term result)
                                                          preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
@@ -151,7 +156,7 @@
             (let [term (:info.snomed.Description/term selected)
                   preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
               (dom/span :.font-bold preferred
-                (ui-synonyms selected-synonyms)))))))))
+                        (ui-synonyms selected-synonyms)))))))))
 
 (def ui-autocomplete (comp/computed-factory Autocomplete))
 
