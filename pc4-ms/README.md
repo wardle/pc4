@@ -13,11 +13,11 @@ To build
 
 ```shell
 yarn install
-```
+```check
 
 Start frontend compilation server:
 
 ```shell
-shadow-cljs watch main
+yarn shadow-cljs watch main
 ```
 
