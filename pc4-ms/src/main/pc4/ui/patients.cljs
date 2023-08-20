@@ -568,7 +568,7 @@
 (def ui-patient-admissions (comp/factory PatientAdmissions))
 
 (defsc PatientPage
-  [this {:t_patient/keys [id patient_identifier first_names last_name date_birth sex date_death nhs_number] :as props
+  [this {:t_patient/keys [id patient_identifier status first_names last_name date_birth sex date_death nhs_number] :as props
          current-project :ui/current-project
          banner          :>/banner
          demographics    :>/demographics
@@ -580,7 +580,8 @@
          admissions      :>/admissions}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patient" :t_patient/patient_identifier]
-   :query               [:t_patient/id :t_patient/patient_identifier :t_patient/first_names :t_patient/last_name
+   :query               [:t_patient/id :t_patient/patient_identifier :t_patient/status
+                         :t_patient/first_names :t_patient/last_name
                          :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
                          {[:ui/current-project '_] [:t_project/id]}
                          {:>/banner (comp/get-query PatientBanner)}
@@ -606,21 +607,23 @@
                           (log/info "leaving patient page; patient identifier: " (:t_patient/patient_identifier props))
                           (comp/transact! this [(pc4.users/close-patient nil)]))}
   (tap> props)
-  (let [selected-page (or (comp/get-state this :selected-page) :home)]
+  (let [pseudonymous (= :PSEUDONYMOUS status)
+        selected-page (or (comp/get-state this :selected-page) (if pseudonymous :home :medication))]
     (comp/fragment
       (ui-patient-banner
         banner
         {:onClose #(dr/change-route! this ["project" (:t_project/id current-project)])
          :content (div :.mt-4
-                    (ui/flat-menu [{:id :home :title "Home"}
-                                   {:id :diagnoses :title "Diagnoses"}
+                    (ui/flat-menu [{:id :home :title "Home" :disabled (not pseudonymous)}
+                                   {:id :diagnoses :title "Diagnoses" :disabled (not pseudonymous)}
                                    {:id :medication :title "Treatment"}
-                                   {:id :relapses :title "Relapses"}
+                                   {:id :relapses :title "Relapses" :disabled (not pseudonymous)}
                                    {:id         :encounters
                                     :title      "Encounters"
-                                    :load-field [:t_patient/patient_identifier :>/encounters] :load-marker :patient-encounters}
-                                   {:id :results :title "Investigations"}
-                                   {:id :admissions :title "Admissions"}]
+                                    :load-field [:t_patient/patient_identifier :>/encounters] :load-marker :patient-encounters
+                                    :disabled (not pseudonymous)}
+                                   {:id :results :title "Investigations" :disabled (not pseudonymous)}
+                                   {:id :admissions :title "Admissions":disabled (not pseudonymous)}]
                                   :selected-id selected-page
                                   :select-fn (fn [{:keys [id load-field load-marker]}]
                                                (when load-field (df/load-field! this load-field {:marker load-marker}))
