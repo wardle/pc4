@@ -248,9 +248,8 @@
   (let [editing (comp/get-state this :ui/editing)
         postcode (comp/get-state this :ui/postcode)]
     (if-not editing
-      (dom/a :.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
-             {:onClick #(do (comp/set-state! this {:ui/editing true :ui/postcode ""}))}
-             (or lsoa11 "Not yet set"))
+      (ui/ui-link-button {:onClick #(do (comp/set-state! this {:ui/editing true :ui/postcode ""}))}
+                         (or lsoa11 "Not yet set"))
       (div :.space-y-6
         (ui/ui-textfield {:label "Enter postal code" :value postcode}
                          {:onChange #(comp/set-state! this {:ui/postcode %})})
@@ -266,39 +265,76 @@
 
 (def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
 
+
+(defsc PatientDeathCertificate
+  [this {:t_patient/keys [date_death]
+         :t_death_certificate/keys [part1a part1b part1c part2]
+         banner :>/banner}]
+  {:ident :t_patient/patient_identifier
+   :query [{:>/banner (comp/get-query PatientBanner)}
+           :t_patient/patient_identifier
+           :t_patient/date_death
+           :t_death_certificate/part1a
+           :t_death_certificate/part1b
+           :t_death_certificate/part1c
+           :t_death_certificate/part2]}
+  (let [state (comp/get-state this)]
+    (if-not (:ui/editing state)
+      (div
+        (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
+        (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing true})} "Edit"))
+      (ui/ui-modal {:title (ui-patient-banner banner)
+                    :actions [{:id :save :role :primary :title "Save"}
+                              {:is :cancel :title "Cancel"
+                               :onClick #(comp/set-state! this {:ui/editing false})}]}
+        (ui/ui-simple-form {:title "Death certificate"}
+          (ui/ui-simple-form-item {:label "Date of death"}
+            (ui/ui-local-date {:value date_death
+                               :onChange #(comp/set-state! this (assoc state :ui/date-death %))}))
+          (ui/ui-simple-form-item {:label "Certificate"}
+            (ui/ui-textfield {:label "Part 1a" :value part1a})
+            (ui/ui-textfield {:label "Part 1b" :value part1b})
+            (ui/ui-textfield {:label "Part 1c" :value part1c})
+            (ui/ui-textfield {:label "Part 2" :value part2})))))))
+
+
+(def ui-patient-death-certificate (comp/factory PatientDeathCertificate))
+
 (defsc PatientDemographics
-  [this {:t_patient/keys [patient_identifier date_birth date_death sex status encounters]
+  [this {:t_patient/keys [patient_identifier date_death status encounters]
          sms             :t_patient/summary_multiple_sclerosis
+         death-certificate :>/death_certificate
          :as             patient}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/id :t_patient/status
            :t_patient/first_names :t_patient/last_name :t_patient/lsoa11
            :t_patient/sex :t_patient/date_birth :t_patient/date_death
+           {:>/death_certificate (comp/get-query PatientDeathCertificate)}
            {:t_patient/encounters [:t_encounter/date_time {:t_encounter/form_edss [:t_form_edss/score]}]}
            {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]}
-  (let [encounter (->> encounters
-                       (filter #(or (seq (:t_encounter/form_edss %)) (seq (:t_encounter/form_edss_fs %))))
-                       (sort-by #(if-let [date (:t_encounter/date_time %)] (.valueOf date) 0))
-                       reverse
-                       first)
-        most-recent-edss (or (get-in encounter [:t_encounter/form_edss :t_form_edss/score])
-                             (get-in encounter [:t_encounter/form_edss_fs :t_form_edss_fs/score]))]
-    (dom/div :.m-4
-      (when-not (= status :PSEUDONYMOUS)                    ;; todo: switch display based on patient status
-        (ui/box-error-message {:title   "Warning: patient type not yet supported"
-                               :message "This form supports only pseudonymous patients."}))
-      (ui/ui-simple-form {}
-        (ui/ui-simple-form-title {:title "Neuroinflammatory disease"})
-        (ui/ui-simple-form-item {:htmlFor "date-from" :label "Diagnostic criteria"}
-          (ui-choose-neuroinflammatory-diagnosis sms))
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Most recent EDSS"}
-          (if most-recent-edss
-            (comp/fragment (dom/span :.font-light.text-gray-500 (str (ui/format-date (:t_encounter/date_time encounter)) ": "))
-              most-recent-edss)
-            "None recorded"))
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "LSOA (geography)"}
-          (ui-inspect-edit-lsoa (select-keys patient [:t_patient/patient_identifier :t_patient/lsoa11])))
-        (ui/ui-simple-form-item {:htmlFor "date-to" :label "Vital status"})))))
+  (let [sorted-encounters (sort-by #(some-> % :t_encounter/date_time % .getTime) encounters)
+        last-encounter-date (or date_death (:t_encounter/date_time (first sorted-encounters)))
+        edss-encounter (->> sorted-encounters
+                            (filter #(or (seq (:t_encounter/form_edss %)) (seq (:t_encounter/form_edss_fs %))))
+                            first)
+        most-recent-edss (or (get-in edss-encounter [:t_encounter/form_edss :t_form_edss/score])
+                             (get-in edss-encounter [:t_encounter/form_edss_fs :t_form_edss_fs/score]))
+        last-edss-date (:t_encounter/date_time edss-encounter)]
+    (case status
+      :PSEUDONYMOUS
+      (dom/div :.m-4
+        (ui/ui-simple-form {}
+          (ui/ui-simple-form-title {:title "Neuroinflammatory disease"})
+          (ui/ui-simple-form-item {:htmlFor "date-from" :label "Diagnostic criteria"}
+            (ui-choose-neuroinflammatory-diagnosis sms))
+          (ui/ui-simple-form-item {:htmlFor "date-to" :label (div "Most recent EDSS" (when last-edss-date (dom/span :.font-light.text-gray-500 (str " (on " (ui/format-date last-edss-date) ")"))))}
+            (if most-recent-edss most-recent-edss "None recorded"))
+          (ui/ui-simple-form-item {:label "LSOA (geography)"}
+            (ui-inspect-edit-lsoa (select-keys patient [:t_patient/patient_identifier :t_patient/lsoa11])))
+          (ui/ui-simple-form-item {:label (div "Vital status" (when last-encounter-date (dom/span :.font-light.text-gray-500 (str " (as of "(ui/format-date last-encounter-date)) ")")))}
+            (ui-patient-death-certificate death-certificate))))
+      (ui/box-error-message {:title   "Warning: patient type not yet supported"
+                             :message "This form supports only pseudonymous patients."}))))
 
 (def ui-patient-demographics (comp/factory PatientDemographics))
 
@@ -476,7 +512,9 @@
 (s/def ::save-admission (s/keys :req [:t_episode/date_registration :t_episode/date_discharge]
                                 :opt [:t_episode/id]))
 
-(defsc AdmissionEdit [this {:t_episode/keys [id date_registration date_discharge patient_fk] :as params} {:keys [onChange onClose onSave onDelete]}]
+(defsc AdmissionEdit
+  [this {:t_episode/keys [id date_registration date_discharge patient_fk] :as params}
+   {:keys [onChange onClose onSave onDelete]}]
   (ui/ui-modal {:actions [{:id        ::save-action :title "Save" :role :primary
                            :disabled? (not (s/valid? ::save-admission params))
                            :onClick   onSave}
