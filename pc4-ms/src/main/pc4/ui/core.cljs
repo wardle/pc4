@@ -308,7 +308,14 @@
      :onClick   #(when (and (not disabled?) onClick) (onClick))}
     (comp/children this)))
 
-(def ui-button (comp/factory UIButton {:keyfn :key}))
+(def ui-button
+  "A simple button. Parameters
+  - :key        :
+  - :disabled?  :
+  - :role       : e.g. :primary
+  - :onClick    : onClick handler"
+  (comp/factory UIButton {:keyfn :key}))
+
 
 (defsc UIButtonWithDropdown [this props]
   (let [choices []
