@@ -359,7 +359,13 @@
                  :onClick   #(when-let [f (:onClick action)] (f))}
                 (:title action)))))))))
 
-(def ui-modal (comp/factory UIModal))
+(def ui-modal
+  "A modal dialog.
+  Parameters
+  - :disabled?
+  - :title
+  - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,:onClick"
+  (comp/factory UIModal))
 
 
 (defsc UISimpleFormTitle [this {:keys [title]}]
