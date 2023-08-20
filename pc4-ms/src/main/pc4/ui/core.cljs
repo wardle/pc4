@@ -71,10 +71,14 @@
   - select-fn   : function to call on select with the item"
   [items & {:keys [selected-id select-fn]}]
   (dom/ul :.flex
-    (for [{:keys [id title] :as item} (remove nil? items)]
+    (for [{:keys [id title disabled] :as item} (remove nil? items)]
       (dom/li :.mr3 {:key id}
-        (if (= selected-id id)
+        (cond
+          (= selected-id id)
           (dom/a :.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title)
+          disabled
+          (dom/a :.inline-block.border.border-white.rounded.text-gray-400.italic.py-1.px-3.cursor-not-allowed title)
+          :else
           (dom/a :.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:onClick #(when select-fn (select-fn item))} title))))))
 
 
