@@ -317,6 +317,16 @@
   (comp/factory UIButton {:keyfn :key}))
 
 
+(defsc UILinkButton [this {:keys [onClick]}]
+  (dom/a :.pt-2.pb-2.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
+         {:onClick onClick}
+         (comp/children this)))
+
+(def ui-link-button
+  "A link with an onClick handler that can be used as a button."
+  (comp/factory UILinkButton))
+
+
 (defsc UIButtonWithDropdown [this props]
   (let [choices []
         show-menu? (comp/get-state this :show-menu)]
