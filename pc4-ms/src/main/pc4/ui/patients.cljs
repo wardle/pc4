@@ -249,13 +249,13 @@
       (div :.space-y-6
         (ui/ui-textfield {:label "Enter postal code" :value postcode}
                          {:onChange #(comp/set-state! this {:ui/postcode %})})
-        (ui/ui-button {:role :primary
-                       :onClick #(do (println "Save address" patient_identifier postcode)
-                                     (comp/transact! (comp/get-parent this)
-                                                     [(pc4.rsdb/save-pseudonymous-patient-postal-code
-                                                        {:t_patient/patient_identifier patient_identifier
-                                                         :uk.gov.ons.nhspd/PCD2 postcode})])
-                                     (comp/set-state! this {:ui/editing false :ui/postcode ""}))
+        (ui/ui-button {:role      :primary
+                       :onClick   #(do (println "Save address" patient_identifier postcode)
+                                       (comp/transact! (comp/get-parent this)
+                                                       [(pc4.rsdb/save-pseudonymous-patient-postal-code
+                                                          {:t_patient/patient_identifier patient_identifier
+                                                           :uk.gov.ons.nhspd/PCD2        postcode})])
+                                       (comp/set-state! this {:ui/editing false :ui/postcode ""}))
                        :disabled? (str/blank? postcode)} "Save")
         (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing false :ui/postcode ""})} "Cancel")))))
 
@@ -263,9 +263,9 @@
 
 
 (defsc PatientDeathCertificate
-  [this {:t_patient/keys [date_death]
+  [this {:t_patient/keys           [date_death]
          :t_death_certificate/keys [part1a part1b part1c part2]
-         banner :>/banner}]
+         banner                    :>/banner}]
   {:ident :t_patient/patient_identifier
    :query [{:>/banner (comp/get-query PatientBanner)}
            :t_patient/patient_identifier
@@ -279,13 +279,13 @@
       (div
         (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
         (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing true})} "Edit"))
-      (ui/ui-modal {:title (ui-patient-banner banner)
+      (ui/ui-modal {:title   (ui-patient-banner banner)
                     :actions [{:id :save :role :primary :title "Save"}
-                              {:is :cancel :title "Cancel"
+                              {:is      :cancel :title "Cancel"
                                :onClick #(comp/set-state! this {:ui/editing false})}]}
         (ui/ui-simple-form {:title "Death certificate"}
           (ui/ui-simple-form-item {:label "Date of death"}
-            (ui/ui-local-date {:value date_death
+            (ui/ui-local-date {:value    date_death
                                :onChange #(comp/set-state! this (assoc state :ui/date-death %))}))
           (ui/ui-simple-form-item {:label "Certificate"}
             (ui/ui-textfield {:label "Part 1a" :value part1a})
@@ -297,10 +297,10 @@
 (def ui-patient-death-certificate (comp/factory PatientDeathCertificate))
 
 (defsc PatientDemographics
-  [this {:t_patient/keys [patient_identifier date_death status encounters]
-         sms             :t_patient/summary_multiple_sclerosis
+  [this {:t_patient/keys   [patient_identifier date_death status encounters]
+         sms               :t_patient/summary_multiple_sclerosis
          death-certificate :>/death_certificate
-         :as             patient}]
+         :as               patient}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/id :t_patient/status
            :t_patient/first_names :t_patient/last_name :t_patient/lsoa11
@@ -327,7 +327,7 @@
             (if most-recent-edss most-recent-edss "None recorded"))
           (ui/ui-simple-form-item {:label "LSOA (geography)"}
             (ui-inspect-edit-lsoa (select-keys patient [:t_patient/patient_identifier :t_patient/lsoa11])))
-          (ui/ui-simple-form-item {:label (div "Vital status" (when last-encounter-date (dom/span :.font-light.text-gray-500 (str " (as of "(ui/format-date last-encounter-date)) ")")))}
+          (ui/ui-simple-form-item {:label (div "Vital status" (when last-encounter-date (dom/span :.font-light.text-gray-500 (str " (as of " (ui/format-date last-encounter-date)) ")")))}
             (ui-patient-death-certificate death-certificate))))
       (ui/box-error-message {:title   "Warning: patient type not yet supported"
                              :message "This form supports only pseudonymous patients."}))))
@@ -617,9 +617,9 @@
                                    {:id         :encounters
                                     :title      "Encounters"
                                     :load-field [:t_patient/patient_identifier :>/encounters] :load-marker :patient-encounters
-                                    :disabled (not pseudonymous)}
+                                    :disabled   (not pseudonymous)}
                                    {:id :results :title "Investigations" :disabled (not pseudonymous)}
-                                   {:id :admissions :title "Admissions":disabled (not pseudonymous)}]
+                                   {:id :admissions :title "Admissions" :disabled (not pseudonymous)}]
                                   :selected-id selected-page
                                   :select-fn (fn [{:keys [id load-field load-marker]}]
                                                (when load-field (df/load-field! this load-field {:marker load-marker}))
