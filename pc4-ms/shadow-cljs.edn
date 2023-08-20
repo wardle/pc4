@@ -8,7 +8,7 @@
                        ;; guardrails checks only during dev
                        :dev             {:build-hooks      [(teknql.tailwind/start-watch!)]
                                          :compiler-options
-                                         {:closure-defines {pc4.client.server-url "http://localhost:8080"}
+                                         {:closure-defines {pc4.client.server-url "http://127.0.0.1:8080"}
                                           :external-config {:guardrails {}}}}
 
                        :devtools        {:http-port  8022
