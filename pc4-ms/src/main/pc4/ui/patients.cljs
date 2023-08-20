@@ -10,6 +10,7 @@
             [com.fulcrologic.fulcro.data-fetch :as df]
             [clojure.string :as str]
             [pc4.ui.core :as ui]
+            [com.eldrix.nhsnumber :as nhs-number]
             [pc4.rsdb]
             [pc4.ui.snomed :as snomed]
             [pc4.users]
@@ -56,13 +57,6 @@
                         (ui/ui-table-cell {:react-key abbreviation :title label} abbreviation)
                         (ui/ui-table-cell {:react-key abbreviation} "")))) [] ms-event-types))
 
-(defn format-nnn
-  "Formats an NHS number for display purposes into 'XXX XXX XXXX'"
-  [nnn]
-  (if-not (= 10 (count nnn))
-    nnn
-    (str (subs nnn 0 3) " " (subs nnn 3 6) " " (subs nnn 6))))
-
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
@@ -83,7 +77,9 @@
                                                                                       (dom/span :.font-bold gender)))
       (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
       (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
-      (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ") (dom/span :.font-bold (format-nnn nhs-number))))
+      (when nhs-number (div :.lg:text-center.lg:ml-2.min-w-min (dom/span :.text-sm.font-thin "NHS No ")
+                         (dom/span :.font-bold (nhs-number/format-nnn nhs-number)
+                                   (when-not (nhs-number/valid? (nhs-number/normalise nhs-number)) " (invalid)"))))
       (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
     (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
       (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
