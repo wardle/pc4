@@ -14,7 +14,7 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
-            [com.eldrix.concierge.nhs-number :as nhs-number]
+            [com.eldrix.nhsnumber :as nhs-number]
             [com.eldrix.pc4.rsdb.db :as db]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
@@ -33,7 +33,7 @@
               #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
                          (s/gen (s/int-in 0 (* 365 100))))))
 
-(s/def ::nhs-number com.eldrix.concierge.nhs-number/valid?)
+(s/def ::nhs-number #(nhs-number/valid? (nhs-number/normalise %)))
 (s/def ::salt string?)
 (s/def ::project-id pos-int?)
 (s/def ::user-id pos-int?)
@@ -136,7 +136,7 @@
   [conn consent-form-ids {:keys [response] :or {response "AGREE"}}]
   (into #{} (map :t_patient/patient_identifier)
         (jdbc/plan conn (sql/format consented-patients-sql {:params {:consent-form-ids consent-form-ids
-                                                                     :response response}}))))
+                                                                     :response         response}}))))
 
 
 (comment
@@ -501,6 +501,7 @@
   using that. Also, all patients need to be linked to a family, which seemed
   sensible at the time, and belies its genetic research database origins."
   [txn patient]
+  (log/info "Creating patient" patient)
   (let [{patient-id :nextval} (jdbc/execute-one! txn ["select nextval('t_patient_seq')"])
         {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
         patient' (assoc patient
@@ -589,6 +590,33 @@
                                     :t_episode/date_referral        (LocalDate/now)
                                     :t_episode/date_registration    (LocalDate/now)}
                                    pseudonym (assoc :t_episode/stored_pseudonym pseudonym))))))
+
+
+(s/fdef register-patient
+  :args (s/cat :txn ::db/repeatable-read-txn
+               :project-id ::project-id
+               :user-id ::user-id
+               :patient (s/keys :req-un [::nhs-number]
+                                :opt-un [::title ::first-names ::last-name])))
+(defn register-patient
+  "Register a patient to the given project. If the patient already exists, then
+  the existing patient will be registered to the project. If the patient is
+  already registered, then the existing registration will be kept. If the
+  patient has a pending registration (referral) to the project, then that
+  pending episode will be activated."
+  [txn project-id user-id {:keys [nhs-number title first-names last-name]}]
+  (let [;; fetch existing patient, or create if no existing patient match by NHS number
+        nnn (nhs-number/normalise nhs-number)
+        patient (when (nhs-number/valid? nnn)
+                  (or (fetch-by-nhs-number txn nnn)
+                      (create-patient! txn {:t_patient/nhs_number  nnn
+                                            :t_patient/title       (or title "")
+                                            :t_patient/last_name   (or last-name "Unknown")
+                                            :t_patient/first_names (or first-names "Unknown")})))]
+    (if patient
+      (do (register-patient-project! txn project-id user-id patient)
+          patient)
+      (throw (ex-info "Invalid NHS number" {:nhs-number nhs-number})))))
 
 (s/fdef register-legacy-pseudonymous-patient
   :args (s/cat :txn ::db/repeatable-read-txn
