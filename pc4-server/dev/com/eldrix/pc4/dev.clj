@@ -6,6 +6,7 @@
     [dev.nu.morse :as morse]
     [integrant.core :as ig]
     [integrant.repl :as ig.repl]
+    [integrant.repl.state]
     [com.eldrix.clods.core :as clods]
     [com.eldrix.pc4.rsdb.patients :as patients]
     [com.eldrix.pc4.rsdb.results :as results]
@@ -31,7 +32,7 @@
 (defn inspect-system []
   (morse/inspect #'integrant.repl.state/system))
 
-(def system integrant.repl.state/system)
+(defn system [] integrant.repl.state/system)
 
 (comment
   (morse/launch-in-proc)
