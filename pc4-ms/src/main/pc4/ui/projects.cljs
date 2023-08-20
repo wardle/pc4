@@ -1,18 +1,20 @@
 (ns pc4.ui.projects
-  (:require [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+  (:require [clojure.string :as str]
+            [cljs.spec.alpha :as s]
+            [com.eldrix.nhsnumber :as nnn]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.dom.events :as evt]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
-            [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
-            [clojure.string :as str]
+            [pc4.app :refer [SPA]]
             [pc4.ui.core :as ui]
             [pc4.ui.patients]
             [pc4.rsdb]
-            [taoensso.timbre :as log]
-            [cljs.spec.alpha :as s])
+            [taoensso.timbre :as log])
+
   (:import [goog.date Date]))
 
 (defsc PatientSearchByPseudonym
@@ -70,11 +72,72 @@
   (action [{:keys [state]}]
           (swap! state clear-register-pseudonymous-form*)))
 
-(s/def :ui/nhs-number (s/and string? #(re-matches #"\d{10}" (str/replace % #" " ""))))
+
+(defn clear-register-patient-form*
+  [state-map]
+  (-> state-map
+      (fs/add-form-config* (comp/registry-key->class ::RegisterByNnn)
+                           [:component/id :register-by-nnn]
+                           {:destructive? true})
+      (update-in [:component/id :register-by-nnn]
+                 #(-> %
+                      (dissoc :ui/error)
+                      (assoc :ui/nhs-number "")))))
+
+
+(defmutation clear-register-patient-form [_]
+  (action [{:keys [state]}]
+          (swap! state clear-register-patient-form*)))
+
+
+
+
+(s/def :ui/nhs-number #(nnn/valid? (nnn/normalise %)))
 (s/def :ui/date-birth (s/and #(instance? Date %)
                              #(pos-int? (Date/compare % (Date. 1900 1 1)))
                              #(nat-int? (Date/compare (Date.) %))))
 (s/def :ui/sex #{:MALE :FEMALE})
+
+
+
+(defsc RegisterByNnn
+  [this {project-id :t_project/id
+         :ui/keys   [nhs-number error] :as props}]
+  {:ident                (fn [] [:component/id :register-by-nnn])
+   :query                [:t_project/id
+                          :ui/nhs-number :ui/date-birth :ui/sex :ui/error
+                          fs/form-config-join]
+   :initial-state        {}
+   :form-fields          #{:ui/nhs-number}
+   :componentDidMount    (fn [this] (comp/transact! this [(clear-register-patient-form nil)]))
+   :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-patient-form nil)]))}
+  (let [do-register (fn [] (do (println "Attempting to register" props)
+                               (comp/transact! this [(pc4.rsdb/register-patient
+                                                       {:project-id project-id, :nhs-number nhs-number})])))]
+    (div :.space-y-6
+      (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+        (div :.md:grid.md:grid-cols-3.md:gap-6
+          (div :.md:col-span-1.pr-6
+            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
+            (div :.mt-1.mr-12.text-sm.text-gray-500)
+            (p "Please enter patient details.")
+            (p :.mt-4 "This is safe to use even if patient already registered."))
+          (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
+            (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+            (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
+                             {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+                              :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                              :onEnterKey do-register})
+            (when (fs/invalid-spec? props :ui/nhs-number)
+              (ui/box-error-message {:message "Invalid NHS number"}))
+            (when error
+              (div (ui/box-error-message {:message error}))))))
+
+      (div :.flex.justify-end.mr-8
+        (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
+
+
+(def ui-register-by-nnn (comp/factory RegisterByNnn))
 
 (defsc RegisterByPseudonym
   [this {project-id :t_project/id
@@ -224,18 +287,20 @@
 (def ui-project-home (comp/factory ProjectHome))
 
 (defsc ProjectPage
-  [this {:t_project/keys [id title]
-         home            :>/home
-         search          :>/search
-         register        :>/register
-         users           :>/users}]
+  [this {:t_project/keys       [id title pseudonymous]
+         home                  :>/home
+         search                :>/search
+         register-pseudonymous :>/register-pseudonymous
+         register-nnn          :>/register-nnn
+         users                 :>/users}]
   {:ident               :t_project/id
    :route-segment       ["project" :t_project/id]
-   :query               [:t_project/id :t_project/title
+   :query               [:t_project/id :t_project/title :t_project/pseudonymous
                          {[:session/authenticated-user '_] [:t_user/first_names :t_user/last_name]}
                          {:>/home (comp/get-query ProjectHome)}
                          {:>/users (comp/get-query ProjectUsers)}
-                         {:>/register (comp/get-query RegisterByPseudonym)}
+                         {:>/register-pseudonymous (comp/get-query RegisterByPseudonym)}
+                         {:>/register-nnn (comp/get-query RegisterByNnn)}
                          {:>/search (comp/get-query PatientSearchByPseudonym)}]
    :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
                           (when-let [project-id (some-> id (js/parseInt))]
@@ -254,8 +319,9 @@
         (dom/ul :.flex
           (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
           (ui/flat-menu [{:title "Home" :id :home}
-                         {:title "Register" :id :register}
-                         {:title "Search" :id :search}
+                         (if pseudonymous {:title "Register" :id :register}
+                                          {:title "Register / Search" :id :register})
+                         (when pseudonymous {:title "Search" :id :search})
                          {:title "Users" :id :users}]
                         :selected-id selected-page
                         :select-fn (fn [{:keys [id] :as item}]
@@ -264,7 +330,9 @@
       (case selected-page
         :home (ui-project-home home)
         :search (ui-patient-search-by-pseudonym search)
-        :register (ui-register-by-pseudonym register)
+        :register (if pseudonymous
+                    (ui-register-by-pseudonym register-pseudonymous)
+                    (ui-register-by-nnn register-nnn))
         :users (ui-project-users users)
         (ui/box-error-message :message "Page not found")))))
 

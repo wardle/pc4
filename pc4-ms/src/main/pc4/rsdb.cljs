@@ -19,6 +19,19 @@
                 (m/with-target [:ui/search-patient-pseudonymous])
                 (m/returning 'pc4.ui.patients/PatientBanner)))))
 
+(defmutation register-patient
+  [params]
+  (remote [env]
+          (m/returning env 'pc4.ui.patients/PatientPage))
+  (ok-action
+    [{:keys [state ref] :as env}]
+    (tap> {:mutation-env env})                              ;; ref = ident of the component
+    (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
+      (do (log/debug "register patient : patient id: " patient-id)
+          (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
+      (do (log/debug "failed to register patient:" env)
+          (swap! state update-in ref assoc :ui/error "Unable to register patient.")))))
+
 (defmutation register-patient-by-pseudonym
   [params]
   (remote
@@ -68,3 +81,12 @@
   (remote [env] true)
   (ok-action [{:keys [component]}]
              (df/refresh! component)))
+
+(defmutation edit-death-certificate
+  [params]
+  (action [{:keys [ref state]}]
+          (swap! state update-in ref assoc :ui/editing-death-certificate params)))
+
+(defmutation notify-death
+  [params]
+  (remove [env] (m/returning env 'pc4.ui.patients/PatientDeathCertificate)))
