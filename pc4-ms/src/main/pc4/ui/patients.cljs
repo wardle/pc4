@@ -428,8 +428,8 @@
 
 (s/def :t_medication/date_from (s/nilable #(instance? goog.date.Date %)))
 (s/def :t_medication/date_to (s/nilable #(instance? goog.date.Date %)))
-(s/def :t_medication/medication_concept_id int?)
-(s/def ::save-medication (s/keys :req [:t_medication/date_from :t_medication/date_to :t_medication/medication_concept_id]))
+(s/def :t_medication/medication map?)
+(s/def ::save-medication (s/keys :req [:t_medication/date_from :t_medication/date_to :t_medication/medication]))
 
 (defsc MedicationEdit
   [this {:t_medication/keys [id date_from date_to medication]
@@ -459,15 +459,13 @@
           (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_medication/medication nil)}
                                              (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
           (snomed/ui-autocomplete choose-medication {:autoFocus true, :constraint "<10363601000001109"
-                                                     :onSave #(m/set-value! this :t_medication/medication %)
-                                                     :onCancel #(m/set-value! this :t_medication/medication nil)})))
+                                                     :onSave #(m/set-value! this :t_medication/medication %)})))
       (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
         (ui/ui-local-date {:value date_from}
-                          {:onChange #(when onChange (onChange (assoc params :t_medication/date_from %)))}))
+                          {:onChange #(m/set-value! this :t_medication/date_from %)}))
       (ui/ui-simple-form-item {:htmlFor "date-to" :label "Date to"}
         (ui/ui-local-date {:value date_to}
-                          {:onChange #(when onChange (onChange (assoc params :t_medication/date_to %)))})))))
-
+                          {:onChange #(m/set-value! this :t_medication/date_to %)})))))
 
 (def ui-medication-edit (comp/computed-factory MedicationEdit))
 
@@ -486,7 +484,8 @@
                           {:onClose #(comp/transact! this [(pc4.rsdb/cancel-medication-edit nil)])}))
     (ui/ui-title {:title "Medication"}
       (ui/ui-title-button {:title "Add medication"}
-                          {:onClick #(comp/transact! this [(pc4.rsdb/create-medication {:t_medication/patient_fk id})])}))
+                          {:onClick #(comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
+                                                           (pc4.rsdb/create-medication {:t_medication/patient_fk id})])}))
 
     (ui/ui-table {}
       (ui/ui-table-head {}

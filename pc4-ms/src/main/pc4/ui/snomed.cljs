@@ -2,7 +2,7 @@
   (:require
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom]
-    [com.fulcrologic.fulcro.mutations :as m]
+    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.data-fetch :as df]
     [clojure.string :as str]
     [goog.functions :as gf]
@@ -43,14 +43,14 @@
 
 (defsc CompletionList
   [this {:keys [value values idKey displayPropertyKey size] :or {size 8}}
-   {:keys [onValueSelect onDoubleClick onEnterKey]}]
+   {:keys [onValueSelect onDoubleClick]}]
   (let [values# (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)] ;; generate a lookup map
     (dom/select
       {:className     (when (> size 1) "bg-none")
        :value         (if value (str (idKey value)) "")
        :size          size
        :onChange      #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))
-       :onKeyDown     #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
+       :onKeyDown     #(when (and onDoubleClick (or (evt/enter-key? %) (evt/is-key? 32 %)) (onDoubleClick)))
        :onDoubleClick #(when onDoubleClick (onDoubleClick))}
       (for [v values]
         (dom/option {:key   (str (idKey v))
@@ -85,14 +85,27 @@
               (swap! state assoc-in (conj autocomplete-path :autocomplete/selected) (first results))
               (df/load! app [:info.snomed.Concept/id (:info.snomed.Concept/id (first results))] Synonyms {:target (conj (autocomplete-ident id) :autocomplete/selected-synonyms)})))))
 
+(defn clear-selected* [state path]
+  (let [selected-path (conj path :autocomplete/selected)
+        selected-synonyms-path (conj path :autocomplete/selected-synonyms)]
+    (swap! state assoc-in selected-path nil)
+    (swap! state assoc-in selected-synonyms-path nil)))
+
 (m/defmutation clear-selected
   [{:keys [id]}]
   (action [{:keys [state]}]
-          (let [autocomplete-path (autocomplete-ident id)
-                selected-path (conj autocomplete-path :autocomplete/selected)
-                selected-synonyms-path (conj autocomplete-path :autocomplete/selected-synonyms)]
-            (swap! state assoc-in selected-path nil)
-            (swap! state assoc-in selected-synonyms-path nil))))
+          (let [autocomplete-path (autocomplete-ident id)]
+            (clear-selected* state autocomplete-path))))
+
+(defmutation reset-autocomplete
+  [{:keys [id]}]
+  (action [{:keys [state]}]
+          (let [autocomplete-path (autocomplete-ident id)]
+            (clear-selected* state autocomplete-path)
+            (swap! state assoc-in (conj autocomplete-path :autocomplete/stringValue) "")
+            (swap! state assoc-in (conj autocomplete-path :autocomplete/suggestions) [])
+            (swap! state assoc-in (conj autocomplete-path :autocomplete/loaded-suggestions) []))))
+
 
 (def default-search-params
   {:accept-language "en-GB" :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2})
@@ -107,7 +120,9 @@
                        :post-mutation        `populate-loaded-suggestions
                        :post-mutation-params {:id id}
                        :target               (conj (autocomplete-ident id) :autocomplete/loaded-suggestions)}))]
-    (gf/debounce load-suggestions 400)))
+    (gf/debounce load-suggestions 200)))
+
+
 
 (defsc Autocomplete
   [this {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
@@ -156,7 +171,6 @@
                                                          preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
                                                      (if (= term preferred) term (str term " (" preferred ")"))))}
                             {:onValueSelect onSelect'
-                             :onEnterKey    #(when (and selected onSave) (onSave selected))
                              :onDoubleClick #(when (and selected onSave) (onSave selected))})
         (when selected
           (dom/div :.p-4.border-2.shadow-inner

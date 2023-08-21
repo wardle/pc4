@@ -55,7 +55,7 @@
 (defmutation cancel-medication-edit
   [params]
   (action [{:keys [state]}]
-          (swap! state update-in [:component/id :edit-medication] dissoc :t_medication/patient_fk)))
+          (swap! state update-in [:component/id :edit-medication] dissoc :t_medication/date_to :t_medication/medication :t_medication/date_from :t_medication/patient_fk)))
 
 (defmutation create-admission
   [params]
