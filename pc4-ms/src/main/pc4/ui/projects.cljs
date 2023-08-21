@@ -125,7 +125,10 @@
           (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
             (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
             (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                             {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+                             {:onChange   (fn [nnn]
+                                            (when (= 10 (count (nnn/normalise nnn)))
+                                              (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
+                                            (m/set-string!! this :ui/nhs-number :value nnn))
                               :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
                               :onEnterKey do-register})
             (when (fs/invalid-spec? props :ui/nhs-number)
