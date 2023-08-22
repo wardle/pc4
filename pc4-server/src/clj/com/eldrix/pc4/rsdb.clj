@@ -308,40 +308,42 @@
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn} patient]
   {::pco/input  [:t_patient/id]
-   ::pco/output [{:t_patient/medications [:t_medication/date_from
-                                          :t_medication/date_to
-                                          :t_medication/date_from_accuracy
-                                          :t_medication/date_to_accuracy
-                                          :t_medication/indication
-                                          :t_medication/medication_concept_fk
-                                          {:t_medication/medication [:info.snomed.Concept/id]}
-                                          :t_medication/more_information
-                                          :t_medication/temporary_stop
-                                          :t_medication/reason_for_stopping
-                                          :t_medication/dose
-                                          :t_medication/frequency
-                                          :t_medication/units
-                                          :t_medication/as_required
-                                          :t_medication/route
-                                          :t_medication/type
-                                          :t_medication/prescriptions
-                                          {:t_medication/events [:t_medication_event/id
-                                                                 :t_medication_event/type
-                                                                 :t_medication_event/severity
-                                                                 :t_medication_event/description_of_reaction
-                                                                 :t_medication_event/event_concept_fk
-                                                                 {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
-  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-    (let [medication (patients/fetch-medications-and-events txn patient)]
-      {:t_patient/medications
+   ::pco/output [{:t_patient/medications
+                  [:t_medication/id
+                   :t_medication/date_from
+                   :t_medication/date_to
+                   :t_medication/date_from_accuracy
+                   :t_medication/date_to_accuracy
+                   :t_medication/indication
+                   :t_medication/medication_concept_fk
+                   {:t_medication/medication [:info.snomed.Concept/id]}
+                   :t_medication/more_information
+                   :t_medication/temporary_stop
+                   :t_medication/reason_for_stopping
+                   :t_medication/dose
+                   :t_medication/frequency
+                   :t_medication/units
+                   :t_medication/as_required
+                   :t_medication/route
+                   :t_medication/type
+                   :t_medication/prescriptions
+                   {:t_medication/events [:t_medication_event/id
+                                          :t_medication_event/type
+                                          :t_medication_event/severity
+                                          :t_medication_event/description_of_reaction
+                                          :t_medication_event/event_concept_fk
+                                          {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
+  {:t_patient/medications
+   (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+     (let [medication (patients/fetch-medications-and-events txn patient)]
        ;; and now just add additional properties to permit walking to SNOMED CT
-       (mapv #(-> %
-                  (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
-                  (update :t_medication/events
-                          (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                             (assoc evt :t_medication_event/event_concept
-                                                        (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
-             medication)})))
+        (mapv #(-> %
+                   (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
+                   (update :t_medication/events
+                           (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                              (assoc evt :t_medication_event/event_concept
+                                                         (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+              medication)))})
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -1067,9 +1069,11 @@
                                                                                   :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))]
     (if-not (s/valid? ::save-medication params')
       (log/error "invalid call" (s/explain-data ::save-medication params'))
-      (do (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
-          (let [med (patients/upsert-medication! conn params')]
-            (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
+      (jdbc/with-transaction [txn conn {:isolation :serializable}]
+        (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
+        (log/info "Upsert medication " {:txn txn :params params})
+        (let [med (patients/upsert-medication! txn params')]
+          (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
 
 (s/def ::delete-medication
   (s/keys :req [:t_medication/id (or :t_patient/patient_identifier :t_medication/patient_fk)]))
