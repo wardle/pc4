@@ -57,6 +57,13 @@
   (action [{:keys [state]}]
           (swap! state update-in [:component/id :edit-medication] dissoc :t_medication/date_to :t_medication/medication :t_medication/date_from :t_medication/patient_fk)))
 
+(defmutation save-medication
+  [params]
+  (remote [env] true)
+  (ok-action
+    [{:keys [ref state] :as env}]
+    (tap> {:save-medication-ok env})))
+
 (defmutation create-admission
   [params]
   (action [{:keys [ref state]}]
