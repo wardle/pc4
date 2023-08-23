@@ -1,5 +1,6 @@
 (ns eldrix.pc4-ward.ui
   (:require [clojure.string :as str]
+            [com.eldrix.nhsnumber :as nhs-number]
             [com.eldrix.pc4.commons.dates :as dates]
             [reagent.core :as reagent])
   (:import [goog.date Date]))
@@ -46,7 +47,7 @@
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender [:span.text-sm.font-thin.hidden.sm:inline "Gender "] [:span.font-bold gender])]
     [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min [:span.text-sm.font-thin "Born "] [:span.font-bold born]]
     [:div.lg:hidden.text-right.mr-8.md:mr-0 gender " " [:span.font-bold born]]
-    (when nhs-number [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold nhs-number]])
+    (when nhs-number [:div.lg:text-center.lg:ml-2.min-w-min [:span.text-sm.font-thin "NHS No "] [:span.font-bold (nhs-number/format-nnn nhs-number)]])
     (when hospital-identifier [:div.text-right.min-w-min [:span.text-sm.font-thin "CRN "] [:span.font-bold hospital-identifier]])]
    [:div.grid.grid-cols-1 {:class (if-not deceased "bg-gray-100" "bg-red-100")}
     [:div.font-light.text-sm.tracking-tighter.text-gray-500.truncate address]]
@@ -411,7 +412,8 @@
   [items & {:keys [selected-id select-fn]}]
   [:ul.flex
    (for [item items
-         :let [id (:id item) title (:title item)]]
+         :let [id (:id item) title (:title item)]
+         :when item]
      [:li.mr3 {:key id}
       (if (= selected-id id)
         [:a.inline-block.border.border-blue-500.rounded.py-1.px-3.bg-blue-500.text-white.cursor-not-allowed title]
