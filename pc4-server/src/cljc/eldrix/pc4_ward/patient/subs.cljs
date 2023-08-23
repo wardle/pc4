@@ -94,7 +94,8 @@
     (rf/subscribe [::active-encounters]))
   (fn [encounters]
     (->> encounters
-         (filter #(or (:t_encounter/form_edss %) (:t_encounter/form_edss_fs %)))
+         (filter #(or (get-in % [:t_encounter/form_edss :t_form_edss/edss_score])
+                      (get-in % [:t_encounter/form_edss_fs :t_form_edss_fs/edss_score])))
          first)))
 
 (rf/reg-sub ::results
