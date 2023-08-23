@@ -1415,7 +1415,6 @@
               [:div.flex.justify-center.items-center
                [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]]]])
 
-
          (when patient
            [:div
             [ui/patient-banner
@@ -1478,7 +1477,7 @@
                  {:title "Search" :id :pseudonymous-search}
                  {:title "Users" :id :users}]
                 [{:title "Home" :id :home}
-                 {:title "Register by NHS number" :id :register-nhs-number}
+                 {:title "Search / register" :id :register-nhs-number}
                  {:title "Users" :id :users}])
               :selected-id @selected-page
               :select-fn #(do (reset! selected-page %)
