@@ -27,17 +27,17 @@
   {:ident :t_news/id
    :query [:t_news/id :t_news/date_time :t_news/title :t_news/body
            {:t_news/author (comp/get-query NewsAuthor)}]}
-  (div :.px-4.py-4.sm:px-6
-       (div :.flex.items-center.justify-between
-            (p :.text-lg.font-medium.text-indigo-600.truncate title)
-            (div :.ml-2.flex-shrink-0.flex
-                 (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
-                    (dom/time {:date-time date_time} (ui/format-date date_time)))))
-       (div :.sm:flex.sm:justify-between
-            (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
-                 (p "by " (ui-news-author author))))
-       (dom/article :.text-sm.prose.pb-4 {:dangerouslySetInnerHTML {:__html body}})
-       (dom/hr)))
+  (div :.px-4.py-4.sm:px-6.bg-gray-50.mb-4.border.rounded.shadow
+    (div
+      (div :.flex.items-center.justify-between
+        (p :.text-lg.font-medium.text-indigo-600.truncate title)
+        (div :.ml-2.flex-shrink-0.flex
+          (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
+             (dom/time {:date-time date_time} (ui/format-date date_time)))))
+      (div :.sm:flex.sm:justify-between
+        (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
+          (p "by " (ui-news-author author)))))
+    (dom/article :.text-sm.prose.p-4 {:dangerouslySetInnerHTML {:__html body}})))
 
 (def ui-news-item (comp/factory NewsItem {:keyfn :t_news/id}))
 
