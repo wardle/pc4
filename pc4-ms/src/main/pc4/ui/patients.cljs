@@ -339,7 +339,7 @@
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier
            [df/marker-table :patient-encounters]
-           {:t_patient/encounters (comp/query EncounterListItem)}]}
+           {:t_patient/encounters (comp/get-query EncounterListItem)}]}
   (let [load-marker (get props [df/marker-table :patient-encounters])]
     (comp/fragment
       (when (df/loading? load-marker) (ui/ui-loading-screen {:dim? false}))
@@ -473,15 +473,17 @@
   [this {:t_patient/keys [id medications] :ui/keys [editing-medication] :as props}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id :t_patient/patient_identifier
-                   {:t_patient/medications (comp/query MedicationListItem)}
-                   {[:ui/editing-medication '_] (comp/query MedicationEdit)}]
+                   {:t_patient/medications (comp/get-query MedicationListItem)}
+                   {[:ui/editing-medication '_] (comp/get-query MedicationEdit)}]
    :initial-state (fn [params] {:t_patient/medications (comp/get-initial-state MedicationListItem)
                                 :ui/editing-medication (comp/get-initial-state MedicationEdit)})}
   (tap> {:patient-medication props})
   (comp/fragment
     (when (:t_medication/patient_fk editing-medication)
       (ui-medication-edit editing-medication
-                          {:onClose #(comp/transact! this [(pc4.rsdb/cancel-medication-edit nil)])}))
+                          {:onSave #(do (comp/transact! this [(pc4.rsdb/save-medication editing-medication)])
+                                        (df/load-field! this :t_patient/medications {}))
+                           :onClose #(comp/transact! this [(pc4.rsdb/cancel-medication-edit nil)])}))
     (ui/ui-title {:title "Medication"}
       (ui/ui-title-button {:title "Add medication"}
                           {:onClick #(comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
