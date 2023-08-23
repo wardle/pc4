@@ -149,8 +149,8 @@
           [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
            {:type     "submit"
             :class    (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
-            :on-click #(when valid? (submit-fn))
-            } "Search or register patient »"]]]))))
+            :on-click #(when valid? (submit-fn))}
+           "Search or register patient »"]]]))))
 
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
@@ -231,8 +231,8 @@
                   "Save"]
                  [:button.ml-2.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
                   {:on-click #(do (reset! mode :inspect) (reset! data {}))}
-                  "Cancel"]
-                 ])))))
+                  "Cancel"]])))))
+
 
 (defn multiple-sclerosis-main []
   (let [current-patient @(rf/subscribe [::patient-subs/current])
@@ -277,8 +277,8 @@
        [:div.py-4.sm:py-5.sm:grid.sm:grid-cols-3.sm:gap-4.sm:px-6
         [:dt.text-sm.font-medium.text-gray-500 "Vital status"]
         [:dd.mt-1.text-sm.text-gray-900.sm:mt-0.sm:col-span-2
-         [inspect-edit-death-certificate current-patient]]]
-       ]]]))
+         [inspect-edit-death-certificate current-patient]]]]]]))
+
 
 
 (defn edit-diagnosis
@@ -449,7 +449,7 @@
           (:t_medication_event/type event)
           [ui/button :label "Delete"
            :on-click #(rf/dispatch [::patient-events/set-current-medication
-                                                              (remove-medication-event-by-idx medication idx)])]]
+                                    (remove-medication-event-by-idx medication idx)])]]
          [:div.mt-1.sm:mt-0.sm:col-span-2
           [eldrix.pc4-ward.snomed.views/select-snomed
            :id (str ::choose-medication-event-concept idx)
@@ -1011,8 +1011,8 @@
       [:div.mt-1.sm:mt-0.sm:col-span-2
        [ui/textarea :name "report"
         :value (:t_result_mri_spine/report result)
-        :on-change #(on-change (assoc result :t_result_mri_spine/report %))]]]
-     ]]])
+        :on-change #(on-change (assoc result :t_result_mri_spine/report %))]]]]]])
+
 
 (def ocb-results #{"POSITIVE" "PAIRED" "NEGATIVE" "EQUIVOCAL"})
 (s/def :t_result_csf_ocb/result ocb-results)
@@ -1364,9 +1364,9 @@
               [:div.flex.justify-center.items-center.mb-8
                [:p.font-sans.font-thin.text-gray-500 "Loading patient record"]]
               [:div.flex.justify-center.items-center
-               [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]
-              ]]]
-           )
+               [:div.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]]]])
+
+
          (when patient
            [:div
             [ui/patient-banner
