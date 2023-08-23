@@ -614,8 +614,8 @@
                                             :t_patient/last_name   (or last-name "Unknown")
                                             :t_patient/first_names (or first-names "Unknown")})))]
     (if patient
-      (do (register-patient-project! txn project-id user-id patient)
-          patient)
+      (let [episode (register-patient-project! txn project-id user-id patient)]
+          (merge patient episode))
       (throw (ex-info "Invalid NHS number" {:nhs-number nhs-number})))))
 
 (s/fdef register-legacy-pseudonymous-patient
