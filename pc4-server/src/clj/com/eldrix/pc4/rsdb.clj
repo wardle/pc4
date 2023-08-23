@@ -476,7 +476,7 @@
                  :t_project/postcode
                  :t_project/ethics
                  {:t_project/parent_project [:t_project/id]}
-                 :t_project/virtual
+                 :t_project/virtual :t_project/pseudonymous
                  :t_project/can_own_equipment
                  :t_project/specialty_concept_fk
                  :t_project/advertise_to_all
