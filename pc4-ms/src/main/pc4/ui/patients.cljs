@@ -416,7 +416,7 @@
   [this {:t_medication/keys [date_from date_to medication] :as params}]
   {:ident :t_medication/id
    :query [:t_medication/id :t_medication/date_from :t_medication/date_to
-           {:t_medication/medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]}]}
+           {:t_medication/medication [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
   (ui/ui-table-row {}
     (ui/ui-table-cell {} (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
     (ui/ui-table-cell {} (ui/format-date date_from))
