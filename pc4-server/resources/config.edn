@@ -90,7 +90,7 @@
  :com.eldrix/hermes
  {:path #profile {:default  "/Users/mark/Dev/hermes/snomed.db"
                   :dev/dell "/home/mark/Dev/hermes/snomed-2023-05-10.db"
-                  :pc4      "/var/pc4/snomed-2022-05-17.db"
+                  :pc4      "/var/pc4/snomed-2023-07-12.db"
                   :cvx      "/opt/Local/var/db/pc4/snomed-2022-05-10.db"}}
 
  ;; service providing access to the NHS Wales' NADEX (Active Directory) service
