@@ -655,7 +655,7 @@
             :buttons [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
                       {:on-click #(reset! editing-event {:t_ms_event/summary_multiple_sclerosis_fk (get-in current-patient [:t_patient/summary_multiple_sclerosis :t_summary_multiple_sclerosis/id])
                                                          :t_ms_event_type/id                       11
-                                                         :t_ms_event/impact                        "DISABLING"})} "Add event"]]
+                                                         :t_ms_event/impact                        "UNKNOWN"})} "Add event"]]
            [ui/list-entities-fixed
             :items sorted-events
             :headings ["Date" "Type" "Impact" "UK" "UE" "LE" "SS" "SP" "SX" "FM" "FS" "OM" "VE" "BB" "CB" "ON" "PS" "OT" "MT"]
