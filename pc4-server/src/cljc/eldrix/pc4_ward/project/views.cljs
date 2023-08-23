@@ -16,18 +16,12 @@
     [eldrix.pc4-ward.ui :as ui]
     [clojure.string :as str]
     [com.eldrix.pc4.commons.dates :as dates]
+    [com.eldrix.nhsnumber :as nhs-number]
     [malli.core :as m]
     [clojure.string :as str]
     [re-frame.db :as db]
     ["big.js" :as Big])
   (:import [goog.date Date]))
-
-(defn valid-nhs-number?
-  "Very crude validation of NHS number. We could implement in cljs, but the
-  server will flag if we send it an invalid number, so this is just for the
-  purposes of the UI enabling the 'register' button."
-  [s]
-  (= 10 (count (str/replace s #"\s" ""))))
 
 (defn inspect-project [project]
   [:div.bg-white.shadow.overflow-hidden.sm:rounded-lg
@@ -103,7 +97,7 @@
 (def patient-registration-schema
   (m/schema [:map
              [:project-id int?]
-             [:nhs-number [:fn valid-nhs-number?]]
+             [:nhs-number [:fn #(nhs-number/valid? (nhs-number/normalise %))]]
              [:date-birth some?]
              [:sex [:enum :MALE :FEMALE :UNKNOWN]]]))
 
