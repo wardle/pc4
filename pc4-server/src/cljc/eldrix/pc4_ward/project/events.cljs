@@ -12,6 +12,7 @@
      :t_project/type
      :t_project/active?
      :t_project/virtual
+     :t_project/pseudonymous
      :t_project/slug
      :t_project/parent
      :t_project/specialty

@@ -85,6 +85,21 @@
                     :stop       (fn [{:keys [path]}]
                                   (println "leaving pseudonymous patient page" (:pseudonym path))
                                   (re-frame/dispatch [::patient-events/close-current-patient])
+                                  (re-frame/dispatch [::project-events/close-current-project]))}]}]
+   ["/projects/:project-id/patients/id/:patient-identifier"
+    {:name        :patient-by-project-and-patient-identifier
+     :title       "Patient"
+     :view        project/view-pseudonymous-patient
+     :auth        identity                                  ;; we need a logged in user to view a patient
+     :parameters  {:path {:project-id int? :patient-identifier int?}}
+     :controllers [{:parameters {:path [:project-id :patient-identifier]}
+                    :start      (fn [{:keys [path]}]
+                                  (println "viewing patient by project page" (:project-id path) (:patient-identifier path))
+                                  (re-frame/dispatch [::project-events/set-current-project (:project-id path)])
+                                  (re-frame/dispatch [::patient-events/open-patient (:project-id path) (:patient-identifier path)]))
+                    :stop       (fn [{:keys [path]}]
+                                  (println "leaving patient page" (:patient-identifier path))
+                                  (re-frame/dispatch [::patient-events/close-current-patient])
                                   (re-frame/dispatch [::project-events/close-current-project]))}]}]])
 
 (defn on-navigate [new-match]

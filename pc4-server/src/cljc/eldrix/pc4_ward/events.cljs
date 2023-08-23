@@ -53,4 +53,5 @@
 (re-frame/reg-event-fx
   ::push-state
   (fn [_ [_ & route]]
+    (println "Pushing route" route)
     {:push-state route}))

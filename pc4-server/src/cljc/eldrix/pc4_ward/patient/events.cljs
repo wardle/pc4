@@ -9,6 +9,7 @@
 (def core-patient-properties                                ;; TODO: these properties to be generic properties not rsdb.
   [:t_patient/id
    :t_patient/patient_identifier
+   :t_patient/nhs_number
    :t_patient/first_names
    :t_patient/last_name
    :t_patient/sex
@@ -113,6 +114,12 @@
           :t_episode/stored_pseudonym
           :t_episode/project_fk)}])
 
+(defn make-register-patient-nhs-number
+  [{:keys [project-id nhs-number] :as params}]
+  [{(list 'pc4.rsdb/register-patient
+          params)
+    (conj full-patient-properties :t_episode/project_fk)}])
+
 (defn make-fetch-patient
   "Create an operation to fetch a full patient record with the
   patient-identifier specified."
@@ -169,7 +176,7 @@
 (rf/reg-event-fx ::search-legacy-pseudonym
   (fn [{db :db} [_ project-id pseudonym]]
     (js/console.log "search by pseudonym" project-id pseudonym)
-    (tap> {:db db})
+    (tap> {:event ::search-legacy-pseudonym :db db})
     (cond-> {:db (-> db
                      (dissoc :patient/search-legacy-pseudonym)
                      (update-in [:errors] dissoc ::search-legacy-pseudonym))}
@@ -208,6 +215,18 @@
                     :on-success [::handle-fetch-pseudonymous-patient-response]
                     :on-failure [::handle-fetch-pseudonymous-patient-failure]}]]}))
 
+(rf/reg-event-fx ::open-patient
+  (fn [{db :db} [_ project-id patient-id]]
+    (js/console.log "opening patient record:" project-id patient-id)
+    {:db (-> db
+             (dissoc :patient/current)
+             (assoc :patient/loading? true)
+             (update-in [:errors] dissoc :open-patient))
+     :fx [[:pathom {:params     (make-fetch-patient patient-id)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-fetch-patient-response]
+                    :on-failure [::handle-fetch-patient-failure]}]]}))
+
 ;; refresh current patient
 ;; this has to do things differently based on whether patient is a full record
 ;; or a pseudonymous patient
@@ -230,7 +249,9 @@
   []
   (fn [{db :db} [_ response]]
     (js/console.log "fetch  patient response: " response)
-    {:db (assoc-in db [:patient/current :patient] (first (vals response)))}))
+    {:db (-> db
+             (dissoc :patient/loading?)
+             (assoc-in [:patient/current :patient] (first (vals response))))}))
 
 (rf/reg-event-fx ::handle-fetch-patient-failure
   []
@@ -303,9 +324,44 @@
            :response response})
     {}))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(rf/reg-event-fx ::register-patient-by-nhs-number
+  []
+  (fn [{db :db} [_ {:keys [project-id nhs-number] :as params}]]
+    (js/console.log "searching or registering patient record:" params)
+    {:db (-> db
+             (dissoc :patient/current)
+             (update-in [:errors] dissoc :open-patient))
+     :fx [[:pathom {:params     (make-register-patient-nhs-number params)
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::register-patient-by-nhs-number-response]
+                    :on-failure [::register-patient-by-nhs-number-failure]}]]}))
 
+(rf/reg-event-fx ::register-patient-by-nhs-number-response
+  []
+  (fn [{db :db} [_ response]]
+    (js/console.log "fetch  patient response: " response)
+    (let [patient (get response 'pc4.rsdb/register-patient)]
+      (tap> {:register-by-nnn patient})
+      {:db (assoc-in db [:patient/current :patient] patient)
+       :fx [[:dispatch [::events/push-state :patient-by-project-and-patient-identifier
+                        {:project-id         (:t_episode/project_fk patient)
+                         :patient-identifier (:t_patient/patient_identifier patient)}]]]})))
 
+(rf/reg-event-fx ::register-patient-by-nhs-number-failure
+  []
+  (fn [{:keys [db]} [_ response]]
+    (js/console.log "fetch patient failure: response " response)
+    {:db (-> db
+             (dissoc :patient/current :patient/loading?)
+             (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 (rf/reg-event-db ::set-current-diagnosis

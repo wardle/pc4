@@ -13,12 +13,10 @@
     [eldrix.pc4-ward.user.events :as user-events]
     [eldrix.pc4-ward.snomed.views :as snomed]
     [eldrix.pc4-ward.ui :as ui]
-    [eldrix.pc4-ward.ui :as ui]
     [clojure.string :as str]
     [com.eldrix.pc4.commons.dates :as dates]
     [com.eldrix.nhsnumber :as nhs-number]
     [malli.core :as m]
-    [clojure.string :as str]
     [re-frame.db :as db]
     ["big.js" :as Big])
   (:import [goog.date Date]))
@@ -35,7 +33,10 @@
       [:dd.mt-1.text-sm.text-gray-900 (if (:t_project/active? project) "Active" "Inactive")]]
      [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Type"]
-      [:dd.mt-1.text-sm.text-gray-900 (str/upper-case (name (:t_project/type project))) " " (when (:t_project/virtual project) "VIRTUAL")]]
+      [:dd.mt-1.text-sm.text-gray-900 (str/join " "
+                                                [(when (:t_project/pseudonymous project) "PSEUDONYMOUS")
+                                                 (str/upper-case (name (:t_project/type project)))
+                                                 (when (:t_project/virtual project) "VIRTUAL")])]]
      [:div.sm:col-span-1
       [:dt.text-sm.font-medium.text-gray-500 "Date from"]
       [:dd.mt-1.text-sm.text-gray-900 (dates/format-date (:t_project/date_from project))]]
@@ -94,7 +95,7 @@
                 "View patient record"]]]]])]]]]]))
 
 
-(def patient-registration-schema
+(def patient-pseudonymous-registration-schema
   (m/schema [:map
              [:project-id int?]
              [:nhs-number [:fn #(nhs-number/valid? (nhs-number/normalise %))]]
@@ -107,12 +108,12 @@
         visited (reagent.core/atom #{})]
     (fn []
       (let [error @(rf/subscribe [::patient-subs/open-patient-error])
-            valid? (m/validate patient-registration-schema @data)
+            valid? (m/validate patient-pseudonymous-registration-schema @data)
             submit-fn #(when valid?
                          (rf/dispatch [::patient-events/register-pseudonymous-patient @data]))
             _ (tap> {:values @data
                      :error  error
-                     :valid? valid? :explain (m/explain patient-registration-schema @data) :visited @visited})]
+                     :valid? valid? :explain (m/explain patient-pseudonymous-registration-schema @data) :visited @visited})]
         [:div.space-y-6
          [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
           [:div.md:grid.md:grid-cols-3.md:gap-6
@@ -151,6 +152,53 @@
             :class    (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
             :on-click #(when valid? (submit-fn))}
            "Search or register patient »"]]]))))
+
+(def patient-registration-schema
+  (m/schema [:map
+             [:project-id int?]
+             [:nhs-number [:fn #(nhs-number/valid? (nhs-number/normalise %))]]]))
+
+(defn register-patient
+  [project-id]
+  (let [data (reagent.core/atom {:project-id project-id})
+        visited (reagent.core/atom #{})]
+    (fn []
+      (let [error @(rf/subscribe [::patient-subs/open-patient-error])
+            valid? (m/validate patient-registration-schema @data)
+            submit-fn #(when valid?
+                         (rf/dispatch [::patient-events/register-patient-by-nhs-number @data]))]
+        [:div.space-y-6
+         [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+          [:div.md:grid.md:grid-cols-3.md:gap-6
+           [:div.md:col-span-1
+            [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]
+            [:div.mt-1.mr-12.text-sm.text-gray-500
+             [:p "Enter patient details."]]]
+           [:div.mt-5.md:mt-0.md:col-span-2
+            [:form {:on-submit #(do (.preventDefault %) (submit-fn))}
+             [:div.grid.grid-cols-1.gap-6
+              [:div.col-span-1.sm:col-span-3.space-y-6
+               [:div [ui/textfield-control (:nhs-number @data) :label "NHS number" :auto-focus true
+                      :on-change #(swap! data assoc :nhs-number %)
+                      :on-blur #(swap! visited conj :nhs-number)]]
+               (when error [ui/box-error-message :message error])]
+              [:div.col-span-1.sm:col-span-3.space-y-6
+               [:div [ui/textfield-control (:first-names @data) :label "First names"
+                      :on-change #(swap! data assoc :first-names %)
+                      :on-blur #(swap! visited conj :first-names)]]
+               (when error [ui/box-error-message :message error])]
+              [:div.col-span-1.sm:col-span-3.space-y-6
+               [:div [ui/textfield-control (:last-name @data) :label "Last name"
+                      :on-change #(swap! data assoc :last-name %)
+                      :on-blur #(swap! visited conj :last-name)]]
+               (when error [ui/box-error-message :message error])]]]]]]
+         [:div.flex.justify-end.mr-8
+          [:button.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600.
+           {:type     "submit"
+            :class    (if-not valid? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
+            :on-click #(when valid? (submit-fn))}
+           "Search or register patient »"]]]))))
+
 
 (defn preferred-synonym [diagnosis]
   (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
@@ -1353,6 +1401,7 @@
   (let [menu (reagent.core/atom :main)]
     (fn []
       (let [patient @(rf/subscribe [::patient-subs/current])
+            project @(rf/subscribe [::project-subs/current])
             loading? @(rf/subscribe [::patient-subs/loading?])
             authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
@@ -1371,9 +1420,10 @@
            [:div
             [ui/patient-banner
              :name (:t_patient/sex patient)
+             :nhs-number (when (= :FULL (:t_patient/status patient)) (:t_patient/nhs_number patient)) ;; when non-pseudonymous, show NHS number in banner
              :born (when-let [dob (:t_patient/date_birth patient)] (.getYear dob))
              :address (:t_episode/stored_pseudonym patient)
-             :on-close #(when-let [project-id (:t_episode/project_fk patient)]
+             :on-close #(when-let [project-id (:t_project/id project)]
                           (println "opening project page for project" project-id)
                           (rfe/push-state :projects {:project-id project-id :slug "home"}))
              :content [ui/tabbed-menu
@@ -1421,15 +1471,21 @@
            [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
             [:ul.flex
              [:div.font-bold.text-lg.min-w-min.mr-6.py-1 (:t_project/title current-project)]
-             [ui/flat-menu [{:title "Home" :id :home}
-                            {:title "Register" :id :register}
-                            {:title "Search" :id :search}
-                            {:title "Users" :id :users}]
+             [ui/flat-menu
+              (if (:t_project/pseudonymous current-project)
+                [{:title "Home" :id :home}
+                 {:title "Register" :id :pseudonymous-register}
+                 {:title "Search" :id :pseudonymous-search}
+                 {:title "Users" :id :users}]
+                [{:title "Home" :id :home}
+                 {:title "Register by NHS number" :id :register-nhs-number}
+                 {:title "Users" :id :users}])
               :selected-id @selected-page
               :select-fn #(do (reset! selected-page %)
                               (rf/dispatch [::patient-events/search-legacy-pseudonym (:t_project/id current-project) ""]))]]]
            (case @selected-page
              :home [inspect-project current-project]
-             :search [search-by-pseudonym-panel (:t_project/id current-project)]
-             :register [register-pseudonymous-patient (:t_project/id current-project)]
+             :pseudonymous-search [search-by-pseudonym-panel (:t_project/id current-project)]
+             :pseudonymous-register [register-pseudonymous-patient (:t_project/id current-project)]
+             :register-nhs-number [register-patient (:t_project/id current-project)]
              :users [list-users (:t_project/users current-project)])])))))
