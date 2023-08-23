@@ -95,7 +95,6 @@
   (fn [encounters]
     (->> encounters
          (filter #(or (:t_encounter/form_edss %) (:t_encounter/form_edss_fs %)))
-         reverse
          first)))
 
 (rf/reg-sub ::results
