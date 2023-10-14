@@ -361,8 +361,8 @@
 
    ["/app/project/:project-id/find-patient"
     {:name :find-patient
-     :get {:interceptors [check-authenticated render-component execute-eql-if-present app/find-patient]}
-     :post {:interceptors [check-authenticated render-component execute-eql-if-present app/find-patient]}}]
+     :get {:interceptors [check-authenticated render-component execute-eql context->repl app/find-patient]}
+     :post {:interceptors [check-authenticated render-component execute-eql context->repl app/find-patient]}}]
 
    ["/app/project/:project-id/register-patient"
     {:name :register-patient
