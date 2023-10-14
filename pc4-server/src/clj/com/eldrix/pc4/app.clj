@@ -262,7 +262,7 @@
          (assoc ctx :component
                     [:div.bg-white.sm:rounded-lg.mt-4
                      (when patient
-                       [:div.px-4.py-5.sm:p-6.border.border-gray-200.shadow
+                       [:div.px-4.py-5.sm:p-6.border.border-gray-200.shadow.bg-gray-50
                         [:h3.text-lg.leading-6.font-medium.text-gray-900
                          (str (name (:t_patient/sex patient)) " " "born: " (.getYear (:t_patient/date_birth patient)))]
                         [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
