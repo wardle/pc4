@@ -47,47 +47,42 @@
  ;; service to run pending migrations
  :com.eldrix.rsdb/run-migrations   #ig/ref :com.eldrix.rsdb/migration-config
 
- ;; pc4 data
- :com.eldrix.pc4/data
- {:local  #profile {:default "/Users/mark/Dev/pc4/data"
-                    :cvx     "/opt/Local/var/db/pc4"
-                    :pc4     "/var/pc4"}
-  :remote {:kind              :s3
-           :region            #ref [:secrets :aws :s3 :patientcare4 :region]
-           :bucket-name       "eldrix-pc4"
-           :access-key-id     #ref [:secrets :aws :s3 :patientcare4 :access-key-id]
-           :secret-access-key #ref [:secrets :aws :s3 :patientcare4 :secret-access-key]}}
+ ;; pc4 data files
+ :com.eldrix.pc4/root
+ #profile {:default "/Users/mark/Dev/pc4/data/"
+           :cvx     "/opt/Local/var/db/pc4/"
+           :pc4     "/var/pc4/"}
 
  ;; service providing access to the NHS Postcode database
  :com.eldrix/nhspd
- {:data #ig/ref :com.eldrix.pc4/data
-  :k    "nhspd-2022-11-10.db"}
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "nhspd-2022-11-10.db"}
 
  ;; service providing access to the UK organisational data service (ODS)
  :com.eldrix/clods
- {:data  #ig/ref :com.eldrix.pc4/data
-  :k     "ods-2022-01-24.db"
+ {:root  #ref [:com.eldrix.pc4/root]
+  :f     "ods-2022-01-24.db"
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  ;; service providing access to the ODS weekly dataset
  :com.eldrix/ods-weekly
- {:data #ig/ref :com.eldrix.pc4/data
-  :k    "ods-weekly-2023-06-08.db"}
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "ods-weekly-2023-06-08.db"}
 
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
- {:data #ig/ref :com.eldrix.pc4/data
-  :k    "depriv.db"}
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "depriv.db"}
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
- {:data #ig/ref :com.eldrix.pc4/data
-  :k    "dmd-2023-06-05.db"}
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "dmd-2023-06-05.db"}
 
  ;; service providing access to SNOMED CT
  :com.eldrix/hermes
- {:data #ig/ref :com.eldrix.pc4/data
-  :k    "hermes-v1.4-2023.10.04.db"}
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "hermes-v1.4-2023.10.04.db"}
 
  ;; service providing access to the NHS Wales' NADEX (Active Directory) service
  :wales.nhs/nadex

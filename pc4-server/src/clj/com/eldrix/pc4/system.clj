@@ -29,98 +29,32 @@
            (java.io File)
            (java.time Duration LocalDate)))
 
-;;
-;; pc4 data bootstrap
-;;
-
-(defn save-pc4-remote
-  "Makes local data available through remote storage services.
-  Creates a zip file of the data.
-  Parameters:
-  - local-dir : anything coercible by [[clojure.java.io/file]] for local storage
-  - k         : key (filename)
-  - remote-fn : a function to send a file to remote storage"
-  [local-dir k remote-fn]
-  (let [f (io/file local-dir k)]
-    (when-not (.exists f)
-      (throw (ex-info (str "no datafile found: " k) {:local-dir local-dir :key k})))
-    (when-not (.isDirectory f)
-      (throw (ex-info (str "not a directory: " k) {:local-dir local-dir :key k})))
-    (let [zipped (zipf/zipf f)]
-      (remote-fn zipped))))
-
-(defn load-pc4-data
-  "Returns a string representation of a file path for an index for the service
-  specified from either local or remote storage.
-  If the data can be found in the local-dir, then it will be returned. If not,
-  then remote storage will be checked.
-
-  Parameters:
-  - local-dir : anything coercible by [[clojure.java.io/file]] for local storage
-  - k         : key (filename)
-  - remote-fn : a function that will return a File. Can be nil"
-  [local-dir k remote-fn]
-  (let [f (io/file local-dir k)]
-    (if (.exists f)
-      (.getAbsolutePath f)
-      (if remote-fn
-        (do
-          (log/info "downloading" k "from remote storage as not found locally")
-          (if-let [from-remote (remote-fn)]
-            (do
-              (zipf/unzip (.toPath from-remote) (.toPath (io/file local-dir)))
-              (if (.exists f)
-                (.getAbsolutePath f)
-                (throw (ex-info "incorrect data from remote storage " {:expected f}))))
-            (throw (ex-info (str k " does not exist in local or remote storage") {:k k}))))
-        (throw (ex-info (str k " does not exist in local storage, and no remote storage configured") {:k k}))))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defmethod ig/init-key :com.eldrix.pc4/data [_ {:keys [local remote] :as config}]
-  (when-not local
-    (throw (ex-info "invalid configuration for pc4 data service: missing 'local'" config)))
-  (let [remote-store (when remote (com.eldrix.pc4.filestorage/make-file-store remote))]
-    (log/info "registering pc4 services using data:"
-              {:local local, :remote (when remote (select-keys remote [:kind :region :bucket-name]))})
-    (with-meta                                              ;; return a function to get a data index given a 'key' (filename)
-      (fn [k]                                               ;; that will look to a remote store if index cannot be found locally
-        (load-pc4-data local k (when remote-store #(:f (com.eldrix.pc4.filestorage/get-object remote-store k)))))
-      (cond-> (assoc config :save->remote-fn
-                            (fn [k] (save-pc4-remote local k
-                                                     #(com.eldrix.pc4.filestorage/put-object remote-store k {:content-type "application/zip"
-                                                                                                             :f %}))))
-        remote-store (assoc :store remote-store)))))
-
-(defmethod ig/halt-key! :com.eldrix.pc4/data [_ f]
-  (when-let [store (:store (meta f))]
-    (com.eldrix.pc4.filestorage/close store)))
-
-(defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [data k]}]
-  (log/info "opening nhspd index " k)
-  (nhspd/open-index (data k)))
+(defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [root f path]}]
+  (let [path' (or path (.getCanonicalPath (io/file root f)))]
+    (log/info "opening nhspd index " path')
+    (nhspd/open-index path')))
 
 (defmethod ig/halt-key! :com.eldrix/nhspd [_ nhspd]
   (.close nhspd))
 
-(defmethod ig/init-key :com.eldrix/clods [_ {:keys [data k nhspd]}]
-  (log/info "opening clods index from " k)
-  (clods/open-index {:ods-dir (data k) :nhspd nhspd}))
+(defmethod ig/init-key :com.eldrix/clods [_ {:keys [root f path nhspd]}]
+  (let [path' (or path (.getCanonicalPath (io/file root f)))]
+    (log/info "opening clods index from " path')
+    (clods/open-index {:ods-dir path' :nhspd nhspd})))
 
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
 
-(defmethod ig/init-key :com.eldrix/ods-weekly [_ {:keys [data k]}]
-  (if k
-    (do (log/info "opening ods-weekly from " k)
-        (odsweekly/open-index (data k)))
+(defmethod ig/init-key :com.eldrix/ods-weekly [_ {:keys [root f path]}]
+  (if-let [path' (or path (when (and root f) (.getCanonicalPath (io/file root f))))]
+    (do (log/info "opening ods-weekly from " path')
+        (odsweekly/open-index path'))
     (log/info "skipping ods-weekly; no path specified")))
 
-(defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [data k]}]
-  (log/info "opening deprivare index: " k)
-  (deprivare/open (data k)))
+(defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [root f path]}]
+  (let [path' (or path (.getCanonicalPath (io/file root f)))]
+    (log/info "opening deprivare index: " path')
+    (deprivare/open path')))
 
 (defmethod ig/halt-key! :com.eldrix/deprivare [_ svc]
   (deprivare/close svc))
@@ -128,12 +62,21 @@
 (defmethod ig/init-key :com.eldrix.deprivare/ops [_ svc]
   (com.eldrix.deprivare.graph/make-all-resolvers svc))
 
-(defmethod ig/init-key :com.eldrix/dmd [_ {:keys [data k]}]
-  (log/info "opening UK NHS dm+d index: " k)
-  (dmd/open-store (data k)))
+(defmethod ig/init-key :com.eldrix/dmd [_ {:keys [root f path]}]
+  (let [path' (or path (.getCanonicalPath (io/file root f)))]
+    (log/info "opening UK NHS dm+d index: " path')
+    (dmd/open-store path')))
 
 (defmethod ig/halt-key! :com.eldrix/dmd [_ dmd]
   (.close dmd))
+
+(defmethod ig/init-key :com.eldrix/hermes [_ {:keys [root f path]}]
+  (let [path' (or path (.getCanonicalPath (io/file root f)))]
+    (log/info "opening hermes from " path')
+    (hermes/open path')))
+
+(defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
+  (.close svc))
 
 (defmethod ig/init-key :wales.nhs/nadex
   [_ params]
@@ -186,13 +129,6 @@
   [_ config]
   (log/info "registering login providers:" (keys (:providers config)))
   config)
-
-(defmethod ig/init-key :com.eldrix/hermes [_ {:keys [data k]}]
-  (log/info "opening hermes from " k)
-  (hermes/open (data k)))
-
-(defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
-  (.close svc))
 
 (defmethod ig/init-key :wales.nhs.cavuhb/pms [_ config]
   config)
