@@ -91,37 +91,48 @@
 (def nav-bar
   {:enter (fn [ctx] (assoc ctx :component (navigation-bar ctx)))})
 
+
+(defn split-pseudonym [s]
+  (->> (partition-all 4 s)
+       (map #(apply str %))
+       (str/join "-")))
+
 (def view-patient-page
   {:eql
    (fn [req]                                                ;; we view patient using :patient-id or  a combination of :project-id and :pseudonym
-     {:pathom/entity (if-let [patient-id (some-> (get-in req [:path-params :patient-id]) parse-long)]
-                       {:t_patient/patient_identifier patient-id}
-                       {:t_patient/project_pseudonym [(some-> (get-in req [:path-params :project-id]) parse-long)
-                                                      (get-in req [:path-params :pseudonym])]})
-      :pathom/eql    [:t_patient/id :t_patient/patient_identifier
-                      :t_patient/title :t_patient/first_names :t_patient/last_name
-                      :t_patient/date_birth :t_patient/date_death :t_patient/current_age
-                      :t_patient/status
-                      {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/postcode]}
-                      :t_patient/surgery
-                      {:t_patient/hospitals [:t_patient_hospital/patient_identifier :t_patient_hospital/hospital]}]})
+     (let [patient-id (some-> (get-in req [:path-params :patient-id]) parse-long)
+           project-id (some-> (get-in req [:path-params :project-id]) parse-long)
+           pseudonym (get-in req [:path-params :pseudonym])]
+       {:pathom/entity (if patient-id
+                         {:t_patient/patient_identifier patient-id}
+                         {:t_patient/project_pseudonym [project-id pseudonym]})
+        :pathom/eql    [:t_patient/id :t_patient/patient_identifier :t_patient/sex
+                        :t_patient/title :t_patient/first_names :t_patient/last_name
+                        :t_patient/date_birth :t_patient/date_death :t_patient/current_age
+                        :t_patient/status
+                        {(list :t_patient/episodes {:t_project/id project-id}) [:t_episode/stored_pseudonym :t_episode/status]}
+                        {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/postcode]}
+                        :t_patient/surgery
+                        {:t_patient/hospitals [:t_patient_hospital/patient_identifier :t_patient_hospital/hospital]}]}))
    :enter
-   (fn [{{:t_patient/keys [patient_identifier status nhs_number last_name first_names title current_age date_birth date_death address] :as patient} :result, :as ctx}]
+   (fn [{{:t_patient/keys [patient_identifier status nhs_number last_name first_names sex title current_age date_birth date_death address episodes] :as patient} :result, :as ctx}]
      (log/info {:name :view-patient-page :patient patient})
      (if-not patient_identifier
        ctx
-       (assoc ctx :component
-                  (page [:<>
-                         (navigation-bar ctx)
-                         (ui.patient/patient-banner
-                           {:patient-name (str last_name ", " (str/join " " [title first_names]))
-                            :born         date_birth
-                            :approximate  (= :PSEUDONYMOUS status)
-                            :age          current_age
-                            :nhs-number   nhs_number
-                            :address      (str/join ", " (remove str/blank? [(:t_address/address1 address) (:t_address/address2 address)
-                                                                             (:t_address/address3 address) (:t_address/postcode address)]))
-                            :deceased     date_death})]))))})
+       (let [pseudonymous (= :PSEUDONYMOUS status)]
+         (assoc ctx :component
+                    (page [:<>
+                           (navigation-bar ctx)
+                           (ui.patient/patient-banner
+                             {:patient-name (if pseudonymous (name sex) (str last_name ", " (str/join " " [title first_names])))
+                              :born         date_birth
+                              :approximate  pseudonymous
+                              :age          current_age
+                              :nhs-number   nhs_number
+                              :address      (if pseudonymous (split-pseudonym (some :t_episode/stored_pseudonym (reverse episodes)))
+                                                             (str/join ", " (remove str/blank? [(:t_address/address1 address) (:t_address/address2 address)
+                                                                                                (:t_address/address3 address) (:t_address/postcode address)])))
+                              :deceased     date_death})])))))})
 
 (def view-patient-demographics
   {:enter

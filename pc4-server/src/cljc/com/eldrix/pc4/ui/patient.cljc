@@ -1,5 +1,6 @@
 (ns com.eldrix.pc4.ui.patient
-  (:require [com.eldrix.pc4.ui.misc :as misc]
+  (:require [clojure.string :as str]
+            [com.eldrix.pc4.ui.misc :as misc]
             [rum.core :as rum])
   (:import (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
@@ -35,7 +36,7 @@
                           (boolean? deceased) "Deceased"
                           :else deceased)})])
      [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
-      (when name [:div.font-bold.text-lg.min-w-min patient-name])
+      (when patient-name (if (> (count patient-name) 20) [:div.font-bold.text-sm.min-w-min patient-name] [:div.font-bold.text-lg.min-w-min patient-name]))
       [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min
        (when gender [:span [:span.text-sm.font-thin.sm:inline "Gender "] [:span.font-bold gender]])]
       [:div.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min
