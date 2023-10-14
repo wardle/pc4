@@ -212,7 +212,7 @@
    (fn [req]
      (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
            pseudonym (or (get-in req [:params :pseudonym]) (get-in req [:params "pseudonym"]))]
-       (log/debug {:find-patient {:project-id project-id :pseudonym pseudonym}})
+       (log/debug {:find-patient--eql {:project-id project-id :pseudonym pseudonym}})
        (into [{[:t_project/id project-id]                   ;; query current project
                [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}]
              (when pseudonym                                ;; but when we have a pseudonym, also
@@ -229,11 +229,10 @@
            project (get result [:t_project/id project-id])
            pseudonym (get-in ctx [:request :params "pseudonym"])
            patient (get-in result ['pc4.rsdb/search-patient-by-pseudonym])
-           submit? (some-> (get-in ctx [:request :params "submit"]) parse-boolean)
            view-patient-url (when patient (r/match->path (r/match-by-name! router :get-pseudonymous-patient
-                                                                           {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})
-                                                         {:pseudonym pseudonym}))]
-       (if (and patient view-patient-url submit?)           ;; if we have a submit, just redirect to patient record
+                                                                           {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})))]
+       (log/debug {:find-patient--enter {:project-id project-id :patient patient :view-patient-url view-patient-url :hx-request? hx-request? :hx-boosted? hx-boosted? :submit? submit? :params (:params request)}})
+       (if (and (not= "search-result" (get-in request [:headers "hx-target"])) patient view-patient-url) ;; if we have a submit, just redirect to patient record
          (assoc ctx :response (redirect view-patient-url))
          (assoc ctx :component
                     (if (or (not hx-request?) hx-boosted?)  ;; show full page for non HTMX request, or boosted
@@ -245,10 +244,9 @@
                                                   :selected-id :find-patient})]
                               [:div.col-span-5.p-6
                                [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}
-                                [:input {:type "hidden" :name "submit" :value "true"}]
                                 [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
                                 (ui.project/project-search-pseudonymous
-                                  {:hx-get        (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
+                                  {:hx-post       (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
                                    :hx-trigger    "keyup changed delay:200ms, search"
                                    :hx-target     "#search-result"
                                    :name          "pseudonym"
@@ -259,9 +257,7 @@
                        (when patient
                          [:div.px-4.py-5.sm:p-6
                           [:h3.text-lg.leading-6.font-medium.text-gray-900
-                           (str (name (:t_patient/sex patient))
-                                " "
-                                "born: " (.getYear (:t_patient/date_birth patient)))]
+                           (str (name (:t_patient/sex patient)) " " "born: " (.getYear (:t_patient/date_birth patient)))]
                           [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
                            [:div.max-w-xl.text-sm.text-gray-500
                             [:p (:t_episode/stored_pseudonym patient)]]
@@ -288,7 +284,7 @@
                             [:div.col-span-5.p-6
                              (if-not (:t_project/pseudonymous project) ;; at the moment, we only support pseudonymous registration
                                (ui.misc/box-error-message {:title   "Not yet supported"
-                                                           :message "Only pseudonymous patient registration is currently supported."})
+                                                           :message "Only pseudonymous patient registration is currently supported but this project uses non-pseudonymous data."})
                                [:h1 "Register patient"])]]])))))})
 
 
