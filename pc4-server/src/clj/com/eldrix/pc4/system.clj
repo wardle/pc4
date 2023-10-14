@@ -1,9 +1,12 @@
 (ns com.eldrix.pc4.system
   "Composes building blocks into a system using aero, integrant and pathom."
   (:require [aero.core :as aero]
+            [buddy.core.codecs :as codecs]
+            [buddy.core.hash :as hash]
             [clojure.core.server]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
@@ -16,39 +19,108 @@
             [com.eldrix.pc4.filestorage :as fstore]
             [com.eldrix.pc4.rsdb :as rsdb]
             [com.eldrix.pc4.rsdb.migrations :as migrations]
+            [com.eldrix.zipf :as zipf]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [integrant.core :as ig]
             [next.jdbc.connection :as connection])
-
   (:import (com.zaxxer.hikari HikariDataSource)
+           (java.io File)
            (java.time Duration LocalDate)))
 
-(defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [path]}]
-  (log/info "opening nhspd index from " path)
-  (nhspd/open-index path))
+;;
+;; pc4 data bootstrap
+;;
+
+(defn save-pc4-remote
+  "Makes local data available through remote storage services.
+  Creates a zip file of the data.
+  Parameters:
+  - local-dir : anything coercible by [[clojure.java.io/file]] for local storage
+  - k         : key (filename)
+  - remote-fn : a function to send a file to remote storage"
+  [local-dir k remote-fn]
+  (let [f (io/file local-dir k)]
+    (when-not (.exists f)
+      (throw (ex-info (str "no datafile found: " k) {:local-dir local-dir :key k})))
+    (when-not (.isDirectory f)
+      (throw (ex-info (str "not a directory: " k) {:local-dir local-dir :key k})))
+    (let [zipped (zipf/zipf f)]
+      (remote-fn zipped))))
+
+(defn load-pc4-data
+  "Returns a string representation of a file path for an index for the service
+  specified from either local or remote storage.
+  If the data can be found in the local-dir, then it will be returned. If not,
+  then remote storage will be checked.
+
+  Parameters:
+  - local-dir : anything coercible by [[clojure.java.io/file]] for local storage
+  - k         : key (filename)
+  - remote-fn : a function that will return a File. Can be nil"
+  [local-dir k remote-fn]
+  (let [f (io/file local-dir k)]
+    (if (.exists f)
+      (.getAbsolutePath f)
+      (if remote-fn
+        (do
+          (log/info "downloading" k "from remote storage as not found locally")
+          (if-let [from-remote (remote-fn)]
+            (do
+              (zipf/unzip (.toPath from-remote) (.toPath (io/file local-dir)))
+              (if (.exists f)
+                (.getAbsolutePath f)
+                (throw (ex-info "incorrect data from remote storage " {:expected f}))))
+            (throw (ex-info (str k " does not exist in local or remote storage") {:k k}))))
+        (throw (ex-info (str k " does not exist in local storage, and no remote storage configured") {:k k}))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmethod ig/init-key :com.eldrix.pc4/data [_ {:keys [local remote] :as config}]
+  (when-not local
+    (throw (ex-info "invalid configuration for pc4 data service: missing 'local'" config)))
+  (let [remote-store (when remote (com.eldrix.pc4.filestorage/make-file-store remote))]
+    (log/info "registering pc4 services using data:"
+              {:local local, :remote (when remote (select-keys remote [:kind :region :bucket-name]))})
+    (with-meta                                              ;; return a function to get a data index given a 'key' (filename)
+      (fn [k]                                               ;; that will look to a remote store if index cannot be found locally
+        (load-pc4-data local k (when remote-store #(:f (com.eldrix.pc4.filestorage/get-object remote-store k)))))
+      (cond-> (assoc config :save->remote-fn
+                            (fn [k] (save-pc4-remote local k
+                                                     #(com.eldrix.pc4.filestorage/put-object remote-store k {:content-type "application/zip"
+                                                                                                             :f %}))))
+        remote-store (assoc :store remote-store)))))
+
+(defmethod ig/halt-key! :com.eldrix.pc4/data [_ f]
+  (when-let [store (:store (meta f))]
+    (com.eldrix.pc4.filestorage/close store)))
+
+(defmethod ig/init-key :com.eldrix/nhspd [_ {:keys [data k]}]
+  (log/info "opening nhspd index " k)
+  (nhspd/open-index (data k)))
 
 (defmethod ig/halt-key! :com.eldrix/nhspd [_ nhspd]
   (.close nhspd))
 
-(defmethod ig/init-key :com.eldrix/clods [_ {:keys [path nhspd]}]
-  (log/info "opening clods index from " path)
-  (clods/open-index {:ods-dir path :nhspd nhspd}))
+(defmethod ig/init-key :com.eldrix/clods [_ {:keys [data k nhspd]}]
+  (log/info "opening clods index from " k)
+  (clods/open-index {:ods-dir (data k) :nhspd nhspd}))
 
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
 
-(defmethod ig/init-key :com.eldrix/ods-weekly [_ {path :path}]
-  (if path
-    (do (log/info "opening ods-weekly from " path)
-        (odsweekly/open-index path))
+(defmethod ig/init-key :com.eldrix/ods-weekly [_ {:keys [data k]}]
+  (if k
+    (do (log/info "opening ods-weekly from " k)
+        (odsweekly/open-index (data k)))
     (log/info "skipping ods-weekly; no path specified")))
 
-(defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [path]}]
-  (log/info "opening deprivare index: " path)
-  (let [svc (deprivare/open path)]
-    svc))
+(defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [data k]}]
+  (log/info "opening deprivare index: " k)
+  (deprivare/open (data k)))
 
 (defmethod ig/halt-key! :com.eldrix/deprivare [_ svc]
   (deprivare/close svc))
@@ -56,9 +128,9 @@
 (defmethod ig/init-key :com.eldrix.deprivare/ops [_ svc]
   (com.eldrix.deprivare.graph/make-all-resolvers svc))
 
-(defmethod ig/init-key :com.eldrix/dmd [_ {:keys [path]}]
-  (log/info "opening UK NHS dm+d index: " path)
-  (dmd/open-store path))
+(defmethod ig/init-key :com.eldrix/dmd [_ {:keys [data k]}]
+  (log/info "opening UK NHS dm+d index: " k)
+  (dmd/open-store (data k)))
 
 (defmethod ig/halt-key! :com.eldrix/dmd [_ dmd]
   (.close dmd))
@@ -115,9 +187,9 @@
   (log/info "registering login providers:" (keys (:providers config)))
   config)
 
-(defmethod ig/init-key :com.eldrix/hermes [_ {:keys [path]}]
-  (log/info "opening hermes from " path)
-  (hermes/open path))
+(defmethod ig/init-key :com.eldrix/hermes [_ {:keys [data k]}]
+  (log/info "opening hermes from " k)
+  (hermes/open (data k)))
 
 (defmethod ig/halt-key! :com.eldrix/hermes [_ svc]
   (.close svc))
@@ -152,8 +224,8 @@
 
 (defmethod ig/init-key :com.eldrix.pc4/filestorage [_ {:keys [link-duration retention-duration] :as config}]
   (let [config' (cond-> config
-                        link-duration (assoc :link-duration (Duration/parse link-duration))
-                        retention-duration (assoc :retention-duration (Duration/parse retention-duration)))]
+                  link-duration (assoc :link-duration (Duration/parse link-duration))
+                  retention-duration (assoc :retention-duration (Duration/parse retention-duration)))]
     (log/info "registering filestore service" (select-keys config' [:kind :region :bucket-name :dir :link-duration :retention-duration]))
 
     (com.eldrix.pc4.filestorage/make-file-store config')))
@@ -180,7 +252,6 @@
 
 (defmethod ig/halt-key! :repl/server [_ {:keys [server-name]}]
   (clojure.core.server/stop-server server-name))
-
 
 (defmethod aero/reader 'ig/ref [_ _ x]
   (ig/ref x))
@@ -396,8 +467,10 @@
                                                                   :nhs-number "3333333333"
                                                                   :date-birth (LocalDate/of 1975 5 1)})
   (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
-  (com.eldrix.pc4.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password"))
+  (com.eldrix.pc4.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password")
 
 
 
 
+  (comment
+    (config :dev)))
