@@ -68,14 +68,14 @@
    (fn [req]
      (let [user (get-in req [:session :authenticated-user])]
        {:pathom/entity user
-        :pathom/eql    [{(list :t_user/roles {:active-roles true})
+        :pathom/eql    [{:t_user/active_projects
                          [:t_project/id :t_project_user/id :t_project_user/active? :t_project/active?
                           :t_project/name :t_project/title :t_project/type]}
                         :t_user/latest_news]}))
    :enter
    (fn [ctx]
      (let [router (get-in ctx [:request ::r/router])
-           active-projects (get-in ctx [:result :t_user/roles])
+           active-projects (get-in ctx [:result :t_user/active_projects])
            latest-news (get-in ctx [:result :t_user/latest_news])]
        (assoc ctx
          :component
