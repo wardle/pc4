@@ -37,7 +37,9 @@
   com.github.seancorfield/honeysql     {:mvn/version "2.4.1078"}
   com.github.seancorfield/next.jdbc    {:mvn/version "1.3.894"}
   com.teknql/shadow-cljs-tailwind-jit  {:mvn/version "1.0.0"}
-  com.wsscode/pathom3                  {:mvn/version "2023.08.22-alpha"}
+  ;com.wsscode/pathom3                  {:mvn/version "2023.08.22-alpha"}
+  com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
+                                        :git/sha "370065d60032f28d532d0a46f2139d336a442b76"}
   com.zaxxer/HikariCP                  {:mvn/version "5.0.1"}
   day8.re-frame/http-fx                {:mvn/version "0.2.4"}
 
