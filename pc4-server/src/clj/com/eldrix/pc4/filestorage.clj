@@ -1,11 +1,9 @@
 (ns com.eldrix.pc4.filestorage
   "File archival and temporary file storage.
-
-
-
-  Abstract temporary file storage for reports or data extracts that are
-  generated asynchronously, stored and made available for later download with
-  provision for subsequent clean-up. There are two concrete implementations
+  Abstract file storage for data files, reports or extracts. For example, pc4
+  uses this for remote storage of pc4 data files as well as asynchronously
+  generated extracts and reports, stored and made available for later download
+  with provision for subsequent clean-up. There are two concrete implementations
   (AWS S3 or local filesystem) which are available through dynamic
   configuration. The choice will depend on deployment target (e.g. on an NHS
   intranet, local filesystem will have to be used)."
@@ -23,7 +21,7 @@
            (software.amazon.awssdk.core.sync RequestBody)
            (software.amazon.awssdk.regions Region)
            (software.amazon.awssdk.services.s3 S3Client)
-           (software.amazon.awssdk.services.s3.model Delete DeleteObjectsRequest GetObjectRequest GetObjectResponse ListObjectsV2Request ObjectIdentifier PutObjectRequest S3Object)
+           (software.amazon.awssdk.services.s3.model Delete DeleteObjectsRequest GetObjectRequest GetObjectResponse ListObjectsV2Request NoSuchKeyException ObjectIdentifier PutObjectRequest S3Object)
            (software.amazon.awssdk.services.s3.presigner S3Presigner)
            (software.amazon.awssdk.services.s3.presigner.model GetObjectPresignRequest)))
 
@@ -32,7 +30,6 @@
 (s/def ::f any?)
 (s/def ::content-type string?)
 (s/def ::object (s/keys :req-un [::f ::content-type]))
-
 
 (defprotocol FileStorage
   :extend-via-metadata true
@@ -127,18 +124,20 @@
 
 (defn- s3-get-object
   [^S3Client s3 ^String bucket-name ^String k]
-  (let [req (-> (GetObjectRequest/builder)
-                (.bucket bucket-name)
-                (.key k)
-                (.build))
-        f (File/createTempFile k ".tmp")
-        is (.getObject s3 ^GetObjectRequest req)
-        metadata (edn/read-string (get (.metadata ^GetObjectResponse (.response is)) "metadata"))
-        response-data (s3->map (.response is))]
-    (try (io/copy is f)
-         (-> (merge response-data metadata)
-             (assoc :f f))
-         (finally (.close is)))))
+  (try
+    (let [req (-> (GetObjectRequest/builder)
+                  (.bucket bucket-name)
+                  (.key k)
+                  (.build))
+          f (File/createTempFile k ".tmp")
+          is (.getObject s3 ^GetObjectRequest req)
+          metadata (edn/read-string (get (.metadata ^GetObjectResponse (.response is)) "metadata"))
+          response-data (s3->map (.response is))]
+      (try (io/copy is f)
+           (-> (merge response-data metadata)
+               (assoc :f f))
+           (finally (.close is))))
+    (catch NoSuchKeyException _ nil)))
 
 (defn- s3-delete-objects
   "Delete objects from the bucket with keys `ks`."
@@ -244,7 +243,8 @@
       :s3
       (->S3FileStorage (s3-client config) (s3-presigner config) bucket-name link-duration' retention-duration')
       :local
-      (->LocalFileStorage dir link-duration' retention-duration'))))
+      (->LocalFileStorage dir link-duration' retention-duration')
+      (throw (ex-info "unknown file store type" config)))))
 
 
 (defn make-secure-random-key
@@ -254,7 +254,7 @@
 
 (comment
   (require '[com.eldrix.pc4.system :as pc4])
-  (def config (:com.eldrix.pc4/filestorage (pc4/config :dev :jupiter)))
+  (def config (:com.eldrix.pc4/filestorage (pc4/config :dev)))
   (def s3 (s3-client config))
   (def s3ps (s3-presigner config))
   (s3-list-objects s3 "patientcare4")
@@ -262,6 +262,7 @@
   (s3-delete-objects s3 "patientcare4" (map :Key (s3-list-objects s3 "patientcare4")))
 
   (s3-put-object s3 "patientcare4" "README.md" {:f "README.md" :content-type "text/plain" :hi 1})
+  (s3-get-object s3 "patientcare4" "README.md")
   (s3-put-object s3 "patientcare4" "wibble.md" {:f "README.md"})
   (s3-put-object s3 "patientcare4" "deps.edn" {:f "deps.edn" :content-type "text/plain" :hi 2})
   (s3-presigned-url s3 "patientcare4" "README.md")
