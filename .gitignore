@@ -5,6 +5,7 @@
 *.log
 .lsp
 .calva
+/data/
 /pc4-client/out
 /pc4-server/.clj-kondo
 /pc4-server/*.csv
