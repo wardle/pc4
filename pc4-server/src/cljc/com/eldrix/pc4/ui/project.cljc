@@ -70,6 +70,6 @@
        [:div.mt-4
         [:label.sr-only {:for "pseudonym"} "Pseudonym"]
         [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-         (merge {:type        "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true} attrs)]]
+         (merge {:type        "text" :name "pseudonym" :placeholder "Start typing pseudonym" :autofocus true} attrs)]]
        (when content
          [:<> content])]]]]])
