@@ -45,23 +45,23 @@
     (ui.user/nav-bar
       (cond-> {:id    "nav-bar"
                :title {:s "PatientCare" :attrs {:href (r/match->path (r/match-by-name! router :home))}}}
-              authenticated-user
-              (assoc :user {:full-name  (:t_user/full_name authenticated-user)
-                            :initials   (:t_user/initials authenticated-user)
-                            :attrs      {:hx-get    (r/match->path (r/match-by-name! router :nav-bar) {:show-user-menu (not show-user-menu?)})
-                                         :hx-target "#nav-bar" :hx-swap "outerHTML"}
-                            :photo      (when (:t_user/has_photo authenticated-user) {:src (r/match->path (r/match-by-name! router :get-user-photo {:system "patientcare.app" :value (:t_user/username authenticated-user)}))})
-                            :menu-open? show-user-menu?
-                            :menu       [{:id    :about
-                                          :title (:t_user/job_title authenticated-user)}
-                                         {:id    :view-profile
-                                          :title "My profile"
-                                          :attrs {:href (r/match->path (r/match-by-name! router :get-user {:user-id (:t_user/id authenticated-user)}))}}
-                                         {:id    :logout :title "Logout"
-                                          :attrs {:hx-post     (r/match->path (r/match-by-name router :logout))
-                                                  :hx-push-url "true"
-                                                  :hx-target   "body"
-                                                  :hx-vals     (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]})))))
+        authenticated-user
+        (assoc :user {:full-name  (:t_user/full_name authenticated-user)
+                      :initials   (:t_user/initials authenticated-user)
+                      :attrs      {:hx-get    (r/match->path (r/match-by-name! router :nav-bar) {:show-user-menu (not show-user-menu?)})
+                                   :hx-target "#nav-bar" :hx-swap "outerHTML"}
+                      :photo      (when (:t_user/has_photo authenticated-user) {:src (r/match->path (r/match-by-name! router :get-user-photo {:system "patientcare.app" :value (:t_user/username authenticated-user)}))})
+                      :menu-open? show-user-menu?
+                      :menu       [{:id    :about
+                                    :title (:t_user/job_title authenticated-user)}
+                                   {:id    :view-profile
+                                    :title "My profile"
+                                    :attrs {:href (r/match->path (r/match-by-name! router :get-user {:user-id (:t_user/id authenticated-user)}))}}
+                                   {:id    :logout :title "Logout"
+                                    :attrs {:hx-post     (r/match->path (r/match-by-name router :logout))
+                                            :hx-push-url "true"
+                                            :hx-target   "body"
+                                            :hx-vals     (str "{\"__anti-forgery-token\" : \"" (get-in ctx [:request ::csrf/anti-forgery-token]) "\"}")}}]})))))
 
 (def home-page
   {:eql
@@ -104,8 +104,7 @@
                       :t_patient/status
                       {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/postcode]}
                       :t_patient/surgery
-                      {:t_patient/hospitals [:t_patient_hospital/patient_identifier
-                                             :t_patient_hospital/hospital]}]})
+                      {:t_patient/hospitals [:t_patient_hospital/patient_identifier :t_patient_hospital/hospital]}]})
    :enter
    (fn [{{:t_patient/keys [patient_identifier status nhs_number last_name first_names title current_age date_birth date_death address] :as patient} :result, :as ctx}]
      (log/info {:name :view-patient-page :patient patient})
@@ -142,41 +141,43 @@
 (defn project-menu [ctx {:keys [project-id title selected-id]}]
   (let [router (get-in ctx [:request ::r/router])
         content (fn [s] (vector :span.truncate s))]
-    (ui.misc/vertical-navigation
-      {:selected-id selected-id
-       :items       [{:id      :home
-                      :icon    (ui.misc/icon-home)
-                      :content (content (or title "Home"))
-                      :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id project-id}))}}
-                     {:id      :find-patient
-                      :icon    (ui.misc/icon-magnifying-glass)
-                      :content (content "Find patient")
-                      :attrs   {:href (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}}
-                     {:id      :register-patient
-                      :icon    (ui.misc/icon-plus-circle)
-                      :content (content "Register patient")
-                      :attrs   {:href (r/match->path (r/match-by-name! router :register-patient {:project-id project-id}))}}
-                     {:id      :team
-                      :icon    (ui.misc/icon-team)
-                      :content (content "Team")
-                      :attrs   {:href (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))}}
-                     {:id      :reports
-                      :icon    (ui.misc/icon-reports)
-                      :content (content "Downloads")}]
-       :sub-menu
-       (case selected-id
-         :team {:title "Team"
-                :items [{:id      :filter
-                         :content (let [url (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))]
-                                    [:form {:method "post" :url url :hx-post url :hx-trigger "change" :hx-target "#list-users"}
-                                     [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
-                                     [:select.w-full.p-2.border
-                                      {:name "active"}
-                                      [:option {:value "active"} "Active"] [:option {:value "inactive"} "Inactive"] [:option {:value "all"} "All users"]]
-                                     [:input.border.p-2.w-full
-                                      {:type    "search" :name "search" :placeholder "Search..."
-                                       :hx-post url :hx-trigger "keyup changed delay:500ms"}]])}]}
-         {})})))
+    [:<>
+     [:div.px-2.py-1.font-bold title]
+     (ui.misc/vertical-navigation
+       {:selected-id selected-id
+        :items       [{:id      :home
+                       :icon    (ui.misc/icon-home)
+                       :content (content "Home")
+                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id project-id}))}}
+                      {:id      :find-patient
+                       :icon    (ui.misc/icon-magnifying-glass)
+                       :content (content "Find patient")
+                       :attrs   {:href (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}}
+                      {:id      :register-patient
+                       :icon    (ui.misc/icon-plus-circle)
+                       :content (content "Register patient")
+                       :attrs   {:href (r/match->path (r/match-by-name! router :register-patient {:project-id project-id}))}}
+                      {:id      :team
+                       :icon    (ui.misc/icon-team)
+                       :content (content "Team")
+                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))}}
+                      {:id      :reports
+                       :icon    (ui.misc/icon-reports)
+                       :content (content "Downloads")}]
+        :sub-menu
+        (case selected-id
+          :team {:title "Team"
+                 :items [{:id      :filter
+                          :content (let [url (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))]
+                                     [:form {:method "post" :url url :hx-post url :hx-trigger "change" :hx-target "#list-users"}
+                                      [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
+                                      [:select.w-full.p-2.border
+                                       {:name "active"}
+                                       [:option {:value "active"} "Active"] [:option {:value "inactive"} "Inactive"] [:option {:value "all"} "All users"]]
+                                      [:input.border.p-2.w-full
+                                       {:type    "search" :name "search" :placeholder "Search..."
+                                        :hx-post url :hx-trigger "keyup changed delay:500ms"}]])}]}
+          {})})]))
 
 
 (def view-project-home
@@ -197,56 +198,55 @@
        (if-not project
          ctx
          (let [project* (cond-> project
-                                (:t_project/parent_project project) ;; add a URL for parent project based on project-id
-                                (assoc-in [:t_project/parent_project :t_project/url] (r/match->path (r/match-by-name! router :get-project {:project-id (get-in project [:t_project/parent_project :t_project/id])}))))]
+                          (:t_project/parent_project project) ;; add a URL for parent project based on project-id
+                          (assoc-in [:t_project/parent_project :t_project/url] (r/match->path (r/match-by-name! router :get-project {:project-id (get-in project [:t_project/parent_project :t_project/id])}))))]
            (assoc ctx :component
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
-                               [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
-                                (project-menu ctx {:project-id id :title "Home" :selected-id :home})]]
+                               (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :home})]
                               [:div.col-span-5.p-6
                                (ui.project/project-home project*)]]]))))))})
 (def find-patient
   {:eql
    (fn [req]
      (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
-           pseudonym (get-in req [:params :pseudonym])]
-       (when (and project-id pseudonym)
-         [{(list :>/project {:t_project/id project-id})       ;; query current project
-           [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}
-          {(list 'pc4.rsdb/search-patient-by-pseudonym        ;; and perform pseudonymous search
-                 {:project-id project-id, :pseudonym  pseudonym})
-           [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth
-            :t_patient/date_death :t_episode/stored_pseudonym :t_episode/project_fk]}])))
+           pseudonym (or (get-in req [:params :pseudonym]) (get-in req [:params "pseudonym"]))]
+       (log/debug {:find-patient {:project-id project-id :pseudonym pseudonym}})
+       (into [{[:t_project/id project-id]                   ;; query current project
+               [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}]
+             (when pseudonym                                ;; but when we have a pseudonym, also
+               [{(list 'pc4.rsdb/search-patient-by-pseudonym ;; ... perform pseudonymous search
+                       {:project-id project-id, :pseudonym pseudonym})
+                 [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth
+                  :t_patient/date_death :t_episode/stored_pseudonym :t_episode/project_fk]}]))))
    :enter
    (fn [{:keys [result request] :as ctx}]
      (let [router (get-in ctx [:request ::r/router])
            hx-request? (parse-boolean (or (get-in request [:headers "hx-request"]) "false"))
            hx-boosted? (parse-boolean (or (get-in request [:headers "hx-boosted"]) "false"))
            project-id (some-> (get-in request [:path-params :project-id]) parse-long)
-           project-title (get-in result [:>/project :t_project/title])
-           pseudonym (get-in ctx [:request :params :pseudonym])
+           project (get result [:t_project/id project-id])
+           pseudonym (get-in ctx [:request :params "pseudonym"])
            patient (get-in result ['pc4.rsdb/search-patient-by-pseudonym])
-           submit? (some-> (get-in ctx [:request :params :submit]) parse-boolean)
+           submit? (some-> (get-in ctx [:request :params "submit"]) parse-boolean)
            view-patient-url (when patient (r/match->path (r/match-by-name! router :get-pseudonymous-patient
                                                                            {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})
                                                          {:pseudonym pseudonym}))]
-       (println {:find-patient {:patient patient :url view-patient-url :submit submit? :params (:params (:request ctx))}})
-       (if (and patient view-patient-url submit?) ;; if we have a submit, just redirect to patient record
+       (if (and patient view-patient-url submit?)           ;; if we have a submit, just redirect to patient record
          (assoc ctx :response (redirect view-patient-url))
          (assoc ctx :component
-                    (if (or (not hx-request?) hx-boosted?)    ;; show full page for non HTMX request, or boosted
+                    (if (or (not hx-request?) hx-boosted?)  ;; show full page for non HTMX request, or boosted
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
-                               [:<> [:div.px-2.py-1.font-bold project-title]
-                                (project-menu ctx {:project-id  project-id
-                                                   :title       "Home"
-                                                   :selected-id :find-patient})]]
+                               (project-menu ctx {:project-id  project-id
+                                                  :title       (:t_project/title project)
+                                                  :selected-id :find-patient})]
                               [:div.col-span-5.p-6
                                [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}
                                 [:input {:type "hidden" :name "submit" :value "true"}]
+                                [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
                                 (ui.project/project-search-pseudonymous
                                   {:hx-get        (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
                                    :hx-trigger    "keyup changed delay:200ms, search"
@@ -270,8 +270,6 @@
                              (ui.misc/action-button {} "View patient record")]]]])])))))})
 
 
-
-
 (def register-patient
   {:eql (fn [req]
           {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
@@ -286,8 +284,7 @@
                     (page [:<> (navigation-bar ctx)
                            [:div.grid.grid-cols-1.md:grid-cols-6
                             [:div.col-span-1.pt-6
-                             [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
-                              (project-menu ctx {:project-id id :title "Home" :selected-id :register-patient})]]
+                             (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :register-patient})]
                             [:div.col-span-5.p-6
                              (if-not (:t_project/pseudonymous project) ;; at the moment, we only support pseudonymous registration
                                (ui.misc/box-error-message {:title   "Not yet supported"
@@ -328,8 +325,7 @@
                                  (misc/breadcrumb-item {:href "#"} "Team"))
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
-                               [:<> [:div.px-2.py-1.font-bold (:t_project/title project)]
-                                (project-menu ctx (merge (:params request) {:project-id id :title "Home" :selected-id :team}))]]
+                               (project-menu ctx (merge (:params request) {:project-id id :title (:t_project/title project) :selected-id :team}))]
                               [:div#list-users.col-span-5.p-6
                                (ui.project/project-users users')]]]))))))})
 
@@ -349,8 +345,8 @@
              project-id (some-> (get-in request [:path-params :project-id]) parse-long)
              router (::r/router request)
              user' (cond-> user
-                           is-system
-                           (assoc :impersonate-user-url (r/match->path (r/match-by-name! router :impersonate-user {:user-id (:t_user/id user)}))))]
+                     is-system
+                     (assoc :impersonate-user-url (r/match->path (r/match-by-name! router :impersonate-user {:user-id (:t_user/id user)}))))]
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.container.mx-auto.px-4.sm:px-6.lg:px-8
