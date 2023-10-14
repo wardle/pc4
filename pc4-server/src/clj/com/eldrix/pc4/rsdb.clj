@@ -420,7 +420,7 @@
   {:t_address/housing (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->episodes
-  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
+  [{conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
                                        :t_episode/date_referral
                                        :t_episode/date_registration
@@ -434,14 +434,22 @@
                                        :t_episode/registration_user_fk
                                        :t_episode/stored_pseudonym
                                        :t_episode/external_identifier]}]}
-  {:t_patient/episodes (->> (jdbc/execute! conn (sql/format {:select   [:*]
-                                                             :from     [:t_episode]
-                                                             :where    [:= :patient_fk patient-pk]
-                                                             :order-by [[:t_episode/date_registration :asc]
-                                                                        [:t_episode/date_referral :asc]
-                                                                        [:t_episode/date_discharge :asc]]}))
-                            (mapv #(assoc % :t_episode/status (projects/episode-status %)
-                                            :t_episode/project {:t_project/id (:t_episode/project_fk %)})))})
+  {:t_patient/episodes
+   (let [project-id-or-ids (:t_project/id (pco/params env))]
+     (->> (jdbc/execute! conn (sql/format {:select   [:*]
+                                           :from     [:t_episode]
+                                           :where    (if project-id-or-ids
+                                                       [:and
+                                                        [:= :patient_fk patient-pk]
+                                                        (if (coll? project-id-or-ids)
+                                                          [:in :project_fk project-id-or-ids]
+                                                          [:= :project_fk project-id-or-ids])]
+                                                       [:= :patient_fk patient-pk])
+                                           :order-by [[:t_episode/date_registration :asc]
+                                                      [:t_episode/date_referral :asc]
+                                                      [:t_episode/date_discharge :asc]]}))
+          (mapv #(assoc % :t_episode/status (projects/episode-status %)
+                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}))))})
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
