@@ -75,7 +75,8 @@
    :enter
    (fn [ctx]
      (let [router (get-in ctx [:request ::r/router])
-           active-projects (get-in ctx [:result :t_user/active_projects])
+           active-projects (->> (get-in ctx [:result :t_user/active_projects])
+                                (map (fn [{id :t_project/id :as p}] (assoc p :attrs {:href (r/match->path (r/match-by-name router :get-project {:project-id id}))}))))
            latest-news (get-in ctx [:result :t_user/latest_news])]
        (assoc ctx
          :component
@@ -83,9 +84,7 @@
                 (navigation-bar ctx)
                 [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
                  [:div.md:mr-2
-                  (ui.user/project-panel
-                    {:projects   active-projects
-                     :make-attrs #(hash-map :href (r/match->path (r/match-by-name router :get-project {:project-id (:t_project/id %)})))})]
+                  (ui.user/project-panel {:projects active-projects})]
                  [:div.col-span-3
                   (ui.user/list-news {:news-items latest-news})]]]))))})
 

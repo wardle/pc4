@@ -86,8 +86,10 @@
 
 
 (rum/defc project-panel
-  "A panel to show the user's own projects."
-  [{:keys [projects make-attrs]}]
+  "A panel to show the user's own projects.
+  Parameters:
+  projects : a sequence of t_project, with keys :t_project/type :t_project/title and :attrs "
+  [{:keys [projects]}]
   (let [grouped (group-by :t_project/type projects)
         has-clinical (seq (:NHS grouped))
         has-research (seq (:RESEARCH grouped))]
@@ -98,7 +100,7 @@
         [:div
          [:span.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-yellow-200.uppercase.last:mr-0.mr-1 "clinical"]]
         (for [project (sort-by :t_project/title (:NHS grouped))]
-          [:a.cursor-default (merge {:key (:t_project/id project)} (make-attrs project))
+          [:a.cursor-default (merge {:key (:t_project/id project)} (:attrs project))
            [:div.px-3.py-1.text-sm.bg-yellow-50.hover:bg-yellow-100.border
             (:t_project/title project)]])])
      (when (and has-clinical has-research)
@@ -108,7 +110,7 @@
         [:div
          [:span.mt-2.text-xs.inline-block.py-1.px-2.uppercase.bg-pink-200.uppercase.last:mr-0.mr-1 "research"]]
         (for [project (sort-by :t_project/title (:RESEARCH grouped))]
-          [:a.cursor-default (merge {:key (:t_project/id project)} (make-attrs project))
+          [:a.cursor-default (merge {:key (:t_project/id project)} (:attrs project))
            [:div.px-3.py-1.text-sm.bg-pink-50.hover:bg-pink-100.border
             (:t_project/title project)]])])]))
 
