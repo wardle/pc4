@@ -188,7 +188,12 @@
          ctx)))})
 
 (defn make-execute-eql
-  [{:keys [throw-if-missing?]}]
+  "Returns an interceptor that executes EQL from either the route data, the last
+  interceptor or :query in the context. Each can either be literal EQL, or a
+  function that will take the current request and return EQL. Result will be
+  stored in context under key :result. Will throw an exception if
+  'throw-if-missing' is true and no EQL can be found."
+  [{:keys [throw-if-missing]}]
   (fn [{conn :com.eldrix.rsdb/conn, pathom :pathom/boundary-interface, :as ctx}]
     (let [user (get-in ctx [:request :session :authenticated-user])
           env (when user (users/make-authenticated-env conn (assoc user :system "cymru.nhs.uk" :value (:t_user/username user))))
@@ -197,7 +202,7 @@
                 (:query ctx))
           q' (if (fn? q) (q (:request ctx)) q)]
       (if q' (assoc ctx :result (pathom env q'))
-             (if throw-if-missing?
+             (if throw-if-missing
                (throw (ex-info "Missing query in context" ctx))
                ctx)))))
 
@@ -207,12 +212,12 @@
   chain under key :eql. Each can either be EQL directly, or a function that will
   take the current request and return EQL. The result will be added to the
   context in the :result key."
-  {:enter (make-execute-eql {:throw-if-missing? true})})
+  {:enter (make-execute-eql {:throw-if-missing true})})
 
 (def execute-eql-if-present
   "Executes EQL in context, but does not throw an exception if missing.
   See [[execute-eql]]."
-  {:enter (make-execute-eql {:throw-if-missing? false})})
+  {:enter (make-execute-eql {:throw-if-missing false})})
 
 (def context->tap
   "Interceptor that will simply `tap>` the context."
