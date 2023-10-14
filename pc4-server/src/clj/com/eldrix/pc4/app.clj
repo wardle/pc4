@@ -213,60 +213,63 @@
    (fn [req]
      (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
            pseudonym (get-in req [:params :pseudonym])]
-       [{(list :>/project {:t_project/id project-id})       ;; query current project
-         [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}
-        {(list 'pc4.rsdb/search-patient-by-pseudonym        ;; and perform pseudonymous search
-               {:project-id project-id
-                :pseudonym  pseudonym})
-         [:t_patient/patient_identifier
-          :t_patient/sex
-          :t_patient/date_birth
-          :t_patient/date_death
-          :t_episode/stored_pseudonym
-          :t_episode/project_fk]}]))
+       (when (and project-id pseudonym)
+         [{(list :>/project {:t_project/id project-id})       ;; query current project
+           [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}
+          {(list 'pc4.rsdb/search-patient-by-pseudonym        ;; and perform pseudonymous search
+                 {:project-id project-id, :pseudonym  pseudonym})
+           [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth
+            :t_patient/date_death :t_episode/stored_pseudonym :t_episode/project_fk]}])))
    :enter
    (fn [{:keys [result request] :as ctx}]
      (let [router (get-in ctx [:request ::r/router])
            hx-request? (parse-boolean (or (get-in request [:headers "hx-request"]) "false"))
            hx-boosted? (parse-boolean (or (get-in request [:headers "hx-boosted"]) "false"))
-           project-id (get-in result [:>/project :t_project/id])
+           project-id (some-> (get-in request [:path-params :project-id]) parse-long)
            project-title (get-in result [:>/project :t_project/title])
            pseudonym (get-in ctx [:request :params :pseudonym])
-           patient (get-in result ['pc4.rsdb/search-patient-by-pseudonym])]
-       (println (:params (:request ctx)))
-       (assoc ctx :component
-                  (if (or (not hx-request?) hx-boosted?)    ;; show full page for non HTMX request, or boosted
-                    (page [:<> (navigation-bar ctx)
-                           [:div.grid.grid-cols-1.md:grid-cols-6
-                            [:div.col-span-1.pt-6
-                             [:<> [:div.px-2.py-1.font-bold project-title]
-                              (project-menu ctx {:project-id  project-id
-                                                 :title       "Home"
-                                                 :selected-id :find-patient})]]
-                            [:div.col-span-5.p-6
-                             [:form {:method "get" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}) {:submit true})}
-                              (ui.project/project-search-pseudonymous
-                                {:hx-get        (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
-                                 :hx-trigger    "keyup changed delay:200ms, search"
-                                 :hx-target     "#search-result"
-                                 :name          "pseudonym"
-                                 :auto-complete "off"
-                                 :value         pseudonym}
-                                [:div.#search-result])]]]])
-                    [:div.bg-white.shadow.sm:rounded-lg.mt-4
-                     (when patient
-                       [:div.px-4.py-5.sm:p-6
-                        [:h3.text-lg.leading-6.font-medium.text-gray-900
-                         (str (name (:t_patient/sex patient))
-                              " "
-                              "born: " (.getYear (:t_patient/date_birth patient)))]
-                        [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
-                         [:div.max-w-xl.text-sm.text-gray-500
-                          [:p (:t_episode/stored_pseudonym patient)]]
-                         [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
-                          [:button.inline-flex.items-center.px-4.py-2.border.border-transparent.shadow-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:text-sm
-                           {:type "button"}
-                           "View patient record"]]]])]))))})
+           patient (get-in result ['pc4.rsdb/search-patient-by-pseudonym])
+           submit? (some-> (get-in ctx [:request :params :submit]) parse-boolean)
+           view-patient-url (when patient (r/match->path (r/match-by-name! router :get-pseudonymous-patient
+                                                                           {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})
+                                                         {:pseudonym pseudonym}))]
+       (println {:find-patient {:patient patient :url view-patient-url :submit submit? :params (:params (:request ctx))}})
+       (if (and patient view-patient-url submit?) ;; if we have a submit, just redirect to patient record
+         (assoc ctx :response (redirect view-patient-url))
+         (assoc ctx :component
+                    (if (or (not hx-request?) hx-boosted?)    ;; show full page for non HTMX request, or boosted
+                      (page [:<> (navigation-bar ctx)
+                             [:div.grid.grid-cols-1.md:grid-cols-6
+                              [:div.col-span-1.pt-6
+                               [:<> [:div.px-2.py-1.font-bold project-title]
+                                (project-menu ctx {:project-id  project-id
+                                                   :title       "Home"
+                                                   :selected-id :find-patient})]]
+                              [:div.col-span-5.p-6
+                               [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}
+                                [:input {:type "hidden" :name "submit" :value "true"}]
+                                (ui.project/project-search-pseudonymous
+                                  {:hx-get        (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
+                                   :hx-trigger    "keyup changed delay:200ms, search"
+                                   :hx-target     "#search-result"
+                                   :name          "pseudonym"
+                                   :auto-complete "off"
+                                   :value         pseudonym}
+                                  [:div.#search-result])]]]])
+                      [:div.bg-white.shadow.sm:rounded-lg.mt-4
+                       (when patient
+                         [:div.px-4.py-5.sm:p-6
+                          [:h3.text-lg.leading-6.font-medium.text-gray-900
+                           (str (name (:t_patient/sex patient))
+                                " "
+                                "born: " (.getYear (:t_patient/date_birth patient)))]
+                          [:div.mt-2.sm:flex.sm:items-start.sm:justify-between
+                           [:div.max-w-xl.text-sm.text-gray-500
+                            [:p (:t_episode/stored_pseudonym patient)]]
+                           [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
+                            [:a {:href view-patient-url}
+                             (ui.misc/action-button {} "View patient record")]]]])])))))})
+
 
 
 
