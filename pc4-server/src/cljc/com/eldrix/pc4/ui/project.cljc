@@ -3,7 +3,8 @@
     [clojure.string :as str]
     [com.eldrix.pc4.ui.misc :as ui.misc]
     [com.eldrix.pc4.ui.user :as ui.user]
-    [rum.core :as rum]))
+    [rum.core :as rum])
+  (:import (java.time LocalDate)))
 
 
 (rum/defc project-home
@@ -50,12 +51,12 @@
           {:title    [:a.underline.text-blue-600.hover:text-blue-800 {:href user-url} full_name]
            :subtitle job_title
            :image    (if photo-url {:url photo-url} {:content (ui.misc/avatar-14)})
-           :content [:div.flex.w-full.items-center.p-6
-                       [:p.space-x-6
-                        (when active?
-                          (for [{role :t_project_user/role} roles'
-                                :when :t_project_user/active?]
-                            (ui.user/role-badge role)))]]})))))
+           :content  [:div.flex.w-full.items-center.p-6
+                      [:p.space-x-6
+                       (when active?
+                         (for [{role :t_project_user/role} roles'
+                               :when :t_project_user/active?]
+                           (ui.user/role-badge role)))]]})))))
 
 (rum/defc project-search-pseudonymous
   [attrs & content]
@@ -70,6 +71,32 @@
        [:div.mt-4
         [:label.sr-only {:for "pseudonym"} "Pseudonym"]
         [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-         (merge {:type        "text" :name "pseudonym" :placeholder "Start typing pseudonym" :autofocus true} attrs)]]
+         (merge {:type "text" :name "pseudonym" :placeholder "Start typing pseudonym" :autofocus true} attrs)]]
        (when content
          [:<> content])]]]]])
+
+(rum/defc project-register-pseudonymous
+  [{:keys [nhs-number date-birth sex]} & content]
+  (let [max-date (LocalDate/now), min-date (.minusYears max-date 140)]
+    [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
+     [:div.px-4.py-6.sm:p-6
+      [:div.sm:space-y-5
+       [:div
+        [:h3.text-lg.leading-6.font-medium.text-gray-900 "Register pseudonymous patient"]
+        [:p.max-w-2xl.text-sm.text-gray-500 "Enter patient details. This is safe even if patient already registered. Patient identifiable information is not stored but simply used to generate a pseudonym."]]
+       [:div.mt-5.md:mt-0.md:col-span-2
+        [:div.grid.grid-cols-6.gap-6
+         [:div.col-span-6.sm:col-span-3.space-y-6
+          [:div (ui.misc/ui-textfield {:label "NHS number" :value nhs-number :auto-focus true})]
+          [:div (ui.misc/ui-local-date {:label "Date of birth" :value date-birth :min-date min-date :max-date max-date})]
+          (ui.misc/ui-select
+            {:name                "gender"
+             :value               sex
+             :required            true
+             :label               "Gender"
+             :choices             [:MALE :FEMALE :UNKNOWN]
+             :display-key         name
+             :id-key              name
+             :no-selection-string ""})]]]
+       (when content
+         [:<> content])]]]))

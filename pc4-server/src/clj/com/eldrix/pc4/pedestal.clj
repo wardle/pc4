@@ -359,14 +359,14 @@
     {:name :get-pseudonymous-patient
      :get  {:interceptors [check-authenticated render-component execute-eql app/view-patient-page]}}]
 
-   ["/app/project/:project-id/find-patient"
-    {:name :find-patient
-     :get {:interceptors [check-authenticated render-component execute-eql context->repl app/find-patient]}
-     :post {:interceptors [check-authenticated render-component execute-eql context->repl app/find-patient]}}]
+   ["/app/project/:project-id/find-pseudonymous-patient"
+    {:name :find-pseudonymous-patient
+     :get {:interceptors [check-authenticated render-component execute-eql context->repl app/find-pseudonymous-patient]}
+     :post {:interceptors [check-authenticated render-component execute-eql context->repl app/find-pseudonymous-patient]}}]
 
-   ["/app/project/:project-id/register-patient"
-    {:name :register-patient
-     :get {:interceptors [check-authenticated render-component execute-eql app/register-patient]}}]
+   ["/app/project/:project-id/register-pseudonymous-patient"
+    {:name :register-pseudonymous-patient
+     :get {:interceptors [check-authenticated render-component execute-eql app/register-pseudonymous-patient]}}]
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; //app/user

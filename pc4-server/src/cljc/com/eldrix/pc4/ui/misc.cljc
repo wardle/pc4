@@ -1,6 +1,9 @@
 (ns com.eldrix.pc4.ui.misc
   (:require [clojure.string :as str]
-            [rum.core :as rum]))
+            [rum.core :as rum])
+  (:import #?@(:clj  [(java.time LocalDate)
+                      (java.time.format DateTimeFormatter)]
+               :cljs [(goog.date Date)])))
 
 (rum/defc icon-home []
   [:svg.-ml-1.mr-3.h-6.w-6.flex-shrink-0 {:fill "none" :viewBox "0 0 24 24" :stroke-width "1.5" :stroke "currentColor" :aria-hidden "true"}
@@ -10,7 +13,7 @@
   [:svg.-ml-1.mr-3.h-6.w-6.flex-shrink-0 {:fill "none" :viewBox "0 0 24 24" :stroke-width "1.5" :stroke "currentColor" :aria-hidden "true"}
    [:path {:stroke-linecap "round" :stroke-linejoin "round" :d "M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"}]])
 
-(rum/defc icon-plus-circle []  ;; from https://heroicons.com/
+(rum/defc icon-plus-circle []                               ;; from https://heroicons.com/
   [:svg.-ml-1.mr-3.w-6.h-6 {:xmlns "http://www.w3.org/2000/svg" :fill "none" :viewBox "0 0 24 24" :stroke-width "1.5" :stroke "currentColor"}
    [:path {:stroke-linecap "round" :stroke-linejoin "round" :d "M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"}]])
 
@@ -89,7 +92,8 @@
   [{:keys [selected-id items sub-menu]}]
   [:nav {:aria-label "Sidebar"}
    [:div.space-y-1
-    (for [{:keys [id icon content attrs]} items]
+    (for [{:keys [id icon content attrs]} items
+          :when id]
       (if (= selected-id id)
         [:a.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-3.py-2.text-sm.font-medium {:aria-current "page"}
          icon content]
@@ -100,7 +104,8 @@
      [:div.mt-8
       [:h3.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu)]
       [:div.mt-1.space-y-1
-       (for [{:keys [attrs content]} (:items sub-menu)]
+       (for [{:keys [attrs content]} (:items sub-menu)
+             :when content]
          [:a.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900 attrs
           content])]])])
 
@@ -194,3 +199,66 @@
   [:nav.flex.border-b.border-gray-200.bg-white {:aria-label "Breadcrumb"}
    [:ol.mx-auto.flex.w-full.max-w-screen-xl.space-x-4.px-4.sm:px-6.lg:px-8 {:role "list"}
     items]])
+
+(rum/defc ui-label [{:keys [for label]}]
+  [:label.block.text-sm.font-medium.text-gray-600 (when for {:htmlFor for}) label])
+
+(rum/defc ui-textfield [{:keys [id value type label placeholder required disabled help-text auto-focus]}]
+  [:div
+   (when label (ui-label {:for id :label label}))
+   [:div.mt-1
+    [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-200.rounded-md.p-2
+     {:name        id
+      :value       value
+      :type        type
+      :placeholder placeholder
+      :required    required
+      :className   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+      :disabled    disabled
+      :autoFocus   auto-focus}]
+    (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
+
+(defn unparse-local-date [d]
+  (when d
+    #?(:clj  (.format ^LocalDate d (DateTimeFormatter/ISO_DATE))
+       :cljs (.toIsoString ^Date d true))))
+
+(rum/defc ui-local-date
+  [{:keys [id label value default-date min-date max-date onBlur onEnterKey onChange]}]
+  [:div
+   (when label (ui-label {:for id :label label}))
+   [:div.mt-1
+    [:input
+     (cond-> {:type  "date", :value (or value default-date)}
+       id (assoc :name id)
+       min-date (assoc :min (unparse-local-date min-date))
+       max-date (assoc :max (unparse-local-date max-date))
+       onBlur (assoc :onBlur onBlur)
+       onEnterKey (assoc :onKeyDown #(when (= 13 (.-keyCode %)) (onEnterKey)))
+       onChange (assoc :onChange onChange))]]])
+
+(rum/defc ui-select
+  "A select control that appears as a pop-up."
+  [{:keys [name label value choices id-key display-key default-value select-fn
+           no-selection-string on-key-down disabled? sort? sort-fn]
+    :or   {id-key identity display-key identity sort? true}}]
+  (let [all-choices (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
+                      (conj choices value) choices)
+        sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
+    #?(:cljs (when (and select-fn default-value (str/blank? value)) (select-fn default-value))) ;;in cljs, select the chosen value
+    (println "values " sorted-values)
+    [:div
+     (when label (ui-label {:for name :label label}))
+     [:select#location.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+      {:name        name
+       :disabled    disabled?
+       :value       (when value (str (id-key value)))
+       :on-key-down #(when on-key-down #?(:cljs (on-key-down (.-which %))))
+       :on-change   #(when select-fn #?(:cljs (let [idx (-> % .-target .-selectedIndex)]
+                                                (if (and no-selection-string (= 0 idx))
+                                                  (select-fn nil)
+                                                  (select-fn (nth sorted-values (if no-selection-string (- idx 1) idx)))))))}
+      (when no-selection-string [:option {:value nil :id nil} no-selection-string])
+      (for [choice sorted-values
+            :let [id (id-key choice)]]
+        ^{:key id} [:option {:value (str id)} (display-key choice)])]]))

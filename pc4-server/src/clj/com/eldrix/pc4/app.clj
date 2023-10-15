@@ -149,7 +149,8 @@
                      :deceased     date_death}))))})
 
 
-(defn project-menu [ctx {:keys [project-id title selected-id]}]
+(defn project-menu
+  [ctx {:t_project/keys [id title pseudonymous]} {:keys [selected-id]}]
   (let [router (get-in ctx [:request ::r/router])
         content (fn [s] (vector :span.truncate s))]
     [:<>
@@ -159,19 +160,21 @@
         :items       [{:id      :home
                        :icon    (ui.misc/icon-home)
                        :content (content "Home")
-                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id project-id}))}}
-                      {:id      :find-patient
-                       :icon    (ui.misc/icon-magnifying-glass)
-                       :content (content "Find patient")
-                       :attrs   {:href (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}}
-                      {:id      :register-patient
-                       :icon    (ui.misc/icon-plus-circle)
-                       :content (content "Register patient")
-                       :attrs   {:href (r/match->path (r/match-by-name! router :register-patient {:project-id project-id}))}}
+                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id id}))}}
+                      (when pseudonymous
+                        {:id      :find-pseudonymouspatient
+                         :icon    (ui.misc/icon-magnifying-glass)
+                         :content (content "Find patient")
+                         :attrs   {:href (r/match->path (r/match-by-name! router :find-pseudonymous-patient {:project-id id}))}})
+                      (when pseudonymous
+                        {:id      :register-pseudonymous-patient
+                         :icon    (ui.misc/icon-plus-circle)
+                         :content (content "Register patient")
+                         :attrs   {:href (r/match->path (r/match-by-name! router :register-pseudonymous-patient {:project-id id}))}})
                       {:id      :team
                        :icon    (ui.misc/icon-team)
                        :content (content "Team")
-                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))}}
+                       :attrs   {:href (r/match->path (r/match-by-name! router :get-project-team {:project-id id}))}}
                       {:id      :reports
                        :icon    (ui.misc/icon-reports)
                        :content (content "Downloads")}]
@@ -179,7 +182,7 @@
         (case selected-id
           :team {:title "Team"
                  :items [{:id      :filter
-                          :content (let [url (r/match->path (r/match-by-name! router :get-project-team {:project-id project-id}))]
+                          :content (let [url (r/match->path (r/match-by-name! router :get-project-team {:project-id id}))]
                                      [:form {:method "post" :url url :hx-post url :hx-trigger "change" :hx-target "#list-users"}
                                       [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
                                       [:select.w-full.p-2.border
@@ -196,7 +199,7 @@
    (fn [req] {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
               :pathom/eql    [:t_project/id :t_project/title :t_project/name :t_project/inclusion_criteria :t_project/exclusion_criteria
                               :t_project/date_from :t_project/date_to :t_project/address1 :t_project/address2
-                              :t_project/address3 :t_project/address4 :t_project/postcode
+                              :t_project/address3 :t_project/address4 :t_project/postcode :t_project/pseudonymous
                               {:t_project/administrator_user [:t_user/full_name :t_user/username]}
                               :t_project/active? :t_project/long_description :t_project/type
                               :t_project/count_registered_patients :t_project/count_discharged_episodes :t_project/count_pending_referrals
@@ -215,10 +218,10 @@
                       (page [:<> (navigation-bar ctx)
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
-                               (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :home})]
+                               (project-menu ctx project {:selected-id :home})]
                               [:div.col-span-5.p-6
                                (ui.project/project-home project*)]]]))))))})
-(def find-patient
+(def find-pseudonymous-patient
   {:eql
    (fn [req]
      (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
@@ -245,29 +248,26 @@
          ;; redirect to patient record when submitted, matching patient and no target
          (and (not= "search-result" (get-in request [:headers "hx-target"])) patient view-patient-url)
          (assoc ctx :response (redirect view-patient-url))
+         (not (:t_project/pseudonymous project))
+         (assoc ctx :response {:status 400 :body "Pseudonymous patient search not permitted for this project"})
          full-page?
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.grid.grid-cols-1.md:grid-cols-6
                             [:div.col-span-1.pt-6
-                             (project-menu ctx {:project-id  project-id
-                                                :title       (:t_project/title project)
-                                                :selected-id :find-patient})]
+                             (project-menu ctx project {:selected-id :find-patient})]
                             [:div.col-span-5.p-6
-                             (if (:t_project/pseudonymous project)
-                               [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))}
-                                [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
-                                (ui.project/project-search-pseudonymous
-                                  {:hx-post       (r/match->path (r/match-by-name! router :find-patient {:project-id project-id}))
-                                   :hx-trigger    "keyup changed delay:200ms, search"
-                                   :hx-target     "#search-result"
-                                   :name          "pseudonym"
-                                   :autofocus     true
-                                   :auto-complete "off"
-                                   :value         pseudonym}
-                                  [:div.#search-result])]
-                               (ui.misc/box-error-message
-                                 {:title "Not yet supported" :message "Only pseudonymous patient search is currently supported but this project uses non-pseudonymous data."}))]]]))
+                             [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-pseudonymous-patient {:project-id project-id}))}
+                              [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
+                              (ui.project/project-search-pseudonymous
+                                {:hx-post       (r/match->path (r/match-by-name! router :find-pseudonymous-patient {:project-id project-id}))
+                                 :hx-trigger    "keyup changed delay:200ms, search"
+                                 :hx-target     "#search-result"
+                                 :name          "pseudonym"
+                                 :autofocus     true
+                                 :auto-complete "off"
+                                 :value         pseudonym}
+                                [:div.#search-result])]]]]))
          ;; show patient result as a fragment; this will replace the #search-result div element
          :else
          (assoc ctx :component
@@ -286,27 +286,30 @@
 
 
 
-(def register-patient
+(def register-pseudonymous-patient
   {:eql (fn [req]
           {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
            :pathom/eql    [:t_project/id :t_project/title :t_project/inclusion_criteria :t_project/exclusion_criteria
                            :t_project/date_from :t_project/date_to :t_project/active? :t_project/type :t_project/pseudonymous]})
    :enter
-   (fn [{{:t_project/keys [id] :as project} :result, :as ctx}]
+   (fn [{{:t_project/keys [id pseudonymous] :as project} :result, :as ctx}]
      (let [router (get-in ctx [:request ::r/router])]
-       (if-not project
+       (cond
+         (not pseudonymous)
+         (assoc ctx :response {:status 400 :body "Pseudonymous patient registration not permitted for this project"})
+         (not project)
          ctx
+         :else
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.grid.grid-cols-1.md:grid-cols-6
                             [:div.col-span-1.pt-6
-                             (project-menu ctx {:project-id id :title (:t_project/title project) :selected-id :register-patient})]
+                             (project-menu ctx project {:selected-id :register-patient})]
                             [:div.col-span-5.p-6
-                             (if-not (:t_project/pseudonymous project) ;; at the moment, we only support pseudonymous registration
-                               (ui.misc/box-error-message {:title   "Not yet supported"
-                                                           :message "Only pseudonymous patient registration is currently supported but this project uses non-pseudonymous data."})
-                               [:h1 "Register patient"])]]])))))})
-
+                             [:form {:method "post" :url (r/match->path (r/match-by-name! router :register-pseudonymous-patient {:project-id id}))}
+                              [:div.mt-4
+                               (ui.project/project-register-pseudonymous {}
+                                 [:input {:type "submit" :value "Register patient"}])]]]]])))))})
 
 (def view-project-users
   {:eql
@@ -341,7 +344,7 @@
                                  (misc/breadcrumb-item {:href "#"} "Team"))
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
-                               (project-menu ctx (merge (:params request) {:project-id id :title (:t_project/title project) :selected-id :team}))]
+                               (project-menu ctx project {:selected-id :team})]
                               [:div#list-users.col-span-5.p-6
                                (ui.project/project-users users')]]]))))))})
 
