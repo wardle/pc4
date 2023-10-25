@@ -1,23 +1,25 @@
 (ns com.eldrix.pc4.dev
   (:require
     [clojure.repl :as repl :refer [doc]]
+    [clojure.spec.alpha :as s]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.spec.test.alpha :as stest]
+    [cognitect.transit :as transit]
+    [com.eldrix.clods.core :as clods]
+    [com.eldrix.pc4.pedestal]
+    [com.eldrix.pc4.rsdb.patients :as patients]
+    [com.eldrix.pc4.rsdb.results :as results]
     [com.eldrix.pc4.system :as pc4]
+    [com.eldrix.pc4.users :as users]
     [dev.nu.morse :as morse]
     [integrant.core :as ig]
     [integrant.repl :as ig.repl]
     [integrant.repl.state]
-    [com.eldrix.clods.core :as clods]
-    [com.eldrix.pc4.rsdb.patients :as patients]
-    [com.eldrix.pc4.rsdb.results :as results]
-    [clojure.spec.alpha :as s]
-    [clojure.spec.gen.alpha :as gen]
-    [cognitect.transit :as transit]
-    [com.eldrix.pc4.users :as users]
-    [com.eldrix.pc4.pedestal])
-  (:import (java.io ByteArrayOutputStream)))
+    [next.jdbc :as jdbc]
+    [portal.api :as portal]))
 
 (stest/instrument)                                          ;; turn on instrumentation for development
+(pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
 
 (defn prep-dev-system []
   (pc4/load-namespaces :dev)
@@ -27,20 +29,25 @@
 
 (defn reset-system []
   (ig.repl/halt)
+  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (ig.repl/init [:com.eldrix.pc4.pedestal/server]))
 
 (defn inspect-system []
-  (morse/inspect #'integrant.repl.state/system))
+  (tap> #'integrant.repl.state/system))
 
 (defn system [] integrant.repl.state/system)
 
 (comment
+  (portal/open {:launcher :intellij})
+  (portal/open)
+  (add-tap #'portal/submit)
   (morse/launch-in-proc)
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
-  (morse/inspect (pc4/config :dev))
-  (morse/inspect integrant.repl.state/system)
+  (tap> (pc4/config :dev))
+  (tap> integrant.repl.state/system)
 
   (ig.repl/go [:com.eldrix.pc4.pedestal/server])
+  (pc4/halt! (system))
   (reset-system)
   (def system integrant.repl.state/system)
   (def pathom (:pathom/boundary-interface integrant.repl.state/system))
@@ -236,9 +243,10 @@
 
 (comment
   ;; just connect to remote database
+  (stest/unstrument) ;; optionally, uninstrument for production workflows
   (def system (pc4/init :pc4-dev [:com.eldrix.rsdb/conn :com.eldrix.rsdb/config]))
-  (pc4/load-namespaces :dev/dell)
-  (def system (pc4/init :dev/dell [:pathom/boundary-interface]))
+  (pc4/load-namespaces :dev)
+  (def system (pc4/init :pc4-dev [:pathom/boundary-interface]))
   (ig/halt! system)
   (com.eldrix.pc4.rsdb.users/fetch-user-by-id (:com.eldrix.rsdb/conn system) 1)
 

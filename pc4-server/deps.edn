@@ -101,6 +101,7 @@
                   :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                 "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                 "--illegal-access=permit"]}
+  :portal        {:extra-deps {djblue/portal {:mvn/version "0.48.0"}}}
 
   :morse         {:extra-deps {io.github.nubank/morse {:git/tag "v2023.10.06.02" :git/sha "88b5ff7"}}}
 
