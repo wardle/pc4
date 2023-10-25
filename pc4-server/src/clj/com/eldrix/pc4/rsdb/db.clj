@@ -130,18 +130,24 @@
      (and (or (nil? from) (not (.isBefore date' from)))
           (or (nil? to) (.isBefore date' to))))))
 
+(defn txn? [conn]
+  (and (instance? Connection conn)
+       (not (.getAutoCommit ^Connection conn))))
+
+(defn repeatable-read-txn? [conn]
+  (and (instance? Connection conn)
+       (not (.getAutoCommit ^Connection conn))
+       (<= Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation ^Connection conn))))
+
+(defn serializable-txn? [conn]
+  (and (instance? Connection conn)
+       (not (.getAutoCommit ^Connection conn))
+       (= Connection/TRANSACTION_SERIALIZABLE (.getTransactionIsolation ^Connection conn))))
+
 (s/def ::conn any?)
-(s/def ::txn
-  #(and (instance? Connection %)
-        (not (.getAutoCommit ^Connection %))))
-(s/def ::repeatable-read-txn
-  #(and (instance? Connection %)
-        (not (.getAutoCommit ^Connection %))
-        (<= Connection/TRANSACTION_REPEATABLE_READ (.getTransactionIsolation ^Connection %))))
-(s/def ::serializable-txn
-  #(and (instance? Connection %)
-        (not (.getAutoCommit ^Connection %))
-        (= Connection/TRANSACTION_SERIALIZABLE (.getTransactionIsolation ^Connection %))))
+(s/def ::txn txn?)
+(s/def ::repeatable-read-txn repeatable-read-txn?)
+(s/def ::serializable-txn serializable-txn?)
 
 (s/def :t_death_certificate/part1a (s/nilable string?))
 (s/def :t_death_certificate/part1b (s/nilable string?))
