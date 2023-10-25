@@ -2,7 +2,7 @@
  ["src/clj" "src/cljc" "resources"]
 
  :deps
- {org.clojure/clojure                  {:mvn/version "1.12.0-alpha4"}
+ {org.clojure/clojure                  {:mvn/version "1.12.0-alpha5"}
   org.clojure/clojurescript            {:mvn/version "1.11.121"
                                         :exclusions  [com.google.javascript/closure-compiler-unshaded
                                                       org.clojure/google-closure-library
@@ -21,7 +21,7 @@
   com.eldrix/clods                     {:mvn/version "1.1.198"}
   com.eldrix/nhspd                     {:mvn/version "1.1.48"}
   com.eldrix/ods-weekly                {:mvn/version "0.1.43"}
-  com.eldrix/nhs-number                {:mvn/version "1.0.53"}
+  com.eldrix/nhs-number                {:mvn/version "1.0.54"}
   com.eldrix/concierge                 {:mvn/version "1.0.164"}
   com.eldrix/deprivare                 {:mvn/version "1.0.59"}
   com.eldrix/dmd                       {:mvn/version "0.6.153"}
@@ -48,7 +48,10 @@
   integrant/integrant                  {:mvn/version "0.8.1"}
   metosin/malli                        {:mvn/version "0.13.0"}
   metosin/reitit-core                  {:mvn/version "0.6.0"}
+  metosin/reitit-http                  {:mvn/version "0.6.0"}
   metosin/reitit-frontend              {:mvn/version "0.6.0"}
+  metosin/reitit-interceptors          {:mvn/version "0.6.0"}
+  metosin/reitit-malli                 {:mvn/version "0.6.0"}
   metosin/reitit-spec                  {:mvn/version "0.6.0"}
   metosin/reitit-pedestal              {:mvn/version "0.6.0"}
   migratus/migratus                    {:mvn/version "1.5.3"}
@@ -73,11 +76,7 @@
   :run           {:exec-fn    com.eldrix.pc4.core/run
                   :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
                                io.pedestal/pedestal.service   {:mvn/version "0.6.1"}
-                               io.pedestal/pedestal.jetty     {:mvn/version "0.6.1"}
-                               ring/ring-core                 {:mvn/version "1.10.0"}
-                               ring-cors/ring-cors            {:mvn/version "0.1.13"}
-                               ring/ring-defaults             {:mvn/version "0.4.0"}
-                               http-kit/http-kit              {:mvn/version "2.7.0"}}
+                               io.pedestal/pedestal.jetty     {:mvn/version "0.6.1"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                "--illegal-access=permit"]}
