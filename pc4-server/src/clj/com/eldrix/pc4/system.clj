@@ -23,6 +23,8 @@
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.error :as p.error]
             [com.wsscode.pathom3.interface.eql :as p.eql]
+            [com.wsscode.pathom3.plugin :as p.plugin]
+            [com.wsscode.pathom3.connect.runner :as pcr]
             [integrant.core :as ig]
             [next.jdbc.connection :as connection])
   (:import (com.zaxxer.hikari HikariDataSource)
@@ -146,7 +148,17 @@
        sort
        (run! #(log/trace "op: " %)))
   (merge (dissoc env :pathom/ops)
-         (pci/register {::p.error/lenient-mode? true} ops)))
+         (-> {::p.error/lenient-mode? true}
+             (pci/register ops)
+             (p.plugin/register
+               {::p.plugin/id 'err
+                ::pcr/wrap-mutate
+                (fn [mutate]
+                  (fn [env params]
+                    (try
+                      (mutate env params)
+                      (catch Throwable err
+                        {::pcr/mutation-error (ex-message err)}))))}))))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
