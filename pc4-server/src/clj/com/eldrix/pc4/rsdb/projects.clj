@@ -423,7 +423,7 @@
       ;; as that means the data used to generate the pseudonyms was incorrect
       ;; TODO: this might also occur if there are non-pseudonymous patients registered
       (when-let [by-nnn (fetch-by-nhs-number conn nhs-number)]
-        (throw (ex-info "NHS number match but other details do not."
+        (throw (ex-info "NHS number match but other details do not"
                         {:params params, :existing by-nnn})))))
 
 
@@ -458,15 +458,15 @@
     (let [patient (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
                       (fetch-by-global-pseudonym conn global-pseudonym))]
       (when (and validate? (not patient) (fetch-by-nhs-number conn nhs-number))
-        (throw (ex-info "NHS number match but other details do not." {:params            params
-                                                                      :patient           patient
-                                                                      :pseudonyms        {:project           {:project-id   project-id
-                                                                                                              :project-name project-name}
-                                                                                          :project-pseudonym project-pseudonym
-                                                                                          :global-pseudonym  global-pseudonym}
-                                                                      :existing          (fetch-by-nhs-number conn nhs-number)
-                                                                      :global-pseudonym  global-pseudonym
-                                                                      :project-pseudonym project-pseudonym})))
+        (throw (ex-info "NHS number match but other details do not" {:params            params
+                                                                     :patient           patient
+                                                                     :pseudonyms        {:project           {:project-id   project-id
+                                                                                                             :project-name project-name}
+                                                                                         :project-pseudonym project-pseudonym
+                                                                                         :global-pseudonym  global-pseudonym}
+                                                                     :existing          (fetch-by-nhs-number conn nhs-number)
+                                                                     :global-pseudonym  global-pseudonym
+                                                                     :project-pseudonym project-pseudonym})))
       (merge (db/parse-entity patient)
              {:project-pseudonym          project-pseudonym
               :t_episode/stored_pseudonym project-pseudonym
