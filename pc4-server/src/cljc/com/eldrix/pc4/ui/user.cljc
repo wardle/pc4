@@ -20,7 +20,6 @@
       - menu-open? : is user menu displayed?
     - notify     : attrs for notify button or nil if no notification"
   [{:keys [id title user notify] :as params}]
-  (println "params: " params)
   [:nav.bg-gray-800
    {:id (or id "navbar")}
    [:div.mx-auto.px-2.sm:px-6.lg:px-8

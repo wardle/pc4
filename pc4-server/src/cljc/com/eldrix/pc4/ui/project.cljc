@@ -90,9 +90,9 @@
        [:div.mt-5.md:mt-0.md:col-span-2
         [:div.grid.grid-cols-6.gap-6
          [:div.col-span-6.sm:col-span-3.space-y-6
-          [:div (ui.misc/ui-textfield {:id "nhs-number" :label "NHS number" :value (nhs-number/format-nnn nhs-number) :auto-focus true})
+          [:div (ui.misc/ui-textfield {:id "nhs-number" :label "NHS number" :value (nhs-number/format-nnn nhs-number) :auto-focus true :required true})
            (when (:nhs-number error-ks) (ui.misc/box-error-message {:message "Invalid NHS number"}))]
-          [:div (ui.misc/ui-local-date {:id "date-birth" :label "Date of birth" :value (dates/safe-parse-local-date date-birth) :min-date min-date :max-date max-date})
+          [:div (ui.misc/ui-local-date {:id "date-birth" :label "Date of birth" :value date-birth :min-date min-date :max-date max-date})
            (when (:date-birth error-ks) (ui.misc/box-error-message {:message "Invalid date of birth"}))]
           [:div (ui.misc/ui-select
                   {:name                "gender"

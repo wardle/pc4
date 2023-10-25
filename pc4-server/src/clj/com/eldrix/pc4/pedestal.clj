@@ -392,11 +392,11 @@
      :coercer (fn [{:keys [path-params params]}]
                 {:project-id (some-> (:project-id path-params) parse-long)
                  :nhs-number (get params "nhs-number")
-                 :date-birth (get params "date-birth")  ;; we keep date as a string
+                 :date-birth (some-> (get params "date-birth") dates/safe-parse-local-date)
                  :sex        (let [s (get params "gender")] (when-not (str/blank? s) (keyword s)))})
      :schema  (m/schema [:map [:project-id :int]
                          [:nhs-number [:and :string [:fn nhsnumber/valid*?]]]
-                         [:date-birth [:fn #(instance? LocalDate (dates/safe-parse-local-date %))]]
+                         [:date-birth [:fn #(instance? LocalDate %)]]
                          [:sex [:enum :MALE :FEMALE :UNKNOWN]]])}]
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -295,8 +295,7 @@
   to the current project. On HTTP POST, we check the validity of the data, and
   register the patient. As such, the view simply needs to check the context for
   the result and redirect, or show the form with validation errors, as required."
-  {:eql (fn [{params :params, pparams :parsed-params, :as req}]
-          (log/info "register-pseudonymous-patient:eql" pparams)
+  {:eql (fn [{pparams :parsed-params, :as req}]
           (let [post? (= :post (:request-method req))
                 error-ks (:error-ks pparams)]
             (tap> {:register-eql pparams})
@@ -313,13 +312,7 @@
            project (get result [:t_project/id project-id])
            patient (get result 'pc4.rsdb/register-patient-by-pseudonym)
            error (::pcr/mutation-error patient)             ;; if there was a mutation error, it will be under this key
-           error-ks (:error-ks parsed-params)
            router (get-in ctx [:request ::r/router])]
-       (tap> {:register-pseudonymous-patient {:result   patient
-                                              :error    error
-                                              :error-ks error-ks
-                                              :params   parsed-params
-                                              :project  project}})
        (cond
          (not project)
          ctx
