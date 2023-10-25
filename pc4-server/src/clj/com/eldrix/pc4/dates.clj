@@ -1,8 +1,15 @@
 (ns com.eldrix.pc4.dates
-  (:require [cognitect.transit :as transit])
+  (:require [clojure.string :as str]
+            [cognitect.transit :as transit])
   (:import (java.time LocalDate LocalDateTime ZonedDateTime Period)
-           (java.time.format DateTimeFormatter)
+           (java.time.format DateTimeFormatter DateTimeParseException)
            (java.time.temporal ChronoUnit TemporalAccessor)))
+
+
+(defn safe-parse-local-date [s]
+  (when-not (str/blank? s)
+    (try (LocalDate/parse s)
+         (catch DateTimeParseException _))))
 
 (defn in-range?
   "Is the date in the range specified, or is the range 'current'?
