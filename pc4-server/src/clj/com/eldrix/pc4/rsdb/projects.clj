@@ -401,6 +401,31 @@
                                               [:= :patient_identifier patient-identifier]
                                               [:= :project_fk project-id]]})))
 
+(defn ^:deprecated legacy-pseudonyms
+  "Returns legacy pseudonyms for a given patient
+  - salt          : global salt
+  - project-name  : name of project
+  - nhs-number    : NHS number
+  - date-birth    : java.time.LocalDate representing date of birth"
+  [salt {:keys [project-name nhs-number date-birth] :as patient}]
+  (-> patient
+      (assoc :global-pseudonym (calculate-global-pseudonym salt nhs-number date-birth)
+             :project-pseudonym (calculate-project-pseudonym project-name nhs-number date-birth))))
+
+(defn ^:deprecated find-by-legacy-pseudonyms
+  "Find patient by legacy pseudonyms. Pseudonymous patients are registered using
+  a) a global pseudonym that is private and simply used to check duplicate
+  records are not created, and b) a public project-specific pseudonym. "
+  [conn {:keys [global-pseudonym project-name project-pseudonym nhs-number] :as params}]
+  (or (fetch-by-project-pseudonym conn project-name project-pseudonym)
+      (fetch-by-global-pseudonym conn global-pseudonym)
+      ;; if we have not found our patient, search using NHS number and throw if found
+      ;; as that means the data used to generate the pseudonyms was incorrect
+      ;; TODO: this might also occur if there are non-pseudonymous patients registered
+      (when-let [by-nnn (fetch-by-nhs-number conn nhs-number)]
+        (throw (ex-info "NHS number match but other details do not."
+                        {:params params, :existing by-nnn})))))
+
 
 (s/fdef find-legacy-pseudonymous-patient
   :args (s/cat :conn ::db/conn
@@ -589,7 +614,7 @@
                                     :t_episode/referral_user_fk     user-id
                                     :t_episode/date_referral        (LocalDate/now)
                                     :t_episode/date_registration    (LocalDate/now)}
-                                   pseudonym (assoc :t_episode/stored_pseudonym pseudonym))))))
+                             pseudonym (assoc :t_episode/stored_pseudonym pseudonym))))))
 
 
 (s/fdef register-patient
@@ -605,6 +630,8 @@
   patient has a pending registration (referral) to the project, then that
   pending episode will be activated."
   [txn project-id user-id {:keys [nhs-number title first-names last-name]}]
+  (when-not (db/repeatable-read-txn? txn)
+    (throw (ex-info "register-patient must be performed within a repeatable read transaction" {})))
   (let [;; fetch existing patient, or create if no existing patient match by NHS number
         nnn (nhs-number/normalise nhs-number)
         patient (when (nhs-number/valid? nnn)
@@ -615,7 +642,7 @@
                                             :t_patient/first_names (or first-names "Unknown")})))]
     (if patient
       (let [episode (register-patient-project! txn project-id user-id patient)]
-          (merge patient episode))
+        (merge patient episode))
       (throw (ex-info "Invalid NHS number" {:nhs-number nhs-number})))))
 
 (s/fdef register-legacy-pseudonymous-patient
@@ -670,15 +697,15 @@
           :t_episode/stored_pseudonym (:project-pseudonym existing))))))
 
 (s/fdef update-legacy-pseudonymous-patient!
-  :args (s/cat :txn ::db/repeatable-read-txn
-               :salt ::salt
-               :patient-pk int?
+  :args (s/cat :txn ::db/repeatable-read-txn, :salt ::salt, :patient-pk int?
                :updated (s/keys :req-un [::nhs-number ::sex ::date-birth])))
 (defn update-legacy-pseudonymous-patient!
   "DANGER: updates the demographic details for the given patient. This is
   designed to correct incorrectly entered patient registration information.
   Must be performed in a serializable transaction."
   [txn salt patient-pk {:keys [nhs-number date-birth sex] :as new-details}]
+  (when-not (db/repeatable-read-txn? txn)
+    (throw (ex-info "Must be executed within a repeatable-read transaction" {})))
   (doseq [project-id (map :t_episode/project_fk (jdbc/execute! txn (sql/format {:select-distinct :project_fk
                                                                                 :from            :t_episode
                                                                                 :where           [:and
@@ -686,14 +713,13 @@
                                                                                                   [:<> :stored_pseudonym nil]]})))]
     (let [updated (find-legacy-pseudonymous-patient txn (assoc new-details :salt salt :project-id project-id :validate? false))]
       (if (and (:t_patient/id updated) (not= (:t_patient/id updated) patient-pk))
-        (throw (ex-info "Patient already found with details:" new-details))
-        (do
-          (next.jdbc.sql/update! txn :t_patient
-                                 {:sex                     (name sex)
-                                  :date_birth              (.withDayOfMonth date-birth 1)
-                                  :nhs_number              nhs-number
-                                  :stored_global_pseudonym (:global-pseudonym updated)}
-                                 {:id patient-pk})
+        (throw (ex-info "Patient already found with the new details:" new-details))
+        (let [new-details' {:sex                     (name sex)
+                            :date_birth              (.withDayOfMonth date-birth 1)
+                            :nhs_number              nhs-number
+                            :stored_global_pseudonym (:global-pseudonym updated)}]
+          (log/warn "Updating pseudonymous patient" {:pk patient-pk :new-data new-details'})
+          (next.jdbc.sql/update! txn :t_patient new-details' {:id patient-pk})
           (next.jdbc.sql/update! txn :t_episode
                                  {:stored_pseudonym (:project-pseudonym updated)}
                                  {:patient_fk patient-pk
