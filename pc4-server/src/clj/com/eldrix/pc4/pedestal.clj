@@ -1,7 +1,10 @@
 (ns com.eldrix.pc4.pedestal
-  (:require [clojure.spec.alpha :as s]
+  (:require [buddy.core.codecs]
+            [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [cognitect.transit :as transit]
+            [com.eldrix.nhsnumber :as nhsnumber]
             [com.eldrix.pc4.app :as app]
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]        ;; TODO: switch to non-rsdb impl
@@ -12,17 +15,19 @@
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
             [io.pedestal.http.csrf :as csrf]
-            [io.pedestal.interceptor.chain :as chain]
-            [io.pedestal.interceptor.error :as int-err]
+            [io.pedestal.interceptor.chain :as intc.chain]
+            [io.pedestal.interceptor.error :as intc.error]
             [io.pedestal.interceptor :as intc]
             [io.pedestal.http.body-params :as body-params]
             [integrant.core :as ig]
+            [malli.core :as m]
             [reitit.core :as r]
             [reitit.http]
             [reitit.pedestal]
             [ring.middleware.session.cookie]
             [rum.core :as rum])
-  (:import (clojure.lang ExceptionInfo)))
+  (:import (clojure.lang ExceptionInfo)
+           (java.time LocalDate)))
 
 
 (set! *warn-on-reflection* true)
@@ -41,13 +46,13 @@
 (def ok (partial response 200))
 
 (def service-error-handler
-  (int-err/error-dispatch [ctx ex]
-                          [{:interceptor ::login}]
-                          (assoc ctx :response {:status 400 :body (ex-message ex)})
-                          [{:interceptor ::attach-claims}]
-                          (assoc ctx :response {:status 401 :body "Unauthenticated."})
-                          :else
-                          (assoc ctx :io.pedestal.interceptor.chain/error ex)))
+  (intc.error/error-dispatch [ctx ex]
+                             [{:interceptor ::login}]
+                             (assoc ctx :response {:status 400 :body (ex-message ex)})
+                             [{:interceptor ::attach-claims}]
+                             (assoc ctx :response {:status 401 :body "Unauthenticated."})
+                             :else
+                             (assoc ctx :io.pedestal.interceptor.chain/error ex)))
 
 
 (defn execute-pathom
@@ -187,6 +192,7 @@
            ctx)
          ctx)))})
 
+
 (defn make-execute-eql
   "Returns an interceptor that executes EQL from either the route data, the last
   interceptor or :query in the context. Each can either be literal EQL, or a
@@ -198,13 +204,17 @@
     (let [user (get-in ctx [:request :session :authenticated-user])
           env (when user (users/make-authenticated-env conn (assoc user :system "cymru.nhs.uk" :value (:t_user/username user))))
           q (or (get-in ctx [:request ::r/match :data :eql])
-                (some-> ctx ::chain/queue last :eql)
+                (some-> ctx ::intc.chain/queue last :eql)
                 (:query ctx))
           q' (if (fn? q) (q (:request ctx)) q)]
-      (if q' (assoc ctx :result (pathom env q'))
-             (if throw-if-missing
-               (throw (ex-info "Missing query in context" ctx))
-               ctx)))))
+      (if q'
+        (try
+          (assoc ctx :result (pathom env q'))
+          (catch Exception e
+            (assoc ctx :result e)))
+        (if throw-if-missing
+          (throw (ex-info "Missing query in context" ctx))
+          ctx)))))
 
 (def execute-eql
   "An interceptor that will execute the EQL in the context using :query or
@@ -257,8 +267,8 @@
        (do (log/info "no authenticated user for uri:" (get-in ctx [:request :uri]))
            (-> (assoc ctx :login {:login-url (r/match->path (r/match-by-name! (get-in ctx [:request ::r/router]) :login-page))
                                   :url       (get-in ctx [:request :uri])})
-               (chain/terminate)
-               (chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))
+               (intc.chain/terminate)
+               (intc.chain/enqueue [(intc/map->Interceptor app/view-login-page) (intc/map->Interceptor render-component)])))))
    :leave (fn [ctx]
             (update-in ctx [:response :headers] assoc
                        "Cache-Control" "no-cache, must-revalidate, max-age=0, no-store, private"
@@ -294,16 +304,27 @@
          ctx
          (assoc ctx :response {:status 401 :body "Unauthorized"}))))})
 
+(def parse-params
+  "Interceptor to coerce and validate request parameters when required."
+  {:enter
+   (fn [{req :request, :as ctx}]
+     (let [params (:params req)
+           {:keys [schema coercer]} (get-in ctx [:request ::r/match :data])
+           coerced (if coercer (coercer req) params)
+           valid? (when schema (m/validate schema coerced))
+           error-ks (when (false? valid?) (set (keys (malli.error/error-value (m/explain schema coerced)))))]
+       (tap> {:parse-params {:coerced coerced :error-ks error-ks}})
+       (assoc-in ctx [:request :parsed-params] (assoc coerced :valid? valid? :error-ks error-ks))))})
 
 (defn routes []
   (log/info "loading routes")
   [["/" {:name :landing :get {:interceptors [landing]}}]
    ["/login"
     {:name :login
-     :post {:interceptors [login]}}]  ;; for legacy clients (re-frame / pc4-ward)
+     :post {:interceptors [login]}}]                        ;; for legacy clients (re-frame / pc4-ward)
    ["/login-mutation"
     {:name :login-mutation
-     :post {:interceptors [login-mutation]}}] ;; for fulcro clients (fulcro / pc4-ms)
+     :post {:interceptors [login-mutation]}}]               ;; for fulcro clients (fulcro / pc4-ms)
    ["/ping"
     {:name :ping
      :post {:interceptors [ping]}}]
@@ -312,7 +333,7 @@
      :post {:interceptors [attach-claims api]}}]
    ["/users/:system/:value/photo"
     {:name :get-user-photo
-     :get {:interceptors [get-user-photo]}}]
+     :get  {:interceptors [get-user-photo]}}]
    ;;
    ["/app/home"
     {:name :home
@@ -361,12 +382,22 @@
 
    ["/app/project/:project-id/find-pseudonymous-patient"
     {:name :find-pseudonymous-patient
-     :get {:interceptors [check-authenticated render-component execute-eql context->repl app/find-pseudonymous-patient]}
-     :post {:interceptors [check-authenticated render-component execute-eql context->repl app/find-pseudonymous-patient]}}]
+     :get  {:interceptors [check-authenticated render-component execute-eql app/find-pseudonymous-patient]}
+     :post {:interceptors [check-authenticated render-component execute-eql app/find-pseudonymous-patient]}}]
 
    ["/app/project/:project-id/register-pseudonymous-patient"
-    {:name :register-pseudonymous-patient
-     :get {:interceptors [check-authenticated render-component execute-eql app/register-pseudonymous-patient]}}]
+    {:name    :register-pseudonymous-patient
+     :get     {:interceptors [check-authenticated render-component execute-eql context->repl app/register-pseudonymous-patient]}
+     :post    {:interceptors [check-authenticated render-component parse-params execute-eql context->repl app/register-pseudonymous-patient]}
+     :coercer (fn [{:keys [path-params params]}]
+                {:project-id (some-> (:project-id path-params) parse-long)
+                 :nhs-number (get params "nhs-number")
+                 :date-birth (get params "date-birth")  ;; we keep date as a string
+                 :sex        (let [s (get params "gender")] (when-not (str/blank? s) (keyword s)))})
+     :schema  (m/schema [:map [:project-id :int]
+                         [:nhs-number [:and :string [:fn nhsnumber/valid*?]]]
+                         [:date-birth [:fn #(instance? LocalDate (dates/safe-parse-local-date %))]]
+                         [:sex [:enum :MALE :FEMALE :UNKNOWN]]])}]
 
    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
    ;; //app/user
@@ -394,7 +425,7 @@
      :permission :SYSTEM}]])
 
 (defn make-service-map
-  [{:keys [port allowed-origins host join? session-key] :or {port 8080, join? false}}]
+  [{:keys [port allowed-origins host join? session-key session-timeout-seconds] :or {port 8080, join? false}}]
   {::http/type            :jetty
    ::http/join?           join?
    ::http/log-request     true
@@ -424,13 +455,13 @@
   (-> (make-service-map config)
       (http/default-interceptors)
       (reitit.pedestal/replace-last-interceptor
-        (reitit.pedestal/routing-interceptor (reitit.http/router
-                                               ((if dev? #'routes (constantly (#'routes)))))))
+        (reitit.pedestal/routing-interceptor
+          (reitit.http/router ((if dev? #'routes (constantly (#'routes)))))))
       (http/dev-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
-              #_(csrf/anti-forgery)
+              #_(csrf/anti-forgery)                         ;; turned off for legacy SPA... but TODO: turn on
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json

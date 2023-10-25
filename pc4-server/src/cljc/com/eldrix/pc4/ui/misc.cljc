@@ -224,12 +224,13 @@
        :cljs (.toIsoString ^Date d true))))
 
 (rum/defc ui-local-date
-  [{:keys [id label value default-date min-date max-date onBlur onEnterKey onChange]}]
+  [{:keys [id label value default-date min-date max-date onBlur onEnterKey onChange] :as params}]
+  (println {:ui-local-date params})
   [:div
    (when label (ui-label {:for id :label label}))
    [:div.mt-1
     [:input
-     (cond-> {:type  "date", :value (or value default-date)}
+     (cond-> {:type  "date", :value (unparse-local-date (or value default-date))}
        id (assoc :name id)
        min-date (assoc :min (unparse-local-date min-date))
        max-date (assoc :max (unparse-local-date max-date))
@@ -246,7 +247,6 @@
                       (conj choices value) choices)
         sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
     #?(:cljs (when (and select-fn default-value (str/blank? value)) (select-fn default-value))) ;;in cljs, select the chosen value
-    (println "values " sorted-values)
     [:div
      (when label (ui-label {:for name :label label}))
      [:select#location.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md

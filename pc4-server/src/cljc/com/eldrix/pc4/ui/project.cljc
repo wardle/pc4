@@ -1,6 +1,8 @@
 (ns com.eldrix.pc4.ui.project
   (:require
     [clojure.string :as str]
+    [com.eldrix.nhsnumber :as nhs-number]
+    [com.eldrix.pc4.dates :as dates]
     [com.eldrix.pc4.ui.misc :as ui.misc]
     [com.eldrix.pc4.ui.user :as ui.user]
     [rum.core :as rum])
@@ -76,7 +78,8 @@
          [:<> content])]]]]])
 
 (rum/defc project-register-pseudonymous
-  [{:keys [nhs-number date-birth sex]} & content]
+  [{:keys [nhs-number date-birth sex error-ks] :as params} & content]
+  (tap> {:ui/project-register-pseudonymous params})
   (let [max-date (LocalDate/now), min-date (.minusYears max-date 140)]
     [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
      [:div.px-4.py-6.sm:p-6
@@ -87,16 +90,19 @@
        [:div.mt-5.md:mt-0.md:col-span-2
         [:div.grid.grid-cols-6.gap-6
          [:div.col-span-6.sm:col-span-3.space-y-6
-          [:div (ui.misc/ui-textfield {:label "NHS number" :value nhs-number :auto-focus true})]
-          [:div (ui.misc/ui-local-date {:label "Date of birth" :value date-birth :min-date min-date :max-date max-date})]
-          (ui.misc/ui-select
-            {:name                "gender"
-             :value               sex
-             :required            true
-             :label               "Gender"
-             :choices             [:MALE :FEMALE :UNKNOWN]
-             :display-key         name
-             :id-key              name
-             :no-selection-string ""})]]]
+          [:div (ui.misc/ui-textfield {:id "nhs-number" :label "NHS number" :value (nhs-number/format-nnn nhs-number) :auto-focus true})
+           (when (:nhs-number error-ks) (ui.misc/box-error-message {:message "Invalid NHS number"}))]
+          [:div (ui.misc/ui-local-date {:id "date-birth" :label "Date of birth" :value (dates/safe-parse-local-date date-birth) :min-date min-date :max-date max-date})
+           (when (:date-birth error-ks) (ui.misc/box-error-message {:message "Invalid date of birth"}))]
+          [:div (ui.misc/ui-select
+                  {:name                "gender"
+                   :value               sex
+                   :required            true
+                   :label               "Gender"
+                   :choices             [:MALE :FEMALE :UNKNOWN]
+                   :display-key         name
+                   :id-key              name
+                   :no-selection-string ""})
+           (when (:sex error-ks) (ui.misc/box-error-message {:message "Invalid gender"}))]]]]
        (when content
          [:<> content])]]]))

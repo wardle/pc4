@@ -1,6 +1,9 @@
 (ns com.eldrix.pc4.app
-  (:require [clojure.string :as str]
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.nhsnumber :as nhsnumber]
+            [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.auth :as rsdb.auth]
             [com.eldrix.pc4.rsdb.users :as users]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]
@@ -12,9 +15,12 @@
             [com.eldrix.pc4.ui.patient :as ui.patient]
             [com.eldrix.pc4.ui.project :as ui.project]
             [com.eldrix.pc4.ui.user :as ui.user]
+            [com.wsscode.pathom3.connect.runner :as pcr]
+            [malli.core :as m]
+            [malli.error :as me]
             [reitit.core :as r])
-  (:import (java.util Locale)))
-
+  (:import (java.time LocalDate)
+           (java.util Locale)))
 
 (defn page [content]
   [:html
@@ -44,7 +50,7 @@
         show-user-menu? (some-> (get-in ctx [:request :params :show-user-menu]) parse-boolean)]
     (ui.user/nav-bar
       (cond-> {:id    "nav-bar"
-               :title {:s "PatientCare" :attrs {:href (r/match->path (r/match-by-name! router :home))}}}
+               :title {:s "PatientCare v4" :attrs {:href (r/match->path (r/match-by-name! router :home))}}}
         authenticated-user
         (assoc :user {:full-name  (:t_user/full_name authenticated-user)
                       :initials   (:t_user/initials authenticated-user)
@@ -92,7 +98,8 @@
   {:enter (fn [ctx] (assoc ctx :component (navigation-bar ctx)))})
 
 
-(defn split-pseudonym [s]
+(defn format-pseudonym
+  [s]
   (->> (partition-all 4 s)
        (map #(apply str %))
        (str/join "-")))
@@ -129,7 +136,7 @@
                               :approximate  pseudonymous
                               :age          current_age
                               :nhs-number   nhs_number
-                              :address      (if pseudonymous (split-pseudonym (some :t_episode/stored_pseudonym (reverse episodes)))
+                              :address      (if pseudonymous (format-pseudonym (some :t_episode/stored_pseudonym (reverse episodes)))
                                                              (str/join ", " (remove str/blank? [(:t_address/address1 address) (:t_address/address2 address)
                                                                                                 (:t_address/address3 address) (:t_address/postcode address)])))
                               :deceased     date_death})])))))})
@@ -162,7 +169,7 @@
                        :content (content "Home")
                        :attrs   {:href (r/match->path (r/match-by-name! router :get-project {:project-id id}))}}
                       (when pseudonymous
-                        {:id      :find-pseudonymouspatient
+                        {:id      :find-pseudonymous-patient
                          :icon    (ui.misc/icon-magnifying-glass)
                          :content (content "Find patient")
                          :attrs   {:href (r/match->path (r/match-by-name! router :find-pseudonymous-patient {:project-id id}))}})
@@ -190,7 +197,7 @@
                                        [:option {:value "active"} "Active"] [:option {:value "inactive"} "Inactive"] [:option {:value "all"} "All users"]]
                                       [:input.border.p-2.w-full
                                        {:type    "search" :name "search" :placeholder "Search..."
-                                        :hx-post url :hx-trigger "keyup changed delay:500ms"}]])}]}
+                                        :hx-post url :hx-trigger "keyup changed delay:400ms"}]])}]}
           {})})]))
 
 
@@ -255,7 +262,7 @@
                     (page [:<> (navigation-bar ctx)
                            [:div.grid.grid-cols-1.md:grid-cols-6
                             [:div.col-span-1.pt-6
-                             (project-menu ctx project {:selected-id :find-patient})]
+                             (project-menu ctx project {:selected-id :find-pseudonymous-patient})]
                             [:div.col-span-5.p-6
                              [:form {:method "post" :url (r/match->path (r/match-by-name! router :find-pseudonymous-patient {:project-id project-id}))}
                               [:input {:type "hidden" :name "__anti-forgery-token" :value (get-in ctx [:request ::csrf/anti-forgery-token])}]
@@ -283,33 +290,59 @@
                           [:a {:href view-patient-url}
                            (ui.misc/action-button {} "View patient record")]]]])]))))})
 
-
-
-
 (def register-pseudonymous-patient
-  {:eql (fn [req]
-          {:pathom/entity {:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)}
-           :pathom/eql    [:t_project/id :t_project/title :t_project/inclusion_criteria :t_project/exclusion_criteria
-                           :t_project/date_from :t_project/date_to :t_project/active? :t_project/type :t_project/pseudonymous]})
+  "Register a pseudonymous patient. On a HTTP GET, we simply fetch data relating
+  to the current project. On HTTP POST, we check the validity of the data, and
+  register the patient. As such, the view simply needs to check the context for
+  the result and redirect, or show the form with validation errors, as required."
+  {:eql (fn [{params :params, pparams :parsed-params, :as req}]
+          (log/info "register-pseudonymous-patient:eql" pparams)
+          (let [post? (= :post (:request-method req))
+                error-ks (:error-ks pparams)]
+            (tap> {:register-eql pparams})
+            (into [{[:t_project/id (some-> (get-in req [:path-params :project-id]) parse-long)] ;; always query current project
+                    [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]}]
+                  (when (and post? (empty? error-ks))         ;; but when we have valid registration data, also
+                    [{(list 'pc4.rsdb/register-patient-by-pseudonym pparams) ;; ... perform pseudonymous registration)
+                      [:t_patient/patient_identifier :t_patient/sex :t_patient/date_birth
+                       :t_patient/date_death :t_episode/stored_pseudonym :t_episode/project_fk]}]))))
    :enter
-   (fn [{{:t_project/keys [id pseudonymous] :as project} :result, :as ctx}]
-     (let [router (get-in ctx [:request ::r/router])]
+   (fn [{{:keys [request-method parsed-params] :as req} :request, result :result, :as ctx}]
+     (log/info "register pseudonymous patient" {:method request-method :pparams parsed-params})
+     (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
+           project (get result [:t_project/id project-id])
+           patient (get result 'pc4.rsdb/register-patient-by-pseudonym)
+           error (::pcr/mutation-error patient)             ;; if there was a mutation error, it will be under this key
+           error-ks (:error-ks parsed-params)
+           router (get-in ctx [:request ::r/router])]
+       (tap> {:register-pseudonymous-patient {:result   patient
+                                              :error    error
+                                              :error-ks error-ks
+                                              :params   parsed-params
+                                              :project  project}})
        (cond
-         (not pseudonymous)
-         (assoc ctx :response {:status 400 :body "Pseudonymous patient registration not permitted for this project"})
          (not project)
          ctx
+         (not (:t_project/pseudonymous project))
+         (assoc ctx :response {:status 400 :body "Pseudonymous patient registration not permitted for this project"})
+         (and patient (not error))                          ;; registration success -> redirect to patient page in context of project
+         (assoc ctx :response (redirect (r/match->path (r/match-by-name! router :get-pseudonymous-patient
+                                                                         {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)}))))
          :else
          (assoc ctx :component
                     (page [:<> (navigation-bar ctx)
                            [:div.grid.grid-cols-1.md:grid-cols-6
                             [:div.col-span-1.pt-6
-                             (project-menu ctx project {:selected-id :register-patient})]
+                             (project-menu ctx project {:selected-id :register-pseudonymous-patient})]
                             [:div.col-span-5.p-6
-                             [:form {:method "post" :url (r/match->path (r/match-by-name! router :register-pseudonymous-patient {:project-id id}))}
+                             [:form {:method "post" :url (r/match->path (r/match-by-name! router :register-pseudonymous-patient {:project-id project-id}))}
                               [:div.mt-4
-                               (ui.project/project-register-pseudonymous {}
-                                 [:input {:type "submit" :value "Register patient"}])]]]]])))))})
+                               (ui.project/project-register-pseudonymous parsed-params
+                                 [:<>
+                                  (when error
+                                    [:div (ui.misc/box-error-message {:message error})])
+                                  (ui.misc/action-button {:type "submit"} "Register patient")])]]]]])))))})
+
 
 (def view-project-users
   {:eql
@@ -317,7 +350,7 @@
      (let [project-id (some-> (get-in req [:path-params :project-id]) parse-long)
            active (case (get-in req [:form-params :active]) "active" true "inactive" false "all" nil true)] ;; default to true
        {:pathom/entity {:t_project/id project-id}
-        :pathom/eql    [:t_project/id :t_project/title
+        :pathom/eql    [:t_project/id :t_project/title :t_project/pseudonymous
                         {(list :t_project/users {:group-by :user :active active})
                          [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
                           :t_user/first_names :t_user/last_name :t_user/job_title
@@ -338,10 +371,6 @@
                     (if (and hx-request? (not hx-boosted?)) ;; if we have a htmx request, just return content... otherwise, build whole page
                       (ui.project/project-users users')
                       (page [:<> (navigation-bar ctx)
-                             #_(misc/breadcrumbs
-                                 (misc/breadcrumb-home {:href "#"})
-                                 (misc/breadcrumb-item {:href "#"} "Project")
-                                 (misc/breadcrumb-item {:href "#"} "Team"))
                              [:div.grid.grid-cols-1.md:grid-cols-6
                               [:div.col-span-1.pt-6
                                (project-menu ctx project {:selected-id :team})]
@@ -387,7 +416,6 @@
      (let [concepts (->> (:t_user/common_concepts result)
                          (map #(hash-map :id (:info.snomed.Concept/id %) :term (get-in % [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
                          (sort-by :term))]
-       (println (:params request))
        (assoc ctx :component
                   [:select (:params request)
                    (for [{:keys [id term]} concepts]
