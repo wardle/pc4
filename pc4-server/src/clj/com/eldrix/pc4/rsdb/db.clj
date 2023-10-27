@@ -191,12 +191,13 @@
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
-(s/def :t_medication/reason_for_stopping
+(def medication-reasons-for-stopping
   #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR
     :ALLERGIC_REACTION :ANTI_JCV_POSITIVE__PML_RISK :LACK_OF_TOLERANCE
     :NON_ADHERENCE :OTHER
     :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
     :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
+(s/def :t_medication/reason_for_stopping medication-reasons-for-stopping)
 (s/def :t_medication/events (s/nilable (s/coll-of (s/keys :req [:t_medication_event/type]))))
 
 (s/def :t_ms_event/id int?)

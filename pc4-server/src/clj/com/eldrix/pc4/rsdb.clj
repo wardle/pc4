@@ -1384,6 +1384,15 @@
   {:com.eldrix.rsdb/all-ms-disease-courses (db/execute! conn
                                                         (sql/format {:select [:id :name]
                                                                      :from   [:t_ms_disease_course]}))})
+(pco/defresolver medication->reasons-for-stopping
+  [_]
+  {::pco/output [{:com.eldrix.rsdb/all-medication-reasons-for-stopping
+                  [:t_medication_reason_for_stopping/id
+                   :t_medication_reason_for_stopping/name]}]}
+  {:com.eldrix.rsdb/all-medication-reasons-for-stopping
+   (mapv #(hash-map :t_medication_reason_for_stopping/id %
+                    :t_medication_reason_for_stopping/name (name %))
+         db/medication-reasons-for-stopping)})
 
 (def all-resolvers
   [patient-by-identifier
@@ -1463,6 +1472,7 @@
    multiple-sclerosis-diagnoses
    all-ms-event-types
    all-ms-disease-courses
+   medication->reasons-for-stopping
    ;; mutations - VERBS
    register-patient!
    register-patient-by-pseudonym!
