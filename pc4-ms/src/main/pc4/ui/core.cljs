@@ -57,6 +57,12 @@
   (svg :.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
        (path {:fillRule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clipRule "evenodd"})))
 
+(defn icon-exclamation [& {:keys [text]}]                   ;; from https://flowbite.com/icons/
+  (svg :.w-6.h-6.text-gray-800.dark:text-white {:aria-hidden "true" :xmlns "http://www.w3.org/2000/svg" :fill "none" :viewBox "0 0 20 20"}
+    (when text
+      (dom/title {} text))
+    (path {:stroke "currentColor" :strokeLinecap "round" :strokeLinejoin "round" :strokeWidth "2" :d "M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"})))
+
 (defn box-error-message [& {:keys [title message]}]
   (when message
     (dom/div :.bg-red-100.border.border-red-400.text-red-700.px-4.py-3.rounded.relative.shadow-md {:role "alert"}
