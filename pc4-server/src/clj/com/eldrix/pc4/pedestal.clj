@@ -69,7 +69,7 @@
     (when (seq errors)
       (log/error "error processing request" params)
       (doseq [err errors]
-        (log/error (Throwable->map err))))
+        (log/error (if (instance? Throwable err) (Throwable->map err) err))))
     (assoc ctx :response (merge {:status 200 :body result} #_(api-middleware/apply-response-augmentations result)))))
 
 (defn landing-page
