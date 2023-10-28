@@ -90,6 +90,7 @@
                    {:ui/main-router (comp/get-query MainRouter)}
                    {:ui/login (comp/get-query users/Login)}
                    {:ui/editing-medication (comp/get-query patients/MedicationEdit)}]
+
    :initial-state {:session/authenticated-user {}
                    :ui/main-router             {}
                    :ui/login                   {}
@@ -98,10 +99,6 @@
     (if-not (seq authenticated-user)
       (users/ui-login login)
       (comp/fragment (users/ui-nav-bar authenticated-user)
-                     #_(dom/div :.m-8.p-8 {:className "w-1/2"}
-                         (pc4.ui.snomed/ui-select select-airport {})
-                         (pc4.ui.snomed/ui-autocomplete airport-input {:onSelect  #(println "SELECTED " %)
-                                                                       :autoFocus true}))
                      (ui-main-router router)))))
 
 (comment
