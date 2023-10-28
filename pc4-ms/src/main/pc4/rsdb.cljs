@@ -54,6 +54,13 @@
     [{:keys [ref state] :as env}]
     (tap> {:save-medication-ok env})))
 
+(defmutation delete-medication
+  [params]
+  (remote [env] true)
+  (ok-action
+    [{:keys [component] :as env}]
+    (df/load-field! component :t_patient/medications {})))
+
 (defmutation create-admission
   [params]
   (action [{:keys [ref state]}]

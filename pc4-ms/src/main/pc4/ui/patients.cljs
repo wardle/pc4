@@ -427,6 +427,7 @@
   [{:t_medication/keys [id] :as params}]
   (action
     [{:keys [app state]}]
+    (tap> {:merging-edit-medication params})
     (swap! state update-in [:component/id :edit-medication] merge params)
     (when-not (get-in @state [:component/id :edit-medication :com.eldrix.rsdb/all-medication-reasons-for-stopping])
       (df/load! app :com.eldrix.rsdb/all-medication-reasons-for-stopping EditMedication
@@ -438,8 +439,6 @@
     [{:keys [state]}]
     (swap! state update-in [:component/id :edit-medication]
            dissoc :t_medication/date_to :t_medication/more_information :t_medication/medication :t_medication/date_from :t_medication/patient_fk)))
-
-
 
 (defsc MedicationListItem
   [this {:t_medication/keys [id date_from date_to medication] :as params} {:keys [actions]}]
@@ -480,12 +479,7 @@
                    {:t_medication/medication [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                    {:ui/choose-medication (comp/get-query snomed/Autocomplete)}
                    {:com.eldrix.rsdb/all-medication-reasons-for-stopping (comp/get-query MedicationReasonForStopping)}]
-   :initial-state (fn [params] {:t_medication/id               (:t_medication/id params)
-                                :t_medication/date_from        (:t_medication/date_from params)
-                                :t_medication/date_to          (:t_medication/date_to params)
-                                :t_medication/more_information (:t_medication/more_information params)
-                                :t_medication/patient_fk       (:t_medication/patient_fk params)
-                                :ui/choose-medication          (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
+   :initial-state (fn [params] {:ui/choose-medication          (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
   (tap> {:component  :edit-medication
          :params     params
          :valid?     (s/valid? ::save-medication params)
@@ -519,6 +513,13 @@
 
 (def ui-medication-edit (comp/computed-factory MedicationEdit))
 
+(def empty-medication
+  {:t_medication/id               nil
+   :t_medication/patient_fk       nil
+   :t_medication/date_from        nil
+   :t_medication/date_to          nil
+   :t_medication/more_information ""})
+
 
 (defsc PatientMedication
   [this {:t_patient/keys [id medications] :ui/keys [editing-medication] :as props}]
@@ -526,7 +527,7 @@
    :query [:t_patient/id :t_patient/patient_identifier
            {:t_patient/medications (comp/get-query MedicationListItem)}
            {[:ui/editing-medication '_] (comp/get-query MedicationEdit)}]}
-  (tap> {:editing-medication editing-medication})
+  (tap> {:patient-medication medications})
   (comp/fragment
     (when (:t_medication/patient_fk editing-medication)
       (ui-medication-edit editing-medication
@@ -536,17 +537,14 @@
                       (comp/transact! this [(pc4.rsdb/save-medication m')
                                             (cancel-medication-edit nil)])
                       (df/load-field! this :t_patient/medications {}))
-         :onDelete #(println "delete medication" editing-medication)
+         :onDelete #(comp/transact! this [(pc4.rsdb/delete-medication editing-medication)
+                                          (cancel-medication-edit nil)])
          :onClose  #(comp/transact! this [(cancel-medication-edit nil)])}))
     (ui/ui-title {:title "Medication"}
       (ui/ui-title-button
         {:title "Add medication"}
         {:onClick #(comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
-                                         (edit-medication {:t_medication/id               nil
-                                                           :t_medication/patient_fk       id
-                                                           :t_medication/date_from        nil
-                                                           :t_medication/date_to          nil
-                                                           :t_medication/more_information ""})])}))
+                                         (edit-medication (assoc empty-medication :t_medication/patient_fk id))])}))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -560,7 +558,7 @@
                      % {:actions [{:id      :edit
                                    :label   "Edit"
                                    :onClick (fn [_] (comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
-                                                                          (edit-medication %)]))}]})))))))
+                                                                          (edit-medication (merge empty-medication %))]))}]})))))))
 
 (def ui-patient-medication (comp/factory PatientMedication))
 
