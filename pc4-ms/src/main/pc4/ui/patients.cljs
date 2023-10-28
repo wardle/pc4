@@ -78,13 +78,11 @@
                                                                                       (dom/span :.font-bold gender)))
       (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
       (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
-      (when nhs-number (div :.grid.grid-cols-2.lg:text-center.lg:ml-2.min-w-min
-                         (div :.grid-span-1
-                           (dom/span :.text-sm.font-thin "NHS No ")
-                           (dom/span :.font-bold (nhs-number/format-nnn nhs-number)))
-                         (when-not (nhs-number/valid? (nhs-number/normalise nhs-number))
-                           (div :.grid-span-1.pl-2
-                             (ui/icon-exclamation :text "This NHS number is invalid")))))
+      (when nhs-number (div :.lg:text-center.lg:ml-2.flex.flex-nowrap
+                         (dom/div :.text-sm.font-thin.mr-2 "NHS No ")
+                         (dom/div :.font-bold (nhs-number/format-nnn nhs-number))
+                         (when-not (nhs-number/valid*? nhs-number)
+                           (dom/div :.ml-2 (ui/icon-exclamation :text "This NHS number is invalid")))))
 
       (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
     (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
