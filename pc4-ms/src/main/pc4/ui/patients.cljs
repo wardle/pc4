@@ -425,25 +425,27 @@
 
 (defmutation edit-medication
   [{:t_medication/keys [id] :as params}]
-  (action [{:keys [app state]}]
-          (swap! state update-in [:component/id :edit-medication] merge params)
-          (when-not (get-in @state [:component/id :edit-medication :com.eldrix.rsdb/all-medication-reasons-for-stopping])
-            (df/load! app :com.eldrix.rsdb/all-medication-reasons-for-stopping EditMedication
-                      {:target [:component/id :edit-medication :com.eldrix.rsdb/all-medication-reasons-for-stopping]}))))
+  (action
+    [{:keys [app state]}]
+    (swap! state update-in [:component/id :edit-medication] merge params)
+    (when-not (get-in @state [:component/id :edit-medication :com.eldrix.rsdb/all-medication-reasons-for-stopping])
+      (df/load! app :com.eldrix.rsdb/all-medication-reasons-for-stopping EditMedication
+                {:target [:component/id :edit-medication :com.eldrix.rsdb/all-medication-reasons-for-stopping]}))))
 
 (defmutation cancel-medication-edit
   [params]
-  (action [{:keys [state]}]
-          (swap! state update-in [:component/id :edit-medication]
-                 dissoc :t_medication/date_to :t_medication/notes :t_medication/medication :t_medication/date_from :t_medication/patient_fk)))
+  (action
+    [{:keys [state]}]
+    (swap! state update-in [:component/id :edit-medication]
+           dissoc :t_medication/date_to :t_medication/more_information :t_medication/medication :t_medication/date_from :t_medication/patient_fk)))
 
 
 
 (defsc MedicationListItem
   [this {:t_medication/keys [id date_from date_to medication] :as params} {:keys [actions]}]
   {:ident :t_medication/id
-   :query [:t_medication/id :t_medication/date_from :t_medication/date_to :t_medication/patient_fk :t_medication/notes
-           {:t_medication/medication [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
+   :query [:t_medication/id :t_medication/date_from :t_medication/date_to :t_medication/patient_fk :t_medication/more_information
+           {:t_medication/medication [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
   (ui/ui-table-row {}
     (ui/ui-table-cell {}
       (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
@@ -463,25 +465,31 @@
 (s/def :t_medication/date_from (s/nilable #(instance? goog.date.Date %)))
 (s/def :t_medication/date_to (s/nilable #(instance? goog.date.Date %)))
 (s/def :t_medication/medication (s/keys :req [:info.snomed.Concept/id]))
-(s/def ::save-medication (s/keys :req [:t_medication/date_from :t_medication/date_to :t_medication/medication]))
+(s/def :t_medication/more_information (s/nilable string?))
+(s/def ::save-medication
+  (s/keys :req [:t_medication/date_from :t_medication/date_to
+                :t_medication/medication :t_medication/more_information]))
 
 (defsc MedicationEdit
-  [this {:t_medication/keys [id date_from date_to medication notes]
+  [this {:t_medication/keys [id date_from date_to medication more_information]
          :ui/keys           [choose-medication] :as params}
    {:keys [onClose onSave onDelete]}]
   {:ident         (fn [] [:component/id :edit-medication])  ;; singleton component
    :query         [:t_medication/id :t_medication/date_from :t_medication/date_to
-                   :t_medication/notes :t_medication/patient_fk
+                   :t_medication/more_information :t_medication/patient_fk
                    {:t_medication/medication [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                    {:ui/choose-medication (comp/get-query snomed/Autocomplete)}
                    {:com.eldrix.rsdb/all-medication-reasons-for-stopping (comp/get-query MedicationReasonForStopping)}]
-   :initial-state (fn [params] {:t_medication/id         (:t_medication/id params)
-                                :t_medication/date_from  (:t_medication/date_from params)
-                                :t_medication/date_to    (:t_medication/date_to params)
-                                :t_medication/notes      (:t_medication/notes params)
-                                :t_medication/patient_fk (:t_medication/patient_fk params)
-                                :ui/choose-medication    (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
-  (tap> {:validation (s/explain ::save-medication params)})
+   :initial-state (fn [params] {:t_medication/id               (:t_medication/id params)
+                                :t_medication/date_from        (:t_medication/date_from params)
+                                :t_medication/date_to          (:t_medication/date_to params)
+                                :t_medication/more_information (:t_medication/more_information params)
+                                :t_medication/patient_fk       (:t_medication/patient_fk params)
+                                :ui/choose-medication          (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
+  (tap> {:component  :edit-medication
+         :params     params
+         :valid?     (s/valid? ::save-medication params)
+         :validation (s/explain-data ::save-medication params)})
   (ui/ui-modal {:actions [(when onSave {:id        ::save-action :title "Save" :role :primary
                                         :disabled? (not (s/valid? ::save-medication params))
                                         :onClick   onSave})
@@ -506,8 +514,8 @@
         (ui/ui-local-date {:value date_to}
                           {:onChange #(m/set-value! this :t_medication/date_to %)}))
       (ui/ui-simple-form-item {:htmlFor "notes" :label "Notes"}
-        (ui/ui-textarea {:id "notes" :value notes}
-                        {:onChange #(m/set-value! this :t_medication/notes %)})))))
+        (ui/ui-textarea {:id "notes" :value more_information}
+                        {:onChange #(m/set-value! this :t_medication/more_information %)})))))
 
 (def ui-medication-edit (comp/computed-factory MedicationEdit))
 
@@ -522,22 +530,23 @@
   (comp/fragment
     (when (:t_medication/patient_fk editing-medication)
       (ui-medication-edit editing-medication
-                          {:onSave  #(let [m (select-keys editing-medication [:t_medication/patient_fk :t_medication/medication :t_medication/date_from :t_medication/date_to :t_medication/notes])
-                                           m' (if-let [med-id (:t_medication/id editing-medication)] (assoc m :t_medication/id med-id) m)]
-                                       (println "Saving medication" m')
-                                       (comp/transact! this [(pc4.rsdb/save-medication m')
-                                                             (cancel-medication-edit nil)])
-                                       (df/load-field! this :t_patient/medications {}))
-                           :onClose #(comp/transact! this [(cancel-medication-edit nil)])}))
+        {:onSave   #(let [m (select-keys editing-medication [:t_medication/patient_fk :t_medication/medication :t_medication/date_from :t_medication/date_to :t_medication/more_information])
+                          m' (if-let [med-id (:t_medication/id editing-medication)] (assoc m :t_medication/id med-id) m)]
+                      (println "Saving medication" m')
+                      (comp/transact! this [(pc4.rsdb/save-medication m')
+                                            (cancel-medication-edit nil)])
+                      (df/load-field! this :t_patient/medications {}))
+         :onDelete #(println "delete medication" editing-medication)
+         :onClose  #(comp/transact! this [(cancel-medication-edit nil)])}))
     (ui/ui-title {:title "Medication"}
       (ui/ui-title-button
         {:title "Add medication"}
         {:onClick #(comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
-                                         (edit-medication {:t_medication/id         nil
-                                                           :t_medication/patient_fk id
-                                                           :t_medication/date_from  nil
-                                                           :t_medication/date_to    nil
-                                                           :t_medication/notes      ""})])}))
+                                         (edit-medication {:t_medication/id               nil
+                                                           :t_medication/patient_fk       id
+                                                           :t_medication/date_from        nil
+                                                           :t_medication/date_to          nil
+                                                           :t_medication/more_information ""})])}))
     (ui/ui-table {}
       (ui/ui-table-head {}
         (ui/ui-table-row {}
@@ -547,10 +556,11 @@
              (sort-by (juxt #(some-> % :t_medication/date_from .getTime)
                             #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
              reverse
-             (map #(ui-medication-list-item % {:actions [{:id      :edit
-                                                          :label   "Edit"
-                                                          :onClick (fn [_] (comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
-                                                                                                 (edit-medication %)]))}]})))))))
+             (map #(ui-medication-list-item
+                     % {:actions [{:id      :edit
+                                   :label   "Edit"
+                                   :onClick (fn [_] (comp/transact! this [(pc4.ui.snomed/reset-autocomplete {:id :choose-medication})
+                                                                          (edit-medication %)]))}]})))))))
 
 (def ui-patient-medication (comp/factory PatientMedication))
 
