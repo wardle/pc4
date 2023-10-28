@@ -151,6 +151,19 @@
 
 (def ui-textfield (comp/computed-factory UITextField))
 
+(defsc UITextArea
+  [this {:keys [id name value label rows] :or {rows 5}} {:keys [onChange]}]
+  (div
+    (when label (label :.block.text-sm.font-medium.text-gray-700 {:for id} label))
+    (div :.mt-1
+      (dom/textarea :.comment.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+        {:id       id
+         :rows     (str rows)
+         :name     name
+         :value    (or value "")
+         :onChange #(when onChange (let [v (-> % .-target .-value)] (onChange (if (str/blank? v) nil v))))}))))
+
+(def ui-textarea (comp/computed-factory UITextArea))
 
 (defn unparse-local-date [^Date d]
   (when d (.toIsoString d true)))
