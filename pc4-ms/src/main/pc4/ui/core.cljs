@@ -390,8 +390,7 @@
             (comp/children this)))
         (when (seq actions)
           (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
-            (for [action actions
-                  :when (and action (not (:hidden? action)))]
+            (for [action actions, :when (and action (not (:hidden? action)))]
               (ui-button
                 {:key       (:id action)
                  :role      (:role action)
