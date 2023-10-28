@@ -3,7 +3,7 @@
  :deps    {org.clojure/clojure        {:mvn/version "1.11.1"}
            org.clojure/core.async     {:mvn/version "1.6.681"}
 
-           com.eldrix/nhs-number      {:mvn/version "1.0.50"}
+           com.eldrix/nhs-number      {:mvn/version "1.0.54"}
 
            bidi/bidi                  {:mvn/version "2.1.6"}
            com.taoensso/timbre        {:mvn/version "6.2.2"}
