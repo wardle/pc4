@@ -375,7 +375,7 @@
 
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
 
-(defsc UIModal [this {:keys [disabled? title actions onClose]}]
+(defsc UIModal [this {:keys [disabled? title actions]} {:keys [onClose]}]
   (div :.fixed.z-10.inset-0.overflow-y-auto
     {:aria-labelledby title :role "dialog" :aria-modal "true"
      :className       (when disabled? "hidden")}
@@ -394,7 +394,7 @@
           (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
             (for [action actions, :when (and action (not (:hidden? action)))]
               (ui-button
-                {:key       (:id action)
+                {:key       (or (:id action) (log/error "action missing :id field" action))
                  :role      (:role action)
                  :disabled? (:disabled? action)
                  :onClick   #(when-let [f (:onClick action)] (f))}
@@ -405,8 +405,9 @@
   Parameters
   - :disabled?
   - :title
-  - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,:onClick"
-  (comp/factory UIModal))
+  - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,onClick
+  - :onClose - fn if modal closed"
+  (comp/computed-factory UIModal))
 
 
 (defsc UISimpleFormTitle [this {:keys [title]}]
