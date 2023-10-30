@@ -276,32 +276,47 @@
   [this {:t_patient/keys           [date_death]
          :t_death_certificate/keys [part1a part1b part1c part2]
          banner                    :>/banner}]
-  {:ident :t_patient/patient_identifier
-   :query [{:>/banner (comp/get-query PatientBanner)}
-           :t_patient/patient_identifier
-           :t_patient/date_death
-           :t_death_certificate/part1a
-           :t_death_certificate/part1b
-           :t_death_certificate/part1c
-           :t_death_certificate/part2]}
-  (let [state (comp/get-state this)]
+  {:ident          :t_patient/patient_identifier
+   :query          [{:>/banner (comp/get-query PatientBanner)}
+                    :t_patient/patient_identifier
+                    :t_patient/date_death
+                    :t_death_certificate/part1a
+                    :t_death_certificate/part1b
+                    :t_death_certificate/part1c
+                    :t_death_certificate/part2]
+   :initLocalState (fn [this props]
+                     (select-keys props [:t_patient/date_death :t_death_certificate/part1a
+                                         :t_death_certificate/part1b :t_death_certificate/part1b
+                                         :t_death_certificate/part1c
+                                         :t_death_certificate/part2]))}
+  (let [state (comp/get-state this)
+        disabled (nil? (:t_patient/date_death state))]
+    (println "state: " state)
     (if-not (:ui/editing state)
       (div
         (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
-        (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing true})} "Edit"))
+        (ui/ui-button {:onClick #(comp/set-state! this (assoc state :ui/editing true))} "Edit"))
       (ui/ui-modal {:title   (ui-patient-banner banner)
                     :actions [{:id :save :role :primary :title "Save"}
                               {:is      :cancel :title "Cancel"
                                :onClick #(comp/set-state! this {:ui/editing false})}]}
         (ui/ui-simple-form {:title "Death certificate"}
           (ui/ui-simple-form-item {:label "Date of death"}
-            (ui/ui-local-date {:value    date_death
-                               :onChange #(comp/set-state! this (assoc state :ui/date-death %))}))
+            (ui/ui-local-date {:value    (:t_patient/date_death state)}
+                              {:onChange #(comp/set-state! this (assoc state :t_patient/date_death %))}))
           (ui/ui-simple-form-item {:label "Certificate"}
-            (ui/ui-textfield {:label "Part 1a" :value part1a})
-            (ui/ui-textfield {:label "Part 1b" :value part1b})
-            (ui/ui-textfield {:label "Part 1c" :value part1c})
-            (ui/ui-textfield {:label "Part 2" :value part2})))))))
+            (ui/ui-textfield {:label "Part 1a" :value (:t_death_certificate/part1a state)
+                              :disabled disabled}
+                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1a %))})
+            (ui/ui-textfield {:label "Part 1b" :value (:t_death_certificate/part1b state)
+                              :disabled disabled}
+                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1b %))})
+            (ui/ui-textfield {:label "Part 1c" :value (:t_death_certificate/part1c state)
+                              :disabled disabled}
+                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1c %))})
+            (ui/ui-textfield {:label "Part 2" :value (:t_death_certificate/part2 state)
+                              :disabled disabled}
+                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part2 %))})))))))
 
 
 (def ui-patient-death-certificate (comp/factory PatientDeathCertificate))
