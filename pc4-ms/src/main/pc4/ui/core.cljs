@@ -232,8 +232,8 @@
 (def ui-select-popup-button
   "A select control that appears as a pop-up.
     Callbacks are:
-    onChange  : called with the value selected
-    onEnter   : called when enter key pressed"
+    onChange  : a 1-arity fn called with the value selected
+    onEnter   : a 0-arity fn called when enter key pressed"
   (comp/computed-factory UISelectPopupButton))
 
 (defsc UISubmitButton
