@@ -140,7 +140,8 @@
     (div :.mt-1
       (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
         {:name      id :type type :placeholder placeholder
-         :required  required :className (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+         :required  required
+         :classes (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
          :disabled  disabled :value (or value "")
          :autoFocus auto-focus
          :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
