@@ -479,7 +479,7 @@
                    {:t_medication/medication [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                    {:ui/choose-medication (comp/get-query snomed/Autocomplete)}
                    {:com.eldrix.rsdb/all-medication-reasons-for-stopping (comp/get-query MedicationReasonForStopping)}]
-   :initial-state (fn [params] {:ui/choose-medication          (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
+   :initial-state (fn [params] {:ui/choose-medication (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})}
   (tap> {:component  :edit-medication
          :params     params
          :valid?     (s/valid? ::save-medication params)
