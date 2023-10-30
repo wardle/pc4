@@ -696,17 +696,16 @@
 (def ui-patient-admissions (comp/factory PatientAdmissions))
 
 (defsc PatientPage
-  [this {:t_patient/keys    [id patient_identifier status first_names last_name date_birth sex date_death nhs_number] :as props
-         current-project    :ui/current-project
-         banner             :>/banner
-         demographics       :>/demographics
-         diagnoses          :>/diagnoses
-         medication         :>/medication
-         relapses           :>/relapses
-         encounters         :>/encounters
-         results            :>/results
-         admissions         :>/admissions
-         editing-medication :ui/editing-medication}]
+  [this {:t_patient/keys [id patient_identifier status first_names last_name date_birth sex date_death nhs_number] :as props
+         current-project :ui/current-project
+         banner          :>/banner
+         demographics    :>/demographics
+         diagnoses       :>/diagnoses
+         medication      :>/medication
+         relapses        :>/relapses
+         encounters      :>/encounters
+         results         :>/results
+         admissions      :>/admissions}]
   {:ident               :t_patient/patient_identifier
    :route-segment       ["patient" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/status
@@ -720,8 +719,7 @@
                          {:>/relapses (comp/get-query PatientRelapses)}
                          {:>/encounters (comp/get-query PatientEncounters)}
                          {:>/results (comp/get-query PatientResults)}
-                         {:>/admissions (comp/get-query PatientAdmissions)}
-                         :ui/editing-medication]
+                         {:>/admissions (comp/get-query PatientAdmissions)}]
    :will-enter          (fn [app {:t_patient/keys [patient_identifier]}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                             (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientPage)
@@ -732,8 +730,6 @@
                                                             ;:without              #{:t_patient/encounters}
                                                             :post-mutation        `dr/target-ready
                                                             :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
-   :pre-merge           (fn [{:keys [data-tree current-normalized state-map query]}]
-                          (merge {:ui/editing-medication nil} current-normalized data-tree))
    :allow-route-change? (constantly true)
    :will-leave          (fn [this props]
                           (log/info "leaving patient page; patient identifier: " (:t_patient/patient_identifier props))
