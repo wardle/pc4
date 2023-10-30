@@ -499,12 +499,13 @@
          :params     params
          :valid?     (s/valid? ::save-medication params)
          :validation (s/explain-data ::save-medication params)})
-  (ui/ui-modal {:actions [(when onSave {:id        ::save-action :title "Save" :role :primary
-                                        :disabled? (not (s/valid? ::save-medication params))
-                                        :onClick   onSave})
-                          (when onDelete {:id ::delete-action :title "Delete" :onClick onDelete :disabled? (not id)})
-                          (when onClose {:id ::cancel-action :title "Cancel" :onClick onClose})]
-                :onClose onClose}
+  (ui/ui-modal
+    {:actions [(when onSave {:id        ::save-action :title "Save" :role :primary
+                             :disabled? (not (s/valid? ::save-medication params))
+                             :onClick   onSave})
+               (when onDelete {:id ::delete-action :title "Delete" :onClick onDelete :disabled? (not id)})
+               (when onClose {:id ::cancel-action :title "Cancel" :onClick onClose})]}
+    {:onClose onClose}
     (ui/ui-simple-form {}
       (ui/ui-simple-form-title {:title (if id "Edit medication" "Add medication")})
       (ui/ui-simple-form-item {:htmlFor "medication" :label "Medication"}
