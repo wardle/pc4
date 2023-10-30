@@ -211,7 +211,7 @@
 (pco/defresolver patient->death_certificate
   [{conn :com.eldrix.rsdb/conn} patient]
   {::pco/input  [:t_patient/id]
-   ::pco/output [:t_death_certificate/part1a  ;; flatten properties into top-level as this is a to-one relationship
+   ::pco/output [:t_death_certificate/part1a                ;; flatten properties into top-level as this is a to-one relationship
                  :t_death_certificate/part1b
                  :t_death_certificate/part1c
                  :t_death_certificate/part2
@@ -337,13 +337,13 @@
    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
      (let [medication (patients/fetch-medications-and-events txn patient)]
        ;; and now just add additional properties to permit walking to SNOMED CT
-        (mapv #(-> %
-                   (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
-                   (update :t_medication/events
-                           (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                              (assoc evt :t_medication_event/event_concept
-                                                         (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
-              medication)))})
+       (mapv #(-> %
+                  (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
+                  (update :t_medication/events
+                          (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                             (assoc evt :t_medication_event/event_concept
+                                                        (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+             medication)))})
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -938,9 +938,9 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
-  [{conn :com.eldrix.rsdb/conn
+  [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
-    user :authenticated-user}
+    user    :authenticated-user}
    {:keys [project-id nhs-number] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
@@ -957,7 +957,7 @@
 
 
 (comment
-  (s/explain-data ::register-patient {:user-id 1
+  (s/explain-data ::register-patient {:user-id    1
                                       :project-id 5
                                       :nhs-number "111 111 1121"})
 
@@ -1095,9 +1095,9 @@
   {::pco/op-name 'pc4.rsdb/delete-medication}
   (log/info "delete medication request" params)
   (if-not (s/valid? ::delete-medication params)
-    (log/error "invalid call" (s/explain-data ::delete-medication params)))
-  (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
-  (patients/delete-medication! conn params))
+    (log/error "invalid call" (s/explain-data ::delete-medication params))
+    (do (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
+        (patients/delete-medication! conn params))))
 
 
 (s/def ::save-ms-diagnosis
