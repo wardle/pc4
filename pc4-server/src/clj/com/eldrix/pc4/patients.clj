@@ -287,8 +287,8 @@
   we have no need to perform any mapping here."
   [{empi :wales.nhs/empi} {:keys [system value]}]
   {::pco/op-name 'wales.nhs.empi/fetch-patient
-   ::pco/output  [{:org.hl7.fhir.Patient/identifiers [:org.hl7.fhir.Identifier/system
-                                                      :org.hl7.fhir.Identifier/value]}
+   ::pco/output  [{:org.hl7.fhir.Patient/identifier [:org.hl7.fhir.Identifier/system
+                                                     :org.hl7.fhir.Identifier/value]}
                   {:org.hl7.fhir.Patient/name [:org.hl7.fhir.HumanName/family
                                                :org.hl7.fhir.HumanName/given
                                                :org.hl7.fhir.HumanName/prefix]}
@@ -352,7 +352,7 @@
                        [:wales.nhs.cavuhb.Patient/LAST_NAME
                         :wales.nhs.cavuhb.Patient/ADDRESSES
                         :wales.nhs.cavuhb.Patient/HOSPITAL_ID
-                        :org.hl7.fhir.Patient/identifiers
+                        :org.hl7.fhir.Patient/identifier
                         :wales.nhs.cavuhb.Patient/SEX
                         :org.hl7.fhir.Patient/gender
                         {:wales.nhs.cavuhb.Patient/CURRENT_ADDRESS [:wales.nhs.cavuhb.Address/ADDRESS1 :uk.gov.ons.nhspd/PCDS]}]}])
