@@ -2,7 +2,7 @@
   (:require [next.jdbc.date-time]
             [next.jdbc :as jdbc]
             [clojure.spec.alpha :as s]
-            [com.eldrix.concierge.nhs-number]
+            [com.eldrix.nhsnumber]
             [next.jdbc.sql.builder :as sql.builder])
   (:import (java.sql Connection)
            (java.time LocalDate LocalDateTime)))
@@ -207,8 +207,12 @@
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
 (s/def :t_patient/id int?)
 (s/def :t_patient/patient_identifier int?)
-(s/def :t_patient/nhs_number (s/and string? com.eldrix.concierge.nhs-number/valid?))
+(s/def :t_patient/nhs_number (s/and string? com.eldrix.nhsnumber/valid?))
 (s/def :t_patient/date_death (s/nilable #(instance? LocalDate %)))
+(s/def :t_patient_hospital/patient_fk int?)
+(s/def :t_patient_hospital/hospital_fk string?)
+(s/def :t_patient_hospital/patient_identifier string?)
+(s/def :t_patient_telephone/telephone string?)
 (s/def :t_user/id int?)
 (s/def :t_smoking_history/id int?)
 (s/def :t_smoking_history/current_cigarettes_per_day int?)
