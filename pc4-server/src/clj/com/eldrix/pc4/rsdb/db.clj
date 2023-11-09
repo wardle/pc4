@@ -207,7 +207,7 @@
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
 (s/def :t_patient/id int?)
 (s/def :t_patient/patient_identifier int?)
-(s/def :t_patient/nhs_number (s/and string? com.eldrix.nhsnumber/valid?))
+(s/def :t_patient/nhs_number (s/nilable (s/and string? com.eldrix.nhsnumber/valid?)))
 (s/def :t_patient/date_death (s/nilable #(instance? LocalDate %)))
 (s/def :t_patient_hospital/patient_fk int?)
 (s/def :t_patient_hospital/hospital_fk string?)

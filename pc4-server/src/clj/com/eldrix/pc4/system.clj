@@ -8,6 +8,8 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s]
             [clojure.tools.logging.readable :as log]
+            [com.eldrix.concierge.wales.cav-pms :as cav-pms]
+            [com.eldrix.concierge.wales.empi :as empi]
             [com.eldrix.concierge.wales.nadex :as nadex]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.deprivare.core :as deprivare]
@@ -137,6 +139,16 @@
 
 (defmethod ig/init-key :wales.nhs/empi [_ config]
   config)
+
+(defmethod ig/init-key :com.eldrix.pc4/demographic-service
+  [_ {:keys [empi cavuhb]}]
+  ;; create a demographic service that can resolve a identifier against a
+  ;; a given authority returning patient data in a FHIR representation
+  (fn demographic-service [authority {:org.hl7.fhir.Identifier/keys [system value]}]
+    (case authority ;; we double check that we have an active configuration before resolving
+      :EMPI (when empi (empi/resolve! empi system value))
+      :CAVUHB (when cavuhb (cav-pms/fetch-patient cavuhb system value))
+      (constantly nil))))
 
 (defmethod ig/init-key :pathom/ops [_ ops]
   (flatten ops))

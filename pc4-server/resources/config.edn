@@ -119,6 +119,11 @@
  ;; pc4 services
  ;;
 
+ ;; demographics authority service
+ :com.eldrix.pc4/demographic-service
+ #profile {:cvx {:empi   #ig/ref :wales.nhs/empi
+                 :cavuhb #ig/ref :wales.nhs.cavuhb/pas}}
+
  ;; object / file storage using either local filesystem or AWS S3
  :com.eldrix.pc4/filestorage
  #profile {:cvx     {:kind               :local
