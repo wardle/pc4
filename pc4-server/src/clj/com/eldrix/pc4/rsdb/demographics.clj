@@ -14,6 +14,7 @@
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
     [com.eldrix.pc4.fhir :as fhir]
+    [com.eldrix.nhspd.postcode :as postcode]
     [com.eldrix.pc4.rsdb.db :as db]
     [honey.sql :as sql]
     [next.jdbc :as jdbc])
@@ -37,6 +38,9 @@
   "A set of supported identifier systems that can be mapped to legacy hospital
   identifiers."
   (set (keys identifier-system->legacy-hospital)))
+
+(defn fhir-gender->rsdb-sex [gender]
+  (case gender "male" "MALE", "female" "FEMALE", "UNKNOWN"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -133,9 +137,21 @@
       0 nil, 1 (first clauses), (cons :or clauses))))
 
 (defn ^:private match-address-by-postcode
+  "Return SQL to match against the postal code specified. Legacy rsdb stored the
+  user entered postal code and tried to map to NHSPD when possible. We therefore
+  try all combinations in order to match."
   [{:org.hl7.fhir.Address/keys [postalCode]}]
   (when postalCode
-    {:select [[:patient_fk :id]] :from :t_address :where [:ilike :postcode_raw postalCode]}))
+    (let [pcd2 (postcode/normalize postalCode)              ;; normalize according to PCD2 standard
+          egif (postcode/egif postalCode)]
+      {:select    [[:patient_fk :id]]
+       :from      :t_address
+       :left-join [:t_postcode [:= :postcode_fk :t_postcode/postcode]]
+       :where     [:or
+                   [:= :postcode_raw egif]                  ;; match with egif version of postcode
+                   [:= :postcode_raw pcd2]                  ;; match with pcd2 normalised version of postcode
+                   [:= :postcode pcd2]                      ;; or match on mapped postcode from :t_postcode
+                   [:ilike :postcode_raw postalCode]]})))   ;; or match on raw user entered data
 
 (defn ^:private match-any-address-by-postcode
   [fhir-addresses]
@@ -143,24 +159,32 @@
     (case (count clauses)
       0 nil, 1 (first clauses), (cons :or clauses))))
 
-(defn ^:private exact-match-on-names-date-birth-postcode-sql
-  "Return SQL to match on names, date of birth, and postal codes), or nil."
+(defn ^:private exact-match-on-demography-sql
+  "Return SQL to match on names, date of birth, gender, and postal codes), or
+  nil. To match, a patient must have the same name, date of birth, gender and
+  at least one matching address by virtue of postal code. This is designed for
+  high specificity at the cost of sensitivity."
   [fhir-patient]
   (let [dob (:org.hl7.fhir.Patient/birthDate fhir-patient)
+        gender (:org.hl7.fhir.Patient/gender fhir-patient)
         name-clause (match-any-human-name (:org.hl7.fhir.Patient/name fhir-patient))
         address-clause (match-any-address-by-postcode (:org.hl7.fhir.Patient/address fhir-patient))]
     ;; only return a query when we have clauses for date of birth, at least one name and at least one address:
-    (when (and dob name-clause address-clause)
-      {:intersect [{:select :id :from :t_patient :where [:and [:= :date_birth dob] name-clause]}
+    (when (and dob gender name-clause address-clause)
+      {:intersect [{:select :id
+                    :from   :t_patient
+                    :where  [:and
+                             [:= :date_birth dob]
+                             [:= :sex (fhir-gender->rsdb-sex gender)]
+                             name-clause]}
                    address-clause]})))
 
-(defn exact-match-on-names-date-birth-postcode
+(defn exact-match-on-demography
   "Returns a set of patient primary keys for patients that match the names, date
   of birth and address of the given patient `fhir-patient`."
   [conn fhir-patient]
-  (when-let [sql (exact-match-on-names-date-birth-postcode-sql fhir-patient)]
+  (when-let [sql (exact-match-on-demography-sql fhir-patient)]
     (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -231,7 +255,7 @@
         email (:org.hl7.fhir.ContactPoint/value (first (filter #(= "email" (:org.hl7.fhir.ContactPoint/system %)) (:org.hl7.fhir.Patient/telecom fhir-patient))))
         surgery-id (first (fhir/gp-surgery-identifiers fhir-patient))
         gp-id (first (fhir/general-practitioner-identifiers fhir-patient))
-        set-map (cond-> {:sex                 (case (:org.hl7.fhir.Patient/gender fhir-patient) "male" "MALE", "female" "FEMALE", "UNKNOWN")
+        set-map (cond-> {:sex                 (fhir-gender->rsdb-sex (:org.hl7.fhir.Patient/gender fhir-patient))
                          :date_birth          birth-date
                          :date_death          date-death
                          :date_death_accuracy death-accuracy}
