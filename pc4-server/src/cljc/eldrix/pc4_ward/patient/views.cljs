@@ -1,6 +1,5 @@
 (ns eldrix.pc4-ward.patient.views
-  (:require [fork.re-frame :as fork]
-            [eldrix.pc4-ward.ui :as ui]))
+  (:require [eldrix.pc4-ward.ui :as ui]))
 
 
 
@@ -36,7 +35,4 @@
      :on-change handle-change
      :on-blur   handle-blur}]])
 
-(defn form-ms-status []
-  [fork/form {:initial-values  {:t_form_edss/edss_score "SCORE1_0"}
-              :keywordize-keys true}
-   form-ms-status'])
+
