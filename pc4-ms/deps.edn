@@ -21,6 +21,8 @@
                        :extra-deps  {org.clojure/clojurescript           {:mvn/version "1.11.60"}
                                      thheller/shadow-cljs                {:mvn/version "2.25.2"}
                                      fulcrologic/fulcro-spec             {:mvn/version "3.1.12"}
+                                     holyjak/fulcro-troubleshooting      {:git/url "https://github.com/holyjak/fulcro-troubleshooting"
+                                                                          :sha     "51599bf965f89cf58812a5c7753ab69154eded62" :tag "latest"}
                                      binaryage/devtools                  {:mvn/version "1.0.7"}
                                      com.github.awkay/workspaces         {:mvn/version "1.0.3"}
                                      com.teknql/shadow-cljs-tailwind-jit {:mvn/version "1.0.0"}
