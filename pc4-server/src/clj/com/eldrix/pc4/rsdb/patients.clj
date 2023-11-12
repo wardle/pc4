@@ -448,7 +448,7 @@
   with pseudonymous patients. We know LSOA11 represents 1000-1500 members of the
   population. We don't keep an address history, so simply write an address with
   no dates which is the 'current'."
-  [txn {patient-identifier :t_patient/patient_identifier lsoa11 :uk.gov.ons.nhspd/LSOA11 :as params}]
+  [txn {patient-identifier :t_patient/patient_identifier, lsoa11 :uk.gov.ons.nhspd/LSOA11, :as params}]
   (when-let [patient (db/execute-one! txn (sql/format {:select [:id :patient_identifier :status] :from :t_patient :where [:= :patient_identifier patient-identifier]}))]
     (if-not (= :PSEUDONYMOUS (:t_patient/status patient))
       (throw (ex-info "Invalid operation: cannot save LSOA for non-pseudonymous patient" params))
@@ -464,7 +464,9 @@
                                   :t_address/postcode_raw           nil
                                   :t_address/postcode_fk            nil
                                   :t_address/ignore_invalid_address "true"
-                                  :t_address/address2               nil :t_address/address3 nil :t_address/address4 nil}
+                                  :t_address/address2               nil
+                                  :t_address/address3 nil
+                                  :t_address/address4 nil}
                                  {:t_address/id (:t_address/id current-address)})
           (next.jdbc.sql/insert! txn :t_address {:t_address/address1               lsoa11
                                                  :t_address/ignore_invalid_address "true"
