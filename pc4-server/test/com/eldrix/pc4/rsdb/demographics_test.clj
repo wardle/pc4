@@ -1,7 +1,7 @@
-(ns com.eldrix.pc4.rsdb.patients-update-test
+(ns com.eldrix.pc4.rsdb.demographics-test
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest is]]
-            [com.eldrix.pc4.rsdb.patients-update :as ptup])
+            [com.eldrix.pc4.rsdb.demographics :as demog])
   (:import (java.time LocalDate)))
 
 (stest/instrument)
@@ -17,8 +17,8 @@
    :org.hl7.fhir.Patient/telecom             []})
 
 (deftest test-patient-update
-  (let [sql-1 (#'ptup/update-patient-sql {:t_patient/id 1} base-fhir-patient)
-        sql-2 (#'ptup/update-patient-sql {:t_patient/id 1}
+  (let [sql-1 (#'demog/update-patient-sql {:t_patient/id 1} base-fhir-patient)
+        sql-2 (#'demog/update-patient-sql {:t_patient/id 1}
                 (assoc base-fhir-patient :org.hl7.fhir.Patient/deceased true))]
     (is (= "FEMALE" (get-in sql-1 [0 :set :sex])))
     (is (nil? (get-in sql-1 [0 :set :date_death])))
@@ -28,7 +28,7 @@
         "When a patient is marked as 'deceased', date of death should be set to date of birth, and accuracy set as unknown")))
 
 (deftest test-patient-general-practitioner
-  (let [sql (#'ptup/update-patient-sql
+  (let [sql (#'demog/update-patient-sql
               {:t_patient/id 1}
               (assoc base-fhir-patient
                 :org.hl7.fhir.Patient/generalPractitioner
@@ -49,13 +49,13 @@
                      {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
                       :org.hl7.fhir.Identifier/value  "A999998"}]
         patient (assoc base-fhir-patient :org.hl7.fhir.Patient/identifier identifiers)
-        sql-1 (#'ptup/update-patient-identifiers-sql {:t_patient/id 1} [] patient)
-        sql-2 (#'ptup/update-patient-identifiers-sql
+        sql-1 (#'demog/update-patient-identifiers-sql {:t_patient/id 1} [] patient)
+        sql-2 (#'demog/update-patient-identifiers-sql
                 {:t_patient/id 1}
                 [{:t_patient_hospital/hospital_fk        "RWMBV"
                   :t_patient_hospital/patient_identifier "A999998"}]
                 patient)
-        sql-3 (#'ptup/update-patient-identifiers-sql
+        sql-3 (#'demog/update-patient-identifiers-sql
                 {:t_patient/id 1}
                 [{:t_patient_hospital/hospital_fk        "RWMBV"
                   :t_patient_hospital/patient_identifier "A999998"}
@@ -79,19 +79,19 @@
                :org.hl7.fhir.ContactPoint/use    "home"
                :org.hl7.fhir.ContactPoint/value  "02920 747747"}
         new-2 (assoc new-1 :org.hl7.fhir.ContactPoint/value "999")
-        sql-1 (#'ptup/update-patient-telephones-sql
+        sql-1 (#'demog/update-patient-telephones-sql
                 {:t_patient/id 1}
                 [existing-1]
                 base-fhir-patient)
-        sql-2 (#'ptup/update-patient-telephones-sql
+        sql-2 (#'demog/update-patient-telephones-sql
                 {:t_patient/id 1}
                 [existing-1]
                 (assoc base-fhir-patient :org.hl7.fhir.Patient/telecom [new-1]))
-        sql-3 (#'ptup/update-patient-telephones-sql
+        sql-3 (#'demog/update-patient-telephones-sql
                 {:t_patient/id 5}
                 [existing-1]
                 (assoc base-fhir-patient :org.hl7.fhir.Patient/telecom [new-1 new-2]))
-        sql-4 (#'ptup/update-patient-telephones-sql
+        sql-4 (#'demog/update-patient-telephones-sql
                 {:t_patient/id 5}
                 [existing-1 existing-2]
                 (assoc base-fhir-patient :org.hl7.fhir.Patient/telecom [new-1 new-2]))]
@@ -118,14 +118,14 @@
    :org.hl7.fhir.Address/country    ""})
 
 (deftest test-update-address-no-change
-  (is (empty? (#'ptup/update-patient-addresses-sql
+  (is (empty? (#'demog/update-patient-addresses-sql
                 {:t_patient/id 1}
                 [base-old-address]
                 (assoc base-fhir-patient
                   :org.hl7.fhir.Patient/address [base-fhir-address])))))
 
 (deftest test-update-address-simple
-  (let [sql (#'ptup/update-patient-addresses-sql
+  (let [sql (#'demog/update-patient-addresses-sql
               {:t_patient/id 1}
               []
               (assoc base-fhir-patient
@@ -137,7 +137,7 @@
 (deftest test-update-address-replace-all
   "When external data has no start or end date, then it should replace all
   prior address history."
-  (let [sql (#'ptup/update-patient-addresses-sql
+  (let [sql (#'demog/update-patient-addresses-sql
               {:t_patient/id 1}
               [(assoc base-old-address :t_address/id 1)
                (assoc base-old-address :t_address/id 2)
@@ -151,7 +151,7 @@
 
 ; ;With new external data, we'd expect the current address history to be truncated.
 (deftest test-update-address-truncation
-  (let [sql (#'ptup/update-patient-addresses-sql
+  (let [sql (#'demog/update-patient-addresses-sql
               {:t_patient/id 1}
               [(assoc base-old-address :t_address/id 1
                                        :t_address/date_from (LocalDate/of 1990 1 1)
@@ -207,7 +207,7 @@
 
 (deftest test-match-patients-by-identifiers
   (doseq [{:keys [pt-1 pt-2 exp]} match-tests]
-    (is (= exp (#'ptup/matching-patient-identifiers? pt-1 pt-2)))))
+    (is (= exp (#'demog/matching-patient-identifiers? pt-1 pt-2)))))
 
 (def authority-tests
   [{:title "Should use EMPI with the given NHS number"
@@ -271,29 +271,30 @@
 
 (deftest test-patient-authority
   (doseq [{:keys [title pt exp]} authority-tests]
-    (is (= exp (:result (#'ptup/fetch-from-authority test-demographic-service pt))) title)))
+    (is (= exp (:result (#'demog/fetch-from-authority test-demographic-service pt))) title)))
 
 (comment
   (def conn (next.jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
-  (ptup/update-patient conn
-                       (fn [auth identifier]
-                         {:org.hl7.fhir.Patient/gender "female"
-                          :org.hl7.fhir.Patient/address []
-                          :org.hl7.fhir.Patient/telecom []
-                          :org.hl7.fhir.Patient/generalPractitioner []
-                          :org.hl7.fhir.Patient/name [{:org.hl7.fhir.HumanName/family "Smith"
-                                                       :org.hl7.fhir.HumanName/given ["Mark"]
-                                                       :org.hl7.fhir.HumanName/prefix ["Dr"]
-                                                       :org.hl7.fhir.HumanName/use "usual"}]
-                          :org.hl7.fhir.Patient/active true
-                          :org.hl7.fhir.Patient/birthDate (LocalDate/of 1990 1 1)
-                          :org.hl7.fhir.Patient/identifier
-                           [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"}
-                            :org.hl7.fhir.Identifier/value  "1111111111"]})
-                       {:t_patient/id                         1
-                        :t_patient/nhs_number                 "1111111111"
-                        :t_patient/authoritative_demographics :EMPI
-                        :t_patient/patient_hospitals          []
-                        :t_patient/addresses []
-                        :t_patient/telephones []}
-                       {:match true, :execute false}))
+  (demog/update-patient
+    nil
+    (fn [_ _]
+      {:org.hl7.fhir.Patient/gender              "female"
+       :org.hl7.fhir.Patient/address             []
+       :org.hl7.fhir.Patient/telecom             [{:org.hl7.fhir.ContactPoint/system "phone"
+                                                   :org.hl7.fhir.ContactPoint/value  "02920747747"
+                                                   :org.hl7.fhir.ContactPoint/use    "work"}]
+       :org.hl7.fhir.Patient/generalPractitioner []
+       :org.hl7.fhir.Patient/name                [{:org.hl7.fhir.HumanName/family "Smith"
+                                                   :org.hl7.fhir.HumanName/given  ["Mark"]
+                                                   :org.hl7.fhir.HumanName/prefix ["Dr"]
+                                                   :org.hl7.fhir.HumanName/use    "usual"}]
+       :org.hl7.fhir.Patient/active              true
+       :org.hl7.fhir.Patient/birthDate           (LocalDate/of 1990 1 1)
+       :org.hl7.fhir.Patient/identifier          [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+                                                   :org.hl7.fhir.Identifier/value  "1111111111"}]})
+    {:t_patient/id                         1
+     :t_patient/nhs_number                 "1111111111"
+     :t_patient/authoritative_demographics :EMPI
+     :t_patient/patient_hospitals          []
+     :t_patient/addresses                  []
+     :t_patient/telephones                 []}))

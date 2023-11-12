@@ -1,4 +1,4 @@
-(ns com.eldrix.pc4.rsdb.patients-update
+(ns com.eldrix.pc4.rsdb.demographics
   "Update a patient record from external authoritative sources. The code here is
   loosely based on legacy rsdb: https://github.com/wardle/rsdb/blob/master/RSNews/src/main/java/com/eldrix/rsdb/patient/PatientRegister.java
 
@@ -25,19 +25,142 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:private identifier-system->legacy-hospital
-  "Mapping from modern fhir namespaces to legacy hospital identifiers."
+  "Mapping from modern fhir namespaces to legacy hospital identifiers. We only
+  need to cover legacy hospitals that can contribute to authoritative
+  demographics here. All others can be ignored."
   {"https://fhir.ctmuhb.nhs.wales/Id/pas-identifier" "RYLB3" ;; Prince Charles Hospital / CTMUHB
    "https://fhir.abuhb.nhs.wales/Id/pas-identifier"  "RVFAR" ;;Royal Gwent Hospital / ABUHB
    "https://fhir.sbuhb.nhs.wales/Id/pas-identifier"  "RYMC7" ;; Morriston Hospital / SBUHB
    "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "RWMBV"}) ;; UHW / CAVUHB
 
-(def ^:private legacy-hospital->identifier
-  (set/map-invert identifier-system->legacy-hospital))
-
 (def ^:private supported-identifiers
   "A set of supported identifier systems that can be mapped to legacy hospital
   identifiers."
   (set (keys identifier-system->legacy-hospital)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ^:private match-nnns
+  "Generates SQL to match on NHS numbers returning patient primary keys."
+  [fhir-patient]
+  (let [clauses
+        (->> (:org.hl7.fhir.Patient/identifier fhir-patient)
+             (filter #(= "https://fhir.nhs.uk/Id/nhs-number" (:org.hl7.fhir.Identifier/system %)))
+             (map (fn [{:org.hl7.fhir.Identifier/keys [value]}]
+                    [:= :nhs_number value])))]
+    (case (count clauses)
+      0 nil
+      1 {:select :id :from :t_patient :where (first clauses)}
+      {:select :id :from :t_patient :where (cons :or clauses)})))
+
+(defn ^:private match-crns
+  "Generates SQL to match on hospital numbers, returning patient primary keys."
+  [fhir-patient]
+  (let [clauses
+        (->> (:org.hl7.fhir.Patient/identifier fhir-patient)
+             (map (fn [{:org.hl7.fhir.Identifier/keys [system value]}]
+                    (when-let [hospital-id (identifier-system->legacy-hospital system)]
+                      [:and
+                       [:= :hospital_fk hospital-id]
+                       [:ilike :patient_identifier value]])))
+             (remove nil?))]
+    (case (count clauses)
+      0 nil
+      1 {:select [[:patient_fk :id]] :from :t_patient_hospital
+         :where  (first clauses)}
+      {:select [[:patient_fk :id]] :from :t_patient_hospital
+       :where  (cons :or clauses)})))
+
+(s/fdef match-patient-identifiers-sql
+  :args (s/cat :patient :org.hl7.fhir/Patient))
+(defn ^:private match-patient-identifiers-sql
+  "Return SQL that will return the primary keys of any existing registered
+  patients who match the given patient. Matching occurs by virtue of
+  - a match of NHS number
+  - a match of hospital identifier"
+  [fhir-patient]
+  (let [clauses
+        (remove nil? [(match-nnns fhir-patient) (match-crns fhir-patient)])]
+    (case (count clauses)
+      0 nil, 1 (first clauses), {:union clauses})))
+
+(defn matching-patients-by-identifiers
+  "Returns a set of patient primary keys for patients that match the given
+  patient `fhir-patient`."
+  [conn fhir-patient]
+  (when-let [sql (match-patient-identifiers-sql fhir-patient)]
+    (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
+
+(defn match-human-name
+  "Returns SQL to match a HL7 FHIR HumanName. Generates a query that will
+  include all combinations of first names when there is more than one given
+  name. For example,
+  ```
+  (human-name->sql
+    {:org.hl7.fhir.HumanName/family \"Smith\"
+     :org.hl7.fhir.HumanName/given  [\"Mark\" \"David\" \"Geoffrey\"]})
+  =>
+  (:or\n [:and [:ilike :first_names \"Mark\"] [:ilike :last_name \"Smith\"]]
+   [:and [:ilike :first_names \"David\"] [:ilike :last_name \"Smith\"]]
+   [:and [:ilike :first_names \"Geoffrey\"] [:ilike :last_name \"Smith\"]]
+   [:and [:ilike :first_names \"Mark David\"] [:ilike :last_name \"Smith\"]]
+   [:and [:ilike :first_names \"Mark David Geoffrey\"] [:ilike :last_name \"Smith\"]])
+  ```"
+  [{:org.hl7.fhir.HumanName/keys [given family]}]
+  (let [combos
+        (when (and (seq given) family)
+          (distinct
+            (concat
+              (map #(vector % family) given)                ;; each first name with the family name
+              (for [ss (reductions #(str %1 " " %2) given), s [family]] ;; first name(s) plus family name
+                [ss s]))))]
+    (case (count combos)
+      0 nil
+      1 (let [[first-names last-name] (first combos)]
+          [:and
+           [:ilike :first_names first-names]
+           [:ilike :last_name last-name]])
+      (cons :or
+            (map (fn [[first-names last-name]]
+                   [:and
+                    [:ilike :first_names first-names]
+                    [:ilike :last_name last-name]]) combos)))))
+
+(defn ^:private match-any-human-name
+  [fhir-human-names]
+  (let [clauses (remove nil? (map match-human-name fhir-human-names))]
+    (case (count clauses)
+      0 nil, 1 (first clauses), (cons :or clauses))))
+
+(defn ^:private match-address-by-postcode
+  [{:org.hl7.fhir.Address/keys [postalCode]}]
+  (when postalCode
+    {:select [[:patient_fk :id]] :from :t_address :where [:ilike :postcode_raw postalCode]}))
+
+(defn ^:private match-any-address-by-postcode
+  [fhir-addresses]
+  (let [clauses (remove nil? (map match-address-by-postcode fhir-addresses))]
+    (case (count clauses)
+      0 nil, 1 (first clauses), (cons :or clauses))))
+
+(defn ^:private exact-match-on-names-date-birth-postcode-sql
+  "Return SQL to match on names, date of birth, and postal codes), or nil."
+  [fhir-patient]
+  (let [dob (:org.hl7.fhir.Patient/birthDate fhir-patient)
+        name-clause (match-any-human-name (:org.hl7.fhir.Patient/name fhir-patient))
+        address-clause (match-any-address-by-postcode (:org.hl7.fhir.Patient/address fhir-patient))]
+    ;; only return a query when we have clauses for date of birth, at least one name and at least one address:
+    (when (and dob name-clause address-clause)
+      {:intersect [{:select :id :from :t_patient :where [:and [:= :date_birth dob] name-clause]}
+                   address-clause]})))
+
+(defn exact-match-on-names-date-birth-postcode
+  "Returns a set of patient primary keys for patients that match the names, date
+  of birth and address of the given patient `fhir-patient`."
+  [conn fhir-patient]
+  (when-let [sql (exact-match-on-names-date-birth-postcode-sql fhir-patient)]
+    (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -226,7 +349,7 @@
 (defn ^:private update-patient-from-external-sql*
   "Return a sequence of SQL statements (as Clojure data) to update patient data
   based on data derived from an external authority.
-  Essentially the same as `update-patient-from-external-sql* but with added
+  Essentially the same as `update-patient-from-external-sql but with added
   validation and additional options (e.g. `update-last-updated` and `match`."
   [{patient-pk :t_patient/id :as patient} fhir-patient
    {:keys [update-last-updated match] :or {update-last-updated true, match true}}]
@@ -307,7 +430,7 @@
 ;; Public API
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (s/fdef update-patient
-  :args (s/cat :conn any? :demographic-service fn?, :patient map?, :opts map?))
+  :args (s/cat :conn any? :demographic-service fn?, :patient map? :opts (s/? map?)))
 (defn update-patient
   "Returns a sequence of Clojure data structures representing the SQL necessary
   to update the given patient using data from an  external authority. The
