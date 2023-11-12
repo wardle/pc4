@@ -131,7 +131,7 @@
                    :autocomplete/loaded-suggestions         ; A place to do the loading, so we can prevent flicker in the UI
                    :autocomplete/suggestions                ; the current completion suggestions
                    :autocomplete/selected                   ; the currently selected option
-                   {:autocomplete/selected-synonyms (comp/query Synonyms)} ; synonyms are lazily loaded when the user selects an option
+                   {:autocomplete/selected-synonyms (comp/get-query Synonyms)} ; synonyms are lazily loaded when the user selects an option
                    :autocomplete/stringValue]               ; the current user-entered value
    :ident         (fn [] (autocomplete-ident props))
    :initial-state (fn [{:keys [id]}] {:db/id                    id
