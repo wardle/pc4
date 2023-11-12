@@ -29,6 +29,7 @@
 
 (defn reset-system []
   (ig.repl/halt)
+  (ig.repl/prep)
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (ig.repl/init [:com.eldrix.pc4.pedestal/server]))
 
@@ -270,11 +271,10 @@
            (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username username :project-id project-id})
            user)) users)
   (def conn (:com.eldrix.rsdb/conn system))
-  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "mariadandu"))
-  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "nadirafernando"))
+  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "xxx"))
+  (:t_user/id (com.eldrix.pc4.rsdb.users/fetch-user conn "xxx"))
   (com.eldrix.pc4.rsdb.users/reset-password! conn {:t_user/id 968})
-  (next.jdbc.sql/update! conn :t_user {:credential "$2a$10$0TnlpsytMJn9lw4En9T2BuO6zR1d3rK2K1wXu2xLnyqOSSwxlwBzO"}
-                         {:t_user/id 967})
+  (next.jdbc.sql/update! conn :t_user {:credential "xxxx"} {:t_user/id 967})
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
@@ -282,24 +282,32 @@
   ;; start a server using http-kit/ring - suitable for a fulcro front-end
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
 
-  (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "cpizot"
-                                                                                      :project-id 1})
+  (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "xxx" :project-id 1})
 
-  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "cpizot")
+  (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "xxx")
+
+
+  ;; find a patient with given NHS number
+  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) (honey.sql/format {:select [:id :patient_identifier :sex :nhs_number :date-birth :date-death]
+                                                                        :from [:t_patient]
+                                                                        :where [:= :nhs_number "xxx"]}))
+  ;; find a patient with a given pseudonym
+  (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) "CAMBRIDGEMS" "xxx")
 
   (def global-salt (get-in system [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]))
   global-salt
-  (com.eldrix.pc4.rsdb.projects/update-legacy-pseudonymous-patient! (:com.eldrix.rsdb/conn system)
-                                                                    global-salt
-                                                                    125221
-                                                                    {:nhs-number "6269753848"
-                                                                     :date-birth (java.time.LocalDate/of 1978 12 1)
-                                                                     :sex        :MALE})
+  (next.jdbc/with-transaction [txn (:com.eldrix.rsdb/conn system) {:isolation :serializable}]
+    (com.eldrix.pc4.rsdb.projects/update-legacy-pseudonymous-patient! txn
+                                                                      global-salt
+                                                                      128283
+                                                                      {:nhs-number "xxx"
+                                                                       :date-birth (java.time.LocalDate/of 1900 1 1)
+                                                                       :sex        :FEMALE}))
   (com.eldrix.pc4.rsdb.projects/find-legacy-pseudonymous-patient (:com.eldrix.rsdb/conn system)
-                                                                 {:salt       global-salt :project-id 126 :nhs-number "4290060692"
-                                                                  :date-birth (java.time.LocalDate/of 1983 7 3)})
+                                                                 {:salt       global-salt :project-id 126 :nhs-number "xxx"
+                                                                  :date-birth (java.time.LocalDate/of 1900 1 1)})
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 126)
-  (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) "CAMBRIDGEMS" "3624ddabcbe682fd4143654afa28fcf76c1fa3bba46bf90a1b2182bc8a4f3d3d")
+
 
   (com.eldrix.pc4.rsdb.projects/discharge-episode! (:com.eldrix.rsdb/conn system) 1 {:t_episode/id 48256})
 
