@@ -89,7 +89,7 @@
     [:div#app]
     [:script {:src (str "js/compiled/" src)}]]])
 
-(def landinge3hhv
+(def landing
   "Interceptor to return the pc4-ward front-end application."
   {:enter
    (fn [ctx]
@@ -318,7 +318,7 @@
 
 (defn routes []
   (log/info "loading routes")
-  [["/" {:name :landing :get {:interceptors [landing-page]}}]
+  [["/" {:name :landing :get {:interceptors [landing]}}]
    ["/login"
     {:name :login
      :post {:interceptors [login]}}]                        ;; for legacy clients (re-frame / pc4-ward)
