@@ -88,14 +88,7 @@
     (case (count clauses)
       0 nil, 1 (first clauses), {:union clauses})))
 
-(defn matching-patients-by-identifiers
-  "Returns a set of patient primary keys for patients that match the given
-  patient `fhir-patient`."
-  [conn fhir-patient]
-  (when-let [sql (match-patient-identifiers-sql fhir-patient)]
-    (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
-
-(defn match-human-name
+(defn ^:private match-human-name
   "Returns SQL to match a HL7 FHIR HumanName. Generates a query that will
   include all combinations of first names when there is more than one given
   name. For example,
@@ -179,7 +172,16 @@
                              name-clause]}
                    address-clause]})))
 
-(defn exact-match-on-demography
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ^:private matching-patients-by-identifiers
+  "Returns a set of patient primary keys for patients that match the given
+  patient `fhir-patient`."
+  [conn fhir-patient]
+  (when-let [sql (match-patient-identifiers-sql fhir-patient)]
+    (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
+
+(defn ^:private exact-match-on-demography
   "Returns a set of patient primary keys for patients that match the names, date
   of birth and address of the given patient `fhir-patient`."
   [conn fhir-patient]
@@ -453,6 +455,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (s/fdef update-patient
   :args (s/cat :conn any? :demographic-service fn?, :patient map? :opts (s/? map?)))
 (defn update-patient
