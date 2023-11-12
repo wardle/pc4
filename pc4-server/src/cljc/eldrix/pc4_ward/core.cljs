@@ -119,10 +119,8 @@
     {:use-fragment true}))
 
 
-
-
 (defn router-component
-  [{:keys [router]}]
+  [router]
   (let [authenticated-user @(re-frame/subscribe [::user-subs/authenticated-user])
         current-route (or @(re-frame/subscribe [::subs/current-route]) (r/match-by-path router "/"))
         auth (get-in current-route [:data :auth])]
@@ -150,8 +148,10 @@
 (defn ^:dev/after-load mount-root []
   (re-frame/clear-subscription-cache!)
   (init-routes!)
-  (rdom/render [router-component {:router router}] (.getElementById js/document "app")))
-  ;;(rdom/render [refer3/refer-page] (.getElementById js/document "app"))
+  ;;(rdom/render [refer3/refer-page] (.getElementById js/document "app")
+  (rdom/render [router-component router]
+              (.getElementById js/document "app")))
+
 
 
 (defn init []
