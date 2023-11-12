@@ -1,6 +1,5 @@
 (ns com.eldrix.pc4.core
   (:require [clojure.tools.logging :as log]
-            [com.eldrix.pc4.rsdb.migrations :as migrations]
             [com.eldrix.pc4.system :as pc4])
   (:gen-class))
 
