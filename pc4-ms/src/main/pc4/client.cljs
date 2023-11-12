@@ -58,17 +58,17 @@
 (defn make-SPA []
   (app/fulcro-app
     {;:global-eql-transform global-eql-transform
+     :render-middleware
+     (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
      :remotes
-     {:remote
-      (net/fulcro-http-remote
-        {:url                (str server-url "/api")
-         :request-middleware (->
-                               (net/wrap-fulcro-request)
-                               (wrap-authentication-token))})
-      :login
-      (net/fulcro-http-remote
-        {:url                (str server-url "/login-mutation")
-         :request-middleware (-> (net/wrap-fulcro-request))})}}))
+     {:remote (net/fulcro-http-remote
+                {:url                (str server-url "/api")
+                 :request-middleware (->
+                                       (net/wrap-fulcro-request)
+                                       (wrap-authentication-token))})
+      :login (net/fulcro-http-remote
+               {:url                (str server-url "/login-mutation")
+                :request-middleware (-> (net/wrap-fulcro-request))})}}))
 
 
 (defn ^:export init []
