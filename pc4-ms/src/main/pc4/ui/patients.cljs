@@ -297,8 +297,8 @@
         (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
         (ui/ui-button {:onClick #(comp/set-state! this (assoc state :ui/editing true))} "Edit"))
       (ui/ui-modal {:title   (ui-patient-banner banner)
-                    :actions [{:id :save :role :primary :title "Save"}
-                              {:is      :cancel :title "Cancel"
+                    :actions [{:id :save, :role :primary :title "Save"}
+                              {:id      :cancel, :title "Cancel"
                                :onClick #(comp/set-state! this {:ui/editing false})}]}
         (ui/ui-simple-form {:title "Death certificate"}
           (ui/ui-simple-form-item {:label "Date of death"}
