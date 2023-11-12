@@ -100,12 +100,14 @@
                                              title first_names last_name address episodes]
                             current-project :ui/current-project}
                       {:keys [onClose] :as computed-props}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex
-           :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
-           {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
-           {:t_patient/episodes (comp/get-query PatientEpisode)}
-           {[:ui/current-project '_] [:t_project/id]}]}
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex
+                   :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
+                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
+                   {:t_patient/episodes (comp/get-query PatientEpisode)}
+                   {[:ui/current-project '_] [:t_project/id]}]
+   :initial-state (fn [params]
+                    {:t_patient/patient_identifier (:t_patient/patient_identifier params)})}
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
@@ -302,37 +304,101 @@
                                :onClick #(comp/set-state! this {:ui/editing false})}]}
         (ui/ui-simple-form {:title "Death certificate"}
           (ui/ui-simple-form-item {:label "Date of death"}
-            (ui/ui-local-date {:value    (:t_patient/date_death state)}
+            (ui/ui-local-date {:value (:t_patient/date_death state)}
                               {:onChange #(comp/set-state! this (assoc state :t_patient/date_death %))}))
           (ui/ui-simple-form-item {:label "Certificate"}
-            (ui/ui-textfield {:label "Part 1a" :value (:t_death_certificate/part1a state)
+            (ui/ui-textfield {:label    "Part 1a" :value (:t_death_certificate/part1a state)
                               :disabled disabled}
                              {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1a %))})
-            (ui/ui-textfield {:label "Part 1b" :value (:t_death_certificate/part1b state)
+            (ui/ui-textfield {:label    "Part 1b" :value (:t_death_certificate/part1b state)
                               :disabled disabled}
                              {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1b %))})
-            (ui/ui-textfield {:label "Part 1c" :value (:t_death_certificate/part1c state)
+            (ui/ui-textfield {:label    "Part 1c" :value (:t_death_certificate/part1c state)
                               :disabled disabled}
                              {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1c %))})
-            (ui/ui-textfield {:label "Part 2" :value (:t_death_certificate/part2 state)
+            (ui/ui-textfield {:label    "Part 2" :value (:t_death_certificate/part2 state)
                               :disabled disabled}
                              {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part2 %))})))))))
 
 
 (def ui-patient-death-certificate (comp/factory PatientDeathCertificate))
 
+
+(defsc EditDeathCertificate
+  [this params]
+  {:ident         (fn [] [:component/id :edit-death-certificate])
+   :query         [:t_patient/id
+                   :t_patient/patient_identifier
+                   :t_patient/date_death
+                   :t_death_certificate/part1a
+                   :t_death_certificate/part1b
+                   :t_death_certificate/part1c
+                   :t_death_certificate/part2]
+   :initial-state {}
+   :form-fields   #{:t_patient/date_death
+                    :t_death_certificate/part1a :t_death_certificate/part1b
+                    :t_death_certificate/part1c :t_death_certificate/part2}}
+  (dom/h1 "Edit death certificate"))
+
+(def ui-edit-death-certificate (comp/factory EditDeathCertificate))
+
+(defmutation edit-death-certificate
+  [{:t_patient/keys [patient_identifier]}]
+  (action
+    [{:keys [state]}]
+    (swap! state (fn [state]
+                   (-> state
+                       #_(fs/add-form-config* EditDeathCertificate [:t_patient/id id])
+                       (targeting/integrate-ident* [:t_patient/patient_identifier patient_identifier] :replace [:component/id :edit-death-certificate :patient]))))))
+
+(defmutation cancel-edit-death-certificate
+  [_]
+  (action [{:keys [state]}]
+          (swap! state (fn [state]
+                         (update-in state [:component/id :edit-death-certificate] dissoc :patient)))))
+
+
+(defsc PatientDeathCertificate2
+  [this {:t_patient/keys [id patient_identifier date_death]
+         banner          :>/banner
+         :ui/keys        [editing-death-certificate] :as params}]
+  {:ident         :t_patient/patient_identifier
+   :query         [{:>/banner (comp/get-query PatientBanner)}
+                   :t_patient/id
+                   :t_patient/patient_identifier
+                   :t_patient/date_death
+                   {:ui/editing-death-certificate (comp/get-query EditDeathCertificate)}]
+   :initial-state {:ui/editing-death-certificate {}}}
+  (println params)
+  (let [editing (:patient editing-death-certificate)
+        cancel-edit-fn #(comp/transact! this [(cancel-edit-death-certificate nil)])]
+    (if-not editing
+      (div
+        (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
+        (ui/ui-button {:onClick #(do (println "edit clicked")
+                                     (comp/transact! this [(edit-death-certificate {:t_patient/id id})]))} "Edit"))
+      (ui/ui-modal
+        {:title   (ui-patient-banner banner)
+         :actions [{:id :save, :role :primary :title "Save"}
+                   {:id :cancel, :title "Cancel" :onClick cancel-edit-fn}]}
+        {:onClose cancel-edit-fn}
+        (ui-edit-death-certificate editing-death-certificate)))))
+
+(def ui-patient-death-certificate2 (comp/factory PatientDeathCertificate2))
+
 (defsc PatientDemographics
   [this {:t_patient/keys   [patient_identifier date_death status encounters]
          sms               :t_patient/summary_multiple_sclerosis
          death-certificate :>/death_certificate
          :as               patient}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/id :t_patient/status
-           :t_patient/first_names :t_patient/last_name :t_patient/lsoa11
-           :t_patient/sex :t_patient/date_birth :t_patient/date_death
-           {:>/death_certificate (comp/get-query PatientDeathCertificate)}
-           {:t_patient/encounters [:t_encounter/date_time {:t_encounter/form_edss [:t_form_edss/score]}]}
-           {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]}
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/patient_identifier :t_patient/id :t_patient/status
+                   :t_patient/first_names :t_patient/last_name :t_patient/lsoa11
+                   :t_patient/sex :t_patient/date_birth :t_patient/date_death
+                   {:>/death_certificate (comp/get-query PatientDeathCertificate2)}
+                   {:t_patient/encounters [:t_encounter/date_time {:t_encounter/form_edss [:t_form_edss/score]}]}
+                   {:t_patient/summary_multiple_sclerosis (comp/get-query ChooseNeuroinflammatoryDiagnosis)}]
+   :initial-state {:>/death_certificate {}}}
   (let [sorted-encounters (sort-by #(some-> % :t_encounter/date_time % .getTime) encounters)
         last-encounter-date (or date_death (:t_encounter/date_time (first sorted-encounters)))
         edss-encounter (->> sorted-encounters
@@ -353,7 +419,7 @@
           (ui/ui-simple-form-item {:label "LSOA (geography)"}
             (ui-inspect-edit-lsoa (select-keys patient [:t_patient/patient_identifier :t_patient/lsoa11])))
           (ui/ui-simple-form-item {:label (div "Vital status" (when last-encounter-date (dom/span :.font-light.text-gray-500 (str " (as of " (ui/format-date last-encounter-date)) ")")))}
-            (ui-patient-death-certificate death-certificate))))
+            (ui-patient-death-certificate2 death-certificate))))
       (ui/box-error-message {:title   "Warning: patient type not yet supported"
                              :message "This form supports only pseudonymous patients."}))))
 
@@ -711,7 +777,7 @@
    :route-segment       ["patient" :t_patient/patient_identifier]
    :query               [:t_patient/id :t_patient/patient_identifier :t_patient/status
                          :t_patient/first_names :t_patient/last_name
-                         :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number :t_patient/status
+                         :t_patient/date_birth :t_patient/sex :t_patient/date_death :t_patient/nhs_number
                          {[:ui/current-project '_] [:t_project/id]}
                          {:>/banner (comp/get-query PatientBanner)}
                          {:>/demographics (comp/get-query PatientDemographics)}
@@ -721,6 +787,7 @@
                          {:>/encounters (comp/get-query PatientEncounters)}
                          {:>/results (comp/get-query PatientResults)}
                          {:>/admissions (comp/get-query PatientAdmissions)}]
+   :initial-state       {:>/demographics {}}
    :will-enter          (fn [app {:t_patient/keys [patient_identifier]}]
                           (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                             (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientPage)
