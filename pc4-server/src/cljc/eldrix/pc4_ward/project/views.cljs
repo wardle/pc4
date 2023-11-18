@@ -127,7 +127,8 @@
             [:form {:on-submit #(do (.preventDefault %) (submit-fn))}
              [:div.grid.grid-cols-6.gap-6
               [:div.col-span-6.sm:col-span-3.space-y-6
-               [:div [ui/textfield-control (:nhs-number @data) :label "NHS number" :auto-focus true
+               [:div [ui/textfield-control (:nhs-number @data)
+                      :label "NHS number" :auto-focus true :required true
                       :on-change #(swap! data assoc :nhs-number %)
                       :on-blur #(swap! visited conj :nhs-number)]]
                [:div
