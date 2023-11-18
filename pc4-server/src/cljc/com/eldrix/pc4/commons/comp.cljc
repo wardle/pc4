@@ -20,7 +20,8 @@
   An EQL transaction has one or more queries (or mutations). Data pull returns
   data in the same order as the query, making it easy for the view component
   to destructure the results of the query."
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [edn-query-language.core :as eql]
             [pyramid.core :as pyr]))
 
@@ -64,21 +65,38 @@
   key to which the result should be `assoc-in`'ed."
   [db {:keys [query targets] :as m} results]
   (let [targets' (or targets {})]
-    (cond
-      (vector? query)
+    (if (s/valid? ::eql/query query)
       (target-results* targets' {:db db :entities #{}} results)
-      :else
-      (throw (ex-info "invalid query: must be a map or vector" (s/explain-data ::eql/query query))))))
+      (throw (ex-info "invalid EQL transaction" (s/explain-data ::eql/query query))))))
+
+(defn ^:private remove-eql-parameters
+  "Remove any parameterised clauses from an EQL AST"
+  [ast]
+  (clojure.walk/postwalk
+    (fn [x]
+      (if (and (associative? x) (:params x))
+        (dissoc x :params) x)) ast))
 
 (defn pull-results
   [db {:keys [query targets]}]
-  (let [ast (eql/query->ast query)
-        ks (mapv :key (:children ast))                      ;; get top-level keys from query
-        n-query (update ast :children (fn [children] (remove #(targets (:key %))) children)) ;; create query for those that are normalized
+  (let [targets' (or targets {})
+        ast (eql/query->ast query)
+        all-keys (mapv :key (:children ast))                ;; get top-level keys from query
+        n-keys (set (remove targets' all-keys))             ;; keys for which results will be normalized
+        r-keys (set/difference (set all-keys) n-keys)
+        n-query (-> ast
+                    (remove-eql-parameters)
+                    (update :children (fn [children] (filter #(n-keys (:key %)) children)))) ;; create query for those that are normalized
         n-results (pyr/pull db (eql/ast->query n-query))    ;; get results for any normalized keys
-        r-results (reduce-kv (fn [acc k ks] (assoc acc k (get-in db ks))) {} targets)] ;; get results for non-normalized keys
+        r-results (reduce (fn [acc k] (assoc acc k (get-in db (targets k)))) {} r-keys)] ;; get results for non-normalized keys
     ;; return ordered results using either normalized or non-normalized
-    (mapv (fn [k] (or (get n-results k) (get r-results k))) ks)))
+    (with-meta (mapv (fn [k] (or (get n-results k) (get r-results k))) all-keys)
+               {:all-keys  all-keys
+                :n-keys    n-keys
+                :r-keys    r-keys
+                :n-query   (eql/ast->query n-query)
+                :n-results n-results
+                :r-results r-results})))
 
 (def example-component1
   {:query (fn [params]
@@ -111,9 +129,19 @@
                :com.eldrix.rsdb/all-medication-reasons-for-stopping])
    :targets {:com.eldrix.rsdb/all-medication-reasons-for-stopping [:lookups :all-medication-reasons-for-stopping]}})
 
+(def example-component6
+  {:query   (fn [params]
+              [{[:t_project/id (get-in params [:path :project-id])]
+                [{(list :t_project/users {:group-by :user :active true})
+                  [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
+                   :t_user/first_names :t_user/last_name :t_user/job_title
+                   {:t_user/roles [:t_project_user/id
+                                   :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
+   :targets (constantly [:current-project :team])})
 
 (comment
   (require '[com.eldrix.pc4.system])
+  (com.eldrix.pc4.system/load-namespaces :dev [:pathom/boundary-interface])
   (def system (com.eldrix.pc4.system/init :dev [:pathom/boundary-interface]))
   (keys system)
   (def pathom (:pathom/boundary-interface system))
@@ -121,23 +149,28 @@
            :pathom/eql    [:t_project/id :t_project/title]})
   (pathom [{[:t_project/id 1] [:t_project/id :t_project/title]}
            {[:t_user/id 1] [:t_user/id :t_user/full_name]}])
-
+  (pathom [{[:t_project/id 1]
+            [{(list :t_project/users {:group-by :user})
+              [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
+               :t_user/first_names :t_user/last_name :t_user/job_title
+               {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
 
   (defn test-component
     [db {:keys [query targets] :as component}]
     (let [query' (query {:path {:project-id 1}})
           results (pathom query')
           {db' :db} (target-results db {:query query' :targets targets} results)]
-      {:db db'
-       :query query'
+      {:db      db'
+       :query   query'
        :targets targets
-       :results {:raw results
-                 :pull(pull-results db' {:query query' :targets targets})}}))
+       :results {:raw  results
+                 :pull (pull-results db' {:query query' :targets targets})}}))
 
   (test-component {} example-component1)
   (test-component {} example-component2)
   (test-component {} example-component3)
   (test-component {} example-component4)
-  (test-component {} example-component5))
+  (test-component {} example-component5)
+  (test-component {} example-component6))
 
 
