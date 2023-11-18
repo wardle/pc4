@@ -110,7 +110,14 @@
 
    ["/projects/:project-id/find-pseudonymous-patient"
     {:name        :project/find-pseudonymous-patient
-     :component   projects/find-pseudonymous-patient-page
+     :component   projects/find-pseudonymous-patient
+     :auth        identity
+     :parameters  {:path {:project-id int?}}
+     :controllers [pathom-controller]}]
+
+   ["/projects/:project-id/register-pseudonymous-patient"
+    {:name        :project/register-pseudonymous-patient
+     :component   projects/register-pseudonymous-patient
      :auth        identity
      :parameters  {:path {:project-id int?}}
      :controllers [pathom-controller]}]
@@ -118,6 +125,13 @@
    ["/projects/:project-id/team"
     {:name        :project/team
      :component   projects/team-page
+     :auth        identity
+     :parameters  {:path {:project-id int?}}
+     :controllers [pathom-controller]}]
+
+   ["/projects/:project-id/downloads"
+    {:name        :project/downloads
+     :component   projects/downloads
      :auth        identity
      :parameters  {:path {:project-id int?}}
      :controllers [pathom-controller]}]

@@ -28,15 +28,25 @@
                        {:id      :register-pseudonymous-patient
                         :icon    (ui.misc/icon-plus-circle)
                         :content (content "Register patient")
-                        :attrs   {:href ""}})
+                        :attrs   {:href (rfe/href :project/register-pseudonymous-patient {:project-id id})}})
                      {:id      :team
                       :icon    (ui.misc/icon-team)
                       :content (content "Team")
                       :attrs   {:href (rfe/href :project/team {:project-id id})}}
                      {:id      :reports
                       :icon    (ui.misc/icon-reports)
-                      :content (content "Downloads")}]
+                      :content (content "Downloads")
+                      :attrs   {:href (rfe/href :project/downloads {:project-id id})}}]
        :sub-menu    sub-menu}]]))
+
+(defn layout
+  [project selected-id content]
+  (when project
+    [:div.grid.grid-cols-1.md:grid-cols-6
+     [:div.col-span-1.pt-6
+      (menu project {:selected-id selected-id})]
+     [:div.col-span-5.p-6
+      content]]))
 
 (defn home-panel
   "Project home panel"
@@ -96,23 +106,34 @@
                {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                :t_project/address1 :t_project/address2 :t_project/address3 :t_project/address4]}])
    :view  (fn [_ [project]]
-            (when project
-              [:div.grid.grid-cols-1.md:grid-cols-6
-               [:div.col-span-1.pt-6
-                (menu project {:selected-id :home})]
-               [:div.col-span-5.p-6
-                (home-panel project)]]))})
+            [layout project :home
+             (home-panel project)])})
 
-(def find-pseudonymous-patient-page
+(def find-pseudonymous-patient
   {:query (fn [params]
             [{[:t_project/id (get-in params [:path :project-id])]
               [:t_project/id :t_project/title :t_project/pseudonymous]}])
    :view  (fn [_ [project]]
-            [:div.grid.grid-cols-1.md:grid-cols-6
-             [:div.col-span-1.pt-6
-              (menu project {:selected-id :find-pseudonymous-patient})]
-             [:div.col-span-5.p-6
-              (eldrix.pc4-ward.project.views/search-by-pseudonym-panel (:t_project/id project))]])})
+            (layout project :find-pseudonymous-patient
+                    [eldrix.pc4-ward.project.views/search-by-pseudonym-panel (:t_project/id project)]))})
+
+(def register-pseudonymous-patient
+  {:query (fn [params]
+            [{[:t_project/id (get-in params [:path :project-id])]
+              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+   :view  (fn [_ [project]]
+            (layout project :register-pseudonymous-patient
+                    [eldrix.pc4-ward.project.views/register-pseudonymous-patient (:t_project/id project)]))})
+
+(def downloads
+  {:query (fn [params]
+            [{[:t_project/id (get-in params [:path :project-id])]
+              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+   :view  (fn [_ [project]]
+            (layout project :reports
+                    [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
+                     [:div.px-4.py-5.sm:px-6
+                      [:p "Self-service downloads not yet implemented"]]]))})
 
 (def team-page
   {:query
@@ -123,39 +144,34 @@
                      :t_user/first_names :t_user/last_name :t_user/job_title
                      {:t_user/roles [:t_project_user/id :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
    :target (constantly [:current-project :team])
-   :view
-   (fn [_ _]
-     (let [user-filter (r/atom "active")
-           search-filter (r/atom "")]
-       (fn [params [project]]
-         (println "project team" project)
-         (let [users (cond->> (:t_project/users project)
-                              (not (str/blank? @search-filter))
-                              (filter #(or (str/starts-with? (str/lower-case (:t_user/first_names %)) (str/lower-case @search-filter))
-                                           (str/starts-with? (str/lower-case (:t_user/last_name %)) (str/lower-case @search-filter))))
-                              (= "active" @user-filter)
-                              (filter :t_user/active?)
-                              (= "inactive" @user-filter)
-                              (remove :t_user/active?))]
-           (tap> {:params        params
-                  :search-filter @search-filter
-                  :project       project :users (:t_project/users project) :filtered-users users})
-           [:div.grid.grid-cols-1.md:grid-cols-6
-            [:div.col-span-1.pt-6
-             (menu project
-                   {:selected-id :team
-                    :sub-menu
-                    {:title "Team"
-                     :items [{:id      :filter
-                              :content [:div
-                                        [:select.w-full.p-2.border
-                                         {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
-                                         [:option {:value "active"} "Active"]
-                                         [:option {:value "inactive"} "Inactive"]
-                                         [:option {:value "all"} "All users"]]
-                                        [:input.border.p-2.w-full
-                                         {:type     "search" :name "search" :placeholder "Search..."
-                                          :onChange #(reset! search-filter (-> % .-target .-value))}]
-                                        #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}})]
-            [:div.col-span-5.p-6
-             [team-panel users]]]))))})
+   :view   (fn [_ _]
+             (let [user-filter (r/atom "active")
+                   search-filter (r/atom "")]
+               (fn [params [project]]
+                 (let [users (cond->> (:t_project/users project)
+                                      (not (str/blank? @search-filter))
+                                      (filter #(or (str/starts-with? (str/lower-case (:t_user/first_names %)) (str/lower-case @search-filter))
+                                                   (str/starts-with? (str/lower-case (:t_user/last_name %)) (str/lower-case @search-filter))))
+                                      (= "active" @user-filter)
+                                      (filter :t_user/active?)
+                                      (= "inactive" @user-filter)
+                                      (remove :t_user/active?))]
+                   [:div.grid.grid-cols-1.md:grid-cols-6
+                    [:div.col-span-1.pt-6
+                     (menu project
+                           {:selected-id :team
+                            :sub-menu
+                            {:title "Team"
+                             :items [{:id      :filter
+                                      :content [:div
+                                                [:select.w-full.p-2.border
+                                                 {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
+                                                 [:option {:value "active"} "Active"]
+                                                 [:option {:value "inactive"} "Inactive"]
+                                                 [:option {:value "all"} "All users"]]
+                                                [:input.border.p-2.w-full
+                                                 {:type     "search" :name "search" :placeholder "Search..."
+                                                  :onChange #(reset! search-filter (-> % .-target .-value))}]
+                                                #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}})]
+                    [:div.col-span-5.p-6
+                     [team-panel users]]]))))})
