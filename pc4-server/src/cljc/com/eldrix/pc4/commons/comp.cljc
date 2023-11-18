@@ -63,11 +63,10 @@
   "Given the results of a query, target the results to a database 'db'.
   Results will be normalized unless `targets` provide a sequence of keys for the
   key to which the result should be `assoc-in`'ed."
-  [db {:keys [query targets] :as m} results]
-  (let [targets' (or targets {})]
-    (if (s/valid? ::eql/query query)
-      (target-results* targets' {:db db :entities #{}} results)
-      (throw (ex-info "invalid EQL transaction" (s/explain-data ::eql/query query))))))
+  [db {:keys [query targets]} results]
+  (if (s/valid? ::eql/query query)
+    (target-results* (or targets {}) {:db db :entities #{}} results)
+    (throw (ex-info "invalid EQL transaction" (s/explain-data ::eql/query query)))))
 
 (defn ^:private remove-eql-parameters
   "Remove any parameterised clauses from an EQL AST"
