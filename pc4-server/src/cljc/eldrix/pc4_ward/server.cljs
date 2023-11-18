@@ -192,7 +192,7 @@
                     :on-failure [::handle-load-failure config]}]]}))
 
 (rf/reg-event-fx ::handle-load-success
-  (fn [{db :db} [_ {:keys [query targets] :as config} response]]
+  (fn [{db :db} [_ config response]]
     (js/console.log "load success:" response)
     (tap> {::handle-load-success {:config config :response response}})
     {:db
@@ -201,7 +201,6 @@
 
 (rf/reg-sub ::pull
   (fn [db [_ query targets]]
-    (println "pull: " query)
     (comp/pull-results (:entity-db db) {:query query :targets targets})))
 
 (rf/reg-event-fx ::handle-load-failure
