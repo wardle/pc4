@@ -9,6 +9,7 @@
   Both have the same result."
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clojure.string :as str]
+            [com.eldrix.pc4.commons.comp :as comp]
             [com.eldrix.pc4.commons.dates :as dates]
             [ajax.core :as ajax]
             [ajax.transit :as ajax-transit]
@@ -17,8 +18,10 @@
             [cljs.core.async :refer [<!]]
             [re-frame.core :as rf]
             ["big.js" :as Big]
-            [cognitect.transit :as transit])
-  (:import [goog.date UtcDateTime]))
+            [cognitect.transit :as transit]
+            [pyramid.core :as pyr])
+  (:import (goog.date UtcDateTime)
+           (goog.net XhrIo)))
 
 (defn jwt-token-payload
   "Extracts the payload from a JWT token"
@@ -178,6 +181,33 @@
   :pathom
   (fn [request]
     (pathom-effect request)))
+
+(rf/reg-event-fx ::load
+  (fn [{:keys [db]} [_ config query]]
+    (js/console.log "Performing pathom load:" query)
+    {:db (assoc db :loading true)                           ;; we're starting some network loading
+     :fx [[:pathom {:params     query
+                    :token      (get-in db [:authenticated-user :io.jwt/token])
+                    :on-success [::handle-load-success config]
+                    :on-failure [::handle-load-failure config]}]]}))
+
+(rf/reg-event-fx ::handle-load-success
+  (fn [{db :db} [_ {:keys [query targets] :as config} response]]
+    (js/console.log "load success:" response)
+    (tap> {::handle-load-success {:config config :response response}})
+    {:db
+     (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
+       (assoc db :loading false, :entity-db entity-db))}))
+
+(rf/reg-sub ::pull
+  (fn [db [_ query targets]]
+    (println "pull: " query)
+    (comp/pull-results (:entity-db db) {:query query :targets targets})))
+
+(rf/reg-event-fx ::handle-load-failure
+  (fn [{:keys [db]} [_ config response]]
+    (js/console.log "load error" response)
+    (tap> {::handle-load-failure {:config config :response response}})))
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)

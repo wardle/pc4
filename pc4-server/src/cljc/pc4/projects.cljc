@@ -104,9 +104,10 @@
                 (home-panel project)]]))})
 
 (def find-pseudonymous-patient-page
-  {:ident (fn [params] [:t_project/id (get-in params [:path :project-id])])
-   :query [:t_project/id :t_project/title :t_project/pseudonymous]
-   :view  (fn [_ project]
+  {:query (fn [params]
+            [{[:t_project/id (get-in params [:path :project-id])]
+              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+   :view  (fn [_ [project]]
             [:div.grid.grid-cols-1.md:grid-cols-6
              [:div.col-span-1.pt-6
               (menu project {:selected-id :find-pseudonymous-patient})]
@@ -114,19 +115,20 @@
               (eldrix.pc4-ward.project.views/search-by-pseudonym-panel (:t_project/id project))]])})
 
 (def team-page
-  {:ident  (fn [params] [:t_project/id (get-in params [:path :project-id])])
-   :query  [:t_project/id :t_project/title :t_project/pseudonymous
-            {(list :t_project/users {:group-by :user})
-             [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
-              :t_user/first_names :t_user/last_name :t_user/job_title
-              {:t_user/roles [:t_project_user/id
-                              :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]
-   :target (fn [params] [:t_project/id (get-in params [:path :project-id]) :team])
+  {:query
+   (fn [params] [{[:t_project/id (get-in params [:path :project-id])]
+                  [:t_project/id :t_project/title :t_project/pseudonymous
+                   {(list :t_project/users {:group-by :user})
+                    [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
+                     :t_user/first_names :t_user/last_name :t_user/job_title
+                     {:t_user/roles [:t_project_user/id :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
+   :target (constantly [:current-project :team])
    :view
    (fn [_ _]
      (let [user-filter (r/atom "active")
            search-filter (r/atom "")]
-       (fn [params project]
+       (fn [params [project]]
+         (println "project team" project)
          (let [users (cond->> (:t_project/users project)
                               (not (str/blank? @search-filter))
                               (filter #(or (str/starts-with? (str/lower-case (:t_user/first_names %)) (str/lower-case @search-filter))

@@ -1,7 +1,8 @@
 (ns eldrix.pc4-ward.db)
 
 (def default-db
-  {:current-route nil})
+  {:current-route nil
+   :entity-db     {}})
 
 (defn reset-database
   "Resets the database to an empty state, but preserves routing information."
