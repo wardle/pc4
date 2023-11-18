@@ -8,7 +8,8 @@
    :output-dir        "resources/public/js/compiled"
    :asset-path        "/js/compiled"
    :modules           {:app {:init-fn  eldrix.pc4-ward.core/init
-                             :preloads [devtools.preload]}}
+                             :preloads [devtools.preload
+                                        day8.re-frame-10x.preload]}}
    :module-hash-names true
    :dev               {:compiler-options
                        {:closure-defines {re-frame.trace.trace-enabled?        true
