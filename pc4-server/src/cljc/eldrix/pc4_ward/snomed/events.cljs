@@ -89,7 +89,7 @@
 
 (comment
   (shadow.cljs.devtools.api/nrepl-select :app)
-  (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login "wales.nhs.uk" "ma090906'" "password"])
+  (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login {:username "ma090906'", :password "password"}])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
   (make-search {:s "Multi Sclerosis"})
   (make-fetch-concept 24700007)

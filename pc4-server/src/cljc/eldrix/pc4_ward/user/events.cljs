@@ -38,7 +38,7 @@
 
 (rf/reg-event-fx
   ::do-login []
-  (fn [{db :db} [_ namespace username password]]
+  (fn [{db :db} [_ {:keys [username password]}]]
     (js/console.log "performing login " username)
     {:db (-> db
              (dissoc :authenticated-user)
@@ -50,7 +50,7 @@
                         :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
                         :on-success      [::handle-login-response]
                         :on-failure      [::handle-login-failure]
-                        :params          {:system   namespace
+                        :params          {:system   "cymru.nhs.uk"
                                           :value    username
                                           :password password
                                           :query    user-query}}]]}))
@@ -63,7 +63,8 @@
     (js/console.log "user login transaction: response: " login)
     (if login
       {:db (assoc db :authenticated-user {:io.jwt/token (:io.jwt/token login)
-                                          :practitioner (dissoc login :io.jwt/token)})}
+                                          :practitioner (dissoc login :io.jwt/token)})
+       :fx [[:push-state [:home]]]}
       {:db (assoc-in db [:errors :user/login] "Incorrect username or password")})))
 
 (rf/reg-event-fx ::handle-login-failure
@@ -79,14 +80,14 @@
   (fn [{db :db} [_]]
     {:db         (-> (db/reset-database db)
                      (assoc-in [:errors :user/login] "Your session expired. Please login again"))
-     :push-state [:home]}))
+     :push-state [:login]}))
 
 (rf/reg-event-fx ::do-logout
   []
   (fn [{db :db} [_ user]]
     (js/console.log "Logging out user" user)
     {:db         (db/reset-database db)
-     :push-state [:home]}))
+     :push-state [:login]}))
 
 (rf/reg-event-fx ::ping-server
   []
@@ -190,7 +191,7 @@
 
 
 (comment
-  (rf/dispatch-sync [::do-login "wales.nhs.uk" "ma090906" "password"])
+  (rf/dispatch-sync [::do-login {:username "system",:password "password"}])
   (rf/dispatch-sync [::do-logout])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/login-error])
   (tap> {:authenticated-user @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])})

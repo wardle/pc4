@@ -83,6 +83,6 @@
   (rf/dispatch-sync [::search-uk :fred {:n "royal glam" :roles "RO148" :from-location {:postcode "CF14 4XW"}}])
   (def result @(rf/subscribe [:eldrix.pc4-ward.org.subs/search-results :fred]))
   (tap> result)
-  (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login "wales.nhs.uk" "ma090906" "password"])
-  @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])
-  )
+  (rf/dispatch-sync [:eldrix.pc4-ward.user.events/do-login {:username "ma090906" :password "password"}])
+  @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user]))
+

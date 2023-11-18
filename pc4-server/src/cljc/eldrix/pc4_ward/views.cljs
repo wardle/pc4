@@ -92,8 +92,8 @@
         _ (tap> latest-news)]
     [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
      [:div.md:mr-2
-      [eldrix.pc4-ward.user.views/project-panel :on-choose #(rfe/push-state :projects {:project-id (:t_project/id %)
-                                                                                       :slug       (:t_project/slug %)})]]
+      [eldrix.pc4-ward.user.views/project-panel
+       :on-choose #(rfe/push-state :project/home {:project-id (:t_project/id %)})]]
      [:div.col-span-3
       [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
        [:ul.divide-y.divide-gray-200 {:role "list"}
@@ -126,15 +126,15 @@
                       (reset! selected-diagnosis %))]]))
 
 (defn main-page []
-  (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
-        must-change-password? @(rf/subscribe [::user-subs/must-change-password?])]
+  (let [must-change-password? @(rf/subscribe [::user-subs/must-change-password?])]
     [:<>
-     (if authenticated-user
-       (if must-change-password?
-         [eldrix.pc4-ward.user.views/change-password]
-         [home-panel])
-       [ui/main-login-panel
-        :on-login (fn [username password]
-                    (rf/dispatch [::user-events/do-login "cymru.nhs.uk" (str/trim username) password]))
-        :error @(rf/subscribe [::user-subs/login-error])])]))
+     (if must-change-password?
+       [eldrix.pc4-ward.user.views/change-password]
+       [home-panel])]))
 
+
+(defn login-page []
+  [ui/main-login-panel
+   :on-login (fn [username password]
+               (rf/dispatch [::user-events/do-login {:username username, :password password}]))
+   :error @(rf/subscribe [::user-subs/login-error])])

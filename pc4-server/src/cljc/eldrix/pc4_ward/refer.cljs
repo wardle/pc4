@@ -280,7 +280,7 @@
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
-        do-login #(rf/dispatch [::user-events/do-login "wales.nhs.uk" (str/trim @username) @password])]
+        do-login #(rf/dispatch [::user-events/do-login {:username @username :password @password}])]
     (fn []
       [:<>
        [:div.box
