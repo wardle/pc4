@@ -93,10 +93,12 @@
    [:div.border-t.border-gray-200.px-4.py-5.sm:px-6
     [:dl.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
      (for [{:keys [title content]} items]
+       ^{:key title}
        [:div.sm:col-span-1
         [:dt.text-sm.font-medium.text-gray-500 title]
         [:dd.mt-1.text-sm.text-gray-900 content]])
      (for [{:keys [title content]} long-items]
+       ^{:key title}
        [:div.sm:col-span-2
         [:dt.text-sm.font-medium.text-gray-500 title]
         [:dd.mt-1.text-sm.text-gray-900 content]])]]])
@@ -110,8 +112,10 @@
     (for [{:keys [id icon content attrs]} items
           :when id]
       (if (= selected-id id)
+        ^{:key id}
         [:a.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-3.py-2.text-sm.font-medium {:aria-current "page"}
          [:span.pr-2 icon] content]
+        ^{:key id}
         [:a.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-3.py-2.text-sm.font-medium
          attrs
          [:span.pr-2 icon] content]))]
@@ -119,10 +123,11 @@
      [:div.mt-8
       [:h3.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu)]
       [:div.mt-1.space-y-1
-       (for [{:keys [attrs content]} (:items sub-menu)
              :when content]
          [:a.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900 attrs
           content])]])])
+         ^{:key id} [:a.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900 attrs
+                     content])]])])
 
 (defn grid-list [items]
   [:ul.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3 {:role "list"}
