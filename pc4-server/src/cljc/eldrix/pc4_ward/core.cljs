@@ -113,7 +113,8 @@
      :component   projects/find-pseudonymous-patient
      :auth        identity
      :parameters  {:path {:project-id int?}}
-     :controllers [pathom-controller]}]
+     :controllers [{:start (fn [_] (rf/dispatch [::patient-events/clear-search-legacy-pseudonym-results]))}
+                   pathom-controller]}]
 
    ["/projects/:project-id/register-pseudonymous-patient"
     {:name        :project/register-pseudonymous-patient

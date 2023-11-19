@@ -186,6 +186,10 @@
                                   :on-success [::handle-search-pseudonym-response]
                                   :on-failure [::handle-search-pseudonym-failure]}]]))))
 
+(rf/reg-event-db ::clear-search-legacy-pseudonym-results
+  (fn [db _]
+    (dissoc db :patient/search-legacy-pseudonym)))
+
 (rf/reg-event-fx ::handle-search-pseudonym-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
