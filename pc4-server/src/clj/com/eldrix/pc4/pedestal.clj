@@ -46,13 +46,18 @@
 (def ok (partial response 200))
 
 (def service-error-handler
-  (intc.error/error-dispatch [ctx ex]
-                             [{:interceptor ::login}]
-                             (assoc ctx :response {:status 400 :body (ex-message ex)})
-                             [{:interceptor ::attach-claims}]
-                             (assoc ctx :response {:status 401 :body "Unauthenticated."})
-                             :else
-                             (assoc ctx :io.pedestal.interceptor.chain/error ex)))
+  (intc.error/error-dispatch
+    [ctx ex]
+    [{:interceptor ::login}]
+    (assoc ctx :response {:status 400 :body (ex-message ex)})
+    [{:interceptor ::attach-claims}]
+    (assoc ctx :response {:status 401 :body "Unauthenticated."})
+    [{:interceptor :io.pedestal.http.impl.servlet-interceptor/ring-response}]
+    (assoc ctx :response {:status 400 :body {:error (Throwable->map ex)}})
+    :else ;; this should not happen
+    (do (log/error "service error" (ex-message ex))
+        (log/trace "pedestal service error" (Throwable->map ex))
+        (assoc ctx :response {:status 200 :body {:error (Throwable->map ex)}}))))
 
 
 (defn execute-pathom
@@ -63,9 +68,11 @@
   session data).
   See [[com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations]]"
   [ctx env params]
+  (log/debug "executing pathom" params)
   (let [pathom (:pathom/boundary-interface ctx)
         result (pathom env params)
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
+    (log/debug "pathom result" result)
     (when (seq errors)
       (log/error "error processing request" params)
       (doseq [err errors]
@@ -168,7 +175,7 @@
   authorization information may be sourced from another system of record."
   {:enter
    (fn [ctx]
-     (log/info "api request: " (get-in ctx [:request :transit-params]))
+     (log/trace "api request: " (get-in ctx [:request :transit-params]))
      (let [params (get-in ctx [:request :transit-params])
            rsdb-conn (:com.eldrix.rsdb/conn ctx)
            claims (:authenticated-claims ctx)
@@ -209,9 +216,12 @@
           q' (if (fn? q) (q (:request ctx)) q)]
       (if q'
         (try
-          (assoc ctx :result (pathom env q'))
-          (catch Exception e
-            (assoc ctx :result e)))
+          (let [result (pathom env q')]
+            (log/warn {:result result})
+            (assoc ctx :result result))
+          (catch Throwable e
+            (log/error (str "pathom exception " (Throwable->map e)))
+            (assoc ctx :result {:error (Throwable->map e)})))
         (if throw-if-missing
           (throw (ex-info "Missing query in context" ctx))
           ctx)))))
@@ -467,7 +477,8 @@
                                              :json
                                              {:handlers (merge dates/transit-writers
                                                                {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})}))
+                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})})
+              service-error-handler)
       (http/create-server)
       (http/start)))
 
