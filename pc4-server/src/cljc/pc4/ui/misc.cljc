@@ -281,3 +281,22 @@
       (for [choice sorted-values
             :let [id (id-key choice)]]
         ^{:key id} [:option {:value (str id)} (display-key choice)])]]))
+
+
+(defn ui-simple-form-title [{:keys [title]}]
+  [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+   [:div.mt-1.sm:mt-0.sm:col-span-2
+    [:div.w-full.rounded-md.shadow-sm.space-y-2
+     [:h3.text-lg.font-medium.leading-6.text-gray-900 title]]]])
+
+(defn ui-simple-form-item [{:keys [html-for label]} content]
+  [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+   [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:html-for html-for} label
+       [:div.mt-1.sm:mt-0.sm:col-span-2
+        content]]])
+
+(defn ui-simple-form [content]
+  [:form.space-y-8.divide-y.divide-gray-200 {:onSubmit #(.preventDefault %)}
+   [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
+    [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5]
+    content]])
