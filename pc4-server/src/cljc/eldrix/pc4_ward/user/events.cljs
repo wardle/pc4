@@ -39,22 +39,25 @@
 (rf/reg-event-fx
   ::do-login []
   (fn [{db :db} [_ {:keys [username password]}]]
-    (js/console.log "performing login " username)
-    {:db (-> db
-             (dissoc :authenticated-user)
-             (update-in [:errors] dissoc :user/login))
-     :fx [[:http-xhrio {:method          :post
-                        :uri             eldrix.pc4-ward.config/login-url
-                        :timeout         5000
-                        :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
-                        :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
-                        :on-success      [::handle-login-response]
-                        :on-failure      [::handle-login-failure]
-                        :headers         {"X-CSRF-Token" js/pc4_network_csrf_token}
-                        :params          {:system   "cymru.nhs.uk"
-                                          :value    username
-                                          :password password
-                                          :query    user-query}}]]}))
+    (let [csrf-token js/pc4_network_csrf_token]
+      (js/console.log "performing login " username)
+      (when-not csrf-token
+        (js/console.log "warning: csrf token missing from HTML page"))
+      {:db (-> db
+               (dissoc :authenticated-user)
+               (update-in [:errors] dissoc :user/login))
+       :fx [[:http-xhrio {:method          :post
+                          :uri             eldrix.pc4-ward.config/login-url
+                          :timeout         5000
+                          :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
+                          :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
+                          :on-success      [::handle-login-response]
+                          :on-failure      [::handle-login-failure]
+                          :headers         {"X-CSRF-Token" csrf-token}
+                          :params          {:system   "cymru.nhs.uk"
+                                            :value    username
+                                            :password password
+                                            :query    user-query}}]]})))
 
 ;; Login success simply means the http request worked.
 ;; The pc4.users/login operation returns a user if the login was successful.
