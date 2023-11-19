@@ -46,7 +46,9 @@
       ;; otherwise, simply normalize using pyr/add-report
       :else
       (let [{db' :db, entities' :entities} (pyr/add-report db result)]
-        {:db db', :entities (into entities entities')}))))
+        (if (entities' k) ;; the common case is that the key matches the entity ident
+          {:db db', :entities (into entities entities')}
+          {:db (assoc-in db' k (pyr/default-ident result)), :entities (into entities entities')})))))
 
 (defn ^:private target-results*
   "Given a map of results, keyed by `ident`, return a map of :db and :entities
