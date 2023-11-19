@@ -50,6 +50,7 @@
                         :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
                         :on-success      [::handle-login-response]
                         :on-failure      [::handle-login-failure]
+                        :headers         {"X-CSRF-Token" js/pc4_network_csrf_token}
                         :params          {:system   "cymru.nhs.uk"
                                           :value    username
                                           :password password
@@ -108,7 +109,7 @@
   (fn [{db :db} response]
     (js/console.log "Ping failure :" response)
     {:db (assoc-in db [:errors :ping] response)}))
-     ;:fx [[:dispatch-later [{:ms 10000 :dispatch [::ping-server]}]]]
+;:fx [[:dispatch-later [{:ms 10000 :dispatch [::ping-server]}]]]
 
 
 (rf/reg-event-db ::clear-ping-failure
@@ -191,7 +192,7 @@
 
 
 (comment
-  (rf/dispatch-sync [::do-login {:username "system",:password "password"}])
+  (rf/dispatch-sync [::do-login {:username "system", :password "password"}])
   (rf/dispatch-sync [::do-logout])
   @(rf/subscribe [:eldrix.pc4-ward.user.subs/login-error])
   (tap> {:authenticated-user @(rf/subscribe [:eldrix.pc4-ward.user.subs/authenticated-user])})

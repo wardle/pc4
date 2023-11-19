@@ -144,7 +144,10 @@
 
 (defn request->xhrio-options
   [{:keys [on-success on-failure timeout token] :or {timeout 10000} :as request}]
-  (let [xhrio (new goog.net.XhrIo)]
+  (let [xhrio (new goog.net.XhrIo)
+        csrf-token js/pc4_network_csrf_token]
+    (when-not csrf-token
+      (println "WARNING: no CSRF token set"))
     (-> (merge {:method          :post
                 :uri             eldrix.pc4-ward.config/api-url
                 :timeout         timeout
@@ -157,7 +160,8 @@
                                    {:handlers (merge dates/transit-readers
                                                      {"f" (transit/read-handler #(Big. %))})})
                 :headers
-                (when token {:Authorization (str "Bearer " token)})}
+                (cond-> {"X-CSRF-Token" csrf-token}
+                  token (assoc "Authorization" (str "Bearer " token)))}
                request)
         (assoc
           :api xhrio

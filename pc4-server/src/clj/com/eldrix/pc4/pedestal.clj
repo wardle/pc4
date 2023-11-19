@@ -54,7 +54,7 @@
     (assoc ctx :response {:status 401 :body "Unauthenticated."})
     [{:interceptor :io.pedestal.http.impl.servlet-interceptor/ring-response}]
     (assoc ctx :response {:status 400 :body {:error (Throwable->map ex)}})
-    :else ;; this should not happen
+    :else                                                   ;; this should not happen
     (do (log/error "service error" (ex-message ex))
         (log/trace "pedestal service error" (Throwable->map ex))
         (assoc ctx :response {:status 200 :body {:error (Throwable->map ex)}}))))
@@ -84,12 +84,14 @@
   - src - filename of the compiled JS (usually obtained from the shadow cljs build).
   The filename changing means that version updates do not require users to forcibly refresh their browser to
   avoid using cached downloads."
-  [src & {:keys [title]}]
+  [src {:keys [title csrf-token]}]
   [:html {:lang "en"}
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
     [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}]
+    [:script
+     {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
     [:title (or title "pc4")]]
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
@@ -100,9 +102,12 @@
   "Interceptor to return the pc4-ward front-end application."
   {:enter
    (fn [ctx]
-     (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :app :output-name])]
-       (assoc ctx :response {:status 200 :headers {"Content-Type" "text/html"}
-                             :body   (rum/render-html (landing-page app))})))})
+     (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :app :output-name])
+           csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
+       (assoc ctx :response
+                  {:status 200 :headers {"Content-Type" "text/html"}
+                   :body   (rum/render-html
+                             (landing-page app {:csrf-token csrf-token}))})))})
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
@@ -138,17 +143,18 @@
 (def attach-claims
   "Interceptor to check request claims and add them to the context under the key
   :authenticated-claims."
-  {:enter (fn [ctx]
-            (let [auth-header (get-in ctx [:request :headers "authorization"])
-                  _ (log/trace "request auth:" auth-header)
-                  [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
-                  login-config (:com.eldrix.pc4/login ctx)
-                  claims (when (and token login-config) (users/check-user-token token login-config))]
-              (when (and token (not login-config))
-                (log/error "no valid login configuration available in context; looked for [:com.eldrix.pc4/login :jwt-secret-key]"))
-              (if claims
-                (assoc ctx :authenticated-claims claims)
-                (throw (ex-info "Unauthorized." {:status 401})))))})
+  {:enter
+   (fn [ctx]
+     (let [auth-header (get-in ctx [:request :headers "authorization"])
+           _ (log/trace "request auth:" auth-header)
+           [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
+           login-config (:com.eldrix.pc4/login ctx)
+           claims (when (and token login-config) (users/check-user-token token login-config))]
+       (when (and token (not login-config))
+         (log/error "no valid login configuration available in context; looked for [:com.eldrix.pc4/login :jwt-secret-key]"))
+       (if claims
+         (assoc ctx :authenticated-claims claims)
+         (throw (ex-info "Unauthorized." {:status 401})))))})
 
 (def ping
   "A simple health check. Pass in a uuid to test the resolver backend.
@@ -328,7 +334,9 @@
 
 (defn routes []
   (log/info "loading routes")
-  [["/" {:name :landing :get {:interceptors [landing]}}]
+  [["/"
+    {:name :landing
+     :get  {:interceptors [landing]}}]
    ["/login"
     {:name :login
      :post {:interceptors [login]}}]                        ;; for legacy clients (re-frame / pc4-ward)
@@ -471,7 +479,7 @@
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
-              #_(csrf/anti-forgery)                         ;; turned off for legacy SPA... but TODO: turn on
+              (csrf/anti-forgery)
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
