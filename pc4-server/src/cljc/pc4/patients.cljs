@@ -180,7 +180,7 @@
                      :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :treatment
                      :content (content "Treatment")}
-                     ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
+                    ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :relapses
                      :content (content "Relapses")}
                     ; :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
@@ -192,7 +192,7 @@
                     ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :admissions
                      :content (content "Admissions")}]
-                    ; :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
+      ; :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
       :sub-menu    sub-menu}]))
 
 (defn layout
@@ -217,9 +217,42 @@
   [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
    :t_patient/title :t_patient/first_names :t_patient/last_name
    {:t_patient/address [:t_address/id :t_address/address1 :t_address/address2
-                        :t_address/address3 :t_address/address4 :t_address/postcode]}
+                        :t_address/address3 :t_address/address4 :t_address/postcode
+                        :t_address/lsoa]}
    :t_patient/sex :t_patient/date_birth :t_patient/current_age :t_patient/date_death
    :t_patient/status :t_episode/project_fk :t_episode/stored_pseudonym])
+
+
+(defn inspect-edit-lsoa
+  [params]
+  (let [mode (r/atom :inspect)
+        postcode (r/atom "")]
+    (fn [{:keys [value on-change]}]
+      (let [save-fn #(do (on-change @postcode)
+                         (reset! mode :inspect))]
+        (case @mode
+          :inspect
+          [:a.cursor-pointer.underline
+           {:class    (if (str/blank? value) "text-red-600 hover:text-red-800" "text-red-600.hover:text-red-800")
+            :on-click #(do
+                         (reset! postcode "")
+                         (reset! mode :edit))} (if (str/blank? value) "Not set" value)]
+          :edit
+          [:span
+           [:p (str @postcode)]
+           [ui/ui-textfield
+            {:id         :postcode
+             :value      @postcode
+             :auto-focus true :label "Enter postal code:"
+             :on-change  #(do (println "changed to" %)
+                              (reset! postcode %))
+             :on-enter   save-fn
+             :help-text  "This postal code will not be stored but mapped to a larger geographical region instead."}]
+           [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded-full
+            {:on-click save-fn} "Save"]
+           [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
+            {:on-click #(do (reset! mode :inspect) (reset! postcode ""))}
+            "Cancel"]])))))
 
 (def neuroinflamm-page
   {:query
@@ -235,32 +268,39 @@
    (fn [_ [{project-id      :t_episode/project_fk
             :t_patient/keys [patient_identifier] :as patient}
            all-ms-diagnoses]]
-     (prn :neuroinflamm-patient patient)
-     (tap> db/app-db)
-     [:<>
-      [rsdb-banner patient]
-      [layout {:t_project/id project-id} patient {:selected-id :home}
-       [ui/ui-simple-form
-        [:<>
-         [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
-          [ui/ui-select
-           {:name                :ms-diagnosis
-            :value               (get-in patient [:t_patient/summary_multiple_sclerosis
-                                                  :t_summary_multiple_sclerosis/ms_diagnosis])
-            :disabled?           false
-            :choices             all-ms-diagnoses
-            :no-selection-string "=Choose diagnosis="
-            :id-key              :t_ms_diagnosis/id
-            :display-key         :t_ms_diagnosis/name
-            :select-fn           #(rf/dispatch
-                                    [:eldrix.pc4-ward.server/load ;; the result will be automatically normalised and therefore update
-                                     {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
-                                                                                  :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
-                                               ['*]}]}])}]]
-         [ui/ui-simple-form-item {:label "Label"}
-          [:div "Hi there"]]
-         [ui/ui-simple-form-item {:label "Label"}
-          [:div "Hi there"]]]]]])})
+     (let [select-diagnosis-fn #(rf/dispatch [:eldrix.pc4-ward.server/load ;; the result will be automatically normalised and therefore update
+                                              {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
+                                                                                           :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
+                                                        ['*]}]}])
+           save-lsoa-fn #(do (println "Setting LSOA to " %)
+                             (rf/dispatch [:eldrix.pc4-ward.server/load
+                                           {:query [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
+                                                           {:t_patient/patient_identifier patient_identifier
+                                                            :uk.gov.ons.nhspd/PCD2        %})
+                                                     [:t_address/id :t_address/lsoa]}]}]))]
+       [:<>
+        [rsdb-banner patient]
+        [layout {:t_project/id project-id} patient {:selected-id :home}
+         [ui/ui-simple-form
+          [:<>
+           [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
+            [ui/ui-select
+             {:name                :ms-diagnosis
+              :value               (get-in patient [:t_patient/summary_multiple_sclerosis
+                                                    :t_summary_multiple_sclerosis/ms_diagnosis])
+              :disabled?           false
+              :choices             all-ms-diagnoses
+              :no-selection-string "=Choose diagnosis="
+              :id-key              :t_ms_diagnosis/id
+              :display-key         :t_ms_diagnosis/name
+              :select-fn           select-diagnosis-fn}]]
+           [ui/ui-simple-form-item {:label "LSOA (Geography)"}
+            [inspect-edit-lsoa
+             {:value (get-in patient [:t_patient/address :t_address/lsoa])
+              :on-change save-lsoa-fn}]]
+           [ui/ui-simple-form-item {:label "Label"}
+            [:div "Hi there"]]]]]]))})
+
 
 (def diagnoses-page
   {:query (fn [params]
