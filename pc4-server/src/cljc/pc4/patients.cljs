@@ -1,7 +1,11 @@
 (ns pc4.patients
   (:require [clojure.string :as str]
             [com.eldrix.pc4.commons.dates :as dates]
-            [com.eldrix.pc4.ui.misc :as ui.misc]
+            [eldrix.pc4-ward.patient.events :as patient.events]
+            [pc4.ui.misc :as ui]
+            [re-frame.core :as rf]
+            [re-frame.db :as db]
+            [reagent.core :as r]
             [reitit.frontend.easy :as rfe])
   (:import (goog.date Date)))
 
@@ -111,10 +115,10 @@
          [:svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"} [:path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"}]]]])
      (when deceased
        [:div.grid.grid-cols-1.pb-2
-        [ui.misc/badge {:s (cond
-                             (instance? Date deceased) (str "Died " (dates/format-date deceased))
-                             (boolean? deceased) "Deceased"
-                             :else deceased)}]])
+        [ui/badge {:s (cond
+                        (instance? Date deceased) (str "Died " (dates/format-date deceased))
+                        (boolean? deceased) "Deceased"
+                        :else deceased)}]])
      [:div.grid.grid-cols-2.lg:grid-cols-5.pt-1
       (when patient-name (if (> (count patient-name) 20)
                            [:div.font-bold.text-sm.min-w-min patient-name]
@@ -157,28 +161,45 @@
       :deceased     date_death}]))
 
 
-(defn pseudonymous-menu
+(defn menu
   [{project-id :t_project/id}
-   {patient-pk :t_patient/id pseudonym :t_episode/stored_pseudonym
+   {patient-pk      :t_patient/id pseudonym :t_episode/stored_pseudonym
     :t_patient/keys [patient_identifier first_names title last_name]}
    {:keys [selected-id sub-menu]}]
   (let [content (fn [s] (vector :span.truncate s))]
-    [ui.misc/vertical-navigation
+    [ui/vertical-navigation
      {:selected-id selected-id
       :items       [{:id      :home
-                     :icon    (ui.misc/icon-home)
                      :content (content "Home")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/home {:project-id project-id :pseudonym pseudonym})}}]
+                     :attrs   {:href (rfe/href :pseudonymous-patient/home {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :diagnoses
+                     :content (content "Diagnoses")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :treatment
+                     :content (content "Treatment")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :relapses
+                     :content (content "Relapses")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :encounters
+                     :content (content "Encounters")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/encounters {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :investigations
+                     :content (content "Investigations")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/investigations {:project-id project-id :pseudonym pseudonym})}}
+                    {:id      :admissions
+                     :content (content "Admissions")
+                     :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
       :sub-menu    sub-menu}]))
 
 (defn layout
-  [project patient menu-options & content]
+  [project patient menu-options content]
   (when patient
     [:div.grid.grid-cols-1.md:grid-cols-6
      [:div.col-span-1.pt-6
-      (pseudonymous-menu project patient menu-options)]
+      (menu project patient menu-options)]
      [:div.col-span-5.p-6
-      [:<> content]]]))
+      content]]))
 
 (defn patient-ident
   [params]
@@ -189,24 +210,53 @@
       [:t_patient/patient_identifier patient-identifier]
       [:t_patient/project_pseudonym [project-id pseudonym]])))
 
-(def demographics-page
-  {:query (fn [params]
-            [{(patient-ident params)
-              [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
-               :t_patient/first_names :t_patient/last_name
-               {:t_patient/address [:t_address/id
-                                    :t_address/address1 :t_address/address2 :t_address/address3
-                                    :t_address/address4 :t_address/postcode]}
-               :t_patient/sex :t_patient/date_birth :t_patient/current_age :t_patient/date_death
-               :t_patient/status
-               :t_episode/project_fk :t_episode/stored_pseudonym]}])
 
-   :view  (fn [_ [{project-id :t_episode/project_fk :as patient}]]
-            [:<>
-             [rsdb-banner patient]
-             (layout {:t_project/id project-id } patient {:selected-id :home})])})
+(def neuroinflamm-page
+  {:query
+   (fn [params]
+     [{(patient-ident params)
+       [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
+        :t_patient/title :t_patient/first_names :t_patient/last_name
+        {:t_patient/address [:t_address/id :t_address/address1 :t_address/address2
+                             :t_address/address3 :t_address/address4 :t_address/postcode]}
+        :t_patient/sex :t_patient/date_birth :t_patient/current_age :t_patient/date_death
+        :t_patient/status :t_episode/project_fk :t_episode/stored_pseudonym
+        {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
+                                                {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id
+                                                                                             :t_ms_diagnosis/name]}]}]}
+      {:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
 
-
+   :view
+   (fn [_ [{project-id      :t_episode/project_fk
+            :t_patient/keys [patient_identifier] :as patient}
+           all-ms-diagnoses]]
+     (prn :neuroinflamm-patient patient)
+     (tap> db/app-db)
+     [:<>
+      [rsdb-banner patient]
+      [layout {:t_project/id project-id} patient {:selected-id :home}
+       [ui/ui-simple-form
+        [:<>
+         [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
+          [ui/ui-select
+           {:name                :ms-diagnosis
+            :value               (get-in patient [:t_patient/summary_multiple_sclerosis
+                                                  :t_summary_multiple_sclerosis/ms_diagnosis])
+            :disabled?           false
+            :choices             all-ms-diagnoses
+            :no-selection-string "=Choose diagnosis="
+            :id-key              :t_ms_diagnosis/id
+            :display-key         :t_ms_diagnosis/name
+            :select-fn           #(do (prn :select-diagnosis %)
+                                      (rf/dispatch
+                                        [:eldrix.pc4-ward.server/load
+                                         {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
+                                                                                      :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
+                                                   ['*]}]}]))}]]
+         [ui/ui-simple-form-item {:label "Label"}
+          [:div "Hi there"]]
+         [ui/ui-simple-form-item {:label "Label"}
+          [:div "Hi there"]]]]]])})
 
 
 

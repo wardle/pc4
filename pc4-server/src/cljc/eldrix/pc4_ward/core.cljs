@@ -36,12 +36,14 @@
   "A reitit controller that dispatches a pathom load event with data from route.
   - query  - EQL"
   {:identity (fn [{:keys [data parameters] :as _match}]
-               ;; return controller identity as a query based on parameters and any targets
-               {:query   ((get-in data [:component :query]) parameters)
-                :targets (get-in data [:component :targets])})
+               (let [query (get-in data [:component :query])
+                     targets (get-in data [:component :targets])]
+                 ;; return controller identity as a query based on parameters and any targets
+                 {:query   (if (fn? query) (query parameters) query)
+                  :targets (if (fn? targets) (targets parameters) targets)}))
    :start    (fn [{:keys [query] :as m}]
                ;; normalise and merge data into app database
-               (rf/dispatch [:eldrix.pc4-ward.server/load m query]))})
+               (rf/dispatch [:eldrix.pc4-ward.server/load m]))})
 (defn view
   "Returns a view for the given route, automatically subscribing to any data
   loaded as a consequence of the route controller.
@@ -140,7 +142,7 @@
 
    ["/projects/:project-id/patients/pseudonym/:pseudonym/home"
     {:name       :pseudonymous-patient/home
-     :component  pc4.patients/demographics-page
+     :component  pc4.patients/neuroinflamm-page
      :auth       identity
      :parameters {:path {:project-id int? :pseudonym string?}}
      :controllers [pathom-controller]}]
