@@ -20,6 +20,7 @@
             [eldrix.pc4-ward.project.views :as project]
             [eldrix.pc4-ward.config :as config]
             [eldrix.pc4-ward.ui :as ui]
+            [pc4.patients :as patients]
             [pc4.projects :as projects]))
 
 (defn href
@@ -137,20 +138,27 @@
      :parameters  {:path {:project-id int?}}
      :controllers [pathom-controller]}]
 
-   ["/projects/:project-id/patients/pseudonym/:pseudonym"
-    {:name        :patient-by-project-pseudonym
-     :view        project/view-pseudonymous-patient
-     :auth        identity                                  ;; we need a logged in user to view a patient
-     :parameters  {:path {:project-id int? :pseudonym string?}}
-     :controllers [{:parameters {:path [:project-id :pseudonym]}
-                    :start      (fn [{:keys [path]}]
-                                  (println "viewing patient by pseudonym page" (:project-id path) (:pseudonym path))
-                                  (rf/dispatch [::project-events/open-project (:project-id path)])
-                                  (rf/dispatch [::patient-events/open-pseudonymous-patient (:project-id path) (:pseudonym path)]))
-                    :stop       (fn [{:keys [path]}]
-                                  (println "leaving pseudonymous patient page" (:pseudonym path))
-                                  (rf/dispatch [::patient-events/close-current-patient])
-                                  (rf/dispatch [::project-events/close-current-project]))}]}]
+   ["/projects/:project-id/patients/pseudonym/:pseudonym/home"
+    {:name       :pseudonymous-patient/home
+     :component  pc4.patients/demographics-page
+     :auth       identity
+     :parameters {:path {:project-id int? :pseudonym string?}}
+     :controllers [pathom-controller]}]
+
+   #_["/projects/:project-id/patients/pseudonym/:pseudonym"
+      {:name        :patient-by-project-pseudonym
+       :view        project/view-pseudonymous-patient
+       :auth        identity                                  ;; we need a logged in user to view a patient
+       :parameters  {:path {:project-id int? :pseudonym string?}}
+       :controllers [{:parameters {:path [:project-id :pseudonym]}
+                      :start      (fn [{:keys [path]}]
+                                    (println "viewing patient by pseudonym page" (:project-id path) (:pseudonym path))
+                                    (rf/dispatch [::project-events/open-project (:project-id path)])
+                                    (rf/dispatch [::patient-events/open-pseudonymous-patient (:project-id path) (:pseudonym path)]))
+                      :stop       (fn [{:keys [path]}]
+                                    (println "leaving pseudonymous patient page" (:pseudonym path))
+                                    (rf/dispatch [::patient-events/close-current-patient])
+                                    (rf/dispatch [::project-events/close-current-project]))}]}]
 
    ["/projects/:project-id/patients/id/:patient-identifier"
     {:name        :patient-by-project-and-patient-identifier

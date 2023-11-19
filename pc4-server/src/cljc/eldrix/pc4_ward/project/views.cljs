@@ -75,12 +75,12 @@
           [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
            {:type        "text" :name "pseudonym" :placeholder "Start typing pseudonym" :auto-focus true
             :on-key-down #(when (and patient (= 13 (.-which %)))
-                            (rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)}))
+                            (rfe/push-state :pseudonymous-patient/home {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)}))
             :on-change   #(let [s (-> % .-target .-value)]
                             (rf/dispatch [::patient-events/search-legacy-pseudonym project-id s]))}]]
          (when patient
            [:div.bg-white.shadow.sm:rounded-lg.mt-4
-            [:div.px-4.py-5.sm:p-6
+            [:div.px-4.py-5.sm:p-6.shadow.bg-gray-50
              [:h3.text-lg.leading-6.font-medium.text-gray-900
               (str (name (:t_patient/sex patient))
                    " "
@@ -91,7 +91,7 @@
               [:div.mt-5.sm:mt-0.sm:ml-6.sm:flex-shrink-0.sm:flex.sm:items-center
                [:button.inline-flex.items-center.px-4.py-2.border.border-transparent.shadow-sm.font-medium.rounded-md.text-white.bg-indigo-600.hover:bg-indigo-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-indigo-500.sm:text-sm
                 {:type     "button"
-                 :on-click #(rfe/push-state :patient-by-project-pseudonym {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})}
+                 :on-click #(rfe/push-state :pseudonymous-patient/home {:project-id project-id :pseudonym (:t_episode/stored_pseudonym patient)})}
                 "View patient record"]]]]])]]]]]))
 
 
