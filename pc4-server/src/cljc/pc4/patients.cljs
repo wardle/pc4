@@ -253,7 +253,7 @@
             :id-key              :t_ms_diagnosis/id
             :display-key         :t_ms_diagnosis/name
             :select-fn           #(rf/dispatch
-                                    [:eldrix.pc4-ward.server/load
+                                    [:eldrix.pc4-ward.server/load ;; the result will be automatically normalised and therefore update
                                      {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
                                                                                   :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
                                                ['*]}]}])}]]
