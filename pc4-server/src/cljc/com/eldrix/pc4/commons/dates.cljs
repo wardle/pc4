@@ -16,12 +16,20 @@
    10 "Nov"
    11 "Dec"})
 
-(defn format-date [^Date date]
+(defn format-date
+  [^Date date]
   (when date (str (.getDate date)
                   "-"
                   (get months-en (.getMonth date))
                   "-"
                   (.getYear date))))
+
+(defn format-approximate-date
+  [^Date date]
+  (when date (str (get months-en (.getMonth date))
+                  " "
+                  (.getYear date))))
+
 
 (def transit-writers
   {goog.date.Date
