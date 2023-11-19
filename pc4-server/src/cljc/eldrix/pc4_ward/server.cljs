@@ -183,7 +183,7 @@
     (pathom-effect request)))
 
 (rf/reg-event-fx ::load
-  (fn [{:keys [db]} [_ config query]]
+  (fn [{:keys [db]} [_ {:keys [query] :as config}]]
     (js/console.log "Performing pathom load:" query)
     {:db (assoc db :loading true)                           ;; we're starting some network loading
      :fx [[:pathom {:params     query
@@ -191,13 +191,13 @@
                     :on-success [::handle-load-success config]
                     :on-failure [::handle-load-failure config]}]]}))
 
-(rf/reg-event-fx ::handle-load-success
+(rf/reg-event-fx ::handle-load-success  ;; HTTP success, but the response may contain an error
   (fn [{db :db} [_ config response]]
-    (js/console.log "load success:" response)
-    (tap> {::handle-load-success {:config config :response response}})
-    {:db
-     (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
-       (assoc db :loading false, :entity-db entity-db))}))
+    (if (:error response)
+      (do (js/console.log "load error" (-> response :error :cause))
+          {:db (assoc db :loading false)})
+      {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
+             (assoc db :loading false, :entity-db entity-db))})))
 
 (rf/reg-sub ::pull
   (fn [db [_ query targets]]
