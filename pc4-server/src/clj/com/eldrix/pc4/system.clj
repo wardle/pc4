@@ -162,6 +162,10 @@
              (pci/register ops)
              (p.plugin/register
                {::p.plugin/id 'err
+                ::pcr/wrap-resolver-error
+                (fn [_]
+                  (fn [env node error]
+                    (log/error "pathom resolver error" {:node node :error error})))
                 ::pcr/wrap-mutate
                 (fn [mutate]
                   (fn [env params]
