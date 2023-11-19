@@ -239,11 +239,16 @@
     (let [patient-identifier (get-in db [:patient/current :patient :t_patient/patient_identifier])
           project-id (get-in db [:patient/current :patient :t_episode/project_fk])
           pseudonym (get-in db [:patient/current :patient :t_episode/stored_pseudonym])]
-      (if (and project-id pseudonym)
+      (prn ::refresh-current-patient {:patient-identifier patient-identifier
+                                      :project-id project-id
+                                      :pseudonym pseudonym})
+      (cond
+        (and project-id pseudonym)
         {:fx [[:pathom {:params     (make-fetch-pseudonymous-patient project-id pseudonym)
                         :token      (get-in db [:authenticated-user :io.jwt/token])
                         :on-success [::handle-fetch-pseudonymous-patient-response]
                         :on-failure [::handle-fetch-pseudonymous-patient-failure]}]]}
+        patient-identifier
         {:fx [[:pathom {:params     (make-fetch-patient patient-identifier)
                         :token      (get-in db [:authenticated-user :io.jwt/token])
                         :on-success [::handle-fetch-patient-response]
@@ -426,6 +431,7 @@
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
                     :on-failure [::handle-failure-response]}]]}))
+
 
 (rf/reg-event-db ::set-current-medication
   []
