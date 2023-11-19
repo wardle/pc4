@@ -90,13 +90,14 @@
                  :t_patient/ethnic_origin_concept_fk
                  :t_patient/racial_group_concept_fk
                  :t_patient/occupation_concept_fk]}
-  (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]})))
+  (when patient_identifier
+    (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]}))))
 
 (pco/defresolver patient-by-pseudonym
   "Resolves patient identifier by a tuple of project id and pseudonym."
   [{conn :com.eldrix.rsdb/conn} {project-pseudonym :t_patient/project_pseudonym}]
   {::pco/output [:t_patient/patient_identifier]}
-  (let [[project-id pseudonym] project-pseudonym]
+  (when-let [[project-id pseudonym] project-pseudonym]
     (projects/search-by-project-pseudonym conn project-id pseudonym)))
 
 (pco/defresolver patient->current-age
@@ -646,7 +647,9 @@
                                       :t_result_urinalysis/date :t_result_urinalysis/notes
                                       :t_result_liver_function/date :t_result_liver_function/notes]}]}
 
-  {:t_patient/results (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier))})
+  {:t_patient/results
+   (when patient-identifier
+     (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)))})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -1118,8 +1121,11 @@
           (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
           (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-            (patients/save-ms-diagnosis! txn params'))
+            (try
+              (patients/save-ms-diagnosis! txn params')
+              (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e)))))
           (patient->summary-multiple-sclerosis env params)))))
+
 
 (s/def ::save-pseudonymous-postal-code
   (s/keys :req [:t_patient/patient_identifier
