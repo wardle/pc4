@@ -19,7 +19,7 @@
   {::pco/op-name 'pc4.users/ping
    ::pco/params  [:uuid]
    ::pco/output  [:uuid :date-time]}
-  (log/debug "received ping " uuid)
+  (log/trace "received ping " uuid)
   {:uuid      uuid
    :date-time (LocalDateTime/now)})
 
