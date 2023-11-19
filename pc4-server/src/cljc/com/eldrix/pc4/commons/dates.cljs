@@ -24,12 +24,8 @@
                   "-"
                   (.getYear date))))
 
-(defn format-approximate-date
-  [^Date date]
-  (when date (str (get months-en (.getMonth date))
-                  " "
-                  (.getYear date))))
-
+(defn format-month-year [^Date date]
+  (when date (str (get months-en (.getMonth date)) " " (.getYear date))))
 
 (def transit-writers
   {goog.date.Date
