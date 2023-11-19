@@ -412,8 +412,7 @@
   needing to know about the implementation change."
   [{:t_address/keys [address1]}]
   {::pco/output [:t_address/lsoa]}
-  (when (re-matches lsoa-re address1)
-    {:t_address/lsoa address1}))
+  {:t_address/lsoa (when (re-matches lsoa-re address1) address1)})
 
 (pco/defresolver address->housing
   [{concept-id :t_address/housing_concept_fk}]
