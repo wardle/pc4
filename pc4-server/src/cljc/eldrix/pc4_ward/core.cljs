@@ -147,6 +147,13 @@
      :parameters {:path {:project-id int? :pseudonym string?}}
      :controllers [pathom-controller]}]
 
+   ["/projects/:project-id/patients/pseudonym/:pseudonym/diagnoses"
+    {:name       :pseudonymous-patient/diagnoses
+     :component  pc4.patients/diagnoses-page
+     :auth       identity
+     :parameters {:path {:project-id int? :pseudonym string?}}
+     :controllers [pathom-controller]}]
+
    #_["/projects/:project-id/patients/pseudonym/:pseudonym"
       {:name        :patient-by-project-pseudonym
        :view        project/view-pseudonymous-patient

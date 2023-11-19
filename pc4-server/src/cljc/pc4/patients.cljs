@@ -9,6 +9,9 @@
             [reitit.frontend.easy :as rfe])
   (:import (goog.date Date)))
 
+
+
+
 (def ^:deprecated
   core-patient-properties                                   ;; TODO: these properties to be generic properties not rsdb.
   [:t_patient/id
@@ -176,20 +179,20 @@
                      :content (content "Diagnoses")
                      :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :treatment
-                     :content (content "Treatment")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
+                     :content (content "Treatment")}
+                     ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :relapses
-                     :content (content "Relapses")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
+                     :content (content "Relapses")}
+                    ; :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :encounters
-                     :content (content "Encounters")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/encounters {:project-id project-id :pseudonym pseudonym})}}
+                     :content (content "Encounters")}
+                    ; :attrs   {:href (rfe/href :pseudonymous-patient/encounters {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :investigations
-                     :content (content "Investigations")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/investigations {:project-id project-id :pseudonym pseudonym})}}
+                     :content (content "Investigations")}
+                    ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations {:project-id project-id :pseudonym pseudonym})}}
                     {:id      :admissions
-                     :content (content "Admissions")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
+                     :content (content "Admissions")}]
+                    ; :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
       :sub-menu    sub-menu}]))
 
 (defn layout
@@ -210,20 +213,22 @@
       [:t_patient/patient_identifier patient-identifier]
       [:t_patient/project_pseudonym [project-id pseudonym]])))
 
+(def banner-query
+  [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
+   :t_patient/title :t_patient/first_names :t_patient/last_name
+   {:t_patient/address [:t_address/id :t_address/address1 :t_address/address2
+                        :t_address/address3 :t_address/address4 :t_address/postcode]}
+   :t_patient/sex :t_patient/date_birth :t_patient/current_age :t_patient/date_death
+   :t_patient/status :t_episode/project_fk :t_episode/stored_pseudonym])
 
 (def neuroinflamm-page
   {:query
    (fn [params]
      [{(patient-ident params)
-       [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
-        :t_patient/title :t_patient/first_names :t_patient/last_name
-        {:t_patient/address [:t_address/id :t_address/address1 :t_address/address2
-                             :t_address/address3 :t_address/address4 :t_address/postcode]}
-        :t_patient/sex :t_patient/date_birth :t_patient/current_age :t_patient/date_death
-        :t_patient/status :t_episode/project_fk :t_episode/stored_pseudonym
-        {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
-                                                {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id
-                                                                                             :t_ms_diagnosis/name]}]}]}
+       (conj banner-query
+             {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
+                                                     {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id
+                                                                                                  :t_ms_diagnosis/name]}]})}
       {:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
 
    :view
@@ -247,16 +252,25 @@
             :no-selection-string "=Choose diagnosis="
             :id-key              :t_ms_diagnosis/id
             :display-key         :t_ms_diagnosis/name
-            :select-fn           #(do (prn :select-diagnosis %)
-                                      (rf/dispatch
-                                        [:eldrix.pc4-ward.server/load
-                                         {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
-                                                                                      :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
-                                                   ['*]}]}]))}]]
+            :select-fn           #(rf/dispatch
+                                    [:eldrix.pc4-ward.server/load
+                                     {:query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
+                                                                                  :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
+                                               ['*]}]}])}]]
          [ui/ui-simple-form-item {:label "Label"}
           [:div "Hi there"]]
          [ui/ui-simple-form-item {:label "Label"}
           [:div "Hi there"]]]]]])})
 
+(def diagnoses-page
+  {:query (fn [params]
+            [{(patient-ident params)
+              (conj banner-query
+                    {:t_patient/diagnoses [:t_diagnosis/id
+                                           {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                                                    {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]})}])
 
-
+   :view  (fn [_ [{project-id :t_episode/project_fk :as patient}]]
+            [:<>
+             [rsdb-banner patient]
+             [layout {:t_project/id project-id} patient {:selected-id :diagnoses}]])})
