@@ -222,19 +222,16 @@
 (defn ui-label [{:keys [for label]}]
   [:label.block.text-sm.font-medium.text-gray-600 (when for {:htmlFor for}) label])
 
-(defn ui-textfield [{:keys [id value type label placeholder required disabled help-text auto-focus]}]
+(defn ui-textfield
+  [{:keys [id value type label placeholder required disabled help-text on-change auto-focus] :as attrs}]
   [:div
    (when label (ui-label {:for id :label label}))
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-200.rounded-md.p-2
-     {:name        id
-      :value       value
-      :type        type
-      :placeholder placeholder
-      :required    required
-      :className   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
-      :disabled    disabled
-      :autoFocus   auto-focus}]
+     (merge
+       attrs
+       (when on-change {:on-change #(on-change (-> % .-target .-value))})
+       (when-not disabled {:classes ["text-gray-700" "bg-white" "shadow"]}))]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn unparse-local-date [d]
@@ -243,7 +240,7 @@
        :cljs (.toIsoString ^Date d true))))
 
 (defn ui-local-date
-  [{:keys [id label value default-date min-date max-date onBlur onEnterKey onChange] :as params}]
+  [{:keys [id label value default-date min-date max-date on-blur on-enter-key on-change] :as params}]
   (println {:ui-local-date params})
   [:div
    (when label (ui-label {:for id :label label}))
@@ -253,9 +250,9 @@
        id (assoc :name id)
        min-date (assoc :min (unparse-local-date min-date))
        max-date (assoc :max (unparse-local-date max-date))
-       onBlur (assoc :onBlur onBlur)
-       onEnterKey (assoc :onKeyDown #(when (= 13 (.-keyCode %)) (onEnterKey)))
-       onChange (assoc :onChange onChange))]]])
+       on-blur (assoc :on-blur on-blur)
+       on-enter-key (assoc :on-key-down #(when (= 13 (.-keyCode %)) (on-enter-key)))
+       on-change (assoc :on-change on-change))]]])
 
 (defn ui-select
   "A select control that appears as a pop-up."
@@ -268,7 +265,7 @@
     #?(:cljs (when (and select-fn default-value (str/blank? value)) (select-fn default-value))) ;;in cljs, select the chosen value
     [:div
      (when label (ui-label {:for name :label label}))
-     [:select#location.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+     [:select.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
       {:name        name
        :disabled    disabled?
        :value       (when value (str (id-key value)))
