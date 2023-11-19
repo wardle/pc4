@@ -254,6 +254,62 @@
             {:on-click #(do (reset! mode :inspect) (reset! postcode ""))}
             "Cancel"]])))))
 
+(defn inspect-edit-death-certificate
+  [_ _]
+  (let [mode (reagent.core/atom :inspect)
+        data (reagent.core/atom {})]
+    (fn [patient {:keys [on-save]}]
+      (let [date_death (:t_patient/date_death patient)
+            certificate (:t_patient/death_certificate patient)]
+        (case @mode
+          :inspect [:<>
+                    [:p (if-not date_death "Alive"
+                                           [:<> [:span "Died " (dates/format-date date_death)]
+                                            [:ul.mt-4.ml-4
+                                             (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
+                                             (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
+                                             (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
+                                             (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
+                    [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded.mt-4
+                     {:on-click #(do (reset! data (merge (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_death])
+                                                         (:t_patient/death_certificate patient)))
+                                     (reset! mode :edit))} "Edit"]]
+          :edit [:<>
+                 [ui/ui-simple-form
+                  [ui/ui-simple-form-item {:label "Date death"}
+                   [ui/ui-local-date
+                    {:name "date-death" :value (:t_patient/date_death @data)
+                     :on-change #(do (println "setting dod" %)
+                                     (swap! data assoc :t_patient/date_death %))}]]
+                  [ui/ui-simple-form-item {:label "Cause of death"}
+                   [ui/ui-textfield
+                    {:value (:t_death_certificate/part1a @data)
+                     :name "1a" :disabled (not (:t_patient/date_death @data))
+                     :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
+
+                 #_[:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+                    [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-death"} "Date death"]
+                    [:div.mt-1.sm:mt-0.sm:col-span-2
+                     [ui/ui-local-date
+                      {:name "date-death" :value (:t_patient/date_death @data)
+                       :on-change #(do (println "setting dod" %)
+                                       (swap! data assoc :t_patient/date_death %))}]]]
+                 #_[:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
+                    [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 "Cause of death"]
+                    [:div.mt-1.sm:mt-0.sm:col-span-2
+                     [ui/ui-textfield
+                      {:value (:t_death_certificate/part1a @data)
+                       :name "1a" :disabled (not (:t_patient/date_death @data))
+                       :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
+                 [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded
+                  {:on-click #(do (reset! mode :inspect)
+                                  (tap> {:death-data @data})
+                                  (on-save @data))}
+                  "Save"]
+                 [:button.ml-2.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
+                  {:on-click #(do (reset! mode :inspect) (reset! data {}))}
+                  "Cancel"]])))))
+
 (def neuroinflamm-page
   {:query
    (fn [params]
@@ -261,7 +317,9 @@
        (conj banner-query
              {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id
                                                      {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id
-                                                                                                  :t_ms_diagnosis/name]}]})}
+                                                                                                  :t_ms_diagnosis/name]}]}
+             {:t_patient/death_certificate [:t_death_certificate/id
+                                            :t_death_certificate/part1a]})}
       {:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
 
    :view
@@ -296,10 +354,19 @@
               :select-fn           select-diagnosis-fn}]]
            [ui/ui-simple-form-item {:label "LSOA (Geography)"}
             [inspect-edit-lsoa
-             {:value (get-in patient [:t_patient/address :t_address/lsoa])
+             {:value     (get-in patient [:t_patient/address :t_address/lsoa])
               :on-change save-lsoa-fn}]]
-           [ui/ui-simple-form-item {:label "Label"}
-            [:div "Hi there"]]]]]]))})
+           [ui/ui-simple-form-item {:label "Vital status"}
+            [inspect-edit-death-certificate patient
+             {:on-save #(do (println "updating death certificate" %)
+                          (rf/dispatch
+                            [:eldrix.pc4-ward.server/load
+                             {:query [{(list 'pc4.rsdb/notify-death
+                                             (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
+                                       [:t_patient/id
+                                        :t_patient/date_death
+                                        {:t_patient/death_certificate [:t_death_certificate/id
+                                                                       :t_death_certificate/part1a]}]}]}]))}]]]]]]))})
 
 
 (def diagnoses-page

@@ -1,5 +1,6 @@
 (ns pc4.ui.misc
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [com.eldrix.pc4.commons.dates :as dates])
   (:import #?@(:clj  [(java.time LocalDate)
                       (java.time.format DateTimeFormatter)]
                :cljs [(goog.date Date)])))
@@ -250,9 +251,9 @@
        id (assoc :name id)
        min-date (assoc :min (unparse-local-date min-date))
        max-date (assoc :max (unparse-local-date max-date))
-       on-blur (assoc :on-blur on-blur)
+       on-blur (assoc :on-blur #(on-blur (Date/fromIsoString (-> % .-target .-value))))
        on-enter-key (assoc :on-key-down #(when (= 13 (.-keyCode %)) (on-enter-key)))
-       on-change (assoc :on-change on-change))]]])
+       on-change (assoc :on-change #(on-change (Date/fromIsoString (-> % .-target .-value)))))]]])
 
 (defn ui-select
   "A select control that appears as a pop-up."
@@ -292,8 +293,9 @@
        [:div.mt-1.sm:mt-0.sm:col-span-2
         content]]])
 
-(defn ui-simple-form [content]
+(defn ui-simple-form [& content]
   [:form.space-y-8.divide-y.divide-gray-200 {:onSubmit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5]
-    content]])
+    (when content
+      [:<> content])]])
