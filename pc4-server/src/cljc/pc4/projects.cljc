@@ -1,5 +1,6 @@
 (ns pc4.projects
   (:require [clojure.string :as str]
+            [eldrix.pc4-ward.project.views :as legacy.views]
             [com.eldrix.pc4.commons.dates :as dates]
             [reagent.core :as r]
             [re-frame.core :as rf]
@@ -40,11 +41,11 @@
        :sub-menu    sub-menu}]]))
 
 (defn layout
-  [project selected-id content]
+  [project menu-options content]
   (when project
     [:div.grid.grid-cols-1.md:grid-cols-6
      [:div.col-span-1.pt-6
-      (menu project {:selected-id selected-id})]
+      (menu project menu-options)]
      [:div.col-span-5.p-6
       content]]))
 
@@ -106,7 +107,7 @@
                {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                :t_project/address1 :t_project/address2 :t_project/address3 :t_project/address4]}])
    :view  (fn [_ [project]]
-            [layout project :home
+            [layout project {:selected-id :home}
              (home-panel project)])})
 
 (def find-pseudonymous-patient
@@ -114,7 +115,7 @@
             [{[:t_project/id (get-in params [:path :project-id])]
               [:t_project/id :t_project/title :t_project/pseudonymous]}])
    :view  (fn [_ [project]]
-            (layout project :find-pseudonymous-patient
+            (layout project {:selected-id :find-pseudonymous-patient}
                     [eldrix.pc4-ward.project.views/search-by-pseudonym-panel (:t_project/id project)]))})
 
 (def register-pseudonymous-patient
@@ -122,7 +123,7 @@
             [{[:t_project/id (get-in params [:path :project-id])]
               [:t_project/id :t_project/title :t_project/pseudonymous]}])
    :view  (fn [_ [project]]
-            (layout project :register-pseudonymous-patient
+            (layout project {:selected-id :register-pseudonymous-patient}
                     [eldrix.pc4-ward.project.views/register-pseudonymous-patient (:t_project/id project)]))})
 
 (def downloads
@@ -130,12 +131,13 @@
             [{[:t_project/id (get-in params [:path :project-id])]
               [:t_project/id :t_project/title :t_project/pseudonymous]}])
    :view  (fn [_ [project]]
-            (layout project :reports
+            (layout project {:selected-id :reports}
                     [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
                      [:div.px-4.py-5.sm:px-6
-                      [:p "Self-service downloads not yet implemented"]]]))})
+                      [:p "No downloads currently available for this project"]]]))})
 
-(def team-page
+
+(def team-page  ;; TODO: search should be added to :t_project/users resolver as parameters
   {:query
    (fn [params] [{[:t_project/id (get-in params [:path :project-id])]
                   [:t_project/id :t_project/title :t_project/pseudonymous
@@ -156,22 +158,17 @@
                                       (filter :t_user/active?)
                                       (= "inactive" @user-filter)
                                       (remove :t_user/active?))]
-                   [:div.grid.grid-cols-1.md:grid-cols-6
-                    [:div.col-span-1.pt-6
-                     (menu project
-                           {:selected-id :team
-                            :sub-menu
-                            {:title "Team"
-                             :items [{:id      :filter
-                                      :content [:div
-                                                [:select.w-full.p-2.border
-                                                 {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
-                                                 [:option {:value "active"} "Active"]
-                                                 [:option {:value "inactive"} "Inactive"]
-                                                 [:option {:value "all"} "All users"]]
-                                                [:input.border.p-2.w-full
-                                                 {:type     "search" :name "search" :placeholder "Search..."
-                                                  :onChange #(reset! search-filter (-> % .-target .-value))}]
-                                                #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}})]
-                    [:div.col-span-5.p-6
-                     [team-panel users]]]))))})
+                   (layout project {:selected-id :team
+                                    :sub-menu {:title "Team"
+                                               :items [{:id      :filter
+                                                        :content [:div
+                                                                  [:select.w-full.p-2.border
+                                                                   {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
+                                                                   [:option {:value "active"} "Active"]
+                                                                   [:option {:value "inactive"} "Inactive"]
+                                                                   [:option {:value "all"} "All users"]]
+                                                                  [:input.border.p-2.w-full
+                                                                   {:type     "search" :name "search" :placeholder "Search..."
+                                                                    :onChange #(reset! search-filter (-> % .-target .-value))}]
+                                                                  #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}}
+                           [team-panel users])))))})
