@@ -465,12 +465,14 @@
                                   :t_address/postcode_fk            nil
                                   :t_address/ignore_invalid_address "true"
                                   :t_address/address2               nil
-                                  :t_address/address3 nil
-                                  :t_address/address4 nil}
-                                 {:t_address/id (:t_address/id current-address)})
+                                  :t_address/address3               nil
+                                  :t_address/address4               nil}
+                                 {:t_address/id (:t_address/id current-address)}
+                                 {:return-keys true})
           (next.jdbc.sql/insert! txn :t_address {:t_address/address1               lsoa11
                                                  :t_address/ignore_invalid_address "true"
-                                                 :t_address/patient_fk             (:t_patient/id patient)}))))))
+                                                 :t_address/patient_fk             (:t_patient/id patient)}
+                                 {:return-keys true}))))))
 
 
 
