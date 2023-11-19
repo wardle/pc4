@@ -30,14 +30,16 @@
 (defn ^:private target-result
   [targets {:keys [db entities] :as m} k result]
   (let [target (targets k)]
+    #_(prn :target-result {:k k :result result :db db :targets targets})
     (cond
       ;; if we have a target, just conj result as-is without normalization
       target
       {:db       (assoc-in db target result)
        :entities (conj entities target)}
       ;; if result is actually a to-many, normalize and add top-level key with idents
-      (vector? result)
+      (sequential? result)
       (reduce (fn [{db' :db :as m} data]
+                #_(prn :add-data {:data data})
                 (assoc m :db (-> db'
                                  (pyr/add data)
                                  (update k conj (pyr/default-ident data)))))
@@ -46,6 +48,7 @@
       ;; otherwise, simply normalize using pyr/add-report
       :else
       (let [{db' :db, entities' :entities} (pyr/add-report db result)]
+        #_(prn :normalize-result result)
         (if (entities' k) ;; the common case is that the key matches the entity ident
           {:db db', :entities (into entities entities')}
           {:db (assoc-in db' k (pyr/default-ident result)), :entities (into entities entities')})))))

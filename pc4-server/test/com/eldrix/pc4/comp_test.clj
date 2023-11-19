@@ -40,24 +40,39 @@
     (is (= project (get result [:t_project/id 1])))
     (is (= reasons (:reasons-for-stopping result)))))
 
-(deftest test-target)
-(let [query [{[:t_project/id 1] [:t_project/id :t_project/title]}
-             {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
-             :com.eldrix.rsdb/all-medication-reasons-for-stopping]
-      targets {:com.eldrix.rsdb/all-medication-reasons-for-stopping [:lookups :all-medication-reasons-for-stopping]}
-      result {[:t_project/id 1] #:t_project{:id 1, :title "Legacy Multiple Sclerosis Database"},
-              [:t_user/id 1] #:t_user{:id 1, :first_names "System", :last_name "Administrator"},
-              :com.eldrix.rsdb/all-medication-reasons-for-stopping [#:t_medication_reason_for_stopping{:name "PATIENT_CHOICE_CONVENIENCE",
-                                                                                                       :id :PATIENT_CHOICE_CONVENIENCE}
-                                                                    #:t_medication_reason_for_stopping{:name "NOT_APPLICABLE",
-                                                                                                       :id :NOT_APPLICABLE}]}
-      {db :db} (comp/target-results {} {:query query :targets targets} result)
-      [project user reasons] (comp/pull-results db {:query query :targets targets})]
-  (is (= project (get result [:t_project/id 1])))
-  (is (= user (get result [:t_user/id 1])))
-  (is (= reasons (get result :com.eldrix.rsdb/all-medication-reasons-for-stopping)))
-  (is (= reasons (get-in db [:lookups :all-medication-reasons-for-stopping]))
-      "Reasons for stopping should have been stored as-is in :lookups in database"))
+(deftest test-multiple-queries
+  (let [query [{[:t_patient/patient_identifier 14032]
+                [:t_patient/id
+                 :t_patient/patient_identifier
+                 :t_patient/nhs_number]}
+               #:com.eldrix.rsdb{:all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}]
+        result {[:t_patient/patient_identifier 14032] #:t_patient{:id 17490, :patient_identifier 14032, :nhs_number "1231231234"},
+                :com.eldrix.rsdb/all-ms-diagnoses     '(#:t_ms_diagnosis{:name "Poser cd", :id 1}
+                                                         #:t_ms_diagnosis{:name "Poser lab",:id 2})}
+        {db :db} (comp/target-results {} {:query query} result)]
+    (is (= [#:t_patient{:id 17490, :patient_identifier 14032, :nhs_number "1231231234"}
+            '(#:t_ms_diagnosis{:name "Poser cd", :id 1} #:t_ms_diagnosis{:name "Poser lab", :id 2})]
+           (comp/pull-results db {:query query})))))
+
+
+(deftest test-target
+  (let [query [{[:t_project/id 1] [:t_project/id :t_project/title]}
+               {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
+               :com.eldrix.rsdb/all-medication-reasons-for-stopping]
+        targets {:com.eldrix.rsdb/all-medication-reasons-for-stopping [:lookups :all-medication-reasons-for-stopping]}
+        result {[:t_project/id 1]                                    #:t_project{:id 1, :title "Legacy Multiple Sclerosis Database"},
+                [:t_user/id 1]                                       #:t_user{:id 1, :first_names "System", :last_name "Administrator"},
+                :com.eldrix.rsdb/all-medication-reasons-for-stopping [#:t_medication_reason_for_stopping{:name "PATIENT_CHOICE_CONVENIENCE",
+                                                                                                         :id   :PATIENT_CHOICE_CONVENIENCE}
+                                                                      #:t_medication_reason_for_stopping{:name "NOT_APPLICABLE",
+                                                                                                         :id   :NOT_APPLICABLE}]}
+        {db :db} (comp/target-results {} {:query query :targets targets} result)
+        [project user reasons] (comp/pull-results db {:query query :targets targets})]
+    (is (= project (get result [:t_project/id 1])))
+    (is (= user (get result [:t_user/id 1])))
+    (is (= reasons (get result :com.eldrix.rsdb/all-medication-reasons-for-stopping)))
+    (is (= reasons (get-in db [:lookups :all-medication-reasons-for-stopping]))
+        "Reasons for stopping should have been stored as-is in :lookups in database")))
 
 (def example-component6
   {:query   (fn [params]
