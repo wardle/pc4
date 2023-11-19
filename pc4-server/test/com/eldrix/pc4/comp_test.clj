@@ -40,7 +40,7 @@
     (is (= project (get result [:t_project/id 1])))
     (is (= reasons (:reasons-for-stopping result)))))
 
-(deftest test-multiple-queries
+(deftest test-multiple-results-as-list
   (let [query [{[:t_patient/patient_identifier 14032]
                 [:t_patient/id
                  :t_patient/patient_identifier
@@ -48,11 +48,14 @@
                #:com.eldrix.rsdb{:all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}]
         result {[:t_patient/patient_identifier 14032] #:t_patient{:id 17490, :patient_identifier 14032, :nhs_number "1231231234"},
                 :com.eldrix.rsdb/all-ms-diagnoses     '(#:t_ms_diagnosis{:name "Poser cd", :id 1}
-                                                         #:t_ms_diagnosis{:name "Poser lab",:id 2})}
-        {db :db} (comp/target-results {} {:query query} result)]
+                                                         #:t_ms_diagnosis{:name "Poser lab", :id 2})}
+        {db :db} (comp/target-results {} {:query query} result)
+        {db2 :db} (comp/target-results db {:query query} result)]
     (is (= [#:t_patient{:id 17490, :patient_identifier 14032, :nhs_number "1231231234"}
             '(#:t_ms_diagnosis{:name "Poser cd", :id 1} #:t_ms_diagnosis{:name "Poser lab", :id 2})]
-           (comp/pull-results db {:query query})))))
+           (comp/pull-results db {:query query})))
+    (is (= db db2)
+        "Targeting should be idempotent")))
 
 
 (deftest test-target

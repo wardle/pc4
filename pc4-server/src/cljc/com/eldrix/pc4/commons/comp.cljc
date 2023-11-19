@@ -42,8 +42,8 @@
                 #_(prn :add-data {:data data})
                 (assoc m :db (-> db'
                                  (pyr/add data)
-                                 (update k conj (pyr/default-ident data)))))
-              {:db db, :entities (conj entities k)}
+                                 (update k (fnil conj []) (pyr/default-ident data)))))
+              {:db (dissoc db k ), :entities (conj entities k)}
               result)
       ;; otherwise, simply normalize using pyr/add-report
       :else
