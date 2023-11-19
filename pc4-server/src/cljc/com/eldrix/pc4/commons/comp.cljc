@@ -22,6 +22,7 @@
   to destructure the results of the query."
   (:require [clojure.set :as set]
             [clojure.spec.alpha :as s]
+            [clojure.walk :as walk]
             [edn-query-language.core :as eql]
             [pyramid.core :as pyr]))
 
@@ -43,15 +44,21 @@
                 (assoc m :db (-> db'
                                  (pyr/add data)
                                  (update k (fnil conj []) (pyr/default-ident data)))))
-              {:db (dissoc db k ), :entities (conj entities k)}
+              {:db       (dissoc db k)                      ;; remove any existing data under the key
+               :entities (conj entities k)}                 ;; add the key at a top-level entity
               result)
       ;; otherwise, simply normalize using pyr/add-report
       :else
       (let [{db' :db, entities' :entities} (pyr/add-report db result)]
         #_(prn :normalize-result result)
-        (if (entities' k) ;; the common case is that the key matches the entity ident
+        (cond
+          ;; the common case is that the key matches the entity ident
+          (entities' k)
           {:db db', :entities (into entities entities')}
-          {:db (assoc-in db' k (pyr/default-ident result)), :entities (into entities entities')})))))
+          (vector? k)
+          {:db (assoc-in db' k (pyr/default-ident result)), :entities (into entities entities')}
+          :else
+          {:db db', :entities (into entities entities')})))))
 
 (defn ^:private target-results*
   "Given a map of results, keyed by `ident`, return a map of :db and :entities
@@ -69,6 +76,7 @@
   Results will be normalized unless `targets` provide a sequence of keys for the
   key to which the result should be `assoc-in`'ed."
   [db {:keys [query targets]} results]
+  #_(prn :target-results results)
   (if (s/valid? ::eql/query query)
     (target-results* (or targets {}) {:db db :entities #{}} results)
     (throw (ex-info "invalid EQL transaction" (s/explain-data ::eql/query query)))))
@@ -76,7 +84,7 @@
 (defn ^:private remove-eql-parameters
   "Remove any parameterised clauses from an EQL AST"
   [ast]
-  (clojure.walk/postwalk
+  (walk/postwalk
     (fn [x]
       (if (and (associative? x) (:params x))
         (dissoc x :params) x)) ast))
