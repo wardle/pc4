@@ -95,11 +95,11 @@
       [eldrix.pc4-ward.user.views/project-panel
        :on-choose #(rfe/push-state :project/home {:project-id (:t_project/id %)})]]
      [:div.col-span-3
-      [:div.mb-4.bg-white.shadow-lg.overflow-hidden.sm:rounded-md
+      [:div.mb-4.bg-white.overflow-hidden.sm:rounded-md
        [:ul.divide-y.divide-gray-200 {:role "list"}
         (for [article latest-news]
           [:li {:key (:t_news/id article)}
-           [:div.px-4.py-4.sm:px-6
+           [:div.px-4.py-4.sm:px-6.border.rounded.shadow.mb-4
             [:div.flex.items-center.justify-between
              [:p.text-lg.font-medium.text-indigo-600.truncate (:t_news/title article)]
              [:div.ml-2.flex-shrink-0.flex
@@ -107,7 +107,7 @@
             [:div.sm:flex.sm:justify-between
              [:div.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
               [:p "by " (:t_user/first_names article) " " (:t_user/last_name article)]]]
-            [:p.text-sm {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]]]]))
+            [:p.text-sm.prose.p-2 {:dangerouslySetInnerHTML {:__html (:t_news/body article)}}]]])]]]]))
 
 
 
