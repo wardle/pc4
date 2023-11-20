@@ -163,57 +163,65 @@
      {:patient-name (str last_name ", " (str/join " " [title first_names]))
       :nhs-number   nhs_number
       :approximate  pseudonymous
-      :address      (if pseudonymous (str/join " / " [stored_pseudonym (:t_address/address1 address)])
-                                     (str/join ", " (remove nil? [(:t_address/address1 address)
-                                                                  (:t_address/address2 address)
-                                                                  (:t_address/address3 address)
-                                                                  (:t_address/address4 address)
-                                                                  (:t_address/postcode address)])))
+      :address      (if pseudonymous
+                      (str/join " / " [stored_pseudonym (:t_address/address1 address)])
+                      (str/join ", " (remove nil? [(:t_address/address1 address)
+                                                   (:t_address/address2 address)
+                                                   (:t_address/address3 address)
+                                                   (:t_address/address4 address)
+                                                   (:t_address/postcode address)])))
       :gender       sex
       :born         date_birth
       :age          current_age
       :deceased     date_death}]))
 
-
 (defn menu
   [{project-id :t_project/id}
-   {patient-pk      :t_patient/id pseudonym :t_episode/stored_pseudonym
-    :t_patient/keys [patient_identifier first_names title last_name]}
+   {:t_patient/keys [patient_identifier first_names title last_name status]
+    pseudonym       :t_episode/stored_pseudonym}
    {:keys [selected-id sub-menu]}]
-  (let [content (fn [s] (vector :span.truncate s))]
+  (let [content (fn [s] (vector :span.truncate s))
+        pseudonymous (= status :PSEUDONYMOUS)]
     [ui/vertical-navigation
      {:selected-id selected-id
-      :items       [{:id      :home
-                     :content (content "Home")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/home {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :diagnoses
-                     :content (content "Diagnoses")
-                     :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :treatment
-                     :content (content "Treatment")}
-                    ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :relapses
-                     :content (content "Relapses")}
-                    ; :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :encounters
-                     :content (content "Encounters")}
-                    ; :attrs   {:href (rfe/href :pseudonymous-patient/encounters {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :investigations
-                     :content (content "Investigations")}
-                    ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations {:project-id project-id :pseudonym pseudonym})}}
-                    {:id      :admissions
-                     :content (content "Admissions")}]
-      ; :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
+      :items
+      (if pseudonymous
+        [{:id      :home
+          :content (content "Home")
+          :attrs   {:href (rfe/href :pseudonymous-patient/home {:project-id project-id :pseudonym pseudonym})}}
+         {:id      :diagnoses
+          :content (content "Diagnoses")
+          :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
+         {:id      :treatment
+          :content (content "Treatment")}
+         ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment patient-link-attrs)}}
+         {:id      :relapses
+          :content (content "Relapses")}
+         ; :attrs   {:href (rfe/href :pseudonymous-patient/relapses patient-link-attrs)}}
+         {:id      :encounters
+          :content (content "Encounters")}
+         ; :attrs   {:href (rfe/href :pseudonymous-patient/encounters patient-link-attrs)}}
+         {:id      :investigations
+          :content (content "Investigations")}
+         ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations patient-link-attrs)}}
+         {:id      :admissions
+          :content (content "Admissions")
+          :attrs   {} #_{:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
+        [{:id      :home
+          :content (content "Home")
+          :attrs   {:href (rfe/href :patient/home {:patient-identifier patient_identifier})}}
+         {:id      :diagnoses
+          :content (content "Diagnoses")
+          :attrs   {:href (rfe/href :patient/diagnoses {:patient-identifier patient_identifier})}}])
       :sub-menu    sub-menu}]))
 
 (defn layout
-  [project patient menu-options content]
+  [project patient menu-options & content]
   (when patient
     [:div.grid.grid-cols-1.md:grid-cols-6
      [:div.col-span-1.pt-6
-      (menu project patient menu-options)]
-     [:div.col-span-5.p-6
-      content]]))
+      [menu project patient menu-options]]
+     (into [:div.col-span-5.p-6] content)]))
 
 (defn patient-ident
   [params]
@@ -332,45 +340,74 @@
        [:<>
         [rsdb-banner patient]
         [layout {:t_project/id project-id} patient {:selected-id :home}
+         [ui/ui-title {:title "Neuroinflammatory home page"}]
          [ui/ui-simple-form
-          [:<>
-           [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
-            [ui/ui-select
-             {:name                :ms-diagnosis
-              :value               (get-in patient [:t_patient/summary_multiple_sclerosis
-                                                    :t_summary_multiple_sclerosis/ms_diagnosis])
-              :disabled?           false
-              :choices             all-ms-diagnoses
-              :no-selection-string "=Choose diagnosis="
-              :id-key              :t_ms_diagnosis/id
-              :display-key         :t_ms_diagnosis/name
-              :select-fn           select-diagnosis-fn}]]
-           [ui/ui-simple-form-item {:label "LSOA (Geography)"}
-            [inspect-edit-lsoa
-             {:value     (get-in patient [:t_patient/address :t_address/lsoa])
-              :on-change save-lsoa-fn}]]
-           [ui/ui-simple-form-item {:label "Vital status"}
-            [inspect-edit-death-certificate patient
-             {:on-save #(do (println "updating death certificate" %)
-                            (rf/dispatch
-                              [:eldrix.pc4-ward.server/load
-                               {:query [{(list 'pc4.rsdb/notify-death
-                                               (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
-                                         [:t_patient/id
-                                          :t_patient/date_death
-                                          {:t_patient/death_certificate [:t_death_certificate/id
-                                                                         :t_death_certificate/part1a]}]}]}]))}]]]]]]))})
+          [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
+           [ui/ui-select
+            {:name                :ms-diagnosis
+             :value               (get-in patient [:t_patient/summary_multiple_sclerosis
+                                                   :t_summary_multiple_sclerosis/ms_diagnosis])
+             :disabled?           false
+             :choices             all-ms-diagnoses
+             :no-selection-string "=Choose diagnosis="
+             :id-key              :t_ms_diagnosis/id
+             :display-key         :t_ms_diagnosis/name
+             :select-fn           select-diagnosis-fn}]]
+          [ui/ui-simple-form-item {:label "LSOA (Geography)"}
+           [inspect-edit-lsoa
+            {:value     (get-in patient [:t_patient/address :t_address/lsoa])
+             :on-change save-lsoa-fn}]]
+          [ui/ui-simple-form-item {:label "Vital status"}
+           [inspect-edit-death-certificate patient
+            {:on-save #(do (println "updating death certificate" %)
+                           (rf/dispatch
+                             [:eldrix.pc4-ward.server/load
+                              {:query [{(list 'pc4.rsdb/notify-death
+                                              (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
+                                        [:t_patient/id
+                                         :t_patient/date_death
+                                         {:t_patient/death_certificate [:t_death_certificate/id
+                                                                        :t_death_certificate/part1a]}]}]}]))}]]]]]))})
 
 
 (def diagnoses-page
-  {:query (fn [params]
-            [{(patient-ident params)
-              (conj banner-query
-                    {:t_patient/diagnoses [:t_diagnosis/id
-                                           {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                                                    {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]})}])
+  {:query
+   (fn [params]
+     [{(patient-ident params)
+       (conj banner-query
+             {:t_patient/diagnoses [:t_diagnosis/id
+                                    :t_diagnosis/date_diagnosis
+                                    :t_diagnosis/date_onset
+                                    :t_diagnosis/date_to
+                                    :t_diagnosis/status
+                                    {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]})}])
 
-   :view  (fn [_ [{project-id :t_episode/project_fk :as patient}]]
-            [:<>
-             [rsdb-banner patient]
-             [layout {:t_project/id project-id} patient {:selected-id :diagnoses}]])})
+   :view
+   (fn [_ [{project-id :t_episode/project_fk :as patient}]]
+     [:<>
+      [rsdb-banner patient]
+      [layout {:t_project/id project-id} patient
+       {:selected-id :diagnoses
+        :sub-menu    {:title "Diagnoses"
+                      :items [{:id      :add-diagnosis
+                               :content [ui/button {:s "Add diagnosis"}]}]}}
+       (when (:t_patient/diagnoses patient)                 ;; take care to not draw until data loaded
+         [:div
+          [ui/ui-table
+           [ui/ui-table-head
+            [ui/ui-table-row
+             (for [heading ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""]]
+               ^{:key heading} [ui/ui-table-heading heading])]]
+           [ui/ui-table-body
+            (for [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status diagnosis]}
+                  (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]) (:t_patient/diagnoses patient))]
+              (ui/ui-table-row {:key id}
+                               (ui/ui-table-cell (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                               (ui/ui-table-cell (dates/format-date date_onset))
+                               (ui/ui-table-cell (dates/format-date date_diagnosis))
+                               (ui/ui-table-cell (dates/format-date date_to))
+                               (ui/ui-table-cell (str status))))]]])]])})
+
+
+

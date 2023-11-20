@@ -141,23 +141,23 @@
      :controllers [pathom-controller]}]
 
    ["/projects/:project-id/patients/pseudonym/:pseudonym/home"
-    {:name       :pseudonymous-patient/home
-     :component  pc4.patients/neuroinflamm-page
-     :auth       identity
-     :parameters {:path {:project-id int? :pseudonym string?}}
+    {:name        :pseudonymous-patient/home
+     :component   pc4.patients/neuroinflamm-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :pseudonym string?}}
      :controllers [pathom-controller]}]
 
    ["/projects/:project-id/patients/pseudonym/:pseudonym/diagnoses"
-    {:name       :pseudonymous-patient/diagnoses
-     :component  pc4.patients/diagnoses-page
-     :auth       identity
-     :parameters {:path {:project-id int? :pseudonym string?}}
+    {:name        :pseudonymous-patient/diagnoses
+     :component   pc4.patients/diagnoses-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :pseudonym string?}}
      :controllers [pathom-controller]}]
 
    #_["/projects/:project-id/patients/pseudonym/:pseudonym"
       {:name        :patient-by-project-pseudonym
        :view        project/view-pseudonymous-patient
-       :auth        identity                                  ;; we need a logged in user to view a patient
+       :auth        identity                                ;; we need a logged in user to view a patient
        :parameters  {:path {:project-id int? :pseudonym string?}}
        :controllers [{:parameters {:path [:project-id :pseudonym]}
                       :start      (fn [{:keys [path]}]
@@ -169,21 +169,35 @@
                                     (rf/dispatch [::patient-events/close-current-patient])
                                     (rf/dispatch [::project-events/close-current-project]))}]}]
 
-   ["/projects/:project-id/patients/id/:patient-identifier"
-    {:name        :patient-by-project-and-patient-identifier
-     :title       "Patient"
-     :view        project/view-pseudonymous-patient
+   ["/patients/id/:patient-identifier/home"
+    {:name        :patient/home
+     :component   pc4.patients/neuroinflamm-page
      :auth        identity                                  ;; we need a logged in user to view a patient
-     :parameters  {:path {:project-id int? :patient-identifier int?}}
-     :controllers [{:parameters {:path [:project-id :patient-identifier]}
-                    :start      (fn [{:keys [path]}]
-                                  (println "viewing patient by project page" (:project-id path) (:patient-identifier path))
-                                  (rf/dispatch [::project-events/open-project (:project-id path)])
-                                  (rf/dispatch [::patient-events/open-patient (:project-id path) (:patient-identifier path)]))
-                    :stop       (fn [{:keys [path]}]
-                                  (println "leaving patient page" (:patient-identifier path))
-                                  (rf/dispatch [::patient-events/close-current-patient])
-                                  (rf/dispatch [::project-events/close-current-project]))}]}]])
+     :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   ["/patients/id/:patient-identifier/diagnoses"
+    {:name        :patient/diagnoses
+     :component   pc4.patients/diagnoses-page
+     :auth        identity                                  ;; we need a logged in user to view a patient
+     :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   #_["/projects/:project-id/patients/id/:patient-identifier"
+      {:name        :patient-by-project-and-patient-identifier
+       :title       "Patient"
+       :view        project/view-pseudonymous-patient
+       :auth        identity                                ;; we need a logged in user to view a patient
+       :parameters  {:path {:project-id int? :patient-identifier int?}}
+       :controllers [{:parameters {:path [:project-id :patient-identifier]}
+                      :start      (fn [{:keys [path]}]
+                                    (println "viewing patient by project page" (:project-id path) (:patient-identifier path))
+                                    (rf/dispatch [::project-events/open-project (:project-id path)])
+                                    (rf/dispatch [::patient-events/open-patient (:project-id path) (:patient-identifier path)]))
+                      :stop       (fn [{:keys [path]}]
+                                    (println "leaving patient page" (:patient-identifier path))
+                                    (rf/dispatch [::patient-events/close-current-patient])
+                                    (rf/dispatch [::project-events/close-current-project]))}]}]])
 
 (defn on-navigate [new-match]
   (when new-match

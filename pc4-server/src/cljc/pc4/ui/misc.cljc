@@ -158,11 +158,11 @@
     (into [:dl.sm:divide-y.sm:divide-gray-200] items)]])
 
 (defn button [{s :s}]
-  [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l s])
+  [:button.w-full.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l s])
 (defn button-small [{s :s}]
   [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.text-xs.py-1.px-2.rounded-l s])
 (defn button-group [& content]
-  (into  [:div.inline-flex] content))
+  (into [:div.inline-flex] content))
 
 (defn action-button [props s]
   [:div.mt-5.sm:ml-6.sm:mt-0.sm:flex.sm:flex-shrink-0.sm:items-center
@@ -278,6 +278,15 @@
         ^{:key id} [:option {:value (str id)} (display-key choice)])]]))
 
 
+(defn ui-title [{:keys [key title subtitle]} & content]
+  [:div.sm:flex.sm:items-center.p-4 (when key {:key key})
+   [:div.sm:flex-auto
+    [:h1.text-xl.font-semibold.text-gray-900 title]
+    (when subtitle
+      [:p.mt-2.text-sm.text-gray-700 subtitle])
+    (when content
+      (into [:div.mt-4.sm:mt-0.sm:ml-16.sm:flex-none] content))]])
+
 (defn ui-simple-form-title [{:keys [title]}]
   [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
    [:div.mt-1.sm:mt-0.sm:col-span-2
@@ -296,3 +305,27 @@
     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5]
     (when content
       (into [:<>] content))]])
+
+
+
+(defn ui-table [& content]
+  [:div.flex.flex-col
+   [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8
+     [:div.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
+      (into [:table.min-w-full.divide-y.divide-gray-200] content)]]]])
+
+(defn ui-table-head [& content]
+  (into [:thead.bg-gray-50] content))
+
+(defn ui-table-heading [& content]
+  (into [:th.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider] content))
+
+(defn ui-table-body [& content]
+  (into [:tbody.bg-white] content))
+
+(defn ui-table-row [props & content]
+  (into [:tr props] content))
+
+(defn ui-table-cell [& content]
+  (into [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500] content))
