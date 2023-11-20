@@ -129,9 +129,8 @@
          ^{:key id} [:a.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900 attrs
                      content])]])])
 
-(defn grid-list [items]
-  [:ul.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3 {:role "list"}
-   items])
+(defn grid-list [& items]
+  (into [:ul.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3 {:role "list"}] items))
 
 (defn grid-list-item [{:keys [title subtitle image content]}]
   [:li.col-span-1.divide-y.divide-gray-200.rounded-lg.bg-white.shadow
@@ -150,22 +149,20 @@
    [:dt.text-sm.font-medium.text-gray-500 label]
    [:dd.mt-1.text-sm.text-gray-900.sm:col-span-2.sm:mt-0 content]])
 
-(defn description-list [{:keys [title subtitle]} items]
+(defn description-list [{:keys [title subtitle]} & items]
   [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
    [:div.px-4.py-5.sm:px-6
     [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
     [:p.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
    [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
-    [:dl.sm:divide-y.sm:divide-gray-200
-     items]]])
+    (into [:dl.sm:divide-y.sm:divide-gray-200] items)]])
 
 (defn button [{s :s}]
   [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l s])
 (defn button-small [{s :s}]
   [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.text-xs.py-1.px-2.rounded-l s])
 (defn button-group [& content]
-  [:div.inline-flex
-   content])
+  (into  [:div.inline-flex] content))
 
 (defn action-button [props s]
   [:div.mt-5.sm:ml-6.sm:mt-0.sm:flex.sm:flex-shrink-0.sm:items-center
@@ -230,7 +227,7 @@
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-200.rounded-md.p-2
      (merge
-       attrs
+       (dissoc attrs :help-text :on-enter)
        (when on-change {:on-change #(on-change (-> % .-target .-value))})
        (when-not disabled {:classes ["text-gray-700" "bg-white" "shadow"]}))]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
@@ -287,15 +284,15 @@
     [:div.w-full.rounded-md.shadow-sm.space-y-2
      [:h3.text-lg.font-medium.leading-6.text-gray-900 title]]]])
 
-(defn ui-simple-form-item [{:keys [html-for label]} content]
+(defn ui-simple-form-item [{:keys [html-for label]} & content]
   [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
    [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:html-for html-for} label
-       [:div.mt-1.sm:mt-0.sm:col-span-2
-        content]]])
+    [:div.mt-1.sm:mt-0.sm:col-span-2
+     (into [:<>] content)]]])
 
 (defn ui-simple-form [& content]
   [:form.space-y-8.divide-y.divide-gray-200 {:onSubmit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
     [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5]
     (when content
-      [:<> content])]])
+      (into [:<>] content))]])

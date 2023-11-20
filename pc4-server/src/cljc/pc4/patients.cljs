@@ -224,30 +224,26 @@
 
 
 (defn inspect-edit-lsoa
+  "A specialised component to view and edit the LSOA for a pseudonymous patient."
   [params]
   (let [mode (r/atom :inspect)
         postcode (r/atom "")]
     (fn [{:keys [value on-change]}]
-      (let [save-fn #(do (on-change @postcode)
-                         (reset! mode :inspect))]
+      (let [save-fn #(do (on-change @postcode) (reset! mode :inspect))
+            edit-fn #(do (reset! postcode "") (reset! mode :edit))
+            on-change #(reset! postcode %)]
         (case @mode
           :inspect
           [:a.cursor-pointer.underline
            {:class    (if (str/blank? value) "text-red-600 hover:text-red-800" "text-red-600.hover:text-red-800")
-            :on-click #(do
-                         (reset! postcode "")
-                         (reset! mode :edit))} (if (str/blank? value) "Not set" value)]
+            :on-click edit-fn} (if (str/blank? value) "Not set" value)]
           :edit
           [:span
            [:p (str @postcode)]
            [ui/ui-textfield
-            {:id         :postcode
-             :value      @postcode
-             :auto-focus true :label "Enter postal code:"
-             :on-change  #(do (println "changed to" %)
-                              (reset! postcode %))
-             :on-enter   save-fn
-             :help-text  "This postal code will not be stored but mapped to a larger geographical region instead."}]
+            {:id        :postcode, :value @postcode :auto-focus true,
+             :label     "Enter postal code:", :on-change on-change, :on-enter save-fn
+             :help-text "This postal code will not be stored but mapped to a larger geographical region instead."}]
            [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded-full
             {:on-click save-fn} "Save"]
            [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
@@ -263,30 +259,30 @@
             certificate (:t_patient/death_certificate patient)]
         (case @mode
           :inspect [:<>
-                    [:p (if-not date_death "Alive"
-                                           [:<> [:span "Died " (dates/format-date date_death)]
-                                            [:ul.mt-4.ml-4
-                                             (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
-                                             (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
-                                             (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
-                                             (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
+                    [:p (if-not date_death
+                          "Alive"
+                          [:<> [:span "Died " (dates/format-date date_death)]
+                           [:ul.mt-4.ml-4
+                            (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
+                            (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
+                            (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
+                            (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
                     [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded.mt-4
                      {:on-click #(do (reset! data (merge (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_death])
                                                          (:t_patient/death_certificate patient)))
                                      (reset! mode :edit))} "Edit"]]
           :edit [:<>
-                 [ui/ui-simple-form
-                  [ui/ui-simple-form-item {:label "Date death"}
-                   [ui/ui-local-date
-                    {:name "date-death" :value (:t_patient/date_death @data)
-                     :on-change #(do (when-not %
-                                       (swap! data assoc :t_death_certificate/part1a ""))
-                                     (swap! data assoc :t_patient/date_death %))}]]
-                  [ui/ui-simple-form-item {:label "Cause of death"}
-                   [ui/ui-textfield
-                    {:value (:t_death_certificate/part1a @data)
-                     :name "1a" :disabled (not (:t_patient/date_death @data))
-                     :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
+                 [ui/ui-simple-form-item {:label "Date death"}
+                  [ui/ui-local-date
+                   {:name      "date-death" :value (:t_patient/date_death @data)
+                    :on-change #(do (when-not %
+                                      (swap! data assoc :t_death_certificate/part1a ""))
+                                    (swap! data assoc :t_patient/date_death %))}]]
+                 [ui/ui-simple-form-item {:label "Cause of death"}
+                  [ui/ui-textfield
+                   {:value     (:t_death_certificate/part1a @data)
+                    :name      "1a" :disabled (not (:t_patient/date_death @data))
+                    :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]
                  [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded-full
                   {:on-click #(do (reset! mode :inspect)
                                   (tap> {:death-data @data})
@@ -345,14 +341,14 @@
            [ui/ui-simple-form-item {:label "Vital status"}
             [inspect-edit-death-certificate patient
              {:on-save #(do (println "updating death certificate" %)
-                          (rf/dispatch
-                            [:eldrix.pc4-ward.server/load
-                             {:query [{(list 'pc4.rsdb/notify-death
-                                             (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
-                                       [:t_patient/id
-                                        :t_patient/date_death
-                                        {:t_patient/death_certificate [:t_death_certificate/id
-                                                                       :t_death_certificate/part1a]}]}]}]))}]]]]]]))})
+                            (rf/dispatch
+                              [:eldrix.pc4-ward.server/load
+                               {:query [{(list 'pc4.rsdb/notify-death
+                                               (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
+                                         [:t_patient/id
+                                          :t_patient/date_death
+                                          {:t_patient/death_certificate [:t_death_certificate/id
+                                                                         :t_death_certificate/part1a]}]}]}]))}]]]]]]))})
 
 
 (def diagnoses-page
