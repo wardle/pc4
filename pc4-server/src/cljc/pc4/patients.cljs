@@ -287,22 +287,6 @@
                     {:value (:t_death_certificate/part1a @data)
                      :name "1a" :disabled (not (:t_patient/date_death @data))
                      :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
-
-                 #_[:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-                    [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for "date-death"} "Date death"]
-                    [:div.mt-1.sm:mt-0.sm:col-span-2
-                     [ui/ui-local-date
-                      {:name "date-death" :value (:t_patient/date_death @data)
-                       :on-change #(do (println "setting dod" %)
-                                       (swap! data assoc :t_patient/date_death %))}]]]
-                 #_[:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5.pb-2
-                    [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 "Cause of death"]
-                    [:div.mt-1.sm:mt-0.sm:col-span-2
-                     [ui/ui-textfield
-                      {:value (:t_death_certificate/part1a @data)
-                       :name "1a" :disabled (not (:t_patient/date_death @data))
-                       :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
-                 [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded
                   {:on-click #(do (reset! mode :inspect)
                                   (tap> {:death-data @data})
                                   (on-save @data))}
