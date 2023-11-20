@@ -279,7 +279,8 @@
                   [ui/ui-simple-form-item {:label "Date death"}
                    [ui/ui-local-date
                     {:name "date-death" :value (:t_patient/date_death @data)
-                     :on-change #(do (println "setting dod" %)
+                     :on-change #(do (when-not %
+                                       (swap! data assoc :t_death_certificate/part1a ""))
                                      (swap! data assoc :t_patient/date_death %))}]]
                   [ui/ui-simple-form-item {:label "Cause of death"}
                    [ui/ui-textfield
