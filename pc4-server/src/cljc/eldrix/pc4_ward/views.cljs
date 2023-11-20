@@ -92,6 +92,7 @@
         _ (tap> latest-news)]
     [:div.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
      [:div.md:mr-2
+      (when js/goog.debug [pc4.patients/patient-search-by-id])
       [eldrix.pc4-ward.user.views/project-panel
        :on-choose #(rfe/push-state :project/home {:project-id (:t_project/id %)})]]
      [:div.col-span-3

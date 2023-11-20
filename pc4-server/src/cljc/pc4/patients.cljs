@@ -94,6 +94,17 @@
      :t_patient/results]))
 
 
+(defn patient-search-by-id []
+  (let [s (r/atom "")]
+    (fn []
+      [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+       {:type      "text" :placeholder "Patient identifier"
+        :autoFocus true
+        :value     @s
+        :on-key-up #(when (= (-> % .-keyCode) 13)
+                      (rf/dispatch [:eldrix.pc4-ward.events/push-state :patient/home {:project-id 1 :patient-identifier @s}]))
+        :on-change #(reset! s (-> % .-target .-value))}])))
+
 (defn banner
   "A patient banner.
   Parameters
