@@ -287,11 +287,12 @@
                     {:value (:t_death_certificate/part1a @data)
                      :name "1a" :disabled (not (:t_patient/date_death @data))
                      :on-change #(swap! data assoc :t_death_certificate/part1a %)}]]]
+                 [:button.bg-red-500.hover:bg-red-700.text-white.text-xs.py-1.px-2.rounded-full
                   {:on-click #(do (reset! mode :inspect)
                                   (tap> {:death-data @data})
                                   (on-save @data))}
                   "Save"]
-                 [:button.ml-2.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
+                 [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded
                   {:on-click #(do (reset! mode :inspect) (reset! data {}))}
                   "Cancel"]])))))
 
