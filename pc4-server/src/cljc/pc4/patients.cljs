@@ -218,12 +218,16 @@
 (defn layout
   [project patient menu-options & content]
   (when patient
-    [:div.grid.grid-cols-1.md:grid-cols-6
-     [:div.col-span-1.pt-6
-      [menu project patient menu-options]]
-     (into [:div.col-span-5.p-6] content)]))
+    [:<>
+     [rsdb-banner patient]
+     [:div.grid.grid-cols-1.md:grid-cols-6.gap-x-4
+      [:div.col-span-1.pt-2
+       [menu project patient menu-options]]
+      (into [:div.col-span-5.pt-2] content)]]))
 
 (defn patient-ident
+  "Returns the 'ident' of the patient given route parameters. This works both
+  for identifiable and pseudonymous patients. "
   [params]
   (let [patient-identifier (get-in params [:path :patient-identifier])
         project-id (get-in params [:path :project-id])
@@ -243,7 +247,8 @@
 
 
 (defn inspect-edit-lsoa
-  "A specialised component to view and edit the LSOA for a pseudonymous patient."
+  "A specialised inspect/edit component to view and edit the LSOA for a
+  pseudonymous patient."
   [params]
   (let [mode (r/atom :inspect)
         postcode (r/atom "")]
@@ -270,6 +275,7 @@
             "Cancel"]])))))
 
 (defn inspect-edit-death-certificate
+  "An inspect/edit component to edit date of death and cause of death."
   [_ _]
   (let [mode (reagent.core/atom :inspect)
         data (reagent.core/atom {})]
@@ -312,6 +318,11 @@
                   "Cancel"]])))))
 
 (def neuroinflamm-page
+  "This is a bespoke page that acts as the main page for the current
+  https://patientcare.app application for use in neuro-inflammatory disease.
+  As pc4 evolves, this will not be needed, as that functionality will be
+  available as determined by runtime configuration (ie: combination of project
+  and patient types together with knowledge of diagnoses of project and patient."
   {:query
    (fn [params]
      [{(patient-ident params)
@@ -337,77 +348,136 @@
                                                            {:t_patient/patient_identifier patient_identifier
                                                             :uk.gov.ons.nhspd/PCD2        %})
                                                      [:t_address/id :t_address/lsoa]}]}]))]
-       [:<>
-        [rsdb-banner patient]
-        [layout {:t_project/id project-id} patient {:selected-id :home}
-         [ui/ui-title {:title "Neuroinflammatory home page"}]
-         [ui/ui-simple-form
-          [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
-           [ui/ui-select
-            {:name                :ms-diagnosis
-             :value               (get-in patient [:t_patient/summary_multiple_sclerosis
-                                                   :t_summary_multiple_sclerosis/ms_diagnosis])
-             :disabled?           false
-             :choices             all-ms-diagnoses
-             :no-selection-string "=Choose diagnosis="
-             :id-key              :t_ms_diagnosis/id
-             :display-key         :t_ms_diagnosis/name
-             :select-fn           select-diagnosis-fn}]]
-          [ui/ui-simple-form-item {:label "LSOA (Geography)"}
-           [inspect-edit-lsoa
-            {:value     (get-in patient [:t_patient/address :t_address/lsoa])
-             :on-change save-lsoa-fn}]]
-          [ui/ui-simple-form-item {:label "Vital status"}
-           [inspect-edit-death-certificate patient
-            {:on-save #(do (println "updating death certificate" %)
-                           (rf/dispatch
-                             [:eldrix.pc4-ward.server/load
-                              {:query [{(list 'pc4.rsdb/notify-death
-                                              (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
-                                        [:t_patient/id
-                                         :t_patient/date_death
-                                         {:t_patient/death_certificate [:t_death_certificate/id
-                                                                        :t_death_certificate/part1a]}]}]}]))}]]]]]))})
+       [layout {:t_project/id project-id} patient {:selected-id :home}
+        [ui/ui-title {:title "Neuroinflammatory home page"}]
+        [ui/ui-simple-form
+         [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
+          [ui/ui-select
+           {:name                :ms-diagnosis
+            :value               (get-in patient [:t_patient/summary_multiple_sclerosis
+                                                  :t_summary_multiple_sclerosis/ms_diagnosis])
+            :disabled?           false
+            :choices             all-ms-diagnoses
+            :no-selection-string "=Choose diagnosis="
+            :id-key              :t_ms_diagnosis/id
+            :display-key         :t_ms_diagnosis/name
+            :select-fn           select-diagnosis-fn}]]
+         [ui/ui-simple-form-item {:label "LSOA (Geography)"}
+          [inspect-edit-lsoa
+           {:value     (get-in patient [:t_patient/address :t_address/lsoa])
+            :on-change save-lsoa-fn}]]
+         [ui/ui-simple-form-item {:label "Vital status"}
+          [inspect-edit-death-certificate patient
+           {:on-save #(do (println "updating death certificate" %)
+                          (rf/dispatch
+                            [:eldrix.pc4-ward.server/load
+                             {:query [{(list 'pc4.rsdb/notify-death
+                                             (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
+                                       [:t_patient/id
+                                        :t_patient/date_death
+                                        {:t_patient/death_certificate [:t_death_certificate/id
+                                                                       :t_death_certificate/part1a]}]}]}]))}]]]]))})
 
+(defn edit-diagnosis
+  [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status] :as diagnosis} {:keys [on-change]}]
+  [ui/ui-simple-form
+   [ui/ui-simple-form-title {:title (if id "Edit diagnosis" "Add diagnosis")}]
+   [ui/ui-simple-form-item {:label "Diagnosis"}
+    [:div.pt-2
+     (if id                                                 ;; if we already have a saved diagnosis, don't allow user to change
+       [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+       [eldrix.pc4-ward.snomed.views/select-snomed
+        :id ::choose-diagnosis, :common-choices [] :value (:t_diagnosis/diagnosis diagnosis)
+        :constraint "<404684003", :select-fn #(on-change (assoc diagnosis :t_diagnosis/diagnosis %))])]]
+   [ui/ui-simple-form-item {:label "Date of onset"}
+    [ui/ui-local-date {:name      "date-onset" :value date_onset
+                       :on-change #(on-change (assoc diagnosis :t_diagnosis/date_onset %))}]]
+   [ui/ui-simple-form-item {:label "Date of diagnosis"}
+    [ui/ui-local-date {:name      "date-diagnosis" :value date_diagnosis
+                       :on-change #(on-change (assoc diagnosis :t_diagnosis/date_diagnosis %))}]]
+   [ui/ui-simple-form-item {:label "Date to"}
+    [ui/ui-local-date {:name      "date-to" :value date_to
+                       :on-change #(on-change (cond-> (assoc diagnosis :t_diagnosis/date_to %)
+                                                      (nil? %)
+                                                      (assoc :t_diagnosis/status "ACTIVE")
+                                                      (some? %)
+                                                      (assoc :t_diagnosis/status "INACTIVE_IN_ERROR")))}]]
+   [ui/ui-simple-form-item {:label "Status"}
+    [ui/ui-select
+     {:name      "status", :value status, :default-value "ACTIVE"
+      :choices   (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+                             ["ACTIVE"])
+      :select-fn #(on-change (assoc diagnosis :t_diagnosis/status %))}]]
+   (when (:t_diagnosis/id diagnosis)
+     [:p.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."])])
+
+(defn save-diagnosis [patient-identifier diagnosis]
+  (rf/dispatch
+    [:eldrix.pc4-ward.server/load
+     {:query      [{(list 'pc4.rsdb/save-diagnosis (assoc diagnosis :t_patient/patient_identifier patient-identifier))
+                    [:t_diagnosis/id :t_diagnosis/date_onset
+                     :t_diagnosis/date_diagnosis :t_diagnosis/date_to
+                     :t_diagnosis/status {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                     {:t_diagnosis/patient [:t_patient/id :t_patient/diagnoses]}]}]
+      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-diagnosis :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success (fn [_] [:eldrix.pc4-ward.events/modal :diagnoses nil])}]))
+
+(defn diagnoses-table
+  [title diagnoses]
+  [:<>
+   [ui/ui-table-heading {} title]
+   [ui/ui-table
+    [ui/ui-table-head
+     [ui/ui-table-row
+      (for [{:keys [id title]} [{:id :diagnosis :title "Diagnosis"} {:id :date-onset :title "Date onset"} {:id :date-diagnosis :title "Date diagnosis"} {:id :date-to :title "Date to"} {:id :status :title "Status"} {:id :actions :title ""}]]
+        ^{:key id} [ui/ui-table-heading {} title])]]
+    [ui/ui-table-body
+     (for [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status] :as diagnosis}
+           (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]) diagnoses)]
+       (ui/ui-table-row
+         {:key id}
+         (ui/ui-table-cell (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+         (ui/ui-table-cell (dates/format-date date_onset))
+         (ui/ui-table-cell (dates/format-date date_diagnosis))
+         (ui/ui-table-cell (dates/format-date date_to))
+         (ui/ui-table-cell (str status))
+         (ui/ui-table-cell (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses diagnosis])} "Edit"))))]]])
 
 (def diagnoses-page
   {:query
    (fn [params]
      [{(patient-ident params)
        (conj banner-query
-             {:t_patient/diagnoses [:t_diagnosis/id
-                                    :t_diagnosis/date_diagnosis
-                                    :t_diagnosis/date_onset
-                                    :t_diagnosis/date_to
-                                    :t_diagnosis/status
-                                    {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                                             {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]})}])
+             {:t_patient/diagnoses
+              [:t_diagnosis/id :t_diagnosis/date_diagnosis :t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/status
+               {:t_diagnosis/diagnosis
+                [:info.snomed.Concept/id
+                 {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]})}])
 
    :view
-   (fn [_ [{project-id :t_episode/project_fk :as patient}]]
-     [:<>
-      [rsdb-banner patient]
-      [layout {:t_project/id project-id} patient
-       {:selected-id :diagnoses
-        :sub-menu    {:title "Diagnoses"
-                      :items [{:id      :add-diagnosis
-                               :content [ui/button {:s "Add diagnosis"}]}]}}
-       (when (:t_patient/diagnoses patient)                 ;; take care to not draw until data loaded
-         [:div
-          [ui/ui-table
-           [ui/ui-table-head
-            [ui/ui-table-row
-             (for [heading ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""]]
-               ^{:key heading} [ui/ui-table-heading heading])]]
-           [ui/ui-table-body
-            (for [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status diagnosis]}
-                  (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]) (:t_patient/diagnoses patient))]
-              (ui/ui-table-row {:key id}
-                               (ui/ui-table-cell (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-                               (ui/ui-table-cell (dates/format-date date_onset))
-                               (ui/ui-table-cell (dates/format-date date_diagnosis))
-                               (ui/ui-table-cell (dates/format-date date_to))
-                               (ui/ui-table-cell (str status))))]]])]])})
+   (fn [_ [{project-id :t_episode/project_fk :t_patient/keys [patient_identifier] :as patient}]]
+     (let [editing-diagnosis @(rf/subscribe [:eldrix.pc4-ward.subs/modal :diagnoses])]
+       [:<>
+        (when editing-diagnosis
+          [ui/ui-modal {:on-close #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses nil])
+                        :actions  [{:id       :save, :title "Save", :role :primary
+                                    :on-click #(save-diagnosis patient_identifier editing-diagnosis)}
+                                   {:id       :cancel, :title "Cancel"
+                                    :on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses nil])}]}
+           [edit-diagnosis editing-diagnosis {:on-change #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses %])}]])
+        [layout {:t_project/id project-id} patient
+         {:selected-id :diagnoses
+          :sub-menu    {:items [{:id      :add-diagnosis
+                                 :content [ui/menu-button {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses {}])} "Add diagnosis"]}]}}
+         (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) (:t_patient/diagnoses patient))
+               inactive-diagnoses (remove #(= "ACTIVE" (:t_diagnosis/status %)) (:t_patient/diagnoses patient))]
+           [:<>
+            (when (seq active-diagnoses)
+              [diagnoses-table "Active diagnoses" active-diagnoses])
+            (when (seq inactive-diagnoses)
+              [diagnoses-table "Inactive diagnoses" inactive-diagnoses])])]]))})
+
 
 
 
