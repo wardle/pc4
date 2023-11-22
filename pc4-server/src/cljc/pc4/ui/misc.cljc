@@ -330,6 +330,9 @@
 (defn ui-table-cell [& content]
   (into [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500] content))
 
+(defn ui-table-link [props content]
+  [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 props content])
+
 (defn ui-modal
   "A modal dialog. Parameters:
   - disabled? - should modal dialog be disabled? (hidden)
