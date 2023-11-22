@@ -12,3 +12,8 @@
 (rf/reg-sub ::current-time
   (fn [db]
     (:current-time db)))
+
+
+(rf/reg-sub ::modal
+  (fn [db [_ k]]
+    (get-in db [:modal k])))

@@ -55,3 +55,7 @@
   (fn [_ [_ & route]]
     (println "Pushing route" route)
     {:push-state route}))
+
+(rf/reg-event-db ::modal
+  (fn [db [_ k data]]
+    (assoc-in db [:modal k] data)))
