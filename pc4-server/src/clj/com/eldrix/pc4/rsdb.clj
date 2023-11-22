@@ -70,28 +70,37 @@
   [^String html]
   (Jsoup/clean html (Safelist.)))
 
+(def patient-properties
+  [:t_patient/id
+   :t_patient/patient_identifier
+   :t_patient/sex
+   :t_patient/status
+   :t_patient/title
+   :t_patient/first_names
+   :t_patient/last_name
+   :t_patient/email
+   :t_patient/country_of_birth_concept_fk
+   :t_patient/date_birth
+   :t_patient/date_death
+   :t_patient/nhs_number
+   :t_patient/surgery_fk
+   :t_patient/authoritative_demographics
+   :t_patient/authoritative_last_updated
+   :t_patient/ethnic_origin_concept_fk
+   :t_patient/racial_group_concept_fk
+   :t_patient/occupation_concept_fk])
+
 (pco/defresolver patient-by-identifier
   [{:com.eldrix.rsdb/keys [conn]} {patient_identifier :t_patient/patient_identifier}]
-  {::pco/output [:t_patient/id
-                 :t_patient/patient_identifier
-                 :t_patient/sex
-                 :t_patient/status
-                 :t_patient/title
-                 :t_patient/first_names
-                 :t_patient/last_name
-                 :t_patient/email
-                 :t_patient/country_of_birth_concept_fk
-                 :t_patient/date_birth
-                 :t_patient/date_death
-                 :t_patient/nhs_number
-                 :t_patient/surgery_fk
-                 :t_patient/authoritative_demographics
-                 :t_patient/authoritative_last_updated
-                 :t_patient/ethnic_origin_concept_fk
-                 :t_patient/racial_group_concept_fk
-                 :t_patient/occupation_concept_fk]}
+  {::pco/output patient-properties}
   (when patient_identifier
     (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]}))))
+
+(pco/defresolver patient-by-pk
+  [{:com.eldrix.rsdb/keys [conn]} {patient-pk :t_patient/id}]
+  {::pco/output patient-properties}
+  (when patient-pk
+    (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :id patient-pk]}))))
 
 (pco/defresolver patient-by-pseudonym
   "Resolves patient identifier by a tuple of project id and pseudonym."
@@ -251,6 +260,9 @@
     {:t_patient/diagnoses
      (mapv #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses')}))
 
+(pco/defresolver diagnosis->patient
+  [{patient-pk :t_diagnosis/patient_fk}]
+  {:t_diagnosis/patient {:t_patient/id patient-pk}})
 
 (pco/defresolver patient->has-diagnosis
   [{hermes :com.eldrix/hermes, :as env} {diagnoses :t_patient/diagnoses}]
@@ -1049,8 +1061,8 @@
   (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
                               :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
     (if-not (s/valid? ::save-diagnosis params')
-      (do (log/error "invalid call" (s/explain-data ::create-diagnosis params'))
-          (throw (ex-info "Invalid data" (s/explain-data ::create-diagnosis params'))))
+      (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
+          (throw (ex-info "Invalid data" (s/explain-data ::save-diagnosis params'))))
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
           (let [diag (if (:t_diagnosis/id params')
                        (patients/update-diagnosis conn params')
@@ -1401,6 +1413,7 @@
 
 (def all-resolvers
   [patient-by-identifier
+   patient-by-pk
    patient-by-pseudonym
    patient->current-age
    patient->hospitals
@@ -1416,6 +1429,7 @@
    patient->surgery
    patient->death_certificate
    patient->diagnoses
+   diagnosis->patient
    patient->has-diagnosis
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
