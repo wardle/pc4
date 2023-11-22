@@ -264,8 +264,8 @@
       :t_user/email        ""
       :t_user/job_title_fk 8}])
 
-
-  (def project-id 126)
+  (def project-id 126) ;; Cambridge
+  (def project-id 127) ;; Plymouth
   (map (fn [{:t_user/keys [username] :as user}]
          (let [user (com.eldrix.pc4.rsdb.users/create-user (:com.eldrix.rsdb/conn system) user)]
            (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username username :project-id project-id})
