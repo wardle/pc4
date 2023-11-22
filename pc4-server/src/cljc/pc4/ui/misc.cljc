@@ -114,16 +114,16 @@
           :when id]
       (if (= selected-id id)
         ^{:key id}
-        [:a.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-3.py-2.text-sm.font-medium {:aria-current "page"}
+        [:a.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium {:aria-current "page"}
          [:span.pr-2 icon] content]
         ^{:key id}
-        [:a.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-3.py-2.text-sm.font-medium
+        [:a.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
          attrs
          [:span.pr-2 icon] content]))]
    (when sub-menu
-     [:div.mt-8
+     [:div.mt-4
       [:h3.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu)]
-      [:div.mt-1.space-y-1
+      [:div.pt-1.space-y-1
        (for [{:keys [id attrs content]} (:items sub-menu)
              :when content]
          ^{:key id} [:a.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900 attrs
@@ -156,13 +156,6 @@
     [:p.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
    [:div.border-t.border-gray-200.px-4.py-5.sm:p-0
     (into [:dl.sm:divide-y.sm:divide-gray-200] items)]])
-
-(defn button [{s :s}]
-  [:button.w-full.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l s])
-(defn button-small [{s :s}]
-  [:button.bg-gray-100.hover:bg-gray-400.text-gray-800.text-xs.py-1.px-2.rounded-l s])
-(defn button-group [& content]
-  (into [:div.inline-flex] content))
 
 (defn action-button [props s]
   [:div.mt-5.sm:ml-6.sm:mt-0.sm:flex.sm:flex-shrink-0.sm:items-center
@@ -252,6 +245,21 @@
        on-enter-key (assoc :on-key-down #(when (= 13 (.-keyCode %)) (on-enter-key)))
        on-change (assoc :on-change #(on-change (Date/fromIsoString (-> % .-target .-value)))))]]])
 
+
+(defn ui-button [{:keys [disabled? role on-click]} content]
+  (into [:button.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:text-sm
+         {:type     "button"
+          :class    [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
+          :disabled disabled?
+          :on-click #(when (not disabled?) (on-click))}] content))
+
+(defn menu-button [{:keys [disabled? role on-click]} content]
+  (into [:button.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
+         {:type     "button"
+          :class    [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
+          :disabled disabled?
+          :on-click #(when (not disabled?) (on-click))}] content))
+
 (defn ui-select
   "A select control that appears as a pop-up."
   [{:keys [name label value choices id-key display-key default-value select-fn
@@ -294,19 +302,15 @@
      [:h3.text-lg.font-medium.leading-6.text-gray-900 title]]]])
 
 (defn ui-simple-form-item [{:keys [html-for label]} & content]
-  [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-   [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:html-for html-for} label
-    [:div.mt-1.sm:mt-0.sm:col-span-2
-     (into [:<>] content)]]])
+  [:div.grid.grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+   [:label.col-span-1.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 (when html-for {:html-for html-for})
+    label]
+   (into [:div.mt-1.sm:mt-0.col-span-2] content)])
 
 (defn ui-simple-form [& content]
-  [:form.space-y-8.divide-y.divide-gray-200 {:onSubmit #(.preventDefault %)}
+  [:form {:onSubmit #(.preventDefault %)}
    [:div.space-y-8.divide-y.divide-gray-200.sm:space-y-5
-    [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5]
-    (when content
-      (into [:<>] content))]])
-
-
+    (into [:div.mt-2.sm:mt-5.space-y-6.sm:space-y-5] content)]])
 
 (defn ui-table [& content]
   [:div.flex.flex-col
@@ -318,8 +322,8 @@
 (defn ui-table-head [& content]
   (into [:thead.bg-gray-50] content))
 
-(defn ui-table-heading [& content]
-  (into [:th.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider] content))
+(defn ui-table-heading [props content]
+  (into [:th.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider props] content))
 
 (defn ui-table-body [& content]
   (into [:tbody.bg-white] content))
