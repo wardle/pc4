@@ -1,6 +1,6 @@
 (ns pc4.projects
   (:require [clojure.string :as str]
-            [eldrix.pc4-ward.project.views :as legacy.views]
+            [eldrix.pc4-ward.project.views]                 ;; TODO: remove any use of legacy components
             [com.eldrix.pc4.commons.dates :as dates]
             [reagent.core :as r]
             [re-frame.core :as rf]
@@ -137,7 +137,7 @@
                       [:p "No downloads currently available for this project"]]]))})
 
 
-(def team-page  ;; TODO: search should be added to :t_project/users resolver as parameters
+(def team-page                                              ;; TODO: search should be added to :t_project/users resolver as parameters
   {:query
    (fn [params] [{[:t_project/id (get-in params [:path :project-id])]
                   [:t_project/id :t_project/title :t_project/pseudonymous
@@ -159,16 +159,16 @@
                                       (= "inactive" @user-filter)
                                       (remove :t_user/active?))]
                    (layout project {:selected-id :team
-                                    :sub-menu {:title "Team"
-                                               :items [{:id      :filter
-                                                        :content [:div
-                                                                  [:select.w-full.p-2.border
-                                                                   {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
-                                                                   [:option {:value "active"} "Active"]
-                                                                   [:option {:value "inactive"} "Inactive"]
-                                                                   [:option {:value "all"} "All users"]]
-                                                                  [:input.border.p-2.w-full
-                                                                   {:type     "search" :name "search" :placeholder "Search..."
-                                                                    :onChange #(reset! search-filter (-> % .-target .-value))}]
-                                                                  #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}}
+                                    :sub-menu    {:title "Team"
+                                                  :items [{:id      :filter
+                                                           :content [:div
+                                                                     [:select.w-full.p-2.border
+                                                                      {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
+                                                                      [:option {:value "active"} "Active"]
+                                                                      [:option {:value "inactive"} "Inactive"]
+                                                                      [:option {:value "all"} "All users"]]
+                                                                     [:input.border.p-2.w-full
+                                                                      {:type     "search" :name "search" :placeholder "Search..."
+                                                                       :onChange #(reset! search-filter (-> % .-target .-value))}]
+                                                                     #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}}
                            [team-panel users])))))})
