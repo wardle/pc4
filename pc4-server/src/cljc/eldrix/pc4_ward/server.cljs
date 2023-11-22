@@ -196,12 +196,22 @@
                     :on-failure [::handle-load-failure config]}]]}))
 
 (rf/reg-event-fx ::handle-load-success  ;; HTTP success, but the response may contain an error
-  (fn [{db :db} [_ config response]]
-    (if (:error response)
-      (do (js/console.log "load error" (-> response :error :cause))
-          {:db (assoc db :loading false)})
-      {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
-             (assoc db :loading false, :entity-db entity-db))})))
+  (fn [{db :db} [_ {:keys [failed? on-success on-failure] :as config} response]]
+    (let [failed? (or failed? (constantly false))]
+      (js/console.log "Pathom load response" response)
+      (if (or (:error response) (failed? response))
+        (do (js/console.log "load error" (-> response :error :cause))
+            (cond-> {:db (assoc db :loading false)}
+                    (fn? on-failure)
+                    (assoc :fx [[:dispatch ((:on-failure config) response)]])
+                    (vector? on-failure)
+                    (assoc :fx [[:dispatch (:on-failure config)]])))
+        (cond-> {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
+                       (assoc db :loading false, :entity-db entity-db))}
+                (fn? on-success)
+                (assoc :fx [[:dispatch ((:on-success config) response)]])
+                (vector? on-success)
+                (assoc :fx [[:dispatch (:http-no-on-success config)]]))))))
 
 (rf/reg-sub ::pull
   (fn [db [_ query targets]]
