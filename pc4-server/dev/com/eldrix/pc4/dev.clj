@@ -278,8 +278,6 @@
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
 
-
-  ;; start a server using http-kit/ring - suitable for a fulcro front-end
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
 
   (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "xxx" :project-id 1})
