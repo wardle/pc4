@@ -360,9 +360,8 @@
            (when (and default-value (str/blank? value))
              (select-fn default-value))
            [:<>
-            [:select.border.bg-white.rounded.px-3.py-2.outline-none.w-full
-             {:disabled  disabled?
-              :value     (str (id-key value))
+            [:select.block.border.p-3.bg-white.rounded.outline-none.w-full
+             {:disabled  disabled?, :value     (str (id-key value))
               :on-change #(when select-fn
                             (let [idx (-> % .-target .-selectedIndex)]
                               (if (and no-selection-string (= 0 idx))
@@ -372,23 +371,21 @@
              (for [choice sorted-choices]
                (let [id (id-key choice)]
                  [:option.py-1 {:value (str id) :key id} (if select-display-key (select-display-key choice) (display-key choice))]))]
-            [:button.bg-blue-400.text-white.text-xs.py-1.px-2.rounded-full
+            [:button.bg-blue-400.text-white.text-xs.mt-1.py-1.px-2.rounded-full
              {:disabled disabled? :class (if disabled? "opacity-50" "hover:bg-blue-500")
               :on-click #(reset! mode :autocomplete)} "..."]])
          :else
          [:<>
-          [:input.block.w-full.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
-           {:id            id
-            :type          "text" :placeholder placeholder :required true
+          [:input.w-full.p-1.block.w-full.px-4.py-1.border.border-gray-300.rounded-md.dark:bg-gray-800.dark:text-gray-300.dark:border-gray-600.focus:border-blue-500.dark:focus:border-blue-500.focus:outline-none.focus:ring
+           {:id            id, :type "text"
+            :placeholder   placeholder :required true
             :class         ["text-gray-700" "bg-white" "shadow"]
-            :default-value nil
-            :disabled      disabled?
-            :auto-focus    true
+            :default-value nil, :disabled disabled?, :auto-focus true
             :on-change     #(let [s (-> % .-target .-value)]
                               (if (>= (count s) minimum-chars)
                                 (autocomplete-fn s)
                                 (when clear-fn (clear-fn))))}]
-          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.py-1.px-2.rounded-full
+          [:button.bg-blue-400.hover:bg-blue-500.text-white.text-xs.my-1.py-1.px-2.rounded-full
            {:disabled disabled? :on-click #(reset! mode :select)} "Close"]
 
           [:div.w-full
