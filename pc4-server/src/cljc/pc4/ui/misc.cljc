@@ -329,3 +329,39 @@
 
 (defn ui-table-cell [& content]
   (into [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500] content))
+
+(defn ui-modal
+  "A modal dialog. Parameters:
+  - disabled? - should modal dialog be disabled? (hidden)
+  - title     - title of dialog
+  - actions   - sequence of maps, each with:
+                 - :id        -unique identifier
+                 - :hidden?   - whether button hidden
+                 - :disabled? - whether button disabled
+                 - :role      - role, e.g. :primary
+                 - :title     - title of button
+                 - :on-click  - function to call when clicked"
+  [{:keys [disabled? title actions on-close]} & content]
+  [:div.fixed.z-10.inset-0.overflow-y-auto
+   {:aria-labelledby title :role "dialog" :aria-modal "true"
+    :class           (when disabled? "hidden")}
+   [:div.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+    [:div.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
+     {:aria-hidden "true"
+      :on-click    #(when on-close (on-close))}]
+    [:span.hidden.sm:inline-block.sm:align-middle.sm:h-screen
+     {:aria-hidden "true", :dangerouslySetInnerHTML {:__html "&#8203;"}}]
+    [:div.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
+     [:div
+      [:div.mt-3.text-center.sm:mt-5
+       (when title [:h3.modal-title.text-lg.leading-6.font-medium.text-gray-900 title])]
+      (into [:div.mt-2] content)]
+     (when (seq actions)
+       [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
+        (for [{:keys [id role disabled? on-click] :as action} actions, :when (and action (not (:hidden? action)))]
+          (ui-button
+            {:key       (or id (println "action missing :id field" action))
+             :role      role
+             :disabled? disabled?
+             :on-click  #(when on-click (on-click))}
+            (:title action)))])]]])
