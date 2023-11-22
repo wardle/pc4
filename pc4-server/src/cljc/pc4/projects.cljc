@@ -3,7 +3,6 @@
             [eldrix.pc4-ward.project.views]                 ;; TODO: remove any use of legacy components
             [com.eldrix.pc4.commons.dates :as dates]
             [reagent.core :as r]
-            [re-frame.core :as rf]
             [reitit.frontend.easy :as rfe]
             [pc4.ui.misc :as ui.misc]
             [pc4.ui.user :as ui.user]))
