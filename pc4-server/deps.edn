@@ -47,13 +47,13 @@
   integrant/integrant                  {:mvn/version "0.8.1"}
   lambdaisland/uri                     {:mvn/version "1.16.134"}
   metosin/malli                        {:mvn/version "0.13.0"}
-  metosin/reitit-core                  {:mvn/version "0.6.0"}
-  metosin/reitit-http                  {:mvn/version "0.6.0"}
-  metosin/reitit-frontend              {:mvn/version "0.6.0"}
-  metosin/reitit-interceptors          {:mvn/version "0.6.0"}
-  metosin/reitit-malli                 {:mvn/version "0.6.0"}
-  metosin/reitit-spec                  {:mvn/version "0.6.0"}
-  metosin/reitit-pedestal              {:mvn/version "0.6.0"}
+  metosin/reitit-core                  {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-http                  {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-frontend              {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-interceptors          {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-malli                 {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-spec                  {:mvn/version "0.7.0-alpha7"}
+  metosin/reitit-pedestal              {:mvn/version "0.7.0-alpha7"}
   migratus/migratus                    {:mvn/version "1.5.3"}
   org.jsoup/jsoup                      {:mvn/version "1.16.1"}
   org.postgresql/postgresql            {:mvn/version "42.6.0"}
