@@ -154,6 +154,13 @@
      :parameters  {:path {:project-id int? :pseudonym string?}}
      :controllers [pathom-controller]}]
 
+   ["/projects/:project-id/patients/pseudonym/:pseudonym/medication"
+    {:name        :pseudonymous-patient/medication
+     :component   pc4.patients/treatment-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :pseudonym string?}}
+     :controllers [pathom-controller]}]
+
    #_["/projects/:project-id/patients/pseudonym/:pseudonym"
       {:name        :patient-by-project-pseudonym
        :view        project/view-pseudonymous-patient
@@ -179,6 +186,13 @@
    ["/patients/id/:patient-identifier/diagnoses"
     {:name        :patient/diagnoses
      :component   pc4.patients/diagnoses-page
+     :auth        identity                                  ;; we need a logged in user to view a patient
+     :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   ["/patients/id/:patient-identifier/treatment"
+    {:name        :patient/treatment
+     :component   pc4.patients/treatment-page
      :auth        identity                                  ;; we need a logged in user to view a patient
      :parameters  {:path {:patient-identifier int?}}
      :controllers [pathom-controller]}]

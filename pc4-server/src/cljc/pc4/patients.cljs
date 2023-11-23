@@ -193,8 +193,8 @@
           :content (content "Diagnoses")
           :attrs   {:href (rfe/href :pseudonymous-patient/diagnoses {:project-id project-id :pseudonym pseudonym})}}
          {:id      :treatment
-          :content (content "Treatment")}
-         ;:attrs   {:href (rfe/href :pseudonymous-patient/treatment patient-link-attrs)}}
+          :content (content "Treatment")
+          :attrs   {:href (rfe/href :pseudonymous-patient/medication {:project-id project-id :pseudonym pseudonym})}}
          {:id      :relapses
           :content (content "Relapses")}
          ; :attrs   {:href (rfe/href :pseudonymous-patient/relapses patient-link-attrs)}}
@@ -212,7 +212,11 @@
           :attrs   {:href (rfe/href :patient/home {:patient-identifier patient_identifier})}}
          {:id      :diagnoses
           :content (content "Diagnoses")
-          :attrs   {:href (rfe/href :patient/diagnoses {:patient-identifier patient_identifier})}}])
+          :attrs   {:href (rfe/href :patient/diagnoses {:patient-identifier patient_identifier})}}
+         {:id      :treatment
+          :content (content "Treatment")
+          :attrs   {:href (rfe/href :patient/treatment {:patient-identifier patient_identifier})}}])
+
       :sub-menu    sub-menu}]))
 
 (defn layout
@@ -435,14 +439,14 @@
     [ui/ui-table-body
      (for [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status] :as diagnosis}
            (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]) diagnoses)]
-       (ui/ui-table-row
+       [ui/ui-table-row
          {:key id}
-         (ui/ui-table-cell (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-         (ui/ui-table-cell (dates/format-date date_onset))
-         (ui/ui-table-cell (dates/format-date date_diagnosis))
-         (ui/ui-table-cell (dates/format-date date_to))
-         (ui/ui-table-cell (str status))
-         (ui/ui-table-cell (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses diagnosis])} "Edit"))))]]])
+         [ui/ui-table-cell {} (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_onset)]
+         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_diagnosis)]
+         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
+         [ui/ui-table-cell {} (str status)]
+         [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses diagnosis])} "Edit")]])]]])
 
 (def diagnoses-page
   {:query
@@ -478,6 +482,37 @@
             (when (seq inactive-diagnoses)
               [diagnoses-table "Inactive diagnoses" inactive-diagnoses])])]]))})
 
+(def treatment-page
+  {:query
+   (fn [params]
+     [{(patient-ident params)
+       (conj banner-query
+             {:t_patient/medications
+              [:t_medication/id :t_medication/date_from :t_medication/date_to
+               {:t_medication/medication [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+               :t_medication/reason_for_stopping]})}])
 
+   :view
+   (fn [_ [{project-id :t_episode/project_fk :t_patient/keys [patient_identifier medications] :as patient}]]
+     [layout {:t_project/id project-id} patient
+      {:selected-id :treatment
+       :sub-menu
+       {:items [{:id      :add-medication
+                 :content [ui/menu-button
+                           {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :treatment {}])} "Add medication"]}]}}
+      [ui/ui-table
+       [ui/ui-table-head
+        [ui/ui-table-row
+         (for [{:keys [id title]} [{:id :medication :title "Medication"} {:id :from :title "From"} {:id :to :title "To"} {:id :to :title "Reason to stop"} {:id :actions :title ""}]]
+           ^{:key id} [ui/ui-table-heading {} title])]]
+       [ui/ui-table-body
+        (for [{:t_medication/keys [id date_from date_to reason_for_stopping] :as medication}
+              (sort-by #(if-let [date-from (:t_medication/date_from %)] (.valueOf date-from) 0) medications)]
+          [ui/ui-table-row {:key id}
+            [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
+            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
+            [ui/ui-table-cell {} (name reason_for_stopping)]
+            [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :treatment medication])} "Edit")]])]]])})
 
 

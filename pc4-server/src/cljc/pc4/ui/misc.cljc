@@ -331,8 +331,8 @@
 (defn ui-table-row [props & content]
   (into [:tr props] content))
 
-(defn ui-table-cell [& content]
-  (into [:td.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500] content))
+(defn ui-table-cell [props & content]
+  (into [:td.px-2.py-4.text-sm.text-gray-500 props] content))
 
 (defn ui-table-link [props content]
   [:a.text-indigo-600.cursor-pointer.hover:text-indigo-900 props content])
