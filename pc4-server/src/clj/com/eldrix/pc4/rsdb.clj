@@ -319,26 +319,19 @@
     {:t_summary_multiple_sclerosis/events events}))
 
 (pco/defresolver patient->medications
-  [{conn :com.eldrix.rsdb/conn} patient]
+  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
   {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/medications
                   [:t_medication/id
-                   :t_medication/date_from
-                   :t_medication/date_to
-                   :t_medication/date_from_accuracy
-                   :t_medication/date_to_accuracy
-                   :t_medication/indication
-                   :t_medication/medication_concept_fk
+                   :t_medication/date_from, :t_medication/date_to
+                   :t_medication/date_from_accuracy, :t_medication/date_to_accuracy
+                   :t_medication/indication, :t_medication/medication_concept_fk
                    {:t_medication/medication [:info.snomed.Concept/id]}
-                   :t_medication/more_information
-                   :t_medication/temporary_stop
+                   :t_medication/more_information, :t_medication/temporary_stop
                    :t_medication/reason_for_stopping
-                   :t_medication/dose
-                   :t_medication/frequency
-                   :t_medication/units
-                   :t_medication/as_required
-                   :t_medication/route
-                   :t_medication/type
+                   :t_medication/dose, :t_medication/frequency
+                   :t_medication/units, :t_medication/as_required
+                   :t_medication/route, :t_medication/type
                    :t_medication/prescriptions
                    {:t_medication/events [:t_medication_event/id
                                           :t_medication_event/type
@@ -348,7 +341,13 @@
                                           {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
   {:t_patient/medications
    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-     (let [medication (patients/fetch-medications-and-events txn patient)]
+     (let [medication (patients/fetch-medications-and-events txn patient)
+           ecl (:ecl (pco/params env))
+           medication (if (str/blank? ecl)                  ;; if we have ecl, filter results by that expression
+                        medication
+                        (let [medication-concept-ids (map :t_medication/medication_concept_fk medication)
+                              concept-ids (hermes/intersect-ecl hermes medication-concept-ids ecl)]
+                          (filter #(concept-ids (:t_medication/medication_concept_fk %)) medication)))]
        ;; and now just add additional properties to permit walking to SNOMED CT
        (mapv #(-> %
                   (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
