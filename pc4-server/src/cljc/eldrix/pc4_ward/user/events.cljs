@@ -124,7 +124,7 @@
   []
   (fn [{:keys [db]} _]
     (let [token (get-in db [:authenticated-user :io.jwt/token])]
-      (js/console.log "performing token refresh using token " token)
+      #_(js/console.log "performing token refresh using token " token)
       {:fx [[:pathom {:token      token
                       :params     (srv/make-refresh-token-op {:token token})
                       :on-success [::handle-refresh-token-response]
@@ -133,7 +133,7 @@
 (rf/reg-event-fx ::handle-refresh-token-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [refresh-token]}]]
-    (js/console.log "Refresh token success: response: " (:io.jwt/token refresh-token))
+    #_(js/console.log "Refresh token success: response: " (:io.jwt/token refresh-token))
     {:db (assoc-in db [:authenticated-user :io.jwt/token] (:io.jwt/token refresh-token))}))
 
 (rf/reg-event-fx ::handle-refresh-token-failure
