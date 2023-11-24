@@ -86,9 +86,9 @@
      [:span.block.sm:inline message]]))
 
 
-(defn two-column-card [{:keys [title subtitle items long-items]}]
-  [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
-   [:div.px-4.py-5.sm:px-6
+(defn two-column-card [{:keys [title title-attrs subtitle items long-items]}]
+  [:div.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
+   [:div.px-4.py-5.sm:px-6 title-attrs
     [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
     [:p.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
    [:div.border-t.border-gray-200.px-4.py-5.sm:px-6
@@ -133,7 +133,7 @@
   (into [:ul.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3 {:role "list"}] items))
 
 (defn grid-list-item [{:keys [title subtitle image content]}]
-  [:li.col-span-1.divide-y.divide-gray-200.rounded-lg.bg-white.shadow
+  [:li.col-span-1.divide-y.divide-gray-200.border.rounded-lg.bg-white.shadow-lg
    [:div.flex.w-full.items-center.justify-between.space-x-6.p-6
     [:div.flex-1.truncate
      [:div.flex.items-center.space-x-3

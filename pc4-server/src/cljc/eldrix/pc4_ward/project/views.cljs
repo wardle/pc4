@@ -62,7 +62,7 @@
 (defn search-by-pseudonym-panel
   [project-id]
   (let [patient @(rf/subscribe [::patient-subs/search-by-legacy-pseudonym-result])]
-    [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg
+    [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg.border.shadow-lg
      [:div.px-4.py-6.sm:p-6
       [:form.divide-y.divide-gray-200 {:on-submit #(.preventDefault %)}
        [:div.divide-y.divide-gray-200.sm:space-y-5
@@ -115,7 +115,7 @@
                      :error  error
                      :valid? valid? :explain (m/explain patient-pseudonymous-registration-schema @data) :visited @visited})]
         [:div.space-y-6
-         [:div.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+         [:div.border.border-black.bg-white.shadow-lg.px-4.py-5.sm:rounded-lg.sm:p-6
           [:div.md:grid.md:grid-cols-3.md:gap-6
            [:div.md:col-span-1
             [:h3.text-lg.font-medium.leading-6.text-gray-900 "Register a patient"]

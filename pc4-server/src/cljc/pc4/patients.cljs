@@ -122,7 +122,7 @@
   [{:keys [patient-name nhs-number gender born age deceased crn approximate address close content]}]
   (let [born' (if (instance? Date born) (if approximate (dates/format-month-year born)
                                                         (dates/format-date born)) born)]
-    [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.bg-gray-50.relative
+    [:div.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200.bg-slate-50.relative
      (when close
        [:div.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
         [:button.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
@@ -431,7 +431,7 @@
 (defn diagnoses-table
   [title diagnoses]
   [:<>
-   [ui/ui-table-heading {} title]
+   [ui/ui-title {:title title}]
    [ui/ui-table
     [ui/ui-table-head
      [ui/ui-table-row
@@ -511,13 +511,13 @@
       [ui/ui-table
        [ui/ui-table-head
         [ui/ui-table-row
-         (for [{:keys [id title]} [{:id :medication :title "Medication"} {:id :from :title "From"} {:id :to :title "To"} {:id :to :title "Reason to stop"} {:id :actions :title ""}]]
+         (for [{:keys [id title]} [{:id :medication :title "Medication"} {:id :from :title "From"} {:id :to :title "To"} {:id :stop :title "Reason to stop"} {:id :actions :title ""}]]
            ^{:key id} [ui/ui-table-heading {} title])]]
        [ui/ui-table-body
         (for [{:t_medication/keys [id date_from date_to reason_for_stopping] :as medication}
               (sort-by #(if-let [date-from (:t_medication/date_from %)] (.valueOf date-from) 0) medications)]
           [ui/ui-table-row {:key id}
-           [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+           [ui/ui-table-cell {} (str id " " (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))]
            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
            [ui/ui-table-cell {} (name reason_for_stopping)]

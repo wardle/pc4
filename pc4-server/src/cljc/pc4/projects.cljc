@@ -42,7 +42,7 @@
 (defn layout
   [project menu-options content]
   (when project
-    [:div.grid.grid-cols-1.md:grid-cols-6
+    [:div.grid.grid-cols-1.md:grid-cols-6 {:class (case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)}
      [:div.col-span-1.pt-6
       (menu project menu-options)]
      [:div.col-span-5.p-6
@@ -56,23 +56,24 @@
                      address1 address2 address3 address4 postcode
                      inclusion_criteria exclusion_criteria] :as project}]
   (ui.misc/two-column-card
-    {:title      title
-     :subtitle   (when long_description [:div {:dangerouslySetInnerHTML {:__html long_description}}])
-     :items      [{:title "Date from" :content (dates/format-date date_from)}
-                  {:title "Date to" :content (dates/format-date date_to)}
-                  {:title "Administrator" :content (or (:t_user/full_name administrator_user) "None recorded")}
-                  {:title "Registered patients" :content count_registered_patients}
-                  {:title "Pending referrals" :content count_pending_referrals}
-                  {:title "Discharged episodes" :content count_discharged_episodes}
-                  {:title "Type" :content (when type (name type))}
-                  {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
-                  {:title "Parent" :content [:a {:href (or (:t_project/url parent_project) "#")} (:t_project/title parent_project)]}]
-     :long-items [{:title   "Address"
-                   :content (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
-                  {:title   "Inclusion criteria"
-                   :content (when inclusion_criteria [:div {:dangerouslySetInnerHTML {:__html inclusion_criteria}}])}
-                  {:title   "Exclusion criteria"
-                   :content (when exclusion_criteria [:div {:dangerouslySetInnerHTML {:__html exclusion_criteria}}])}]}))
+    {:title       title
+     :title-attrs {:class (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}
+     :subtitle    (when long_description [:div {:dangerouslySetInnerHTML {:__html long_description}}])
+     :items       [{:title "Date from" :content (dates/format-date date_from)}
+                   {:title "Date to" :content (dates/format-date date_to)}
+                   {:title "Administrator" :content (or (:t_user/full_name administrator_user) "None recorded")}
+                   {:title "Registered patients" :content count_registered_patients}
+                   {:title "Pending referrals" :content count_pending_referrals}
+                   {:title "Discharged episodes" :content count_discharged_episodes}
+                   {:title "Type" :content (when type (name type))}
+                   {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
+                   {:title "Parent" :content [:a {:href (or (:t_project/url parent_project) "#")} (:t_project/title parent_project)]}]
+     :long-items  [{:title   "Address"
+                    :content (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
+                   {:title   "Inclusion criteria"
+                    :content (when inclusion_criteria [:div {:dangerouslySetInnerHTML {:__html inclusion_criteria}}])}
+                   {:title   "Exclusion criteria"
+                    :content (when exclusion_criteria [:div {:dangerouslySetInnerHTML {:__html exclusion_criteria}}])}]}))
 
 
 (defn team-panel
@@ -112,7 +113,7 @@
 (def find-pseudonymous-patient
   {:query (fn [params]
             [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
    :view  (fn [_ [project]]
             (layout project {:selected-id :find-pseudonymous-patient}
                     [eldrix.pc4-ward.project.views/search-by-pseudonym-panel (:t_project/id project)]))})
@@ -120,7 +121,7 @@
 (def register-pseudonymous-patient
   {:query (fn [params]
             [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
    :view  (fn [_ [project]]
             (layout project {:selected-id :register-pseudonymous-patient}
                     [eldrix.pc4-ward.project.views/register-pseudonymous-patient (:t_project/id project)]))})
@@ -128,7 +129,7 @@
 (def downloads
   {:query (fn [params]
             [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous]}])
+              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
    :view  (fn [_ [project]]
             (layout project {:selected-id :reports}
                     [:div.overflow-hidden.bg-white.shadow.sm:rounded-lg
@@ -139,7 +140,7 @@
 (def team-page                                              ;; TODO: search should be added to :t_project/users resolver as parameters
   {:query
    (fn [params] [{[:t_project/id (get-in params [:path :project-id])]
-                  [:t_project/id :t_project/title :t_project/pseudonymous
+                  [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type
                    {(list :t_project/users {:group-by :user})
                     [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
                      :t_user/first_names :t_user/last_name :t_user/job_title
