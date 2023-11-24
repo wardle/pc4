@@ -161,7 +161,7 @@
                                                      {"f" (transit/read-handler #(Big. %))})})
                 :headers
                 (cond-> {"X-CSRF-Token" csrf-token}
-                  token (assoc "Authorization" (str "Bearer " token)))}
+                        token (assoc "Authorization" (str "Bearer " token)))}
                request)
         (assoc
           :api xhrio
@@ -186,17 +186,24 @@
   (fn [request]
     (pathom-effect request)))
 
+;;
+;; Perform a remote transaction
+;; We have to take care that, if the same transaction is run repeatedly
+;; (e.g. during a faceted search), that the results of an older transaction does
+;; overwrite the results from a newer transaction. The last-updated records
+;; could be used to implement caching so that a repeated load is only made if
+;; the data is older than a certain limit, configured per-route.
 (rf/reg-event-fx ::load
   (fn [{:keys [db]} [_ {:keys [query] :as config}]]
     (js/console.log "Performing pathom load:" query)
     {:db (assoc db :loading true)                           ;; we're starting some network loading
      :fx [[:pathom {:params     query
                     :token      (get-in db [:authenticated-user :io.jwt/token])
-                    :on-success [::handle-load-success config]
+                    :on-success [::handle-load-success config (js/Date.)]
                     :on-failure [::handle-load-failure config]}]]}))
 
-(rf/reg-event-fx ::handle-load-success  ;; HTTP success, but the response may contain an error
-  (fn [{db :db} [_ {:keys [failed? on-success on-failure] :as config} response]]
+(rf/reg-event-fx ::handle-load-success                      ;; HTTP success, but the response may contain an error
+  (fn [{db :db} [_ {:keys [id failed? on-success on-failure] :as config} request-date response]]
     (let [failed? (or failed? (constantly false))]
       (js/console.log "Pathom load response" response)
       (if (or (:error response) (failed? response))
@@ -206,12 +213,18 @@
                     (assoc :fx [[:dispatch ((:on-failure config) response)]])
                     (vector? on-failure)
                     (assoc :fx [[:dispatch (:on-failure config)]])))
-        (cond-> {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
-                       (assoc db :loading false, :entity-db entity-db))}
-                (fn? on-success)
-                (assoc :fx [[:dispatch ((:on-success config) response)]])
-                (vector? on-success)
-                (assoc :fx [[:dispatch (:http-no-on-success config)]]))))))
+        (let [path [:last-updated id]
+              last-updated (get-in db path)]
+          (if (or (not last-updated) (> request-date last-updated))
+            (cond-> {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
+                           (-> db
+                               (assoc :loading false, :entity-db entity-db,)
+                               (assoc-in path request-date)))}
+                    (fn? on-success)
+                    (assoc :fx [[:dispatch ((:on-success config) response)]])
+                    (vector? on-success)
+                    (assoc :fx [[:dispatch (:http-no-on-success config)]]))
+            (js/console.log "Out of order pathom response ignored")))))))
 
 (rf/reg-sub ::pull
   (fn [db [_ query targets]]

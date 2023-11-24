@@ -1,12 +1,13 @@
 (ns pc4.patients
   (:require [clojure.string :as str]
             [com.eldrix.pc4.commons.dates :as dates]
-            [eldrix.pc4-ward.patient.events :as patient.events]
+            [eldrix.pc4-ward.snomed.views]
             [pc4.ui.misc :as ui]
             [re-frame.core :as rf]
             [re-frame.db :as db]
             [reagent.core :as r]
-            [reitit.frontend.easy :as rfe])
+            [reitit.frontend.easy :as rfe]
+            [reitit.frontend.history :as rfh])
   (:import (goog.date Date)))
 
 
@@ -440,20 +441,22 @@
      (for [{:t_diagnosis/keys [id date_onset date_diagnosis date_to status] :as diagnosis}
            (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]) diagnoses)]
        [ui/ui-table-row
-         {:key id}
-         [ui/ui-table-cell {} (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_onset)]
-         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_diagnosis)]
-         [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
-         [ui/ui-table-cell {} (str status)]
-         [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses diagnosis])} "Edit")]])]]])
+        {:key id}
+        [ui/ui-table-cell {} (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+        [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_onset)]
+        [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_diagnosis)]
+        [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
+        [ui/ui-table-cell {} (str status)]
+        [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses diagnosis])} "Edit")]])]]])
 
 (def diagnoses-page
   {:query
-   (fn [params]
+   (fn [{:keys [query] :as params}]
      [{(patient-ident params)
        (conj banner-query
-             {:t_patient/diagnoses
+             {(if (str/blank? (:filter query))
+                :t_patient/diagnoses
+                (list :t_patient/diagnoses {:ecl (str "<< (* {{ D term = \"" (:filter query) "\"}})")}))
               [:t_diagnosis/id :t_diagnosis/date_diagnosis :t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/status
                {:t_diagnosis/diagnosis
                 [:info.snomed.Concept/id
@@ -472,7 +475,12 @@
            [edit-diagnosis editing-diagnosis {:on-change #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses %])}]])
         [layout {:t_project/id project-id} patient
          {:selected-id :diagnoses
-          :sub-menu    {:items [{:id      :add-diagnosis
+          :sub-menu    {:items [{:id      :filter
+                                 :content [:input.border.p-2.w-full
+                                           {:type     "search" :name "search" :placeholder "Search..."
+                                            :onChange #(let [s (-> % .-target .-value)]
+                                                         (com.eldrix.pc4.commons.debounce/dispatch-debounced [:eldrix.pc4-ward.events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
+                                {:id      :add-diagnosis
                                  :content [ui/menu-button {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :diagnoses {}])} "Add diagnosis"]}]}}
          (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) (:t_patient/diagnoses patient))
                inactive-diagnoses (remove #(= "ACTIVE" (:t_diagnosis/status %)) (:t_patient/diagnoses patient))]
@@ -509,10 +517,10 @@
         (for [{:t_medication/keys [id date_from date_to reason_for_stopping] :as medication}
               (sort-by #(if-let [date-from (:t_medication/date_from %)] (.valueOf date-from) 0) medications)]
           [ui/ui-table-row {:key id}
-            [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
-            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
-            [ui/ui-table-cell {} (name reason_for_stopping)]
-            [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :treatment medication])} "Edit")]])]]])})
+           [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+           [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
+           [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
+           [ui/ui-table-cell {} (name reason_for_stopping)]
+           [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:eldrix.pc4-ward.events/modal :treatment medication])} "Edit")]])]]])})
 
 

@@ -46,15 +46,26 @@
           controllers (rfc/apply-controllers (:controllers old-match) new-match)]
       (assoc db :current-route (assoc new-match :controllers controllers)))))
 
-(re-frame/reg-fx :push-state
-  (fn [route]
-    (apply rfe/push-state route)))
+(re-frame/reg-fx
+  :push-state
+                 (fn [route]
+                   (apply rfe/push-state route)))
 
 (re-frame/reg-event-fx
   ::push-state
   (fn [_ [_ & route]]
     (println "Pushing route" route)
     {:push-state route}))
+
+(re-frame/reg-fx
+  :push-query-params
+  (fn [params]
+    (apply rfe/set-query params)))
+
+(re-frame/reg-event-fx
+  ::push-query-params
+  (fn [_ [_ & params]]
+    {:push-query-params params}))
 
 (rf/reg-event-db ::modal
   (fn [db [_ k data]]

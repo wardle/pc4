@@ -36,10 +36,13 @@
   "A reitit controller that dispatches a pathom load event with data from route.
   - query  - EQL"
   {:identity (fn [{:keys [data parameters] :as _match}]
-               (let [query (get-in data [:component :query])
+               (tap> {:pathom-controller _match})
+               (let [route-name (:name data)
+                     query (get-in data [:component :query])
                      targets (get-in data [:component :targets])]
                  ;; return controller identity as a query based on parameters and any targets
-                 {:query   (if (fn? query) (query parameters) query)
+                 {:id      route-name
+                  :query   (if (fn? query) (query parameters) query)
                   :targets (if (fn? targets) (targets parameters) targets)}))
    :start    (fn [{:keys [query] :as m}]
                ;; normalise and merge data into app database
@@ -151,7 +154,8 @@
     {:name        :pseudonymous-patient/diagnoses
      :component   pc4.patients/diagnoses-page
      :auth        identity
-     :parameters  {:path {:project-id int? :pseudonym string?}}
+     :parameters  {:path  {:project-id int? :pseudonym string?}
+                   :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
    ["/projects/:project-id/patients/pseudonym/:pseudonym/medication"
@@ -187,7 +191,8 @@
     {:name        :patient/diagnoses
      :component   pc4.patients/diagnoses-page
      :auth        identity                                  ;; we need a logged in user to view a patient
-     :parameters  {:path {:patient-identifier int?}}
+     :parameters  {:path  {:patient-identifier int?}
+                   :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
    ["/patients/id/:patient-identifier/treatment"
