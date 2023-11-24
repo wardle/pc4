@@ -313,11 +313,10 @@
     (into [:div.mt-2.sm:mt-5.space-y-6.sm:space-y-5] content)]])
 
 (defn ui-table [& content]
-  [:div.flex.flex-col
+  [:div.flow-root
    [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
-    [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8
-     [:div.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
-      (into [:table.min-w-full.divide-y.divide-gray-200] content)]]]])
+    [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8.shadow
+      (into [:table.min-w-full.divide-y.divide-gray-200] content)]]])
 
 (defn ui-table-head [& content]
   (into [:thead.bg-gray-50] content))
