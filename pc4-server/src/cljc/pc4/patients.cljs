@@ -517,7 +517,7 @@
         (for [{:t_medication/keys [id date_from date_to reason_for_stopping] :as medication}
               (sort-by #(if-let [date-from (:t_medication/date_from %)] (.valueOf date-from) 0) medications)]
           [ui/ui-table-row {:key id}
-           [ui/ui-table-cell {} (str id " " (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))]
+           [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
            [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
            [ui/ui-table-cell {} (name reason_for_stopping)]
