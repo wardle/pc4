@@ -22,7 +22,7 @@
 (defonce do-timer (do
                     ;;(js/setInterval #(rf/dispatch [::timer-one-second (js/Date.)]) 1000)
                     (js/setInterval #(rf/dispatch [::time-10-seconds]) 10000)
-                    (js/setInterval #(rf/dispatch [::timer-one-minute]) 60000)))
+                    #_(js/setInterval #(rf/dispatch [::timer-one-minute]) 60000)))
 
 (rf/reg-event-db                                            ;; usage:  (rf/dispatch [:timer a-js-Date])
   ::timer-one-second
@@ -32,12 +32,14 @@
 (rf/reg-event-fx
   ::time-10-seconds
   (fn [{db :db} [_]]
-    {:fx [[:dispatch [::user-events/ping-server]]]}))
+    {:fx [#_[:dispatch [::user-events/ping-server]]
+          [:dispatch [::user-events/check-token]]]}))
 
-(rf/reg-event-fx
-  ::timer-one-minute
-  (fn [{db :db} [_]]
-    {:fx [[:dispatch [::user-events/check-token]]]}))
+#_(rf/reg-event-fx
+    ::timer-one-minute
+    (fn [{db :db} [_]]
+      {:fx [#_[:dispatch [::user-events/ping-server]]
+            [:dispatch [::user-events/check-token]]]}))
 
 (rf/reg-event-db
   ::navigate
