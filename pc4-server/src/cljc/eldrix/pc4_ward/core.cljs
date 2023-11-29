@@ -56,7 +56,7 @@
 
   A component is defined by following keys
   - :query   - a function to return a query given route parameters
-  - :view    - a 2-arity function taking route parameters and data from query
+  - :view    - a 2-arity function taking ctx and data from query
   - :targets - (optional) - a path to which data will be `assoc-in`-ed
 
   If there is no target for a given result, data will be normalised."
@@ -162,9 +162,10 @@
 
    ["/projects/:project-id/patients/pseudonym/:pseudonym/medication"
     {:name        :pseudonymous-patient/medication
-     :component   pc4.patients/treatment-page
+     :component   pc4.patients/medication-page
      :auth        identity
-     :parameters  {:path {:project-id int? :pseudonym string?}}
+     :parameters  {:path {:project-id int? :pseudonym string?}
+                   :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
    #_["/projects/:project-id/patients/pseudonym/:pseudonym"
@@ -197,11 +198,12 @@
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
-   ["/patients/id/:patient-identifier/treatment"
-    {:name        :patient/treatment
-     :component   pc4.patients/treatment-page
+   ["/patients/id/:patient-identifier/medication"
+    {:name        :patient/medication
+     :component   pc4.patients/medication-page
      :auth        identity                                  ;; we need a logged in user to view a patient
-     :parameters  {:path {:patient-identifier int?}}
+     :parameters  {:path {:patient-identifier int?}
+                   :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
    #_["/projects/:project-id/patients/id/:patient-identifier"
@@ -241,7 +243,6 @@
   [router]
   (let [authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
         current-route (or @(rf/subscribe [::subs/current-route]) (r/match-by-path router "/"))
-        loading? @(rf/subscribe [::subs/loading])
         auth (get-in current-route [:data :auth])]
     [:div
      [views/nav-bar

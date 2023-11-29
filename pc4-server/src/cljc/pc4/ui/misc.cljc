@@ -262,13 +262,13 @@
 
 (defn ui-select
   "A select control that appears as a pop-up."
-  [{:keys [name label value choices id-key display-key default-value select-fn
+  [{:keys [name label value choices id-key display-key default-value on-select
            no-selection-string on-key-down disabled? sort? sort-fn]
     :or   {id-key identity display-key identity sort? true}}]
   (let [all-choices (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
                       (conj choices value) choices)
         sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
-    #?(:cljs (when (and select-fn default-value (str/blank? value)) (select-fn default-value))) ;;in cljs, select the chosen value
+    #?(:cljs (when (and on-select default-value (str/blank? value)) (on-select default-value))) ;;in cljs, select the chosen value
     [:div
      (when label (ui-label {:for name :label label}))
      [:select.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
@@ -276,15 +276,26 @@
        :disabled    disabled?
        :value       (when value (str (id-key value)))
        :on-key-down #(when on-key-down #?(:cljs (on-key-down (.-which %))))
-       :on-change   #(when select-fn #?(:cljs (let [idx (-> % .-target .-selectedIndex)]
+       :on-change   #(when on-select #?(:cljs (let [idx (-> % .-target .-selectedIndex)]
                                                 (if (and no-selection-string (= 0 idx))
-                                                  (select-fn nil)
-                                                  (select-fn (nth sorted-values (if no-selection-string (- idx 1) idx)))))))}
+                                                  (on-select nil)
+                                                  (on-select (nth sorted-values (if no-selection-string (- idx 1) idx)))))))}
       (when no-selection-string [:option {:value nil :id nil} no-selection-string])
       (for [choice sorted-values
             :let [id (id-key choice)]]
         ^{:key id} [:option {:value (str id)} (display-key choice)])]]))
 
+
+(defn ui-textarea
+  [{:keys [id name value label rows on-change] :or {rows 5}}]
+  [:div
+   (when label [:label.block.text-sm.font-medium.text-gray-700 (when id {:for id}) label])
+   [:div.mt-1
+    [:textarea.border.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.p-1
+     {:id       id, :name name
+      :rows     (str rows)
+      :value    (or value "")
+      :on-change #(when on-change (let [v (-> % .-target .-value)] (on-change (if (str/blank? v) nil v))))}]]])
 
 (defn ui-title [{:keys [key title subtitle]} & content]
   [:div.sm:flex.sm:items-center.p-4 (when key {:key key})
@@ -316,7 +327,7 @@
   [:div.flow-root
    [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
     [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8.shadow
-      (into [:table.min-w-full.divide-y.divide-gray-200] content)]]])
+     (into [:table.min-w-full.divide-y.divide-gray-200] content)]]])
 
 (defn ui-table-head [& content]
   (into [:thead.bg-gray-50] content))
