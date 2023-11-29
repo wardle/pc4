@@ -79,6 +79,16 @@
   #_(prn :target-results results)
   (target-results* (or targets {}) {:db db :entities #{}} results))
 
+(defn target-init
+  "Initialize an entity, deleting any existing data with the same ident first."
+  [db data]
+  (let [ident (pyr/identify db data)]
+    (if (get-in db ident)
+      (-> db
+          (pyr/delete (pyr/identify db data))
+          (pyr/add data))
+      (pyr/add db data))))
+
 (defn ^:private remove-eql-parameters
   "Remove any parameterised clauses from an EQL AST"
   [ast]
