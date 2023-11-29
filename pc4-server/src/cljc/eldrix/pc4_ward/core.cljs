@@ -62,11 +62,13 @@
   If there is no target for a given result, data will be normalised."
   [route]
   (let [parameters (:parameters route)
+        route-name (-> route :data :name)
         {:keys [query targets view] :as component} (-> route :data :component)]
     (if component
       (let [query' (query parameters)
-            results @(rf/subscribe [:eldrix.pc4-ward.server/pull query' targets])]
-        [view parameters results])
+            results @(rf/subscribe [:eldrix.pc4-ward.server/pull query' targets])
+            loading @(rf/subscribe [:eldrix.pc4-ward.server/loading route-name])]
+        [view (assoc route :loading loading) results])
       (let [view (-> route :data :view)]
         [view route]))))
 
