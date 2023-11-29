@@ -56,7 +56,7 @@
           (entities' k)
           {:db db', :entities (into entities entities')}
           (vector? k)
-          {:db (assoc-in db' k (pyr/default-ident result)), :entities (into entities entities')}
+          {:db (assoc-in db' k (pyr/identify db' result)), :entities (into entities entities')}
           :else
           {:db db', :entities (into entities entities')})))))
 
