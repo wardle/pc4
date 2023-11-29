@@ -5,10 +5,6 @@
   (fn [db]
     (:current-route db)))
 
-(rf/reg-sub ::loading
-  (fn [db]
-    (:loading db)))
-
 (rf/reg-sub ::current-time
   (fn [db]
     (:current-time db)))
