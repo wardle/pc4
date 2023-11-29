@@ -267,7 +267,7 @@
                                                :where  [:in :medication_fk medication-ids]}))
         index (group-by :t_medication_event/medication_fk results)]
     (reduce (fn [acc id]
-              (conj acc (get index id))) [] medication-ids)))
+              (conj acc (get index id []))) [] medication-ids)))
 
 (s/fdef fetch-medications-and-events
   :args (s/cat :conn ::db/repeatable-read-txn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))

@@ -322,7 +322,7 @@
   [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
   {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/medications
-                  [:t_medication/id
+                  [:t_medication/id :t_medication/patient_fk
                    :t_medication/date_from, :t_medication/date_to
                    :t_medication/date_from_accuracy, :t_medication/date_to_accuracy
                    :t_medication/indication, :t_medication/medication_concept_fk
@@ -357,6 +357,15 @@
                                                         (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
              medication)))})
 
+(pco/defresolver medication->patient
+  [{patient-pk :t_medication/patient_fk}]
+  {:t_medication/patient {:t_patient/id patient-pk}})
+
+(pco/defresolver medication->events
+  [{:com.eldrix.rsdb/keys [conn]} {:t_medication/keys [id]}]
+  {:t_medication/events
+   (get (patients/fetch-medication-events conn [id]) 0)})
+
 (def address-properties [:t_address/address1
                          :t_address/address2
                          :t_address/address3
@@ -366,6 +375,10 @@
                          :t_address/housing_concept_fk
                          :t_address/postcode
                          :t_address/ignore_invalid_address])
+
+(pco/defresolver medication-event->concept
+  [{:t_medication_event/keys [event_concept_fk]}]
+  {:t_medication_event/event_concept {:info.snomed.Concept/id event_concept_fk}})
 
 (pco/defresolver patient->addresses
   [{:com.eldrix.rsdb/keys [conn]} patient]
@@ -1410,6 +1423,14 @@
                     :t_medication_reason_for_stopping/name (name %))
          db/medication-reasons-for-stopping)})
 
+(pco/defresolver concept-id-as-string
+  [{:info.snomed.Concept/keys [id]}]
+  {:info.snomed.Concept/id* (str id)})
+
+(pco/defresolver description-id-as-string
+  [{:info.snomed.Description/keys [id]}]
+  {:info.snomed.Description/id* (str id)})
+
 (def all-resolvers
   [patient-by-identifier
    patient-by-pk
@@ -1433,6 +1454,9 @@
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
    patient->medications
+   medication->patient
+   medication->events
+   medication-event->concept
    patient->addresses
    patient->address
    patient->lsoa11
@@ -1509,7 +1533,9 @@
    notify-death!
    change-password!
    save-admission!
-   delete-admission!])
+   delete-admission!
+   concept-id-as-string
+   description-id-as-string])
 
 (comment
   (require '[next.jdbc.connection])
