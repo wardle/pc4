@@ -85,7 +85,7 @@
 
 (defn save-medication [patient-identifier medication {:keys [on-success]}]
   (rf/dispatch
-    [::server/load                           ;; take care to pull in refreshed list of medications for patient
+    [::server/load                                          ;; take care to pull in refreshed list of medications for patient
      {:id         ::save-medication
       :query      [{(list 'pc4.rsdb/save-medication (assoc medication :t_patient/patient_identifier patient-identifier))
                     (conj medication-query
@@ -93,6 +93,13 @@
       :failed?    (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
       :on-success on-success}]))
 
+(defn delete-medication [medication {:keys [on-success]}]
+  (rf/dispatch
+    [::server/load                                          ;; take care to pull in refreshed list of medications for patient
+     {:id         ::delete-medication
+      :query      [(list 'pc4.rsdb/delete-medication medication)]
+      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success on-success}]))
 
 (defn ^:private medication-by-date-from [med]
   (- 0 (if-let [date-from (:t_medication/date_from med)] (.valueOf date-from) 0)))
@@ -133,7 +140,9 @@
                                     :on-click #(save-medication patient_identifier editing-medication {:on-success [:pc4.events/modal :medication nil]})}
                                    {:id       ::delete-action
                                     :title    "Delete"
-                                    :on-click #()}
+                                    :on-click #(delete-medication editing-medication
+                                                                  {:on-success {:fx [[:dispatch [::server/delete [:t_medication/id (:t_medication/id editing-medication)]]]
+                                                                                     [:dispatch [:pc4.events/modal :medication nil]]]}})}
                                    {:id       ::add-event-action
                                     :title    "Add event"
                                     :on-click #(modal (update editing-medication :t_medication/events (fnil conj []) {:t_medication_event/type :ADVERSE_EVENT}))}
