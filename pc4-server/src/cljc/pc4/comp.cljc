@@ -89,6 +89,10 @@
           (pyr/add data))
       (pyr/add db data))))
 
+(defn delete
+  [db ident]
+  (pyr/delete db ident))
+
 (defn ^:private remove-eql-parameters
   "Remove any parameterised clauses from an EQL AST"
   [ast]

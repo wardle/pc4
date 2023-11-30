@@ -15,6 +15,7 @@
             [pc4.dates :as dates]
             [goog.crypt.base64 :as b64]
             [goog.net.ErrorCode :as errors]
+            [pyramid.core :as pyr]
             [re-frame.core :as rf]
             ["big.js" :as Big]
             [cognitect.transit :as transit])
@@ -238,7 +239,9 @@
                     (fn? on-success)
                     (assoc :fx [[:dispatch (on-success response)]])
                     (vector? on-success)
-                    (assoc :fx [[:dispatch on-success]]))
+                    (assoc :fx [[:dispatch on-success]])
+                    (map? on-success)
+                    (merge on-success))
             (js/console.log "Out of order pathom response ignored")))))))
 
 (rf/reg-sub ::loading
@@ -251,6 +254,10 @@
   (fn [db [_ response]]
     (let [{entity-db :db} (comp/target-results (:entity-db db) {} response)]
       (assoc db :entity-db entity-db))))
+
+(rf/reg-event-db ::delete
+  (fn [db [_ ident]]
+    (assoc db :entity-db (comp/delete (:entity-db db) ident))))
 
 (rf/reg-event-db ::initialize
   (fn [db [_ init-data]]
