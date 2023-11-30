@@ -2,7 +2,7 @@
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.refer.core :as refer]
             [eldrix.pc4-ward.patient.subs :as patient-subs]
-            [eldrix.pc4-ward.user.subs :as user-subs]))
+            [pc4.subs :as subs]))
 
 ;; return the current in-process referral
 ;; this takes care to ensure that the referral has the current patient
@@ -11,7 +11,7 @@
   (fn []
     [re-frame.db/app-db
      (rf/subscribe [::patient-subs/current])
-     (rf/subscribe [::user-subs/authenticated-user])])
+     (rf/subscribe [::subs/authenticated-user])])
   (fn [[db current-patient user]]
     (let [ref (get-in db [:patient/current :referral])]
       (cond-> ref

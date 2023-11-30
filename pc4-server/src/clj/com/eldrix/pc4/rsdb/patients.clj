@@ -370,7 +370,9 @@
                                       :from      [:t_ms_event]
                                       :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
                                       :where     [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
-       (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)))))
+       (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)
+                      :t_ms_event/type (select-keys % [:t_ms_event_type/id :t_ms_event_type/name
+                                                       :t_ms_event_type/abbreviation])))))
 
 (defn patient-identifier-for-ms-event
   "Returns the patient identifier for a given MS event"
@@ -437,7 +439,8 @@
     (next.jdbc.sql/update! conn
                            :t_ms_event
                            (merge default-ms-event event)
-                           {:t_ms_event/id (:t_ms_event/id event)})
+                           {:t_ms_event/id (:t_ms_event/id event)}
+                           {:return-keys true})
     (next.jdbc.sql/insert! conn :t_ms_event (merge default-ms-event event))))
 
 (s/fdef save-pseudonymous

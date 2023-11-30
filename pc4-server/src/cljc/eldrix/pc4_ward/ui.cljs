@@ -1,7 +1,7 @@
-(ns eldrix.pc4-ward.ui
+(ns ^:deprecated eldrix.pc4-ward.ui
   (:require [clojure.string :as str]
             [com.eldrix.nhsnumber :as nhs-number]
-            [com.eldrix.pc4.commons.dates :as dates]
+            [pc4.dates :as dates]
             [reagent.core :as reagent])
   (:import [goog.date Date]))
 

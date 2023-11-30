@@ -137,8 +137,8 @@
                                                                (map :date-time)
                                                                (sort #(time-core/after? %1 %2))
                                                                (take width)
-                                                               (last)
-                                                               ))
+                                                               (last)))
+
 
 (defn index-by-numeric-range
   "Calculates an 'index' for a category by taking a numeric value and identifying the range from a vector of vectors, containing ranges."
@@ -346,8 +346,8 @@
                                      :width 7 :height (if show-times 20 15) :stroke "black" :stroke-width 0.5 :fill "#ffdddd"}])) mdates))
      (doall (map-indexed (fn [index item]                   ;; name of day
                            [:text {:x           (+ left-column-width 3.5 (* index 7)) :y (+ y 4) :font-size 3 :key (str "nd" item)
-                                   :text-anchor "middle" :font-weight (if (:is-today item) "bold" "normal")
-                                   } (take 2 (:day-of-week item))]) mdates))
+                                   :text-anchor "middle" :font-weight (if (:is-today item) "bold" "normal")}
+                            (take 2 (:day-of-week item))]) mdates))
      (doall (map-indexed (fn [index item]                   ;; write out days of month
                            [:text {:x    (+ left-column-width 3.5 (* index 7)) :y (+ y 9) :key (str "dm" index)
                                    :fill "black" :font-size "3" :text-anchor "middle"} (:day-of-month item)]) mdates))
@@ -376,8 +376,7 @@
                         x (+ 56 (* 7 (:x %)))
                         y (+ 2.5 (* 5 idx))]
                     (when-not (nil? idx)
-                      (vector :circle {:cx (+ 3.5 x) :cy (+ start-y y) :r "0.2" :stroke "black" :fill "black" :key (:date-time %)}))
-                    ) data))
+                      (vector :circle {:cx (+ 3.5 x) :cy (+ start-y y) :r "0.2" :stroke "black" :fill "black" :key (:date-time %)}))) data))
      (when (> (count line-points) 0)
        [:polyline {:points line-points
                    :fill   "none" :stroke "black" :stroke-width 0.2 :stroke-dasharray "1 1"}])]))
@@ -390,8 +389,8 @@
                                    x (+ 56 (* 7 (:x %)))
                                    systolic (+ 2.5 (* 5 v))
                                    dbp (get-in % [:blood-pressure :y-dbp])
-                                   diastolic (if (nil? dbp) (+ systolic 0.2) (+ 2.5 (* 5 dbp)))
-                                   ]
+                                   diastolic (if (nil? dbp) (+ systolic 0.2) (+ 2.5 (* 5 dbp)))]
+
                                (when-not (nil? v) [:<> (vector
                                                          :polyline {:points       [(+ 3.5 x) (+ start-y systolic 0.7) (+ 3.5 x) (+ start-y -0.7 diastolic)]
                                                                     :key          %
@@ -403,8 +402,7 @@
                                                      :text {:x    (+ 3.5 x) :y (+ -0.1 start-y systolic) :text-anchor "middle"
                                                             :fill "black" :font-size 3} (get-in % [:results :blood-pressure :systolic]))
                                                    [:text {:x    (+ 3.5 x) :y (+ 2.1 start-y diastolic) :text-anchor "middle"
-                                                           :fill "black" :font-size 3} (get-in % [:results :blood-pressure :diastolic])]
-                                                   ])) data)))])
+                                                           :fill "black" :font-size 3} (get-in % [:results :blood-pressure :diastolic])]])) data)))])
 
 (def default-chart-configuration
   {:box-width           7                                   ;; the viewbox is based on the paper NEWS chart in millimetres, so our internal scale is same as "millimetres"
@@ -419,8 +417,8 @@
    :date-formatter      (time-format/formatter "dd MMM yyyy")
    :day-week-formatter  (time-format/formatter "E")
    :day-month-formatter (time-format/formatter "dd")
-   :month-formatter     (time-format/formatter "MM")
-   })
+   :month-formatter     (time-format/formatter "MM")})
+
 
 
 (defn news-chart-wrapper
@@ -440,8 +438,7 @@
     [:marker#arrow {:viewBox "0 0 10 10" :refX "5" :refY "5" :markerWidth "6" :markerHeight "6" :orient "auto-start-reverse"}
      [:path {:d "M 0 0 L 10 5 L 0 10 z"}]]
     [:marker#circle {:markerWidth "6" :markerHeight "6" :refX "5" :refY "5"}
-     [:circle {:cx "5" :cy "5" :r "2"}]]
-    ] c])
+     [:circle {:cx "5" :cy "5" :r "2"}]]] c])
 
 
 (defn render-news-chart
@@ -492,8 +489,8 @@
         (draw-chart-axes 245 width consciousness-chart)
         (plot-results 245 start-date width-in-boxes :day consciousness-chart data :consciousness)
         (draw-chart-axes 275 width temperature-chart)
-        (plot-results 275 start-date width-in-boxes :day temperature-chart data :temperature)
-        )
+        (plot-results 275 start-date width-in-boxes :day temperature-chart data :temperature))]]))
 
-      ]]))
+
+
 

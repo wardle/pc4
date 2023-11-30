@@ -1,18 +1,17 @@
 (ns eldrix.pc4-ward.refer.views
   (:require [clojure.string :as str]
             [cljs.spec.alpha :as s]
-            [com.eldrix.pc4.commons.debounce :as debounce]
             [eldrix.pc4-ward.refer.core :as refer]
             [eldrix.pc4-ward.refer.subs :as subs]
             [eldrix.pc4-ward.refer.events :as events]
             [eldrix.pc4-ward.org.events :as org-events]
             [eldrix.pc4-ward.org.subs :as org-subs]
-            [eldrix.pc4-ward.user.subs :as user-subs]
-            [eldrix.pc4-ward.user.events :as user-events]
-            [eldrix.pc4-ward.user.views :as user-views]
             [eldrix.pc4-ward.patient.subs :as patient-subs]
             [eldrix.pc4-ward.patient.events :as patient-events]
             [eldrix.pc4-ward.ui :as ui]
+            [pc4.events]
+            [pc4.server :as server]
+            [pc4.subs]
             [reagent.core :as reagent]
             [re-frame.core :as rf]))
 
@@ -76,10 +75,10 @@
                                {:disabled true :hidden true}) "Select"]])
            [:td.px-6.py-4.sm:whitespace-nowrap (:uk.nhs.cfh.isb1506/patient-name patient)]
            [:td.px-6.py-4.sm:whitespace-nowrap {:dangerouslySetInnerHTML {:__html (str/replace (:uk.nhs.cfh.isb1504/nhs-number patient) #" " "&nbsp;")}}]
-           [:td.px-6.py-4.sm:whitespace-nowrap (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
+           [:td.px-6.py-4.sm:whitespace-nowrap (pc4.dates/format-date (:org.hl7.fhir.Patient/birthDate patient))]
            [:td.px-6.py-4.sm:whitespace-nowrap (if-let [deceased (:org.hl7.fhir.Patient/deceased patient)]
                                                  [:span (if (instance? goog.date.Date deceased)
-                                                          (str "Died on " (com.eldrix.pc4.commons.dates/format-date deceased))
+                                                          (str "Died on " (pc4.dates/format-date deceased))
                                                           "Deceased")]
                                                  (:uk.nhs.cfh.isb1505/display-age patient))]
            [:td.px-6.py-4 (get-in patient [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])]
@@ -135,12 +134,12 @@
               [:p]
               [ui/select-or-autocomplete :label "Which hospital?"
                :value (get-in referral [::refer/location ::refer/hospital])
-               :default-value @(rf/subscribe [::user-subs/default-hospital])
+               :default-value @(rf/subscribe [::subs/default-hospital])
                :id-key org-events/official-identifier
                :display-key #(str (:org.hl7.fhir.Organization/name %) " : " (:org.hl7.fhir.Address/text (first (:org.hl7.fhir.Organization/address %))))
-               :common-choices @(rf/subscribe [::user-subs/common-hospitals])
+               :common-choices @(rf/subscribe [::subs/common-hospitals])
                ;  :no-selection-string ""
-               :autocomplete-fn (debounce/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
+               :autocomplete-fn (server/debounce #(rf/dispatch [::org-events/search-uk :refer-hospital {:s % :roles ["RO148" "RO150" "RO198" "RO149" "RO108"]}]) 400)
                :autocomplete-results @(rf/subscribe [::org-subs/search-results :refer-hospital])
                :clear-fn #(rf/dispatch [::org-events/clear-search-results :refer-hospital])
                :select-fn #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/hospital] %)])
@@ -153,8 +152,8 @@
               [ui/textfield-control
                (get-in referral [::refer/location ::refer/consultant])
                :id "pt-consultant" :label "Consultant" :required true :disabled false
-               :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/consultant] %)])]
-              )))
+               :on-change #(rf/dispatch [::events/update-referral (assoc-in referral [::refer/location ::refer/consultant] %)])])))
+
 
 
 (def data (reagent.core/atom {}))
@@ -254,16 +253,16 @@
                   [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "3 - Capable of only limited selfcare, confined to bed or chair more than 50% of waking hours"]]
                  [:div.flex.items-center
                   [:input#email.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300 {:name "notification-method" :type "radio" :checked false}]
-                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "4 - Completely disabled. Cannot carry on any self care. Totally confined to bed or chair"]]
+                  [:label.ml-3.block.text-sm.font-medium.text-gray-700 {:for "email"} "4 - Completely disabled. Cannot carry on any self care. Totally confined to bed or chair"]]]]]
 
-                 ]]]
+
               [:div.mt-4
                [ui/textarea :label "Relevant symptoms, signs and current clinical state"]
                [:p.text-sm.text-gray-400 "The members of the MDT rely on accurate yet concise information that is relevant to your patient’s condition in order that an appropriate recommendation can be made.  Therefore please do not paste verbose clinic letters in the above and instead provide a reasonable summary or timeline of events. All referrals to us are reviewed beforehand and will be returned if the above request is found to be disregarded"]]
 
               [:div.mt-4
-               [ui/textarea :label "Relevant past medical history and co-morbidities"]
-               ]
+               [ui/textarea :label "Relevant past medical history and co-morbidities"]]
+
               [:div.mt-4
                [ui/textarea :label "Drug history"]]
               [ui/select
@@ -313,7 +312,7 @@
           :name (:uk.nhs.cfh.isb1506/patient-name pt)
           :nhs-number (:uk.nhs.cfh.isb1504/nhs-number pt)
           :deceased deceased
-          :born (str (com.eldrix.pc4.commons.dates/format-date (:org.hl7.fhir.Patient/birthDate pt)) " " (when-not deceased (:uk.nhs.cfh.isb1505/display-age pt)))
+          :born (str (pc4.dates/format-date (:org.hl7.fhir.Patient/birthDate pt)) " " (when-not deceased (:uk.nhs.cfh.isb1505/display-age pt)))
           :gender (str/capitalize (name (:org.hl7.fhir.Patient/gender pt)))
           :hospital-identifier (:wales.nhs.cavuhb.Patient/HOSPITAL_ID pt) ;; TODO: switch to using whichever organisation makes sense in context
           :address (get-in pt [:org.hl7.fhir.Patient/currentAddress :org.hl7.fhir.Address/text])
@@ -343,7 +342,7 @@
       [:div.col-span-12.sm:col-span-8.md:col-span-9
        [:div.container.px-2.py-4.mx-auto.w-full.h-full
         (if-not (::refer/referrer referral)
-          [user-views/login-panel]
+          [pc4.user.views/login-panel]
           (case stage
             :clinician
             [user-panel referral :on-save #(select-stage :patient)]
@@ -361,12 +360,12 @@
                             :save-disabled false
                             :on-save       #(reset! finished true)}]
              (when @finished
-             [ui/modal :title "Referral sent"
-              :content nil
-              :actions [{:title "Finish" :id :finish
-                         :on-click #(do (reset! finished false)
-                                        (rf/dispatch [::user-events/do-logout])
-                                        (rf/dispatch [:eldrix.pc4-ward.events/push-state :refer]))}]])]))]]]]))
+               [ui/modal :title "Referral sent"
+                :content nil
+                :actions [{:title    "Finish" :id :finish
+                           :on-click #(do (reset! finished false)
+                                          (rf/dispatch [:pc4.events/do-logout])
+                                          (rf/dispatch [:pc4.events/push-state :refer]))}]])]))]]]]))
 
 
 

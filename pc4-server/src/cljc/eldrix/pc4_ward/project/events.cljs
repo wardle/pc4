@@ -2,7 +2,7 @@
   (:require [re-frame.core :as rf]
             [eldrix.pc4-ward.server :as srv]))
 
-(defn make-fetch-project-op
+(defn vmake-fetch-project-op
   [{:keys [id]}]
   [{[:t_project/id (int id)]
     [:t_project/id

@@ -1,13 +1,13 @@
-{:deps     true
+{:deps  true
 
- :nrepl    {:port 8777}
+ :nrepl {:port 8777}
 
  :builds
  {:app
   {:target            :browser
    :output-dir        "resources/public/js/compiled"
    :asset-path        "/js/compiled"
-   :modules           {:app {:init-fn  eldrix.pc4-ward.core/init
+   :modules           {:app {:init-fn  pc4.core/init
                              :preloads [devtools.preload
                                         day8.re-frame-10x.preload]}}
    :module-hash-names true

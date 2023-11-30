@@ -9,12 +9,11 @@
     [eldrix.pc4-ward.patient.subs :as patient-subs]
     [eldrix.pc4-ward.patient.views :as patient-views]
     [eldrix.pc4-ward.project.subs :as project-subs]
-    [eldrix.pc4-ward.user.subs :as user-subs]
-    [eldrix.pc4-ward.user.events :as user-events]
-    [eldrix.pc4-ward.snomed.views :as snomed]
+    [pc4.subs :as subs]
+    [pc4.snomed.views :as snomed]
     [eldrix.pc4-ward.ui :as ui]
     [clojure.string :as str]
-    [com.eldrix.pc4.commons.dates :as dates]
+    [pc4.dates :as dates]
     [com.eldrix.nhsnumber :as nhs-number]
     [malli.core :as m]
     [re-frame.db :as db]
@@ -345,7 +344,7 @@
         [:div.w-full.rounded-md.shadow-sm.space-y-2
          (if (:t_diagnosis/id diagnosis)                    ;; if we already have a saved diagnosis, don't allow user to change
            [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-           [eldrix.pc4-ward.snomed.views/select-snomed
+           [snomed/select-snomed
             :id ::choose-diagnosis
             :common-choices []
             :value (:t_diagnosis/diagnosis diagnosis)
@@ -457,7 +456,7 @@
         [:div.w-full.rounded-md.shadow-sm.space-y-2
          (if (:t_medication/id medication)                  ;; if we already have a saved diagnosis, don't allow user to change
            [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-           [eldrix.pc4-ward.snomed.views/select-snomed
+           [snomed/select-snomed
             :id ::choose-medication
             :common-choices []
             :value (:t_medication/medication medication)
@@ -500,7 +499,7 @@
            :on-click #(rf/dispatch [::patient-events/set-current-medication
                                     (remove-medication-event-by-idx medication idx)])]]
          [:div.mt-1.sm:mt-0.sm:col-span-2
-          [eldrix.pc4-ward.snomed.views/select-snomed
+          [pc4.snomed.views/select-snomed
            :id (str ::choose-medication-event-concept idx)
            :common-choices []
            :value (:t_medication_event/event_concept event)
@@ -1008,7 +1007,7 @@
                           @(rf/subscribe [::patient-subs/results-mri-brains]))
                :id-key :t_result_mri_brain/id
                :no-selection-string "<None>"
-               :display-key #(com.eldrix.pc4.commons.dates/format-date (:t_result_mri_brain/date %))
+               :display-key #(pc4.dates/format-date (:t_result_mri_brain/date %))
                :select-fn #(do
                              (tap> {:selected-scan %})
                              (on-change (if % (assoc result :t_result_mri_brain/compare_to_result_mri_brain_fk (:t_result_mri_brain/id %))
@@ -1310,7 +1309,7 @@
          [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:for ::choose-diagnosis} "Add a problem/ diagnosis"]
          [:div.mt-1.sm:mt-0.sm:col-span-2
           [:div.w-full.rounded-md.shadow-sm.space-y-2
-           [eldrix.pc4-ward.snomed.views/select-snomed
+           [snomed/select-snomed
             :id ::choose-diagnosis
             :common-choices []
             :value nil
@@ -1404,7 +1403,7 @@
       (let [patient @(rf/subscribe [::patient-subs/current])
             project @(rf/subscribe [::project-subs/current])
             loading? @(rf/subscribe [::patient-subs/loading?])
-            authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
+            authenticated-user @(rf/subscribe [::subs/authenticated-user])
             _ (tap> {:patient patient :user authenticated-user})]
         [:<>
          (when loading?
@@ -1463,8 +1462,8 @@
     (rf/dispatch [::patient-events/clear-open-patient-error])
     (rf/dispatch [::lookup-events/fetch])
     (fn []
-      (let [route @(rf/subscribe [:eldrix.pc4-ward.subs/current-route])
-            authenticated-user @(rf/subscribe [::user-subs/authenticated-user])
+      (let [route @(rf/subscribe [::subs/current-route])
+            authenticated-user @(rf/subscribe [::subs/authenticated-user])
             current-project @(rf/subscribe [::project-subs/current])]
         (when current-project
           [:<>

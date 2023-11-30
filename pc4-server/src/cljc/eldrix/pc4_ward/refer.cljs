@@ -1,8 +1,8 @@
 (ns eldrix.pc4-ward.refer
   (:require [cljs.spec.alpha :as s]
             [re-frame.core :as rf]
-            [eldrix.pc4-ward.user.subs :as user-subs]
-            [eldrix.pc4-ward.user.events :as user-events]
+            [pc4.subs :as subs]
+            [pc4.events :as events]
             [eldrix.pc4-ward.patient.events :as patient-events]
             [eldrix.pc4-ward.patient.subs :as patient-subs]
             [eldrix.pc4-ward.patient.views :as patient-views]
@@ -275,12 +275,12 @@
 
 (defn login-panel
   []
-  (let [error (rf/subscribe [::user-subs/login-error])
-        ping-error (rf/subscribe [::user-subs/ping-error])
+  (let [error (rf/subscribe [::subs/login-error])
+        ping-error (rf/subscribe [::subs/ping-error])
         username (reagent/atom "")
         password (reagent/atom "")
         submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
-        do-login #(rf/dispatch [::user-events/do-login {:username @username :password @password}])]
+        do-login #(rf/dispatch [::events/do-login {:username @username :password @password}])]
     (fn []
       [:<>
        [:div.box
@@ -319,7 +319,7 @@
 (defn refer-page []
   (let [referral (reagent/atom {})]
     (fn []
-      (let [user @(rf/subscribe [::user-subs/authenticated-user])]
+      (let [user @(rf/subscribe [::subs/authenticated-user])]
         (when-not (= (get-in @referral [::referrer ::practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
           (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName])
                                         (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
@@ -332,7 +332,7 @@
           (when user
             [:div.navbar-end
              [:div.navbar-item (:urn:oid:2.5.4/commonName user)]
-             [:a.navbar-item {:on-click #(rf/dispatch [::user-events/do-logout])} "Logout"]])]
+             [:a.navbar-item {:on-click #(rf/dispatch [::events/do-logout])} "Logout"]])]
 
          (when-let [pt @(rf/subscribe [::patient-subs/current-patient])]
            [ui/patient-banner pt :on-close #(rf/dispatch [::patient-events/close-current-patient])])

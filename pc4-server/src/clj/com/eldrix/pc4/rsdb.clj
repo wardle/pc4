@@ -312,11 +312,18 @@
                    :t_ms_event/site_other :t_ms_event/site_psychiatric
                    :t_ms_event/site_sexual :t_ms_event/site_sphincter
                    :t_ms_event/site_unknown :t_ms_event/site_vestibular
-                   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we flatten this
+                   {:t_ms_event/type [:t_ms_event_type/id
+                                      :t_ms_event_type/name
+                                      :t_ms_event_type/abbreviation]}
+                   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we also flatten this
                    :t_ms_event_type/name
                    :t_ms_event_type/abbreviation]}]}
   (let [events (patients/fetch-ms-events conn sms-id)]
     {:t_summary_multiple_sclerosis/events events}))
+
+(pco/defresolver event->summary-multiple-sclerosis
+  [{sms-id :t_ms_event/summary_multiple_sclerosis_fk}]
+  {:t_ms_event/summary_multiple_sclerosis {:t_summary_multiple_sclerosis/id sms-id}})
 
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
@@ -1194,6 +1201,7 @@
       (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
           (patients/save-ms-event! conn (-> params
                                             (dissoc :t_patient/patient_identifier
+                                                    :t_ms_event/type
                                                     :t_ms_event_type/id
                                                     :t_ms_event_type/abbreviation
                                                     :t_ms_event_type/name
@@ -1423,14 +1431,6 @@
                     :t_medication_reason_for_stopping/name (name %))
          db/medication-reasons-for-stopping)})
 
-(pco/defresolver concept-id-as-string
-  [{:info.snomed.Concept/keys [id]}]
-  {:info.snomed.Concept/id* (str id)})
-
-(pco/defresolver description-id-as-string
-  [{:info.snomed.Description/keys [id]}]
-  {:info.snomed.Description/id* (str id)})
-
 (def all-resolvers
   [patient-by-identifier
    patient-by-pk
@@ -1453,6 +1453,7 @@
    patient->has-diagnosis
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
+   event->summary-multiple-sclerosis
    patient->medications
    medication->patient
    medication->events
@@ -1533,9 +1534,7 @@
    notify-death!
    change-password!
    save-admission!
-   delete-admission!
-   concept-id-as-string
-   description-id-as-string])
+   delete-admission!])
 
 (comment
   (require '[next.jdbc.connection])

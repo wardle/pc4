@@ -6,7 +6,7 @@
   to handle the request more magically."
   (:require [cljs.spec.alpha :as s]
             [re-frame.core :as rf]
-            [eldrix.pc4-ward.server :as srv]))
+            [pc4.server :as srv]))
 
 (defn make-fetch-uk-org
   "Fetch a UK organisation. Conceivably this could be deprecated

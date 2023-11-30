@@ -3,8 +3,8 @@
 
   Data would be better fetched as required on a per-component level cf. fulcro."
   (:require [re-frame.core :as rf]
-            [eldrix.pc4-ward.events :as events]
-            [eldrix.pc4-ward.server :as srv]))
+            [pc4.events :as events]
+            [pc4.server :as srv]))
 
 (def core-patient-properties                                ;; TODO: these properties to be generic properties not rsdb.
   [:t_patient/id
