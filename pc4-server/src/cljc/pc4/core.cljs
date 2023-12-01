@@ -48,7 +48,7 @@
                   :targets (if (fn? targets) (targets parameters) targets)}))
    :start    (fn [{:keys [query] :as m}]
                ;; normalise and merge data into app database
-               (rf/dispatch [::server/load m]))})
+               (rf/dispatch [::events/remote m]))})
 (defn view
   "Returns a view for the given route, automatically subscribing to any data
   loaded as a consequence of the route controller.
@@ -68,8 +68,8 @@
         {:keys [query targets view] :as component} (-> route :data :component)]
     (if component
       (let [query' (query parameters)
-            results @(rf/subscribe [::server/pull query' targets])
-            loading @(rf/subscribe [::server/loading route-name])]
+            results @(rf/subscribe [::subs/local-pull query' targets])
+            loading @(rf/subscribe [::subs/remote-loading route-name])]
         [view (assoc route :loading loading) results])
       (let [view (-> route :data :view)]
         [view route]))))

@@ -104,7 +104,7 @@
    (fn [_ [{project-id      :t_episode/project_fk
             :t_patient/keys [patient_identifier] :as patient}
            all-ms-diagnoses]]
-     (let [select-diagnosis-fn #(rf/dispatch [::server/load ;; the result will be automatically normalised and therefore update
+     (let [select-diagnosis-fn #(rf/dispatch [::events/remote ;; the result will be automatically normalised and therefore update
                                               {:id    ::save-ms-diagnosis
                                                :query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
                                                                                            :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
@@ -220,7 +220,7 @@
 
 (defn save-event [patient-identifier event {:keys [on-success]}]
   (rf/dispatch
-    [::server/load
+    [::events/remote
      {:id         ::save-event                              ;; take care here to return all events
       :query      [{(list 'pc4.rsdb/save-ms-event
                           (assoc event :t_patient/patient_identifier patient-identifier
@@ -234,7 +234,7 @@
 
 (defn delete-event [event {:keys [on-success]}]
   (rf/dispatch
-    [::server/load
+    [::events/remote
      {:id         ::delete-event
       :query      [(list 'pc4.rsdb/delete-ms-event event)]
       :on-success on-success}]))
@@ -305,11 +305,11 @@
               {:on-close #(rf/dispatch [::events/modal :relapses nil])
                :actions  [{:id       :save, :title "Save", :role :primary
                            :disabled? (not (s/valid? ::editing-ms-event editing-event))
-                           :on-click #(save-event patient-identifier editing-event {:on-success [:pc4.events/modal :relapses nil]})}
+                           :on-click #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
                           {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
                            :title    "Delete"
-                           :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::server/delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
-                                                                                     [:dispatch [:pc4.events/modal :relapses nil]]]}})}
+                           :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
+                                                                                     [:dispatch [::events/modal :relapses nil]]]}})}
                           {:id       :cancel, :title "Cancel"
                            :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
 

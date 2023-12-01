@@ -1,6 +1,7 @@
 (ns pc4.patient.medication
   (:require [clojure.string :as str]
             [pc4.dates :as dates]
+            [pc4.events :as events]
             [pc4.patient.home :as patient]
             [pc4.patient.banner :as banner]
             [pc4.server :as server]
@@ -85,7 +86,7 @@
 
 (defn save-medication [patient-identifier medication {:keys [on-success]}]
   (rf/dispatch
-    [::server/load                                          ;; take care to pull in refreshed list of medications for patient
+    [::events/remote                                          ;; take care to pull in refreshed list of medications for patient
      {:id         ::save-medication
       :query      [{(list 'pc4.rsdb/save-medication (assoc medication :t_patient/patient_identifier patient-identifier))
                     (conj medication-query
@@ -95,7 +96,7 @@
 
 (defn delete-medication [medication {:keys [on-success]}]
   (rf/dispatch
-    [::server/load                                          ;; take care to pull in refreshed list of medications for patient
+    [::events/remote                                          ;; take care to pull in refreshed list of medications for patient
      {:id         ::delete-medication
       :query      [(list 'pc4.rsdb/delete-medication medication)]
       :failed?    (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
@@ -119,7 +120,7 @@
    :view
    (fn [_ [{project-id :t_episode/project_fk patient-pk :t_patient/id :t_patient/keys [patient_identifier medications] :as patient}]]
      (let [editing-medication @(rf/subscribe [:pc4.subs/modal :medication])
-           modal (fn [medication] (rf/dispatch [:pc4.events/modal :medication medication]))]
+           modal (fn [medication] (rf/dispatch [::events/modal :medication medication]))]
        (println "editing medication " editing-medication)
        [patient/layout {:t_project/id project-id} patient
         {:selected-id :treatment
@@ -128,7 +129,7 @@
                    :content [:input.border.p-2.w-full
                              {:type     "search" :name "search" :placeholder "Search..." :autocomplete "off"
                               :onChange #(let [s (-> % .-target .-value)]
-                                           (server/dispatch-debounced [:pc4.events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
+                                           (server/dispatch-debounced [::events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
                   {:id      :add-medication
                    :content [ui/menu-button
                              {:on-click #(modal {:t_patient/patient_identifier patient_identifier
@@ -137,12 +138,12 @@
           [ui/ui-modal {:on-close #(modal nil)
                         :actions  [{:id       ::save-action
                                     :title    "Save" :role :primary
-                                    :on-click #(save-medication patient_identifier editing-medication {:on-success [:pc4.events/modal :medication nil]})}
+                                    :on-click #(save-medication patient_identifier editing-medication {:on-success [::events/modal :medication nil]})}
                                    {:id       ::delete-action
                                     :title    "Delete"
                                     :on-click #(delete-medication editing-medication
-                                                                  {:on-success {:fx [[:dispatch [::server/delete [:t_medication/id (:t_medication/id editing-medication)]]]
-                                                                                     [:dispatch [:pc4.events/modal :medication nil]]]}})}
+                                                                  {:on-success {:fx [[:dispatch [::events/local-delete [:t_medication/id (:t_medication/id editing-medication)]]]
+                                                                                     [:dispatch [::events/modal :medication nil]]]}})}
                                    {:id       ::add-event-action
                                     :title    "Add event"
                                     :on-click #(modal (update editing-medication :t_medication/events (fnil conj []) {:t_medication_event/type :ADVERSE_EVENT}))}
@@ -151,7 +152,7 @@
                                     :on-click #(modal nil)}]}
            (edit-medication editing-medication
                             {:on-change #(do (println "Updating medication" %)
-                                             (rf/dispatch-sync [:pc4.events/modal :medication %]))})])
+                                             (rf/dispatch-sync [::events/modal :medication %]))})])
         (when medications
           [ui/ui-table
            [ui/ui-table-head
@@ -168,4 +169,4 @@
                [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
                [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
                [ui/ui-table-cell {} (if (= :NOT_APPLICABLE reason_for_stopping) "" (str/replace (name reason_for_stopping) #"_" " "))]
-               [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:pc4.events/modal :medication medication])} "Edit")]])]])]))})
+               [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [::events/modal :medication medication])} "Edit")]])]])]))})

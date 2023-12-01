@@ -1,5 +1,7 @@
 (ns pc4.subs
-    (:require [re-frame.core :as rf]))
+    (:require [pc4.comp :as comp]
+              [re-frame.core :as rf]))
+
 
 (rf/reg-sub ::current-route
   (fn [db]
@@ -58,4 +60,13 @@
     (:t_user/latest_news user)))
 
 
+(rf/reg-sub ::remote-loading
+  (fn [db [_ id]]
+    (if id
+      (get (:loading db) id)
+      (seq (:loading db)))))
+
+(rf/reg-sub ::local-pull
+  (fn [db [_ query targets]]
+    (comp/pull-results (:entity-db db) {:query query :targets targets})))
 

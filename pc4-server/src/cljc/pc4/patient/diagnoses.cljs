@@ -45,7 +45,7 @@
 
 (defn save-diagnosis [patient-identifier diagnosis]
   (rf/dispatch
-    [::server/load
+    [::events/remote
      {:id         ::save-diagnosis
       :query      [{(list 'pc4.rsdb/save-diagnosis (assoc diagnosis :t_patient/patient_identifier patient-identifier))
                     [:t_diagnosis/id :t_diagnosis/date_onset
