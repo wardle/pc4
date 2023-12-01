@@ -156,7 +156,7 @@
           [ui/ui-table
            [ui/ui-table-head
             [ui/ui-table-row
-             (for [{:keys [id title]} [{:id :medication :title "Medication"} {:id :from :title "From"} {:id :to :title "To"} {:id :stop :title "Reason to stop"} {:id :actions :title ""}]]
+             (for [{:keys [id title]} [{:id :medication :title "Medication"} {:id :from :title "From"} {:id :to :title "To"} {:id :stop :title "Why stopped"} {:id :actions :title ""}]]
                ^{:key id} [ui/ui-table-heading {} title])]]
            [ui/ui-table-body
             (for [{:t_medication/keys [id date_from date_to reason_for_stopping] :as medication}
@@ -167,5 +167,5 @@
                [ui/ui-table-cell {} (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
                [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_from)]
                [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_to)]
-               [ui/ui-table-cell {} (str/replace (name reason_for_stopping) #"_" " ")]
+               [ui/ui-table-cell {} (if (= :NOT_APPLICABLE reason_for_stopping) "" (str/replace (name reason_for_stopping) #"_" " "))]
                [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [:pc4.events/modal :medication medication])} "Edit")]])]])]))})
