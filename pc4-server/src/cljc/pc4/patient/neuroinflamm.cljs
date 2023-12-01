@@ -1,5 +1,6 @@
 (ns pc4.patient.neuroinflamm
-  (:require [clojure.string :as str]
+  (:require [cljs.spec.alpha :as s]
+            [clojure.string :as str]
             [pc4.dates :as dates]
             [pc4.patient.home :as patient]
             [pc4.patient.banner :as banner]
@@ -234,10 +235,13 @@
 (defn delete-event [event {:keys [on-success]}]
   (rf/dispatch
     [::server/load
-     {:id ::delete-event
-      :query [{(list 'pc4.rsdb/delete-ms-event event)
-               [{:t_ms_event/summary_multiple_sclerosis
-                 [{:t_summary_multiple_sclerosis/events event-properties}]}]}]}]))
+     {:id         ::delete-event
+      :query      [(list 'pc4.rsdb/delete-ms-event event)]
+      :on-success on-success}]))
+
+(s/def ::date some?)
+(s/def ::editing-ms-event (s/keys :req [:t_ms_event/summary_multiple_sclerosis_fk
+                                        :t_ms_event/date]))
 
 (defn edit-ms-event
   [event all-ms-event-types {:keys [on-change]}]
@@ -247,11 +251,11 @@
      [ui/ui-simple-form-item {:label "Date"}
       [ui/ui-local-date {:value date, :on-change #(on-change (assoc event :t_ms_event/date %))}]]
      [ui/ui-simple-form-item {:label "Type"}
-      [ui/ui-select {:value       type, :choices all-ms-event-types, :sort? false
+      [ui/ui-select {:value         type, :choices all-ms-event-types, :sort? false
                      :default-value (first all-ms-event-types)
-                     :display-key (fn [{:t_ms_event_type/keys [abbreviation name]}]
-                                    (str abbreviation ": " name))
-                     :on-select   #(on-change (assoc event :t_ms_event/type %))}]]
+                     :display-key   (fn [{:t_ms_event_type/keys [abbreviation name]}]
+                                      (str abbreviation ": " name))
+                     :on-select     #(on-change (assoc event :t_ms_event/type %))}]]
      [ui/ui-simple-form-item {:label "Impact"}
       [ui/ui-select {:value         impact, :choices impact-choices, :sort? false
                      :default-value "UNKNOWN"
@@ -300,12 +304,14 @@
              [ui/ui-modal
               {:on-close #(rf/dispatch [::events/modal :relapses nil])
                :actions  [{:id       :save, :title "Save", :role :primary
+                           :disabled? (not (s/valid? ::editing-ms-event editing-event))
                            :on-click #(save-event patient-identifier editing-event {:on-success [:pc4.events/modal :relapses nil]})}
                           {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
                            :title    "Delete"
-                           :on-click #(delete-event editing-event {:on-success [:pc4.events/modal :relapses nil]})}
+                           :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::server/delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
+                                                                                     [:dispatch [:pc4.events/modal :relapses nil]]]}})}
                           {:id       :cancel, :title "Cancel"
                            :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
 
               (edit-ms-event editing-event ms-event-types {:on-change #(rf/dispatch-sync [::events/modal :relapses %])})])
-           [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf ) relapses)]])]))})
+           [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf) relapses)]])]))})
