@@ -256,7 +256,7 @@
   [event k v]
   (cond
     (and (= k :t_ms_event/site_unknown) v) ;; if site_unknown is checked, clear all other sites
-    (apply assoc (assoc {} :t_ms_event/site_unknown true) (reduce #(conj %1 %2 false) [] (next all-ms-event-sites)))
+    (apply assoc (assoc event :t_ms_event/site_unknown true) (reduce #(conj %1 %2 false) [] (next all-ms-event-sites)))
     (= k :t_ms_event/site_unknown) ;; if site_unknown is unchecked, just uncheck it
     (assoc event k v)
     (false? v) ;; if a site is unchecked, just uncheck it
