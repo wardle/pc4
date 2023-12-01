@@ -321,6 +321,12 @@
   (let [events (patients/fetch-ms-events conn sms-id)]
     {:t_summary_multiple_sclerosis/events events}))
 
+(pco/defresolver ms-events->ordering-errors
+  [{:t_summary_multiple_sclerosis/keys [events]}]
+  {:t_summary_multiple_sclerosis/event_ordering_errors
+   (mapv patients/ms-event-ordering-error->en-GB
+         (patients/ms-event-ordering-errors (sort-by :t_ms_event/date events)))})
+
 (pco/defresolver event->summary-multiple-sclerosis
   [{sms-id :t_ms_event/summary_multiple_sclerosis_fk}]
   {:t_ms_event/summary_multiple_sclerosis {:t_summary_multiple_sclerosis/id sms-id}})
@@ -1453,6 +1459,7 @@
    patient->has-diagnosis
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
+   ms-events->ordering-errors
    event->summary-multiple-sclerosis
    patient->medications
    medication->patient
