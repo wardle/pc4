@@ -228,6 +228,7 @@
                     [:t_ms_event/id
                      {:t_ms_event/summary_multiple_sclerosis
                       [:t_summary_multiple_sclerosis/id
+                       :t_summary_multiple_sclerosis/event_ordering_errors
                        {:t_summary_multiple_sclerosis/events event-properties}]}]}]
       :failed?    (fn [response] (get-in response ['pc4.rsdb/save-ms-event :com.wsscode.pathom3.connect.runner/mutation-error]))
       :on-success on-success}]))
@@ -281,6 +282,7 @@
        (conj banner/banner-query
              {:t_patient/summary_multiple_sclerosis
               [:t_summary_multiple_sclerosis/id
+               :t_summary_multiple_sclerosis/event_ordering_errors
                {:t_summary_multiple_sclerosis/events
                 event-properties}]})}
       {:com.eldrix.rsdb/all-ms-event-types [:t_ms_event_type/id
@@ -290,6 +292,7 @@
    (fn [_ [{project-id :t_episode/project_fk, patient-identifier :t_patient/patient_identifier :as patient} ms-event-types]]
      (tap> patient)
      (let [sms (:t_patient/summary_multiple_sclerosis patient)
+           ordering-errors (:t_summary_multiple_sclerosis/event_ordering_errors sms)
            relapses (:t_summary_multiple_sclerosis/events sms)
            editing-event @(rf/subscribe [::subs/modal :relapses])]
        [patient/layout {:t_project/id project-id} patient
@@ -314,4 +317,9 @@
                            :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
 
               (edit-ms-event editing-event ms-event-types {:on-change #(rf/dispatch-sync [::events/modal :relapses %])})])
+           (when (seq ordering-errors)
+             [:div.pb-8 (ui/box-error-message {:title "Warning: invalid disease relapses and events"
+                                               :message [:ul (for [error ordering-errors]
+                                                               [:li error])]})])
            [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf) relapses)]])]))})
+
