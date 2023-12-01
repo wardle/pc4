@@ -11,6 +11,7 @@
             [clojure.string :as str]
             [com.eldrix.clods.core :as clods])
   (:import (java.time LocalDate LocalDateTime)
+           (java.time.format DateTimeFormatter)
            (java.time.temporal Temporal)))
 
 (s/def ::clods #(satisfies? clods/ODS %))
@@ -353,12 +354,148 @@
       (log/error "Found more than one t_summary_multiple_sclerosis for patient" {:patient-identifier patient-identifier :results sms}))
     (first sms)))
 
-(def ^:private ms-event-relapse-types #{"RO" "RR" "RU" "SO" "SN" "SW" "SU" "PR" "UK" "RW"})
+(def ms-event-types
+  "Defines the types of MS event; these are recorded in the database in legacy
+  rsdb but this defines this static data with event types that are permitted to
+  follow when ordered by date."
+  [{:id           1
+    :abbreviation "RO"
+    :onset        true
+    :relapse      true
+    :description  "Relapse at disease onset but no fixed disability"
+    :followed-by  #{"RU", "RR", "RW", "SW", "POP"}}
+   {:id           2
+    :abbreviation "RR"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse but no fixed disability"
+    :followed-by  #{"POP", "RU", "RR", "RW", "SW"}}
+   {:id           3
+    :abbreviation "RU"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse but outcome unknown"
+    :followed-by  #{"POP", "RU", "RR", "SW"}}
+   {:id           4
+    :abbreviation "SO"
+    :onset        true
+    :relapse      true
+    :description  "Relapse at disease onset with fixed disability"
+    :followed-by  #{"SW", "SU", "SN", "POP"}}
+   {:id           5
+    :abbreviation "SN"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse but return to previous level of fixed disability"
+    :followed-by  #{"POP", "SW", "SU", "SN"}}
+   {:id           6
+    :abbreviation "SW"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse in patient with increased level of fixed disability"
+    :followed-by  #{"POP", "SW", "SU", "SN"}}
+   {:id           7
+    :abbreviation "SU"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse in patient with stable fixed disability but outcome unknown"
+    :followed-by  #{"POP", "SW", "SU", "SN"}}
+   {:id           8
+    :abbreviation "POR"
+    :onset        true
+    :relapse      false
+    :description  "Progressive from disease onset"
+    :followed-by  #{"PR"}}
+   {:id           9
+    :abbreviation "POP"
+    :onset        false
+    :relapse      false
+    :description  "Onset of secondary progressive disease"
+    :followed-by  #{"PR"}}
+   {:id           10
+    :abbreviation "PR"
+    :onset        false
+    :relapse      true
+    :description  "Relapse superimposed on progressive disease"
+    :followed-by  #{"PR"}}
+   {:id           11
+    :abbreviation "UK"
+    :onset        true
+    :relapse      true
+    :description  "Unknown"
+    :followed-by  nil}
+   {:id           12
+    :abbreviation "RW"
+    :onset        false
+    :relapse      true
+    :description  "Subsequent relapse with fixed disability"
+    :followed-by  #{"POP", "SN", "SU", "SW"}}])
+
+(def ms-event-type-by-abbreviation
+  (reduce (fn [acc {abbrev :abbreviation, :as event-type}] (assoc acc abbrev event-type)) {} ms-event-types))
+
+(def ms-event-type-at-onset
+  (map :abbreviation (filter :onset ms-event-types)))
+
+(def ms-event-followed-by
+  (reduce (fn [acc {:keys [abbreviation followed-by]}] (assoc acc abbreviation followed-by)) {} ms-event-types))
+
+(s/fdef ms-event-ordering-errors
+  :args (s/cat :events (s/coll-of (s/keys :req [:t_ms_event_type/abbreviation]))))
+(defn ms-event-ordering-errors
+  "Given an already sorted sequence of events, returns a sequence of errors.
+  Each result will include:
+  - :error     - error code; one of :first-event or :ordering
+  - :events    - the events providing context
+  - :expected  - a set of abbreviations representing expected type(s)
+  - :actual    - what was actually found"
+  [events]
+  (let [first-event (first events)
+        events' (remove #(= "UK" (:t_ms_event_type/abbreviation %)) events)] ;; remove any 'unknown' events, as they can appear anywhere
+    (when (seq events')
+      (let [errors (if-not (:onset (ms-event-type-by-abbreviation (:t_ms_event_type/abbreviation first-event)))
+                     [{:error    :first-event, :events [first-event],
+                       :expected ms-event-type-at-onset :actual (:t_ms_event_type/abbreviation first-event)}]
+                     [])]
+        (into errors
+              (comp (map (fn [[{a' :t_ms_event_type/abbreviation, :as a}
+                               {b' :t_ms_event_type/abbreviation, :as b}]]
+                           (let [followed-by (get-in ms-event-type-by-abbreviation [a' :followed-by])]
+                             (when-not (followed-by b')
+                               {:error :ordering, :events [a b], :expected followed-by, :actual b'}))))
+                    (remove nil?))
+              (partition 2 1 events'))))))
+
+(defn ms-event-ordering-error->en-GB
+  [{:keys [error events expected actual]}]
+  (when error
+    (let [abbrev (get-in events [0 :t_ms_event_type/abbreviation])
+          date (some-> (get-in events [0 :t_ms_event/date]) (.format (DateTimeFormatter/ofPattern "d-MMM-YYYY")))
+          expected' (map #(str "'" % "'") expected)]
+      (case error
+        :first-event
+        (str "The first event must be one of: " (str/join ", " expected'))
+        :ordering
+        (str "Event '" abbrev "' (" date ") must be followed by"
+             (if (= 1 (count expected'))
+               (str ": " (first expected'))
+               (str " one of: " (str/join ", " expected)))
+             ", not '" actual "'")))))
+
+
+
+
+(comment
+
+  (let [ex1 ["RO" "UK" "RU"]]))
+
+
+
 
 (defn ms-event-is-relapse?
   "Is the given MS event a type of relapse?"
-  [{code :t_ms_event_type/abbreviation}]
-  (boolean (ms-event-relapse-types code)))
+  [{abbrev :t_ms_event_type/abbreviation}]
+  (get-in ms-event-type-by-abbreviation [abbrev :relapse]))
 
 (defn fetch-ms-events
   "Return the MS events for the given summary multiple sclerosis.
@@ -442,6 +579,9 @@
                            {:t_ms_event/id (:t_ms_event/id event)}
                            {:return-keys true})
     (next.jdbc.sql/insert! conn :t_ms_event (merge default-ms-event event))))
+
+
+
 
 (s/fdef save-pseudonymous
   :args (s/cat :txn ::db/repeatable-read-txn
@@ -554,24 +694,24 @@
       (and date_death existing-certificate)
       (do (set-date-death txn patient')
           (assoc patient' :t_patient/death_certificate
-                         (jdbc/execute-one! txn (sql/format {:update [:t_death_certificate]
-                                                             :where  [:= :id (:t_death_certificate/id existing-certificate)]
-                                                             :set    {:t_death_certificate/part1a part1a
-                                                                      :t_death_certificate/part1b part1b
-                                                                      :t_death_certificate/part1c part1c
-                                                                      :t_death_certificate/part2  part2}})
-                                            {:return-keys true})))
+                          (jdbc/execute-one! txn (sql/format {:update [:t_death_certificate]
+                                                              :where  [:= :id (:t_death_certificate/id existing-certificate)]
+                                                              :set    {:t_death_certificate/part1a part1a
+                                                                       :t_death_certificate/part1b part1b
+                                                                       :t_death_certificate/part1c part1c
+                                                                       :t_death_certificate/part2  part2}})
+                                             {:return-keys true})))
       ;; patient has died, but no existing certificate
       date_death
       (do (set-date-death txn patient')
           (assoc patient' :t_patient/death_certificate
-                         (jdbc/execute-one! txn (sql/format {:insert-into :t_death_certificate
-                                                             :values      [{:t_death_certificate/patient_fk patient-pk
-                                                                            :t_death_certificate/part1a     part1a
-                                                                            :t_death_certificate/part1b     part1b
-                                                                            :t_death_certificate/part1c     part1c
-                                                                            :t_death_certificate/part2      part2}]})
-                                            {:return-keys true})))
+                          (jdbc/execute-one! txn (sql/format {:insert-into :t_death_certificate
+                                                              :values      [{:t_death_certificate/patient_fk patient-pk
+                                                                             :t_death_certificate/part1a     part1a
+                                                                             :t_death_certificate/part1b     part1b
+                                                                             :t_death_certificate/part1c     part1c
+                                                                             :t_death_certificate/part2      part2}]})
+                                             {:return-keys true})))
       ;; patient has not died, clear date of death and delete death certificate
       :else
       (do (set-date-death txn patient')
