@@ -313,7 +313,8 @@
        [patient/layout {:t_project/id project-id} patient
         {:selected-id :relapses
          :sub-menu    {:items [{:id      :add-ms-event
-                                :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id sms)}])} "Add event"]}]}}
+                                :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/site_unknown true
+                                                                                                             :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id sms)}])} "Add event"]}]}}
         (if-not sms
           [ui/box-error-message {:title "No neuro-inflammatory diagnosis recorded" :message "You must record a neuro-inflammatory diagnosis before recording events"}]
           [:<>
