@@ -409,7 +409,7 @@
   - value       : a map containing all values
   - keys        : a sequence of keys to be set to true or false
   - display-key : a function such as a keyword, a map or function to derive display"
-  [{:keys [value legend keys display-key on-change]
+  [{:keys [value legend keys display-key on-change on-item-change]
     :or {display-key name}}]
   [:fieldset.space-y-5
    (when legend [:legend.sr-only legend])
@@ -419,5 +419,7 @@
       {:name (name item)
        :label (display-key item)
        :checked (or (item value) false)
-       :on-change #(when on-change (on-change (assoc value item %)))}])])
+       :on-change #(cond
+                     on-change (on-change (assoc value item %))
+                     on-item-change (on-item-change item %))}])])
 
