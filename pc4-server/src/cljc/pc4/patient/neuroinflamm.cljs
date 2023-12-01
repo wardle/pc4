@@ -240,9 +240,29 @@
       :query      [(list 'pc4.rsdb/delete-ms-event event)]
       :on-success on-success}]))
 
+(def all-ms-event-sites
+  [:t_ms_event/site_unknown :t_ms_event/site_arm_motor :t_ms_event/site_leg_motor
+   :t_ms_event/site_limb_sensory :t_ms_event/site_sphincter :t_ms_event/site_sexual
+   :t_ms_event/site_face_motor :t_ms_event/site_face_sensory
+   :t_ms_event/site_diplopia :t_ms_event/site_vestibular :t_ms_event/site_bulbar
+   :t_ms_event/site_ataxia :t_ms_event/site_optic_nerve :t_ms_event/site_psychiatric
+   :t_ms_event/site_other :t_ms_event/site_cognitive])
+
 (s/def ::date some?)
 (s/def ::editing-ms-event (s/keys :req [:t_ms_event/summary_multiple_sclerosis_fk
                                         :t_ms_event/date]))
+
+(defn change-event-site
+  [event k v]
+  (cond
+    (and (= k :t_ms_event/site_unknown) v) ;; if site_unknown is checked, clear all other sites
+    (apply assoc (assoc {} :t_ms_event/site_unknown true) (reduce #(conj %1 %2 false) [] (next all-ms-event-sites)))
+    (= k :t_ms_event/site_unknown) ;; if site_unknown is unchecked, just uncheck it
+    (assoc event k v)
+    (false? v) ;; if a site is unchecked, just uncheck it
+    (assoc event k v)
+    :else ;; if another site is checked, uncheck site_unknown
+    (assoc event k v :t_ms_event/site_unknown false)))
 
 (defn edit-ms-event
   [event all-ms-event-types {:keys [on-change]}]
@@ -264,14 +284,9 @@
      [ui/ui-simple-form-item {:label "Site"}
       [:div.columns-1.sm:columns-2.md:columns-3.lg:columns-4
        (ui/ui-multiple-checkboxes
-         {:value     event, :display-key ms-event-site-to-string
-          :keys      [:t_ms_event/site_unknown :t_ms_event/site_arm_motor :t_ms_event/site_leg_motor
-                      :t_ms_event/site_limb_sensory :t_ms_event/site_sphincter :t_ms_event/site_sexual
-                      :t_ms_event/site_face_motor :t_ms_event/site_face_sensory
-                      :t_ms_event/site_diplopia :t_ms_event/site_vestibular :t_ms_event/site_bulbar
-                      :t_ms_event/site_ataxia :t_ms_event/site_optic_nerve :t_ms_event/site_psychiatric
-                      :t_ms_event/site_other :t_ms_event/site_cognitive]
-          :on-change on-change})]]
+         {:value          event, :display-key ms-event-site-to-string
+          :keys           all-ms-event-sites
+          :on-item-change (fn [k v] (on-change (change-event-site event k v)))})]]
      [ui/ui-simple-form-item {:label "Notes"}
       [ui/ui-textarea {:value     notes
                        :on-change #(on-change (assoc event :t_ms_event/notes %))}]]]))
@@ -306,9 +321,9 @@
              (tap> {:editing-event editing-event})
              [ui/ui-modal
               {:on-close #(rf/dispatch [::events/modal :relapses nil])
-               :actions  [{:id       :save, :title "Save", :role :primary
+               :actions  [{:id        :save, :title "Save", :role :primary
                            :disabled? (not (s/valid? ::editing-ms-event editing-event))
-                           :on-click #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
+                           :on-click  #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
                           {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
                            :title    "Delete"
                            :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
@@ -318,7 +333,7 @@
 
               (edit-ms-event editing-event ms-event-types {:on-change #(rf/dispatch-sync [::events/modal :relapses %])})])
            (when (seq ordering-errors)
-             [:div.pb-8 (ui/box-error-message {:title "Warning: invalid disease relapses and events"
+             [:div.pb-8 (ui/box-error-message {:title   "Warning: invalid disease relapses and events"
                                                :message [:ul (for [error ordering-errors]
                                                                [:li error])]})])
            [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf) relapses)]])]))})
