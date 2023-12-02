@@ -170,7 +170,7 @@
 (defn relapses-table [events]
   [ui/ui-table
    [ui/ui-table-head
-    [ui/ui-table-row
+    [ui/ui-table-row {}
      (for [{:keys [s key title]} relapse-headings]
        [ui/ui-table-heading (cond-> {:key (or key s)} title (assoc :title title)) s])]]
    [ui/ui-table-body
