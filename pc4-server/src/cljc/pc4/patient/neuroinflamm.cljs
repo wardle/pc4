@@ -110,7 +110,7 @@
                                                                                            :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
                                                         ['*]}]}])
            save-lsoa-fn #(do (println "Setting LSOA to " %)
-                             (rf/dispatch [:server/load
+                             (rf/dispatch [::events/remote
                                            {:id    ::save-postal-code
                                             :query [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
                                                            {:t_patient/patient_identifier patient_identifier
@@ -138,7 +138,7 @@
           [inspect-edit-death-certificate patient
            {:on-save #(do (println "updating death certificate" %)
                           (rf/dispatch
-                            [:server/load
+                            [::events/remote
                              {:id    ::notify-death
                               :query [{(list 'pc4.rsdb/notify-death
                                              (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
