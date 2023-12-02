@@ -467,6 +467,7 @@
                                        :t_episode/notes
                                        :t_episode/project_fk
                                        {:t_episode/project [:t_project/id]}
+                                       {:t_episode/patient [:t_patient/id]}
                                        :t_episode/referral_user_fk
                                        :t_episode/registration_user_fk
                                        :t_episode/stored_pseudonym
@@ -486,7 +487,8 @@
                                                       [:t_episode/date_referral :asc]
                                                       [:t_episode/date_discharge :asc]]}))
           (mapv #(assoc % :t_episode/status (projects/episode-status %)
-                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}))))})
+                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}
+                          :t_episode/patient {:t_patient/id patient-pk}))))})
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -507,6 +509,9 @@
   {:t_episode/project (db/execute-one! conn (sql/format {:select [:*]
                                                          :from   [:t_project]
                                                          :where  [:= :id project-id]}))})
+(pco/defresolver episode->patient
+  [{patient-pk :t_episode/patient_fk}]
+  {:t_episode/patient {:t_patient/id patient-pk}})
 
 (pco/defresolver project-by-identifier
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
@@ -1474,6 +1479,7 @@
    address->stored-lsoa
    patient->episodes
    episode->project
+   episode->patient
    project-by-identifier
    project->parent
    project->specialty
