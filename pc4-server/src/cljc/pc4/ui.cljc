@@ -213,7 +213,7 @@
   [:label.block.text-sm.font-medium.text-gray-600 (when for {:htmlFor for}) label])
 
 (defn ui-textfield
-  [{:keys [id value type label placeholder required disabled help-text auto-focus on-key-down on-change on-blur ] :as attrs}]
+  [{:keys [id value type label placeholder required disabled help-text auto-focus on-key-down on-change on-blur] :as attrs}]
   [:div
    (when label (ui-label {:for id :label label}))
    [:div.mt-1
@@ -344,7 +344,8 @@
 (defn ui-table-body [& content]
   (into [:tbody.bg-white] content))
 
-(defn ui-table-row [props & content]
+(defn ui-table-row
+  [props & content]
   (into [:tr props] content))
 
 (defn ui-table-cell [props & content]
@@ -410,15 +411,15 @@
   - keys        : a sequence of keys to be set to true or false
   - display-key : a function such as a keyword, a map or function to derive display"
   [{:keys [value legend keys display-key on-change on-item-change]
-    :or {display-key name}}]
+    :or   {display-key name}}]
   [:fieldset.space-y-5
    (when legend [:legend.sr-only legend])
    (for [item keys]
      ^{:key item}
      [ui-checkbox
-      {:name (name item)
-       :label (display-key item)
-       :checked (or (item value) false)
+      {:name      (name item)
+       :label     (display-key item)
+       :checked   (or (item value) false)
        :on-change #(cond
                      on-change (on-change (assoc value item %))
                      on-item-change (on-item-change item %))}])])
