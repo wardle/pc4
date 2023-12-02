@@ -86,8 +86,7 @@
      [:div.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
       [:div.col-span-1.pt-2
        [menu project patient menu-options]]
-      [:div.col-span-1.md:col-span-5.pt-2
-       (into [ui/ui-panel] content)]]]))
+      (into [:div.col-span-1.md:col-span-5.pt-2 content])]]))
 
 (defn patient-ident
   "Returns the 'ident' of the patient given route parameters. This works both
