@@ -99,7 +99,7 @@
     [::events/remote                                          ;; take care to pull in refreshed list of medications for patient
      {:id         ::delete-medication
       :query      [(list 'pc4.rsdb/delete-medication medication)]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :failed?    (fn [response] (get-in response ['pc4.rsdb/delete-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
       :on-success on-success}]))
 
 (defn ^:private medication-by-date-from [med]
