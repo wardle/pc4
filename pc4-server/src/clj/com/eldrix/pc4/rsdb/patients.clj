@@ -404,18 +404,21 @@
     :abbreviation "POR"
     :onset        true
     :relapse      false
+    :progressive  true
     :description  "Progressive from disease onset"
     :followed-by  #{"PR"}}
    {:id           9
     :abbreviation "POP"
     :onset        false
     :relapse      false
+    :progressive  true
     :description  "Onset of secondary progressive disease"
     :followed-by  #{"PR"}}
    {:id           10
     :abbreviation "PR"
     :onset        false
     :relapse      true
+    :progressive  true
     :description  "Relapse superimposed on progressive disease"
     :followed-by  #{"PR"}}
    {:id           11
@@ -497,6 +500,10 @@
   [{abbrev :t_ms_event_type/abbreviation}]
   (get-in ms-event-type-by-abbreviation [abbrev :relapse]))
 
+(defn ms-event-is-progressive?
+  [{abbrev :t_ms_event_type/abbreviation}]
+  (get-in ms-event-type-by-abbreviation [abbrev :progressive]))
+
 (defn fetch-ms-events
   "Return the MS events for the given summary multiple sclerosis.
   Each event includes an additional :t_ms_event/is_relapse boolean property
@@ -508,6 +515,7 @@
                                       :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
                                       :where     [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
        (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)
+                      :t_ms_event/is_progressive (ms-event-is-progressive? %)
                       :t_ms_event/type (select-keys % [:t_ms_event_type/id :t_ms_event_type/name
                                                        :t_ms_event_type/abbreviation])))))
 

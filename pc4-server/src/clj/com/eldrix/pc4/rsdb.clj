@@ -303,7 +303,7 @@
   {::pco/output [{:t_summary_multiple_sclerosis/events
                   [:t_ms_event/id
                    :t_ms_event/date
-                   :t_ms_event/is_relapse
+                   :t_ms_event/is_relapse :t_ms_event/is_progressive
                    :t_ms_event/site_arm_motor :t_ms_event/site_ataxia
                    :t_ms_event/site_bulbar :t_ms_event/site_cognitive
                    :t_ms_event/site_diplopia :t_ms_event/site_face_motor
@@ -1211,7 +1211,8 @@
                                                     :t_ms_event_type/id
                                                     :t_ms_event_type/abbreviation
                                                     :t_ms_event_type/name
-                                                    :t_ms_event/is_relapse)
+                                                    :t_ms_event/is_relapse
+                                                    :t_ms_event/is_progressive)
                                             (assoc :t_ms_event/ms_event_type_fk (:t_ms_event_type/id params))))))))
 
 (s/def ::delete-ms-event
