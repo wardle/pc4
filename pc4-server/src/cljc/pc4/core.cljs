@@ -14,6 +14,7 @@
             [pc4.events :as events]
             [pc4.patient.home]
             [pc4.patient.diagnoses]
+            [pc4.patient.episodes]
             [pc4.patient.medication]
             [pc4.patient.neuroinflamm]
             [pc4.project.downloads]
@@ -185,6 +186,13 @@
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
+   ["/projects/:project-id/patients/pseudonym/:pseudonym/admissions"
+    {:name        :pseudonymous-patient/admissions
+     :component   pc4.patient.episodes/admission-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :pseudonym string?}}
+     :controllers [pathom-controller]}]
+
    ["/patients/id/:patient-identifier/home"
     {:name        :patient/home
      :component   pc4.patient.neuroinflamm/neuroinflamm-page
@@ -211,6 +219,13 @@
    ["/patients/id/:patient-identifier/relapses"
     {:name        :patient/relapses
      :component   pc4.patient.neuroinflamm/relapses-page
+     :auth        identity
+     :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   ["/patients/id/:patient-identifier/admissions"
+    {:name        :patient/admissions
+     :component   pc4.patient.episodes/admission-page
      :auth        identity
      :parameters  {:path {:patient-identifier int?}}
      :controllers [pathom-controller]}]])

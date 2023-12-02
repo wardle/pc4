@@ -51,8 +51,7 @@
          ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations patient-link-attrs)}}
          {:id      :admissions
           :content (content "Admissions")
-          :attrs   {} #_{:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
-
+          :attrs   {:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}]
 
         [{:id      :home
           :content (content "Home")
@@ -74,7 +73,7 @@
          ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations patient-link-attrs)}}
          {:id      :admissions
           :content (content "Admissions")
-          :attrs   {} #_{:href (rfe/href :pseudonymous-patient/admissions {:project-id project-id :pseudonym pseudonym})}}])
+          :attrs   {:href (rfe/href :patient/admissions {:patient-identifier patient_identifier})}}])
 
       :sub-menu    sub-menu}]))
 
