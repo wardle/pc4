@@ -174,14 +174,19 @@
      (for [{:keys [s key title]} relapse-headings]
        [ui/ui-table-heading (cond-> {:key (or key s)} title (assoc :title title)) s])]]
    [ui/ui-table-body
-    (for [{:t_ms_event/keys [id date type impact site_unknown site_arm_motor site_leg_motor site_limb_sensory
+    (for [{:t_ms_event/keys [id date type is_relapse is_progressive impact site_unknown site_arm_motor site_leg_motor site_limb_sensory
                              site_sphincter site_sexual site_face_motor site_face_sensory site_diplopia
                              site_vestibular site_bulbar site_ataxia site_optic_nerve site_psychiatric
                              site_other site_cognitive], :as event} events]
       [ui/ui-table-row
-       {:key id}
+       {:key   id
+        :class (cond-> []
+                       (not is_progressive) (conj "bg-red-50/50")
+                       (not is_relapse) (conj "border-t" "border-dashed" "border-gray-400") ;; mark start of progressive disease
+                       is_progressive (conj "italic" "bg-blue-50/25"))}
        [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date)]
        [ui/ui-table-cell {} (:t_ms_event_type/abbreviation type)]
+
        [ui/ui-table-cell {} impact]
        [ui/ui-table-cell {} (when site_unknown "UK")]
        [ui/ui-table-cell {} (when site_arm_motor "UE")]
@@ -209,7 +214,7 @@
 
 (def event-properties
   [:t_ms_event/id :t_ms_event/summary_multiple_sclerosis_fk
-   :t_ms_event/date :t_ms_event/impact :t_ms_event/is_relapse
+   :t_ms_event/date :t_ms_event/impact :t_ms_event/is_relapse :t_ms_event/is_progressive
    :t_ms_event/site_arm_motor :t_ms_event/site_ataxia :t_ms_event/site_bulbar
    :t_ms_event/site_cognitive :t_ms_event/site_diplopia :t_ms_event/site_face_motor
    :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor :t_ms_event/site_limb_sensory
@@ -319,7 +324,7 @@
           {:selected-id :relapses
            :sub-menu    {:items
                          [{:id      :add-ms-event
-                           :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/type (first (filter (fn [et] (= "UK" (:t_ms_event_type/abbreviation et))) ms-event-types))
+                           :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/type                          (first (filter (fn [et] (= "UK" (:t_ms_event_type/abbreviation et))) ms-event-types))
                                                                                                         :t_ms_event/site_unknown                  true
                                                                                                         :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id sms)}])} "Add event"]}]}}
           (when editing-event
