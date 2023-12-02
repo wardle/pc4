@@ -25,7 +25,7 @@
   [{:t_medication/keys [id date_from date_to reason_for_stopping more_information events] :as medication} {:keys [on-change]}]
   (tap> {:edit-medication medication})
   [ui/ui-simple-form
-   [ui/ui-simple-form-title {:title (if (= :new id) "Add medication" "Edit medication")}]
+   [ui/ui-simple-form-title {:title (if id "Edit medication" "Add medication")}]
    [ui/ui-simple-form-item {:label "Medication"}
     (if id                                                  ;; if we already have a saved diagnosis, don't allow user to change
       [:h3.text-lg.font-medium.leading-6.text-gray-900 (get-in medication [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
