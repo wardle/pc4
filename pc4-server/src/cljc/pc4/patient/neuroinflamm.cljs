@@ -215,8 +215,9 @@
    :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor :t_ms_event/site_limb_sensory
    :t_ms_event/site_optic_nerve :t_ms_event/site_other :t_ms_event/site_psychiatric
    :t_ms_event/site_sexual :t_ms_event/site_sphincter :t_ms_event/site_unknown
-   :t_ms_event/site_vestibular {:t_ms_event/type [:t_ms_event_type/id :t_ms_event_type/name
-                                                  :t_ms_event_type/abbreviation]}])
+   :t_ms_event/site_vestibular
+   {:t_ms_event/type [:t_ms_event_type/id :t_ms_event_type/name
+                      :t_ms_event_type/abbreviation]}])
 
 (defn save-event [patient-identifier event {:keys [on-success]}]
   (rf/dispatch
@@ -318,29 +319,27 @@
           {:selected-id :relapses
            :sub-menu    {:items
                          [{:id      :add-ms-event
-                           :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/site_unknown                  true
+                           :content [ui/menu-button {:on-click #(rf/dispatch [::events/modal :relapses {:t_ms_event/type (first (filter (fn [et] (= "UK" (:t_ms_event_type/abbreviation et))) ms-event-types))
+                                                                                                        :t_ms_event/site_unknown                  true
                                                                                                         :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id sms)}])} "Add event"]}]}}
-          (if-not sms
-            [ui/box-error-message {:title "No neuro-inflammatory diagnosis recorded" :message "You must record a neuro-inflammatory diagnosis before recording events"}]
-            [:<>
-             (when editing-event
-               (tap> {:editing-event editing-event})
-               [ui/ui-modal
-                {:on-close #(rf/dispatch [::events/modal :relapses nil])
-                 :actions  [{:id        :save, :title "Save", :role :primary
-                             :disabled? (not (s/valid? ::editing-ms-event editing-event))
-                             :on-click  #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
-                            {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
-                             :title    "Delete"
-                             :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
-                                                                                       [:dispatch [::events/modal :relapses nil]]]}})}
-                            {:id       :cancel, :title "Cancel"
-                             :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
+          (when editing-event
+            (tap> {:editing-event editing-event})
+            [ui/ui-modal
+             {:on-close #(rf/dispatch [::events/modal :relapses nil])
+              :actions  [{:id        :save, :title "Save", :role :primary
+                          :disabled? (not (s/valid? ::editing-ms-event editing-event))
+                          :on-click  #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
+                         {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
+                          :title    "Delete"
+                          :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
+                                                                                    [:dispatch [::events/modal :relapses nil]]]}})}
+                         {:id       :cancel, :title "Cancel"
+                          :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
 
-                (edit-ms-event editing-event ms-event-types {:on-change #(rf/dispatch-sync [::events/modal :relapses %])})])
-             (when (seq ordering-errors)
-               [:div.pb-8 (ui/box-error-message {:title   "Warning: invalid disease relapses and events"
-                                                 :message [:ul (for [error ordering-errors]
-                                                                 [:li error])]})])
-             [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf) relapses)]])])))})
+             (edit-ms-event editing-event ms-event-types {:on-change #(rf/dispatch-sync [::events/modal :relapses %])})])
+          (when (seq ordering-errors)
+            [:div.pb-4 (ui/box-error-message {:title   "Warning: invalid disease relapses and events"
+                                              :message [:ul (for [error ordering-errors]
+                                                              [:li error])]})])
+          [relapses-table (sort-by #(-> % :t_ms_event/date .valueOf) relapses)]])))})
 
