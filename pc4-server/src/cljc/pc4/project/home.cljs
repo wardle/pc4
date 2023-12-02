@@ -52,7 +52,7 @@
 
 (defn home-panel
   "Project home panel"
-  [{:t_project/keys [title type long_description date_from date_to administrator_user
+  [{:t_project/keys [title type pseudonymous long_description date_from date_to administrator_user
                      parent_project count_registered_patients
                      count_discharged_episodes count_pending_referrals
                      address1 address2 address3 address4 postcode
@@ -67,7 +67,8 @@
                    {:title "Registered patients" :content count_registered_patients}
                    {:title "Pending referrals" :content count_pending_referrals}
                    {:title "Discharged episodes" :content count_discharged_episodes}
-                   {:title "Type" :content (when type (name type))}
+                   {:title "Type" :content (str/join " / " (remove nil? [(when type (name type))
+                                                                         (when pseudonymous "PSEUDONYMOUS")]))}
                    {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
                    {:title "Parent" :content [:a {:href (or (:t_project/url parent_project) "#")} (:t_project/title parent_project)]}]
      :long-items  [{:title   "Address"
