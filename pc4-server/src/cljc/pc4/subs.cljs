@@ -68,5 +68,5 @@
 
 (rf/reg-sub ::local-pull
   (fn [db [_ query targets]]
-    (comp/pull-results (:entity-db db) {:query query :targets targets})))
+    (comp/pull-results (:entity-db db) {:tx query :targets targets})))
 

@@ -4,6 +4,7 @@
   - Timers
   - Panel management / navigation"
   (:require [ajax.transit :as ajax-transit]
+            [cljs.spec.alpha :as s]
             [re-frame.core :as rf]
             [day8.re-frame.http-fx]                         ;; required for its side-effects in registering a re-frame "effect"
             [pc4.comp :as comp]
@@ -257,6 +258,15 @@
         ;; we have an active session
         :else (js/console.log "active session; token expires in " (server/jwt-expires-seconds token) "seconds")))))
 
+
+
+(s/def ::id keyword?)
+(s/def ::tx (s/or :fn fn? :vector vector? :map map?))
+(s/def ::targets (s/nilable vector?))
+(s/def ::on-success-fx (s/or :fn fn? :vector vector?))
+(s/def ::on-failure-fx (s/or :fn fn? :vector vector?))
+(s/def ::remote-config (s/keys :req-un [::id ::tx]
+                               :opt-un [::targets ::on-success-fx ::on-failure-fx]))
 ;;
 ;; Perform a remote transaction
 ;; We have to take care that, if the same transaction is run repeatedly
@@ -265,16 +275,18 @@
 ;; could be used to implement caching so that a repeated load is only made if
 ;; the data is older than a certain limit, configured per-route.
 (rf/reg-event-fx ::remote
-  (fn [{:keys [db]} [_ {:keys [id query] :as config}]]
-    (js/console.log "Performing pathom load:" {:id id :query query})
+  (fn [{:keys [db]} [_ {:keys [id tx] :as config}]]
+    (js/console.log "Performing remote transaction:" {:id id :tx tx})
+    (when (and goog.debug (not (s/valid? ::remote-config config)))
+      (throw (ex-info "Invalid remote transaction" (s/explain-data ::remote-config config))))
     {:db (update db :loading (fnil conj #{}) id)                           ;; we're starting some network loading
-     :fx [[:pathom {:params     query
+     :fx [[:pathom {:params     tx
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-remote-success config (js/Date.)]
                     :on-failure [::handle-load-failure config]}]]}))
 
 (rf/reg-event-fx ::handle-remote-success                      ;; HTTP success, but the response may contain an error
-  (fn [{db :db} [_ {:keys [id failed? on-success on-failure] :as config} request-date response]]
+  (fn [{db :db} [_ {:keys [id failed? on-success-fx on-failure-fx] :as config} request-date response]]
     (when-not id
       (throw (ex-info "missing id" config)))
     (let [failed? (or failed? (constantly false))]
@@ -283,10 +295,10 @@
       (if (or (:error response) (failed? response))
         (do (js/console.log "load error" (-> response :error :cause))
             (cond-> {:db (update db :loading disj id)}
-                    (fn? on-failure)
-                    (assoc :fx [[:dispatch ((:on-failure config) response)]])
-                    (vector? on-failure)
-                    (assoc :fx [[:dispatch (:on-failure config)]])))
+                    (fn? on-failure-fx)
+                    (assoc :fx (on-failure-fx response))
+                    (vector? on-failure-fx)
+                    (assoc :fx on-failure-fx)))
         (let [path [:last-updated id]
               last-updated (get-in db path)]
           (if (or (not last-updated) (> request-date last-updated))
@@ -295,12 +307,10 @@
                                (update :loading disj id)
                                (assoc :entity-db entity-db,)
                                (assoc-in path request-date)))}
-                    (fn? on-success)
-                    (assoc :fx [[:dispatch (on-success response)]])
-                    (vector? on-success)
-                    (assoc :fx [[:dispatch on-success]])
-                    (map? on-success)
-                    (merge on-success))
+                    (fn? on-success-fx)
+                    (assoc :fx (on-success-fx response))
+                    (vector? on-success-fx)
+                    (assoc :fx on-success-fx))
             (js/console.log "Out of order pathom response ignored")))))))
 
 (rf/reg-event-fx ::handle-load-failure

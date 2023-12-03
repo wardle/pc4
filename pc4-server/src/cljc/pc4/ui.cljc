@@ -307,7 +307,7 @@
       (into [:div.mt-4.sm:mt-0.sm:ml-16.sm:flex-none] content))]])
 
 (defn ui-panel [& content]
-  [:div.bg-white.overflow-hidden.shadow.sm:rounded-lg.border.shadow-lg.w-full
+  [:div.bg-white.shadow.sm:rounded-lg.border.shadow-lg.w-full
    (into [:div.px-4.py-6.sm:p-6] content)])
 
 (defn ui-simple-form-title [{:keys [title subtitle]}]

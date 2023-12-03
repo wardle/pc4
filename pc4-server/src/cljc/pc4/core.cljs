@@ -25,7 +25,6 @@
             [pc4.subs :as subs]
             [pc4.views :as views]))
 
-
 (defn href
   "Return relative url for given route. Url can be used in HTML links."
   ([k]
@@ -41,13 +40,13 @@
   {:identity (fn [{:keys [data parameters] :as _match}]
                (tap> {:pathom-controller _match})
                (let [route-name (:name data)
-                     query (get-in data [:component :query])
+                     tx (get-in data [:component :tx])
                      targets (get-in data [:component :targets])]
                  ;; return controller identity as a query based on parameters and any targets
                  {:id      route-name
-                  :query   (if (fn? query) (query parameters) query)
+                  :tx   (if (fn? tx) (tx parameters) tx)
                   :targets (if (fn? targets) (targets parameters) targets)}))
-   :start    (fn [{:keys [query] :as m}]
+   :start    (fn [m]
                ;; normalise and merge data into app database
                (rf/dispatch [::events/remote m]))})
 (defn view
@@ -66,9 +65,9 @@
   [route]
   (let [parameters (:parameters route)
         route-name (-> route :data :name)
-        {:keys [query targets view] :as component} (-> route :data :component)]
+        {:keys [tx targets view] :as component} (-> route :data :component)]
     (if component
-      (let [query' (query parameters)
+      (let [query' (tx parameters)
             results @(rf/subscribe [::subs/local-pull query' targets])
             loading @(rf/subscribe [::subs/remote-loading route-name])]
         [view (assoc route :loading loading) results])

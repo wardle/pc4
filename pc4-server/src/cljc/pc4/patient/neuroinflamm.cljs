@@ -89,7 +89,7 @@
   As pc4 evolves, this will not be needed, as that functionality will be
   available as determined by runtime configuration (ie: combination of project
   and patient types together with knowledge of diagnoses of project and patient."
-  {:query
+  {:tx
    (fn [params]
      [{(patient/patient-ident params)
        (conj banner/banner-query
@@ -102,50 +102,53 @@
 
    :view
    (fn [_ [{project-id      :t_episode/project_fk
-            :t_patient/keys [patient_identifier] :as patient}
+            :t_patient/keys [patient_identifier status] :as patient}
            all-ms-diagnoses]]
      (let [select-diagnosis-fn #(rf/dispatch [::events/remote ;; the result will be automatically normalised and therefore update
-                                              {:id    ::save-ms-diagnosis
-                                               :query [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
-                                                                                           :t_ms_diagnosis/id            (:t_ms_diagnosis/id %)})
-                                                        ['*]}]}])
+                                              {:id ::save-ms-diagnosis
+                                               :tx [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
+                                                                                        :t_ms_diagnosis/id         (:t_ms_diagnosis/id %)})
+                                                     ['*]}]}])
            save-lsoa-fn #(do (println "Setting LSOA to " %)
                              (rf/dispatch [::events/remote
-                                           {:id    ::save-postal-code
-                                            :query [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
-                                                           {:t_patient/patient_identifier patient_identifier
-                                                            :uk.gov.ons.nhspd/PCD2        %})
-                                                     [:t_address/id :t_address/lsoa]}]}]))]
+                                           {:id ::save-postal-code
+                                            :tx [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
+                                                        {:t_patient/patient_identifier patient_identifier
+                                                         :uk.gov.ons.nhspd/PCD2        %})
+                                                  [:t_address/id :t_address/lsoa]}]}]))]
        [patient/layout {:t_project/id project-id} patient {:selected-id :home}
-        [ui/ui-title {:title "Neuroinflammatory home page"}]
-        [ui/ui-simple-form
-         [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
-          [ui/ui-select
-           {:name                :ms-diagnosis
-            :value               (get-in patient [:t_patient/summary_multiple_sclerosis
-                                                  :t_summary_multiple_sclerosis/ms_diagnosis])
-            :disabled?           false
-            :choices             all-ms-diagnoses
-            :no-selection-string "=Choose diagnosis="
-            :id-key              :t_ms_diagnosis/id
-            :display-key         :t_ms_diagnosis/name
-            :on-select           select-diagnosis-fn}]]
-         [ui/ui-simple-form-item {:label "LSOA (Geography)"}
-          [inspect-edit-lsoa
-           {:value     (get-in patient [:t_patient/address :t_address/lsoa])
-            :on-change save-lsoa-fn}]]
-         [ui/ui-simple-form-item {:label "Vital status"}
-          [inspect-edit-death-certificate patient
-           {:on-save #(do (println "updating death certificate" %)
-                          (rf/dispatch
-                            [::events/remote
-                             {:id    ::notify-death
-                              :query [{(list 'pc4.rsdb/notify-death
-                                             (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
-                                       [:t_patient/id
-                                        :t_patient/date_death
-                                        {:t_patient/death_certificate [:t_death_certificate/id
-                                                                       :t_death_certificate/part1a]}]}]}]))}]]]]))})
+        [ui/ui-panel
+         [ui/ui-title {:title "Neuroinflammatory home page"}]
+         [ui/ui-simple-form
+          [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
+           [ui/ui-select
+            {:name                :ms-diagnosis
+             :value               (get-in patient [:t_patient/summary_multiple_sclerosis
+                                                   :t_summary_multiple_sclerosis/ms_diagnosis])
+             :disabled?           false
+             :choices             all-ms-diagnoses
+             :no-selection-string "=Choose diagnosis="
+             :id-key              :t_ms_diagnosis/id
+             :display-key         :t_ms_diagnosis/name
+             :on-select           select-diagnosis-fn}]]
+
+          (when (= :PSEUDONYMOUS status)
+            [ui/ui-simple-form-item {:label "LSOA (Geography)"}
+             [inspect-edit-lsoa
+              {:value     (get-in patient [:t_patient/address :t_address/lsoa])
+               :on-change save-lsoa-fn}]])
+          [ui/ui-simple-form-item {:label "Vital status"}
+           [inspect-edit-death-certificate patient
+            {:on-save #(do (println "updating death certificate" %)
+                           (rf/dispatch
+                             [::events/remote
+                              {:id ::notify-death
+                               :tx [{(list 'pc4.rsdb/notify-death
+                                           (merge {:t_patient/patient_identifier patient_identifier, :t_patient/date_death nil} %))
+                                     [:t_patient/id
+                                      :t_patient/date_death
+                                      {:t_patient/death_certificate [:t_death_certificate/id
+                                                                     :t_death_certificate/part1a]}]}]}]))}]]]]]))})
 
 (def relapse-headings
   [{:s "Date"} {:s "Type"} {:s "Impact"}
@@ -224,27 +227,27 @@
    {:t_ms_event/type [:t_ms_event_type/id :t_ms_event_type/name
                       :t_ms_event_type/abbreviation]}])
 
-(defn save-event [patient-identifier event {:keys [on-success]}]
+(defn save-event [patient-identifier event {:keys [on-success-fx]}]
   (rf/dispatch
     [::events/remote
-     {:id         ::save-event                              ;; take care here to return all events
-      :query      [{(list 'pc4.rsdb/save-ms-event
-                          (assoc event :t_patient/patient_identifier patient-identifier
-                                       :t_ms_event_type/id (get-in event [:t_ms_event/type :t_ms_event_type/id])))
-                    [:t_ms_event/id
-                     {:t_ms_event/summary_multiple_sclerosis
-                      [:t_summary_multiple_sclerosis/id
-                       :t_summary_multiple_sclerosis/event_ordering_errors
-                       {:t_summary_multiple_sclerosis/events event-properties}]}]}]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-ms-event :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success on-success}]))
+     {:id            ::save-event                           ;; take care here to return all events
+      :tx            [{(list 'pc4.rsdb/save-ms-event
+                             (assoc event :t_patient/patient_identifier patient-identifier
+                                          :t_ms_event_type/id (get-in event [:t_ms_event/type :t_ms_event_type/id])))
+                       [:t_ms_event/id
+                        {:t_ms_event/summary_multiple_sclerosis
+                         [:t_summary_multiple_sclerosis/id
+                          :t_summary_multiple_sclerosis/event_ordering_errors
+                          {:t_summary_multiple_sclerosis/events event-properties}]}]}]
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/save-ms-event :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx on-success-fx}]))
 
-(defn delete-event [event {:keys [on-success]}]
+(defn delete-event [event {:keys [on-success-fx]}]
   (rf/dispatch
     [::events/remote
-     {:id         ::delete-event
-      :query      [(list 'pc4.rsdb/delete-ms-event event)]
-      :on-success on-success}]))
+     {:id            ::delete-event
+      :tx            [(list 'pc4.rsdb/delete-ms-event event)]
+      :on-success-fx on-success-fx}]))
 
 (def all-ms-event-sites
   [:t_ms_event/site_unknown :t_ms_event/site_arm_motor :t_ms_event/site_leg_motor
@@ -297,7 +300,7 @@
       [ui/ui-textarea {:value     notes
                        :on-change #(on-change (assoc event :t_ms_event/notes %))}]]]))
 (def relapses-page
-  {:query
+  {:tx
    (fn [params]
      [{(patient/patient-ident params)
        (conj banner/banner-query
@@ -333,11 +336,11 @@
              {:on-close #(rf/dispatch [::events/modal :relapses nil])
               :actions  [{:id        :save, :title "Save", :role :primary
                           :disabled? (not (s/valid? ::editing-ms-event editing-event))
-                          :on-click  #(save-event patient-identifier editing-event {:on-success [::events/modal :relapses nil]})}
+                          :on-click  #(save-event patient-identifier editing-event {:on-success-fx [[:dispatch [::events/modal :relapses nil]]]})}
                          {:id       :delete, :hidden? (not (:t_ms_event/id editing-event))
                           :title    "Delete"
-                          :on-click #(delete-event editing-event {:on-success {:fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
-                                                                                    [:dispatch [::events/modal :relapses nil]]]}})}
+                          :on-click #(delete-event editing-event {:on-success-fx [[:dispatch [::events/local-delete [:t_ms_event/id (:t_ms_event/id editing-event)]]]
+                                                                                  [:dispatch [::events/modal :relapses nil]]]})}
                          {:id       :cancel, :title "Cancel"
                           :on-click #(rf/dispatch [::events/modal :relapses nil])}]}
 

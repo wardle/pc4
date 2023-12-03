@@ -46,15 +46,15 @@
 (defn save-diagnosis [patient-identifier diagnosis]
   (rf/dispatch
     [::events/remote
-     {:id         ::save-diagnosis
-      :query      [{(list 'pc4.rsdb/save-diagnosis (assoc diagnosis :t_patient/patient_identifier patient-identifier))
-                    [:t_diagnosis/id :t_diagnosis/date_onset
-                     :t_diagnosis/date_diagnosis :t_diagnosis/date_to
-                     :t_diagnosis/status {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                                                  {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                     {:t_diagnosis/patient [:t_patient/id :t_patient/diagnoses]}]}]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-diagnosis :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success (fn [_] [::events/modal :diagnoses nil])}]))
+     {:id            ::save-diagnosis
+      :tx            [{(list 'pc4.rsdb/save-diagnosis (assoc diagnosis :t_patient/patient_identifier patient-identifier))
+                       [:t_diagnosis/id :t_diagnosis/date_onset
+                        :t_diagnosis/date_diagnosis :t_diagnosis/date_to
+                        :t_diagnosis/status {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                                                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                        {:t_diagnosis/patient [:t_patient/id :t_patient/diagnoses]}]}]
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/save-diagnosis :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx [[:dispatch [::events/modal :diagnoses nil]]]}]))
 
 (defn diagnoses-table
   [title diagnoses]
@@ -78,7 +78,7 @@
         [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [::events/modal :diagnoses diagnosis])} "Edit")]])]]])
 
 (def diagnoses-page
-  {:query
+  {:tx
    (fn [{:keys [query] :as params}]
      [{(patient/patient-ident params)
        (conj banner/banner-query

@@ -72,7 +72,7 @@
     results))
 
 (defn target-results
-  "Given the results of a query, target the results to a database 'db'.
+  "Given the results of a transaction, target the results to a database 'db'.
   Results will be normalized unless `targets` provide a sequence of keys for the
   key to which the result should be `assoc-in`'ed."
   [db {:keys [targets]} results]
@@ -102,9 +102,9 @@
         (dissoc x :params) x)) ast))
 
 (defn pull-results
-  [db {:keys [query targets]}]
+  [db {:keys [tx targets]}]
   (let [targets' (or targets {})
-        ast (eql/query->ast query)
+        ast (eql/query->ast tx)
         all-keys (mapv :key (:children ast))                ;; get top-level keys from query
         n-keys (set (remove targets' all-keys))             ;; keys for which results will be normalized
         r-keys (set/difference (set all-keys) n-keys)
@@ -123,38 +123,38 @@
                 :r-results r-results})))
 
 (def example-component1
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/date_from :t_project/pseudonymous]}])})
+  {:tx (fn [params]
+         [{[:t_project/id (get-in params [:path :project-id])]
+           [:t_project/id :t_project/title :t_project/date_from :t_project/pseudonymous]}])})
 
 (def example-component2
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
-             {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}])})
+  {:tx (fn [params]
+         [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
+          {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}])})
 
 (def example-component3
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
-             {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
-             :com.eldrix.rsdb/all-medication-reasons-for-stopping])})
+  {:tx (fn [params]
+         [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
+          {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
+          :com.eldrix.rsdb/all-medication-reasons-for-stopping])})
 
 (def example-component4
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
-             {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
-             {:com.eldrix.rsdb/all-medication-reasons-for-stopping
-              [:t_medication_reason_for_stopping/id
-               :t_medication_reason_for_stopping/name]}])})
+  {:tx (fn [params]
+         [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
+          {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
+          {:com.eldrix.rsdb/all-medication-reasons-for-stopping
+           [:t_medication_reason_for_stopping/id
+            :t_medication_reason_for_stopping/name]}])})
 
 (def example-component5
-  {:query   (fn [params]
+  {:tx      (fn [params]
               [{[:t_project/id (get-in params [:path :project-id])] [:t_project/id :t_project/title {:t_project/users [:t_user/id :t_user/full_name]}]}
                {[:t_user/id 1] [:t_user/id :t_user/first_names :t_user/last_name]}
                :com.eldrix.rsdb/all-medication-reasons-for-stopping])
    :targets {:com.eldrix.rsdb/all-medication-reasons-for-stopping [:lookups :all-medication-reasons-for-stopping]}})
 
 (def example-component6
-  {:query   (fn [params]
+  {:tx      (fn [params]
               [{[:t_project/id (get-in params [:path :project-id])]
                 [{(list :t_project/users {:group-by :user :active true})
                   [:t_user/id :t_user/username :t_user/has_photo :t_user/email :t_user/full_name :t_user/active?
@@ -180,15 +180,15 @@
                {:t_user/roles [:t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
 
   (defn test-component
-    [db {:keys [query targets] :as component}]
-    (let [query' (query {:path {:project-id 1}})
-          results (pathom query')
-          {db' :db} (target-results db {:query query' :targets targets} results)]
+    [db {:keys [tx targets] :as component}]
+    (let [tx' (tx {:path {:project-id 1}})
+          results (pathom tx')
+          {db' :db} (target-results db {:tx tx' :targets targets} results)]
       {:db      db'
-       :query   query'
+       :tx      tx'
        :targets targets
        :results {:raw  results
-                 :pull (pull-results db' {:query query' :targets targets})}}))
+                 :pull (pull-results db' {:tx tx' :targets targets})}}))
 
   (test-component {} example-component1)
   (test-component {} example-component2)

@@ -84,29 +84,29 @@
                           {:t_medication_event/event_concept [:info.snomed.Concept/id
                                                               {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}])
 
-(defn save-medication [patient-identifier medication {:keys [on-success]}]
+(defn save-medication [patient-identifier medication {:keys [on-success-fx]}]
   (rf/dispatch
-    [::events/remote                                          ;; take care to pull in refreshed list of medications for patient
-     {:id         ::save-medication
-      :query      [{(list 'pc4.rsdb/save-medication (assoc medication :t_patient/patient_identifier patient-identifier))
-                    (conj medication-query
-                          {:t_medication/patient [:t_patient/id {:t_patient/medications [:t_medication/id]}]})}]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success on-success}]))
+    [::events/remote                                        ;; take care to pull in refreshed list of medications for patient
+     {:id            ::save-medication
+      :tx            [{(list 'pc4.rsdb/save-medication (assoc medication :t_patient/patient_identifier patient-identifier))
+                       (conj medication-query
+                             {:t_medication/patient [:t_patient/id {:t_patient/medications [:t_medication/id]}]})}]
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/save-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx on-success-fx}]))
 
-(defn delete-medication [medication {:keys [on-success]}]
+(defn delete-medication [medication {:keys [on-success-fx]}]
   (rf/dispatch
-    [::events/remote                                          ;; take care to pull in refreshed list of medications for patient
-     {:id         ::delete-medication
-      :query      [(list 'pc4.rsdb/delete-medication medication)]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/delete-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success on-success}]))
+    [::events/remote                                        ;; take care to pull in refreshed list of medications for patient
+     {:id            ::delete-medication
+      :tx            [(list 'pc4.rsdb/delete-medication medication)]
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/delete-medication :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx on-success-fx}]))
 
 (defn ^:private medication-by-date-from [med]
   (- 0 (if-let [date-from (:t_medication/date_from med)] (.valueOf date-from) 0)))
 
 (def medication-page
-  {:query
+  {:tx
    (fn [{:keys [query] :as params}]
      [{(patient/patient-ident params)
        (conj banner/banner-query
@@ -137,13 +137,15 @@
         (when editing-medication
           [ui/ui-modal {:on-close #(modal nil)
                         :actions  [{:id       ::save-action
-                                    :title    "Save" :role :primary
-                                    :on-click #(save-medication patient_identifier editing-medication {:on-success [::events/modal :medication nil]})}
+                                    :title    "Save"
+                                    :role     :primary
+                                    :on-click #(save-medication patient_identifier editing-medication
+                                                                {:on-success-fx [[:dispatch [::events/modal :medication nil]]]})}
                                    {:id       ::delete-action
                                     :title    "Delete"
                                     :on-click #(delete-medication editing-medication
-                                                                  {:on-success {:fx [[:dispatch [::events/local-delete [:t_medication/id (:t_medication/id editing-medication)]]]
-                                                                                     [:dispatch [::events/modal :medication nil]]]}})}
+                                                                  {:on-success-fx [[:dispatch [::events/local-delete [:t_medication/id (:t_medication/id editing-medication)]]]
+                                                                                   [:dispatch [::events/modal :medication nil]]]})}
                                    {:id       ::add-event-action
                                     :title    "Add event"
                                     :on-click #(modal (update editing-medication :t_medication/events (fnil conj []) {:t_medication_event/type :ADVERSE_EVENT}))}

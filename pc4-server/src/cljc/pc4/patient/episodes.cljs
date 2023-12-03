@@ -22,28 +22,28 @@
    :t_episode/stored_pseudonym
    :t_episode/status])
 
-(defn save-episode [patient-identifier episode {:keys [on-success]}]
+(defn save-episode [patient-identifier episode {:keys [on-success-fx]}]
   (rf/dispatch
     [::events/remote                                        ;; take care to pull in refreshed list of medications for patient
-     {:id         ::save-admission
-      :query      [{(list 'pc4.rsdb/save-admission (select-keys episode [:t_episode/id
-                                                                         :t_episode/patient_fk
-                                                                         :t_episode/date_registration
-                                                                         :t_episode/date_discharge]))
-                    (conj episode-properties
-                          {:t_episode/patient [:t_patient/id
-                                               {:t_patient/episodes [:t_episode/id]}]})}]
+     {:id            ::save-admission
+      :tx            [{(list 'pc4.rsdb/save-admission (select-keys episode [:t_episode/id
+                                                                            :t_episode/patient_fk
+                                                                            :t_episode/date_registration
+                                                                            :t_episode/date_discharge]))
+                       (conj episode-properties
+                             {:t_episode/patient [:t_patient/id
+                                                  {:t_patient/episodes [:t_episode/id]}]})}]
 
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/save-episode :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success on-success}]))
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/save-episode :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx on-success-fx}]))
 
-(defn delete-episode [episode {:keys [on-success]}]
+(defn delete-episode [episode {:keys [on-success-fx]}]
   (rf/dispatch
     [::events/remote                                        ;; take care to pull in refreshed list of medications for patient
-     {:id         ::delete-admission
-      :query      [(list 'pc4.rsdb/delete-admission episode)]
-      :failed?    (fn [response] (get-in response ['pc4.rsdb/delete-admission :com.wsscode.pathom3.connect.runner/mutation-error]))
-      :on-success on-success}]))
+     {:id            ::delete-admission
+      :tx            [(list 'pc4.rsdb/delete-admission episode)]
+      :failed?       (fn [response] (get-in response ['pc4.rsdb/delete-admission :com.wsscode.pathom3.connect.runner/mutation-error]))
+      :on-success-fx on-success-fx}]))
 
 (defn edit-admission-episode
   [{:t_episode/keys [id date_registration date_discharge] :as episode} {:keys [on-change]}]
@@ -73,7 +73,7 @@
              (and (>= (.valueOf date_discharge) (.valueOf date_registration))
                   (>= now (.valueOf date_discharge)))))))
 (def admission-page
-  {:query
+  {:tx
    (fn [params]
      [{(patient/patient-ident params)
        (conj banner/banner-query
@@ -96,19 +96,19 @@
                           :actions  [{:id        ::save-action
                                       :title     "Save" :role :primary
                                       :disabled? (not (valid-episode? editing-episode))
-                                      :on-click  #(save-episode patient_identifier editing-episode {:on-success [::events/modal :episodes nil]})}
+                                      :on-click  #(save-episode patient_identifier editing-episode {:on-success-fx [[:dispatch [::events/modal :episodes nil]]]})}
                                      (when (:t_episode/id editing-episode)
                                        {:id       ::delete-action
                                         :title    "Delete"
                                         :on-click #(delete-episode editing-episode
-                                                                   {:on-success {:fx [[:dispatch [::events/local-delete [:t_episode/id (:t_episode/id editing-episode)]]]
-                                                                                      [:dispatch [::events/modal :episodes nil]]]}})})
+                                                                   {:on-success-fx [[:dispatch [::events/local-delete [:t_episode/id (:t_episode/id editing-episode)]]]
+                                                                                    [:dispatch [::events/modal :episodes nil]]]})})
                                      {:id       ::cancel-action
                                       :title    "Cancel"
                                       :on-click #(modal nil)}]}
              (edit-admission-episode editing-episode
                                      {:on-change #(rf/dispatch-sync [::events/modal :episodes %])})])
-          (if (seq admissions)
+          (when (seq admissions)
             [ui/ui-table
              [ui/ui-table-head
               [ui/ui-table-row
@@ -123,7 +123,4 @@
                  [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_registration)]
                  [ui/ui-table-cell {:class ["whitespace-nowrap"]} (dates/format-date date_discharge)]
                  [ui/ui-table-cell {} ""]
-                 [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [::events/modal :episodes episode])} "Edit")]])]]
-            [ui/ui-panel
-             [ui/ui-title {:title "Admissions"
-                           :subtitle "There are no recorded admissions for this patient."}]])])))})
+                 [ui/ui-table-cell {} (ui/ui-table-link {:on-click #(rf/dispatch [::events/modal :episodes episode])} "Edit")]])]])])))})

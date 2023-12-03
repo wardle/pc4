@@ -40,12 +40,12 @@
          "View patient record"]])]))
 
 (def find-pseudonymous-patient
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
-   :view  (fn [_ [project]]
-            (project/layout project {:selected-id :find-pseudonymous-patient}
-                            [search-by-pseudonym-panel (:t_project/id project)]))})
+  {:tx   (fn [params]
+           [{[:t_project/id (get-in params [:path :project-id])]
+             [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
+   :view (fn [_ [project]]
+           (project/layout project {:selected-id :find-pseudonymous-patient}
+                           [search-by-pseudonym-panel (:t_project/id project)]))})
 
 
 (s/def ::project-id int?)
@@ -98,12 +98,12 @@
            "Search or register patient »"]]]))))
 
 (def register-pseudonymous-patient
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
-   :view  (fn [_ [project]]
-            (project/layout project {:selected-id :register-pseudonymous-patient}
-                            [register-pseudonymous-patient-panel (:t_project/id project)]))})
+  {:tx   (fn [params]
+           [{[:t_project/id (get-in params [:path :project-id])]
+             [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
+   :view (fn [_ [project]]
+           (project/layout project {:selected-id :register-pseudonymous-patient}
+                           [register-pseudonymous-patient-panel (:t_project/id project)]))})
 
 
 
@@ -142,9 +142,9 @@
            "Search or register patient »"]]]))))
 
 (def register-patient
-  {:query (fn [params]
-            [{[:t_project/id (get-in params [:path :project-id])]
-              [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
-   :view  (fn [_ [project]]
-            (project/layout project {:selected-id :register-patient}
-                            [register-patient-panel (:t_project/id project)]))})
+  {:tx   (fn [params]
+           [{[:t_project/id (get-in params [:path :project-id])]
+             [:t_project/id :t_project/title :t_project/pseudonymous :t_project/type]}])
+   :view (fn [_ [project]]
+           (project/layout project {:selected-id :register-patient}
+                           [register-patient-panel (:t_project/id project)]))})
