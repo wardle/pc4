@@ -91,7 +91,7 @@
     [:script {:src (str "js/compiled/" src)}]]])
 
 (def landing
-  "Interceptor to return the pc4-ward front-end application."
+  "Interceptor to return the pc4 front-end application."
   {:enter
    (fn [ctx]
      (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :app :output-name])
