@@ -57,7 +57,7 @@
 (defn rsdb-banner
   [{:t_patient/keys [id patient_identifier nhs_number sex title first_names last_name
                      date_birth date_death status current_age address]
-    :t_episode/keys [stored_pseudonym]}]
+    :t_episode/keys [stored_pseudonym]} & content]
   (let [pseudonymous (= :PSEUDONYMOUS status)]
     [banner
      {:patient-name (str last_name ", " (str/join " " [title first_names]))
@@ -65,15 +65,16 @@
       :approximate  pseudonymous
       :address      (if pseudonymous
                       (str/join " / " [stored_pseudonym (:t_address/address1 address)])
-                      (str/join ", " (remove nil? [(:t_address/address1 address)
-                                                   (:t_address/address2 address)
-                                                   (:t_address/address3 address)
-                                                   (:t_address/address4 address)
-                                                   (:t_address/postcode address)])))
+                      (str/join ", " (remove str/blank? [(:t_address/address1 address)
+                                                         (:t_address/address2 address)
+                                                         (:t_address/address3 address)
+                                                         (:t_address/address4 address)
+                                                         (:t_address/postcode address)])))
       :gender       sex
       :born         date_birth
       :age          current_age
-      :deceased     date_death}]))
+      :deceased     date_death
+      :content      content}]))
 
 (def banner-query
   [:t_patient/id :t_patient/patient_identifier :t_patient/nhs_number
