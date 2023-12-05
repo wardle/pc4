@@ -44,8 +44,8 @@
           :content (content "Relapses")
           :attrs   {:href (rfe/href :pseudonymous-patient/relapses {:project-id project-id :pseudonym pseudonym})}}
          {:id      :encounters
-          :content (content "Encounters")}
-         ; :attrs   {:href (rfe/href :pseudonymous-patient/encounters patient-link-attrs)}}
+          :content (content "Encounters")
+          :attrs   {:href (rfe/href :pseudonymous-patient/encounters {:project-id project-id :pseudonym pseudonym})}}
          {:id      :investigations
           :content (content "Investigations")}
          ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations patient-link-attrs)}}
@@ -66,8 +66,8 @@
           :content (content "Relapses")
           :attrs   {:href (rfe/href :patient/relapses {:patient-identifier patient_identifier})}}
          {:id      :encounters
-          :content (content "Encounters")}
-         ; :attrs   {:href (rfe/href :pseudonymous-patient/encounters patient-link-attrs)}}
+          :content (content "Encounters")
+          :attrs   {:href (rfe/href :patient/encounters {:patient-identifier patient_identifier})}}
          {:id      :investigations
           :content (content "Investigations")}
          ; :attrs   {:href (rfe/href :pseudonymous-patient/investigations patient-link-attrs)}}
@@ -83,9 +83,9 @@
     [:<>
      [banner/rsdb-banner patient]
      [:div.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
-      [:div.col-span-1.pt-2
+      [:div.col-span-1.p-2
        [menu project patient menu-options]]
-      (into [:div.col-span-1.md:col-span-5.pt-2 content])]]))
+      (into [:div.col-span-1.md:col-span-5.pt-2] content)]]))
 
 (defn patient-ident
   "Returns the 'ident' of the patient given route parameters. This works both

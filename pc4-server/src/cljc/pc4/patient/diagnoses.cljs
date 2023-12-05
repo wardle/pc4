@@ -105,7 +105,7 @@
          {:selected-id :diagnoses
           :sub-menu    {:items [{:id      :filter
                                  :content [:input.border.p-2.w-full
-                                           {:type     "search" :name "search" :placeholder "Search..." :autocomplete "off"
+                                           {:type     "search" :name "search" :placeholder "Search..." :auto-complete "off"
                                             :onChange #(let [s (-> % .-target .-value)]
                                                          (server/dispatch-debounced [::events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
                                 {:id      :add-diagnosis

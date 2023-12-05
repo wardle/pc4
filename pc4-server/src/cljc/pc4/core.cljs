@@ -14,6 +14,7 @@
             [pc4.events :as events]
             [pc4.patient.home]
             [pc4.patient.diagnoses]
+            [pc4.patient.encounters]
             [pc4.patient.episodes]
             [pc4.patient.medication]
             [pc4.patient.neuroinflamm]
@@ -67,8 +68,8 @@
         route-name (-> route :data :name)
         {:keys [tx targets view] :as component} (-> route :data :component)]
     (if component
-      (let [query' (tx parameters)
-            results @(rf/subscribe [::subs/local-pull query' targets])
+      (let [tx' (tx parameters)
+            results @(rf/subscribe [::subs/local-pull tx' targets])
             loading @(rf/subscribe [::subs/remote-loading route-name])]
         [view (assoc route :loading loading) results])
       (let [view (-> route :data :view)]
@@ -147,6 +148,13 @@
      :parameters  {:path {:project-id int?}}
      :controllers [pathom-controller]}]
 
+   ["/projects/:project-id/team/user/:user-id"
+    {:name        :project/user
+     :component   pc4.project.team/user-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :user-id int?}}
+     :controllers [pathom-controller]}]
+
    ["/projects/:project-id/downloads"
     {:name        :project/downloads
      :component   pc4.project.downloads/download-page
@@ -180,6 +188,14 @@
    ["/projects/:project-id/patients/pseudonym/:pseudonym/relapses"
     {:name        :pseudonymous-patient/relapses
      :component   pc4.patient.neuroinflamm/relapses-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :pseudonym string?}
+                   :query (s/keys :opt-un [::filter])}
+     :controllers [pathom-controller]}]
+
+   ["/projects/:project-id/patients/pseudonym/:pseudonym/encounters"
+    {:name        :pseudonymous-patient/encounters
+     :component   pc4.patient.encounters/encounters-page
      :auth        identity
      :parameters  {:path {:project-id int? :pseudonym string?}
                    :query (s/keys :opt-un [::filter])}
@@ -220,6 +236,20 @@
      :component   pc4.patient.neuroinflamm/relapses-page
      :auth        identity
      :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   ["/patients/id/:patient-identifier/encounters"
+    {:name        :patient/encounters
+     :component   pc4.patient.encounters/encounters-page
+     :auth        identity
+     :parameters  {:path {:patient-identifier int?}}
+     :controllers [pathom-controller]}]
+
+   ["/patients/id/:patient-identifier/encounter/:encounter-id"
+    {:name        :patient/encounter
+     :component   pc4.patient.encounters/encounter-page
+     :auth        identity
+     :parameters  {:path {:patient-identifier int? :encounter-id int?}}
      :controllers [pathom-controller]}]
 
    ["/patients/id/:patient-identifier/admissions"
