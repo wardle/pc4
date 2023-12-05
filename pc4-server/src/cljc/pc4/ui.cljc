@@ -319,7 +319,7 @@
        [:p.text-sm.text-gray-700 subtitle])]]])
 
 (defn ui-simple-form-item [{:keys [html-for label]} & content]
-  [:div.grid.grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+  [:div.grid.grid-cols-1.md:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
    [:label.col-span-1.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 (when html-for {:html-for html-for})
     label]
    (into [:div.mt-1.sm:mt-0.col-span-2] content)])
