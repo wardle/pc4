@@ -3,7 +3,9 @@
             [eldrix.pc4-ward.project.views]                 ;; TODO: remove any use of legacy components
             [pc4.project.home :as project]
             [reagent.core :as r]
-            [pc4.ui :as ui]))
+            [pc4.ui :as ui]
+            [re-frame.core :as rf]
+            [reitit.frontend.easy :as rfe]))
 
 
 (def role->badge-class
@@ -49,7 +51,7 @@
                      {:t_user/roles [:t_project_user/id :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?]}]}]}])
    :target (constantly [:current-project :team])
    :view
-   (fn [_ _]
+   (fn [ctx _]
      (let [user-filter (r/atom "active")
            search-filter (r/atom "")]
        (fn [params [project]]
@@ -75,4 +77,46 @@
                                                               {:type      "search" :name "search" :placeholder "Search..." :auto-complete "off"
                                                                :on-change #(reset! search-filter (-> % .-target .-value))}]
                                                              #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}}
-                           [team-panel users])))))})
+                           [team-panel (map #(assoc % :user-url (rfe/href :project/user {:project-id (:t_project/id project)
+                                                                                         :user-id    (:t_user/id %)}
+                                                                          {:return (:path ctx)})) users)])))))})
+
+(def user-page
+  {:tx   (fn [params]
+           [{[:t_user/id (get-in params [:path :user-id])]
+             [:t_user/id :t_user/username :t_user/full_name :t_user/first_names :t_user/last_name :t_user/email :t_user/send_email_for_messages
+              :t_user/authentication_method :t_professional_registration_authority/name :t_professional_registration_authority/abbreviation :t_user/professional_registration :t_user/professional_registration_url :t_user/pr
+              :t_user/job_title :t_user/custom_job_title
+              {:t_user/active_projects [:t_project/id :t_project/title :t_project/long_description]}]}])
+   :view (fn [ctx [{:t_user/keys [id username authentication_method full_name title first_names last_name
+                                  professional_registration professional_registration_url
+                                  email send_email_for_messages job_title custom_job_title active_projects] :as user}]]
+           (let [return-url (get-in ctx [:query-params :return])]
+             (tap> {:user-page  {:ctx ctx}
+                    :return-url return-url})
+             [:<>
+              (ui/ui-button {:on-click #(do (.pushState js/window.history nil "" return-url)
+                                            (reitit.frontend.history/-on-navigate rfe/history return-url))} "BACK")
+              (ui/two-column-card
+                {:title       full_name
+                 :title-attrs {:class (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}
+                 :subtitle    (or custom_job_title job_title)
+                 :items       [{:title "First names" :content first_names}
+                               {:title "Last name" :content last_name}
+                               {:title "Username" :content username}
+                               {:title "Authentication" :content authentication_method}
+                               {:title [:div.inline-flex
+                                        "Professional registration"
+                                        (when professional_registration_url
+                                          [:a.pl-2 {:href professional_registration_url :target "_blank" :title (str "View record at " (:t_professional_registration_authority/name user))}
+                                           [ui/icon-arrow-top-right-on-square]])]
+                                :content (str (:t_professional_registration_authority/abbreviation user) " " professional_registration)}
+                               {:title "Email" :content email}
+                               {:title "Email used for messages?" :content (if send_email_for_messages "Yes" "No")}]
+                 :long-items  [{:title   (str "Active project registrations: " (count active_projects))
+                                :content [ui/ui-table
+                                          [ui/ui-table-body
+                                           (for [{:t_project/keys [id title long_description]} (sort-by :t_project/title active_projects)]
+                                             [ui/ui-table-row {:key id}
+                                              [ui/ui-table-cell {} (ui/ui-table-link {:href (rfe/href :project/home {:project-id id})} title)]
+                                              [ui/ui-table-cell {} [:div {:dangerouslySetInnerHTML {:__html long_description}}]]])]]}]})]))})
