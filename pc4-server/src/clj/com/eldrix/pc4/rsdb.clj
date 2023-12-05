@@ -692,6 +692,21 @@
    (when patient-identifier
      (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)))})
 
+(pco/defresolver encounter-by-id
+  [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
+  {::pco/output [:t_encounter/id
+                 :t_encounter/date_time
+                 :t_encounter/active
+                 :t_encounter/is_deleted
+                 :t_encounter/hospital_fk
+                 :t_encounter/ward
+                 :t_encounter/episode_fk
+                 :t_encounter/consultant_user_fk
+                 :t_encounter/encounter_template_fk
+                 :t_encounter/notes]}
+  (let [encounter (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
+    (assoc encounter :t_encounter/active (not (:t_encounter/is_deleted encounter)))))
+
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
@@ -709,12 +724,20 @@
   {::pco/output [{:t_encounter/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   {:t_encounter/hospital (when hospital-id {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id})})
 
-(pco/defresolver encounter->encounter_template
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-template-fk :t_encounter/encounter_template_fk}]
-  {::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
-                                                   :t_encounter_template/encounter_type_fk]}]}
-  {:t_encounter/encounter_template (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
-                                                                        :where  [:= :id encounter-template-fk]}))})
+(pco/defresolver encounters->encounter_template
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  {::pco/input  [:t_encounter/encounter_template_fk]
+   ::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
+                                                   :t_encounter_template/project_fk
+                                                   :t_encounter_template/encounter_type_fk]}]
+   ::pco/batch? true}
+  (let [encounter-template-ids (map :t_encounter/encounter_template_fk encounters)
+        encounter-templates (group-by :t_encounter_template/id
+                                      (jdbc/execute! conn (sql/format {:select [:*] :from [:t_encounter_template]
+                                                                       :where  [:in :id (set encounter-template-ids)]})))]
+    (into []
+          (map (fn [id] {:t_encounter/encounter_template (first (get encounter-templates id))}))
+          encounter-template-ids)))
 
 (pco/defresolver encounter_template->encounter_type
   [{:com.eldrix.rsdb/keys [conn]} {encounter-type-id :t_encounter_template/encounter_type_fk}]
@@ -723,16 +746,38 @@
                                                         :t_encounter_type/seen_in_person]}]}
   {:t_encounter_template/encounter_type (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_type] :where [:= :id encounter-type-id]}))})
 
+(pco/defresolver encounter_template->project
+  [{:t_encounter_template/keys [project_fk]}]
+  {:t_encounter_template/project {:t_project/id project_fk}})
 
-(pco/defresolver encounter->form_edss
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+(pco/defresolver encounters->form_edss
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
   {::pco/input  [:t_encounter/id]
-   ::pco/output [{:t_encounter/form_edss [:t_form_edss/id
-                                          :t_form_edss/edss
-                                          :t_form_edss/edss_score
-                                          :t_form_edss_fs/id
-                                          :t_form_edss_fs/edss_score]}]}
-  {:t_encounter/form_edss (forms/encounter->form_edss conn encounter-id)})
+   ::pco/output [{:t_encounter/form_edss
+                  [:t_form_edss/id
+                   :t_form_edss/edss
+                   :t_form_edss/edss_score
+                   :t_form_edss_fs/id
+                   :t_form_edss_fs/edss_score]}]
+   ::pco/batch? true}
+  (let [encounter-ids (map :t_encounter/id encounters)
+        edss (group-by :t_form_edss/encounter_fk
+                       (db/execute! conn
+                                    (sql/format {:select [:id :encounter_fk :edss_score :user_fk]
+                                                 :from   :t_form_edss
+                                                 :where  [:and [:<> :is_deleted "true"]
+                                                          [:in :t_form_edss/encounter_fk encounter-ids]]})))
+        edss-fs (group-by :t_form_edss_fs/encounter_fk
+                          (db/execute! conn
+                                       (sql/format {:select [:id :encounter_fk :edss_score :user_fk]
+                                                    :from   :t_form_edss_fs
+                                                    :where  [:and [:<> :is_deleted "true"]
+                                                             [:in :encounter_fk encounter-ids]]})))]
+    (into []
+          (map (fn [encounter-id]
+                 {:t_encounter/form_edss (merge (first (get edss encounter-id))
+                                                (first (get edss-fs encounter-id)))}))
+          encounter-ids)))
 
 (pco/defresolver form_edss-score->score
   [{edss_score :t_form_edss/edss_score}]
@@ -746,24 +791,55 @@
    ::pco/output [:t_form_edss_fs/score]}
   {:t_form_edss_fs/score (forms/edss-score->score edss_score)})
 
-(pco/defresolver encounter->form_ms_relapse
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+(pco/defresolver encounters->form_ms_relapse
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
   {::pco/input  [:t_encounter/id]
-   ::pco/output [{:t_encounter/form_ms_relapse [:t_form_ms_relapse/id
-                                                :t_form_ms_relapse/in_relapse
-                                                :t_form_ms_relapse/activity
-                                                :t_form_ms_relapse/progression
-                                                :t_form_ms_disease_course/id
-                                                :t_form_ms_disease_course/name]}]}
-  {:t_encounter/form_ms_relapse (forms/encounter->form_ms_relapse conn encounter-id)})
+   ::pco/output [{:t_encounter/form_ms_relapse
+                  [:t_form_ms_relapse/id
+                   :t_form_ms_relapse/in_relapse
+                   :t_form_ms_relapse/activity
+                   :t_form_ms_relapse/progression
+                   :t_form_ms_disease_course/id
+                   :t_form_ms_disease_course/name]}]
+   ::pco/batch? true}
+  (let [encounter-ids (map :t_encounter/id encounters)
+        forms (group-by :t_form_ms_relapse/encounter_fk
+                        (db/execute! conn (sql/format {:select    [:t_form_ms_relapse/id
+                                                                   :t_form_ms_relapse/encounter_fk
+                                                                   :t_form_ms_relapse/in_relapse
+                                                                   :t_ms_disease_course/name
+                                                                   :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
+                                                       :from      [:t_form_ms_relapse]
+                                                       :left-join [:t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
+                                                       :where     [:and [:in :t_form_ms_relapse/encounter_fk encounter-ids]
+                                                                   [:<> :t_form_ms_relapse/is_deleted "true"]]})))]
+    (into []
+          (map (fn [encounter-id]
+                 {:t_encounter/form_ms_relapse (first (get forms encounter-id))}))
+          encounter-ids)))
 
-(pco/defresolver encounter->form_weight_height
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+(pco/defresolver encounters->form_weight_height
+  [{:com.eldrix.rsdb/keys [conn]} encounters]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_weight_height [:t_form_weight_height/id
                                                    :t_form_weight_height/weight_kilogram
-                                                   :t_form_weight_height/height_metres]}]}
-  {:t_encounter/form_weight_height (forms/encounter->form_weight_height conn encounter-id)})
+                                                   :t_form_weight_height/height_metres]}]
+   ::pco/batch? true}
+  (let [encounter-ids (map :t_encounter/id encounters)
+        forms (group-by :t_form_weight_height/encounter_fk
+                        (db/execute! conn (sql/format {:select [:t_form_weight_height/id
+                                                                :t_form_weight_height/encounter_fk
+                                                                :t_form_weight_height/weight_kilogram
+                                                                :t_form_weight_height/height_metres]
+                                                       :from   [:t_form_weight_height]
+                                                       :where  [:and
+                                                                [:in :t_form_weight_height/encounter_fk encounter-ids]
+                                                                [:<> :t_form_weight_height/is_deleted "true"]]})))]
+    (into []
+          (map (fn [encounter-id]
+                 {:t_encounter/form_weight_height (first (get forms encounter-id))}))
+          encounter-ids)))
+
 
 
 (pco/defresolver encounter->form_smoking
@@ -1496,15 +1572,17 @@
    project->all-children
    project->all-parents
    patient->encounters
+   encounter-by-id
    encounter->users
-   encounter->encounter_template
+   encounters->encounter_template
    encounter->hospital
    encounter_template->encounter_type
-   encounter->form_edss
+   encounter_template->project
+   encounters->form_edss
    form_edss-score->score
    form_edss_fs-score->score
-   encounter->form_ms_relapse
-   encounter->form_weight_height
+   encounters->form_ms_relapse
+   encounters->form_weight_height
    encounter->form_smoking
    patient->results
    user-by-username

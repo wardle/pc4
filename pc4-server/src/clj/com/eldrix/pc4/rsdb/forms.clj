@@ -159,16 +159,6 @@
                                                                   [:<> :t_form_edss_fs/is_deleted "true"]]]
                                      :where     [:= :t_encounter/id encounter-id]})))
 
-(defn encounter->form_ms_relapse
-  "Return a form ms relapse for the encounter."
-  [conn encounter-id]
-  (db/execute-one! conn (sql/format {:select    [:t_form_ms_relapse/id :t_form_ms_relapse/in_relapse
-                                                 :t_ms_disease_course/id :t_ms_disease_course/name
-                                                 :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
-                                     :from      [:t_form_ms_relapse]
-                                     :left-join [:t_ms_disease_course [:= :t_form_ms_relapse/ms_disease_course_fk :t_ms_disease_course/id]]
-                                     :where     [:and [:= :t_form_ms_relapse/encounter_fk encounter-id]
-                                                 [:<> :t_form_ms_relapse/is_deleted "true"]]})))
 
 
 (defn encounter->form_smoking_history
@@ -189,7 +179,6 @@
                                      :where  [:and
                                               [:= :t_form_weight_height/encounter_fk encounter-id]
                                               [:<> :t_form_weight_height/is_deleted "true"]]})))
-
 
 (defn select-keys-by-namespace
   "Like select-keys, but selects based on namespace.
@@ -313,7 +302,8 @@
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
-
+  ()
+  group-by
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (encounters->form_ms_relapse conn encounters)
   (com.eldrix.pc4.rsdb.patients/active-episodes conn 124010)
