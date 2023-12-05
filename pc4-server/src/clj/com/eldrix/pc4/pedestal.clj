@@ -63,7 +63,7 @@
   (let [pathom (:pathom/boundary-interface ctx)
         result (pathom env params)
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
-    (log/debug "pathom result" result)
+    (log/trace "pathom result" result)
     (when (seq errors)
       (log/error "error processing request" params)
       (doseq [err errors]
