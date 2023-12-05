@@ -3,7 +3,7 @@
             [eldrix.pc4-ward.project.views]                 ;; TODO: remove any use of legacy components
             [pc4.dates :as dates]
             [reitit.frontend.easy :as rfe]
-            [pc4.ui :as ui.misc]))
+            [pc4.ui :as ui]))
 
 (defn menu
   [{:t_project/keys [id title pseudonymous]}
@@ -11,32 +11,32 @@
   (let [content (fn [s] (vector :span.truncate s))]
     [:<>
      [:div.px-2.pt-1.pb-8.font-bold title]
-     [ui.misc/vertical-navigation
+     [ui/vertical-navigation
       {:selected-id selected-id
        :items       [{:id      :home
-                      :icon    (ui.misc/icon-home)
+                      :icon    (ui/icon-home)
                       :content (content "Home")
                       :attrs   {:href (rfe/href :project/home {:project-id id})}}
                      (when pseudonymous
                        {:id      :find-pseudonymous-patient
-                        :icon    (ui.misc/icon-magnifying-glass)
+                        :icon    (ui/icon-magnifying-glass)
                         :content (content "Find patient")
                         :attrs   {:href (rfe/href :project/find-pseudonymous-patient {:project-id id})}})
                      (if pseudonymous
                        {:id      :register-pseudonymous-patient
-                        :icon    (ui.misc/icon-plus-circle)
+                        :icon    (ui/icon-plus-circle)
                         :content (content "Register patient")
                         :attrs   {:href (rfe/href :project/register-pseudonymous-patient {:project-id id})}}
                        {:id      :register-patient
-                        :icon    (ui.misc/icon-plus-circle)
+                        :icon    (ui/icon-plus-circle)
                         :content (content "Register patient")
                         :attrs   {:href (rfe/href :project/register-patient {:project-id id})}})
                      {:id      :team
-                      :icon    (ui.misc/icon-team)
+                      :icon    (ui/icon-team)
                       :content (content "Team")
                       :attrs   {:href (rfe/href :project/team {:project-id id})}}
                      {:id      :reports
-                      :icon    (ui.misc/icon-reports)
+                      :icon    (ui/icon-reports)
                       :content (content "Downloads")
                       :attrs   {:href (rfe/href :project/downloads {:project-id id})}}]
        :sub-menu    sub-menu}]]))
@@ -45,7 +45,7 @@
   [project menu-options content]
   (when project
     [:div.grid.grid-cols-1.md:grid-cols-6 {:class (case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)}
-     [:div.col-span-1.pt-6
+     [:div.col-span-1.p-2.pt-6
       (menu project menu-options)]
      [:div.col-span-5.p-6
       content]]))
@@ -57,7 +57,7 @@
                      count_discharged_episodes count_pending_referrals
                      address1 address2 address3 address4 postcode
                      inclusion_criteria exclusion_criteria] :as project}]
-  (ui.misc/two-column-card
+  (ui/two-column-card
     {:title       title
      :title-attrs {:class (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}
      :subtitle    (when long_description [:div {:dangerouslySetInnerHTML {:__html long_description}}])
