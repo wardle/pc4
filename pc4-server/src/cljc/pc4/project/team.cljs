@@ -67,12 +67,12 @@
                                           :items [{:id      :filter
                                                    :content [:div
                                                              [:select.w-full.p-2.border
-                                                              {:name "active" :onChange #(reset! user-filter (-> % .-target .-value))}
+                                                              {:name "active" :on-change #(reset! user-filter (-> % .-target .-value))}
                                                               [:option {:value "active"} "Active"]
                                                               [:option {:value "inactive"} "Inactive"]
                                                               [:option {:value "all"} "All users"]]
                                                              [:input.border.p-2.w-full
-                                                              {:type     "search" :name "search" :placeholder "Search..." :autocomplete "no"
-                                                               :onChange #(reset! search-filter (-> % .-target .-value))}]
+                                                              {:type      "search" :name "search" :placeholder "Search..." :auto-complete "off"
+                                                               :on-change #(reset! search-filter (-> % .-target .-value))}]
                                                              #_[:button.w-full.border.bg-gray-100.hover:bg-gray-400.text-gray-800.font-bold.py-2.px-4.rounded-l "Add user"]]}]}}
                            [team-panel users])))))})
