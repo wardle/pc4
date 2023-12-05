@@ -127,9 +127,9 @@
          :sub-menu
          {:items [{:id      :filter
                    :content [:input.border.p-2.w-full
-                             {:type     "search" :name "search" :placeholder "Search..." :autocomplete "off"
-                              :onChange #(let [s (-> % .-target .-value)]
-                                           (server/dispatch-debounced [::events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
+                             {:type     "search" :name "search" :placeholder "Search..." :auto-complete "off"
+                              :on-change #(let [s (-> % .-target .-value)]
+                                            (server/dispatch-debounced [::events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
                   {:id      :add-medication
                    :content [ui/menu-button
                              {:on-click #(modal {:t_patient/patient_identifier patient_identifier
