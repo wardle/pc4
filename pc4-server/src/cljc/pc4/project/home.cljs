@@ -86,7 +86,7 @@
               :t_project/count_pending_referrals :t_project/count_registered_patients :t_project/count_discharged_episodes
               :t_project/type {:t_project/parent [:t_project/title]}
               {:t_project/administrator_user [:t_user/full_name]}
-              :t_project/pseudonymous :t_project/inclusion_criteria :t_project/exclusion_criteria
+              :t_project/pseudonymous :t_project/long_description :t_project/inclusion_criteria :t_project/exclusion_criteria
               {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
               :t_project/address1 :t_project/address2 :t_project/address3 :t_project/address4]}])
    :view (fn [_ [project]]
