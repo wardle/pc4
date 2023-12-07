@@ -121,9 +121,7 @@
       ;  :common-choices  @(rf/subscribe [::subs/common-diagnoses])
       :max-hits 100
       :value @selected-diagnosis
-      :select-fn #(do (tap> %)
-                      (println "views/select snomed " %)
-                      (reset! selected-diagnosis %))]]))
+      :select-fn #(reset! selected-diagnosis %)]]))
 
 (defn main-page []
   (let [must-change-password? @(rf/subscribe [::subs/must-change-password?])]
