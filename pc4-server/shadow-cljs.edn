@@ -9,13 +9,14 @@
    :asset-path        "/js/compiled"
    :modules           {:app {:init-fn  pc4.core/init
                              :preloads [devtools.preload
+                                        pc4.dev-preload
                                         day8.re-frame-10x.preload]}}
    :module-hash-names true
    :dev               {:compiler-options
                        {:closure-defines {re-frame.trace.trace-enabled?        true
                                           day8.re-frame.tracing.trace-enabled? true
-                                          eldrix.pc4_ward.config.login-url     "http://127.0.0.1:8080/login"
-                                          eldrix.pc4_ward.config.api-url       "http://127.0.0.1:8080/api"}}}
+                                          pc4.config.login-url     "http://127.0.0.1:8080/login"
+                                          pc4.config.api-url       "http://127.0.0.1:8080/api"}}}
    :release           {:compiler-options
-                       {:closure-defines {eldrix.pc4_ward.config.login-url "https://patientcare.app/login"
-                                          eldrix.pc4_ward.config.api-url   "https://patientcare.app/api"}}}}}}
+                       {:closure-defines {pc4.config.login-url "https://patientcare.app/login"
+                                          pc4.config.api-url   "https://patientcare.app/api"}}}}}}
