@@ -119,7 +119,7 @@
                                                   [:t_address/id :t_address/lsoa]}]}]))]
        [patient/layout {:t_project/id project-id} patient {:selected-id :home}
         [ui/ui-panel
-         [ui/ui-title {:title "Neuroinflammatory home page"}]
+         [ui/ui-title {:title "Neuroinflammatory disease overview"}]
          [ui/ui-simple-form
           [ui/ui-simple-form-item {:label "Neuro-inflammatory diagnosis"}
            [ui/ui-select
