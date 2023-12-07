@@ -275,7 +275,7 @@
      [:select.mt-1.block.pl-3.pr-10.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
       {:name        name
        :disabled    disabled?
-       :value       (when value (str (id-key value)))
+       :value       (if value (str (id-key value)) "")
        :on-key-down #(when on-key-down #?(:cljs (on-key-down (.-which %))))
        :on-change   #(when on-select #?(:cljs (let [idx (-> % .-target .-selectedIndex)]
                                                 (if (and no-selection-string (= 0 idx))
