@@ -6,7 +6,7 @@
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.users :as users]
-            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
+            #_[com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.error :as intc.error]
