@@ -233,7 +233,6 @@
 
 (defn ui-local-date
   [{:keys [id label value default-date min-date max-date on-blur on-enter-key on-change] :as params}]
-  (println {:ui-local-date params})
   [:div
    (when label (ui-label {:for id :label label}))
    [:div.mt-1
