@@ -51,14 +51,14 @@
             certificate (:t_patient/death_certificate patient)]
         (case @mode
           :inspect [:<>
-                    [:p (if-not date_death
-                          "Alive"
-                          [:<> [:span "Died " (dates/format-date date_death)]
-                           [:ul.mt-4.ml-4
-                            (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
-                            (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
-                            (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
-                            (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
+                    [:div (if-not date_death
+                            "Alive"
+                            [:<> [:span "Died " (dates/format-date date_death)]
+                             [:ul.mt-4.ml-4
+                              (when (:t_death_certificate/part1a certificate) [:li [:strong "1a: "] (:t_death_certificate/part1a certificate)])
+                              (when (:t_death_certificate/part1b certificate) [:li [:strong "1b: "] (:t_death_certificate/part1b certificate)])
+                              (when (:t_death_certificate/part1c certificate) [:li [:strong "1c: "] (:t_death_certificate/part1c certificate)])
+                              (when (:t_death_certificate/part2 certificate) [:li [:strong "2: "] (:t_death_certificate/part2 certificate)])]])]
                     [:button.bg-blue-500.hover:bg-blue-700.text-white.text-xs.py-1.px-2.rounded.mt-4
                      {:on-click #(do (reset! data (merge (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_death])
                                                          (:t_patient/death_certificate patient)))
