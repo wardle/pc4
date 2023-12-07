@@ -298,6 +298,7 @@
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
                 :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
                                                                                   :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
+
 (pco/defresolver summary-multiple-sclerosis->events
   [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
   {::pco/output [{:t_summary_multiple_sclerosis/events
@@ -799,14 +800,17 @@
                    :t_form_ms_relapse/in_relapse
                    :t_form_ms_relapse/activity
                    :t_form_ms_relapse/progression
-                   :t_form_ms_disease_course/id
-                   :t_form_ms_disease_course/name]}]
+                   :t_form_ms_disease_course/name ;; TODO: probably remove as better nested?
+                   {:t_form_ms_relapse/ms_disease_course
+                    [:t_form_ms_disease_course/id
+                     :t_form_ms_disease_course/name]}]}]
    ::pco/batch? true}
   (let [encounter-ids (map :t_encounter/id encounters)
         forms (group-by :t_form_ms_relapse/encounter_fk
                         (db/execute! conn (sql/format {:select    [:t_form_ms_relapse/id
                                                                    :t_form_ms_relapse/encounter_fk
                                                                    :t_form_ms_relapse/in_relapse
+                                                                   :t_form_ms_relapse/ms_disease_course_fk
                                                                    :t_ms_disease_course/name
                                                                    :t_form_ms_relapse/activity :t_form_ms_relapse/progression]
                                                        :from      [:t_form_ms_relapse]
@@ -815,7 +819,12 @@
                                                                    [:<> :t_form_ms_relapse/is_deleted "true"]]})))]
     (into []
           (map (fn [encounter-id]
-                 {:t_encounter/form_ms_relapse (first (get forms encounter-id))}))
+                 (let [form (first (get forms encounter-id))]
+                   {:t_encounter/form_ms_relapse
+                    (-> form
+                        (assoc :t_form_ms_relapse/ms_disease_course
+                               {:t_ms_disease_course/id (:t_form_ms_relapse/ms_disease_course_fk form)
+                                :t_ms_disease_course/name (:t_ms_disease_course/name form)}))})))
           encounter-ids)))
 
 (pco/defresolver encounters->form_weight_height
