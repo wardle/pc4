@@ -9,7 +9,8 @@
             [pc4.subs :as subs]
             [pc4.ui :as ui]
             [reagent.core :as r]
-            [re-frame.core :as rf]))
+            [re-frame.core :as rf]
+            [taoensso.timbre :as log]))
 
 
 (defn inspect-edit-lsoa
@@ -109,7 +110,7 @@
                                                :tx [{(list 'pc4.rsdb/save-ms-diagnosis {:t_patient/patient_identifier patient_identifier
                                                                                         :t_ms_diagnosis/id         (:t_ms_diagnosis/id %)})
                                                      ['*]}]}])
-           save-lsoa-fn #(do (println "Setting LSOA to " %)
+           save-lsoa-fn #(do (log/debug "Setting LSOA to " %)
                              (rf/dispatch [::events/remote
                                            {:id ::save-postal-code
                                             :tx [{(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
@@ -139,7 +140,7 @@
                :on-change save-lsoa-fn}]])
           [ui/ui-simple-form-item {:label "Vital status"}
            [inspect-edit-death-certificate patient
-            {:on-save #(do (println "updating death certificate" %)
+            {:on-save #(do (log/debug "updating death certificate" %)
                            (rf/dispatch
                              [::events/remote
                               {:id ::notify-death

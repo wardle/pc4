@@ -7,8 +7,8 @@
             [pc4.server :as server]
             [pc4.snomed.views :as snomed]
             [pc4.ui :as ui]
-            [re-frame.core :as rf]))
-
+            [re-frame.core :as rf]
+            [taoensso.timbre :as log]))
 
 (defn ^:private remove-medication-event-by-idx
   [medication event-idx]
@@ -46,7 +46,8 @@
                                                       (assoc :t_medication/reason_for_stopping :NOT_APPLICABLE)))}]]
    [ui/ui-simple-form-item {:label "Reason for stopping"}
     [ui/ui-select
-     {:name          "reason-for-stopping" :value reason_for_stopping
+     {:name          "reason-for-stopping"
+      :value         reason_for_stopping
       :choices       #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR
                        :ALLERGIC_REACTION :ANTI_JCV_POSITIVE__PML_RISK :LACK_OF_TOLERANCE
                        :NON_ADHERENCE :OTHER
@@ -121,13 +122,13 @@
    (fn [_ [{project-id :t_episode/project_fk patient-pk :t_patient/id :t_patient/keys [patient_identifier medications] :as patient}]]
      (let [editing-medication @(rf/subscribe [:pc4.subs/modal :medication])
            modal (fn [medication] (rf/dispatch [::events/modal :medication medication]))]
-       (println "editing medication " editing-medication)
+       (log/debug "editing medication " editing-medication)
        [patient/layout {:t_project/id project-id} patient
         {:selected-id :treatment
          :sub-menu
          {:items [{:id      :filter
                    :content [:input.border.p-2.w-full
-                             {:type     "search" :name "search" :placeholder "Search..." :auto-complete "off"
+                             {:type      "search" :name "search" :placeholder "Search..." :auto-complete "off"
                               :on-change #(let [s (-> % .-target .-value)]
                                             (server/dispatch-debounced [::events/push-query-params (if (str/blank? s) {} {:filter (-> % .-target .-value)})]))}]}
                   {:id      :add-medication
@@ -153,7 +154,7 @@
                                     :title    "Cancel"
                                     :on-click #(modal nil)}]}
            (edit-medication editing-medication
-                            {:on-change #(do (println "Updating medication" %)
+                            {:on-change #(do (log/debug "Updating medication" %)
                                              (rf/dispatch-sync [::events/modal :medication %]))})])
         (when medications
           [ui/ui-table

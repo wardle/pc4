@@ -24,7 +24,8 @@
             [pc4.project.team]
             [pc4.server :as server]
             [pc4.subs :as subs]
-            [pc4.views :as views]))
+            [pc4.views :as views]
+            [taoensso.timbre :as log]))
 
 (defn href
   "Return relative url for given route. Url can be used in HTML links."
@@ -36,10 +37,9 @@
    (rfe/href k params query)))
 
 (def pathom-controller
-  "A reitit controller that dispatches a pathom load event with data from route.
-  - query  - EQL"
+  "A reitit controller that dispatches a pathom load event with data from route."
   {:identity (fn [{:keys [data parameters] :as _match}]
-               (tap> {:pathom-controller _match})
+               (log/trace :pathom _match)
                (let [route-name (:name data)
                      tx (get-in data [:component :tx])
                      targets (get-in data [:component :targets])]
@@ -89,9 +89,9 @@
      :controllers
      [{;; Do whatever initialization needed for home page
        ;; I.e (re-frame/dispatch [::events/load-something-with-ajax])
-       :start (fn [& params] (js/console.log "Entering home page"))
+       :start (fn [& params] (log/debug "entering home page"))
        ;; Teardown can be done here.
-       :stop  (fn [& params] (js/console.log "Leaving home page"))}]}]
+       :stop  (fn [& params] (log/debug "leaving home page"))}]}]
 
    ["/login"
     {:name :login
@@ -269,7 +269,7 @@
     {:data {:coercion rss/coercion}}))
 
 (defn init-routes! []
-  (js/console.log "initializing routes")
+  (log/debug "initializing routes")
   (rfe/start!
     router
     on-navigate
@@ -281,6 +281,8 @@
   (let [authenticated-user @(rf/subscribe [::subs/authenticated-user])
         current-route (or @(rf/subscribe [::subs/current-route]) (r/match-by-path router "/"))
         auth (get-in current-route [:data :auth])]
+    (log/debug "router component" {:authenticated-user (select-keys authenticated-user [:org.hl7.fhir.Practitioner/identifier])
+                                   :current-route (:template current-route)})
     [:div
      [views/nav-bar
       :route current-route
@@ -304,7 +306,8 @@
 
 (defn dev-setup []
   (when config/debug?
-    (println "dev mode")))
+    (println "running in development mode")
+    (taoensso.timbre/set-min-level! :debug)))
 
 (defn ^:dev/after-load mount-root []
   (rf/clear-subscription-cache!)

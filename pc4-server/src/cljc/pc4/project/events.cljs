@@ -1,10 +1,11 @@
 (ns pc4.project.events
   (:require [re-frame.core :as rf]
-            [pc4.events :as events]))
+            [pc4.events :as events]
+            [taoensso.timbre :refer [debug error]]))
 
 (rf/reg-event-fx ::search-legacy-pseudonym
   (fn [{db :db} [_ project-id pseudonym properties]]
-    (js/console.log "search by pseudonym" project-id pseudonym)
+    (debug "search by pseudonym" project-id pseudonym)
     (tap> {:event ::search-legacy-pseudonym :db db})
     (cond-> {:db (-> db
                      (dissoc :patient/search-legacy-pseudonym)
@@ -24,20 +25,20 @@
 (rf/reg-event-fx ::handle-search-pseudonym-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
-    (js/console.log "search by pseudonym response: " result)
+    (debug "search by pseudonym response: " result)
     {:db (assoc db :patient/search-legacy-pseudonym result)}))
 
 (rf/reg-event-fx ::handle-search-pseudonym-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "search by pseudonym failure: response " response)
+    (error "search by pseudonym failure: response " response)
     {:db (-> db
              (dissoc :patient/search-legacy-pseudonym)
              (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
 
 (rf/reg-event-fx ::register-pseudonymous-patient
   (fn [{db :db} [_ {:keys [project-id nhs-number date-birth sex] :as params}]]
-    (js/console.log "searching or registering pseudonymous patient record:" params)
+    (debug "searching or registering pseudonymous patient record:" params)
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
@@ -51,7 +52,7 @@
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
-    (js/console.log "register pseudonymous patient response: " result)
+    (debug "register pseudonymous patient response: " result)
     (if (:com.wsscode.pathom3.connect.runner/mutation-error result)
       {:db (-> db
                (dissoc :patient/current)
@@ -68,7 +69,7 @@
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "register pseudonymous patient failure: response " response)
+    (error "register pseudonymous patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current)
              (assoc-in [:errors :open-patient] (or (get-in response [:response :message]) (:status-text response))))}))
@@ -76,7 +77,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number
   []
   (fn [{db :db} [_ {:keys [project-id nhs-number] :as params}]]
-    (js/console.log "searching or registering patient record:" params)
+    (debug "searching or registering patient record:" params)
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
@@ -90,7 +91,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number-response
   []
   (fn [{db :db} [_ response]]
-    (js/console.log "fetch  patient response: " response)
+    (debug "fetch  patient response: " response)
     (let [patient (get response 'pc4.rsdb/register-patient)]
       (tap> {:register-by-nnn patient})
       {:db (assoc-in db [:patient/current :patient] patient)
@@ -101,7 +102,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
+    (error "fetch patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current :patient/loading?)
              (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))

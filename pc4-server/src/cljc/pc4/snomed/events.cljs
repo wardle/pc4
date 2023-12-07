@@ -1,7 +1,8 @@
 (ns pc4.snomed.events
   "Events relating to SNOMED CT."
   (:require [re-frame.core :as rf]
-            [pc4.server :as srv]))
+            [pc4.server :as srv]
+            [taoensso.timbre :refer [debug]]))
 
 (defn make-search
   "Create a SNOMED search"
@@ -25,9 +26,9 @@
 (rf/reg-event-fx
   ::search []
   (fn [{db :db} [_ id params]]
-    (js/console.log "search SNOMED CT" id " params: " params)
+    (debug "search SNOMED CT" id " params: " params)
     (when-not (get-in db [:authenticated-user :io.jwt/token])
-      (js/console.log "SNOMED search event: error : no authenticated user"))
+      (debug "SNOMED search event: error : no authenticated user"))
     {:db (-> db
              (update :snomed/search dissoc id)
              (update-in [:errors] dissoc :snomed/search))
@@ -43,7 +44,7 @@
 (rf/reg-event-fx ::handle-search-response
   []
   (fn [{db :db} [_ id date {results 'info.snomed.Search/search :as response}]]
-    (js/console.log "search snomed response: " results)
+    (debug "search snomed response: " results)
     ;; be careful to not overwrite results from later autocompletion for this id, which may be returned more quickly
     (let [existing (get-in db [:snomed/search-results id :date])]
       (when (or (not existing) (> date existing))
@@ -52,7 +53,7 @@
 (rf/reg-event-fx ::handle-search-failure
   []
   (fn [{:keys [db]} [_ id response]]
-    (js/console.log "search snomed failure: response " response)
+    (debug "search snomed failure: response " response)
     {:db (-> db
              (update-in [:snomed/search-results] dissoc id)
              (assoc-in [:errors :snomed/search] "Failed to search for SNOMED: unable to connect to server. Please check your connection and retry."))}))
@@ -60,7 +61,7 @@
 (rf/reg-event-fx
   ::fetch-concept []
   (fn [{db :db} [_ id concept-id]]
-    (js/console.log "fetch concept " id ": " concept-id)
+    (debug "fetch concept " id ": " concept-id)
     {:db (-> db
              (update :snomed/fetch-concept dissoc id)
              (update-in [:errors] dissoc :snomed/fetch-concept))
@@ -73,13 +74,13 @@
 (rf/reg-event-fx ::handle-fetch-concept-response
   []
   (fn [{db :db} [_ id response]]
-    (js/console.log "fetch concept response: " response)
+    (debug "fetch concept response: " response)
     {:db (assoc-in db [:snomed/fetch-concept-result id] (second (first response)))}))
 
 (rf/reg-event-fx ::handle-fetch-concept-failure
   []
   (fn [{:keys [db]} [_ id response]]
-    (js/console.log "fetch concept failure: response " response)
+    (debug "fetch concept failure: response " response)
     {:db (-> db
              (update-in [:snomed/fetch-concept-result] dissoc id)
              (assoc-in [:errors :snomed/fetch-concept] "Failed to fetch SNOMED concept: unable to connect to server. Please check your connection and retry."))}))

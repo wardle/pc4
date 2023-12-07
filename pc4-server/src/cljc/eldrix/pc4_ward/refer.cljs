@@ -8,7 +8,8 @@
             [eldrix.pc4-ward.patient.views :as patient-views]
             [reagent.core :as reagent]
             [clojure.string :as str]
-            [eldrix.pc4-ward.ui :as ui]))
+            [eldrix.pc4-ward.ui :as ui]
+            [taoensso.timbre :refer [debug]]))
 
 ;; these could be automatically generated from the FHIR specs, except that the
 ;; specifications often have everything as optional (e.g. cardinality 0..1).
@@ -198,17 +199,17 @@
 (defn patient-panel
   [patient]
   [:div.box
-     [:div.field [:label.label {:for "name-un"} "Patient"]
-      [:div.control
-       [:input.input {:id        "name-un" :type "text" :read-only true
-                      :value     (:uk.nhs.cfh.isb1506/patient-name patient)}]]]])
+   [:div.field [:label.label {:for "name-un"} "Patient"]
+    [:div.control
+     [:input.input {:id    "name-un" :type "text" :read-only true
+                    :value (:uk.nhs.cfh.isb1506/patient-name patient)}]]]])
 
 (defn patient-search-panel
   []
   (let [search-text (reagent/atom "")
         search-results (rf/subscribe [::patient-subs/search-results])
         current-patient (rf/subscribe [::patient-subs/current-patient])
-        do-search-fn #(do (js/console.log "searching for " @search-text)
+        do-search-fn #(do (debug "searching for " @search-text)
                           (rf/dispatch [::patient-events/fetch @search-text]))]
     (fn []
       (if-let [selected-patient @current-patient]
@@ -323,7 +324,7 @@
         (when-not (= (get-in @referral [::referrer ::practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
           (swap! referral #(when-not (= (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName])
                                         (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
-                             (js/console.log "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
+                             (debug "Currently logged in user changed; resetting referral. was: " (get-in % [::referrer :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]) "\nnow:" (:urn:oid:1.2.840.113556.1.4/sAMAccountName user))
                              (initialize-referral user))))
         [:<>
          [:nav.navbar.is-black {:role "navigation" :aria-label "main navigation"}
@@ -345,7 +346,7 @@
                                          (do (swap! referral assoc :active-panel ::who-are-you?) (:active-panel @referral)))
                            :enabled (active-menus @referral)
                            :choose-fn #(swap! referral assoc :active-panel %))]
-            [:a.button {:on-click #(js/console.log "referral: " @referral)} "Log referral [debug]"]]
+            [:a.button {:on-click #(debug "referral: " @referral)} "Log referral [debug]"]]
            [:div.column.is-four-fifths
             (if-not user
               [login-panel]

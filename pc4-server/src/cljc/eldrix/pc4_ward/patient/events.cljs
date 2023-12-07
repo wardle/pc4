@@ -4,7 +4,8 @@
   Data would be better fetched as required on a per-component level cf. fulcro."
   (:require [re-frame.core :as rf]
             [pc4.events :as events]
-            [pc4.server :as srv]))
+            [pc4.server :as srv]
+            [taoensso.timbre :refer [debug]]))
 
 (def core-patient-properties                                ;; TODO: these properties to be generic properties not rsdb.
   [:t_patient/id
@@ -151,13 +152,13 @@
 (rf/reg-event-db ::set-current-patient
   []
   (fn [db [_ patient]]
-    (js/console.log "selecting patient " patient)
+    (debug "selecting patient " patient)
     (assoc-in db [:patient/current :patient] patient)))
 
 (rf/reg-event-db ::close-current-patient
   []
   (fn [db [_ patient]]
-    (js/console.log "closing patient" patient)
+    (debug "closing patient" patient)
     (-> db
         (dissoc :patient/current))))
 
@@ -175,7 +176,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rf/reg-event-fx ::search-legacy-pseudonym
   (fn [{db :db} [_ project-id pseudonym]]
-    (js/console.log "search by pseudonym" project-id pseudonym)
+    (debug "search by pseudonym" project-id pseudonym)
     (tap> {:event ::search-legacy-pseudonym :db db})
     (cond-> {:db (-> db
                      (dissoc :patient/search-legacy-pseudonym)
@@ -193,13 +194,13 @@
 (rf/reg-event-fx ::handle-search-pseudonym-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
-    (js/console.log "search by pseudonym response: " result)
+    (debug "search by pseudonym response: " result)
     {:db (assoc db :patient/search-legacy-pseudonym result)}))
 
 (rf/reg-event-fx ::handle-search-pseudonym-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "search by pseudonym failure: response " response)
+    (debug "search by pseudonym failure: response " response)
     {:db (-> db
              (dissoc :patient/search-legacy-pseudonym)
              (assoc-in [:errors ::search-legacy-pseudonym] "Failed to search for patient: unable to connect to server. Please check your connection and retry."))}))
@@ -209,7 +210,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rf/reg-event-fx ::open-pseudonymous-patient
   (fn [{db :db} [_ project-id pseudonym]]
-    (js/console.log "opening pseudonymous patient record:" project-id pseudonym)
+    (debug "opening pseudonymous patient record:" project-id pseudonym)
     {:db (-> db
              (dissoc :patient/current)
              (assoc :patient/loading? true)
@@ -221,7 +222,7 @@
 
 (rf/reg-event-fx ::open-patient
   (fn [{db :db} [_ project-id patient-id]]
-    (js/console.log "opening patient record:" project-id patient-id)
+    (debug "opening patient record:" project-id patient-id)
     {:db (-> db
              (dissoc :patient/current)
              (assoc :patient/loading? true)
@@ -257,7 +258,7 @@
 (rf/reg-event-fx ::handle-fetch-patient-response
   []
   (fn [{db :db} [_ response]]
-    (js/console.log "fetch  patient response: " response)
+    (debug "fetch  patient response: " response)
     {:db (-> db
              (dissoc :patient/loading?)
              (assoc-in [:patient/current :patient] (first (vals response))))}))
@@ -265,7 +266,7 @@
 (rf/reg-event-fx ::handle-fetch-patient-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
+    (debug "fetch patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current :patient/loading?)
              (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
@@ -273,7 +274,7 @@
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/search-patient-by-pseudonym}]]
-    (js/console.log "fetch pseudonymous patient response: " result)
+    (debug "fetch pseudonymous patient response: " result)
     {:db (-> db
              (dissoc :patient/loading?)
              (assoc-in [:patient/current :patient] result))}))
@@ -282,7 +283,7 @@
 (rf/reg-event-fx ::handle-fetch-pseudonymous-patient-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch pseudonymous patient failure: response " response)
+    (debug "fetch pseudonymous patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current)
              (assoc-in [:errors :open-patient] "Failed to fetch pseudonymous patient: unable to connect to server. Please check your connection and retry."))}))
@@ -292,7 +293,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (rf/reg-event-fx ::register-pseudonymous-patient
   (fn [{db :db} [_ {:keys [project-id nhs-number date-birth sex] :as params}]]
-    (js/console.log "searching or registering pseudonymous patient record:" params)
+    (debug "searching or registering pseudonymous patient record:" params)
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
@@ -304,7 +305,7 @@
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-response
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/register-patient-by-pseudonym}]]
-    (js/console.log "register pseudonymous patient response: " result)
+    (debug "register pseudonymous patient response: " result)
     (if (:com.wsscode.pathom3.connect.runner/mutation-error result)
       {:db (-> db
                (dissoc :patient/current)
@@ -317,7 +318,7 @@
 (rf/reg-event-fx ::handle-register-pseudonymous-patient-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "register pseudonymous patient failure: response " response)
+    (debug "register pseudonymous patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current)
              (assoc-in [:errors :open-patient] (or (get-in response [:response :message]) (:status-text response))))}))
@@ -328,7 +329,7 @@
 (rf/reg-event-fx ::handle-failure-response
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "pathom effect failure " response)
+    (debug "pathom effect failure " response)
     (tap> {:error    "pathom call failure"
            :response response})
     {}))
@@ -340,7 +341,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number
   []
   (fn [{db :db} [_ {:keys [project-id nhs-number] :as params}]]
-    (js/console.log "searching or registering patient record:" params)
+    (debug "searching or registering patient record:" params)
     {:db (-> db
              (dissoc :patient/current)
              (update-in [:errors] dissoc :open-patient))
@@ -352,7 +353,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number-response
   []
   (fn [{db :db} [_ response]]
-    (js/console.log "fetch  patient response: " response)
+    (debug "fetch  patient response: " response)
     (let [patient (get response 'pc4.rsdb/register-patient)]
       (tap> {:register-by-nnn patient})
       {:db (assoc-in db [:patient/current :patient] patient)
@@ -363,7 +364,7 @@
 (rf/reg-event-fx ::register-patient-by-nhs-number-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
+    (debug "fetch patient failure: response " response)
     {:db (-> db
              (dissoc :patient/current :patient/loading?)
              (assoc-in [:errors :open-patient] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))
@@ -418,7 +419,7 @@
 (rf/reg-event-fx ::handle-save-diagnosis
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/save-diagnosis}]]
-    (js/console.log "save diagnosis response: " result)
+    (debug "save diagnosis response: " result)
     {:fx [[:dispatch-n [[::refresh-current-patient]
                         [::clear-diagnosis]
                         [::clear-medication]]]]}))
@@ -457,7 +458,7 @@
 (rf/reg-event-fx ::save-ms-event
   []
   (fn [{db :db} [_ params]]
-    (js/console.log "saving ms event " params)
+    (debug "saving ms event " params)
     {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-ms-event params)
                                   ['*]}]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
@@ -467,7 +468,7 @@
 (rf/reg-event-fx ::delete-ms-event
   []
   (fn [{db :db} [_ params]]
-    (js/console.log "deleting ms event " params)
+    (debug "deleting ms event " params)
     {:fx [[:pathom {:params     [{(list 'pc4.rsdb/delete-ms-event params)
                                   ['*]}]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
@@ -493,7 +494,7 @@
                           (assoc :t_form_ms_relapse/ms_disease_course_fk 1)
                           (and (:t_smoking_history/status params) (not (:t_smoking_history/current_cigarettes_per_day params)))
                           (assoc :t_smoking_history/current_cigarettes_per_day 0))]
-      (js/console.log "saving encounter" params)
+      (debug "saving encounter" params)
       (tap> {:operation ::save-encounter :params params'})
       {:fx [[:pathom {:params     [{(list 'pc4.rsdb/save-encounter params')
                                     ['*]}]
@@ -504,7 +505,7 @@
 (rf/reg-event-fx ::delete-encounter
   []
   (fn [{db :db} [_ {encounter-id :t_encounter/id patient-identifier :t_patient/patient_identifier}]]
-    (js/console.log "deleting encounter" encounter-id)
+    (debug "deleting encounter" encounter-id)
     {:fx [[:pathom {:params     [(list 'pc4.rsdb/delete-encounter {:t_encounter/id encounter-id :t_patient/patient_identifier patient-identifier})]
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-save-diagnosis]
@@ -521,7 +522,7 @@
 (rf/reg-event-fx ::handle-save-result
   []
   (fn [{db :db} [_ {result 'pc4.rsdb/save-result}]]
-    (js/console.log "save result response: " result)
+    (debug "save result response: " result)
     {:fx [[:dispatch-n [[::refresh-current-patient]
                         [::clear-current-result]]]]}))
 
@@ -595,7 +596,7 @@
 (rf/reg-event-fx                                            ;;; DEPRECATED
   ::fetch []
   (fn [{db :db} [_ identifier]]
-    (js/console.log "WARNING: LEGACY DEPRECATED fetch patient " identifier)
+    (debug "WARNING: LEGACY DEPRECATED fetch patient " identifier)
     {:db (-> db
              (dissoc :patient/search-results)
              (update-in [:errors] dissoc ::fetch))
@@ -607,13 +608,13 @@
 (rf/reg-event-fx ::handle-fetch-response                    ;;DEPRECATED
   []
   (fn [{db :db} [_ {pt 'wales.nhs.cavuhb/fetch-patient}]]
-    (js/console.log "fetch patient response: " pt)
+    (debug "fetch patient response: " pt)
     {:db (assoc db :patient/search-results (if pt [pt] []))}))
 
 (rf/reg-event-fx ::handle-fetch-failure                     ;;DEPRECATED
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "fetch patient failure: response " response)
+    (debug "fetch patient failure: response " response)
     {:db (-> db
              (dissoc :patient/search-results)
              (assoc-in [:errors ::fetch] "Failed to fetch patient: unable to connect to server. Please check your connection and retry."))}))

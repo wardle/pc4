@@ -13,7 +13,8 @@
             [pc4.server :as server]
             [reitit.frontend.controllers :as rfc]
             [re-frame.core :as re-frame]
-            [reitit.frontend.easy :as rfe]))
+            [reitit.frontend.easy :as rfe]
+            [taoensso.timbre :as log]))
 
 (rf/reg-event-db
   ::initialize-db
@@ -58,7 +59,7 @@
 (re-frame/reg-event-fx
   ::push-state
   (fn [_ [_ & route]]
-    (println "Pushing route" route)
+    (log/debug "pushing route" route)
     {:push-state route}))
 
 (re-frame/reg-fx
@@ -105,9 +106,9 @@
   ::do-login []
   (fn [{db :db} [_ {:keys [username password]}]]
     (let [csrf-token js/pc4_network_csrf_token]
-      (js/console.log "performing login " username)
+      (log/debug "performing login " username)
       (when-not csrf-token
-        (js/console.log "warning: csrf token missing from HTML page"))
+        (log/warn "csrf token missing from HTML page"))
       {:db (-> db
                (dissoc :authenticated-user)
                (update-in [:errors] dissoc :user/login))
@@ -129,7 +130,7 @@
 (rf/reg-event-fx ::handle-login-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [login]}]]
-    (js/console.log "user login transaction: response: " login)
+    (log/debug "user login transaction: response: " login)
     (if login
       {:db (assoc db :authenticated-user {:io.jwt/token (:io.jwt/token login)
                                           :practitioner (dissoc login :io.jwt/token)})
@@ -139,7 +140,7 @@
 (rf/reg-event-fx ::handle-login-failure
   []
   (fn [{:keys [db]} [_ response]]
-    (js/console.log "User login failure: response " response)
+    (log/error "user login failure: " response)
     {:db (-> db
              (dissoc :authenticated-user)
              (assoc-in [:errors :user/login] "Failed to login: unable to connect to API server. Please try again later."))}))
@@ -147,6 +148,7 @@
 (rf/reg-event-fx ::do-session-expire
   []
   (fn [{db :db} [_]]
+    (log/info "session expired")
     {:db         (-> (db/reset-database db)
                      (assoc-in [:errors :user/login] "Your session expired. Please login again"))
      :push-state [:login]}))
@@ -154,7 +156,7 @@
 (rf/reg-event-fx ::do-logout
   []
   (fn [{db :db} [_ user]]
-    (js/console.log "Logging out user" user)
+    (log/debug "logging out user" user)
     {:db         (db/reset-database db)
      :push-state [:login]}))
 
@@ -170,12 +172,12 @@
 (rf/reg-event-fx ::handle-ping-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [ping]}]]
-    (js/console.log "Ping success: response: " ping)
+    (log/debug "remote ping success: " ping)
     {:db (update-in db [:errors] dissoc :ping)}))
 
 (rf/reg-event-fx ::handle-ping-failure
   (fn [{db :db} response]
-    (js/console.log "Ping failure :" response)
+    (log/error "remote ping failure: " response)
     {:db (assoc-in db [:errors :ping] response)}))
 ;:fx [[:dispatch-later [{:ms 10000 :dispatch [::ping-server]}]]]
 
@@ -189,7 +191,7 @@
   []
   (fn [{:keys [db]} _]
     (let [token (get-in db [:authenticated-user :io.jwt/token])]
-      #_(js/console.log "performing token refresh using token " token)
+      (log/debug "performing token refresh using token " token)
       {:fx [[:pathom {:token      token
                       :params     (server/make-refresh-token-op {:token token})
                       :on-success [::handle-refresh-token-response]
@@ -198,13 +200,13 @@
 (rf/reg-event-fx ::handle-refresh-token-response
   []
   (fn [{db :db} [_ {:pc4.users/syms [refresh-token]}]]
-    #_(js/console.log "Refresh token success: response: " (:io.jwt/token refresh-token))
+    (log/debug "refresh token success: " (:io.jwt/token refresh-token))
     {:db (assoc-in db [:authenticated-user :io.jwt/token] (:io.jwt/token refresh-token))}))
 
 (rf/reg-event-fx ::handle-refresh-token-failure
   []
   (fn [{:keys [_db]} [_ response]]
-    (js/console.log "User token refresh failure: response " response)))
+    (log/error "user token refresh failure: response " response)))
 
 
 (rf/reg-event-fx ::change-password
@@ -243,20 +245,20 @@
       (cond
         ;; no authenticated user -> explicitly do nothing... without this, the next condition will be thrown
         (nil? token)
-        (js/console.log "no current logged in user")
+        (log/trace "no current logged in user")
 
         ;; user token expired - we have to force end to our session
-        (server/jwt-expires-in-seconds? token 0)
-        (do (js/console.log "session expired for user" (get-in db [:authenticated-user :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]))
+        (server/jwt-expired? token)
+        (do (log/debug "session expired for user" (get-in db [:authenticated-user :practitioner :urn:oid:1.2.840.113556.1.4/sAMAccountName]))
             {:fx [[:dispatch [::do-session-expire]]]})
 
         ;; user token expiring soon - we still have chance to refresh our token without needing to ask for credentials again
         (server/jwt-expires-in-seconds? token 90)
-        (do (js/console.log "session expiring in " (server/jwt-expires-seconds token) " seconds; refreshing token")
+        (do (log/debug "session expiring in" (server/jwt-expires-seconds token) "seconds => refreshing token")
             {:fx [[:dispatch [::refresh-token]]]})
 
         ;; we have an active session
-        :else (js/console.log "active session; token expires in " (server/jwt-expires-seconds token) "seconds")))))
+        :else (log/trace "active session; token expires in" (server/jwt-expires-seconds token) "seconds")))))
 
 
 
@@ -276,9 +278,9 @@
 ;; the data is older than a certain limit, configured per-route.
 (rf/reg-event-fx ::remote
   (fn [{:keys [db]} [_ {:keys [id tx] :as config}]]
-    (js/console.log "Performing remote transaction:" {:id id :tx tx})
-    (when (and goog.debug (not (s/valid? ::remote-config config)))
-      (throw (ex-info "Invalid remote transaction" (s/explain-data ::remote-config config))))
+    (log/debug "performing remote transaction:" {:id id :tx tx})
+    (when (and pc4.config/debug? (not (s/valid? ::remote-config config)))
+      (throw (ex-info "invalid remote transaction" (s/explain-data ::remote-config config))))
     {:db (update db :loading (fnil conj #{}) id)                           ;; we're starting some network loading
      :fx [[:pathom {:params     tx
                     :token      (get-in db [:authenticated-user :io.jwt/token])
@@ -290,10 +292,10 @@
     (when-not id
       (throw (ex-info "missing id" config)))
     (let [failed? (or failed? (constantly false))]
-      (js/console.log "Pathom load response" response)
+      (log/debug "remote transaction response" response)
       (tap> {:load-response response})
       (if (or (:error response) (failed? response))
-        (do (js/console.log "load error" (-> response :error :cause))
+        (do (log/debug "remote load error" (-> response :error :cause))
             (cond-> {:db (update db :loading disj id)}
                     (fn? on-failure-fx)
                     (assoc :fx (on-failure-fx response))
@@ -311,15 +313,16 @@
                     (assoc :fx (on-success-fx response))
                     (vector? on-success-fx)
                     (assoc :fx on-success-fx))
-            (js/console.log "Out of order pathom response ignored")))))))
+            (log/debug "out of order remote response ignored")))))))
 
 (rf/reg-event-fx ::handle-load-failure
   (fn [{:keys [db]} [_ config response]]
-    (js/console.log "load error" response)
+    (log/error "remote load network error" response)
     (tap> {::handle-load-failure {:config config :response response}})))
 
 (rf/reg-event-db ::local-push
   (fn [db [_ response]]
+    (log/trace "local push" response)
     (let [{entity-db :db} (comp/target-results (:entity-db db) {} response)]
       (assoc db :entity-db entity-db))))
 
