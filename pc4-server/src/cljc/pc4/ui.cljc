@@ -218,6 +218,7 @@
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-200.rounded-md.p-2
      (merge
+       {:on-wheel #(when (= type "number") (-> % .-target .blur))} ;; stop scrollwheel from changing number!
        (dissoc attrs :help-text :on-enter)
        (when on-blur {:on-blur on-blur})
        (when on-key-down {:on-key-down #(on-key-down (.-which %))})
