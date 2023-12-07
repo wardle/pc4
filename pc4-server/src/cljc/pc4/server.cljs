@@ -10,15 +10,15 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [ajax.core :as ajax]
             [ajax.transit :as ajax-transit]
+            ["big.js" :as Big]
             [clojure.string :as str]
-            [pc4.comp :as comp]
-            [pc4.dates :as dates]
+            [cognitect.transit :as transit]
             [goog.crypt.base64 :as b64]
             [goog.net.ErrorCode :as errors]
-            [pyramid.core :as pyr]
+            [pc4.config :as config]
+            [pc4.dates :as dates]
             [re-frame.core :as rf]
-            ["big.js" :as Big]
-            [cognitect.transit :as transit])
+            [taoensso.timbre :as log])
   (:import (goog.async Debouncer)
            (goog.date UtcDateTime)
            (goog.net XhrIo)))
@@ -57,26 +57,24 @@
 (defn jwt-expires-in-seconds?
   "Does the token expire within the next (x) seconds? Returns true if no token"
   [token sec]
-  (if (str/blank? token)
-    true
-    (let [now (int (/ (.getTime (js/Date.)) 1000))
-          dln (+ now sec)
-          exp (:exp (jwt-token-payload token))]
-      (> dln exp))))
+  (or (str/blank? token)
+      (let [now (int (/ (.getTime (js/Date.)) 1000))
+            dln (+ now sec)
+            exp (:exp (jwt-token-payload token))]
+        (> dln exp))))
 
-(defn jwt-valid?
-  "Is the token non-nil and not expired? This does not test the token cryptographically"
+(defn jwt-expired?
+  "Is the token either nil or expired?"
   [token]
-  (if (str/blank? token)
-    false
-    (let [now (int (/ (.getTime (js/Date.)) 1000))
-          exp (:exp (jwt-token-payload token))]
-      (> exp now))))
+  (or (str/blank? token)
+      (let [now (int (/ (.getTime (js/Date.)) 1000))
+            exp (:exp (jwt-token-payload token))]
+        (> now exp))))
 
 (defn make-xhrio-request
   [{:keys [token timeout _params _on-success _on-failure] :as opts :or {timeout 3000}}]
   (merge {:method          :post
-          :uri             pc4.config/api-url
+          :uri             config/api-url
           :timeout         timeout
           :format          (ajax-transit/transit-request-format {:handlers dates/transit-writers})
           :response-format (ajax-transit/transit-response-format {:handlers dates/transit-readers})
@@ -130,7 +128,7 @@
 (defn do!
   "Execute a xhrio request on the server."
   [opts]
-  (ajax/POST pc4.config/api-url (make-xhrio-request opts)))
+  (ajax/POST config/api-url (make-xhrio-request opts)))
 
 (defn default-error-handler [x]
   (js/console.log "error in request: " x))
@@ -159,9 +157,9 @@
   (let [xhrio (new goog.net.XhrIo)
         csrf-token js/pc4_network_csrf_token]
     (when-not csrf-token
-      (println "WARNING: no CSRF token set"))
+      (log/warn "WARNING: no CSRF token set"))
     (-> (merge {:method          :post
-                :uri             pc4.config/api-url
+                :uri             config/api-url
                 :timeout         timeout
                 :format          (ajax-transit/transit-request-format
                                    {:handlers
