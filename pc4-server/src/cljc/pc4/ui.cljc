@@ -383,12 +383,12 @@
      (when (seq actions)
        [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
         (for [{:keys [id role disabled? on-click] :as action} actions, :when (and action (not (:hidden? action)))]
-          (ui-button
-            {:key       (or id (println "action missing :id field" action))
-             :role      role
-             :disabled? disabled?
-             :on-click  #(when on-click (on-click))}
-            (:title action)))])]]])
+          [ui-button
+           {:key       (or id (log/warn "action missing :id field" action))
+            :role      role
+            :disabled? disabled?
+            :on-click  #(when on-click (on-click))}
+           (:title action)])])]]])
 
 
 
