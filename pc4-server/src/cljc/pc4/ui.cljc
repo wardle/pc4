@@ -1,5 +1,6 @@
 (ns pc4.ui
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [taoensso.timbre :as log])
   (:import #?@(:clj  [(java.time LocalDate)
                       (java.time.format DateTimeFormatter)]
                :cljs [(goog.date Date)])))
