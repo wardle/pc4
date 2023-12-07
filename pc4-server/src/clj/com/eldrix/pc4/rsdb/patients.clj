@@ -341,6 +341,7 @@
   [conn patient-identifier]
   (let [sms (db/execute! conn (sql/format {:select    [:t_summary_multiple_sclerosis/id
                                                        :t_ms_diagnosis/id :t_ms_diagnosis/name
+                                                       :t_summary_multiple_sclerosis/patient_fk
                                                        :t_patient/patient_identifier
                                                        :t_summary_multiple_sclerosis/ms_diagnosis_fk]
                                            :from      [:t_summary_multiple_sclerosis]
