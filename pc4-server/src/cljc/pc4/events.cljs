@@ -296,7 +296,7 @@
      :fx [[:pathom {:params     tx
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-remote-success config (js/Date.)]
-                    :on-failure [::handle-load-failure config]}]]}))
+                    :on-failure [::handle-remote-failure config]}]]}))
 
 (rf/reg-event-fx ::handle-remote-success                      ;; HTTP success, but the response may contain an error
   (fn [{db :db} [_ {:keys [id failed? on-success-fx on-failure-fx] :as config} request-date response]]
@@ -326,10 +326,10 @@
                     (assoc :fx on-success-fx))
             (log/debug "out of order remote response ignored")))))))
 
-(rf/reg-event-fx ::handle-load-failure
+(rf/reg-event-fx ::handle-remote-failure
   (fn [{:keys [db]} [_ config response]]
     (log/error "remote load network error" response)
-    (tap> {::handle-load-failure {:config config :response response}})))
+    (tap> {::handle-remote-failure {:config config :response response}})))
 
 (rf/reg-event-db ::local-push
   (fn [db [_ response]]
