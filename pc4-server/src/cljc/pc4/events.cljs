@@ -63,6 +63,17 @@
     {:push-state route}))
 
 (re-frame/reg-fx
+  :navigate-back
+  (fn [_]
+    (.back js/history)))
+
+(re-frame/reg-event-fx
+  ::navigate-back
+  (fn [_ _]
+    (log/debug "navigating back")
+    {:navigate-back {}}))
+
+(re-frame/reg-fx
   :push-query-params
   (fn [params]
     (apply rfe/set-query params)))
