@@ -139,7 +139,8 @@
   [this {:t_user/keys [id username title first_names last_name initials has_photo] :as params}]
   {:ident :t_user/id
    :query [:t_user/id :t_user/username :t_user/title :t_user/first_names :t_user/last_name :t_user/initials
-           :t_user/has_photo]}
+           :t_user/has_photo]
+   :initial-state {}}
   (pc4.ui.nav/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                           :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                           :initials  initials
