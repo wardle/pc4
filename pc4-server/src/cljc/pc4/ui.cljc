@@ -219,12 +219,11 @@
    [:div.mt-1
     [:input.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border.border-gray-200.rounded-md.p-2
      (merge
-       {:on-wheel #(when (= type "number") (-> % .-target .blur))} ;; stop scrollwheel from changing number!
-       (dissoc attrs :help-text :on-enter)
-       (when on-blur {:on-blur on-blur})
-       (when on-key-down {:on-key-down #(on-key-down (.-which %))})
-       (when on-change {:on-change #(on-change (-> % .-target .-value))})
-       (when-not disabled {:classes ["text-gray-700" "bg-white" "shadow"]}))]
+       attrs
+       (cond-> {:on-wheel #(when (= type "number") (-> % .-target .blur))} ;; stop scrollwheel from changing number!
+         on-key-down (assoc :on-key-down #(on-key-down (.-which %)))
+         on-change (assoc :on-change #(let [v (-> % .-target .-value)] (on-change (if (str/blank? v) nil v))))
+         (not disabled) (assoc :classes ["text-gray-700" "bg-white" "shadow"])))]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
 (defn unparse-local-date [d]
