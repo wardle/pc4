@@ -22,7 +22,7 @@
             [pc4.project.home]
             [pc4.project.register]
             [pc4.project.team]
-            [pc4.server :as server]
+            [pc4.server]
             [pc4.subs :as subs]
             [pc4.views :as views]
             [taoensso.timbre :as log]))
