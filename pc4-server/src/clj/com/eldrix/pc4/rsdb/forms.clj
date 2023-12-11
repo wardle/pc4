@@ -36,7 +36,8 @@
   In order to make it easier to migrate, it would be ideal to represent most
   forms flattened within an encounter. For the few forms that permit multiple
   forms per encounter, they would be represented as a to-many property."
-  (:require [honey.sql :as sql]
+  (:require [clojure.string :as str]
+            [honey.sql :as sql]
             [com.eldrix.pc4.rsdb.db :as db]
             [clojure.spec.alpha :as s]
             [next.jdbc :as jdbc]
@@ -72,7 +73,7 @@
    {:form-type-id 32 :table "t_form_routine_observations" :title "Routine observations (P/BP)" :key nil :entity-name "FormRoutineObservations"}
    {:form-type-id 35 :table "t_form_alsfrs" :title "ALS Functional Rating Scale" :key nil :entity-name "FormALSFRS"}
    {:form-type-id 36 :table "t_form_lung_function" :title "Lung function" :key nil :entity-name "FormLungFunction"}
-   {:form-type-id 37 :table "t_smoking_history" :title "Smoking history" :key nil :entity-name "FormSmokingHistory"}
+   {:form-type-id 37 :name "form_smoking_history" :table "t_smoking_history" :title "Smoking history" :key nil :entity-name "FormSmokingHistory"}
    {:form-type-id 38 :table "t_form_walking_distance" :title "Walking distance" :key nil :entity-name "FormWalkingDistance"}
    {:form-type-id 39 :table "t_form_neurology_curriculum" :title "Neurology curriculum" :key nil :entity-name "FormNeurologyCurriculum"}
    {:form-type-id 40 :table "t_form_follow_up" :title "Follow up" :key nil :entity-name "FormFollowUp"}
@@ -113,6 +114,22 @@
    {:form-type-id nil                                       ;;; the consent form is a special form, that is not listed as an official form in t_form_type.
     :table        "t_form_consent" :title "Consent form" :key nil :entity-name "FormConsent"}])
 
+(def form-by-name
+  (reduce (fn [acc {nm :name, table :table :as form}]
+            (assoc acc (or nm (if (str/starts-with? table "t_form")
+                                (subs table 2)
+                                (throw (ex-info "Cannot determine default form name" form)))) form)) {} forms))
+
+(ns-unmap *ns* 'normalize)                                  ;; => unmap the var from the namespace
+(defmulti normalize #(some-> % first first namespace))
+(defmethod normalize :default [form] form)
+(defmethod normalize nil [form] nil)
+(defmethod normalize "t_form_ms_relapse" [form]
+  (-> (merge {:t_form_ms_relapse/in_relapse false} form)
+      (dissoc :t_form_ms_relapse/ms_disease_course)
+      (assoc :t_form_ms_relapse/ms_disease_course_fk (get-in form [:t_form_ms_relapse/ms_disease_course :t_ms_disease_course/id]))))
+
+
 (defn all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
   [conn patient-identifier]
@@ -147,20 +164,6 @@
    "SCORE10_0"         "10.0"
    "SCORE_LESS_THAN_4" "<4"})
 
-(defn encounter->form_edss
-  "Return a form EDSS for the encounter."
-  [conn encounter-id]
-  (db/execute-one! conn (sql/format {:select    [:t_form_edss/id :t_form_edss/edss_score :t_form_edss/user_fk
-                                                 :t_form_edss_fs/id :t_form_edss_fs/edss_score :t_form_edss_fs/user_fk]
-                                     :from      [:t_encounter]
-                                     :left-join [:t_form_edss [:and [:= :t_form_edss/encounter_fk :t_encounter/id]
-                                                               [:<> :t_form_edss/is_deleted "true"]]
-                                                 :t_form_edss_fs [:and [:= :t_form_edss_fs/encounter_fk :t_encounter/id]
-                                                                  [:<> :t_form_edss_fs/is_deleted "true"]]]
-                                     :where     [:= :t_encounter/id encounter-id]})))
-
-
-
 (defn encounter->form_smoking_history
   "Return a form smoking history for the encounter."
   [conn encounter-id]
@@ -170,15 +173,6 @@
                                      :where  [:and
                                               [:= :t_smoking_history/encounter_fk encounter-id]
                                               [:<> :t_smoking_history/is_deleted "true"]]})))
-
-(defn encounter->form_weight_height
-  "Return a form weight height for the encounter."
-  [conn encounter-id]
-  (db/execute-one! conn (sql/format {:select [:t_form_weight_height/id :t_form_weight_height/weight_kilogram :t_form_weight_height/height_metres]
-                                     :from   [:t_form_weight_height]
-                                     :where  [:and
-                                              [:= :t_form_weight_height/encounter_fk encounter-id]
-                                              [:<> :t_form_weight_height/is_deleted "true"]]})))
 
 (defn select-keys-by-namespace
   "Like select-keys, but selects based on namespace.
@@ -193,7 +187,95 @@
 (defn some-keys-in-namespace? [nspace m]
   (some #(= (name nspace) (namespace %)) (keys m)))
 
-(defn insert-form!
+(defn all-keys-in-namespace? [pred m]
+  (every? pred (map namespace (keys m))))
+
+
+(defn delete-all-forms-sql [encounter-id table-name]
+  {:update (keyword table-name)
+   :where  [:and [:= :encounter_fk encounter-id] [:= :is_deleted "false"]]
+   :set    {:is_deleted "true"}})
+
+(defn insert-form-sql
+  [encounter-id table-name form-data]
+  {:insert-into (keyword table-name)                        ;; note as this table uses legacy WO horizontal inheritance, we use t_form_seq to generate identifiers manually.
+   :values      [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
+                         :is_deleted   "false"
+                         :date_created (LocalDateTime/now)
+                         :encounter_fk encounter-id}
+                        form-data)]})
+
+(defn save-form-sql
+  "Return a vector of SQL to save the form data `data` to the given table.
+  There are four alternatives:
+  1. If there is no form-data, all forms of the type specified that are linked
+     to the encounter will be marked as deleted.
+  2. If the form-data contains a form id (e.g. `:t_form_edss/id`), then existing
+     data with the specified identifier will be updated with the form data.
+  3. If there is no form id, the data will be inserted as a new record.
+  3. If the form data is a collection of form data, each will be processed, but
+     after all forms of the type specified linked to that encounter are deleted."
+  ([encounter table-name form-data]
+   (save-form-sql encounter table-name form-data true))
+  ([{encounter-id :t_encounter/id :as encounter} table-name form-data delete-before-insert]
+   (when table-name
+     (let [user-key (keyword table-name "user_fk")
+           form-data (cond-> (normalize form-data)
+                       (nil? (get form-data user-key))
+                       (assoc user-key (:t_user/id encounter)))
+           id-key (keyword table-name "id")
+           id (get form-data id-key)
+           encounter-fk (get form-data (keyword table-name "encounter_fk"))]
+       (cond
+         ;; if there is no form data, delete all forms of this type
+         (nil? form-data)
+         [(delete-all-forms-sql encounter-id table-name)]
+
+         ;; if the encounter identifiers don't match, throw
+         (and encounter-fk (not= encounter-id encounter-fk))
+         (throw (ex-info "form data has different encounter fk to encounter" {:encounter encounter :form-data form-data}))
+
+         ;; if the form data isn't correct, throw
+         (and (map? form-data) (not (all-keys-in-namespace? #{table-name} form-data)))
+         (throw (ex-info "form data keys must all use the same namespace" form-data))
+
+         ;; if we're updating existing data, update
+         (and (map? form-data) id)
+         [{:update (keyword table-name) :set form-data :where [:and [:= :id id] [:= :encounter_fk encounter-id]]}]
+
+         ;; we've got a new form => delete any existing and insert a new
+         (and (map? form-data) delete-before-insert)
+         [(delete-all-forms-sql encounter-id table-name)
+          (insert-form-sql encounter-id table-name form-data)]
+
+         ;; just insert without deleting
+         (map? form-data)
+         [(insert-form-sql encounter-id table-name form-data)]
+
+         ;; we have multiple forms of this type => save each one in turn
+         (seq form-data)
+         (into [(delete-all-forms-sql encounter-id table-name)]
+               (mapcat #(save-form-sql encounter table-name (dissoc % id-key) false) form-data))
+
+         ;; we have an empty sequence of forms => delete all active forms
+         :else
+         [(delete-all-forms-sql encounter-id table-name)])))))
+
+(defn save-encounter-forms-sql
+  "Returns a sequence of SQL statements (as Clojure data structures) to either
+   delete, update or insert the form data. It is expected that 'forms' are
+   nested within an encounter. They should be nested using their form name
+   (e.g. `:t_encounter/form_edss`)."
+  [encounter]
+  (->> (keys encounter)
+       (reduce
+         (fn [acc k]
+           (if-let [{:keys [table]} (form-by-name (name k))]
+             (into acc (save-form-sql encounter table (get encounter k)))
+             acc)) [])
+       (remove nil?)))
+
+(defn ^:deprecated insert-form!
   "Inserts a form.
   e.g
 
@@ -214,13 +296,13 @@
                                                           (select-keys-by-namespace data table))]})
                    {:return-keys true}))
 
-(defn count-forms [conn encounter-id form-name]
+(defn ^:deprecated count-forms [conn encounter-id form-name]
   (:count (jdbc/execute-one! conn (sql/format {:select [:%count.id]
                                                :from   [form-name]
                                                :where  [:and [:= :encounter_fk encounter-id]
                                                         [:<> :is_deleted "true"]]}))))
 
-(defn delete-all-forms!
+(defn ^:deprecated delete-all-forms!
   "Delete all forms of the specific type 'table' from the encounter."
   [conn table {encounter-id :t_encounter/id}]
   (jdbc/execute-one! conn (sql/format {:update table
@@ -228,7 +310,7 @@
                                                 [:= :encounter_fk encounter-id]]
                                        :set    {:is_deleted "true"}})))
 
-(defn delete-form!
+(defn ^:deprecated delete-form!
   [conn table data]
   (when-let [id (get data (keyword (name table) "id"))]
     (log/info "Deleting form" {:table table :id id})
@@ -240,7 +322,7 @@
 (s/def ::save-form (s/keys :req [:t_encounter/id
                                  :t_user/id]))
 
-(defn save-form!
+(defn ^:deprecated save-form!
   "Saves an arbitrary form. Designed for forms that permit only a single
   instance per encounter.
   Parameters:
@@ -279,9 +361,17 @@
                                                  :t_encounter_template/id
                                                  :t_user/id]
                                            :opt [:t_encounter/id]))
+
+(defn save-encounter-and-forms-sql
+  "Generates a sequence of SQL to write the encounter and any nested forms
+  to the database. The SQL to write the encounter is always returned first."
+  [encounter]
+  (into [(patients/save-encounter-sql encounter)]
+        (save-encounter-forms-sql encounter)))
+
 (s/fdef save-encounter-with-forms!
   :args (s/cat :txn ::db/txn :data ::save-encounter-with-forms))
-(defn save-encounter-with-forms!
+(defn ^:deprecated save-encounter-with-forms!
   [txn data]
   (log/info "saving encounter with forms" {:data data})
   (when-not (s/valid? ::save-encounter-with-forms data)
@@ -299,6 +389,20 @@
     (save-form! txn :t_form_weight_height data')
     encounter))
 
+(s/def ::save-encounter-and-forms
+  (s/keys :req [:t_encounter/date_time
+                :t_encounter/encounter_template_fk]
+          :opt [:t_encounter/id :t_encounter/notes]))
+(s/fdef save-encounter-and-forms!
+  :args (s/cat :txn ::db/txn :encounter ::save-encounter-and-forms))
+(defn save-encounter-and-forms!
+  [txn encounter]
+  (log/info "saving encounter and forms" encounter)
+  (let [[encounter-sql & forms-sql-stmts] (save-encounter-and-forms-sql encounter)
+        encounter' (db/execute! txn (sql/format encounter-sql) {:return-keys true})]
+    (doseq [stmt forms-sql-stmts]
+      (db/execute! txn (sql/format stmt)))
+    encounter'))                                            ;; take care to return updated encounter entity.
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))

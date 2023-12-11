@@ -628,11 +628,32 @@
 
 
 
-(s/def ::save-encounter (s/keys :req [:t_encounter/encounter_template_fk
-                                      :t_encounter/episode_fk
-                                      :t_patient/patient_identifier
-                                      :t_encounter/date_time]
-                                :opt [:t_encounter/id]))
+(s/def ::save-encounter (s/keys :req [:t_encounter/date_time
+                                      :t_encounter/patient_fk
+                                      :t_encounter/encounter_template_fk]
+                                :opt [:t_encounter/id
+                                      :t_encounter/episode_fk]))
+(defn save-encounter-sql
+  [{:t_encounter/keys [id encounter_template_fk patient_fk episode_fk date_time notes]
+    :t_patient/keys   [patient_identifier] :as encounter}]
+  (when-not (s/valid? ::save-encounter encounter)
+    (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
+  (if id
+    {:update [:t_encounter]
+     :where  [:= :id id]
+     :set    {:encounter_template_fk encounter_template_fk
+              :date_time             date_time
+              :notes                 notes
+              :episode_fk            episode_fk}}
+    {:insert-into [:t_encounter]
+     :values      [{:date_time             date_time
+                    :notes                 notes
+                    :encounter_template_fk encounter_template_fk
+                    :patient_fk            (or patient_fk {:select :t_patient/id
+                                                           :from   [:t_patient]
+                                                           :where  [:= :t_patient/patient_identifier patient_identifier]})
+                    :episode_fk            episode_fk}]}))
+
 
 (s/fdef save-encounter!
   :args (s/cat :conn ::db/conn :encounter ::save-encounter))
@@ -649,27 +670,14 @@
   (when-not (s/valid? ::save-encounter encounter)
     (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
   (log/info "saving encounter" {:encounter_id encounter-id :encounter encounter})
-  (if encounter-id
-    (db/execute-one! conn (sql/format {:update [:t_encounter]
-                                       :where  [:= :id encounter-id]
-                                       :set    {:t_encounter/encounter_template_fk encounter-template-id
-                                                :t_encounter/date_time             date-time}})
-                     {:return-keys true})
-    (db/execute-one! conn (sql/format {:insert-into [:t_encounter]
-                                       :values      [{:date_time             date-time
-                                                      :encounter_template_fk encounter-template-id
-                                                      :patient_fk            {:select :t_patient/id
-                                                                              :from   [:t_patient]
-                                                                              :where  [:= :t_patient/patient_identifier patient-identifier]}
-                                                      :episode_fk            episode-id}]})
-                     {:return-keys true})))
-
+  (db/execute-one! conn (sql/format (save-encounter-sql encounter)) {:return-keys true}))
 
 (defn delete-encounter!
   [conn encounter-id]
   (db/execute-one! conn (sql/format {:update [:t_encounter]
                                      :where  [:= :id encounter-id]
-                                     :set    {:t_encounter/is_deleted "true"}})))
+                                     :set    {:t_encounter/is_deleted "true"}})
+                   {:return-keys true}))
 
 
 (s/fdef set-date-death

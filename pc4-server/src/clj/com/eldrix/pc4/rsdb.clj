@@ -800,7 +800,7 @@
                    :t_form_ms_relapse/in_relapse
                    :t_form_ms_relapse/activity
                    :t_form_ms_relapse/progression
-                   :t_form_ms_disease_course/name ;; TODO: probably remove as better nested?
+                   :t_form_ms_disease_course/name           ;; TODO: probably remove as better nested?
                    {:t_form_ms_relapse/ms_disease_course
                     [:t_form_ms_disease_course/id
                      :t_form_ms_disease_course/name]}]}]
@@ -819,12 +819,13 @@
                                                                    [:<> :t_form_ms_relapse/is_deleted "true"]]})))]
     (into []
           (map (fn [encounter-id]
-                 (let [form (first (get forms encounter-id))]
+                 (let [{:t_form_ms_relapse/keys [ms_disease_course_fk] :as form} (first (get forms encounter-id))]
                    {:t_encounter/form_ms_relapse
-                    (-> form
-                        (assoc :t_form_ms_relapse/ms_disease_course
-                               {:t_ms_disease_course/id (:t_form_ms_relapse/ms_disease_course_fk form)
-                                :t_ms_disease_course/name (:t_ms_disease_course/name form)}))})))
+                    (if ms_disease_course_fk
+                      (assoc form :t_form_ms_relapse/ms_disease_course
+                                  {:t_ms_disease_course/id   ms_disease_course_fk
+                                   :t_ms_disease_course/name (:t_ms_disease_course/name form)})
+                      form)})))
           encounter-ids)))
 
 (pco/defresolver encounters->form_weight_height
@@ -1327,39 +1328,29 @@
 
 (s/def ::save-encounter
   (s/keys :req [:t_patient/patient_identifier
+                :t_encounter/patient_fk
                 :t_encounter/date_time
-                :t_episode/id]
+                :t_encounter/encounter_template_fk]
           :opt [:t_encounter/id                             ;; if we've saving an existing encounter
-                :t_encounter_template/id
-                :t_form_weight_height/id                    ;; if we're updating an existing form
-                :t_form_weight_height/height_metres
-                :t_form_weight_height/weight_kilogram
-                :t_form_edss/id                             ;; if we're updating an existing form
-                :t_form_edss/edss_score
-                :t_form_ms_relapse/id                       ;; if we're updating an existing form
-                :t_form_ms_relapse/in_relapse
-                :t_form_ms_relapse/ms_disease_course_fk
-                :t_smoking_history/id
-                :t_smoking_history/current_cigarettes_per_day
-                :t_smoking_history/status]))
+                :t_encounter/episode_fk]))
 
 (pco/defmutation save-encounter!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
-    :as     env} params]
+  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager
+    user :authenticated-user, :as env} params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
   (log/info "save encounter request: " params "user: " user)
   (let [date (:t_encounter/date_time params)
-        params' (assoc params
-                  :t_encounter/date_time (if (instance? LocalDate date) (.atStartOfDay date) date)
-                  :t_user/id (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
+        params' (-> params
+                    (assoc :t_encounter/date_time (if (instance? LocalDate date) (.atStartOfDay date) date)
+                           :t_user/id (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
     (when-not (s/valid? ::save-encounter params')
       (log/error "invalid call" (s/explain-data ::save-encounter params'))
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
-    (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (jdbc/with-transaction [txn conn]
-          (forms/save-encounter-with-forms! conn params')))))
+    (try
+      (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
+      (jdbc/with-transaction [txn conn]
+        (forms/save-encounter-and-forms! txn params'))
+      (catch Exception e (.printStackTrace e)))))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
