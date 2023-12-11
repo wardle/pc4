@@ -1,6 +1,6 @@
 (ns pc4.patient.encounters
   (:require [clojure.string :as str]
-            ["Big.js" :as Big]
+            ["big.js" :as Big]
             [pc4.dates :as dates]
             [pc4.events :as events]
             [pc4.patient.banner :as banner]
