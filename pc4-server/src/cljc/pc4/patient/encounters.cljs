@@ -105,12 +105,12 @@
     :value       encounter
     :choices     (remove :t_encounter_template/is_deleted all-encounter-templates)
     :sort?       true
-    :select-fn   #(on-change (assoc encounter :t_encounter/encounter_template_id %))
+    :on-select   #(on-change (assoc encounter :t_encounter/encounter_template_fk %))
     :id-key      :t_encounter_template/id
     :display-key #(some-> % :t_encounter_template/title)}])
 
 (defn form-edss
-  [{:t_encounter/keys [form_edss] :as encounter} {:keys [key on-change]}]
+  [{:t_encounter/keys [form_edss form_ms_relapse] :as encounter} {:keys [key on-change]}]
   [ui/ui-simple-form-item {:html-for key :label "EDSS"}
    [:div.space-y-4
     [ui/ui-select
@@ -127,19 +127,21 @@
      {:name        (or key "in-relapse")
       :label       "In relapse?"
       :description "Tick if EDSS recorded when patient in relapse."
-      :checked     (:t_form_ms_relapse/in_relapse encounter)
-      :on-change   #(on-change (assoc-in encounter [:t_form_ms_relapse :t_form_ms_relapse/in_relapse] %))}]]])
+      :checked     (or (:t_form_ms_relapse/in_relapse form_ms_relapse) false)
+      :on-change   #(on-change (assoc-in encounter [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse] %))}]]])
 
 (defn form-ms-disease-course [encounter all-ms-disease-courses {:keys [on-change]}]
   [ui/ui-simple-form-item {:label "Disease course"}
    [ui/ui-select
-    {:name                "disease-course"
-     :sort?               true
-     :choices             all-ms-disease-courses
-     :display-key         :t_ms_disease_course/name
-     :no-selection-string "Not recorded"
-     :value               (get-in encounter [:t_encounter/form_ms_relapse :t_form_ms_relapse/ms_disease_course])
-     :on-select           #(on-change (assoc-in encounter [:t_encounter/form_ms_relapse :t_form_ms_relapse/ms_disease_course] %))}]])
+    {:name          "disease-course"
+     :sort?         true
+     :choices       all-ms-disease-courses
+     :default-value (first (filter #(= 1 (:t_ms_disease_course/id %)) all-ms-disease-courses))
+     :display-key   :t_ms_disease_course/name
+     :value         (get-in encounter [:t_encounter/form_ms_relapse :t_form_ms_relapse/ms_disease_course])
+     :on-select     #(on-change (-> encounter
+                                    (assoc-in [:t_encounter/form_ms_relapse :t_form_ms_relapse/ms_disease_course_fk] (:t_form_ms_relapse/id %))
+                                    (assoc-in [:t_encounter/form_ms_relapse :t_form_ms_relapse/ms_disease_course] %)))}]])
 
 (defn form-weight-height [encounter {:keys [on-change]}]
   [:<>
@@ -148,7 +150,7 @@
      {:value     (str (get-in encounter [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram]))
       :name      "weight"
       :type      "number"
-      :on-change #(on-change (assoc-in encounter [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram] (when-not (str/blank? %) (Big. %))))}]]
+      :on-change #(on-change (assoc-in encounter [:t_encounter/form_weight_height :t_form_weight_height/weight_kilogram] (some-> % (Big.))))}]]
    [ui/ui-simple-form-item {:label "Height (m)"}
     [ui/ui-textfield
      {:value     (str (get-in encounter [:t_encounter/form_weight_height :t_form_weight_height/height_metres]))
@@ -156,7 +158,7 @@
       :type      "number"
       :min       "0"
       :max       "2"
-      :on-change #(on-change (assoc-in encounter [:t_encounter/form_weight_height :t_form_weight_height/height_metres] (when-not (str/blank? %) (Big. %))))}]]])
+      :on-change #(on-change (assoc-in encounter [:t_encounter/form_weight_height :t_form_weight_height/height_metres] (some-> % (Big.))))}]]])
 
 (defn form-smoking
   [encounter {:keys [on-change]}]
@@ -167,39 +169,47 @@
       :sort?               true
       :choices             smoking-status-choices
       :no-selection-string "Not recorded"
-      :value               (get-in encounter [:t_encounter/form_smoking_history :t_form_smoking_history/status])
+      :value               (get-in encounter [:t_encounter/form_smoking_history :t_smoking_history/status])
       :on-select           #(on-change
-                              (cond-> (assoc-in encounter [:t_encounter/form_smoking_history :t_form_smoking_history/status] %)
-                                      (and % (nil? (get-in encounter [:t_encounter/form_smoking_history :t_form_smoking_history/current_cigarettes_per_day])))
-                                      (assoc-in [:t_encounter/form_smoking_history :t_form_smoking_history/current_cigarettes_per_day] 0)
+                              (cond-> (assoc-in encounter [:t_encounter/form_smoking_history :t_smoking_history/status] %)
+                                      (and % (nil? (get-in encounter [:t_encounter/form_smoking_history :t_smoking_history/current_cigarettes_per_day])))
+                                      (assoc-in [:t_encounter/form_smoking_history :t_smoking_history/current_cigarettes_per_day] 0)
                                       (nil? %)
-                                      (update :t_encounter/form_smoking_history dissoc :t_form_smoking_history/status :t_form_smoking_history/current_cigarettes_per_day)
+                                      (update :t_encounter/form_smoking_history dissoc :t_smoking_history/status :t_smoking_history/current_cigarettes_per_day)
                                       (= "NEVER_SMOKED" %)
-                                      (assoc-in [:t_encounter/form_smoking_history :t_form_smoking_history/current_cigarettes_per_day] 0)))}]]
+                                      (assoc-in [:t_encounter/form_smoking_history :t_smoking_history/current_cigarettes_per_day] 0)))}]]
 
    [ui/ui-simple-form-item {:label "Cigarettes per day"}
     [ui/ui-textfield
-     {:value     (str (get-in encounter [:t_encounter/form_smoking_history :t_form_smoking_history/current_cigarettes_per_day]))
+     {:value     (str (get-in encounter [:t_encounter/form_smoking_history :t_smoking_history/current_cigarettes_per_day]))
       :name      "cigarettes"
       :type      "number"
       :min       0
       :max       200
-      :on-change #(on-change (assoc-in encounter [:t_encounter/form_smoking_history :t_form_smoking_history/current_cigarettes_per_day] (when % (parse-long %))))}]]])
+      :on-change #(on-change (assoc-in encounter [:t_encounter/form_smoking_history :t_smoking_history/current_cigarettes_per_day] (parse-long (or % ""))))}]]])
 
 (defn push-encounter
   [encounter]
   (rf/dispatch-sync [::events/local-push {:data encounter}]))
 
 (defn save-encounter
-  [encounter]
-  (rf/dispatch [::events/remote {:id ::save-encounter
-                                 :tx [(list 'pc4.rsdb/save-encounter encounter)]}]))
+  [patient-identifier encounter]
+  (tap> {:save-encounter encounter})
+  (rf/dispatch [::events/remote {:id            ::save-encounter
+                                 :tx            [(list 'pc4.rsdb/save-encounter
+                                                       (-> encounter
+                                                           (assoc :t_patient/patient_identifier patient-identifier
+                                                                  :t_encounter/encounter_template_fk (get-in encounter [:t_encounter/encounter_template :t_encounter_template/id]))
+                                                           (dissoc :t_encounter/encounter_template)))]
+                                 :on-success-fx [[:dispatch [::events/navigate-back]]]}]))
 
 (defn delete-encounter
-  [patient-identifier encounter] ;; TODO: delete all of the forms locally
-  (rf/dispatch [::events/remote {:id ::delete-encounter
-                                 :tx [(list 'pc4.rsdb/delete-encounter (assoc encounter :t_patient/patient_identifier patient-identifier))]
-                                 ::on-success-fx [[:dispatch [::events/local-delete [:t_encounter/id (:t_encounter/id encounter)]]]]}]))
+  [patient-identifier encounter]                            ;; TODO: delete all of the forms locally?
+  (rf/dispatch [::events/remote {:id            ::delete-encounter
+                                 :tx            [(list 'pc4.rsdb/delete-encounter (assoc encounter :t_patient/patient_identifier patient-identifier))]
+                                 :on-success-fx [[:dispatch [::events/local-delete [:t_encounter/id (:t_encounter/id encounter)]]]
+                                                 [:dispatch [::events/navigate-back]]]}]))
+
 
 (def encounter-page
   {:tx
@@ -207,11 +217,12 @@
      [{(patient/patient-ident params)
        banner/banner-query}
       {[:t_encounter/id (get-in params [:path :encounter-id])]
-       [:t_encounter/id :t_encounter/patient_fk :t_encounter/date_time
+       [:t_encounter/id :t_encounter/patient_fk :t_encounter/date_time :t_encounter/is_deleted
+        :t_encounter/notes
         {:t_encounter/encounter_template [:t_encounter_template/id :t_encounter_template/title]}
         {:t_encounter/form_edss [:t_form_edss/edss_score]}
-        {:t_encounter/form_smoking_history [:t_form_smoking_history/status
-                                            :t_form_smoking_history/current_cigarettes_per_day]}
+        {:t_encounter/form_smoking_history [:t_smoking_history/status
+                                            :t_smoking_history/current_cigarettes_per_day]}
         {:t_encounter/form_weight_height [:t_form_weight_height/weight_kilogram
                                           :t_form_weight_height/height_metres]}
         {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse
@@ -221,24 +232,38 @@
 
    :view
    (fn [ctx [{patient-pk :t_patient/id :t_patient/keys [patient_identifier] :as patient}
-             {:t_encounter/keys [id patient_fk date_time encounter_template] :as encounter}
+             {:t_encounter/keys [id patient_fk date_time is_deleted encounter_template] :as encounter}
              all-ms-disease-courses]]
-     (tap> {:edit-encounter ctx})
-     (if (not= patient-pk patient_fk)                       ;; check encounter is for given patient
-       [ui/box-error-message "Invalid access" "Access not permitted"]
-       [:<>
-        [banner/rsdb-banner patient]
-        [layout patient encounter
-         {:sub-menu {:items [{:id      :save-changes
-                              :content [ui/menu-button {:role     :primary
-                                                        :on-click #(save-encounter encounter)} "Save changes"]}
-                             {:id :delete-encounter
-                              :content [ui/menu-button {:on-click #(delete-encounter patient_identifier encounter)} "Delete"]}
-                             {:id      :cancel
-                              :content [ui/menu-button {:on-click #(.back js/history)} "Cancel"]}]}}
+     (when-not (:loading ctx)
+       (tap> {:edit-encounter ctx})
+       (if (not= patient-pk patient_fk)                     ;; check encounter is for given patient
+         [ui/box-error-message "Invalid access" "Access not permitted"]
+         [:<>
+          [banner/rsdb-banner patient]
+          [layout patient encounter
+           {:sub-menu {:items [{:id      :save-changes
+                                :content [ui/menu-button {:role     :primary
+                                                          :on-click #(save-encounter patient_identifier encounter)} "Save changes"]}
+                               (if is_deleted
+                                 {:id      :undelete-encounter
+                                  :content [ui/menu-button {:on-click #(log/debug "Undelete clicked")} "Undelete"]}
+                                 {:id      :delete-encounter
+                                  :content [ui/menu-button {:on-click #(delete-encounter patient_identifier encounter)} "Delete"]})
+                               {:id      :cancel
+                                :content [ui/menu-button {:on-click #(.back js/history)} "Cancel"]}]}}
 
-         [ui/ui-panel
-          [form-edss encounter {:on-change push-encounter}]
-          [form-ms-disease-course encounter all-ms-disease-courses {:on-change push-encounter}]
-          [form-weight-height encounter {:on-change push-encounter}]
-          [form-smoking encounter {:on-change push-encounter}]]]]))})
+           [ui/ui-panel
+            [form-edss encounter {:on-change push-encounter}]
+            [form-ms-disease-course encounter all-ms-disease-courses {:on-change push-encounter}]
+            [form-weight-height encounter {:on-change push-encounter}]
+            [form-smoking encounter {:on-change push-encounter}]]
+           [ui/ui-panel
+            [ui/ui-simple-form-item {:label "Notes"}
+             [ui/ui-textarea {:value     (:t_encounter/notes encounter)
+                              :on-change #(push-encounter (assoc encounter :t_encounter/notes %))}]]]]])))})
+
+
+(comment
+  (rf/dispatch [::events/remote {:id :test
+                                 :tx [{[:t_patient/patient_identifier 14032]
+                                       [:t_patient/id :t_patient/nhs_number]}]}]))
