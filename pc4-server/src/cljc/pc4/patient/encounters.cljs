@@ -33,9 +33,14 @@
                              :t_encounter_template/title]}]
                           optional-headings)})}]))
    :view
-   (fn [_ [{project-id :t_episode/project_fk, patient-pk :t_patient/id :t_patient/keys [patient_identifier encounters] :as patient}]]
+   (fn [_ctx [{project-id :t_episode/project_fk, patient-pk :t_patient/id :t_patient/keys [patient_identifier encounters] :as patient}]]
      [patient/layout {:t_project/id project-id} patient
-      {:selected-id :encounters}
+      {:selected-id :encounters
+       :sub-menu
+       {:items [{:id      :add-encounter
+                 :content [ui/menu-button {:on-click #(rf/dispatch
+                                                        [::events/push-state :patient/encounter {:patient-identifier patient_identifier
+                                                                                                 :encounter-id       0}])} "Add encounter"]}]}}
       (when encounters
         [ui/ui-table
          [ui/ui-table-head
@@ -75,13 +80,14 @@
   [patient {:t_encounter/keys [id is_deleted date_time] :as encounter} {:keys [sub-menu]} & content]
   [:div.grid.grid-cols-1.md:grid-cols-6
    [:div.col-span-1.p-2
-    [:div.shadow.bg-gray-50
-     [:div.pl-4.font-semibold.bg-gray-200.text-center.italic.text-gray-600
-      (dates/format-date date_time)]
-     [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:text-wrap "pretty"}}
-      (get-in encounter [:t_encounter/encounter_template :t_encounter_template/project :t_project/title])]
-     [:div.font-bold.text-lg.min-w-min.p-4.pt-0.text-center
-      (get-in encounter [:t_encounter/encounter_template :t_encounter_template/title])]]
+    (when (and date_time (:t_encounter/encounter_template encounter))
+      [:div.shadow.bg-gray-50
+       [:div.pl-4.font-semibold.bg-gray-200.text-center.italic.text-gray-600
+        (dates/format-date date_time)]
+       [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:text-wrap "pretty"}}
+        (get-in encounter [:t_encounter/encounter_template :t_encounter_template/project :t_project/title])]
+       [:div.font-bold.text-lg.min-w-min.p-4.pt-0.text-center
+        (get-in encounter [:t_encounter/encounter_template :t_encounter_template/title])]])
     (when is_deleted
       [:div.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
        "Warning: this encounter has been deleted"])
@@ -221,22 +227,25 @@
         :t_encounter/notes
         {:t_encounter/encounter_template [:t_encounter_template/id :t_encounter_template/title]}
         {:t_encounter/form_edss [:t_form_edss/edss_score]}
-        {:t_encounter/form_smoking_history [:t_smoking_history/status
-                                            :t_smoking_history/current_cigarettes_per_day]}
-        {:t_encounter/form_weight_height [:t_form_weight_height/weight_kilogram
-                                          :t_form_weight_height/height_metres]}
-        {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse
-                                       {:t_form_ms_relapse/ms_disease_course [:t_ms_disease_course/id
-                                                                              :t_ms_disease_course/name]}]}]}
-      {:com.eldrix.rsdb/all-ms-disease-courses [:t_ms_disease_course/id :t_ms_disease_course/name]}])
-
+        {:t_encounter/form_smoking_history                  ;; TODO: rename t_smoking_history to t_form_smoking_history?
+         [:t_smoking_history/status
+          :t_smoking_history/current_cigarettes_per_day]}
+        {:t_encounter/form_weight_height
+         [:t_form_weight_height/weight_kilogram
+          :t_form_weight_height/height_metres]}
+        {:t_encounter/form_ms_relapse
+         [:t_form_ms_relapse/in_relapse
+          {:t_form_ms_relapse/ms_disease_course
+           [:t_ms_disease_course/id
+            :t_ms_disease_course/name]}]}]}
+      {:com.eldrix.rsdb/all-ms-disease-courses
+       [:t_ms_disease_course/id :t_ms_disease_course/name]}])
    :view
    (fn [ctx [{patient-pk :t_patient/id :t_patient/keys [patient_identifier] :as patient}
              {:t_encounter/keys [id patient_fk date_time is_deleted encounter_template] :as encounter}
              all-ms-disease-courses]]
      (when-not (:loading ctx)
-       (tap> {:edit-encounter ctx})
-       (if (not= patient-pk patient_fk)                     ;; check encounter is for given patient
+       (if (and (pos-int? id) (not= patient-pk patient_fk)) ;; check existing encounter is for given patient
          [ui/box-error-message "Invalid access" "Access not permitted"]
          [:<>
           [banner/rsdb-banner patient]
@@ -250,8 +259,17 @@
                                  {:id      :delete-encounter
                                   :content [ui/menu-button {:on-click #(delete-encounter patient_identifier encounter)} "Delete"]})
                                {:id      :cancel
-                                :content [ui/menu-button {:on-click #(.back js/history)} "Cancel"]}]}}
+                                :content [ui/menu-button {:on-click #(rf/dispatch [::events/navigate-back])} "Cancel"]}]}}
 
+           [ui/ui-panel
+            [ui/ui-simple-form-item {:label "Date of encounter"}
+             [ui/ui-local-date-time
+              {:value date_time
+               :on-change #(push-encounter (assoc encounter :t_encounter/date_time %))}]]
+            [ui/ui-simple-form-item {:label "Encounter type"}
+             [ui/ui-select
+              {:value (:t_encounter/encounter_template encounter)
+               :choices []}]]]
            [ui/ui-panel
             [form-edss encounter {:on-change push-encounter}]
             [form-ms-disease-course encounter all-ms-disease-courses {:on-change push-encounter}]
