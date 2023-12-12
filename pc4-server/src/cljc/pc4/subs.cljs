@@ -59,12 +59,17 @@
   (fn [user]
     (:t_user/latest_news user)))
 
-
-(rf/reg-sub ::remote-loading
+(rf/reg-sub ::loading
   (fn [db [_ id]]
     (if id
       (get (:loading db) id)
       (seq (:loading db)))))
+
+(rf/reg-sub ::delayed
+  (fn [db [_ id]]
+    (if id
+      (get (:delayed db) id)
+      (seq (:delayed db)))))
 
 (rf/reg-sub ::local-pull
   (fn [db [_ query targets]]

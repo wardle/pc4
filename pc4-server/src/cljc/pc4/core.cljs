@@ -10,7 +10,6 @@
             [pc4.user.views :as user.views]
             [eldrix.pc4-ward.refer.views :as refer]
             [pc4.config :as config]
-            [eldrix.pc4-ward.ui :as ui]
             [pc4.events :as events]
             [pc4.patient.home]
             [pc4.patient.diagnoses]
@@ -24,6 +23,7 @@
             [pc4.project.team]
             [pc4.server]
             [pc4.subs :as subs]
+            [pc4.ui :as ui]
             [pc4.views :as views]
             [taoensso.timbre :as log]))
 
@@ -45,7 +45,7 @@
                      targets (get-in data [:component :targets])]
                  ;; return controller identity as a query based on parameters and any targets
                  {:id      route-name
-                  :tx   (if (fn? tx) (tx parameters) tx)
+                  :tx      (if (fn? tx) (tx parameters) tx)
                   :targets (if (fn? targets) (targets parameters) targets)}))
    :start    (fn [m]
                ;; normalise and merge data into app database
@@ -61,17 +61,34 @@
   - :query   - a function to return a query given route parameters
   - :view    - a 2-arity function taking ctx and data from query
   - :targets - (optional) - a path to which data will be `assoc-in`-ed
+  - :loading - one of :ignore or :wait
+  - :delayed - one of :ignore or :spinner
+
+  An optimistic component will be one that can show data before loading is
+  completed.
 
   If there is no target for a given result, data will be normalised."
   [route]
   (let [parameters (:parameters route)
         route-name (-> route :data :name)
-        {:keys [tx targets view] :as component} (-> route :data :component)]
+        {:keys [tx targets view loading delayed] :as component :or {loading nil delayed :spinner}} (-> route :data :component)]
     (if component
       (let [tx' (tx parameters)
             results @(rf/subscribe [::subs/local-pull tx' targets])
-            loading @(rf/subscribe [::subs/remote-loading route-name])]
-        [view (assoc route :loading loading) results])
+            is-loading @(rf/subscribe [::subs/loading route-name]) ;; pessimistic components wait for loading to finish
+            is-delayed @(rf/subscribe [::subs/delayed route-name])] ;; optimistic components show a warning when there is a delay to loading
+        (cond
+          ;; if we're loading and need to wait, show loading or nothing
+          (and is-loading loading)
+          (when (vector? loading) loading)
+          ;; in normal usage, this should not be shown, but if network response is delayed, show a spinner
+          (and (nil? loading) is-delayed delayed)
+          [:<>
+           (if (vector? delayed) delayed [pc4.ui/page-loading {}])
+           [view (assoc route :loading is-loading :delayed is-delayed) results]]
+          ;; otherwise, show the view
+          :else
+          [view (assoc route :loading is-loading :delayed is-delayed) results]))
       (let [view (-> route :data :view)]
         [view route]))))
 
@@ -181,7 +198,7 @@
     {:name        :pseudonymous-patient/medication
      :component   pc4.patient.medication/medication-page
      :auth        identity
-     :parameters  {:path {:project-id int? :pseudonym string?}
+     :parameters  {:path  {:project-id int? :pseudonym string?}
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
@@ -189,7 +206,7 @@
     {:name        :pseudonymous-patient/relapses
      :component   pc4.patient.neuroinflamm/relapses-page
      :auth        identity
-     :parameters  {:path {:project-id int? :pseudonym string?}
+     :parameters  {:path  {:project-id int? :pseudonym string?}
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
@@ -197,7 +214,7 @@
     {:name        :pseudonymous-patient/encounters
      :component   pc4.patient.encounters/encounters-page
      :auth        identity
-     :parameters  {:path {:project-id int? :pseudonym string?}
+     :parameters  {:path  {:project-id int? :pseudonym string?}
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
@@ -227,7 +244,7 @@
     {:name        :patient/medication
      :component   pc4.patient.medication/medication-page
      :auth        identity                                  ;; we need a logged in user to view a patient
-     :parameters  {:path {:patient-identifier int?}
+     :parameters  {:path  {:patient-identifier int?}
                    :query (s/keys :opt-un [::filter])}
      :controllers [pathom-controller]}]
 
@@ -282,7 +299,7 @@
         current-route (or @(rf/subscribe [::subs/current-route]) (r/match-by-path router "/"))
         auth (get-in current-route [:data :auth])]
     (log/debug "router component" {:authenticated-user (select-keys authenticated-user [:org.hl7.fhir.Practitioner/identifier])
-                                   :current-route (:template current-route)})
+                                   :current-route      (:template current-route)})
     [:div
      [views/nav-bar
       :route current-route

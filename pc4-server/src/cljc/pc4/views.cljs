@@ -135,4 +135,5 @@
   [ui/main-login-panel
    :on-login (fn [username password]
                (rf/dispatch [::events/do-login {:username username, :password password}]))
-   :error @(rf/subscribe [::subs/login-error])])
+   :error @(rf/subscribe [::subs/login-error])
+   :disabled @(rf/subscribe [::subs/loading :login])])

@@ -423,3 +423,9 @@
                      on-change (on-change (assoc value item %))
                      on-item-change (on-item-change item %))}])])
 
+(defn page-loading
+  [{:keys [message]}]
+  [:div.relative.z-10 {:aria-labelledby "modal-title" :role "dialog" :aria-modal "true"}
+   [:div.fixed.inset-0.z-10.w-screen.bg-gray-50.bg-opacity-75.transition-opacity.overflow-y-auto
+    [:div.flex.min-h-full.items-end.justify-center.p-4.text-center.sm:items-center.sm:p-0
+     [:div.items-center.animate-spin.rounded-full.h-32.w-32.border-b-2.border-gray-900]]]])

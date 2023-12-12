@@ -121,6 +121,7 @@
       (when-not csrf-token
         (log/warn "csrf token missing from HTML page"))
       {:db (-> db
+               (update :loading (fnil conj #{}) :login)
                (dissoc :authenticated-user)
                (update-in [:errors] dissoc :user/login))
        :fx [[:http-xhrio {:method          :post
@@ -143,8 +144,10 @@
   (fn [{db :db} [_ {:pc4.users/syms [login]}]]
     (log/debug "user login transaction: response: " login)
     (if login
-      {:db (assoc db :authenticated-user {:io.jwt/token (:io.jwt/token login)
-                                          :practitioner (dissoc login :io.jwt/token)})
+      {:db (-> db
+               (update :loading disj :login)
+               (assoc :authenticated-user {:io.jwt/token (:io.jwt/token login)
+                                           :practitioner (dissoc login :io.jwt/token)}))
        :fx [[:push-state [:home]]]}
       {:db (assoc-in db [:errors :user/login] "Incorrect username or password")})))
 
@@ -153,6 +156,7 @@
   (fn [{:keys [db]} [_ response]]
     (log/error "user login failure: " response)
     {:db (-> db
+             (update :loading disj :login)
              (dissoc :authenticated-user)
              (assoc-in [:errors :user/login] "Failed to login: unable to connect to API server. Please try again later."))}))
 
@@ -272,6 +276,44 @@
         :else (log/trace "active session; token expires in" (server/jwt-expires-seconds token) "seconds")))))
 
 
+(defonce timeouts (atom {}))
+
+(rf/reg-fx :debounce
+  (fn [{:keys [id dispatch delay]}]
+    (js/clearTimeout (@timeouts id))
+    (swap! timeouts assoc id
+           (js/setTimeout (fn []
+                            (rf/dispatch dispatch)
+                            (swap! timeouts dissoc id))
+                          delay))))
+
+(rf/reg-fx :cancel-debounce
+  (fn [id]
+    (js/clearTimeout (@timeouts id))
+    (swap! timeouts dissoc id)))
+
+(rf/reg-event-db ::do-delayed
+  (fn [db [_ id]]
+    (log/debug "delayed; id:" id)
+    (update db :delayed (fnil conj #{}) id)))
+
+(rf/reg-event-db ::do-cancel-delayed
+  (fn [db [_ id]]
+    (log/debug "do cancel delayed" id)
+    (update db :delayed disj id)))
+
+(rf/reg-event-fx ::delayed
+  (fn [_ [_ id]]
+    (log/debug "delayed; id:" id)
+    {:fx [[:debounce {:id       id
+                      :delay    500
+                      :dispatch [::do-delayed id]}]]}))
+
+(rf/reg-event-fx ::cancel-delayed
+  (fn [{db :db} [_ id]]
+    (log/debug "cancelling delayed" id)
+    {:fx [[:cancel-debounce id]
+          [:dispatch [::do-cancel-delayed id]]]}))
 
 (s/def ::id keyword?)
 (s/def ::tx (s/or :fn fn? :vector vector? :map map?))
@@ -292,13 +334,14 @@
     (log/debug "performing remote transaction:" {:id id :tx tx})
     (when (and pc4.config/debug? (not (s/valid? ::remote-config config)))
       (throw (ex-info "invalid remote transaction" (s/explain-data ::remote-config config))))
-    {:db (update db :loading (fnil conj #{}) id)                           ;; we're starting some network loading
-     :fx [[:pathom {:params     tx
+    {:db (update db :loading (fnil conj #{}) id)            ;; we're starting some network loading
+     :fx [[:dispatch [::delayed id]]
+          [:pathom {:params     tx
                     :token      (get-in db [:authenticated-user :io.jwt/token])
                     :on-success [::handle-remote-success config (js/Date.)]
                     :on-failure [::handle-remote-failure config]}]]}))
 
-(rf/reg-event-fx ::handle-remote-success                      ;; HTTP success, but the response may contain an error
+(rf/reg-event-fx ::handle-remote-success                    ;; HTTP success, but the response may contain an error
   (fn [{db :db} [_ {:keys [id failed? on-success-fx on-failure-fx] :as config} request-date response]]
     (when-not id
       (throw (ex-info "missing id" config)))
@@ -307,29 +350,33 @@
       (tap> {:load-response response})
       (if (or (:error response) (failed? response))
         (do (log/debug "remote load error" (-> response :error :cause))
-            (cond-> {:db (update db :loading disj id)}
+            (cond-> {:db (update db :loading disj id)
+                     :fx [[:dispatch [::cancel-delayed id]]]}
                     (fn? on-failure-fx)
-                    (assoc :fx (on-failure-fx response))
+                    (update :fx into (on-failure-fx response))
                     (vector? on-failure-fx)
-                    (assoc :fx on-failure-fx)))
+                    (update :fx into on-failure-fx)))
         (let [path [:last-updated id]
               last-updated (get-in db path)]
           (if (or (not last-updated) (> request-date last-updated))
             (cond-> {:db (let [{entity-db :db} (comp/target-results (:entity-db db) config response)]
                            (-> db
                                (update :loading disj id)
-                               (assoc :entity-db entity-db,)
-                               (assoc-in path request-date)))}
+                               (assoc :entity-db entity-db)
+                               (assoc-in path request-date)))
+                     :fx [[:dispatch [::cancel-delayed id]]]}
                     (fn? on-success-fx)
-                    (assoc :fx (on-success-fx response))
+                    (update :fx into (on-success-fx response))
                     (vector? on-success-fx)
-                    (assoc :fx on-success-fx))
+                    (update :fx into on-success-fx))
             (log/debug "out of order remote response ignored")))))))
 
 (rf/reg-event-fx ::handle-remote-failure
-  (fn [{:keys [db]} [_ config response]]
+  (fn [{:keys [db]} [_ {:keys [id] :as config} response]]
     (log/error "remote load network error" response)
-    (tap> {::handle-remote-failure {:config config :response response}})))
+    (tap> {::handle-remote-failure {:config config :response response}})
+    {:db (update db :loading disj id)
+     :fx [[:dispatch [::cancel-delayed id]]]}))
 
 (rf/reg-event-db ::local-push
   (fn [db [_ response]]

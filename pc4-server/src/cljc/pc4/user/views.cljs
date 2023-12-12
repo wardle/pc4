@@ -73,7 +73,7 @@
         ping-error (rf/subscribe [::subs/ping-error])
         username (r/atom "")
         password (r/atom "")
-        submitting false                                    ;; @(rf/subscribe [:show-foreground-spinner])
+        submitting @(rf/subscribe [::subs/loading :login])
         do-login #(rf/dispatch [::events/do-login {:username @username :password @password}])]
     (fn []
       [:form {:on-submit #(.preventDefault %)}
@@ -100,7 +100,8 @@
             :on-change     #(reset! password (-> % .-target .-value))}]]]
         [:div.flex.mt-6
          [:button.px-6.py-2.leading-5.text-white.transition-colors.duration-200.transform.bg-gray-700.rounded-md.hover:bg-gray-600.focus:outline-none.focus:bg-gray-600
-          {:disabled submitting
+          {:class (when submitting ["text-gray" :bg])
+           :disabled submitting
            :on-click do-login} "Login"]]]
        (when-not (str/blank? @error) [ui/box-error-message :message @error])
        (when @ping-error [ui/box-error-message :message "Warning: connection error; unable to connect to server. Will retry automatically."])])))
