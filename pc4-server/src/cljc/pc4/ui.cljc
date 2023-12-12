@@ -3,7 +3,7 @@
             [taoensso.timbre :as log])
   (:import #?@(:clj  [(java.time LocalDate)
                       (java.time.format DateTimeFormatter)]
-               :cljs [(goog.date Date)])))
+               :cljs [(goog.date Date DateTime)])))
 
 (defn icon-home []
   [:svg.-ml-1.mr-3.h-6.w-6.flex-shrink-0 {:fill "none" :viewBox "0 0 24 24" :stroke-width "1.5" :stroke "currentColor" :aria-hidden "true"}
@@ -226,10 +226,14 @@
          (not disabled) (assoc :classes ["text-gray-700" "bg-white" "shadow"])))]
     (when help-text [:p.text-sm.text-gray-500.italic help-text])]])
 
-(defn unparse-local-date [d]
+(defn unparse-local-date [^goog.date.Date d]
   (when d
     #?(:clj  (.format ^LocalDate d (DateTimeFormatter/ISO_DATE))
        :cljs (.toIsoString ^Date d true))))
+
+(defn unparse-local-date-time [^good.date.DateTime dt]
+  (when dt
+    #?(:cljs (.toIsoString  dt true))))
 
 (defn ui-local-date
   [{:keys [id label value default-date min-date max-date on-blur on-enter-key on-change] :as params}]
@@ -245,6 +249,19 @@
        on-enter-key (assoc :on-key-down #(when (= 13 (.-keyCode %)) (on-enter-key)))
        on-change (assoc :on-change #(on-change (Date/fromIsoString (-> % .-target .-value)))))]]])
 
+(defn ui-local-date-time
+  [{:keys [id label value default-value min-date-time max-date-time on-blur on-enter-key on-change] :as params}]
+  [:div
+   (when label (ui-label {:for id :label label}))
+   [:div.mt-1
+    [:input
+     (cond-> {:type "datetime-local", :value (unparse-local-date (or value default-value))}
+       id (assoc :name id)
+       min-date-time (assoc :min (unparse-local-date-time min-date-time))
+       max-date-time (assoc :max (unparse-local-date-time max-date-time))
+       on-blur (assoc :on-blur #(on-blur (DateTime/fromIsoString (-> % .-target .-value))))
+       on-enter-key (assoc :on-key-down #(when (= 13 (.-keyCode %)) (on-enter-key)))
+       on-change (assoc :on-change #(on-change (DateTime/fromIsoString (-> % .-target .-value)))))]]])
 
 (defn ui-button [{:keys [disabled? role on-click]} content]
   (into [:button.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:text-sm
