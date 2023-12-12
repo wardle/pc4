@@ -89,7 +89,7 @@
   [:div.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
    [:div.px-4.py-5.sm:px-6 title-attrs
     [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
-    [:p.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
+    [:div.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle]]
    [:div.border-t.border-gray-200.px-4.py-5.sm:px-6
     [:dl.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
      (for [{:keys [title content]} items]
