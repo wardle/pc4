@@ -42,7 +42,7 @@
                  :autoFocus true
                  :value     (or (comp/get-state this :s) "")
                  :onKeyDown #(when (and patient (evt/enter-key? %))
-                               (dr/change-route! this ["patient" (:t_patient/patient_identifier patient)]))
+                               (dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"]))
                  :onChange  #(let [s (evt/target-value %)]
                                (comp/set-state! this {:s s})
                                (when (>= (count s) 3)
@@ -51,7 +51,7 @@
               (div
                 (pc4.ui.patients/ui-patient-banner patient)
                 (ui/ui-submit-button {:label "View patient record »"}
-                                     {:onClick #(dr/change-route! this ["patient" (:t_patient/patient_identifier patient)])})))))))))
+                                     {:onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 

@@ -141,7 +141,7 @@
       (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
         {:name      id :type type :placeholder placeholder
          :required  required
-         :classes (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+         :classes   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
          :disabled  disabled :value (or value "")
          :autoFocus auto-focus
          :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
@@ -196,21 +196,27 @@
                                    onChange (assoc :onChange onChange))))))
 
 (def ui-local-date
-  "A UI control to edit a date."
+  "A UI control to edit a date.
+  Properties: id, label value min-date max-date
+  Computed properties: onBlur onChange onEnterKey"
   (comp/computed-factory UILocalDate))
 
 
 (defsc UISelectPopupButton
   "See [[ui-select-popup-button]] for documentation."
   [this
-   {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort?]
-    :or   {id-key identity, display-key identity, sort? true}}
+   {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?]
+    :or   {id-key identity, display-key identity, sort? true, update-options? true}}
    {:keys [onChange onEnterKey sort-fn]}]
-  (let [all-options (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
-                      (conj options value) options)
+  (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
+                           (conj options value) options))
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
         default-value (or default-value (when (str/blank? no-selection-string) (first sorted-options)))]
-    (when (and onChange default-value (nil? value))
+    (log/info {:ui-select {:all-options all-options
+                           :default-value default-value
+                           :value value}})
+    (when (and onChange default-value (not (contains? all-options value)))
+      (log/info "Performing onChange to change value" default-value)
       (onChange default-value))
     (div
       (when label (ui-label {:for name :label label}))
@@ -311,7 +317,7 @@
 (def ui-table-body (comp/factory UITableBody))
 
 (defsc UITableRow [this props]
-  (dom/tr (comp/children this)))
+  (dom/tr props (comp/children this)))
 
 (def ui-table-row (comp/factory UITableRow))
 
@@ -344,8 +350,8 @@
 
 (defsc UILinkButton [this {:keys [onClick]}]
   (dom/a :.pt-2.pb-2.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
-         {:onClick onClick}
-         (comp/children this)))
+    {:onClick onClick}
+    (comp/children this)))
 
 (def ui-link-button
   "A link with an onClick handler that can be used as a button."
@@ -369,8 +375,8 @@
             (for [item choices]
               (if (:onClick item)
                 (a :.block.px-4.py-2.text-sm.text-gray-700.hover:bg-gray-700.hover:text-white.cursor-pointer
-                   {:key (:id item) :onClick #(do (comp/set-state! this {:show-menu (not show-menu?)})
-                                                  ((:onClick item))) :role "menuitem" :tabIndex "-1"} (:title item))
+                  {:key (:id item) :onClick #(do (comp/set-state! this {:show-menu (not show-menu?)})
+                                                 ((:onClick item))) :role "menuitem" :tabIndex "-1"} (:title item))
                 (a :.block.px-4.py-2.text-sm.text-gray-700.italic {:key (:id item) :role "menuitem" :tabIndex "-1"} (:title item))))))))))
 
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
@@ -434,3 +440,58 @@
           (comp/children this))))))
 
 (def ui-simple-form (comp/factory UISimpleForm))
+
+
+(defsc UITwoColumnCard [this {:keys [title title-attrs subtitle items long-items]}]
+  (div :.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
+    (div :.px-4.py-5.sm:px-6 title-attrs
+      (dom/h3 :.text-base.font-semibold.leading-6.text-gray-900 title)
+      (div :.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle))
+    (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
+      (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
+        (for [{:keys [title content]} items]
+          (div :.sm:col-span-1
+            (dom/dt :.text-sm.font-medium.text-gray-500 title)
+            (dom/dd :.mt-1.text-sm.text-gray-900 content)))
+        (for [{:keys [title content]} long-items]
+          (div :.sm:col-span-2
+            (dom/dt :.text-sm.font-medium.text-gray-500 title)
+            (dom/dd :.mt-1.text-sm.text-gray-900 content)))))))
+
+(def ui-two-column-card (comp/factory UITwoColumnCard))
+
+(defsc UIVerticalNavigation
+  "Vertical navigation bar with optional nested sub-menu."
+  [this {:keys [selected-id items sub-menu]}]
+  (dom/nav {:aria-label "Sidebar"}
+    (div :.space-y-1
+      (for [{:keys [id icon content onClick]} items
+            :when id]
+        (if (= selected-id id)
+          (dom/a :.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+            {:aria-current "page"}
+            (dom/span :.span.pr-2 icon) content)
+          (dom/a :.cursor-pointer.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+            {:onClick onClick}
+            (dom/span :.pr-2 icon) content)))
+      (when sub-menu
+        (dom/div :.mt-4
+          (dom/h3 :.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu))
+          (dom/div :.pt-1.space-y-1
+            (for [{:keys [id onClick content]} (:items sub-menu)
+                  :when content]
+              (dom/a :.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900
+                {:onClick onClick}
+                content))))))))
+
+(def ui-vertical-navigation (comp/factory UIVerticalNavigation))
+
+(defsc MenuButton [this {:keys [disabled? role]} {:keys [onClick]}]
+  (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
+    {:type     "button"
+     :classes    [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
+     :disabled disabled?
+     :onClick  #(when (not disabled?) (onClick))}
+    (comp/children this)))
+
+(def ui-menu-button (comp/computed-factory MenuButton))

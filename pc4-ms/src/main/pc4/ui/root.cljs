@@ -13,6 +13,7 @@
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [pc4.app :refer [SPA]]
     [pc4.ui.core :as ui]
+    [pc4.ui.diagnoses :as diagnoses]
     [pc4.ui.patients :as patients]
     [pc4.ui.users :as users]
     [pc4.ui.projects :as projects]
@@ -78,6 +79,8 @@
 
 (defrouter MainRouter [this props]
   {:router-targets [HomePage
+                    pc4.ui.patients/NewPatientDemographics
+                    pc4.ui.diagnoses/PatientDiagnoses
                     pc4.ui.projects/ProjectPage
                     pc4.ui.patients/PatientPage]})
 

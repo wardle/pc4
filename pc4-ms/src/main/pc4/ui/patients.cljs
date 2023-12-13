@@ -19,6 +19,158 @@
             [cljs.spec.alpha :as s])
   (:import [goog.date Date]))
 
+
+(defsc PatientBanner*
+  [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
+  (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
+    (when onClose
+      (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
+        (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
+          {:onClick onClose :title "Close patient record"}
+          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
+            (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
+    (when deceased
+      (div :.grid.grid-cols-1.pb-2.mr-4
+        (ui/ui-badge {:label (cond (instance? goog.date.Date deceased) (str "Died " (ui/format-date deceased))
+                                   (string? deceased) (str "Died " deceased)
+                                   :else "Deceased")})))
+    (div :.grid.grid-cols-2.lg:grid-cols-5.pt-1
+      (when name (div :.font-bold.text-lg.min-w-min name))
+      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min
+        (when gender (dom/span :.text-sm.font-thin.hidden.sm:inline "Gender ")
+                     (dom/span :.font-bold gender)))
+      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min
+        (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
+      (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
+      (when nhs-number
+        (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min
+          (dom/span :.text-sm.font-thin.mr-2 "NHS No ")
+          (dom/span :.font-bold (nhs-number/format-nnn nhs-number))))
+      (when hospital-identifier
+        (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
+    (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
+      (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
+    (when content
+      (div content))))
+
+(def ui-patient-banner* (comp/computed-factory PatientBanner*))
+
+(defsc PatientEpisode [this props]
+  {:ident :t_episode/id
+   :query [:t_episode/id :t_episode/project_fk :t_episode/stored_pseudonym]})
+
+(defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth sex date_death
+                                             title first_names last_name address episodes]
+                            current-project :ui/current-project}
+                      {:keys [onClose] :as computed-props}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex
+                   :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
+                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
+                   {:t_patient/episodes (comp/get-query PatientEpisode)}
+                   {[:ui/current-project '_] [:t_project/id]}]
+   :initial-state (fn [params]
+                    {:t_patient/patient_identifier (:t_patient/patient_identifier params)
+                     :t_patient/episodes           []})}
+  (let [project-id (:t_project/id current-project)
+        pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
+    (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
+      (ui-patient-banner* {:name     (when sex (name sex))
+                           :born     (ui/format-month-year date_birth)
+                           :address  pseudonym
+                           :deceased (ui/format-month-year date_death)} computed-props)
+      (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
+        (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
+                             :born       (ui/format-date date_birth)
+                             :nhs-number nhs_number
+                             :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
+                             :deceased   date_death} computed-props)))))
+
+
+(def ui-patient-banner (comp/computed-factory PatientBanner))
+
+(defsc PseudonymousMenu
+  "Patient menu. At the moment, we have a different menu for pseudonymous
+  patients but this will become increasingly unnecessary."
+  [this {:t_patient/keys [patient_identifier first_names title last_name status]
+         pseudonym       :t_episode/stored_pseudonym}
+   {:keys [selected-id sub-menu]}]
+  (ui/ui-vertical-navigation
+    {:selected-id selected-id
+     :items       [{:id      :home
+                    :content "Home"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "home"])}
+                   {:id      :diagnoses
+                    :content "Diagnoses"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
+                   {:id      :treatment
+                    :content "Medication"}
+                   {:id      :relapses
+                    :content "Relapses"}
+                   {:id      :encounters
+                    :content "Encounters"}
+                   {:id      :investigations
+                    :content "Investigations"}
+                   {:id      :admissions
+                    :content "Admissions"}]
+     :sub-menu    sub-menu}))
+
+(def ui-pseudonymous-menu (comp/computed-factory PseudonymousMenu))
+
+(defsc Layout [this {:keys [banner menu content]}]
+  (comp/fragment
+    banner
+    (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
+      (div :.col-span-1.p-2 menu)
+      (div :.col-span-1.md:col-span-5.pt-2 content))))
+
+(def ui-layout (comp/factory Layout))
+
+(defsc NewPatientDemographics
+  [this {:t_patient/keys [id patient_identifier status title first_names last_name nhs_number date_birth date_death current_age address] :as patient :>/keys [banner]}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/id
+                   :t_patient/patient_identifier :t_patient/status
+                   :t_patient/title :t_patient/first_names :t_patient/last_name
+                   :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
+                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
+                   {:>/banner (comp/get-query PatientBanner)}]
+   :route-segment ["pt" :t_patient/patient_identifier "home"]
+   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+                    (log/debug "on-enter patient demographics" route-params)
+                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
+                      (println "entering patient demographics page; patient-identifier:" patient-identifier " : " NewPatientDemographics)
+                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                         (fn []
+                                           (df/load! app [:t_patient/patient_identifier patient-identifier] NewPatientDemographics
+                                                     {:target               [:ui/current-patient]
+                                                      :post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
+  (when patient_identifier
+    (ui-layout
+      {:banner  (ui-patient-banner banner)
+       :menu    (ui-pseudonymous-menu patient {:selected-id :home})
+       :content (ui/ui-two-column-card
+                  {:title "Demographics"
+                   :items [{:title "First names" :content first_names}
+                           {:title "Last name" :content last_name}
+                           {:title "Title" :content title}
+                           {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                           {:title "Date of birth" :content (ui/format-date date_birth)}
+                           (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                          {:title "Current age" :content current_age})
+                           {:title "Address1" :content (:t_address/address1 address)}
+                           {:title "Address2" :content (:t_address/address2 address)}
+                           {:title "Address3" :content (:t_address/address3 address)}
+                           {:title "Address4" :content (:t_address/address4 address)}
+                           {:title "Postal code" :content (:t_address/postcode address)}]})})))
+
+
+
+
+
+
+
 (defn most-recent-edss-encounter
   "From a collection of encounters, return the most recent containing an EDSS result."
   [encounters]
@@ -57,73 +209,6 @@
             (conj acc (if (get relapse key)
                         (ui/ui-table-cell {:react-key abbreviation :title label} abbreviation)
                         (ui/ui-table-cell {:react-key abbreviation} "")))) [] ms-event-types))
-
-(defsc PatientBanner*
-  [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
-  (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
-    (when onClose
-      (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
-        (dom/button :.rounded.bg-white.border.hover:bg-gray-300.bg-gray-50.px-1.py-1
-          {:onClick onClose :title "Close patient record"}
-          (dom/svg {:xmlns "http://www.w3.org/2000/svg" :width "20" :height "20" :viewBox "0 0 18 18"}
-            (dom/path {:d "M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"})))))
-    (when deceased
-      (div :.grid.grid-cols-1.pb-2.mr-4
-        (ui/ui-badge {:label (cond (instance? goog.date.Date deceased) (str "Died " (ui/format-date deceased))
-                                   (string? deceased) (str "Died " deceased)
-                                   :else "Deceased")})))
-    (div :.grid.grid-cols-2.lg:grid-cols-5.pt-1
-      (when name (div :.font-bold.text-lg.min-w-min name))
-      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (when gender (dom/span :.text-sm.font-thin.hidden.sm:inline "Gender ")
-                                                                                      (dom/span :.font-bold gender)))
-      (div :.hidden.lg:block.text-right.lg:text-center.lg:mr-2.min-w-min (dom/span :.text-sm.font-thin "Born ") (dom/span :.font-bold born))
-      (div :.lg:hidden.text-right.mr-8.md:mr-0 gender " " (dom/span :.font-bold born))
-      (when nhs-number (div :.lg:text-center.lg:ml-2.flex.flex-nowrap
-                         (dom/div :.text-sm.font-thin.mr-2 "NHS No ")
-                         (dom/div :.font-bold (nhs-number/format-nnn nhs-number))
-                         (when-not (nhs-number/valid*? nhs-number)
-                           (dom/div :.ml-2 (ui/icon-exclamation :text "This NHS number is invalid")))))
-
-      (when hospital-identifier (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
-    (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
-      (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
-    (when content
-      (div content))))
-
-(def ui-patient-banner* (comp/computed-factory PatientBanner*))
-
-(defsc PatientEpisode [this props]
-  {:ident :t_episode/id
-   :query [:t_episode/id :t_episode/project_fk :t_episode/stored_pseudonym]})
-
-(defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth sex date_death
-                                             title first_names last_name address episodes]
-                            current-project :ui/current-project}
-                      {:keys [onClose] :as computed-props}]
-  {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex
-                   :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
-                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
-                   {:t_patient/episodes (comp/get-query PatientEpisode)}
-                   {[:ui/current-project '_] [:t_project/id]}]
-   :initial-state (fn [params]
-                    {:t_patient/patient_identifier (:t_patient/patient_identifier params)})}
-  (let [project-id (:t_project/id current-project)
-        pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
-    (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
-      (ui-patient-banner* {:name     (when sex (name sex))
-                           :born     (ui/format-month-year date_birth)
-                           :address  pseudonym
-                           :deceased (ui/format-month-year date_death)} computed-props)
-      (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
-        (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
-                             :born       (ui/format-date date_birth)
-                             :nhs-number nhs_number
-                             :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
-                             :deceased   date_death} computed-props)))))
-
-
-(def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc EncounterListItem
   [this {:t_encounter/keys [id date_time encounter_template form_edss form_edss_fs form_ms_relapse form_weight_height]}]
@@ -452,55 +537,6 @@
 
 (def ui-patient-encounters (comp/factory PatientEncounters))
 
-(defsc DiagnosisListItem
-  [this {:t_diagnosis/keys [id date_onset date_diagnosis date_to status diagnosis]}]
-  {:ident :t_diagnosis/id
-   :query [:t_diagnosis/id :t_diagnosis/date_diagnosis :t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/status
-           {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                    {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
-  (ui/ui-table-row {}
-    (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-    (ui/ui-table-cell {} (ui/format-date date_onset))
-    (ui/ui-table-cell {} (ui/format-date date_diagnosis))
-    (ui/ui-table-cell {} (ui/format-date date_to))
-    (ui/ui-table-cell {} (str status))
-    (ui/ui-table-cell {} "")))
-
-(def ui-diagnosis-list-item (comp/factory DiagnosisListItem {:keyfn :t_diagnosis/id}))
-
-(defn diagnoses-table
-  [{:keys [title diagnoses onAddDiagnosis]}]
-  (dom/div
-    (ui/ui-title {:title title}
-      (when onAddDiagnosis (ui/ui-title-button {:title "Add diagnosis"} {:onClick onAddDiagnosis})))
-    (ui/ui-table {}
-      (ui/ui-table-head {}
-        (ui/ui-table-row {}
-          (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status" ""])))
-      (ui/ui-table-body {}
-        (->> diagnoses
-             (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-             (map ui-diagnosis-list-item))))))
-
-(defsc PatientDiagnoses
-  [this {:t_patient/keys [diagnoses] :ui/keys [edit-diagnosis]}]
-  {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier
-                   {:t_patient/diagnoses (comp/query DiagnosisListItem)}
-                   :ui/edit-diagnosis]
-   :initial-state {:ui/edit-diagnosis   {}
-                   :t_patient/diagnoses {}}}
-  (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
-        inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
-    (comp/fragment
-      (diagnoses-table {:title          "Active diagnoses"
-                        :diagnoses      active-diagnoses
-                        :onAddDiagnosis #(println "Action: add diagnosis")})
-      (when (seq inactive-diagnoses)
-        (diagnoses-table {:title     "Inactive diagnoses"
-                          :diagnoses inactive-diagnoses})))))
-
-(def ui-patient-diagnoses (comp/computed-factory PatientDiagnoses))
 
 (declare EditMedication)
 
@@ -767,7 +803,6 @@
          current-project :ui/current-project
          banner          :>/banner
          demographics    :>/demographics
-         diagnoses       :>/diagnoses
          medication      :>/medication
          relapses        :>/relapses
          encounters      :>/encounters
@@ -781,7 +816,6 @@
                          {[:ui/current-project '_] [:t_project/id]}
                          {:>/banner (comp/get-query PatientBanner)}
                          {:>/demographics (comp/get-query PatientDemographics)}
-                         {:>/diagnoses (comp/get-query PatientDiagnoses)}
                          {:>/medication (comp/get-query PatientMedication)}
                          {:>/relapses (comp/get-query PatientRelapses)}
                          {:>/encounters (comp/get-query PatientEncounters)}
@@ -828,7 +862,7 @@
       (dom/div :.lg:m-4.sm:m-0.border.bg-white.overflow-hidden.shadow-lg.sm:rounded-lg
         (case selected-page
           :home (ui-patient-demographics demographics)
-          :diagnoses (ui-patient-diagnoses diagnoses {:title "Active diagnoses"})
+          :diagnoses nil
           :medication (ui-patient-medication medication)
           :relapses (ui-patient-relapses relapses)
           :encounters (ui-patient-encounters encounters)
