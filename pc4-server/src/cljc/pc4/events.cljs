@@ -384,6 +384,10 @@
     (let [{entity-db :db} (comp/target-results (:entity-db db) {} response)]
       (assoc db :entity-db entity-db))))
 
+(rf/reg-event-db ::local-update
+  (fn [db [_ ks f & more]]
+    (apply update-in db (into [:entity-db] ks) f more)))
+
 (rf/reg-event-db ::local-delete
   (fn [db [_ ident]]
     (assoc db :entity-db (comp/delete (:entity-db db) ident))))
