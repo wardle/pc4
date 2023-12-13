@@ -38,16 +38,15 @@
                                   (assoc-in [:component/id :login :ui/error] "Network error. Please try again.")))))
 
 (defmutation logout
-  [params]
+  [{:keys [message]}]
   (action [{:keys [app state]}]
-          (js/console.log "Performing logout action" params)
+          (js/console.log "Performing logout action" message)
           (dr/change-route! app ["home"])
-
-          (when (:message params)
-            (swap! state assoc-in [:component/id :login :ui/error] (:message params)))
           (reset! session/authentication-token nil)
-          (swap! state dissoc :session/authenticated-user)
-          (.reload js/window.location true)))  ;; reload the page - note once HTML5 routing in place, change route before this))
+          (swap! state (fn [s]
+                         (cond-> (assoc s :session/authenticated-user {})
+                                 message
+                                 (assoc-in [:component/id :login :ui/error] message))))))
 
 (defmutation refresh-token
   [params]
