@@ -118,19 +118,19 @@
 (s/def ::login-mutation (s/map-of ::login-op vector?))
 (s/def ::login (s/coll-of ::login-mutation :kind vector? :count 1))
 
-#_(def login-mutation
-    "A login endpoint designed for fulcro clients in which login is simply a mutation. We need to take special
+(def login-mutation
+  "A login endpoint designed for fulcro clients in which login is simply a mutation. We need to take special
   measures to prevent arbitrary pathom queries at this endpoint. The alternative here would be to use a different pathom
    environment that contains only a single resolver, login."
-    {:enter
-     (fn [{:keys [request] :as ctx}]
-       (let [params (:transit-params request)                 ;; [{(pc4.users/login {:username "system", :password "password"}) [...]]
-             op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
-         (if-not (= 'pc4.users/login op-name)
-           (do
-             (log/warn "invalid request at /login-mutation endpoint" params)
-             (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
-           (execute-pathom ctx nil params))))})
+  {:enter
+   (fn [{:keys [request] :as ctx}]
+     (let [params (:transit-params request)                 ;; [{(pc4.users/login {:username "system", :password "password"}) [...]]
+           op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
+       (if-not (= 'pc4.users/login op-name)
+         (do
+           (log/warn "invalid request at /login-mutation endpoint" params)
+           (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
+         (execute-pathom ctx nil params))))})
 
 (def attach-claims
   "Interceptor to check request claims and add them to the context under the key
@@ -206,9 +206,9 @@
    ["/login"
     {:name :login
      :post {:interceptors [login]}}]                        ;; for legacy clients (re-frame / pc4-ward)
-   #_["/login-mutation"
-      {:name :login-mutation
-       :post {:interceptors [login-mutation]}}]               ;; for fulcro clients (fulcro / pc4-ms)
+   ["/login-mutation"
+    {:name :login-mutation
+     :post {:interceptors [login-mutation]}}]               ;; for fulcro clients (fulcro / pc4-ms)
    ["/ping"
     {:name :ping
      :post {:interceptors [ping]}}]
