@@ -165,12 +165,20 @@
      :parameters  {:path {:project-id int?}}
      :controllers [pathom-controller]}]
 
-   ["/projects/:project-id/team/user/:user-id"
-    {:name        :project/user
-     :component   pc4.project.team/user-page
+   ["/projects/:project-id/team/user/:user-id/profile"
+    {:name        :project/user-profile
+     :component   pc4.project.team/user-profile-page
      :auth        identity
      :parameters  {:path {:project-id int? :user-id int?}}
      :controllers [pathom-controller]}]
+
+   ["/projects/:project-id/team/user/:user-id/projects"
+    {:name        :project/user-projects
+     :component   pc4.project.team/user-projects-page
+     :auth        identity
+     :parameters  {:path {:project-id int? :user-id int?}}
+     :controllers [pathom-controller]}]
+
 
    ["/projects/:project-id/downloads"
     {:name        :project/downloads
