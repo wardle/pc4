@@ -280,12 +280,12 @@
 (defn ui-select
   "A select control that appears as a pop-up."
   [{:keys [name label value choices id-key display-key default-value on-select
-           no-selection-string on-key-down disabled? sort? sort-fn]
-    :or   {id-key identity display-key identity sort? true}}]
-  (let [all-choices (if (and value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
+           no-selection-string on-key-down disabled? sort? sort-fn update-choices?]
+    :or   {id-key identity, display-key identity, sort? true, update-choices? true}}]
+  (let [all-choices (if (and update-choices? value (id-key value) (not (some #(= (id-key value) (id-key %)) choices)))
                       (conj choices value) choices)
         sorted-values (if-not sort? all-choices (sort-by (or sort-fn display-key) all-choices))]
-    #?(:cljs (when (and on-select default-value (str/blank? value)) (on-select default-value))) ;;in cljs, select the chosen value
+    (when (and on-select default-value (str/blank? value)) (on-select default-value))
     [:div
      (when label (ui-label {:for name :label label}))
      [:select.mt-1.block.pl-3.pr-10.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
