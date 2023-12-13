@@ -221,7 +221,11 @@
   {:tx
    (fn [params]
      [{(patient/patient-ident params)
-       banner/banner-query}
+       (conj banner/banner-query
+             {:t_patient/episodes [{:t_episode/project [:t_project/id :t_project/title
+                                                        {:t_project/encounter_templates [:t_encounter_template/id
+                                                                                         :t_encounter_template/title
+                                                                                         :t_encounter_template/is_deleted]}]}]})}
       {[:t_encounter/id (get-in params [:path :encounter-id])]
        [:t_encounter/id :t_encounter/patient_fk :t_encounter/date_time :t_encounter/is_deleted
         :t_encounter/notes
@@ -241,44 +245,60 @@
       {:com.eldrix.rsdb/all-ms-disease-courses
        [:t_ms_disease_course/id :t_ms_disease_course/name]}])
    :view
-   (fn [ctx [{patient-pk :t_patient/id :t_patient/keys [patient_identifier] :as patient}
-             {:t_encounter/keys [id patient_fk date_time is_deleted encounter_template] :as encounter}
-             all-ms-disease-courses]]
-     (when-not (:loading ctx)
-       (if (and (pos-int? id) (not= patient-pk patient_fk)) ;; check existing encounter is for given patient
-         [ui/box-error-message "Invalid access" "Access not permitted"]
-         [:<>
-          [banner/rsdb-banner patient]
-          [layout patient encounter
-           {:sub-menu {:items [{:id      :save-changes
-                                :content [ui/menu-button {:role     :primary
-                                                          :on-click #(save-encounter patient_identifier encounter)} "Save changes"]}
-                               (if is_deleted
-                                 {:id      :undelete-encounter
-                                  :content [ui/menu-button {:on-click #(log/debug "Undelete clicked")} "Undelete"]}
-                                 {:id      :delete-encounter
-                                  :content [ui/menu-button {:on-click #(delete-encounter patient_identifier encounter)} "Delete"]})
-                               {:id      :cancel
-                                :content [ui/menu-button {:on-click #(rf/dispatch [::events/navigate-back])} "Cancel"]}]}}
+   (fn [_ _]
+     (let [selected-project (reagent.core/atom nil)]
+       (fn [ctx [{patient-pk :t_patient/id :t_patient/keys [patient_identifier episodes] :as patient}
+                 {:t_encounter/keys [id patient_fk date_time is_deleted encounter_template] :as encounter}
+                 all-ms-disease-courses]]
+         (let [projects (sort-by :t_project/title (distinct (map :t_episode/project episodes)))]
+           (when-not (:loading ctx)
+             (if (and (pos-int? id) (not= patient-pk patient_fk)) ;; check existing encounter is for given patient
+               [ui/box-error-message "Invalid access" "Access not permitted"]
+               [:<>
+                [banner/rsdb-banner patient]
+                [layout patient encounter
+                 {:sub-menu {:items [{:id      :save-changes
+                                      :content [ui/menu-button {:role     :primary
+                                                                :on-click #(save-encounter patient_identifier encounter)} "Save changes"]}
+                                     (if is_deleted
+                                       {:id      :undelete-encounter
+                                        :content [ui/menu-button {:on-click #(log/debug "Undelete clicked")} "Undelete"]}
+                                       {:id      :delete-encounter
+                                        :content [ui/menu-button {:on-click #(delete-encounter patient_identifier encounter)} "Delete"]})
+                                     {:id      :cancel
+                                      :content [ui/menu-button {:on-click #(rf/dispatch [::events/navigate-back])} "Cancel"]}]}}
 
-           [ui/ui-panel
-            [ui/ui-simple-form-item {:label "Date of encounter"}
-             [ui/ui-local-date-time
-              {:value date_time
-               :on-change #(push-encounter (assoc encounter :t_encounter/date_time %))}]]
-            [ui/ui-simple-form-item {:label "Encounter type"}
-             [ui/ui-select
-              {:value (:t_encounter/encounter_template encounter)
-               :choices []}]]]
-           [ui/ui-panel
-            [form-edss encounter {:on-change push-encounter}]
-            [form-ms-disease-course encounter all-ms-disease-courses {:on-change push-encounter}]
-            [form-weight-height encounter {:on-change push-encounter}]
-            [form-smoking encounter {:on-change push-encounter}]]
-           [ui/ui-panel
-            [ui/ui-simple-form-item {:label "Notes"}
-             [ui/ui-textarea {:value     (:t_encounter/notes encounter)
-                              :on-change #(push-encounter (assoc encounter :t_encounter/notes %))}]]]]])))})
+                 [ui/ui-panel
+                  [ui/ui-simple-form-item {:label "Project / service"}
+                   [ui/ui-select
+                    {:value         @selected-project
+                     :default-value (first projects)
+                     :display-key   :t_project/title
+                     :choices       projects
+                     :on-select     #(do (reset! selected-project %)
+                                         (push-encounter (dissoc encounter :t_encounter/encounter_template :t_encounter/encounter_template_fk)))}]]
+                  [ui/ui-simple-form-item {:label "Encounter type"}
+                   [ui/ui-select
+                    {:value           (:t_encounter/encounter_template encounter)
+                     :update-choices? false
+                     :choices         (remove :t_encounter_template/is_deleted (:t_project/encounter_templates @selected-project))
+                     :display-key     :t_encounter_template/title
+                     :on-select       #(push-encounter (assoc encounter :t_encounter/encounter_template %
+                                                                        :t_encounter/encounter_template_fk (:t_encounter_template/id %)))}]]
+                  [ui/ui-simple-form-item {:label "Date / time of encounter"}
+                   [ui/ui-local-date-time
+                    {:value     date_time
+                     :on-change #(push-encounter (assoc encounter :t_encounter/date_time %))}]]]
+
+                 [ui/ui-panel
+                  [form-edss encounter {:on-change push-encounter}]
+                  [form-ms-disease-course encounter all-ms-disease-courses {:on-change push-encounter}]
+                  [form-weight-height encounter {:on-change push-encounter}]
+                  [form-smoking encounter {:on-change push-encounter}]]
+                 [ui/ui-panel
+                  [ui/ui-simple-form-item {:label "Notes"}
+                   [ui/ui-textarea {:value     (:t_encounter/notes encounter)
+                                    :on-change #(rf/dispatch [::events/local-update [:t_encounter/id id] assoc :t_encounter/notes %])}]]]]]))))))})
 
 
 (comment
