@@ -2,11 +2,11 @@
   (:require [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [taoensso.timbre :as log]))
-
 
 (defmutation search-patient-by-pseudonym
   [params]
@@ -46,6 +46,18 @@
           (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics")))))
+
+(defmutation save-diagnosis
+  [{:t_diagnosis/keys [id] :t_patient/keys [patient_identifier] :as diagnosis}]
+  (action [{:keys [state]}]
+         (swap! state fs/entity->pristine* [:t_diagnosis/id id]))
+  (remote [env]
+          (println "save diagnosis: " (:ast env))
+          true)
+  (ok-action
+    [{:keys [ref state]}]
+    (swap! state (fn [s]
+                   (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
 
 (defmutation save-medication
   [params]

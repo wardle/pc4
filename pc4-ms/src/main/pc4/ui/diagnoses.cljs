@@ -1,52 +1,74 @@
 (ns pc4.ui.diagnoses
-  (:require [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+  (:require [clojure.string :as str]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+            [pc4.rsdb]
             [pc4.ui.core :as ui]
             [pc4.ui.patients :as patients]
             [taoensso.timbre :as log]))
 
+(defmutation cancel-edit-diagnosis
+  [{:keys [patient-identifier diagnosis]}]
+  (action [{:keys [ref state]}]
+          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
+            (println "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
+            (swap! state (fn [s]
+                           (-> s
+                               (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
+                               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {})))))))
+
 (defsc EditDiagnosis
-  [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis]}]
-  {:ident :t_diagnosis/id
-   :query [:t_diagnosis/id
-           :t_diagnosis/date_onset
-           :t_diagnosis/date_diagnosis
-           :t_diagnosis/date_to
-           {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                    {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-           :t_diagnosis/status
-           fs/form-config-join]
+  [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
+         :ui/keys          [current-patient]}]
+  {:ident       :t_diagnosis/id
+   :query       [:t_diagnosis/id
+                 :t_diagnosis/date_onset
+                 :t_diagnosis/date_diagnosis
+                 :t_diagnosis/date_to
+                 {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                 :t_diagnosis/status
+                 {[:ui/current-patient '_] [:t_patient/patient_identifier]}
+                 fs/form-config-join]
    :form-fields #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
                   :t_diagnosis/diagnosis :t_diagnosis/status}}
-  (ui/ui-simple-form {}
-    (ui/ui-simple-form-title {:title (if id "Edit diagnosis" "Add diagnosis")})
-    (ui/ui-simple-form-item {:label "Diagnosis"}
-      (div :.pt-2
-        (if id                                              ;; if we already have a saved diagnosis, don't allow user to change
-          (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-          (div "Edit control"))))                           ;; insert SNOMED control here)))
-    (ui/ui-simple-form-item {:label "Date of onset"}
-      (ui/ui-local-date {:name "date-onset" :value date_onset}
-                        {:onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
-    (ui/ui-simple-form-item {:label "Date of diagnosis"}
-      (ui/ui-local-date {:name "date-diagnosis" :value date_diagnosis}
-                        {:onChange #(m/set-value!! this :t_diagnosis/date_diagnosis %)}))
-    (ui/ui-simple-form-item {:label "Date to"}
-      (ui/ui-local-date {:name "date-to" :value date_to}
-                        {:onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
-    (ui/ui-simple-form-item {:label "Status"}
-      (log/info "date to" date_to)
-      (ui/ui-select-popup-button
-        {:name            "status", :value status, :update-options? false
-         :options         (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
-                                      ["ACTIVE"])}
-        {:onChange #(com.fulcrologic.fulcro.mutations/set-value!! this :t_diagnosis/status %)}))
-    (when id
-      (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))
+  (let [patient-identifier (:t_patient/patient_identifier current-patient)
+        save-diagnosis-fn #(comp/transact! this [(pc4.rsdb/save-diagnosis (assoc editing-diagnosis :t_patient/patient_identifier patient-identifier))])
+        cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier
+                                                                           :diagnosis          editing-diagnosis})])]
+    (ui/ui-modal
+      {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn}
+                 {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
+      {:onClose cancel-diagnosis-fn}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-title {:title (if id "Edit diagnosis" "Add diagnosis")})
+        (ui/ui-simple-form-item {:label "Diagnosis"}
+          (div :.pt-2
+            (if id                                          ;; if we already have a saved diagnosis, don't allow user to change
+              (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+              (div "Edit control"))))                       ;; TODO: insert SNOMED control here)))
+        (ui/ui-simple-form-item {:label "Date of onset"}
+          (ui/ui-local-date {:name "date-onset" :value date_onset}
+                            {:onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
+        (ui/ui-simple-form-item {:label "Date of diagnosis"}
+          (ui/ui-local-date {:name "date-diagnosis" :value date_diagnosis}
+                            {:onChange #(m/set-value!! this :t_diagnosis/date_diagnosis %)}))
+        (ui/ui-simple-form-item {:label "Date to"}
+          (ui/ui-local-date {:name "date-to" :value date_to}
+                            {:onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
+        (ui/ui-simple-form-item {:label "Status"}
+          (log/info "date to" date_to)
+          (ui/ui-select-popup-button
+            {:name    "status", :value status, :update-options? false
+             :options (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+                                  ["ACTIVE"])}
+            {:onChange #(m/set-value!! this :t_diagnosis/status %)}))
+        (when id
+          (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
 (def ui-edit-diagnosis (comp/factory EditDiagnosis))
 
@@ -62,7 +84,7 @@
     (ui/ui-table-cell {} (ui/format-date date_onset))
     (ui/ui-table-cell {} (ui/format-date date_diagnosis))
     (ui/ui-table-cell {} (ui/format-date date_to))
-    (ui/ui-table-cell {} (str status))))
+    (ui/ui-table-cell {} (str/replace (str status) #"_" " "))))
 
 (def ui-diagnosis-list-item (comp/computed-factory DiagnosisListItem {:keyfn :t_diagnosis/id}))
 
@@ -81,26 +103,19 @@
                                                             :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
 
 
-(defmutation cancel-edit-diagnosis
-  [{:t_diagnosis/keys [id]}]
-  (action [{:keys [ref state]}]
-          (swap! state (fn [s]
-                         (-> s
-                             (fs/pristine->entity* [:t_diagnosis/id id])
-                             (assoc-in (conj ref :ui/editing-diagnosis) {}))))))
-
 (defmutation edit-diagnosis
-  [{:keys [diagnosis]}]
+  [{:keys [patient-identifier diagnosis]}]
   (action
     [{:keys [app ref state]}]
-    (log/debug "editing diagnosis" {:diagnosis diagnosis
-                                    :path      (conj ref :ui/editing-diagnosis)})
-    (if diagnosis
+    (log/info "editing diagnosis" {:diagnosis diagnosis
+                                   :path      (conj ref :ui/editing-diagnosis)})
+    (if-let [diagnosis-id (:t_diagnosis/id diagnosis)]
       (swap! state (fn [s]
                      (-> s
-                         (fs/add-form-config* EditDiagnosis [:t_diagnosis/id (:t_diagnosis/id diagnosis)])
-                         (assoc-in (conj ref :ui/editing-diagnosis) [:t_diagnosis/id (:t_diagnosis/id diagnosis)]))))
+                         (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
+                         (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id]))))
       (swap! state assoc-in (conj ref :ui/editing-diagnosis) {}))))
+
 
 (defsc PatientDiagnoses
   [this {:t_patient/keys [patient_identifier diagnoses] :as patient
@@ -122,30 +137,29 @@
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
   (when patient_identifier
-    (patients/ui-layout
-      {:banner (patients/ui-patient-banner banner)
-       :menu   (patients/ui-pseudonymous-menu
-                 patient
-                 {:selected-id :diagnoses
-                  :sub-menu    {:items [{:id      :add-diagnosis
-                                         :content (ui/ui-menu-button {} {:onClick #(println "Add diagnosis")} "Add diagnosis")}]}})
+    (let [do-edit-diagnosis (fn [diag] (comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier
+                                                                              :diagnosis          diag})]))]
+      (patients/ui-layout
+        {:banner (patients/ui-patient-banner banner)
+         :menu   (patients/ui-pseudonymous-menu
+                   patient
+                   {:selected-id :diagnoses
+                    :sub-menu    {:items [{:id      :add-diagnosis
+                                           :content (ui/ui-menu-button {} {:onClick #(println "Add diagnosis")} "Add diagnosis")}]}})
 
-       :content
-       (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
-             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
-         (comp/fragment
-           (when (seq editing-diagnosis)
-             (ui/ui-modal {:actions [{:id ::save-diagnosis :title "Save" :role :primary}
-                                     {:id ::cancel-diagnosis :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-diagnosis editing-diagnosis)])}]}
-               {:onClose #(comp/transact! this [(cancel-edit-diagnosis editing-diagnosis)])}
-               (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis)))
-           (diagnoses-table {:title     "Active diagnoses"
-                             :diagnoses active-diagnoses
-                             :onClick   #(comp/transact! this [(edit-diagnosis {:diagnosis %})])})
-           (when (seq inactive-diagnoses)
-             (diagnoses-table {:title     "Inactive diagnoses"
-                               :diagnoses inactive-diagnoses
-                               :onClick   #(comp/transact! this [(edit-diagnosis {:diagnosis %})])}))))})))
+         :content
+         (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
+               inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
+           (comp/fragment
+             (when (:t_diagnosis/id editing-diagnosis)
+               (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
+             (diagnoses-table {:title     "Active diagnoses"
+                               :diagnoses active-diagnoses
+                               :onClick   do-edit-diagnosis})
+             (when (seq inactive-diagnoses)
+               (diagnoses-table {:title     "Inactive diagnoses"
+                                 :diagnoses inactive-diagnoses
+                                 :onClick   do-edit-diagnosis}))))}))))
 
 
 
