@@ -1,6 +1,7 @@
 (ns pc4.ui.diagnoses
   (:require [clojure.string :as str]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
@@ -14,12 +15,15 @@
 (defmutation cancel-edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
   (action [{:keys [ref state]}]
-          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
+          (let [diagnosis-id (:t_diagnosis/id diagnosis)
+                temp? (tempid/tempid? diagnosis-id)]
             (println "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
             (swap! state (fn [s]
-                           (-> s
-                               (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
-                               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {})))))))
+                           (cond-> (-> s
+                                       (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
+                                       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {}))
+                                   temp?                    ;; if cancelling a newly created diagnosis, delete it
+                                   (update :t_diagnosis/id dissoc diagnosis-id)))))))
 
 (defsc EditDiagnosis
   [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
@@ -48,7 +52,7 @@
         (ui/ui-simple-form-title {:title (if id "Edit diagnosis" "Add diagnosis")})
         (ui/ui-simple-form-item {:label "Diagnosis"}
           (div :.pt-2
-            (if id                                          ;; if we already have a saved diagnosis, don't allow user to change
+            (if-not (tempid/tempid? id)                     ;; if we already have a saved diagnosis, don't allow user to change
               (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
               (div "Edit control"))))                       ;; TODO: insert SNOMED control here)))
         (ui/ui-simple-form-item {:label "Date of onset"}
@@ -102,20 +106,27 @@
              (map #(ui-diagnosis-list-item % (when onClick {:onClick (fn [] (onClick %))
                                                             :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
 
+(defn edit-mutation*
+  [state patient-identifier diagnosis-id]
+  (-> state
+      (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
+      (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id])))
 
 (defmutation edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
   (action
-    [{:keys [app ref state]}]
-    (log/info "editing diagnosis" {:diagnosis diagnosis
-                                   :path      (conj ref :ui/editing-diagnosis)})
-    (if-let [diagnosis-id (:t_diagnosis/id diagnosis)]
-      (swap! state (fn [s]
-                     (-> s
-                         (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
-                         (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id]))))
-      (swap! state assoc-in (conj ref :ui/editing-diagnosis) {}))))
+    [{:keys [ref state]}]
+    (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
+      (swap! state (fn [s] (edit-mutation* s patient-identifier diagnosis-id))))))
 
+(defmutation add-diagnosis
+  [{:keys [patient-identifier diagnosis]}]
+  (action [{:keys [ref state]}]
+          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
+            (swap! state (fn [s]
+                           (-> s
+                               (assoc-in [:t_diagnosis/id diagnosis-id] diagnosis)
+                               (edit-mutation* patient-identifier diagnosis-id)))))))
 
 (defsc PatientDiagnoses
   [this {:t_patient/keys [patient_identifier diagnoses] :as patient
@@ -138,14 +149,17 @@
                     (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
   (when patient_identifier
     (let [do-edit-diagnosis (fn [diag] (comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier
-                                                                              :diagnosis          diag})]))]
+                                                                              :diagnosis          diag})]))
+          do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier
+                                                                  :diagnosis          {:t_diagnosis/id (tempid/tempid)}})])]
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
          :menu   (patients/ui-pseudonymous-menu
                    patient
                    {:selected-id :diagnoses
                     :sub-menu    {:items [{:id      :add-diagnosis
-                                           :content (ui/ui-menu-button {} {:onClick #(println "Add diagnosis")} "Add diagnosis")}]}})
+                                           :content (ui/ui-menu-button {}
+                                                                       {:onClick do-add-diagnosis} "Add diagnosis")}]}})
 
          :content
          (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
