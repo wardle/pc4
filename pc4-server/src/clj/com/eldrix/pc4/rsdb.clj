@@ -10,6 +10,7 @@
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [com.eldrix.nhsnumber :as nnn]
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -1176,14 +1177,17 @@
   (log/info "save diagnosis request: " params "user: " user)
   (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
                               :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
-    (if-not (s/valid? ::save-diagnosis params')
+    (if-not (s/valid? ::save-diagnosis (dissoc params' :t_diagnosis/id))
       (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-diagnosis params'))))
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-          (let [diag (if (:t_diagnosis/id params')
-                       (patients/update-diagnosis conn params')
-                       (patients/create-diagnosis conn params'))]
-            (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag)))))))
+          (let [diagnosis-id (:t_diagnosis/id params')
+                diag (if (or (nil? diagnosis-id) (com.fulcrologic.fulcro.algorithms.tempid/tempid? diagnosis-id))
+                       (patients/create-diagnosis conn (dissoc params' :t_diagnosis/id))
+                       (patients/update-diagnosis conn params'))]
+            (cond-> (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag))
+              (tempid/tempid? diagnosis-id)
+              (assoc :tempids {diagnosis-id (:t_diagnosis/id diag)})))))))
 
 
 (s/def ::save-medication
