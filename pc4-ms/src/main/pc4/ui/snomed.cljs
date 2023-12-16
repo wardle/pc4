@@ -134,9 +134,10 @@
                    {:autocomplete/selected-synonyms (comp/get-query Synonyms)} ; synonyms are lazily loaded when the user selects an option
                    :autocomplete/stringValue]               ; the current user-entered value
    :ident         (fn [] (autocomplete-ident props))
-   :initial-state (fn [{:keys [id]}] {:db/id                    id
-                                      :autocomplete/suggestions []
-                                      :autocomplete/stringValue ""})}
+   :initial-state (fn [{:keys [id]}] {:db/id                          id
+                                      :autocomplete/suggestions       []
+                                      :autocomplete/selected-synonyms []
+                                      :autocomplete/stringValue       ""})}
   (let [field-id (str "autocomplete-" id)                   ; for html label/input association
         onSelect' (fn [v]
                     (m/set-value! this :autocomplete/selected v)
