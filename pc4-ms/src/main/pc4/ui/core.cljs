@@ -6,6 +6,7 @@
     [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
     [com.fulcrologic.fulcro.dom.inputs]
     [com.fulcrologic.fulcro.dom.events :as evt]
+    [goog.string :as gstr]
     [taoensso.timbre :as log])
   (:import [goog.date Date]))
 
@@ -389,7 +390,7 @@
       (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
         {:aria-hidden "true"
          :onClick     #(when onClose (onClose))})
-      (span :.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} "&#8203;")
+      (span :.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
       (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
         (div
           (div :.mt-3.text-center.sm:mt-5
