@@ -30,21 +30,21 @@
             (swap! state #(cancel-edit-diagnosis* % patient-identifier diagnosis-id)))))
 
 (defsc EditDiagnosis
-  [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
+  [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status notes diagnosis] :as editing-diagnosis
          :ui/keys          [current-patient choose-diagnosis]}]
-  {:ident         :t_diagnosis/id
-   :query         [:t_diagnosis/id
-                   :t_diagnosis/date_onset
-                   :t_diagnosis/date_diagnosis
-                   :t_diagnosis/date_to
-                   {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                            {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                   :t_diagnosis/status
-                   {[:ui/current-patient '_] [:t_patient/patient_identifier]}
-                   {:ui/choose-diagnosis (comp/get-query snomed/Autocomplete)}
-                   fs/form-config-join]
-   :form-fields   #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
-                    :t_diagnosis/diagnosis :t_diagnosis/status}}
+  {:ident       :t_diagnosis/id
+   :query       [:t_diagnosis/id
+                 :t_diagnosis/date_onset
+                 :t_diagnosis/date_diagnosis
+                 :t_diagnosis/date_to :t_diagnosis/notes
+                 {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                 :t_diagnosis/status
+                 {[:ui/current-patient '_] [:t_patient/patient_identifier]}
+                 {:ui/choose-diagnosis (comp/get-query snomed/Autocomplete)}
+                 fs/form-config-join]
+   :form-fields #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
+                  :t_diagnosis/diagnosis :t_diagnosis/status :t_diagnosis/notes}}
 
 
   (let [patient-identifier (:t_patient/patient_identifier current-patient)
@@ -82,6 +82,9 @@
              :options (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
                                   ["ACTIVE"])}
             {:onChange #(m/set-value!! this :t_diagnosis/status %)}))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value notes}
+                          {:onChange #(m/set-value!! this :t_diagnosis/notes %)}))
         (when id
           (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
