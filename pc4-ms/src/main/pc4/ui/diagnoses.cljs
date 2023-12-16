@@ -25,7 +25,7 @@
                                        (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
                                        (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {}))
                                    temp?                    ;; if cancelling a newly created diagnosis, delete it
-                                   (update :t_diagnosis/id dissoc diagnosis-id)))))))
+                                   (merge/remove-ident* [:t_diagnosis/id diagnosis-id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))))))
 
 (defsc EditDiagnosis
   [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
@@ -137,6 +137,7 @@
             (swap! state (fn [s]
                            (-> s
                                (assoc-in [:t_diagnosis/id diagnosis-id] diagnosis)
+                               (update-in [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses] (fnil conj []) [:t_diagnosis/id diagnosis-id])
                                (edit-mutation* patient-identifier diagnosis-id)))))))
 
 (defsc PatientDiagnoses
