@@ -145,7 +145,7 @@
         _ (tap> {:autocomplete suggestions})]
     (comp/fragment
       (dom/div
-        (when label (dom/label {:htmlFor field-id} "Enter search term: "))
+        (when label (dom/label {:htmlFor field-id} label))
         (dom/input :.w-full.p-1.block.border.rounded-md.border-gray-300.shadow-sm
           {:id          field-id
            :placeholder placeholder
