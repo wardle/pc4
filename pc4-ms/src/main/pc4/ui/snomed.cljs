@@ -160,7 +160,7 @@
                               (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
                             (comp/transact! this [(clear-selected {:id id})])
                             (m/set-value! this :autocomplete/selected nil) ;clear selection
-                            (m/set-value! this :autocomplete/selected-synonyms nil)
+                            (m/set-value! this :autocomplete/selected-synonyms [])
                             (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
       (dom/div :.grid.grid-cols-1
         (ui-completion-list {:value              selected
