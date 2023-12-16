@@ -1,6 +1,7 @@
 (ns pc4.ui.diagnoses
   (:require [clojure.string :as str]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+            [com.fulcrologic.fulcro.algorithms.merge :as merge]
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
@@ -10,6 +11,7 @@
             [pc4.rsdb]
             [pc4.ui.core :as ui]
             [pc4.ui.patients :as patients]
+            [pc4.ui.snomed :as snomed]
             [taoensso.timbre :as log]))
 
 (defmutation cancel-edit-diagnosis
@@ -17,7 +19,7 @@
   (action [{:keys [ref state]}]
           (let [diagnosis-id (:t_diagnosis/id diagnosis)
                 temp? (tempid/tempid? diagnosis-id)]
-            (println "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
+            (log/debug "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
             (swap! state (fn [s]
                            (cond-> (-> s
                                        (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
@@ -27,34 +29,42 @@
 
 (defsc EditDiagnosis
   [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
-         :ui/keys          [current-patient]}]
-  {:ident       :t_diagnosis/id
-   :query       [:t_diagnosis/id
-                 :t_diagnosis/date_onset
-                 :t_diagnosis/date_diagnosis
-                 :t_diagnosis/date_to
-                 {:t_diagnosis/diagnosis [:info.snomed.Concept/id
-                                          {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
-                 :t_diagnosis/status
-                 {[:ui/current-patient '_] [:t_patient/patient_identifier]}
-                 fs/form-config-join]
-   :form-fields #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
-                  :t_diagnosis/diagnosis :t_diagnosis/status}}
+         :ui/keys          [current-patient choose-diagnosis]}]
+  {:ident         :t_diagnosis/id
+   :query         [:t_diagnosis/id
+                   :t_diagnosis/date_onset
+                   :t_diagnosis/date_diagnosis
+                   :t_diagnosis/date_to
+                   {:t_diagnosis/diagnosis [:info.snomed.Concept/id
+                                            {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                   :t_diagnosis/status
+                   {[:ui/current-patient '_] [:t_patient/patient_identifier]}
+                   {:ui/choose-diagnosis (comp/get-query snomed/Autocomplete)}
+                   fs/form-config-join]
+   :form-fields   #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
+                    :t_diagnosis/diagnosis :t_diagnosis/status}}
+
+
   (let [patient-identifier (:t_patient/patient_identifier current-patient)
         save-diagnosis-fn #(comp/transact! this [(pc4.rsdb/save-diagnosis (assoc editing-diagnosis :t_patient/patient_identifier patient-identifier))])
-        cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier
-                                                                           :diagnosis          editing-diagnosis})])]
+        cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier :diagnosis editing-diagnosis})])]
+    (tap> {:edit-diagnosis editing-diagnosis})
     (ui/ui-modal
       {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn}
                  {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
       {:onClose cancel-diagnosis-fn}
+      (tap> {:ui-autocomplete-props choose-diagnosis})
       (ui/ui-simple-form {}
-        (ui/ui-simple-form-title {:title (if id "Edit diagnosis" "Add diagnosis")})
+        (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add diagnosis" "Edit diagnosis")})
         (ui/ui-simple-form-item {:label "Diagnosis"}
           (div :.pt-2
             (if-not (tempid/tempid? id)                     ;; if we already have a saved diagnosis, don't allow user to change
               (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-              (div "Edit control"))))                       ;; TODO: insert SNOMED control here)))
+              (if (:info.snomed.Concept/id diagnosis)
+                (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
+                                                   (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+                (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
+                                                          :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)})))))
         (ui/ui-simple-form-item {:label "Date of onset"}
           (ui/ui-local-date {:name "date-onset" :value date_onset}
                             {:onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
@@ -110,6 +120,8 @@
   [state patient-identifier diagnosis-id]
   (-> state
       (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
+      (assoc-in [:autocomplete/by-id :choose-diagnosis] (comp/get-initial-state snomed/Autocomplete {:id :choose-diagnosis}))
+      (assoc-in [:t_diagnosis/id diagnosis-id :ui/choose-diagnosis] [:autocomplete/by-id :choose-diagnosis])
       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id])))
 
 (defmutation edit-diagnosis
