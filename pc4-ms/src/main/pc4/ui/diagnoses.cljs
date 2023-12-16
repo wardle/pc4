@@ -76,7 +76,6 @@
           (ui/ui-local-date {:name "date-to" :value date_to}
                             {:onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
         (ui/ui-simple-form-item {:label "Status"}
-          (log/info "date to" date_to)
           (ui/ui-select-popup-button
             {:name    "status", :value status, :update-options? false
              :options (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
