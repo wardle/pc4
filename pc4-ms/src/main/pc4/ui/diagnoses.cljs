@@ -46,14 +46,15 @@
 
 
   (let [patient-identifier (:t_patient/patient_identifier current-patient)
-        save-diagnosis-fn #(comp/transact! this [(pc4.rsdb/save-diagnosis (assoc editing-diagnosis :t_patient/patient_identifier patient-identifier))])
+        save-diagnosis-fn #(comp/transact! this [(pc4.rsdb/save-diagnosis (-> editing-diagnosis
+                                                                              (assoc :t_patient/patient_identifier patient-identifier)
+                                                                              (dissoc :ui/choose-diagnosis :ui/current-patient)))])
         cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier :diagnosis editing-diagnosis})])]
     (tap> {:edit-diagnosis editing-diagnosis})
     (ui/ui-modal
       {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn}
                  {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
       {:onClose cancel-diagnosis-fn}
-      (tap> {:ui-autocomplete-props choose-diagnosis})
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add diagnosis" "Edit diagnosis")})
         (ui/ui-simple-form-item {:label "Diagnosis"}
