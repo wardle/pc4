@@ -57,9 +57,9 @@
                  {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
       {:onClose cancel-diagnosis-fn}
       (ui/ui-simple-form {}
-        (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add diagnosis" "Edit diagnosis")})
+        (when (tempid/tempid? id) (ui/ui-simple-form-title {:title "Add diagnosis"}))
         (div :.pt-2
-          (if-not (tempid/tempid? id)                     ;; if we already have a saved diagnosis, don't allow user to change
+          (if-not (tempid/tempid? id)                       ;; if we already have a saved diagnosis, don't allow user to change
             (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
             (if (:info.snomed.Concept/id diagnosis)
               (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
