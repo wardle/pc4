@@ -14,6 +14,33 @@
             [pc4.ui.snomed :as snomed]
             [taoensso.timbre :as log]))
 
+(declare EditDiagnosis)
+
+(defn edit-mutation*
+  [state patient-identifier diagnosis-id]
+  (-> state
+      (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
+      (assoc-in [:autocomplete/by-id :choose-diagnosis] (comp/get-initial-state snomed/Autocomplete {:id :choose-diagnosis}))
+      (assoc-in [:t_diagnosis/id diagnosis-id :ui/choose-diagnosis] [:autocomplete/by-id :choose-diagnosis])
+      (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id])))
+
+(defmutation edit-diagnosis
+  [{:keys [patient-identifier diagnosis]}]
+  (action
+    [{:keys [ref state]}]
+    (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
+      (swap! state (fn [s] (edit-mutation* s patient-identifier diagnosis-id))))))
+
+(defmutation add-diagnosis
+  [{:keys [patient-identifier diagnosis]}]
+  (action [{:keys [ref state]}]
+          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
+            (swap! state (fn [s]
+                           (-> s
+                               (assoc-in [:t_diagnosis/id diagnosis-id] diagnosis)
+                               (update-in [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses] (fnil conj []) [:t_diagnosis/id diagnosis-id])
+                               (edit-mutation* patient-identifier diagnosis-id)))))))
+
 (defn cancel-edit-diagnosis*
   [state patient-identifier diagnosis-id]
   (cond-> (-> state
@@ -119,31 +146,6 @@
              (map #(ui-diagnosis-list-item % (when onClick {:onClick (fn [] (onClick %))
                                                             :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
 
-(defn edit-mutation*
-  [state patient-identifier diagnosis-id]
-  (-> state
-      (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
-      (assoc-in [:autocomplete/by-id :choose-diagnosis] (comp/get-initial-state snomed/Autocomplete {:id :choose-diagnosis}))
-      (assoc-in [:t_diagnosis/id diagnosis-id :ui/choose-diagnosis] [:autocomplete/by-id :choose-diagnosis])
-      (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] [:t_diagnosis/id diagnosis-id])))
-
-(defmutation edit-diagnosis
-  [{:keys [patient-identifier diagnosis]}]
-  (action
-    [{:keys [ref state]}]
-    (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
-      (swap! state (fn [s] (edit-mutation* s patient-identifier diagnosis-id))))))
-
-(defmutation add-diagnosis
-  [{:keys [patient-identifier diagnosis]}]
-  (action [{:keys [ref state]}]
-          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
-            (swap! state (fn [s]
-                           (-> s
-                               (assoc-in [:t_diagnosis/id diagnosis-id] diagnosis)
-                               (update-in [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses] (fnil conj []) [:t_diagnosis/id diagnosis-id])
-                               (edit-mutation* patient-identifier diagnosis-id)))))))
-
 (defsc PatientDiagnoses
   [this {:t_patient/keys [patient_identifier diagnoses] :as patient
          :>/keys         [banner], :ui/keys [editing-diagnosis]}]
@@ -151,7 +153,7 @@
    :query         [:t_patient/patient_identifier
                    {:>/banner (comp/get-query patients/PatientBanner)}
                    {:t_patient/diagnoses (comp/get-query DiagnosisListItem)}
-                   {:ui/editing-diagnosis (comp/get-query pc4.ui.diagnoses/EditDiagnosis)}]
+                   {:ui/editing-diagnosis (comp/get-query EditDiagnosis)}]
    :route-segment ["pt" :t_patient/patient_identifier "diagnoses"]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
@@ -164,10 +166,8 @@
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
   (when patient_identifier
-    (let [do-edit-diagnosis (fn [diag] (comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier
-                                                                              :diagnosis          diag})]))
-          do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier
-                                                                  :diagnosis          {:t_diagnosis/id (tempid/tempid)}})])]
+    (let [do-edit-diagnosis #(comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier :diagnosis %})])
+          do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
          :menu   (patients/ui-pseudonymous-menu
