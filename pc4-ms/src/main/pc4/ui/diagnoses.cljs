@@ -56,15 +56,14 @@
       {:onClose cancel-diagnosis-fn}
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add diagnosis" "Edit diagnosis")})
-        (ui/ui-simple-form-item {:label "Diagnosis"}
-          (div :.pt-2
-            (if-not (tempid/tempid? id)                     ;; if we already have a saved diagnosis, don't allow user to change
-              (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-              (if (:info.snomed.Concept/id diagnosis)
-                (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
-                                                   (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
-                (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
-                                                          :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)})))))
+        (div :.pt-2
+          (if-not (tempid/tempid? id)                     ;; if we already have a saved diagnosis, don't allow user to change
+            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+            (if (:info.snomed.Concept/id diagnosis)
+              (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
+                                                 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+              (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
+                                                        :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)}))))
         (ui/ui-simple-form-item {:label "Date of onset"}
           (ui/ui-local-date {:name "date-onset" :value date_onset}
                             {:onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
