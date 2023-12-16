@@ -450,11 +450,11 @@
     (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
       (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
         (for [{:keys [title content]} items]
-          (div :.sm:col-span-1
+          (div :.sm:col-span-1 {:key title}
             (dom/dt :.text-sm.font-medium.text-gray-500 title)
             (dom/dd :.mt-1.text-sm.text-gray-900 content)))
         (for [{:keys [title content]} long-items]
-          (div :.sm:col-span-2
+          (div :.sm:col-span-2 {:key title}
             (dom/dt :.text-sm.font-medium.text-gray-500 title)
             (dom/dd :.mt-1.text-sm.text-gray-900 content)))))))
 
@@ -469,10 +469,10 @@
             :when id]
         (if (= selected-id id)
           (dom/a :.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
-            {:aria-current "page"}
+            {:key id, :aria-current "page"}
             (dom/span :.span.pr-2 icon) content)
           (dom/a :.cursor-pointer.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
-            {:onClick onClick}
+            {:key id, :onClick onClick}
             (dom/span :.pr-2 icon) content)))
       (when sub-menu
         (dom/div :.mt-4
@@ -481,7 +481,7 @@
             (for [{:keys [id onClick content]} (:items sub-menu)
                   :when content]
               (dom/a :.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900
-                {:onClick onClick}
+                {:key id, :onClick onClick}
                 content))))))))
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
