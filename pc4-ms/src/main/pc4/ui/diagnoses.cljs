@@ -14,18 +14,20 @@
             [pc4.ui.snomed :as snomed]
             [taoensso.timbre :as log]))
 
+(defn cancel-edit-diagnosis*
+  [state patient-identifier diagnosis-id]
+  (cond-> (-> state
+              (fs/pristine->entity* [:t_diagnosis/id diagnosis-id]) ;; restore form to pristine state
+              (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {})) ;; clear modal dialog
+          (tempid/tempid? diagnosis-id)                     ;; if cancelling a newly created diagnosis, delete it and its relationship
+          (merge/remove-ident* [:t_diagnosis/id diagnosis-id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))
+
 (defmutation cancel-edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
   (action [{:keys [ref state]}]
-          (let [diagnosis-id (:t_diagnosis/id diagnosis)
-                temp? (tempid/tempid? diagnosis-id)]
+          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
             (log/debug "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
-            (swap! state (fn [s]
-                           (cond-> (-> s
-                                       (fs/pristine->entity* [:t_diagnosis/id diagnosis-id])
-                                       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {}))
-                                   temp?                    ;; if cancelling a newly created diagnosis, delete it
-                                   (merge/remove-ident* [:t_diagnosis/id diagnosis-id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))))))
+            (swap! state #(cancel-edit-diagnosis* % patient-identifier diagnosis-id)))))
 
 (defsc EditDiagnosis
   [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status diagnosis] :as editing-diagnosis
