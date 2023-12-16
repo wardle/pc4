@@ -6,7 +6,7 @@
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.users :as users]
-            #_[com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
+    #_[com.fulcrologic.fulcro.server.api-middleware :as api-middleware
             [io.pedestal.http :as http]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.error :as intc.error]
@@ -16,8 +16,9 @@
             [reitit.http]
             [reitit.pedestal]
             [ring.middleware.session.cookie]
-            [rum.core :as rum])
+            [rum.core :as rum]])
   (:import (clojure.lang ExceptionInfo)
+           (com.fulcrologic.fulcro.algorithms.tempid TempId)
            (java.time LocalDate)))
 
 
@@ -256,13 +257,17 @@
       (http/dev-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
-              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers dates/transit-readers}]))
+              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers (merge dates/transit-readers
+                                                                                                           {com.fulcrologic.fulcro.algorithms.tempid/tag
+                                                                                                            (transit/read-handler (fn [uuid]
+                                                                                                                                    (com.fulcrologic.fulcro.algorithms.tempid/tempid uuid)))})}]))
               (http/transit-body-interceptor ::transit-json-body
                                              "application/transit+json;charset=UTF-8"
                                              :json
                                              {:handlers (merge dates/transit-writers
                                                                {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)})})
+                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)
+                                                                TempId        (transit/write-handler com.fulcrologic.fulcro.algorithms.tempid/tag #(.-id ^TempId %))})})
               service-error-handler)
       (http/create-server)
       (http/start)))

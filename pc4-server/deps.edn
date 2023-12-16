@@ -42,6 +42,7 @@
   com.zaxxer/HikariCP                  {:mvn/version "5.0.1"}
   day8.re-frame/http-fx                {:mvn/version "0.2.4"}
 
+  com.fulcrologic/fulcro               {:mvn/version "3.6.10"}
   expound/expound                      {:mvn/version "0.9.0"}
   integrant/integrant                  {:mvn/version "0.8.1"}
   lambdaisland/uri                     {:mvn/version "1.16.134"}
