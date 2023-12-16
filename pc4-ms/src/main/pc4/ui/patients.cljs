@@ -92,7 +92,7 @@
 (defsc PseudonymousMenu
   "Patient menu. At the moment, we have a different menu for pseudonymous
   patients but this will become increasingly unnecessary."
-  [this {:t_patient/keys [patient_identifier first_names title last_name status]
+  [this {:t_patient/keys [patient_identifier]
          pseudonym       :t_episode/stored_pseudonym}
    {:keys [selected-id sub-menu]}]
   (ui/ui-vertical-navigation
@@ -103,8 +103,9 @@
                    {:id      :diagnoses
                     :content "Diagnoses"
                     :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
-                   {:id      :treatment
-                    :content "Medication"}
+                   {:id      :medications
+                    :content "Medication"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
                    {:id      :relapses
                     :content "Relapses"}
                    {:id      :encounters
