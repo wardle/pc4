@@ -120,7 +120,7 @@
                        :post-mutation        `populate-loaded-suggestions
                        :post-mutation-params {:id id}
                        :target               (conj (autocomplete-ident id) :autocomplete/loaded-suggestions)}))]
-    (gf/debounce load-suggestions 200)))
+    (gf/debounce load-suggestions 400)))
 
 
 
