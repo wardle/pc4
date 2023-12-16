@@ -42,7 +42,7 @@
 (def ui-select (comp/computed-factory Select))
 
 (defsc CompletionList
-  [this {:keys [value values idKey displayPropertyKey size] :or {size 8}}
+  [this {:keys [value values idKey displayPropertyKey size] :or {size 4}}
    {:keys [onValueSelect onDoubleClick]}]
   (let [values# (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)] ;; generate a lookup map
     (dom/select
