@@ -61,4 +61,4 @@
       :else
       (log/debug "no currently logged in user"))))
 
-(defonce do-timer (do (js/setInterval check-token 60000)))
+(defonce do-timer (do (js/setInterval check-token 5000)))
