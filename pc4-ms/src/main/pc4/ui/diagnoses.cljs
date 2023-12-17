@@ -80,7 +80,7 @@
                                                                               (dissoc :ui/choose-diagnosis :ui/current-patient)))])
         cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier :diagnosis editing-diagnosis})])]
     (ui/ui-modal
-      {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn}
+      {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn :disabled? (not diagnosis)}
                  {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
       {:onClose cancel-diagnosis-fn}
       (ui/ui-simple-form {}
