@@ -333,27 +333,32 @@
   [{sms-id :t_ms_event/summary_multiple_sclerosis_fk}]
   {:t_ms_event/summary_multiple_sclerosis {:t_summary_multiple_sclerosis/id sms-id}})
 
+(def medication-properties
+  [:t_medication/id :t_medication/patient_fk
+   :t_medication/date_from, :t_medication/date_to
+   :t_medication/date_from_accuracy, :t_medication/date_to_accuracy
+   :t_medication/indication, :t_medication/medication_concept_fk
+   {:t_medication/medication [:info.snomed.Concept/id]}
+   :t_medication/more_information, :t_medication/temporary_stop
+   :t_medication/reason_for_stopping
+   :t_medication/dose, :t_medication/frequency
+   :t_medication/units, :t_medication/as_required
+   :t_medication/route, :t_medication/type])
+
+(def medication-event-properties
+  [:t_medication_event/id
+   :t_medication_event/type
+   :t_medication_event/severity
+   :t_medication_event/description_of_reaction
+   :t_medication_event/event_concept_fk
+   {:t_medication_event/event_concept [:info.snomed.Concept/id]}])
+
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
   {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/medications
-                  [:t_medication/id :t_medication/patient_fk
-                   :t_medication/date_from, :t_medication/date_to
-                   :t_medication/date_from_accuracy, :t_medication/date_to_accuracy
-                   :t_medication/indication, :t_medication/medication_concept_fk
-                   {:t_medication/medication [:info.snomed.Concept/id]}
-                   :t_medication/more_information, :t_medication/temporary_stop
-                   :t_medication/reason_for_stopping
-                   :t_medication/dose, :t_medication/frequency
-                   :t_medication/units, :t_medication/as_required
-                   :t_medication/route, :t_medication/type
-                   :t_medication/prescriptions
-                   {:t_medication/events [:t_medication_event/id
-                                          :t_medication_event/type
-                                          :t_medication_event/severity
-                                          :t_medication_event/description_of_reaction
-                                          :t_medication_event/event_concept_fk
-                                          {:t_medication_event/event_concept [:info.snomed.Concept/id]}]}]}]}
+                  (into medication-properties
+                        [{:t_medication/events medication-event-properties}])}]}
   {:t_patient/medications
    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
      (let [medication (patients/fetch-medications-and-events txn patient)
@@ -372,12 +377,19 @@
                                                         (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
              medication)))})
 
+(pco/defresolver medication-by-id
+  [{conn :com.eldrix.rsdb/conn, :as env} {:t_medication/keys [id]}]
+  {::pco/output medication-properties}
+  (when-let [med (db/execute-one! conn (sql/format {:select [:t_medication/*] :from   :t_medication :where  [:= :id id]}))]
+    (assoc med :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk med)})))
+
 (pco/defresolver medication->patient
   [{patient-pk :t_medication/patient_fk}]
   {:t_medication/patient {:t_patient/id patient-pk}})
 
 (pco/defresolver medication->events
   [{:com.eldrix.rsdb/keys [conn]} {:t_medication/keys [id]}]
+  {::pco/output [{:t_medication/events medication-event-properties}]}
   {:t_medication/events
    (get (patients/fetch-medication-events conn [id]) 0)})
 
@@ -1193,7 +1205,6 @@
 (s/def ::save-medication
   (s/keys :req [:t_medication/patient_fk :t_medication/medication]
           :opt [:t_patient/patient_identifier
-                :t_medication/id
                 :t_medication/date_from
                 :t_medication/date_to
                 :t_medication/more_information
@@ -1201,21 +1212,24 @@
                 :t_medication/events]))
 (pco/defmutation save-medication!
   [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, user :authenticated-user, :as env}
-   {patient-id :t_patient/patient_identifier, patient-pk :t_medication/patient_fk, :as params}]
+   {patient-id :t_patient/patient_identifier, medication-id :t_medication/id, patient-pk :t_medication/patient_fk, :as params}]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " user)
-  (let [params' (-> params
-                    (assoc :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))
-                    (update :t_medication/events (fn [evts] (->> evts
-                                                                 (mapv #(hash-map :t_medication_event/type (:t_medication_event/type %)
-                                                                                  :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))]
+  (let [create? (tempid/tempid? medication-id)
+        params' (cond-> (-> params
+                            (assoc :t_medication/medication_concept_fk (get-in params [:t_medication/medication :info.snomed.Concept/id]))
+                            (update :t_medication/events (fn [evts] (->> evts
+                                                                         (mapv #(hash-map :t_medication_event/type (:t_medication_event/type %)
+                                                                                          :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))
+                  create? (dissoc :t_medication/id))]
     (if-not (s/valid? ::save-medication params')
       (log/error "invalid call" (s/explain-data ::save-medication params'))
       (jdbc/with-transaction [txn conn {:isolation :serializable}]
         (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
         (log/info "Upsert medication " {:txn txn :params params})
         (let [med (patients/upsert-medication! txn params')]
-          (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med)))))))
+          (cond-> (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med))
+            create? (assoc :tempids {medication-id (:t_medication/id med)})))))))
 
 (s/def ::delete-medication
   (s/keys :req [:t_medication/id (or :t_patient/patient_identifier :t_medication/patient_fk)]))
@@ -1548,6 +1562,7 @@
    ms-events->ordering-errors
    event->summary-multiple-sclerosis
    patient->medications
+   medication-by-id
    medication->patient
    medication->events
    medication-event->concept
