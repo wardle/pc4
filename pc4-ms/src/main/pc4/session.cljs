@@ -53,9 +53,12 @@
       (and (jwt-valid? token) (jwt-expires-in-seconds? token 90))
       (comp/transact! @SPA [(list 'pc4.users/refresh-token {:token token})])
 
-      ;; if we have a token and it is invalid, clear the token
+      ;; if we have a token and it is invalid, clear the token and logout
       (and token (not (jwt-valid? token)))
       (comp/transact! @SPA [(list 'pc4.users/logout {:message "Your session timed out."})])
+
+      token
+      (log/debug "active session with valid token, expiring in" (jwt-expires-seconds token) "seconds")
 
       ;; we have no token, so do nothing
       :else
