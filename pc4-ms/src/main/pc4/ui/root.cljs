@@ -94,12 +94,13 @@
   {:query         [{:session/authenticated-user (comp/get-query users/NavBar)}
                    {:ui/main-router (comp/get-query MainRouter)}
                    {:ui/login (comp/get-query users/Login)}
-                   {:ui/editing-medication (comp/get-query patients/MedicationEdit)}]
+                   {:ui/all-reasons-for-stopping-medication (comp/get-query pc4.ui.medications/MedicationReasonForStopping)}]
 
    :initial-state {:session/authenticated-user {}
                    :ui/main-router             {}
                    :ui/login                   {}
-                   :ui/editing-medication      {}}}
+                   :ui/all-reasons-for-stopping-medication []}}
+
   (div
     (if-not (seq authenticated-user)
       (users/ui-login login)
