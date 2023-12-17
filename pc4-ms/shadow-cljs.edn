@@ -5,6 +5,8 @@
                        :asset-path      "/js/main"
 
                        :modules         {:main {:init-fn pc4.client/init}}
+                       :module-hash-names true
+
                        ;; guardrails checks only during dev
                        :dev             {:build-hooks      [(teknql.tailwind/start-watch!)]
                                          :compiler-options
