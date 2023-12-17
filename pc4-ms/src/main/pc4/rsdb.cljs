@@ -1,10 +1,9 @@
 (ns pc4.rsdb
   (:require [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
-            [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-            [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+            [com.fulcrologic.fulcro.algorithms.merge :as merge]
+            [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-            [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [taoensso.timbre :as log]))
 
@@ -54,24 +53,31 @@
   (remote [env]
           (println "save diagnosis: " (:ast env))
           true)
-  (ok-action
+  (ok-action ;; we simply close the modal dialog once we have confirmed the save...
     [{:keys [ref state]}]
     (swap! state (fn [s]
                    (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
 
 (defmutation save-medication
-  [params]
-  (remote [env] true)
-  (ok-action
+  [{:t_medication/keys [id] :t_patient/keys [patient_identifier] :as medication}]
+  (action [{:keys [state]}]
+          (swap! state fs/entity->pristine* [:t_medication/id id]))
+  (remote [env]
+          (log/info "saving medication:" (:ast env))
+          true)
+  (ok-action ;; we simply close the modal dialog once we have confirmed the save...
     [{:keys [ref state] :as env}]
-    (tap> {:save-medication-ok env})))
+    (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {})))
 
 (defmutation delete-medication
-  [params]
+  [{:t_medication/keys [id] :as medication, :t_patient/keys [patient_identifier]}]
   (remote [env] true)
   (ok-action
-    [{:keys [component] :as env}]
-    (df/load-field! component :t_patient/medications {})))
+    [{:keys [state]}]
+    (swap! state (fn [s]
+                   (-> s
+                       (merge/remove-ident* [:t_medication/id id] [:t_patient/patient_identifier patient_identifier :t_patient/medications])
+                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
 
 (defmutation create-admission
   [params]
