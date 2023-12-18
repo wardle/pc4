@@ -17,8 +17,10 @@
 
 
 (declare EditMedication)
+(declare EditMedicationEvent)
 
-(defn edit-mutation*
+(defn edit-medication*
+  "Set up application state in order to edit a given medication."
   [state patient-identifier medication-id]
   (-> state
       (fs/add-form-config* EditMedication [:t_medication/id medication-id])
@@ -33,17 +35,41 @@
     (when-let [medication-id (:t_medication/id medication)]
       (log/info "editing medication" medication-id)
       (when-not (tempid/tempid? medication-id) (df/load! app [:t_medication/id medication-id] EditMedication))
-      (swap! state (fn [s] (edit-mutation* s patient-identifier medication-id))))))
+      (swap! state edit-medication* patient-identifier medication-id))))
+
+(defn add-medication*
+  [state patient-identifier {:t_medication/keys [id] :as medication}]
+  (-> state
+      (assoc-in [:t_medication/id id] medication)
+      (update-in [:t_patient/patient_identifier patient-identifier :t_patient/medications] (fnil conj []) [:t_medication/id id])
+      (edit-medication* patient-identifier id)))
 
 (defmutation add-medication
   [{:keys [patient-identifier medication]}]
-  (action [{:keys [state]}]
-          (let [medication-id (:t_medication/id medication)]
-            (swap! state (fn [s]
-                           (-> s
-                               (assoc-in [:t_medication/id medication-id] medication)
-                               (update-in [:t_patient/patient_identifier patient-identifier :t_patient/medications] (fnil conj []) [:t_medication/id medication-id])
-                               (edit-mutation* patient-identifier medication-id)))))))
+  (action [{:keys [state]}] (swap! state add-medication* patient-identifier medication)))
+
+(defn add-medication-event* [state id medication]
+  (let [ident [:choose-medication-event id]]
+    (-> state
+        (assoc-in [:autocomplete/by-id ident] (comp/get-initial-state snomed/Autocomplete {:id ident}))
+        (assoc-in [:t_medication_event/id id] {:ui/choose-event                  [:autocomplete/by-id ident]
+                                               :t_medication_event/id            id
+                                               :t_medication_event/medication_fk (:t_medication/id medication)
+                                               :t_medication_event/type          "AdverseEvent"})
+        (fs/add-form-config* EditMedicationEvent [:t_medication_event/id id])
+        (update-in [:t_medication/id (:t_medication/id medication) :t_medication/events] (fnil conj []) [:t_medication_event/id id]))))
+
+(defmutation add-medication-event
+  [{:keys [id medication]}]
+  (action
+    [{:keys [state]}]
+    (swap! state add-medication-event* id medication)))
+
+(defmutation delete-medication-event
+  [{:keys [id medication-id]}]
+  (action
+    [{:keys [state]}]
+    (swap! state merge/remove-ident* [:t_medication_event/id id] [:t_medication/id medication-id :t_medication/events])))
 
 (defn cancel-edit-medication*
   [state patient-identifier medication-id]
@@ -55,10 +81,9 @@
 
 (defmutation cancel-edit-medication
   [{:keys [patient-identifier medication]}]
-  (action [{:keys [ref state]}]
-          (let [medication-id (:t_medication/id medication)]
-            (log/debug "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-medication]})
-            (swap! state #(cancel-edit-medication* % patient-identifier medication-id)))))
+  (action
+    [{:keys [state]}]
+    (swap! state #(cancel-edit-medication* % patient-identifier (:t_medication/id medication)))))
 
 (defsc MedicationReasonForStopping
   [this {:t_medication_reason_for_stopping/keys [id name]}]
@@ -76,6 +101,33 @@
             (df/load! app :com.eldrix.rsdb/all-medication-reasons-for-stopping MedicationReasonForStopping
                       {:target [:ui/all-reasons-for-stopping-medication]}))))
 
+
+(defsc EditMedicationEvent
+  [this {event-id      :t_medication_event/id
+         medication-id :t_medication_event/medication_fk
+         event-type    :t_medication_event/type
+         event-concept :t_medication_event/event_concept
+         :ui/keys      [choose-event]}]
+  {:ident         :t_medication_event/id
+   :query         [:t_medication_event/id
+                   :t_medication_event/medication_fk
+                   :t_medication_event/type
+                   fs/form-config-join
+                   {:ui/choose-event (comp/get-query snomed/Autocomplete)}
+                   {:t_medication_event/event_concept
+                    [:info.snomed.Concept/id
+                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+   :initial-state (fn [params] {:ui/choose-event (comp/get-initial-state snomed/Autocomplete {:id [:choose-medication-event (:t_medication_event/id params)]})})
+   :form-fields   #{:t_medication_event/type
+                    :t_medication_event/event_concept}}
+  (ui/ui-simple-form-item {:label (div
+                                    (dom/h3 :.pb-4 "Event")
+                                    (ui/ui-link-button {:onClick #(comp/transact! this [(delete-medication-event {:id event-id :medication-id medication-id})])}
+                                                  "Remove"))}
+    (snomed/ui-autocomplete choose-event {:constraint "<473010000"})))
+
+(def ui-edit-medication-event (comp/factory EditMedicationEvent {:keyfn :t_medication_event/id}))
+
 (defn reason-for-stopping-description
   [v]
   (some-> v name (str/replace #"_" " ")))
@@ -90,7 +142,7 @@
                 :t_medication/more_information]))
 
 (defsc EditMedication
-  [this {:t_medication/keys [id date_from date_to medication reason_for_stopping more_information] :as editing-medication
+  [this {:t_medication/keys [id date_from date_to medication reason_for_stopping more_information events] :as editing-medication
          :ui/keys           [choose-medication current-patient all-reasons-for-stopping-medication]}]
   {:ident         :t_medication/id
    :query         [:t_medication/id
@@ -99,6 +151,7 @@
                    :t_medication/more_information
                    :t_medication/reason_for_stopping
                    :t_medication/patient_fk
+                   {:t_medication/events (comp/get-query EditMedicationEvent)}
                    {:t_medication/medication [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                    {:ui/choose-medication (comp/get-query snomed/Autocomplete)}
                    fs/form-config-join
@@ -106,6 +159,7 @@
                    {[:ui/all-reasons-for-stopping-medication '_] (comp/get-query MedicationReasonForStopping)}]
    :initial-state (fn [params] {:ui/choose-medication (comp/get-initial-state snomed/Autocomplete {:id :choose-medication})})
    :form-fields   #{:t_medication/date_from :t_medication/date_to :t_medication/medication
+                    :t_medication/events
                     :t_medication/reason_for_stopping :t_medication/more_information}}
   (let [patient-identifier (:t_patient/patient_identifier current-patient)
         temp? (tempid/tempid? id)
@@ -124,6 +178,8 @@
                   :disabled? (not (s/valid? ::save-medication editing-medication))
                   :onClick   do-save}
                  (when-not (tempid/tempid? id) {:id ::delete-action :title "Delete" :onClick do-delete})
+                 {:id      :add-event :title "Add event"
+                  :onClick #(comp/transact! this [(add-medication-event {:id (tempid/tempid) :medication editing-medication})])}
                  {:id ::cancel-action :title "Cancel" :onClick do-cancel}]}
       {:onClose do-cancel}
       (ui/ui-simple-form {}
@@ -136,16 +192,18 @@
               (snomed/ui-autocomplete choose-medication {:autoFocus true, :constraint "(<10363601000001109 MINUS <<10363901000001102)"
                                                          :onSave    #(m/set-value! this :t_medication/medication %)}))))
         (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
-          (ui/ui-local-date {:value date_from}
-                            {:onChange #(m/set-value! this :t_medication/date_from %)}))
+          (ui/ui-local-date
+            {:value date_from}
+            {:onChange #(m/set-value! this :t_medication/date_from %)}))
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "Date to"}
-          (ui/ui-local-date {:value date_to}
-                            {:onChange #(do (m/set-value! this :t_medication/date_to %)
-                                            (cond
-                                              (nil? %)
-                                              (m/set-value! this :t_medication/reason_for_stopping :NOT_APPLICABLE)
-                                              (= :NOT_APPLICABLE reason_for_stopping)
-                                              (m/set-value! this :t_medication/reason_for_stopping :ADVERSE_EVENT)))}))
+          (ui/ui-local-date
+            {:value date_to}
+            {:onChange #(do (m/set-value! this :t_medication/date_to %)
+                            (cond
+                              (nil? %)
+                              (m/set-value! this :t_medication/reason_for_stopping :NOT_APPLICABLE)
+                              (= :NOT_APPLICABLE reason_for_stopping)
+                              (m/set-value! this :t_medication/reason_for_stopping :ADVERSE_EVENT)))}))
         (when date_to
           (ui/ui-simple-form-item {:label "Reason for stopping"}
             (ui/ui-select-popup-button
@@ -159,16 +217,11 @@
               {:onChange #(m/set-value! this :t_medication/reason_for_stopping %)})))
         (ui/ui-simple-form-item {:htmlFor "notes" :label "Notes"}
           (ui/ui-textarea {:id "notes" :value more_information}
-                          {:onChange #(m/set-value! this :t_medication/more_information %)}))))))
+                          {:onChange #(m/set-value! this :t_medication/more_information %)}))
+        (for [event events]
+          (ui-edit-medication-event event))))))
 
 (def ui-edit-medication (comp/factory EditMedication))
-
-(def empty-medication
-  {:t_medication/id               nil
-   :t_medication/patient_fk       nil
-   :t_medication/date_from        nil
-   :t_medication/date_to          nil
-   :t_medication/more_information ""})
 
 
 (defsc MedicationListItem
