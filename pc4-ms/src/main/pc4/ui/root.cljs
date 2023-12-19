@@ -16,6 +16,7 @@
     [pc4.ui.admissions]
     [pc4.ui.diagnoses]
     [pc4.ui.medications]
+    [pc4.ui.ninflamm]
     [pc4.ui.patients :as patients]
     [pc4.ui.users :as users]
     [pc4.ui.projects :as projects]
@@ -85,6 +86,7 @@
                     pc4.ui.diagnoses/PatientDiagnoses
                     pc4.ui.medications/PatientMedications
                     pc4.ui.admissions/PatientAdmissions
+                    pc4.ui.ninflamm/PatientNeuroInflammatory
                     pc4.ui.projects/ProjectPage
                     pc4.ui.patients/PatientPage]})
 

@@ -107,7 +107,8 @@
                     :content "Medication"
                     :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
                    {:id      :relapses
-                    :content "Relapses"}
+                    :content "Relapses"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "neuroinflammatory"])}
                    {:id      :encounters
                     :content "Encounters"}
                    {:id      :investigations
