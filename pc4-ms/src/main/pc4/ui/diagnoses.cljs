@@ -16,7 +16,7 @@
 
 (declare EditDiagnosis)
 
-(defn edit-mutation*
+(defn edit-diagnosis*
   [state patient-identifier diagnosis-id]
   (-> state
       (fs/add-form-config* EditDiagnosis [:t_diagnosis/id diagnosis-id])
@@ -27,34 +27,34 @@
 (defmutation edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
   (action
-    [{:keys [ref state]}]
+    [{:keys [state]}]
     (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
-      (swap! state (fn [s] (edit-mutation* s patient-identifier diagnosis-id))))))
+      (swap! state edit-diagnosis* patient-identifier diagnosis-id))))
+
+(defn add-diagnosis*
+  [state patient-identifier {:t_diagnosis/keys [id] :as diagnosis}]
+  (-> state
+      (assoc-in [:t_diagnosis/id id] diagnosis)
+      (update-in [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses] (fnil conj []) [:t_diagnosis/id id])
+      (edit-diagnosis* patient-identifier id)))
 
 (defmutation add-diagnosis
   [{:keys [patient-identifier diagnosis]}]
-  (action [{:keys [ref state]}]
-          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
-            (swap! state (fn [s]
-                           (-> s
-                               (assoc-in [:t_diagnosis/id diagnosis-id] diagnosis)
-                               (update-in [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses] (fnil conj []) [:t_diagnosis/id diagnosis-id])
-                               (edit-mutation* patient-identifier diagnosis-id)))))))
+  (action [{:keys [state]}]
+          (swap! state add-diagnosis* patient-identifier diagnosis)))
 
 (defn cancel-edit-diagnosis*
-  [state patient-identifier diagnosis-id]
+  [state patient-identifier {:t_diagnosis/keys [id] :as diagnosis}]
   (cond-> (-> state
-              (fs/pristine->entity* [:t_diagnosis/id diagnosis-id]) ;; restore form to pristine state
+              (fs/pristine->entity* [:t_diagnosis/id id])   ;; restore form to pristine state
               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {})) ;; clear modal dialog
-          (tempid/tempid? diagnosis-id)                     ;; if cancelling a newly created diagnosis, delete it and its relationship
-          (merge/remove-ident* [:t_diagnosis/id diagnosis-id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))
+          (tempid/tempid? id)                               ;; if cancelling a newly created diagnosis, delete it and its relationship
+          (merge/remove-ident* [:t_diagnosis/id id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))
 
 (defmutation cancel-edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
-  (action [{:keys [ref state]}]
-          (let [diagnosis-id (:t_diagnosis/id diagnosis)]
-            (log/debug "cancelling edit" {:path [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis]})
-            (swap! state #(cancel-edit-diagnosis* % patient-identifier diagnosis-id)))))
+  (action [{:keys [state]}]
+          (swap! state cancel-edit-diagnosis* patient-identifier diagnosis)))
 
 (defsc EditDiagnosis
   [this {:t_diagnosis/keys [id date_diagnosis date_onset date_to status notes diagnosis] :as editing-diagnosis
