@@ -212,19 +212,16 @@
   (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
                            (conj options value) options))
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
-        default-value (or default-value (when (str/blank? no-selection-string) (first sorted-options)))]
-    (log/info {:ui-select {:all-options all-options
-                           :default-value default-value
-                           :value value}})
-    (when (and onChange default-value (not (contains? all-options value)))
-      (log/info "Performing onChange to change value" default-value)
-      (onChange default-value))
+        default-value (or default-value (when (str/blank? no-selection-string) (first sorted-options)))
+        forced-value (if (not (contains? all-options value)) default-value value)]
+    (when (and onChange (not= value forced-value))
+      (onChange forced-value))
     (div
       (when label (ui-label {:for name :label label}))
       (dom/select :.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
                   {:name      name
                    :disabled  disabled?
-                   :value     (str (id-key value))
+                   :value     (str (id-key forced-value))
                    :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
                    :onChange  #(when onChange
                                  (let [idx (-> % .-target .-selectedIndex)]
