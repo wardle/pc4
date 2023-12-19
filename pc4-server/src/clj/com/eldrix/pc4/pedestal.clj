@@ -6,7 +6,7 @@
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.users :as users]
-    #_[com.fulcrologic.fulcro.server.api-middleware :as api-middleware
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [io.pedestal.http :as http]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.error :as intc.error]
@@ -16,7 +16,7 @@
             [reitit.http]
             [reitit.pedestal]
             [ring.middleware.session.cookie]
-            [rum.core :as rum]])
+            [rum.core :as rum])
   (:import (clojure.lang ExceptionInfo)
            (com.fulcrologic.fulcro.algorithms.tempid TempId)
            (java.time LocalDate)))
