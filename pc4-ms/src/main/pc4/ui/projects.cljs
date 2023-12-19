@@ -183,8 +183,8 @@
             (when (fs/invalid-spec? props :ui/date-birth)
               (ui/box-error-message {:message "Invalid date of birth"}))
             (ui/ui-select-popup-button {:id      "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
-                                        :options [:MALE :FEMALE] :display-key name}
-                                       {:onChange   #(do (m/set-value!! this :ui/sex %)
+                                        :options [:MALE :FEMALE] :display-key name
+                                        :onChange   #(do (m/set-value!! this :ui/sex %)
                                                          (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
                                         :onEnterKey do-register})
             (when (fs/invalid-spec? props :ui/sex)

@@ -213,8 +213,8 @@
                :default-value (if date_to :ADVERSE_EVENT :NOT_APPLICABLE)
                :display-key   reason-for-stopping-description
                :options       (cond-> (set (mapv :t_medication_reason_for_stopping/id all-reasons-for-stopping-medication))
-                                      date_to (disj :NOT_APPLICABLE))}
-              {:onChange #(m/set-value! this :t_medication/reason_for_stopping %)})))
+                                      date_to (disj :NOT_APPLICABLE))
+               :onChange      #(m/set-value! this :t_medication/reason_for_stopping %)})))
         (ui/ui-simple-form-item {:htmlFor "notes" :label "Notes"}
           (ui/ui-textarea {:id "notes" :value more_information}
                           {:onChange #(m/set-value! this :t_medication/more_information %)}))

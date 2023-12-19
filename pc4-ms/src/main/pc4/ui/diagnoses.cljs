@@ -104,10 +104,10 @@
                             {:onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
         (ui/ui-simple-form-item {:label "Status"}
           (ui/ui-select-popup-button
-            {:name    "status", :value status, :update-options? false
-             :options (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
-                                  ["ACTIVE"])}
-            {:onChange #(m/set-value!! this :t_diagnosis/status %)}))
+            {:name     "status", :value status, :update-options? false
+             :options  (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+                                   ["ACTIVE"])
+             :onChange #(m/set-value!! this :t_diagnosis/status %)}))
         (ui/ui-simple-form-item {:label "Notes"}
           (ui/ui-textarea {:value notes}
                           {:onChange #(m/set-value!! this :t_diagnosis/notes %)}))

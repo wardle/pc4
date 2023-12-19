@@ -203,12 +203,10 @@
   (comp/computed-factory UILocalDate))
 
 
-(defsc UISelectPopupButton
-  "See [[ui-select-popup-button]] for documentation."
-  [this
-   {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?]
-    :or   {id-key identity, display-key identity, sort? true, update-options? true}}
-   {:keys [onChange onEnterKey sort-fn]}]
+(defn ui-select-popup-button
+  [{:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?
+           onChange onEnterKey sort-fn]
+    :or   {id-key identity, display-key identity, sort? true, update-options? true}}]
   (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
                            (conj options value) options))
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
@@ -232,13 +230,6 @@
                   (for [option sorted-options
                         :let [id (id-key option)]]
                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
-
-(def ui-select-popup-button
-  "A select control that appears as a pop-up.
-    Callbacks are:
-    onChange  : a 1-arity fn called with the value selected
-    onEnter   : a 0-arity fn called when enter key pressed"
-  (comp/computed-factory UISelectPopupButton))
 
 (defsc UISubmitButton
   [this {:keys [label disabled?]} {:keys [onClick]}]
@@ -493,6 +484,7 @@
     (comp/children this)))
 
 (def ui-menu-button (comp/computed-factory MenuButton))
+
 
 (defsc Checkbox [this {:keys [name label description checked onChange]}]
   (div :.relative.flex.items-start

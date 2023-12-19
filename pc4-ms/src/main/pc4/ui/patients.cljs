@@ -333,8 +333,8 @@
   (ui/ui-select-popup-button {:value       ms-diagnosis
                               :options     all-ms-diagnoses
                               :id-key      :t_ms_diagnosis/id
-                              :display-key :t_ms_diagnosis/name}
-                             {:onChange #(comp/transact! this [(pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
+                              :display-key :t_ms_diagnosis/name
+                              :onChange #(comp/transact! this [(pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
 
 (def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
