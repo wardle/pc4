@@ -41,15 +41,16 @@
   [{:keys [message]}]
   (action [{:keys [app state]}]
           (js/console.log "Performing logout action" message)
-          (dr/change-route! app ["home"])
-          (reset! session/authentication-token nil)
-          (swap! state (fn [s]
-                         (cond-> (assoc s :session/authenticated-user {})
-                                 message
-                                 (assoc-in [:component/id :login :ui/error] message))))))
+          #_(dr/change-route! app ["home"])
+          #_(reset! session/authentication-token nil)
+          #_(swap! state (fn [s]
+                           (cond-> (assoc s :session/authenticated-user {})
+                                   message
+                                   (assoc-in [:component/id :login :ui/error] message))))
+          (.reload js/window.location true)))
 
 (defmutation refresh-token
-  [params]
+  [_]
   (action [{:keys [state]}]
           (js/console.log "Performing refresh token"))
   (remote [env] true)
