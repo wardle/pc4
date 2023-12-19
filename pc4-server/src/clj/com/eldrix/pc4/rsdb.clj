@@ -1472,7 +1472,7 @@
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-admission}
   (log/info "save admission request: " params "user: " user)
-  (when-not (s/valid? ::save-admission params)
+  (when-not (s/valid? ::save-admission (dissoc params :t_episode/id))
     (log/error "invalid save result request" (s/explain-data ::save-admission params))
     (throw (ex-info "Invalid save result request" (s/explain-data ::save-admission params))))
   (let [user-id (:t_user/id (users/fetch-user conn (:value user)))
@@ -1486,9 +1486,11 @@
                               :t_episode/discharge_user_fk user-id)]
     (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
     (log/info "writing episode" params')
-    (if (:t_episode/id params')
-      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')} {:return-keys true})
-      (next.jdbc.sql/insert! conn :t_episode params'))))
+    (if (tempid/tempid? (:t_episode/id params'))
+      (let [episode (next.jdbc.sql/insert! conn :t_episode (dissoc params' :t_episode/id))]
+        (assoc episode :tempids {(:t_episode/id params') (:t_episode/id episode)}))
+      (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')} {:return-keys true}))))
+
 
 (pco/defmutation delete-admission!
   [{conn    :com.eldrix.rsdb/conn
