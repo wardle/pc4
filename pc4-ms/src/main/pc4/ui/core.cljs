@@ -493,3 +493,43 @@
     (comp/children this)))
 
 (def ui-menu-button (comp/computed-factory MenuButton))
+
+(defsc Checkbox [this {:keys [name label description checked onChange]}]
+  (div :.relative.flex.items-start
+    (div :.flex.items-center.h-5
+      (dom/input :.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300.rounded
+        {:name      name
+         :type "checkbox"
+         :checked   checked
+         :onChange (when onChange #(onChange (-> % .-target .-checked)))}))
+    (div :.ml-3.text-sm
+      (dom/label :.font-medium.text-gray-700 {:htmlFor name} label)
+      (when description (dom/p :.text-gray-500 description)))))
+
+(def ui-checkbox (comp/factory Checkbox))
+
+(defsc MultipleCheckboxes
+  [this {:keys [value legend keys display-key onChange onItemChange]
+         :or   {display-key name}}]
+  (dom/fieldset :.space-y-5
+    (when legend (dom/legend :.sr-only legend))
+    (for [item keys]
+      ^{:key item}
+      (ui-checkbox
+        {:name      (name item)
+         :label     (display-key item)
+         :checked   (or (item value) false)
+         :onChange #(do
+                      (println "setting " {:item item :old (or (item value) false) :new %})
+                      (cond
+                        onChange (onChange (assoc value item %))
+                        onItemChange (onItemChange item %)))}))))
+
+(def ui-multiple-checkboxes
+  "A convenient way of presenting multiple checkboxes.
+  Parameters:
+  - legend      : a legend to be used for screenreaders
+  - value       : a map containing all values
+  - keys        : a sequence of keys to be set to true or false
+  - display-key : a function such as a keyword, a map or function to derive display"
+  (comp/factory MultipleCheckboxes))
