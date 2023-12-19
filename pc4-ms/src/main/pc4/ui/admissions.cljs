@@ -1,0 +1,145 @@
+(ns pc4.ui.admissions
+  (:require [clojure.string :as str]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+            [com.fulcrologic.fulcro.algorithms.merge :as merge]
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
+            [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+            [com.fulcrologic.fulcro.data-fetch :as df]
+            [com.fulcrologic.fulcro.dom :as dom :refer [div]]
+            [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+            [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+            [pc4.rsdb]
+            [pc4.ui.core :as ui]
+            [pc4.ui.patients :as patients]
+            [taoensso.timbre :as log]))
+
+(declare EditAdmission)
+
+(defn cancel-edit-admission*
+  [state patient-identifier {:t_episode/keys [id] :as episode}]
+  (cond-> (-> state
+              (fs/pristine->entity* [:t_episode/id id])     ;; restore form to pristine state
+              (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-admission] {})) ;; clear modal dialog
+          (tempid/tempid? id)                               ;; if cancelling a newly created admission, delete it and its relationship
+          (merge/remove-ident* [:t_episode/id id] [:t_patient/patient_identifier patient-identifier :t_patient/episodes])))
+
+(defmutation cancel-edit-admission
+  [{:keys [patient-identifier episode]}]
+  (action [{:keys [state]}]
+          (swap! state cancel-edit-admission* patient-identifier episode)))
+
+(defn edit-admission*
+  [state patient-identifier {:t_episode/keys [id]}]
+  (-> state
+      (fs/add-form-config* EditAdmission [:t_episode/id id])
+      (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-admission] [:t_episode/id id])))
+
+(defmutation edit-admission
+  [{:keys [patient-identifier episode]}]
+  (action [{:keys [state]}]
+          (swap! state edit-admission* patient-identifier episode)))
+
+(defn add-admission*
+  [state patient-identifier {:t_episode/keys [id] :as episode}]
+  (-> state
+      (assoc-in [:t_episode/id id] episode)
+      (update-in [:t_patient/patient_identifier patient-identifier :t_patient/episodes] (fnil conj []) [:t_episode/id id])
+      (edit-admission* patient-identifier episode)))
+
+(defmutation add-admission
+  [{:keys [patient-identifier episode]}]
+  (action [{:keys [state]}]
+          (swap! state add-admission* patient-identifier episode)))
+
+(defsc EditAdmission
+  [this {:t_episode/keys [date_registration date_discharge] :as episode
+         :ui/keys        [current-patient]}]
+  {:ident       :t_episode/id
+   :query       [:t_episode/id
+                 :t_episode/patient_fk
+                 :t_episode/date_registration
+                 :t_episode/date_discharge
+                 fs/form-config-join
+                 {[:ui/current-patient '_] [:t_patient/patient_identifier]}]
+   :form-fields #{:t_episode/date_registration :t_episode/date_discharge}}
+  (let [patient-identifier (:t_patient/patient_identifier current-patient)
+        do-save #(comp/transact! this [(pc4.rsdb/save-admission (select-keys episode [:t_episode/id :t_episode/date_registration :t_episode/date_discharge :t_episode/patient_fk]))]
+                                 {:ref [:t_patient/patient_identifier patient-identifier]})
+        cancel-editing #(comp/transact! this [(cancel-edit-admission {:patient-identifier patient-identifier :episode episode})])]
+    (ui/ui-modal
+      {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
+                 {:id ::cancel :title "Cancel" :onClick cancel-editing}]}
+      {:onClose cancel-editing}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-title {:title "Admission to hospital"})
+        (ui/ui-simple-form-item {:label "Date of admission"}
+          (ui/ui-local-date {:name  "date-registration"
+                             :value date_registration}
+                            {:onChange #(m/set-value!! this :t_episode/date_registration %)}))
+        (ui/ui-simple-form-item {:label "Date of discharge"}
+          (ui/ui-local-date {:name  "date-discharge"
+                             :value date_discharge}
+                            {:onChange #(m/set-value!! this :t_episode/date_discharge %)}))))))
+
+
+(def ui-edit-admission (comp/factory EditAdmission))
+
+(defsc EpisodeListItem
+  [this {:t_episode/keys [id date_registration date_discharge]}
+   {:keys [onClick] :as computed-props}]
+  {:ident :t_episode/id
+   :query [:t_episode/id :t_episode/patient_fk :t_episode/date_registration :t_episode/date_discharge]}
+  (ui/ui-table-row computed-props
+    (ui/ui-table-cell {} (ui/format-date date_registration))
+    (ui/ui-table-cell {} (ui/format-date date_discharge))))
+
+(def ui-episode-list-item (comp/computed-factory EpisodeListItem {:keyfn :t_episode/id}))
+
+(defsc PatientAdmissions
+  [this {:t_patient/keys [id patient_identifier episodes] :as patient
+         :>/keys         [banner], :ui/keys [editing-admission]}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/id :t_patient/patient_identifier
+                   {:>/banner (comp/get-query patients/PatientBanner)}
+                   {:t_patient/episodes (comp/get-query EpisodeListItem)}
+                   {:ui/editing-admission (comp/get-query EditAdmission)}]
+   :route-segment ["pt" :t_patient/patient_identifier "admissions"]
+   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
+                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                         (fn []
+                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientAdmissions
+                                                     {:target               [:ui/current-patient]
+                                                      :post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
+   :pre-merge     (fn [{:keys [current-normalized data-tree]}]
+                    (merge {:ui/editing-admission {}} current-normalized data-tree))}
+  (when patient_identifier
+    (let [do-edit #(comp/transact! this [(edit-admission {:patient-identifier patient_identifier :episode %})])
+          do-add #(comp/transact! this [(add-admission {:patient-identifier patient_identifier
+                                                        :episode {:t_episode/id         (tempid/tempid)
+                                                                  :t_episode/patient_fk id}})])]
+      (patients/ui-layout
+        {:banner (patients/ui-patient-banner banner)
+         :menu   (patients/ui-pseudonymous-menu
+                   patient
+                   {:selected-id :admissions
+                    :sub-menu    {:items [{:id      :add-admission
+                                           :content (ui/ui-menu-button {}
+                                                                       {:onClick do-add} "Add admission")}]}})
+
+         :content
+         (comp/fragment
+           (when (:t_episode/id editing-admission)
+             (ui-edit-admission editing-admission))
+           (dom/div
+             (ui/ui-table {}
+               (ui/ui-table-head {}
+                 (ui/ui-table-row {}
+                   (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
+               (ui/ui-table-body {}
+                 (for [episode (reverse (sort-by #(.valueOf (:t_episode/date_registration %)) episodes))]
+                   (ui-episode-list-item episode
+                                         {:onClick (fn [] (do-edit episode))
+                                          :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))}))))
+

@@ -90,7 +90,7 @@
     [{:keys [ref state] :as env}] true)
   (ok-action                                                ;; once admission is saved, close modal editing form
     [{:keys [ref state] :as env}]
-    (swap! state assoc-in (conj ref :ui/editing-admission) nil)))
+    (swap! state assoc-in (conj ref :ui/editing-admission) {})))
 
 (defmutation delete-admission
   [{:t_episode/keys [id patient_fk]}]

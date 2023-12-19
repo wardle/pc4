@@ -113,7 +113,8 @@
                    {:id      :investigations
                     :content "Investigations"}
                    {:id      :admissions
-                    :content "Admissions"}]
+                    :content "Admissions"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
      :sub-menu    sub-menu}))
 
 (def ui-pseudonymous-menu (comp/computed-factory PseudonymousMenu))

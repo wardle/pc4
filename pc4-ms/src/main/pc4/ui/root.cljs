@@ -13,6 +13,7 @@
     [com.fulcrologic.fulcro.algorithms.form-state :as fs]
     [pc4.app :refer [SPA]]
     [pc4.ui.core :as ui]
+    [pc4.ui.admissions]
     [pc4.ui.diagnoses]
     [pc4.ui.medications]
     [pc4.ui.patients :as patients]
@@ -83,6 +84,7 @@
                     pc4.ui.patients/NewPatientDemographics
                     pc4.ui.diagnoses/PatientDiagnoses
                     pc4.ui.medications/PatientMedications
+                    pc4.ui.admissions/PatientAdmissions
                     pc4.ui.projects/ProjectPage
                     pc4.ui.patients/PatientPage]})
 
