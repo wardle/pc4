@@ -383,12 +383,12 @@
   (div :.fixed.z-10.inset-0.overflow-y-auto
     {:aria-labelledby title :role "dialog" :aria-modal "true"
      :className       (when disabled? "hidden")}
-    (div :.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+    (div :.flex.items-end.justify-center.min-h-max.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
       (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
         {:aria-hidden "true"
          :onClick     #(when onClose (onClose))})
-      (span :.hidden.sm:inline-block.sm:align-middle.sm:h-screen {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
-      (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:max-w-screen-sm.lg:max-w-screen-lg.sm:w-full.sm:p-6
+      (span :.hidden.sm:inline-block.min-h-max {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
+      (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.max-w-screen-sm.lg:max-w-screen-lg.w-full.sm:p-6
         (div
           (div :.mt-3.text-center.sm:mt-5
             (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
