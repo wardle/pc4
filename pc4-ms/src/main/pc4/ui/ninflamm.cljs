@@ -8,7 +8,6 @@
             [com.fulcrologic.fulcro.dom :as dom :refer [div]]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-            [pc4.rsdb]
             [pc4.ui.core :as ui]
             [pc4.ui.patients :as patients]
             [taoensso.timbre :as log]))
@@ -72,6 +71,18 @@
             (log/debug "Loading MS event types")
             (df/load! app :com.eldrix.rsdb/all-ms-event-types MsEventType
                       {:target [:ui/all-ms-event-types]}))))
+
+(defsc MsDiagnosis [this props]
+  {:ident :t_ms_diagnosis/id
+   :query [:t_ms_diagnosis/id :t_ms_diagnosis/name]})
+
+(defmutation load-ms-diagnoses
+  [_]
+  (action [{:keys [app state]}]
+          (when (empty? (:ui/all-ms-diagnoses @state))
+            (log/debug "Loading MS diagnostic categories")
+            (df/load! app :com.eldrix.rsdb/all-ms-diagnoses MsDiagnosis
+                      {:target [:ui/all-ms-diagnoses]}))))
 
 ;; TODO: this should come from the server?
 (def impact-choices ["UNKNOWN" "NON_DISABLING" "DISABLING" "SEVERE"])
@@ -237,7 +248,7 @@
   [this {:t_summary_multiple_sclerosis/keys [id events event_ordering_errors]
          :ui/keys                           [current-patient]}]
   {:ident :t_summary_multiple_sclerosis/id
-   :query [:t_summary_multiple_sclerosis/id
+   :query [:t_summary_multiple_sclerosis/id :t_summary_multiple_sclerosis/ms_diagnosis
            :t_summary_multiple_sclerosis/event_ordering_errors
            {:t_summary_multiple_sclerosis/events (comp/get-query MsEventListItem)}
            {[:ui/current-patient '_] [:t_patient/patient_identifier]}]}
@@ -261,41 +272,56 @@
 
 (defsc PatientNeuroInflammatory
   [this {:t_patient/keys [id patient_identifier summary_multiple_sclerosis] :as patient
-         :>/keys         [banner], :ui/keys [editing-ms-event]}]
+         :>/keys         [banner], :ui/keys [editing-ms-event all-ms-diagnoses]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id :t_patient/patient_identifier
                    {:>/banner (comp/get-query patients/PatientBanner)}
                    {:t_patient/summary_multiple_sclerosis (comp/get-query SummaryMultipleSclerosis)}
-                   {:ui/editing-ms-event (comp/get-query EditMsEvent)}]
+                   {:ui/editing-ms-event (comp/get-query EditMsEvent)}
+                   {[:ui/all-ms-diagnoses '_] [:t_ms_diagnosis/id :t_ms_diagnosis/name]}]
    :route-segment ["pt" :t_patient/patient_identifier "neuroinflammatory"]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                       (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                          (fn []
-                                           (comp/transact! app [(load-ms-event-types {})])
+                                           (comp/transact! app [(load-ms-event-types {}) (load-ms-diagnoses {})])
                                            (df/load! app [:t_patient/patient_identifier patient-identifier] PatientNeuroInflammatory
                                                      {:target               [:ui/current-patient]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     (merge {:ui/editing-ms-event {}} current-normalized data-tree))}
-  (when patient_identifier
-    (let [do-add #(comp/transact! this [(add-ms-event {:patient-identifier            patient_identifier
-                                                       :summary-multiple-sclerosis-id (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
-                                                       :ms-event                      {:t_ms_event/id         (tempid/tempid)
-                                                                                       :t_ms_event/patient_fk id}})])]
-      (patients/ui-layout
-        {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-pseudonymous-menu
-                   patient
-                   {:selected-id :relapses
-                    :sub-menu    {:items [{:id      :add-ms-event
-                                           :content (ui/ui-menu-button {}
-                                                                       {:onClick do-add} "Add disease event")}]}})
 
-         :content
-         (comp/fragment
-           (when (:t_ms_event/id editing-ms-event)
-             (ui-edit-ms-event editing-ms-event))
-           (if summary_multiple_sclerosis                   ;; TODO: allow creation
-             (ui-summary-multiple-sclerosis summary_multiple_sclerosis)))}))))
+  (let [not-ms-diagnosis (first (filter #(= 15 (:t_ms_diagnosis/id %)) all-ms-diagnoses)) ;; = "NOT MS"
+        has-summary? (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
+        show-ms? (and has-summary? (not= not-ms-diagnosis (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis)))]
+    (when patient_identifier
+      (let [do-add #(comp/transact! this [(add-ms-event {:patient-identifier            patient_identifier
+                                                         :summary-multiple-sclerosis-id (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
+                                                         :ms-event                      {:t_ms_event/id         (tempid/tempid)
+                                                                                         :t_ms_event/patient_fk id}})])]
+        (patients/ui-layout
+          {:banner (patients/ui-patient-banner banner)
+           :menu   (patients/ui-pseudonymous-menu
+                     patient
+                     {:selected-id :relapses
+                      :sub-menu
+                      {:items [{:id      :add-ms-event
+                                :content (when show-ms? (ui/ui-menu-button {} {:onClick do-add} "Add disease event"))}]}})
+
+           :content
+           (comp/fragment
+             (tap> patient)
+             (when (:t_ms_event/id editing-ms-event)
+               (ui-edit-ms-event editing-ms-event))
+             (ui/ui-simple-form {}
+               (ui/ui-simple-form-item {:label "Neuroinflammatory diagnosis"}
+                 (ui/ui-select-popup-button
+                   {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
+                    :default-value not-ms-diagnosis   ;; we take care not to call onChange unless user chooses to do so here
+                    :options       all-ms-diagnoses
+                    :id-key        :t_ms_diagnosis/id
+                    :display-key   :t_ms_diagnosis/name
+                    :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])})))
+             (when show-ms?                             ;; TODO: allow creation
+               (ui-summary-multiple-sclerosis summary_multiple_sclerosis)))})))))

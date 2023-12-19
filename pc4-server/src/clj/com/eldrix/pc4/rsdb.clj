@@ -1269,7 +1269,8 @@
             (try
               (patients/save-ms-diagnosis! txn params')
               (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e)))))
-          (patient->summary-multiple-sclerosis env params)))))
+          (assoc (patient->summary-multiple-sclerosis env params)
+            :t_patient/patient_identifier patient-identifier)))))
 
 
 (s/def ::save-pseudonymous-postal-code

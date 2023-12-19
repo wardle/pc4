@@ -5,6 +5,7 @@
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
+            [pc4.ui.ninflamm]
             [taoensso.timbre :as log]))
 
 (defmutation search-patient-by-pseudonym
@@ -49,11 +50,11 @@
 (defmutation save-diagnosis
   [{:t_diagnosis/keys [id] :t_patient/keys [patient_identifier] :as diagnosis}]
   (action [{:keys [state]}]
-         (swap! state fs/entity->pristine* [:t_diagnosis/id id]))
+          (swap! state fs/entity->pristine* [:t_diagnosis/id id]))
   (remote [env]
           (println "save diagnosis: " (:ast env))
           true)
-  (ok-action ;; we simply close the modal dialog once we have confirmed the save...
+  (ok-action                                                ;; we simply close the modal dialog once we have confirmed the save...
     [{:keys [ref state]}]
     (swap! state (fn [s]
                    (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
@@ -65,7 +66,7 @@
   (remote [env]
           (log/info "saving medication:" (:ast env))
           true)
-  (ok-action ;; we simply close the modal dialog once we have confirmed the save...
+  (ok-action                                                ;; we simply close the modal dialog once we have confirmed the save...
     [{:keys [ref state] :as env}]
     (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {})))
 
@@ -106,7 +107,9 @@
   (action [{:keys [ref state]}]
           (let [path (conj ref :t_summary_multiple_sclerosis/ms_diagnosis)]
             (swap! state assoc-in path (select-keys params [:t_ms_diagnosis/id :t_ms_diagnosis/name]))))
-  (remote [env] true))
+  (remote [env] (returning env pc4.ui.ninflamm/PatientNeuroInflammatory)))
+
+
 
 (defmutation save-pseudonymous-patient-postal-code
   [params]

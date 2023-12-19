@@ -12,7 +12,6 @@
             [clojure.string :as str]
             [pc4.ui.core :as ui]
             [com.eldrix.nhsnumber :as nhs-number]
-            [pc4.rsdb]
             [pc4.ui.snomed :as snomed]
             [pc4.users]
             [taoensso.timbre :as log]
@@ -335,7 +334,7 @@
                               :options     all-ms-diagnoses
                               :id-key      :t_ms_diagnosis/id
                               :display-key :t_ms_diagnosis/name
-                              :onChange #(comp/transact! this [(pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
+                              :onChange #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
 
 (def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
