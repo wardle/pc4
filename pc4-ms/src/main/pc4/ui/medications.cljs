@@ -19,71 +19,104 @@
 (declare EditMedication)
 (declare EditMedicationEvent)
 
+(defn edit-medication-event*
+  "For a given medication event, prepare for editing."
+  [state id]
+  (log/info "preparing to edit event" id)
+  (let [ident [:choose-medication-event id]]
+    (-> state
+        (fs/add-form-config* EditMedicationEvent [:t_medication_event/id id])
+        (assoc-in [:autocomplete/by-id ident] (comp/get-initial-state snomed/Autocomplete {:id ident}))
+        (assoc-in [:t_medication_event/id id :ui/choose-event] [:autocomplete/by-id ident]))))
+
+
+(defn edit-medication-events*
+  [state {:t_medication/keys [events]}]
+  (log/info "Preparing to edit events" events)
+  (reduce edit-medication-event* state (map :t_medication_event/id events)))
+
+(defn add-medication-event*
+  "Add a new medication event to the medication and prepare for editing."
+  [state medication event-id]
+  (-> state
+      (assoc-in [:t_medication_event/id event-id] {:t_medication_event/id            event-id
+                                                   :t_medication_event/medication_fk (:t_medication/id medication)
+                                                   :t_medication_event/type          :ADVERSE_EVENT})
+      (edit-medication-event* event-id)
+      (update-in [:t_medication/id (:t_medication/id medication) :t_medication/events] (fnil conj []) [:t_medication_event/id event-id])))
+
+(defmutation add-medication-event
+  [{:keys [id medication]}]
+  (action
+    [{:keys [state]}]
+    (swap! state add-medication-event* medication id)))
+
+(defn remove-medication-event*
+  [state medication-id event-id]
+  (-> state
+      (update :t_medication_event/id dissoc event-id)
+      (merge/remove-ident* [:t_medication_event/id event-id] [:t_medication/id medication-id :t_medication/events])))
+
+(defmutation remove-medication-event
+  [{:keys [id medication-id]}]
+  (action
+    [{:keys [state]}]
+    (swap! state remove-medication-event* medication-id id)))
+
 (defn edit-medication*
   "Set up application state in order to edit a given medication."
-  [state patient-identifier medication-id]
+  [state patient-identifier {medication-id :t_medication/id :as medication}]
   (-> state
       (fs/add-form-config* EditMedication [:t_medication/id medication-id])
       (assoc-in [:autocomplete/by-id :choose-medication] (comp/get-initial-state snomed/Autocomplete {:id :choose-medication}))
       (assoc-in [:t_medication/id medication-id :ui/choose-medication] [:autocomplete/by-id :choose-medication])
+      (edit-medication-events* medication)
       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-medication] [:t_medication/id medication-id])))
 
 (defmutation edit-medication
-  [{:keys [patient-identifier medication]}]
+  [{:keys [patient-identifier medication no-load] :as params}]
   (action
     [{:keys [app state]}]
     (when-let [medication-id (:t_medication/id medication)]
       (log/info "editing medication" medication-id)
-      (when-not (tempid/tempid? medication-id) (df/load! app [:t_medication/id medication-id] EditMedication))
-      (swap! state edit-medication* patient-identifier medication-id))))
+      (if (or no-load (tempid/tempid? medication-id))
+        (swap! state edit-medication* patient-identifier medication)
+        (df/load! app [:t_medication/id medication-id] EditMedication
+                  {:post-mutation        `edit-medication
+                   :post-mutation-params (assoc params :no-load true)})))))
 
 (defn add-medication*
   [state patient-identifier {:t_medication/keys [id] :as medication}]
   (-> state
       (assoc-in [:t_medication/id id] medication)
       (update-in [:t_patient/patient_identifier patient-identifier :t_patient/medications] (fnil conj []) [:t_medication/id id])
-      (edit-medication* patient-identifier id)))
+      (edit-medication* patient-identifier medication)))
 
 (defmutation add-medication
   [{:keys [patient-identifier medication]}]
   (action [{:keys [state]}] (swap! state add-medication* patient-identifier medication)))
 
-(defn add-medication-event* [state id medication]
-  (let [ident [:choose-medication-event id]]
-    (-> state
-        (assoc-in [:autocomplete/by-id ident] (comp/get-initial-state snomed/Autocomplete {:id ident}))
-        (assoc-in [:t_medication_event/id id] {:ui/choose-event                  [:autocomplete/by-id ident]
-                                               :t_medication_event/id            id
-                                               :t_medication_event/medication_fk (:t_medication/id medication)
-                                               :t_medication_event/type          "AdverseEvent"})
-        (fs/add-form-config* EditMedicationEvent [:t_medication_event/id id])
-        (update-in [:t_medication/id (:t_medication/id medication) :t_medication/events] (fnil conj []) [:t_medication_event/id id]))))
-
-(defmutation add-medication-event
-  [{:keys [id medication]}]
-  (action
-    [{:keys [state]}]
-    (swap! state add-medication-event* id medication)))
-
-(defmutation delete-medication-event
-  [{:keys [id medication-id]}]
-  (action
-    [{:keys [state]}]
-    (swap! state merge/remove-ident* [:t_medication_event/id id] [:t_medication/id medication-id :t_medication/events])))
-
 (defn cancel-edit-medication*
-  [state patient-identifier medication-id]
-  (cond-> (-> state
-              (fs/pristine->entity* [:t_medication/id medication-id]) ;; restore form to pristine state
-              (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-medication] {})) ;; clear modal dialog
-          (tempid/tempid? medication-id)                    ;; if cancelling a newly created diagnosis, delete it and its relationship
-          (merge/remove-ident* [:t_medication/id medication-id] [:t_patient/patient_identifier patient-identifier :t_patient/medications])))
+  [state patient-identifier medication]
+  (let [medication-id (:t_medication/id medication)
+        temp-event-ids (->> (:t_medication/events medication)
+                            (map :t_medication_event/id)
+                            (filter tempid/tempid?))]
+    (cond-> (-> state
+                (fs/pristine->entity* [:t_medication/id medication-id]) ;; restore form to pristine state
+                (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-medication] {})) ;; clear modal dialog)
+            ;; if cancelling a newly created diagnosis, delete it and its relationship
+            (tempid/tempid? medication-id)
+            (merge/remove-ident* [:t_medication/id medication-id] [:t_patient/patient_identifier patient-identifier :t_patient/medications])
+            ;; remove all temporarily created medication events linked to this medication
+            (seq temp-event-ids)
+            (update :t_medication_event/id (fn [m] (apply dissoc m temp-event-ids))))))
 
 (defmutation cancel-edit-medication
   [{:keys [patient-identifier medication]}]
   (action
     [{:keys [state]}]
-    (swap! state #(cancel-edit-medication* % patient-identifier (:t_medication/id medication)))))
+    (swap! state cancel-edit-medication* patient-identifier medication)))
 
 (defsc MedicationReasonForStopping
   [this {:t_medication_reason_for_stopping/keys [id name]}]
@@ -101,30 +134,35 @@
             (df/load! app :com.eldrix.rsdb/all-medication-reasons-for-stopping MedicationReasonForStopping
                       {:target [:ui/all-reasons-for-stopping-medication]}))))
 
-
 (defsc EditMedicationEvent
   [this {event-id      :t_medication_event/id
          medication-id :t_medication_event/medication_fk
          event-type    :t_medication_event/type
          event-concept :t_medication_event/event_concept
          :ui/keys      [choose-event]}]
-  {:ident         :t_medication_event/id
-   :query         [:t_medication_event/id
-                   :t_medication_event/medication_fk
-                   :t_medication_event/type
-                   fs/form-config-join
-                   {:ui/choose-event (comp/get-query snomed/Autocomplete)}
-                   {:t_medication_event/event_concept
-                    [:info.snomed.Concept/id
-                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
-   :initial-state (fn [params] {:ui/choose-event (comp/get-initial-state snomed/Autocomplete {:id [:choose-medication-event (:t_medication_event/id params)]})})
-   :form-fields   #{:t_medication_event/type
-                    :t_medication_event/event_concept}}
+  {:ident       :t_medication_event/id
+   :query       [:t_medication_event/id :t_medication_event/medication_fk
+                 :t_medication_event/type fs/form-config-join
+                 {:ui/choose-event (comp/get-query snomed/Autocomplete)}
+                 {:t_medication_event/event_concept [:info.snomed.Concept/id {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]
+   :pre-merge   (fn [{:keys [current-normalized data-tree]}]
+                  (log/info "premerge for editmedicationevent" data-tree)
+                  (merge current-normalized
+                         {:ui/choose-event (comp/get-initial-state snomed/Autocomplete {:id [:autocomplete/by-id [:choose-medication-event (:t_medication_event/id data-tree)]]})}
+                         data-tree))
+   :form-fields #{:t_medication_event/type :t_medication_event/event_concept}}
   (ui/ui-simple-form-item {:label (div
-                                    (dom/h3 :.pb-4 "Event")
-                                    (ui/ui-link-button {:onClick #(comp/transact! this [(delete-medication-event {:id event-id :medication-id medication-id})])}
-                                                  "Remove"))}
-    (snomed/ui-autocomplete choose-event {:constraint "<473010000"})))
+                                    (dom/h3 :.pb-4 (case event-type :ADVERSE_EVENT "Adverse Event" :INFUSION_REACTION "Infusion reaction" "Event"))
+                                    (ui/ui-link-button {:onClick #(comp/transact! this [(remove-medication-event {:id event-id :medication-id medication-id})])}
+                                                       "Remove"))}
+    (let [term (get-in event-concept [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+      (if (str/blank? term)
+        (snomed/ui-autocomplete choose-event
+                                {:value  event-concept, :constraint "<473010000"
+                                 :onSave #(m/set-value! this :t_medication_event/event_concept %)})
+        (let [s (get-in event-concept [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+          (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_medication_event/event_concept nil)} term)))))))
+
 
 (def ui-edit-medication-event (comp/factory EditMedicationEvent {:keyfn :t_medication_event/id}))
 
@@ -189,8 +227,9 @@
             (if (:info.snomed.Concept/id medication)
               (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_medication/medication nil)}
                                                  (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
-              (snomed/ui-autocomplete choose-medication {:autoFocus true, :constraint "(<10363601000001109 MINUS <<10363901000001102)"
-                                                         :onSave    #(m/set-value! this :t_medication/medication %)}))))
+              (snomed/ui-autocomplete choose-medication
+                                      {:autoFocus true, :constraint "(<10363601000001109 MINUS <<10363901000001102)"
+                                       :onSave    #(m/set-value! this :t_medication/medication %)}))))
         (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
           (ui/ui-local-date
             {:value date_from}
