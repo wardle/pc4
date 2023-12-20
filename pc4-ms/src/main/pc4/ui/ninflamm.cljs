@@ -315,7 +315,7 @@
              (when (:t_ms_event/id editing-ms-event)
                (ui-edit-ms-event editing-ms-event))
              (ui/ui-simple-form {}
-               (ui/ui-simple-form-item {:label "Neuroinflammatory diagnosis"}
+               (ui/ui-simple-form-item {:label "Neuroinflammatory diagnostic category"}
                  (ui/ui-select-popup-button
                    {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
                     :default-value not-ms-diagnosis         ;; we take care not to call onChange unless user chooses to do so here
