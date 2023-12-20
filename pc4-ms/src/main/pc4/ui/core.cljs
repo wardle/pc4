@@ -202,10 +202,10 @@
   (comp/factory UILocalDate))
 
 
-(defn ui-select-popup-button
-  [{:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?
-           onChange onEnterKey sort-fn]
-    :or   {id-key identity, display-key identity, sort? true, update-options? true}}]
+(defsc UISelectPopupButton
+  [this {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?
+                onChange onEnterKey sort-fn]
+         :or   {id-key identity, display-key identity, sort? true, update-options? true}}]
   (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
                            (conj options value) options))
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
@@ -229,6 +229,8 @@
                   (for [option sorted-options
                         :let [id (id-key option)]]
                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
+
+(def ui-select-popup-button (comp/factory UISelectPopupButton))
 
 (defsc UISubmitButton
   [this {:keys [label disabled? onClick]}]
@@ -312,7 +314,7 @@
 (defsc UITableCell
   [this props]
   (dom/td :.px-2.py-4.whitespace-nowrap.text-sm.text-gray-500
-          (select-keys props [:title])
+          (select-keys props [:title :classes])
           (comp/children this)))
 
 (def ui-table-cell (comp/factory UITableCell))
