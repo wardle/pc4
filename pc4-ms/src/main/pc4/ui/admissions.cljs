@@ -132,13 +132,14 @@
            (when (:t_episode/id editing-admission)
              (ui-edit-admission editing-admission))
            (dom/div
-             (ui/ui-table {}
-               (ui/ui-table-head {}
-                 (ui/ui-table-row {}
-                   (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
-               (ui/ui-table-body {}
-                 (for [episode (reverse (sort-by #(.valueOf (:t_episode/date_registration %)) episodes))]
-                   (ui-episode-list-item episode
-                                         {:onClick (fn [] (do-edit episode))
-                                          :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))}))))
+             (when (seq episodes)
+               (ui/ui-table {}
+                 (ui/ui-table-head {}
+                   (ui/ui-table-row {}
+                     (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
+                 (ui/ui-table-body {}
+                   (for [episode (reverse (sort-by #(some-> % :t_episode/date_registration .valueOf) episodes))]
+                     (ui-episode-list-item episode
+                                           {:onClick (fn [] (do-edit episode))
+                                            :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))}))))
 
