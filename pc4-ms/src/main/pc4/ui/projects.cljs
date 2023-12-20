@@ -50,8 +50,8 @@
             (when (:t_patient/patient_identifier patient)
               (div
                 (pc4.ui.patients/ui-patient-banner patient)
-                (ui/ui-submit-button {:label "View patient record »"}
-                                     {:onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])})))))))))
+                (ui/ui-submit-button {:label   "View patient record »"
+                                      :onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])})))))))))
 
 (def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
 
@@ -137,7 +137,8 @@
               (div (ui/box-error-message {:message error}))))))
 
       (div :.flex.justify-end.mr-8
-        (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
+        (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
+                              :onClick do-register})))))
 
 
 (def ui-register-by-nnn (comp/factory RegisterByNnn))
@@ -182,8 +183,8 @@
                                :onEnterKey do-register})
             (when (fs/invalid-spec? props :ui/date-birth)
               (ui/box-error-message {:message "Invalid date of birth"}))
-            (ui/ui-select-popup-button {:id      "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
-                                        :options [:MALE :FEMALE] :display-key name
+            (ui/ui-select-popup-button {:id         "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
+                                        :options    [:MALE :FEMALE] :display-key name
                                         :onChange   #(do (m/set-value!! this :ui/sex %)
                                                          (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
                                         :onEnterKey do-register})
@@ -192,7 +193,8 @@
             (when error
               (div (ui/box-error-message {:message error}))))))
       (div :.flex.justify-end.mr-8
-        (ui/ui-submit-button {:label "Search or register patient »" :disabled? (not (fs/valid-spec? props))} {:onClick do-register})))))
+        (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
+                              :onClick do-register})))))
 
 
 (def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
@@ -257,35 +259,35 @@
         (p :.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html long_description}}))
       (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
         (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
-                (div :.sm:col-span-1
-                  (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
-                  (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
-                (div :.sm:col-span-1
-                  (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
-                  (dom/dd :.mt-1.text-sm.text-gray-900
-                          (str/join " " (remove nil? [(when virtual "VIRTUAL")
-                                                      (when pseudonymous "PSEUDONYMOUS")
-                                                      (str/upper-case (if type (name type) ""))]))))
-                (div :.sm:col-span-1
-                  (dt :.text-sm.font-medium.text-gray-500 "Date from")
-                  (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
-                (div :.sm:col-span-1
-                  (dt :.text-sm.font-medium.text-gray-500 "Date to")
-                  (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
-                (div :.sm:col-span-1
-                  (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
-                  (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
-                (div :.sm:col-span-1
-                  (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
-                  (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
-                (when inclusion_criteria
-                  (div :.sm:col-span-2
-                    (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
-                    (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
-                (when exclusion_criteria
-                  (div :.sm:col-span-2
-                    (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
-                    (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
+          (div :.sm:col-span-1
+            (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
+            (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
+          (div :.sm:col-span-1
+            (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
+            (dom/dd :.mt-1.text-sm.text-gray-900
+                    (str/join " " (remove nil? [(when virtual "VIRTUAL")
+                                                (when pseudonymous "PSEUDONYMOUS")
+                                                (str/upper-case (if type (name type) ""))]))))
+          (div :.sm:col-span-1
+            (dt :.text-sm.font-medium.text-gray-500 "Date from")
+            (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
+          (div :.sm:col-span-1
+            (dt :.text-sm.font-medium.text-gray-500 "Date to")
+            (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
+          (div :.sm:col-span-1
+            (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
+            (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
+          (div :.sm:col-span-1
+            (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
+            (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
+          (when inclusion_criteria
+            (div :.sm:col-span-2
+              (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
+              (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
+          (when exclusion_criteria
+            (div :.sm:col-span-2
+              (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
+              (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
 
 (def ui-project-home (comp/factory ProjectHome))
 

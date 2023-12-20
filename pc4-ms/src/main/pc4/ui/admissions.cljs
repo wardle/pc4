@@ -68,8 +68,8 @@
         cancel-editing #(comp/transact! this [(cancel-edit-admission {:patient-identifier patient-identifier :episode episode})])]
     (ui/ui-modal
       {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
-                 {:id ::cancel :title "Cancel" :onClick cancel-editing}]}
-      {:onClose cancel-editing}
+                 {:id ::cancel :title "Cancel" :onClick cancel-editing}]
+       :onClose cancel-editing}
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title "Admission to hospital"})
         (ui/ui-simple-form-item {:label "Date of admission"}
@@ -125,8 +125,7 @@
                    patient
                    {:selected-id :admissions
                     :sub-menu    {:items [{:id      :add-admission
-                                           :content (ui/ui-menu-button {}
-                                                                       {:onClick do-add} "Add admission")}]}})
+                                           :content (ui/ui-menu-button {:onClick do-add} "Add admission")}]}})
 
          :content
          (comp/fragment

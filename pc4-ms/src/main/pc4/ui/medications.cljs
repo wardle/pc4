@@ -218,8 +218,8 @@
                  (when-not (tempid/tempid? id) {:id ::delete-action :title "Delete" :onClick do-delete})
                  {:id      :add-event :title "Add event"
                   :onClick #(comp/transact! this [(add-medication-event {:id (tempid/tempid) :medication editing-medication})])}
-                 {:id ::cancel-action :title "Cancel" :onClick do-cancel}]}
-      {:onClose do-cancel}
+                 {:id ::cancel-action :title "Cancel" :onClick do-cancel}]
+       :onClose do-cancel}
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title (if temp? "Add medication" (get-in medication [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))})
         (when temp?
@@ -255,8 +255,8 @@
                                       date_to (disj :NOT_APPLICABLE))
                :onChange      #(m/set-value! this :t_medication/reason_for_stopping %)})))
         (ui/ui-simple-form-item {:htmlFor "notes" :label "Notes"}
-          (ui/ui-textarea {:id "notes" :value more_information}
-                          {:onChange #(m/set-value! this :t_medication/more_information %)}))
+          (ui/ui-textarea {:id       "notes" :value more_information
+                           :onChange #(m/set-value! this :t_medication/more_information %)}))
         (for [event events]
           (ui-edit-medication-event event))))))
 
@@ -312,7 +312,7 @@
                    patient
                    {:selected-id :medications
                     :sub-menu    {:items [{:id      :add-medication
-                                           :content (ui/ui-menu-button {} {:onClick do-add} "Add medication")}]}})
+                                           :content (ui/ui-menu-button {:onClick do-add} "Add medication")}]}})
 
          :content
          (comp/fragment

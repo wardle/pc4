@@ -154,7 +154,7 @@
 (def ui-textfield (comp/computed-factory UITextField))
 
 (defsc UITextArea
-  [this {:keys [id name value label rows] :or {rows 5}} {:keys [onChange]}]
+  [this {:keys [id name value label rows onChange] :or {rows 5}}]
   (div
     (when label (label :.block.text-sm.font-medium.text-gray-700 {:for id} label))
     (div :.mt-1
@@ -165,7 +165,7 @@
          :value    (or value "")
          :onChange #(when onChange (let [v (-> % .-target .-value)] (onChange (if (str/blank? v) nil v))))}))))
 
-(def ui-textarea (comp/computed-factory UITextArea))
+(def ui-textarea (comp/factory UITextArea))
 
 (defn unparse-local-date [^Date d]
   (when d (.toIsoString d true)))
@@ -183,7 +183,7 @@
                                                                                              :string->model parse-local-date})))
 
 (defsc UILocalDate
-  [this {:keys [id label value min-date max-date]} {:keys [onBlur onChange onEnterKey]}]
+  [this {:keys [id label value min-date max-date onBlur onChange onEnterKey]}]
   (println "UILocalDate value: " value)
   (div
     (when label (ui-label {:for id :label label}))
@@ -198,9 +198,8 @@
 
 (def ui-local-date
   "A UI control to edit a date.
-  Properties: id, label value min-date max-date
-  Computed properties: onBlur onChange onEnterKey"
-  (comp/computed-factory UILocalDate))
+  Properties: id, label value min-date max-date onBlur onChange onEnterKey"
+  (comp/factory UILocalDate))
 
 
 (defn ui-select-popup-button
@@ -232,14 +231,14 @@
                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
 
 (defsc UISubmitButton
-  [this {:keys [label disabled?]} {:keys [onClick]}]
+  [this {:keys [label disabled? onClick]}]
   (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
     {:type      "submit"
      :className (if disabled? "opacity-50 pointer-events-none" "hover:bg-blue-700.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-blue-500")
      :onClick   #(when (and onClick (not disabled?)) (onClick))}
     label))
 
-(def ui-submit-button (comp/computed-factory UISubmitButton))
+(def ui-submit-button (comp/factory UISubmitButton))
 
 (defsc UITitleButton [this {:keys [title]} {:keys [onClick]}]
   (dom/button
@@ -370,7 +369,7 @@
 
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
 
-(defsc UIModal [this {:keys [disabled? title actions]} {:keys [onClose]}]
+(defsc UIModal [this {:keys [disabled? title actions onClose]}]
   (div :.fixed.z-10.inset-0.overflow-y-auto
     {:aria-labelledby title :role "dialog" :aria-modal "true"
      :className       (when disabled? "hidden")}
@@ -402,7 +401,7 @@
   - :title
   - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,onClick
   - :onClose - fn if modal closed"
-  (comp/computed-factory UIModal))
+  (comp/factory UIModal))
 
 
 (defsc UISimpleFormTitle [this {:keys [title]}]
@@ -475,7 +474,7 @@
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
 
-(defsc MenuButton [this {:keys [disabled? role]} {:keys [onClick]}]
+(defsc MenuButton [this {:keys [disabled? role onClick]}]
   (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
     {:type     "button"
      :classes    [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
@@ -483,7 +482,7 @@
      :onClick  #(when (not disabled?) (onClick))}
     (comp/children this)))
 
-(def ui-menu-button (comp/computed-factory MenuButton))
+(def ui-menu-button (comp/factory MenuButton))
 
 
 (defsc Checkbox [this {:keys [name label description checked onChange]}]

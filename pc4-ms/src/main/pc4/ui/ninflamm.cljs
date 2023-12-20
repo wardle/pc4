@@ -31,7 +31,7 @@
           (swap! state cancel-edit-ms-event* patient-identifier summary-multiple-sclerosis-id ms-event)))
 
 (defn edit-ms-event*
-  [state patient-identifier {:t_ms_event/keys [id] :as ms-event}]
+  [state patient-identifier {:t_ms_event/keys [id]}]
   (-> state
       (fs/add-form-config* EditMsEvent [:t_ms_event/id id])
       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-ms-event] [:t_ms_event/id id])))
@@ -139,8 +139,8 @@
     (ui/ui-modal
       {:actions [{:id ::save :title "Save" :role :primary :onClick #(println "Save")}
                  {:id ::delete :title "Delete" :onClick #(println "delete event")}
-                 {:id ::cancel :title "Cancel" :onClick do-cancel}]}
-      {:onClose do-cancel}
+                 {:id ::cancel :title "Cancel" :onClick do-cancel}]
+       :onClose do-cancel}
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title (if id "Edit relapse / disease event" "Add relapse / disease event")})
         (ui/ui-simple-form-item {:label "Date"}
@@ -173,8 +173,8 @@
                :keys         all-ms-event-sites
                :onItemChange (fn [k v] (comp/transact! this [(toggle-event-site {:ms-event-id id :k k :v v})]))})))
         (ui/ui-simple-form-item {:label "Notes"}
-          (ui/ui-textarea {:value notes}
-                          {:onChange #(m/set-value! this :t_ms_event/notes %)}))))))
+          (ui/ui-textarea {:value    notes
+                           :onChange #(m/set-value! this :t_ms_event/notes %)}))))))
 
 (def ui-edit-ms-event (comp/factory EditMsEvent))
 
@@ -307,7 +307,7 @@
                      {:selected-id :relapses
                       :sub-menu
                       {:items [{:id      :add-ms-event
-                                :content (when show-ms? (ui/ui-menu-button {} {:onClick do-add} "Add disease event"))}]}})
+                                :content (when show-ms? (ui/ui-menu-button {:onClick do-add} "Add disease event"))}]}})
 
            :content
            (comp/fragment
@@ -318,10 +318,10 @@
                (ui/ui-simple-form-item {:label "Neuroinflammatory diagnosis"}
                  (ui/ui-select-popup-button
                    {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
-                    :default-value not-ms-diagnosis   ;; we take care not to call onChange unless user chooses to do so here
+                    :default-value not-ms-diagnosis         ;; we take care not to call onChange unless user chooses to do so here
                     :options       all-ms-diagnoses
                     :id-key        :t_ms_diagnosis/id
                     :display-key   :t_ms_diagnosis/name
                     :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])})))
-             (when show-ms?                             ;; TODO: allow creation
+             (when show-ms?                                 ;; TODO: allow creation
                (ui-summary-multiple-sclerosis summary_multiple_sclerosis)))})))))

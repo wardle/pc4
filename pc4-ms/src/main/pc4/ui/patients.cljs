@@ -334,7 +334,7 @@
                               :options     all-ms-diagnoses
                               :id-key      :t_ms_diagnosis/id
                               :display-key :t_ms_diagnosis/name
-                              :onChange #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
+                              :onChange    #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
 
 (def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
@@ -467,8 +467,8 @@
       (ui/ui-modal
         {:title   (ui-patient-banner banner)
          :actions [{:id :save, :role :primary :title "Save"}
-                   {:id :cancel, :title "Cancel" :onClick cancel-edit-fn}]}
-        {:onClose cancel-edit-fn}
+                   {:id :cancel, :title "Cancel" :onClick cancel-edit-fn}]
+         :onClose cancel-edit-fn}
         (ui-edit-death-certificate editing-death-certificate)))))
 
 (def ui-patient-death-certificate2 (comp/factory PatientDeathCertificate2))
@@ -608,8 +608,8 @@
                              :disabled? (not (s/valid? ::save-medication params))
                              :onClick   onSave})
                (when onDelete {:id ::delete-action :title "Delete" :onClick onDelete :disabled? (not id)})
-               (when onClose {:id ::cancel-action :title "Cancel" :onClick onClose})]}
-    {:onClose onClose}
+               (when onClose {:id ::cancel-action :title "Cancel" :onClick onClose})]
+     :onClose onClose}
     (ui/ui-simple-form {}
       (ui/ui-simple-form-title {:title (if id "Edit medication" "Add medication")})
       (ui/ui-simple-form-item {:htmlFor "medication" :label "Medication"}
@@ -628,8 +628,8 @@
         (ui/ui-local-date {:value date_to}
                           {:onChange #(m/set-value! this :t_medication/date_to %)}))
       (ui/ui-simple-form-item {:htmlFor "notes" :label "Notes"}
-        (ui/ui-textarea {:id "notes" :value more_information}
-                        {:onChange #(m/set-value! this :t_medication/more_information %)})))))
+        (ui/ui-textarea {:id       "notes" :value more_information
+                         :onChange #(m/set-value! this :t_medication/more_information %)})))))
 
 (def ui-medication-edit (comp/computed-factory MedicationEdit))
 

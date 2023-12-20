@@ -81,8 +81,8 @@
         cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier :diagnosis editing-diagnosis})])]
     (ui/ui-modal
       {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn :disabled? (not diagnosis)}
-                 {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]}
-      {:onClose cancel-diagnosis-fn}
+                 {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]
+       :onClose cancel-diagnosis-fn}
       (ui/ui-simple-form {}
         (when (tempid/tempid? id) (ui/ui-simple-form-title {:title "Add diagnosis"}))
         (div :.pt-2
@@ -109,8 +109,8 @@
                                    ["ACTIVE"])
              :onChange #(m/set-value!! this :t_diagnosis/status %)}))
         (ui/ui-simple-form-item {:label "Notes"}
-          (ui/ui-textarea {:value notes}
-                          {:onChange #(m/set-value!! this :t_diagnosis/notes %)}))
+          (ui/ui-textarea {:value    notes
+                           :onChange #(m/set-value!! this :t_diagnosis/notes %)}))
         (when id
           (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
@@ -174,8 +174,7 @@
                    patient
                    {:selected-id :diagnoses
                     :sub-menu    {:items [{:id      :add-diagnosis
-                                           :content (ui/ui-menu-button {}
-                                                                       {:onClick do-add-diagnosis} "Add diagnosis")}]}})
+                                           :content (ui/ui-menu-button {:onClick do-add-diagnosis} "Add diagnosis")}]}})
 
          :content
          (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
