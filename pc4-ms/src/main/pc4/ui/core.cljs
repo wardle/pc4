@@ -183,7 +183,6 @@
 
 (defsc UILocalDate
   [this {:keys [id label value min-date max-date onBlur onChange onEnterKey]}]
-  (println "UILocalDate value: " value)
   (div
     (when label (ui-label {:for id :label label}))
     (div :.mt-1
