@@ -380,7 +380,7 @@
 (pco/defresolver medication-by-id
   [{conn :com.eldrix.rsdb/conn, :as env} {:t_medication/keys [id]}]
   {::pco/output medication-properties}
-  (when-let [med (db/execute-one! conn (sql/format {:select [:t_medication/*] :from   :t_medication :where  [:= :id id]}))]
+  (when-let [med (db/execute-one! conn (sql/format {:select [:t_medication/*] :from :t_medication :where [:= :id id]}))]
     (assoc med :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk med)})))
 
 (pco/defresolver medication->patient
