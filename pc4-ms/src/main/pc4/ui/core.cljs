@@ -186,13 +186,14 @@
   (div
     (when label (ui-label {:for id :label label}))
     (div :.mt-1
-      (ui-local-date-input (cond-> {:type "date" :value value}
-                                   id (assoc :name id)
-                                   min-date (assoc :min (unparse-local-date min-date))
-                                   max-date (assoc :max (unparse-local-date max-date))
-                                   onBlur (assoc :onBlur onBlur)
-                                   onEnterKey (assoc :onKeyDown #(when (evt/enter-key? %) (onEnterKey)))
-                                   onChange (assoc :onChange onChange))))))
+      (ui-local-date-input
+        (cond-> {:type "date" :value value}
+                id (assoc :name id)
+                min-date (assoc :min (unparse-local-date min-date))
+                max-date (assoc :max (unparse-local-date max-date))
+                onBlur (assoc :onBlur onBlur)
+                onEnterKey (assoc :onKeyDown #(when (evt/enter-key? %) (onEnterKey)))
+                onChange (assoc :onChange onChange))))))
 
 (def ui-local-date
   "A UI control to edit a date.
@@ -293,7 +294,7 @@
 
 (defsc UITableHeading [this props]
   (dom/th :.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider
-          (select-keys props [:title])
+          (select-keys props [:title :key])
           (comp/children this)))
 
 (def ui-table-heading (comp/factory UITableHeading))
@@ -477,7 +478,7 @@
 (defsc MenuButton [this {:keys [disabled? role onClick]}]
   (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
     {:type     "button"
-     :classes    [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
+     :classes  [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
      :disabled disabled?
      :onClick  #(when (not disabled?) (onClick))}
     (comp/children this)))
@@ -489,9 +490,9 @@
   (div :.relative.flex.items-start
     (div :.flex.items-center.h-5
       (dom/input :.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300.rounded
-        {:name      name
-         :type "checkbox"
-         :checked   checked
+        {:name     name
+         :type     "checkbox"
+         :checked  checked
          :onChange (when onChange #(onChange (-> % .-target .-checked)))}))
     (div :.ml-3.text-sm
       (dom/label :.font-medium.text-gray-700 {:htmlFor name} label)
@@ -503,18 +504,18 @@
   [this {:keys [value legend keys display-key onChange onItemChange]
          :or   {display-key name}}]
   (dom/fieldset :.space-y-5
-    (when legend (dom/legend :.sr-only legend))
-    (for [item keys]
-      ^{:key item}
-      (ui-checkbox
-        {:name      (name item)
-         :label     (display-key item)
-         :checked   (or (item value) false)
-         :onChange #(do
-                      (println "setting " {:item item :old (or (item value) false) :new %})
-                      (cond
-                        onChange (onChange (assoc value item %))
-                        onItemChange (onItemChange item %)))}))))
+                (when legend (dom/legend :.sr-only legend))
+                (for [item keys]
+                  ^{:key item}
+                  (ui-checkbox
+                    {:name     (name item)
+                     :label    (display-key item)
+                     :checked  (or (item value) false)
+                     :onChange #(do
+                                  (println "setting " {:item item :old (or (item value) false) :new %})
+                                  (cond
+                                    onChange (onChange (assoc value item %))
+                                    onItemChange (onItemChange item %)))}))))
 
 (def ui-multiple-checkboxes
   "A convenient way of presenting multiple checkboxes.
