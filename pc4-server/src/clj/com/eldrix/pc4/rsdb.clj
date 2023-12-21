@@ -304,7 +304,7 @@
   [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
   {::pco/output [{:t_summary_multiple_sclerosis/events
                   [:t_ms_event/id
-                   :t_ms_event/date
+                   :t_ms_event/date :t_ms_event/impact
                    :t_ms_event/is_relapse :t_ms_event/is_progressive
                    :t_ms_event/site_arm_motor :t_ms_event/site_ataxia
                    :t_ms_event/site_bulbar :t_ms_event/site_cognitive
