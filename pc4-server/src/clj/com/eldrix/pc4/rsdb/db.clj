@@ -202,7 +202,7 @@
 
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
-(s/def :t_ms_event/impact string?)
+(s/def :t_ms_event/impact (s/nilable string?))
 (s/def :t_ms_event/notes (s/nilable string?))
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
 (s/def :t_patient/id int?)
