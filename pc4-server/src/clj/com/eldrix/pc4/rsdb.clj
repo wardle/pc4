@@ -539,6 +539,12 @@
   [{patient-pk :t_episode/patient_fk}]
   {:t_episode/patient {:t_patient/id patient-pk}})
 
+(pco/defresolver episode->encounters
+  [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
+  {:t_episode/encounters (db/execute! conn (sql/format {:select [:id :date_time]
+                                                        :from   [:t_encounter]
+                                                        :where  [:= :episode_fk id]}))})
+
 (pco/defresolver project-by-identifier
   [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
   {::pco/output [:t_project/id :t_project/name
@@ -1591,6 +1597,7 @@
    episode-by-id
    episode->project
    episode->patient
+   episode->encounters
    project-by-identifier
    project->parent
    project->specialty
