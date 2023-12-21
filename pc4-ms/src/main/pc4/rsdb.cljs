@@ -109,7 +109,28 @@
             (swap! state assoc-in path (select-keys params [:t_ms_diagnosis/id :t_ms_diagnosis/name]))))
   (remote [env] (returning env pc4.ui.ninflamm/PatientNeuroInflammatory)))
 
+(defmutation save-ms-event
+  [{:t_ms_event/keys [id summary_multiple_sclerosis_fk] :as ms-event :t_patient/keys [patient_identifier]}]
+  (action [{:keys [ref state]}]
+          (println "saving ms event; ref:" ref)
+          (println "ms event " ms-event)
+          (swap! state fs/entity->pristine* [:t_ms_event/id id]))
+  (remote [env] true)
+  (ok-action                                                ;; once ms event saved, close modal form
+    [{:keys [ref state app] :as env}]
+    (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-ms-event] {})))
 
+(defn delete-ms-event*
+  [state summary-multiple-sclerosis-id ms-event-id]
+  (-> state
+      (update :t_ms_event/id dissoc ms-event-id)
+      (merge/remove-ident* [:t_ms_event/id ms-event-id] [:t_summary_multiple_sclerosis/id summary-multiple-sclerosis-id :t_summary_multiple_sclerosis/events])))
+
+(defmutation delete-ms-event
+  [{:t_ms_event/keys [id summary_multiple_sclerosis_fk]}]
+  (action [{:keys [state]}]
+    (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
+  (remote [env] true))
 
 (defmutation save-pseudonymous-patient-postal-code
   [params]

@@ -13,22 +13,25 @@
             [taoensso.timbre :as log]))
 
 (declare EditMsEvent)
+(declare SummaryMultipleSclerosis)
 
 (defn cancel-edit-ms-event*
-  [state patient-identifier summary-multiple-sclerosis-id {:t_ms_event/keys [id] :as ms-event}]
+  [state patient-identifier {:t_ms_event/keys [id summary_multiple_sclerosis_fk] :as ms-event}]
   (log/info "cancelling" {:patient-identifier patient-identifier
-                          :sms-id             summary-multiple-sclerosis-id
+                          :sms-id             summary_multiple_sclerosis_fk
                           :ms-event           ms-event})
   (cond-> (-> state
               (fs/pristine->entity* [:t_ms_event/id id])    ;; restore to pristine state
               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-ms-event] {}))
           (tempid/tempid? id)
-          (merge/remove-ident* [:t_ms_event/id id] [:t_summary_multiple_sclerosis/id summary-multiple-sclerosis-id :t_summary_multiple_sclerosis/events])))
+          (->
+            (update-in [:t_ms_event/id] dissoc id)
+            (merge/remove-ident* [:t_ms_event/id id] [:t_summary_multiple_sclerosis/id summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/events]))))
 
 (defmutation cancel-edit-ms-event
-  [{:keys [patient-identifier summary-multiple-sclerosis-id ms-event]}]
+  [{:keys [patient-identifier ms-event]}]
   (action [{:keys [state]}]
-          (swap! state cancel-edit-ms-event* patient-identifier summary-multiple-sclerosis-id ms-event)))
+          (swap! state cancel-edit-ms-event* patient-identifier ms-event)))
 
 (defn edit-ms-event*
   [state patient-identifier {:t_ms_event/keys [id]}]
@@ -41,6 +44,11 @@
   (action [{:keys [state]}]
           (swap! state edit-ms-event* patient-identifier ms-event)))
 
+(defmutation refresh-summary
+  [{:keys [summary-multiple-sclerosis-id]}]
+  (action [{:keys [app]}]
+          (df/load! app [:t_summary_multiple_sclerosis/id summary-multiple-sclerosis-id] SummaryMultipleSclerosis)))
+
 (defn add-ms-event*
   [state patient-identifier summary-multiple-sclerosis-id {:t_ms_event/keys [id] :as ms-event}]
   (-> state
@@ -50,10 +58,10 @@
       (edit-ms-event* patient-identifier ms-event)))
 
 (defmutation add-ms-event
-  [{:keys [patient-identifier summary-multiple-sclerosis-id ms-event] :as props}]
+  [{:keys [patient-identifier ms-event] :as props}]
   (action [{:keys [state]}]
           (println "adding ms event" props)
-          (swap! state add-ms-event* patient-identifier summary-multiple-sclerosis-id ms-event)))
+          (swap! state add-ms-event* patient-identifier (:t_ms_event/summary_multiple_sclerosis_fk ms-event) ms-event)))
 
 (defsc MsEventType [this {:t_ms_event_type/keys [id name abbreviation]}]
   {:ident :t_ms_event_type/id
@@ -128,23 +136,32 @@
                  :t_ms_event/site_vestibular :t_ms_event/notes
                  {:t_ms_event/type (comp/get-query MsEventType)}
                  {[:ui/all-ms-event-types '_] (comp/get-query MsEventType)}
-                 {[:ui/current-patient '_] [:t_patient/patient_identifier :t_patient/id]}
+                 {[:ui/current-patient '_] [:t_patient/patient_identifier :t_patient/id :t_patient/date_birth]}
                  fs/form-config-join]
    :form-fields (into #{:t_ms_event/id :t_ms_event/date :t_ms_event/impact
                         :t_ms_event/notes :t_ms_event/type} all-ms-event-sites)}
   (let [patient-identifier (:t_patient/patient_identifier current-patient)
-        do-cancel #(comp/transact! this [(cancel-edit-ms-event {:patient-identifier            patient-identifier
-                                                                :summary-multiple-sclerosis-id summary_multiple_sclerosis_fk
-                                                                :ms-event                      ms-event})])]
+        do-delete #(comp/transact! this [(list 'pc4.rsdb/delete-ms-event ms-event)
+                                         (refresh-summary {:summary-multiple-sclerosis-id summary_multiple_sclerosis_fk})])
+        do-save #(comp/transact! this [(list 'pc4.rsdb/save-ms-event
+                                             (-> ms-event
+                                                 (assoc :t_patient/patient_identifier patient-identifier)
+                                                 (dissoc :ui/all-ms-event-types :ui/current-patient ::fs/config)))
+                                       (refresh-summary {:summary-multiple-sclerosis-id summary_multiple_sclerosis_fk})])
+        do-cancel #(comp/transact! this [(cancel-edit-ms-event {:patient-identifier patient-identifier
+                                                                :ms-event           ms-event})])]
     (ui/ui-modal
-      {:actions [{:id ::save :title "Save" :role :primary :onClick #(println "Save")}
-                 {:id ::delete :title "Delete" :onClick #(println "delete event")}
+      {:actions [{:id ::save :title "Save", :role :primary, :disabled? (not date) :onClick do-save}
+                 {:id ::delete :title "Delete" :onClick do-delete}
                  {:id ::cancel :title "Cancel" :onClick do-cancel}]
        :onClose do-cancel}
       (ui/ui-simple-form {}
-        (ui/ui-simple-form-title {:title (if id "Edit relapse / disease event" "Add relapse / disease event")})
+        (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add relapse / disease event" "Edit relapse / disease event")})
         (ui/ui-simple-form-item {:label "Date"}
-          (ui/ui-local-date {:value date} {:onChange #(m/set-value! this :t_ms_event/date %)}))
+          (ui/ui-local-date {:value    date
+                             :min-date (:t_patient/date_birth current-patient)
+                             :max-date (goog.date.Date.)
+                             :onChange #(m/set-value! this :t_ms_event/date %)}))
         (ui/ui-simple-form-item {:label "Type"}
           (tap> {:edit-ms-event {:all-ms-event-types all-ms-event-types
                                  :type               type}})
@@ -181,7 +198,9 @@
 
 
 (def relapse-headings
-  [{:s "Date"} {:s "Type"} {:s "Impact"}
+  [{:s "Date"}
+   {:s "Type"}
+   {:s "Impact"}
    {:s "UK" :title "Unknown"}
    {:s "UE" :title "Upper extremity (arm motor)"}
    {:s "LE" :title "Lower extremity (leg motor)"}
@@ -255,9 +274,11 @@
   (let [patient-identifier (:t_patient/patient_identifier current-patient)]
     (comp/fragment
       (when (seq event_ordering_errors)
-        (div :.pb-4 (ui/box-error-message {:title   "Warning: invalid disease relapses and events"
-                                           :message (dom/ul (for [error event_ordering_errors]
-                                                              (dom/li {} error)))})))
+        (div :.pb-4 {}
+          (ui/box-error-message
+            {:title   "Warning: invalid disease relapses and events"
+             :message (dom/ul {} (for [error event_ordering_errors]
+                                   (dom/li {:key error} error)))})))
       (ui/ui-table {}
         (ui/ui-table-head {}
           (ui/ui-table-row {}
@@ -296,10 +317,11 @@
         has-summary? (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
         show-ms? (and has-summary? (not= not-ms-diagnosis (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis)))]
     (when patient_identifier
-      (let [do-add #(comp/transact! this [(add-ms-event {:patient-identifier            patient_identifier
-                                                         :summary-multiple-sclerosis-id (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
-                                                         :ms-event                      {:t_ms_event/id         (tempid/tempid)
-                                                                                         :t_ms_event/patient_fk id}})])]
+      (let [do-add #(comp/transact! this [(add-ms-event {:patient-identifier patient_identifier
+                                                         :ms-event           {:t_ms_event/id                            (tempid/tempid)
+                                                                              :t_ms_event/patient_fk                    id
+                                                                              :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
+                                                                              :t_ms_event/site_unknown                  true}})])]
         (patients/ui-layout
           {:banner (patients/ui-patient-banner banner)
            :menu   (patients/ui-pseudonymous-menu
