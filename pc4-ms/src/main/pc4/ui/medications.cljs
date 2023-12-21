@@ -232,12 +232,15 @@
                                        :onSave    #(m/set-value! this :t_medication/medication %)}))))
         (ui/ui-simple-form-item {:htmlFor "date-from" :label "Date from"}
           (ui/ui-local-date
-            {:value date_from}
-            {:onChange #(m/set-value! this :t_medication/date_from %)}))
+            {:value date_from
+             :min-date (:t_patient/date_birth current-patient)
+             :max-date (goog.date.Date.)
+             :onChange #(m/set-value! this :t_medication/date_from %)}))
         (ui/ui-simple-form-item {:htmlFor "date-to" :label "Date to"}
           (ui/ui-local-date
-            {:value date_to}
-            {:onChange #(do (m/set-value! this :t_medication/date_to %)
+            {:value date_to
+             :min-date (:t_patient/date_birth current-patient)
+             :onChange #(do (m/set-value! this :t_medication/date_to %)
                             (cond
                               (nil? %)
                               (m/set-value! this :t_medication/reason_for_stopping :NOT_APPLICABLE)

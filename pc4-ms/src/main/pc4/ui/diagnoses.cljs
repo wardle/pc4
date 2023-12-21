@@ -67,14 +67,16 @@
                  {:t_diagnosis/diagnosis [:info.snomed.Concept/id
                                           {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
                  :t_diagnosis/status
-                 {[:ui/current-patient '_] [:t_patient/patient_identifier]}
+                 {[:ui/current-patient '_] [:t_patient/patient_identifier :t_patient/date_birth]}
                  {:ui/choose-diagnosis (comp/get-query snomed/Autocomplete)}
                  fs/form-config-join]
    :form-fields #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
                   :t_diagnosis/diagnosis :t_diagnosis/status :t_diagnosis/notes}}
 
 
-  (let [patient-identifier (:t_patient/patient_identifier current-patient)
+  (let [min-date (:t_patient/date_birth current-patient)
+        max-date (goog.date.Date.)
+        patient-identifier (:t_patient/patient_identifier current-patient)
         save-diagnosis-fn #(comp/transact! this [(pc4.rsdb/save-diagnosis (-> editing-diagnosis
                                                                               (assoc :t_patient/patient_identifier patient-identifier)
                                                                               (dissoc :ui/choose-diagnosis :ui/current-patient)))])
@@ -94,14 +96,14 @@
               (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
                                                         :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)}))))
         (ui/ui-simple-form-item {:label "Date of onset"}
-          (ui/ui-local-date {:name "date-onset" :value date_onset}
-                            {:onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
+          (ui/ui-local-date {:name     "date-onset" :value date_onset :min-date min-date, :max-date max-date
+                             :onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
         (ui/ui-simple-form-item {:label "Date of diagnosis"}
-          (ui/ui-local-date {:name "date-diagnosis" :value date_diagnosis}
-                            {:onChange #(m/set-value!! this :t_diagnosis/date_diagnosis %)}))
+          (ui/ui-local-date {:name     "date-diagnosis" :value date_diagnosis :min-date min-date, :max-date max-date
+                             :onChange #(m/set-value!! this :t_diagnosis/date_diagnosis %)}))
         (ui/ui-simple-form-item {:label "Date to"}
-          (ui/ui-local-date {:name "date-to" :value date_to}
-                            {:onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
+          (ui/ui-local-date {:name     "date-to" :value date_to :min-date min-date, :max-date max-date
+                             :onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
         (ui/ui-simple-form-item {:label "Status"}
           (ui/ui-select-popup-button
             {:name     "status", :value status, :update-options? false
