@@ -470,22 +470,25 @@
   {::pco/output [{:t_address/housing [:info.snomed.Concept/id]}]}
   {:t_address/housing (when concept-id {:info.snomed.Concept/id concept-id})})
 
+(def episode-properties
+  [:t_episode/date_discharge
+   :t_episode/date_referral
+   :t_episode/date_registration
+   :t_episode/status
+   :t_episode/discharge_user_fk
+   :t_episode/id
+   :t_episode/notes
+   :t_episode/project_fk
+   {:t_episode/project [:t_project/id]}
+   {:t_episode/patient [:t_patient/id]}
+   :t_episode/referral_user_fk
+   :t_episode/registration_user_fk
+   :t_episode/stored_pseudonym
+   :t_episode/external_identifier])
+
 (pco/defresolver patient->episodes
   [{conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
-  {::pco/output [{:t_patient/episodes [:t_episode/date_discharge
-                                       :t_episode/date_referral
-                                       :t_episode/date_registration
-                                       :t_episode/status
-                                       :t_episode/discharge_user_fk
-                                       :t_episode/id
-                                       :t_episode/notes
-                                       :t_episode/project_fk
-                                       {:t_episode/project [:t_project/id]}
-                                       {:t_episode/patient [:t_patient/id]}
-                                       :t_episode/referral_user_fk
-                                       :t_episode/registration_user_fk
-                                       :t_episode/stored_pseudonym
-                                       :t_episode/external_identifier]}]}
+  {::pco/output [{:t_patient/episodes episode-properties}]}
   {:t_patient/episodes
    (let [project-id-or-ids (:t_project/id (pco/params env))]
      (->> (jdbc/execute! conn (sql/format {:select   [:*]
@@ -503,6 +506,15 @@
           (mapv #(assoc % :t_episode/status (projects/episode-status %)
                           :t_episode/project {:t_project/id (:t_episode/project_fk %)}
                           :t_episode/patient {:t_patient/id patient-pk}))))})
+
+(pco/defresolver episode-by-id
+  [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
+  {::pco/output episode-properties}
+  (let [result (jdbc/execute-one! conn (sql/format {:select :* :from :t_episode
+                                                    :where  [:= :id id]}))]
+    (assoc result :t_episode/status (projects/episode-status result)
+                  :t_episode/project {:t_project/id (:t_episode/project_fk result)}
+                  :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -1576,6 +1588,7 @@
    address->housing
    address->stored-lsoa
    patient->episodes
+   episode-by-id
    episode->project
    episode->patient
    project-by-identifier
