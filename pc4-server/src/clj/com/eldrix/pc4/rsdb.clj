@@ -52,6 +52,21 @@
   (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
 
 
+
+(defn create-or-save-entity
+  "Save an entity which may have a tempid.
+  Parameters:
+  :save-fn  : function to call with parameters
+  :params   : parameters
+  :id-key   : keyword of id"
+  [{:keys [save-fn params id-key]}]
+  (let [id (id-key params)]
+    (if (tempid/tempid? id)
+      (let [result (save-fn (dissoc params id-key))]
+        (assoc result :tempids {id (id-key result)}))
+      (save-fn params))))
+
+
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
     (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
@@ -1315,33 +1330,42 @@
 
 (s/def ::save-ms-event
   (s/keys :req [:t_ms_event/date
-                :t_ms_event_type/id
+                (or :t_ms_event_type/id :t_ms_event/type)
                 :t_ms_event/impact
                 :t_ms_event/summary_multiple_sclerosis_fk]
           :opt [:t_ms_event/notes]))
+
 
 (pco/defmutation save-ms-event!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
     user    :authenticated-user
-    :as     env} params]
+    :as     env}
+   {:t_ms_event/keys [id] :as params}]
   {::pco/op-name 'pc4.rsdb/save-ms-event}
   (log/info "save ms event request: " params "user: " user)
-  (if-not (s/valid? ::save-ms-event params)
+  (if-not (s/valid? ::save-ms-event (dissoc params :t_ms_event/id))
     (do (log/error "invalid call" (s/explain-data ::save-ms-event params))
         (throw (ex-info "Invalid data" (s/explain-data ::save-ms-event params))))
     (let [patient-identifier (or (:t_patient/patient_identifier params)
                                  (patients/patient-identifier-for-ms-event conn params))]
-      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (patients/save-ms-event! conn (-> params
-                                            (dissoc :t_patient/patient_identifier
-                                                    :t_ms_event/type
-                                                    :t_ms_event_type/id
-                                                    :t_ms_event_type/abbreviation
-                                                    :t_ms_event_type/name
-                                                    :t_ms_event/is_relapse
-                                                    :t_ms_event/is_progressive)
-                                            (assoc :t_ms_event/ms_event_type_fk (:t_ms_event_type/id params))))))))
+      (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+      (create-or-save-entity
+        {:id-key  :t_ms_event/id
+         :save-fn #(patients/save-ms-event! conn %)
+         :params  (-> params
+                      (dissoc :t_patient/patient_identifier
+                              :t_ms_event/type
+                              :t_ms_event_type/id
+                              :t_ms_event_type/abbreviation
+                              :t_ms_event_type/name
+                              :t_ms_event/is_relapse
+                              :t_ms_event/is_progressive)
+                      (assoc :t_ms_event/ms_event_type_fk
+                             (or (:t_ms_event_type/id params)
+                                 (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
+
+
 
 (s/def ::delete-ms-event
   (s/keys :req [:t_user/id
@@ -1515,9 +1539,10 @@
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
     user    :authenticated-user
-    :as     env} {episode-id :t_episode/id
-                  patient-fk :t_episode/patient_fk
-                  :as        params}]
+    :as     env}
+   {episode-id :t_episode/id
+    patient-fk :t_episode/patient_fk
+    :as        params}]
   {::pco/op-name 'pc4.rsdb/delete-admission}
   (if (and episode-id patient-fk)
     (let [patient-identifier (patients/pk->identifier conn patient-fk)]
