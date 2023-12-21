@@ -96,11 +96,15 @@
 (defmutation delete-admission
   [{:t_episode/keys [id patient_fk]}]
   (remote [_]
-          (println "Deleting admission" id)
+          (println "Deleting admission" id "patient pk" patient_fk)
           true)
   (ok-action                                                ;; once admission is deleted, close modal editing form
-    [{:keys [ref state] :as env}]
-    (swap! state assoc-in (conj ref :ui/editing-admission) nil)))
+    [{:keys [ref state mutation-return-value] :as env}]
+    (when-not (:com.wsscode.pathom3.connect.runner/mutation-error mutation-return-value) ;; TODO: show an error
+      (swap! state (fn [s] (-> s
+                               (update :t_episode/id dissoc id)
+                               (merge/remove-ident* [:t_episode/id id] (conj ref :t_patient/episodes))
+                               (assoc-in (conj ref :ui/editing-admission) {})))))))
 
 (defmutation save-ms-diagnosis
   [params]
