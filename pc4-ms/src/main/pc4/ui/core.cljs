@@ -177,7 +177,6 @@
 (def ui-local-date-input
   "A goog.Date input. Can be used like `dom/input` but onChange and onBlur handlers will be passed a Date instead
   of a raw react event, and you should supply a goog.Date for `:value` instead of a string.
-  Note: a 'nil' value will be sent as `:none` to onChange.
   All other attributes passed in props are passed through to the contained `dom/input`."
   (comp/computed-factory (com.fulcrologic.fulcro.dom.inputs/StringBufferedInput ::DateInput {:model->string #(or (unparse-local-date %) "")
                                                                                              :string->model parse-local-date})))
