@@ -1,0 +1,63 @@
+;; Deployment build file
+;; This is unnecessarily complicated. pc4 should be a single repository simplifying both dev and release
+;; For now, while the structures are not finalised, this creates a build artefact that can be run in production
+
+{:tasks
+ {:requires  ([babashka.fs :as fs]
+              [babashka.process :refer [sh]]
+              [clojure.string :as str])
+
+  :init      (do
+               (def version (str "pc4-" (str/trim (:out (sh "git describe")))))
+               (def zip-filename (str version ".zip")))
+
+  view-deps  {:doc  "View dependencies"
+              :task (shell "clj -X:deps tree")}
+
+  css        {:doc  "Build CSS for production"
+              :task (do (println "***** Building CSS")
+                        (shell "yarn tailwindcss -o resources/public/css/output.css --minify"))}
+
+  watch-css  {:doc  "Build CSS for development [and watch]"
+              :task (do (println "***** Watching and building CSS on demand")
+                        (shell "yarn tailwindcss -o resources/public/css/output.css --watch"))}
+
+  watch-cljs {:doc  "Compile cljs for development [and watch]"
+              :task (do (println "Running shadow-cljs")
+                        (shell "yarn shadow-cljs -A:dev watch main"))}
+
+  serve      {:doc  "Run a development server. Note: it is usually to directly run from a REPL."
+              :task (do (println "Running development server")
+                        (shell "clj -X:run :profile :dev"))}
+
+  cljs       {:doc  "Compile cljs for production"
+              :task (do (println "***** Building pc4 front-end for production release")
+                        (shell "yarn shadow-cljs release main"))}
+
+  create-zip {:doc  "Create a zip file for production"
+              :task (do
+                      (println "***** Zipping files for deployment: creating" zip-filename)
+                      (fs/create-dirs version)
+                      (fs/create-dirs (str version "/src"))
+                      (fs/create-dirs (str version "/resources"))
+                      (fs/copy "deps.edn" version)
+                      (fs/copy-tree "src" (str version "/src"))
+                      (fs/copy-tree "resources" (str version "/resources"))
+                      (fs/zip zip-filename version)
+                      (fs/delete-tree version))}
+
+  upload     {:doc  "Upload production artefact"
+              :task (do
+                      (println "***** Uploading to production server")
+                      (sh "scp -i " (str (fs/home) "/.aws/LightsailDefaultKey-eu-west-2.pem") zip-filename "ec2-user@patientcare.app:"))}
+
+  pc4        {:doc  "Build and upload production artefact"
+              :task (do
+                      (println "********** Building for production")
+                      (run 'css)
+                      (run 'compile-cljs)
+                      (run 'create-zip)
+                      (run 'upload))}}}
+
+
+
