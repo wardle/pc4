@@ -525,3 +525,10 @@
   - keys        : a sequence of keys to be set to true or false
   - display-key : a function such as a keyword, a map or function to derive display"
   (comp/factory MultipleCheckboxes))
+
+(defsc UIPanel [this props]
+  (dom/div :.bg-white.shadow.sm:rounded-lg.border.shadow-lg.w-full props
+    (dom/div :.px-4.py-6.sm:p-6
+      (comp/children this))))
+
+(def ui-panel (comp/factory UIPanel))
