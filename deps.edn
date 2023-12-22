@@ -29,17 +29,15 @@
   com.eldrix/zipf                      {:mvn/version "0.1.8"}
 
   aero/aero                            {:mvn/version "1.1.6"}
-  binaryage/devtools                   {:mvn/version "1.0.7"}
   buddy/buddy-core                     {:mvn/version "1.11.423"}
   buddy/buddy-sign                     {:mvn/version "3.5.351"}
   com.draines/postal                   {:mvn/version "2.0.5"}
-  com.github.seancorfield/honeysql     {:mvn/version "2.4.1078"}
-  com.github.seancorfield/next.jdbc    {:mvn/version "1.3.894"}
+  com.github.seancorfield/honeysql     {:mvn/version "2.5.1103"}
+  com.github.seancorfield/next.jdbc    {:mvn/version "1.3.909"}
   ;com.wsscode/pathom3                  {:mvn/version "2023.08.22-alpha"}
   com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
-                                        :git/sha "370065d60032f28d532d0a46f2139d336a442b76"}
-  com.zaxxer/HikariCP                  {:mvn/version "5.0.1"}
-  day8.re-frame/http-fx                {:mvn/version "0.2.4"}
+                                        :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}
+  com.zaxxer/HikariCP                  {:mvn/version "5.1.0"}
 
   com.fulcrologic/fulcro               {:mvn/version "3.6.10"}
   com.fulcrologic/guardrails           {:mvn/version "1.1.13"}
@@ -49,22 +47,16 @@
   lambdaisland/uri                     {:mvn/version "1.16.134"}
   metosin/reitit-core                  {:mvn/version "0.7.0-alpha7"}
   metosin/reitit-http                  {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-frontend              {:mvn/version "0.7.0-alpha7"}
   metosin/reitit-interceptors          {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-malli                 {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-spec                  {:mvn/version "0.7.0-alpha7"}
   metosin/reitit-pedestal              {:mvn/version "0.7.0-alpha7"}
-  migratus/migratus                    {:mvn/version "1.5.3"}
-  org.jsoup/jsoup                      {:mvn/version "1.16.1"}
-  org.postgresql/postgresql            {:mvn/version "42.6.0"}
-  town.lilac/pyramid                   {:mvn/version "3.4.0"}
-  re-frame/re-frame                    {:mvn/version "1.4.0"}
-  reagent/reagent                      {:mvn/version "1.2.0"}
+  migratus/migratus                    {:mvn/version "1.5.4"}
+  org.jsoup/jsoup                      {:mvn/version "1.17.1"}
+  org.postgresql/postgresql            {:mvn/version "42.7.1"}
   rum/rum                              {:mvn/version "0.12.11"}
-  software.amazon.awssdk/s3            {:mvn/version "2.21.0"}
-  software.amazon.awssdk/apache-client {:mvn/version "2.21.0"}
-  com.taoensso/timbre                  {:mvn/version "6.2.2"}
-  thheller/shadow-cljs                 {:mvn/version "2.26.0"}}
+  software.amazon.awssdk/s3            {:mvn/version "2.22.4"}
+  software.amazon.awssdk/apache-client {:mvn/version "2.22.4"}
+  com.taoensso/timbre                  {:mvn/version "6.3.1"}
+  thheller/shadow-cljs                 {:mvn/version "2.26.2"}}
 
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
@@ -76,18 +68,18 @@
                   :ns-default build}
 
   :run           {:exec-fn    com.eldrix.pc4.core/run
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.11"}
-                               io.pedestal/pedestal.service   {:mvn/version "0.6.1"}
-                               io.pedestal/pedestal.jetty     {:mvn/version "0.6.1"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}
+                               io.pedestal/pedestal.service   {:mvn/version "0.6.3"}
+                               io.pedestal/pedestal.jetty     {:mvn/version "0.6.3"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                "--illegal-access=permit"]}
 
-  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.11"}}
+  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
                   :exec-fn    com.eldrix.pc4.core/migrate}
 
   :repl-server   {:exec-fn    clojure.core.server/start-server
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.11"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
                   :exec-args  {:name          "repl-server"
                                :port          5555
                                :accept        clojure.core.server/repl
@@ -95,21 +87,20 @@
 
   :dev           {:extra-paths ["dev"]
                   :extra-deps  {com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.5"}
-                                ch.qos.logback/logback-classic           {:mvn/version "1.4.11"}
+                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.1.1"}
+                                ch.qos.logback/logback-classic           {:mvn/version "1.4.14"}
                                 fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                                 holyjak/fulcro-troubleshooting           {:git/url "https://github.com/holyjak/fulcro-troubleshooting"
                                                                           :sha     "51599bf965f89cf58812a5c7753ab69154eded62" :tag "latest"}
 
-                                day8.re-frame/tracing                    {:mvn/version "0.6.2"}
                                 binaryage/devtools                       {:mvn/version "1.0.7"}
-                                day8.re-frame/re-frame-10x               {:mvn/version "1.6.0"}
+                                day8.re-frame/re-frame-10x               {:mvn/version "1.9.3"}
                                 integrant/repl                           {:mvn/version "0.3.3"}
                                 org.clojure/test.check                   {:mvn/version "1.1.1"}}
                   :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                 "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                 "--illegal-access=permit"]}
-  :portal        {:extra-deps {djblue/portal {:mvn/version "0.48.0"}}}
+  :portal        {:extra-deps {djblue/portal {:mvn/version "0.51.0"}}}
 
   :morse         {:extra-deps {io.github.nubank/morse {:git/tag "v2023.10.06.02" :git/sha "88b5ff7"}}}
 
