@@ -10,7 +10,7 @@
 .DS_Store
 pc4-server/.portal/intellij.edn
 /resources/public/js/compiled
-/resources/public/css/site.css
 /node_modules
 /.shadow-cljs/
 *.zip
+resources/public/css/output.css
