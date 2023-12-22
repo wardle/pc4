@@ -106,8 +106,9 @@
                    {:id      :encounters
                     :content "Encounters"
                     :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
-                   {:id      :investigations
-                    :content "Investigations"}
+                   {:id      :results
+                    :content "Investigations"
+                    :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
                    {:id      :admissions
                     :content "Admissions"
                     :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
@@ -333,50 +334,4 @@
         (ui-edit-death-certificate editing-death-certificate)))))
 
 (def ui-patient-death-certificate2 (comp/factory PatientDeathCertificate2))
-
-
-
-
-
-
-
-
-
-
-
-
-(defsc ResultListItem
-  [this {:t_result/keys [id date summary]
-         entity-name    :t_result_type/result_entity_name
-         result-name    :t_result_type/name
-         result-desc    :t_result_type/description}]
-  {:ident :t_result/id
-   :query [:t_result/id :t_result/date :t_result/summary
-           :t_result_type/result_entity_name :t_result-type/id
-           :t_result_type/name :t_result_type/description]}
-  (ui/ui-table-row {}
-    (ui/ui-table-cell {} (ui/format-date date))
-    (ui/ui-table-cell {} result-name)
-    (ui/ui-table-cell {} (div :.overflow-hidden (ui/truncate summary 120)))
-    (ui/ui-table-cell {} "")))
-
-(def ui-result-list-item (comp/factory ResultListItem {:keyfn :t_result/id}))
-
-(defsc PatientResults [this {:t_patient/keys [results]}]
-  {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier
-           {:t_patient/results (comp/get-query ResultListItem)}]}
-  (comp/fragment
-    (ui/ui-title {:title "Investigations"}
-      (ui/ui-title-button {:title "Add result"} {:onClick #(println "Action: add result")}))
-    (ui/ui-table {}
-      (ui/ui-table-head {}
-        (ui/ui-table-row {}
-          (map #(ui/ui-table-heading {:react-key %} %) ["Date" "Investigation" "Result" ""])))
-      (ui/ui-table-body {}
-        (->> results
-             (sort-by #(some-> % :t_result/date .getTime))
-             (map ui-result-list-item))))))
-
-(def ui-patient-results (comp/factory PatientResults))
 

@@ -19,6 +19,7 @@
     [pc4.ui.medications]
     [pc4.ui.ninflamm]
     [pc4.ui.patients]
+    [pc4.ui.results]
     [pc4.ui.users :as users]
     [pc4.ui.projects]
     [taoensso.timbre :as log]))
@@ -89,6 +90,7 @@
                     pc4.ui.encounters/PatientEncounters
                     pc4.ui.admissions/PatientAdmissions
                     pc4.ui.ninflamm/PatientNeuroInflammatory
+                    pc4.ui.results/PatientResults
                     pc4.ui.projects/ProjectPage]})
 
 (def ui-main-router (comp/factory MainRouter))
