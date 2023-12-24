@@ -87,15 +87,36 @@ services available in other modules via [integrant](https://github.com/weavejest
 
 Secrets are expected to be in ~/.secrets.edn
 
-# Runnning a server
 
-To run in a development environment:
+# Running front-end(s)
+
+```shell
+bb watch-cljs
+```
+
+```shell
+bb watch-css
+```
+
+These will continually monitor and rebuild js and css files for any front-ends.
+
+The server currently monitors these builds automatically and uses either a 
+development build, or production build, depending on what was built most 
+recently. 
+
+# Running a server
+
+You would usually run a server from the REPL. See the `dev` directory.
+
+But you can also run from the command line:
+
+Run a development environment:
 
 ```shell
 clj -X:run :profile :dev
 ```
 
-To run in a production environment (this uses :cvx)
+To run in a production environment (this example uses :cvx)
 
 ```shell
 clj -X:run :profile :cvx
