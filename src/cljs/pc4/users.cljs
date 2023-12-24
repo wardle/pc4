@@ -14,7 +14,7 @@
   is no token, then we have invalid credentials."
   [params]
   (action [{:keys [state]}]
-          (js/console.log "Performing login action" params)
+          (js/console.log "Performing login action" (assoc params :password "******"))
           (swap! state #(-> %
                             (update-in [:component/id :login] dissoc :ui/error)
                             (assoc-in [:component/id :login :ui/loading?] true))))
@@ -39,15 +39,16 @@
 
 (defmutation logout
   [{:keys [message]}]
-  (action [{:keys [app state]}]
-          (js/console.log "Performing logout action" message)
-          #_(dr/change-route! app ["home"])
-          #_(reset! session/authentication-token nil)
-          #_(swap! state (fn [s]
-                           (cond-> (assoc s :session/authenticated-user {})
-                                   message
-                                   (assoc-in [:component/id :login :ui/error] message))))
-          (.reload js/window.location true)))
+  (remote [_] true)
+  (ok-action [{:keys [app state]}]
+             (js/console.log "Performing logout action" message)
+             (dr/change-route! app ["home"])
+             (reset! session/authentication-token nil)
+             (swap! state (fn [s]
+                            (cond-> (assoc s :session/authenticated-user {})
+                                    message
+                                    (assoc-in [:component/id :login :ui/error] message))))
+             (.reload js/window.location true)))
 
 (defmutation refresh-token
   [_]

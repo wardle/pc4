@@ -8,7 +8,7 @@
             [com.eldrix.pc4.rsdb.users :as rsdb-users]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
-            #_[com.fulcrologic.fulcro.server.api-middleware :as api-middleware])
+            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware])
   (:import (java.time Instant LocalDateTime)))
 
 (s/def ::conn any?)
@@ -66,9 +66,9 @@
   (when-not (s/valid? ::login-configuration login)
     (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
   (let [new-token (refresh-user-token token login)]
-    {:io.jwt/token new-token}
-    #_(api-middleware/augment-response {:io.jwt/token new-token}
-                                       #(assoc-in % [:response :session :authenticated-user :io.jwt/token] new-token))))
+    #_{:io.jwt/token new-token}
+    (api-middleware/augment-response {:io.jwt/token new-token}
+                                     #(assoc-in % [:response :session :authenticated-user :io.jwt/token] new-token))))
 
 
 (defn is-rsdb-user? [conn system value]
@@ -93,13 +93,13 @@
   - system : namespace
   - value  : username."
   [conn {rsdb-user-id :t_user/id
-         :keys [system value] :as claims}]
+         :keys        [system value] :as claims}]
   (let [rsdb-user? (when claims (or rsdb-user-id (is-rsdb-user? conn system value)))]
     (cond-> {}
-            claims
-            (assoc :authenticated-user claims)
-            rsdb-user?
-            (assoc :authorization-manager (make-authorization-manager conn system value)))))
+      claims
+      (assoc :authenticated-user claims)
+      rsdb-user?
+      (assoc :authorization-manager (make-authorization-manager conn system value)))))
 
 (pco/defmutation login-operation
   "Perform a login.
@@ -124,7 +124,9 @@
   user information. The 'system' parameter is currently a placeholder;
   it should be \"cymru.nhs.uk\" for the time being. The way login-action works
   *will* change but this will not affect clients."
-  [{pc4-login :com.eldrix.pc4/login rsdb-conn :com.eldrix.rsdb/conn :as env}
+  [{pc4-login :com.eldrix.pc4/login
+    rsdb-conn :com.eldrix.rsdb/conn
+    session   :session :as env}
    {:keys [system value password]}]
   {::pco/op-name 'pc4.users/login}
   (when-not (s/valid? ::login-configuration pc4-login)
@@ -135,6 +137,7 @@
         claims (merge rsdb-user {:system system :value value})
         token (make-user-token claims pc4-login)]
     (log/info "login-operation:" claims)
+    (tap> {:login-env env})
     (when rsdb-user
       (com.eldrix.pc4.rsdb.users/record-login rsdb-conn value))
     #_(log/warn " *** DELIBERATELY PAUSING ***")
@@ -144,9 +147,12 @@
       rsdb-user
       (let [user (rsdb-users/fetch-user rsdb-conn value)]
         (log/info "login for " system value ": using rsdb backend")
-        (assoc user :io.jwt/token token)
-        #_(api-middleware/augment-response (assoc user :io.jwt/token token)
-                                           (fn [response] (assoc-in response [:session :authenticated-user] user))))
+        #_(assoc user :io.jwt/token token)
+        (api-middleware/augment-response (assoc user :io.jwt/token token)
+                                         (fn [response]
+                                           (tap> {:augment-response {:original session
+                                                                     :updated (assoc session :authenticated-user user)}})
+                                           (assoc response :session (assoc session :authenticated-user user)))))
 
       ;; do we have the NHS Wales' NADEX configured, and is it a namespace it can handle?
       (and wales-nadex (= system "cymru.nhs.uk"))
@@ -155,7 +161,7 @@
         (if-let [user (first (nadex/search (:connection-pool wales-nadex) value password))]
           (-> (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {} user)
               (assoc :io.jwt/token token)
-              #_(api-middleware/augment-response (fn [response] (assoc-in response [:session :authenticated-user] user))))
+              (api-middleware/augment-response (fn [response] (assoc-in response [:session :authenticated-user] user))))
           (log/info "failed to authenticate user " system "/" value)))
 
       ;; if nothing else has worked....
@@ -176,15 +182,20 @@
             (-> user
                 (update-keys #(keyword "wales.nhs.nadex" (name %)))
                 (assoc :io.jwt/token token)
-                #_(api-middleware/augment-response #(assoc-in % [:session :authenticated-user] user))))))
+                (api-middleware/augment-response #(assoc-in % [:session :authenticated-user] user))))))
 
       ;; no login provider found for the namespace provided
       :else
       (log/info "no login provider found for namespace" {:system system :providers (keys pc4-login)}))))
 
+(pco/defresolver logout
+  [env _]
+  {::pco/op-name 'pc4.users/logout}
+  (api-middleware/augment-response {:session/authenticated-user nil} #(assoc % :session nil)))
+
 (pco/defresolver authenticated-user
   "Returns the authenticated user based on parameters in the environment"
-  [{user    :authenticated-user} _]
+  [{user :authenticated-user} _]
   {::pco/output [{:session/authenticated-user [:system :value
                                                (pco/? :t_user/id)
                                                (pco/? :t_user/username)]}]}
@@ -232,12 +243,12 @@
                                                    :org.hl7.fhir.HumanName/family
                                                    :org.hl7.fhir.HumanName/use]}]}
   {:org.hl7.fhir.Practitioner/name [(cond-> {:org.hl7.fhir.HumanName/use :org.hl7.fhir.name-use/usual}
-                                            (not (str/blank? surname))
-                                            (assoc :org.hl7.fhir.HumanName/family surname)
-                                            (not (str/blank? givenName))
-                                            (assoc :org.hl7.fhir.HumanName/given (str/split givenName #"\s"))
-                                            (not (str/blank? personalTitle))
-                                            (assoc :org.hl7.fhir.HumanName/prefix [personalTitle]))]})
+                                      (not (str/blank? surname))
+                                      (assoc :org.hl7.fhir.HumanName/family surname)
+                                      (not (str/blank? givenName))
+                                      (assoc :org.hl7.fhir.HumanName/given (str/split givenName #"\s"))
+                                      (not (str/blank? personalTitle))
+                                      (assoc :org.hl7.fhir.HumanName/prefix [personalTitle]))]})
 
 (pco/defresolver fhir-telecom
   "Generate FHIR telecom (contact points) from x500 data."
@@ -249,12 +260,12 @@
                                                       :org.hl7.fhir.ContactPoint/value]}]}
   {:org.hl7.fhir.Practitioner/telecom
    (cond-> []
-           email
-           (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
-                  :org.hl7.fhir.ContactPoint/value  email})
-           telephone
-           (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/phone
-                  :org.hl7.fhir.ContactPoint/value  telephone}))})
+     email
+     (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/email
+            :org.hl7.fhir.ContactPoint/value  email})
+     telephone
+     (conj {:org.hl7.fhir.ContactPoint/system :org.hl7.fhir.contact-point-system/phone
+            :org.hl7.fhir.ContactPoint/value  telephone}))})
 
 (comment
   (fhir-telecom {:urn:oid:2.5.4/telephoneNumber "07786196137" :urn:oid:0.9.2342.19200300.100.1.3 "mark.wardle@wales.nhs.uk"})
@@ -266,6 +277,7 @@
 (def all-resolvers
   [ping-operation
    login-operation
+   logout
    refresh-token-operation
    authenticated-user
    (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)

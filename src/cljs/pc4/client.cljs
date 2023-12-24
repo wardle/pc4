@@ -32,8 +32,9 @@
   ([handler]
    (fn [{:keys [headers body] :as request}]
      (if-let [token @session/authentication-token]
-       (let [headers (assoc headers "Authorization" (str "Bearer " token))]
-         (handler (merge request {:headers headers :method :post})))
+       (handler (update request :headers assoc "Authorization" (str "Bearer " token)))
+       #_(let [headers (assoc headers "Authorization" (str "Bearer " token))]
+           (handler (merge request {:headers headers :method :post})))
        (handler request)))))
 
 (defn global-eql-transform
@@ -57,19 +58,21 @@
                         (fn [^Big x] (.toString x))
                         #(Big. %)))
 (defn make-SPA []
-  (app/fulcro-app
-    {;:global-eql-transform global-eql-transform
-     :render-middleware
-     (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
-     :remotes
-     {:remote (net/fulcro-http-remote
-                {:url                (str server-url "/api")
-                 :request-middleware (->
-                                       (net/wrap-fulcro-request)
-                                       (wrap-authentication-token))})
-      :login (net/fulcro-http-remote
-               {:url                (str server-url "/login-mutation")
-                :request-middleware (-> (net/wrap-fulcro-request))})}}))
+  (let [csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML")]
+    (app/fulcro-app
+      {;:global-eql-transform global-eql-transform
+       :render-middleware
+       (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
+       :remotes
+       {:remote (net/fulcro-http-remote
+                  {:url                "/api"
+                   :request-middleware (-> (net/wrap-csrf-token csrf-token)
+                                           (wrap-authentication-token)
+                                           (net/wrap-fulcro-request))})
+        :login  (net/fulcro-http-remote
+                  {:url                "/login-mutation"
+                   :request-middleware (-> (net/wrap-csrf-token csrf-token)
+                                           (net/wrap-fulcro-request))})}})))
 
 
 (defn ^:export init []

@@ -1,12 +1,14 @@
 (ns com.eldrix.pc4.pedestal
   (:require [buddy.core.codecs]
             [clojure.spec.alpha :as s]
+            [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [cognitect.transit :as transit]
             [com.eldrix.pc4.dates :as dates]
             [com.eldrix.pc4.rsdb.users :as rsdb.users]      ;; TODO: switch to non-rsdb impl
             [com.eldrix.pc4.users :as users]
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
+            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor.error :as intc.error]
@@ -69,7 +71,9 @@
       (log/error "error processing request" params)
       (doseq [err errors]
         (log/error (if (instance? Throwable err) (Throwable->map err) err))))
-    (assoc ctx :response (merge {:status 200 :body result} #_(api-middleware/apply-response-augmentations result)))))
+    (let [response (api-middleware/apply-response-augmentations result)]
+      (tap> {:response response})
+      (assoc ctx :response (merge {:status 200 :body result} response)))))
 
 (defn landing-page
   "Return a landing page for a front-end.
@@ -97,12 +101,15 @@
    (fn [ctx]
      (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :main :output-name])
            csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
+       (if (str/blank? csrf-token)
+         (log/warn "Missing CSRF token; has CSRF protection been enabled?"))
        (if-not app
          (log/error (str "Missing front-end app. Found modules: " (keys (:com.eldrix.pc4/cljs-modules ctx))) {})
          (assoc ctx :response
                     {:status 200 :headers {"Content-Type" "text/html"}
-                     :body   (rum/render-html
-                               (landing-page app {:csrf-token csrf-token}))}))))})
+                     :body   (str "<!DOCTYPE html>\n"
+                                  (rum/render-html
+                                    (landing-page app {:csrf-token csrf-token})))}))))})
 
 (def login
   "The login endpoint enforces a specific pathom call rather than permitting
@@ -133,7 +140,7 @@
          (do
            (log/warn "invalid request at /login-mutation endpoint" params)
            (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
-         (execute-pathom ctx nil params))))})
+         (execute-pathom ctx {:session (:session request)} params))))})
 
 (def attach-claims
   "Interceptor to check request claims and add them to the context under the key
@@ -181,7 +188,7 @@
            rsdb-conn (:com.eldrix.rsdb/conn ctx)
            claims (:authenticated-claims ctx)
            env (users/make-authenticated-env rsdb-conn claims)]
-       (execute-pathom ctx env params)))})
+       (execute-pathom ctx (assoc env :session (get-in ctx [:request :session])) params)))})
 
 (def get-user-photo
   "Return a user photograph.
@@ -223,6 +230,17 @@
      :get  {:interceptors [get-user-photo]}}]])
 
 
+(def transit-read-handlers
+  (merge dates/transit-readers
+         {com.fulcrologic.fulcro.algorithms.tempid/tag
+          (transit/read-handler (fn [uuid]
+                                  (com.fulcrologic.fulcro.algorithms.tempid/tempid uuid)))}))
+(def transit-write-handlers
+  (merge dates/transit-writers
+         {ExceptionInfo (transit/write-handler "ex-info" ex-data)
+          Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)
+          TempId        (transit/write-handler com.fulcrologic.fulcro.algorithms.tempid/tag #(.-id ^TempId %))}))
+
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key session-timeout-seconds] :or {port 8080, join? false}}]
   {::http/type            :jetty
@@ -234,9 +252,10 @@
    ::http/allowed-origins (if (= "*" allowed-origins) (constantly true) allowed-origins)
    ::http/secure-headers  {:content-security-policy-settings {:object-src "none"}}
    ::http/host            (or host "127.0.0.1")
-   #_::http/enable-session  #_{:store        (ring.middleware.session.cookie/cookie-store
-                                               (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
-                               :cookie-attrs {:same-site :lax}}})
+   ::http/enable-csrf     {}
+   ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
+                                           (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+                           :cookie-attrs {:same-site :strict}}})
 
 (s/def ::env (s/keys :req [:pathom/boundary-interface
                            :com.eldrix.rsdb/conn
@@ -259,17 +278,9 @@
       (http/dev-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
-              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers (merge dates/transit-readers
-                                                                                                           {com.fulcrologic.fulcro.algorithms.tempid/tag
-                                                                                                            (transit/read-handler (fn [uuid]
-                                                                                                                                    (com.fulcrologic.fulcro.algorithms.tempid/tempid uuid)))})}]))
-              (http/transit-body-interceptor ::transit-json-body
-                                             "application/transit+json;charset=UTF-8"
-                                             :json
-                                             {:handlers (merge dates/transit-writers
-                                                               {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-                                                                Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)
-                                                                TempId        (transit/write-handler com.fulcrologic.fulcro.algorithms.tempid/tag #(.-id ^TempId %))})})
+              (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers transit-read-handlers}]))
+              (http/transit-body-interceptor
+                ::transit-json-body "application/transit+json;charset=UTF-8" :json {:handlers transit-write-handlers})
               service-error-handler)
       (http/create-server)
       (http/start)))

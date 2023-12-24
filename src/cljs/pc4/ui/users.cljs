@@ -4,16 +4,12 @@
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
     [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.dom.events :as evt]
-    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [pc4.app :refer [SPA]]
-    [pc4.session :as session]
     [pc4.ui.core :as ui]
     [pc4.ui.nav]
     [pc4.ui.projects]
-    [pc4.users :as users]
-
-    [com.fulcrologic.fulcro.algorithms.merge :as merge]))
+    [pc4.users :as users]))
 
 (defsc NewsAuthor [this {:t_user/keys [id title first_names last_name]}]
   {:ident :t_user/id
@@ -145,7 +141,7 @@
                           :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                           :initials  initials
                           :photo     (when has_photo (str "http://localhost:8080/users/cymru.nhs.uk/" username "/photo"))
-                          :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]}
+                          :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout {})])}]}
                          {:on-home #(dr/change-route! this ["home"])}))
 
 (def ui-nav-bar (comp/factory NavBar))
@@ -155,8 +151,7 @@
   [this {:ui/keys [loading? error]}]
   {:ident         (fn [] [:component/id :login])
    :query         [:ui/loading? :ui/error]
-   :initial-state {:ui/loading? false
-                   :ui/error    nil}
+   :initial-state {:ui/loading? false, :ui/error nil}
    :route-segment ["login"]}
   (let [username (or (comp/get-state this :username) "")
         password (or (comp/get-state this :password) "")
@@ -171,7 +166,8 @@
             (div
               (dom/label :.sr-only {:htmlFor "username"} "username")
               (dom/input :.appearance-none.rounded-none.relative.block.w-full.px-3.py-2.border.border-gray-300.placeholder-gray-500.text-gray-900.rounded-t-md.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.focus:z-10.sm:text-sm
-                {:name         "username" :type "text"
+                {:id           "username"
+                 :name         "username" :type "text"
                  :autoComplete "username" :required true :placeholder "Username"
                  :autoFocus    true :disabled false
                  :value        username
@@ -185,7 +181,6 @@
                  :autoComplete "current-password"
                  :value        password
                  :onChange     #(comp/set-state! this {:password (evt/target-value %)})
-                 :onKeyDown    (fn [evt] (when (evt/enter? evt) (do-login)))
                  :required     true
                  :placeholder  "Password"})))
           (when error                                       ;; error
