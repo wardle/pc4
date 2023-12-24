@@ -38,6 +38,8 @@
   com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
                                         :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}
   com.zaxxer/HikariCP                  {:mvn/version "5.1.0"}
+  io.pedestal/pedestal.service         {:mvn/version "0.6.3"}
+  io.pedestal/pedestal.jetty           {:mvn/version "0.6.3"}
 
   com.fulcrologic/fulcro               {:mvn/version "3.6.10"}
   com.fulcrologic/guardrails           {:mvn/version "1.1.13"}
@@ -55,8 +57,7 @@
   rum/rum                              {:mvn/version "0.12.11"}
   software.amazon.awssdk/s3            {:mvn/version "2.22.4"}
   software.amazon.awssdk/apache-client {:mvn/version "2.22.4"}
-  com.taoensso/timbre                  {:mvn/version "6.3.1"}
-  thheller/shadow-cljs                 {:mvn/version "2.26.2"}}
+  com.taoensso/timbre                  {:mvn/version "6.3.1"}}
 
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
@@ -68,9 +69,7 @@
                   :ns-default build}
 
   :run           {:exec-fn    com.eldrix.pc4.core/run
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}
-                               io.pedestal/pedestal.service   {:mvn/version "0.6.3"}
-                               io.pedestal/pedestal.jetty     {:mvn/version "0.6.3"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                "--illegal-access=permit"]}
@@ -96,7 +95,8 @@
                                 binaryage/devtools                       {:mvn/version "1.0.7"}
                                 day8.re-frame/re-frame-10x               {:mvn/version "1.9.3"}
                                 integrant/repl                           {:mvn/version "0.3.3"}
-                                org.clojure/test.check                   {:mvn/version "1.1.1"}}
+                                org.clojure/test.check                   {:mvn/version "1.1.1"}
+                                thheller/shadow-cljs                     {:mvn/version "2.26.2"}}
                   :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                 "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                                 "--illegal-access=permit"]}
