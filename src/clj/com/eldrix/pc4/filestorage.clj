@@ -11,11 +11,13 @@
             [clojure.java.io :as io]
             [clojure.spec.alpha :as s])
   (:import (java.io File)
+           (java.lang AutoCloseable)
            (java.net URL)
            (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)
            (java.time Duration Instant)
            (java.util Collection UUID)
+           (org.apache.commons.fileupload.util Closeable)
            (software.amazon.awssdk.auth.credentials AwsBasicCredentials AwsCredentialsProvider StaticCredentialsProvider)
            (software.amazon.awssdk.core SdkField SdkPojo)
            (software.amazon.awssdk.core.sync RequestBody)
@@ -45,8 +47,8 @@
      - :f             - a `java.io.File` for the file")
   (url [this k] "Return a time-limited URL that can be used to fetch an object using key 'k'. Not all implementations can
   provide a URL, so clients will need to fallback to using [[get-object]] and providing a different mechanism for download.")
-  (clean [this] "Removes leftover files from storage according to storage retention policies in place.")
-  (close [this]))
+  (clean [this] "Removes leftover files from storage according to storage retention policies in place."))
+
 
 
 ;;
@@ -167,6 +169,7 @@
     (s3-presigned-url presigner bucket-name k link-duration))
   (clean [_]
     (s3-clean s3 bucket-name retention-duration))
+  AutoCloseable
   (close [_]
     (.close s3)))
 
@@ -220,6 +223,7 @@
   (url [_ k])
   (clean [_]
     (local-clean dir {:duration retention-duration}))
+  AutoCloseable
   (close [_]))
 
 

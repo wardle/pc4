@@ -193,8 +193,7 @@
     (com.eldrix.pc4.filestorage/make-file-store config')))
 
 (defmethod ig/halt-key! :com.eldrix.pc4/filestorage [_ fs]
-  (com.eldrix.pc4.filestorage/close fs))
-
+  (.close fs))
 
 (defmethod ig/init-key :com.eldrix.pc4/cljs-modules [_ {path :manifest-path}]
   (log/debug "looking for cljs modules in " path)
