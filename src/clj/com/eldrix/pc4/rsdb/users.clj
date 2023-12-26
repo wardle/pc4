@@ -15,7 +15,8 @@
   namespace. That means we can safely allow rsdb to resolve existing users
   against the cymru.nhs.uk namespace - until there is an explicit namespace
   listed for each user. "
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.set :as set]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
             [buddy.core.codecs]
@@ -45,8 +46,38 @@
                 :t_role/is_system
                 :t_role/name]))
 
+(defn authenticate
+  "Authenticate a user using the password specified. Available authentication
+  methods:
+  - LOCAL: an outdated SHA encoded password dating from rsdb's first version
+  - LOCAL17: a slightly more modern password encoding from 2017
+  - NADEX : use of NHS Wales' active directory"
+  [{:wales.nhs/keys [nadex]} {:t_user/keys [username credential authentication_method]} password]
+  (cond
+    (or (str/blank? username) (str/blank? password))
+    false
 
-(defn- can-authenticate-with-password?
+    (= authentication_method :LOCAL)                       ;; TODO: force password change for these users
+    (let [md (MessageDigest/getInstance "SHA")
+          hash (Base64/encodeBase64String (.digest md (.getBytes password)))]
+      (log/warn "warning: using outdated password check for user " username)
+      (= credential hash))
+
+    (= authentication_method :LOCAL17)                     ;; TODO: upgrade to more modern hash here and in rsdb codebase
+    (BCrypt/checkpw password credential)
+
+    (and nadex (= authentication_method :NADEX))
+    (nadex/can-authenticate? nadex username password)
+
+    (= authentication_method :NADEX)                       ;; TODO: remove this fallback
+    (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
+        (BCrypt/checkpw password credential))
+
+    :else                                                   ;; no matching method: log an error
+    (log/error "unsupported authentication method:" authentication_method)))
+
+
+(defn- ^:deprecated can-authenticate-with-password?
   "Support for legacy rsdb authentication.
   For development, we temporarily use the fallback local authentication
   available if we do not have an active LDAP connection pool."
@@ -74,7 +105,7 @@
         (log/error "unsupported authentication method:" authentication_method)
         false))))
 
-(defn check-password
+(defn ^:deprecated check-password
   "Check a user's credentials.
   Returns a map containing :t_user/id and :t_user/username if the password is
   correct.
@@ -85,11 +116,13 @@
    - password : password."
   [conn nadex username password]
   (let [user (jdbc/execute-one!
-               conn (sql/format {:select [:id :username :credential :authentication_method]
-                                 :from   [:t_user]
-                                 :where  [:= :username (.toLowerCase username)]}))]
-    (when (can-authenticate-with-password? nadex user password)
+               conn
+               (sql/format {:select [:id :username :credential :authentication_method]
+                            :from   [:t_user]
+                            :where  [:= :username (.toLowerCase username)]}))]
+    (when (authenticate {:wales.nhs/nadex nadex} user password)
       (select-keys user [:t_user/id :t_user/username]))))
+
 
 (defn is-rsdb-user?
   [conn namespace username]
@@ -107,8 +140,8 @@
                    :where  [:= :username username]
                    :set    (cond-> {:credential           hash
                                     :must_change_password false}
-                                   update-auth-method?
-                                   (assoc :authentication_method :LOCAL17))}))))
+                             update-auth-method?
+                             (assoc :authentication_method :LOCAL17))}))))
 
 (defn save-password
   "Save a password for the given user.
@@ -198,6 +231,20 @@
   (let [project-ids (set (map :t_project/id (projects conn username)))]
     (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
 
+
+(defn roles-for-user-sql
+  ([username]
+   (roles-for-user-sql username {}))
+  ([username {:keys [project-id]}]
+   {:select [:t_user/id :t_user/username :t_role/name :t_role/is_system
+             :t_project/id :t_project/title :t_project_user/*]
+    :from   :t_project_user
+    :join   [:t_user [:= :user_fk :t_user/id]
+             :t_project [:= :project_fk :t_project/id]
+             :t_role [:= :role_fk :t_role/id]]
+    :where  (if project-id [:and [:= :t_user/username username] [:= :t_project/id project-id]]
+                           [:= :t_user/username username])}))
+
 (s/fdef roles-for-user
   :args (s/cat :conn ::db/conn :username string? :opts (s/? (s/keys :opt [:t_project/id])))
   :ret (s/coll-of ::role))
@@ -221,22 +268,15 @@
 
   Permissions are *not* inherited under the legacy model; users must be
   explicitly added to sub-projects. Patients *are* inherited."
-  ([conn username] (roles-for-user conn username {}))
-  ([conn username {:keys [project-id]}]
+  ([conn username]
+   (roles-for-user conn username {}))
+  ([conn username opts]
    (->> (db/execute!
           conn
-          (sql/format {:select [:t_user/id :t_user/username :t_role/name :t_role/is_system
-                                :t_project/id :t_project/title :t_project_user/*]
-                       :from   :t_project_user
-                       :join   [:t_user [:= :user_fk :t_user/id]
-                                :t_project [:= :project_fk :t_project/id]
-                                :t_role [:= :role_fk :t_role/id]]
-                       :where  (if project-id [:and [:= :t_user/username username] [:= :t_project/id project-id]]
-                                              [:= :t_user/username username])}))
+          (sql/format (roles-for-user-sql username opts)))
         (map #(assoc % :t_project_user/active? (projects/role-active? %)
                        :t_project/active? (projects/active? %)
                        :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
-
 
 (s/fdef permissions-for-project
   :args (s/cat :roles (s/coll-of ::role) :project-id int?))
@@ -263,6 +303,14 @@
   (->> roles
        (filter #(contains? (:t_project_user/permissions %) permission))))
 
+(defn active-roles-by-project-id
+  "Returns a set of roles by project identifier."
+  [conn username]
+  (->> (roles-for-user conn username)
+       (filter :t_project_user/active?)
+       (group-by :t_project/id)
+       (reduce-kv (fn [acc project-id roles]
+                    (assoc acc project-id (into #{} (map :t_project_user/role) roles))) {})))
 
 (s/fdef authorization-manager
   :args (s/cat :roles (s/coll-of ::role)))
@@ -283,6 +331,24 @@
       (authorized-any? [_ permission]
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
+(defn authorization-manager2
+  "Create an authorization manager for the user specified, providing subsequent
+  decisions on authorization for a given action via an open-ended permission
+  system. The manager is an immutable service; it closes over the permissions
+  at the time of creation. The manager is principally designed for use in a
+  single request-response cycle."
+  ^AuthorizationManager [user]
+  (if (:t_role/is_system user)
+    (reify auth/AuthorizationManager                        ;; system user: can do everything...
+      (authorized? [_ patient-project-ids permission] true)
+      (authorized-any? [_ permission] true))
+    (let [active-roles (:t_user/active_roles user)]
+      (reify auth/AuthorizationManager                        ;; non-system users defined by project roles
+        (authorized? [_ project-ids permission]
+          (some #(contains? (active-roles %) permission) project-ids))
+        (authorized-any? [_ permission]
+          (some #(active-roles %) permission) active-roles)))))
+
 (defn ^:deprecated make-authorization-manager
   "DEPRECATED: Use [[authorization-manager]] instead.
    Create an authorization manager for the user with `username`. It is usually
@@ -298,15 +364,23 @@
                :send_email_for_messages
                :must_change_password
                :authentication_method :professional_registration
+               :t_role/is_system
                :t_professional_registration_authority/name
                :t_professional_registration_authority/abbreviation]
    :from      [:t_user]
-   :left-join [:t_job_title [:= :t_user/job_title_fk :t_job_title/id]
+   :left-join [:t_role [:= :t_user/role_fk :t_role/id]
+               :t_job_title [:= :t_user/job_title_fk :t_job_title/id]
                :t_professional_registration_authority [:= :t_user/professional_registration_authority_fk :t_professional_registration_authority/id]]})
 
-(defn fetch-user [conn username]
-  (db/execute-one! conn (sql/format (assoc fetch-user-query
-                                      :where [:= :username (str/lower-case username)]))))
+(defn fetch-user
+  ([conn username]
+   (fetch-user conn username {}))
+  ([conn username {:keys [with-credentials] :or {with-credentials false}}]
+   (db/execute-one! conn
+                    (sql/format (cond-> (assoc fetch-user-query
+                                          :where [:= :username (str/lower-case username)])
+                                  with-credentials
+                                  (update :select conj :credential))))))
 
 (defn fetch-user-by-id [conn user-id]
   (db/execute-one! conn (sql/format (assoc fetch-user-query
@@ -354,10 +428,10 @@
   "Reset password for a user. Returns the new randomly-generated password."
   [conn {user-id :t_user/id}]
   (let [[new-password credential] (random-password {:nbytes 32})]
-    (jdbc.sql/update! conn :t_user {:credential credential
+    (jdbc.sql/update! conn :t_user {:credential            credential
                                     :authentication_method "LOCAL17"
-                                    :must_change_password true}
-                           {:id user-id})
+                                    :must_change_password  true}
+                      {:id user-id})
     new-password))
 
 (defn register-user-to-project
@@ -411,15 +485,25 @@
                        :order-by  [[:date_time :desc]]
                        :limit     5})))
 
-(defn record-login
+(defn record-login!
   "Record the date of login for audit purposes. At the moment, this simply
   records directly into the 'date_last_login' column of 't_user', but this
   would be better into a user log file as per how the audit trail functionality
   used to work in the legacy application."
-  ([conn username] (record-login conn username (LocalDateTime/now)))
+  ([conn username] (record-login! conn username (LocalDateTime/now)))
   ([conn username ^LocalDateTime date]
    (jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
 
+
+(defn perform-login!                                        ;; TODO: use single SQL to fetch user data and active roles
+  "Returns a user with the given username iff the password is correct, including
+  a sequence of active roles under key :t_user/active_roles."
+  [{conn :com.eldrix.rsdb/conn, nadex :wales.nhs/nadex :as env} username password]
+  (when-let [user (fetch-user conn username {:with-credentials true})]
+    (when (authenticate env user password)
+      (record-login! conn username)
+      (-> (select-keys user [:t_user/id :t_role/is_system :t_job_title/is_clinical])
+          (assoc :t_user/active_roles (active-roles-by-project-id conn username))))))
 
 (defn is-nhs-wales-email? [email]
   (str/ends-with? (str/lower-case email) "wales.nhs.uk"))
@@ -458,9 +542,9 @@
       (when send-email
         (log/debug "queuing email for message" {:message-id (:t_message/id message) :to to-user-id :to-email email :from from-user-id}))
       (cond-> {:message message}
-              send-email
-              (assoc :email (queue/enqueue-job txn :user/email {:message-id (:t_message/id message)
-                                                                :to         email :subject subject :body body}))))))
+        send-email
+        (assoc :email (queue/enqueue-job txn :user/email {:message-id (:t_message/id message)
+                                                          :to         email :subject subject :body body}))))))
 
 
 
@@ -483,7 +567,7 @@
   (fetch-user-photo conn "rh084967")
   (fetch-user conn "ma090906")
   (check-password conn nil "system" "password")
-  (can-authenticate-with-password? nil (fetch-user conn "system") "password")
+  (authenticate {} (fetch-user conn "system") "password")
   (group-by :t_project_user/role (roles-for-user conn "ma090906"))
   (map :t_project/id (roles-for-user conn "ma090906"))
   (filter #(= 15 (:t_project/id %)) (roles-for-user conn "ma090906"))

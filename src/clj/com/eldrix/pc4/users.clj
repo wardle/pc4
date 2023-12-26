@@ -23,172 +23,18 @@
   {:uuid      uuid
    :date-time (LocalDateTime/now)})
 
-(s/def ::jwt-secret-key string?)
-(s/def ::jwt-expiry-seconds number?)
-(s/def ::login-configuration (s/keys :req-un [::jwt-secret-key] :opt-un [::jwt-expiry-seconds]))
-
-(defn make-user-token
-  "Create a user token using the claims and configuration supplied.
-  Parameters:
-  - claims : a map containing arbitrary claims e.g {:username \"ma090906\"}
-  - config : a map containing
-           |- :jwt-expiry-seconds - expiry in seconds, default 300 seconds
-           |- :jwt-secret-key     - JWT secret key
-  e.g.
-  (make-user-token {:system \"cymru.nhs.uk\" :value \"ma090906\"} {:jwt-secret-key \"secret\"})"
-  [claims {:keys [jwt-expiry-seconds jwt-secret-key] :or {jwt-expiry-seconds (* 60 5)}}]
-  (jwt/sign (assoc claims :exp (.plusSeconds (Instant/now) jwt-expiry-seconds)) jwt-secret-key))
-
-(defn refresh-user-token
-  "Refreshes a user token.
-  Essentially, takes out the claims and re-signs. No new token will be issued if
-  the token has expired or is invalid for any other reason."
-  [existing-token {:keys [jwt-secret-key] :as config}]
-  (when-let [claims (try (jwt/unsign existing-token jwt-secret-key)
-                         (catch Exception e (log/debug "Attempt to refresh invalid token")))]
-    (make-user-token claims config)))
-
-(defn check-user-token
-  "Returns the claims from a token, if it is valid."
-  [token {:keys [jwt-secret-key]}]
-  (try (jwt/unsign token jwt-secret-key)
-       (catch Exception e nil)))
-
-(pco/defmutation refresh-token-operation
-  "Refresh the user token.
-  Parameters:
-    |- :token              : the existing token
-  Returns a new token."
-  [{:com.eldrix.pc4/keys [login] :as env} {:keys [token]}]
-  {::pco/op-name 'pc4.users/refresh-token
-   ::pco/params  [:token]
-   ::pco/output  [:io.jwt.token]}
-  (when-not (s/valid? ::login-configuration login)
-    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration login))))
-  (let [new-token (refresh-user-token token login)]
-    #_{:io.jwt/token new-token}
-    (api-middleware/augment-response {:io.jwt/token new-token}
-                                     #(assoc-in % [:response :session :authenticated-user :io.jwt/token] new-token))))
-
-
-(defn is-rsdb-user? [conn system value]
-  (rsdb-users/is-rsdb-user? conn system value))
-
-(defn make-authorization-manager [conn namespace username]
-  (when (not= namespace "cymru.nhs.uk")
-    (throw (ex-info "cannot make authorization manager for user"
-                    {:namespace namespace :username username})))
-  (rsdb-users/make-authorization-manager conn username))
-
-(s/def ::system string?)
-(s/def ::value string?)
-(s/def ::claims (s/keys :req-un [::system ::value]
-                        :opt [:t_user/id :t_user/username]))
-
-(s/fdef make-authenticated-env
-  :args (s/cat :conn ::conn :claims ::claims))
-(defn make-authenticated-env
-  "Given claims containing at least `:system` and `:value`, create an environment.
-  - conn   : rsdb database connection
-  - system : namespace
-  - value  : username."
-  [conn {rsdb-user-id :t_user/id
-         :keys        [system value] :as claims}]
-  (let [rsdb-user? (when claims (or rsdb-user-id (is-rsdb-user? conn system value)))]
-    (cond-> {}
-      claims
-      (assoc :authenticated-user claims)
-      rsdb-user?
-      (assoc :authorization-manager (make-authorization-manager conn system value)))))
-
-(pco/defmutation login-operation
-  "Perform a login.
-  Parameters:
-    |- :system             : the namespace system to use
-    |- :value              : the username.
-    |- :password           : the password.
-  Returns a user.
-
-  A token is generated with claims containing at least :system and :value,
-  but possibly other information as well in order to permit ongoing resolution.
-
-  We could make a LoginProtocol for each provider, but we still need to map to
-  the keys specified here so it is simpler to use `cond` and choose the correct
-  path based on the namespace and the providers available at runtime.
-  In addition, it is more likely than we will blend data from multiple sources
-  in order to provide data resolution here; there won't be a 1:1 logical
-  mapping between our login abstraction and the backend service. This approach
-  is designed to decouple client from this complexity.
-
-  For example, if the user has a registered rsdb account, we defer to that for
-  user information. The 'system' parameter is currently a placeholder;
-  it should be \"cymru.nhs.uk\" for the time being. The way login-action works
-  *will* change but this will not affect clients."
-  [{pc4-login :com.eldrix.pc4/login
-    rsdb-conn :com.eldrix.rsdb/conn
-    session   :session :as env}
+(pco/defmutation perform-login
+  [{session   :session :as env}
    {:keys [system value password]}]
-  {::pco/op-name 'pc4.users/login}
-  (when-not (s/valid? ::login-configuration pc4-login)
-    (throw (ex-info "invalid login configuration:" (s/explain-data ::login-configuration pc4-login))))
-  (let [wales-nadex (get-in pc4-login [:providers :wales.nhs/nadex])
-        fake-login (get-in pc4-login [:providers :com.eldrix.pc4/fake-login-provider])
-        rsdb-user (when (and rsdb-conn (= system "cymru.nhs.uk")) (rsdb-users/check-password rsdb-conn wales-nadex value password))
-        claims (merge rsdb-user {:system system :value value})
-        token (make-user-token claims pc4-login)]
-    (log/info "login-operation:" claims)
-    (tap> {:login-env env})
-    (when rsdb-user
-      (com.eldrix.pc4.rsdb.users/record-login rsdb-conn value))
-    #_(log/warn " *** DELIBERATELY PAUSING ***")
-    #_(Thread/sleep 2000)
-    (cond
-      ;; if we have an RSDB service, defer to that; it may update or supplement data from NADEX anyway
-      rsdb-user
-      (let [user (rsdb-users/fetch-user rsdb-conn value)]
-        (log/info "login for " system value ": using rsdb backend")
-        #_(assoc user :io.jwt/token token)
-        (api-middleware/augment-response (assoc user :io.jwt/token token)
-                                         (fn [response]
-                                           (tap> {:augment-response {:original session
-                                                                     :updated (assoc session :authenticated-user user)}})
-                                           (assoc response :session (assoc session :authenticated-user user)))))
+  {::pco/op-name 'pc4.users/perform-login}
+  (when-let [user (rsdb-users/perform-login! env value password)]
+    (println {:perform-login user})
+    (api-middleware/augment-response user
+                                     (fn [response]
+                                       (assoc response :session (assoc session :authenticated-user
+                                                                               (select-keys user [:t_user/id :t_user/active_roles])))))))
 
-      ;; do we have the NHS Wales' NADEX configured, and is it a namespace it can handle?
-      (and wales-nadex (= system "cymru.nhs.uk"))
-      (do
-        (log/info "login for " system value "; config:" wales-nadex)
-        (if-let [user (first (nadex/search (:connection-pool wales-nadex) value password))]
-          (-> (reduce-kv (fn [m k v] (assoc m (keyword "wales.nhs.nadex" (name k)) v)) {} user)
-              (assoc :io.jwt/token token)
-              (api-middleware/augment-response (fn [response] (assoc-in response [:session :authenticated-user] user))))
-          (log/info "failed to authenticate user " system "/" value)))
-
-      ;; if nothing else has worked....
-      ;; do we have a fake login provider configured?
-      fake-login
-      (do
-        (log/info "attempting fake login for " system value)
-        (when (and (= (:username fake-login) value) (= (:password fake-login) password))
-          (log/info "successful fake login")
-          (let [user {:sAMAccountName           value
-                      :sn                       "Wardle"
-                      :givenName                "Mark"
-                      :personalTitle            "Dr."
-                      :mail                     "mark@wardle.org"
-                      :telephoneNumber          "02920747747"
-                      :professionalRegistration {:regulator "GMC" :code "4624000"}
-                      :title                    "Consultant Neurologist"}]
-            (-> user
-                (update-keys #(keyword "wales.nhs.nadex" (name %)))
-                (assoc :io.jwt/token token)
-                (api-middleware/augment-response #(assoc-in % [:session :authenticated-user] user))))))
-
-      ;; no login provider found for the namespace provided
-      :else
-      (log/info "no login provider found for namespace" {:system system :providers (keys pc4-login)}))))
-
-(pco/defresolver logout
+(pco/defmutation logout
   [env _]
   {::pco/op-name 'pc4.users/logout}
   (api-middleware/augment-response {:session/authenticated-user nil} #(assoc % :session nil)))
@@ -277,6 +123,7 @@
 (def all-resolvers
   [ping-operation
    login-operation
+   perform-login
    logout
    refresh-token-operation
    authenticated-user

@@ -11,7 +11,6 @@
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
     [pc4.rsdb]
-    [pc4.session :as session]
     [pc4.ui.root :as root]
     [pc4.ui.users]
     ["big.js" :as Big]
@@ -25,17 +24,6 @@
   (log/info "Hot code Remount")
   (app/mount! @SPA root/Root "app")
   (comp/refresh-dynamic-queries! @SPA))
-
-(defn wrap-authentication-token
-  "Client Remote Middleware to add bearer token to outgoing requests."
-  ([] (wrap-authentication-token identity))
-  ([handler]
-   (fn [{:keys [headers body] :as request}]
-     (if-let [token @session/authentication-token]
-       (handler (update request :headers assoc "Authorization" (str "Bearer " token)))
-       #_(let [headers (assoc headers "Authorization" (str "Bearer " token))]
-           (handler (merge request {:headers headers :method :post})))
-       (handler request)))))
 
 (defn global-eql-transform
   "As the default transform but also asking that any Pathom errors during load! are returned,
@@ -67,7 +55,6 @@
        {:remote (net/fulcro-http-remote
                   {:url                "/api"
                    :request-middleware (-> (net/wrap-csrf-token csrf-token)
-                                           (wrap-authentication-token)
                                            (net/wrap-fulcro-request))})
         :login  (net/fulcro-http-remote
                   {:url                "/login-mutation"
@@ -120,7 +107,7 @@
   @session/authentication-token
   (reset! session/authentication-token nil)
   (df/load! @SPA [:info.snomed.Concept/id 24700007] pc4.ui.root/SnomedConcept {:target [:root/selected-concept]})
-  (comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value "system" :password "password"})])
+  (comp/transact! @SPA [(pc4.users/perform-login {:system "cymru.nhs.uk" :value "system" :password "password"})])
   (comp/transact! @SPA [(pc4.users/logout)])
   (comp/transact! @SPA [(list 'pc4.users/logout {:message "Your session timed out."})])
   (df/load! @SPA [:t_user/id 2] pc4.users/User)
@@ -129,6 +116,6 @@
   (dr/change-route! @SPA ["login"])
   (dr/ch)
   @SPA
-  (pc4.users/login {:username "system" :password "password"})
+  (pc4.users/perform-login {:username "system" :password "password"})
   (pc4.users/refresh-token {:token "abc"})
   (reset! authentication-token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJjeW1ydS5uaHMudWsiLCJ2YWx1ZSI6InN5c3RlbSIsImV4cCI6MTYzNzM5ODY5NX0.lU8CRsyvF6EfJIDbsO_-R9BJCNvqpV4YTgb2jrx3fI4"))

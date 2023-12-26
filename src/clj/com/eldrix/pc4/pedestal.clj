@@ -136,27 +136,11 @@
    (fn [{:keys [request] :as ctx}]
      (let [params (:transit-params request)                 ;; [{(pc4.users/login {:username "system", :password "password"}) [...]]
            op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
-       (if-not (= 'pc4.users/login op-name)
+       (if-not (= 'pc4.users/perform-login op-name)
          (do
            (log/warn "invalid request at /login-mutation endpoint" params)
            (assoc ctx :response {:status 400 :body {:error "Only a single 'pc4.users/login' operation is permitted at this endpoint."}}))
          (execute-pathom ctx {:session (:session request)} params))))})
-
-(def attach-claims
-  "Interceptor to check request claims and add them to the context under the key
-  :authenticated-claims."
-  {:enter
-   (fn [ctx]
-     (let [auth-header (get-in ctx [:request :headers "authorization"])
-           _ (log/trace "request auth:" auth-header)
-           [_ token] (when auth-header (re-matches #"(?i)Bearer (.*)" auth-header))
-           login-config (:com.eldrix.pc4/login ctx)
-           claims (when (and token login-config) (users/check-user-token token login-config))]
-       (when (and token (not login-config))
-         (log/error "no valid login configuration available in context; looked for [:com.eldrix.pc4/login :jwt-secret-key]"))
-       (if claims
-         (assoc ctx :authenticated-claims claims)
-         (throw (ex-info "Unauthorized." {:status 401})))))})
 
 (def ping
   "A simple health check. Pass in a uuid to test the resolver backend.
@@ -166,29 +150,24 @@
             (let [{:keys [uuid] :as params} (get-in ctx [:request :transit-params])]
               (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}])))})
 
+
+(def authorization-manager
+  "Add an authorization manager into the context."
+  {:enter
+   (fn [ctx]
+     (log/trace "api request: " (get-in ctx [:request :transit-params]))
+     (let [user (get-in ctx [:request :session :authenticated-user])]
+       (assoc ctx :authorization-manager (rsdb.users/authorization-manager2 user))))})
+
 (def api
-  "Interceptor that pulls out EQL from the request and responds with
-  the result of its processing.
-  The pathom boundary interface provides resolution of EQL in context as per
-  https://pathom3.wsscode.com/docs/eql/#boundary-interface
-  This is injected into the environment by integrant - under the key
-  :pathom/boundary-interface.
-
-  Authenticated claims are merged into the pathom environment under the key
-  :authenticated-user.
-
-  An authorization manager is merged into the pathom environment under the key
-  :authorization-manager, if the user is valid *and* an rsdb user. In the future
-  an authorization manager may be injected even if not an rsdb user, because
-  authorization information may be sourced from another system of record."
   {:enter
    (fn [ctx]
      (log/trace "api request: " (get-in ctx [:request :transit-params]))
      (let [params (get-in ctx [:request :transit-params])
-           rsdb-conn (:com.eldrix.rsdb/conn ctx)
-           claims (:authenticated-claims ctx)
-           env (users/make-authenticated-env rsdb-conn claims)]
-       (execute-pathom ctx (assoc env :session (get-in ctx [:request :session])) params)))})
+           authorization-manager (:authorization-manager ctx)
+           env {:authorization-manager authorization-manager
+                :session               (get-in ctx [:request :session])}]
+       (execute-pathom ctx env params)))})
 
 (def get-user-photo
   "Return a user photograph.
@@ -224,7 +203,7 @@
      :post {:interceptors [ping]}}]
    ["/api"
     {:name :api
-     :post {:interceptors [attach-claims api]}}]
+     :post {:interceptors [authorization-manager api]}}]
    ["/users/:system/:value/photo"
     {:name :get-user-photo
      :get  {:interceptors [get-user-photo]}}]])

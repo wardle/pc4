@@ -156,7 +156,7 @@
   (let [username (or (comp/get-state this :username) "")
         password (or (comp/get-state this :password) "")
         disabled? (or loading? (str/blank? username) (str/blank? password))
-        do-login #(when-not disabled? (comp/transact! @SPA [(pc4.users/login {:system "cymru.nhs.uk" :value username :password password})]))]
+        do-login #(when-not disabled? (comp/transact! @SPA [(pc4.users/perform-login {:system "cymru.nhs.uk" :value username :password password})]))]
     (div :.flex.h-screen.items-center.justify-center.bg-gray-50.py-12.px-4.sm:px-6.lg:px-8
       (div :.max-w-md.w-full.space-y-8.m-auto
         (dom/form

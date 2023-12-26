@@ -5,11 +5,10 @@
     [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [pc4.session :as session]))
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]))
 
 
-(defmutation login
+(defmutation perform-login
   "Performs a login action. If the server responds successfully (200) but there
   is no token, then we have invalid credentials."
   [params]
@@ -26,11 +25,10 @@
              (m/with-target [:session/authenticated-user])))
   (ok-action [{:keys [result state app] :as env}]
              (swap! state assoc-in [:component/id :login :ui/loading?] false)
-             (let [token (get-in result [:body 'pc4.users/login :io.jwt/token])]
+             (let [token (get-in result [:body 'pc4.users/perform-login :io.jwt/token])]
                (js/console.log "response from remote: " result)
                (if token (swap! state update-in [:component/id :login] dissoc :ui/error)
                          (swap! state assoc-in [:component/id :login :ui/error] "Invalid username or password"))
-               (reset! session/authentication-token token)
                (dr/change-route! app ["home"])))
   (error-action [{:keys [state] :as env}]
                 (swap! state #(-> %
@@ -43,31 +41,9 @@
   (ok-action [{:keys [app state]}]
              (js/console.log "Performing logout action" message)
              (dr/change-route! app ["home"])
-             (reset! session/authentication-token nil)
              (swap! state (fn [s]
                             (cond-> (assoc s :session/authenticated-user {})
                                     message
                                     (assoc-in [:component/id :login :ui/error] message))))
              (.reload js/window.location true)))
 
-(defmutation refresh-token
-  [_]
-  (action [{:keys [state]}]
-          (js/console.log "Performing refresh token"))
-  (remote [env] true)
-  (ok-action [{:keys [result] :as env}]
-             (let [token (get-in result [:body 'pc4.users/refresh-token :io.jwt/token])]
-               (reset! session/authentication-token token))))
-
-(defmutation open-project [{:t_project/keys [id]}]
-  (action [{:keys [state]}]
-          (js/console.log "Opening project " id)
-          (swap! state assoc :ui/current-project [:t_project/id id])))
-
-(defmutation close-project [params]
-  (action [{:keys [state]}]
-          (swap! state dissoc :ui/current-project)))
-
-(defmutation close-patient [params]
-  (action [{:keys [state]}]
-          (swap! state dissoc :ui/current-patient)))
