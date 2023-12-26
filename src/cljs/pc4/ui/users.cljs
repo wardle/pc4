@@ -89,13 +89,12 @@
 
 (defsc UserHomePage
   [this {:>/keys      [projects]
-         :t_user/keys [id username title first_names last_name latest_news]
-         common-name  :urn:oid:2.5.4/commonName
-         initials     :urn:oid:2.5.4/initials
+         :t_user/keys [latest_news]
          :as          user}]
   {:ident         :t_user/id
-   :query         [:t_user/id :t_user/username :io.jwt/token :t_user/title :t_user/first_names :t_user/last_name
-                   :urn:oid:2.5.4/commonName :urn:oid:2.5.4/initials
+   :query         [:t_user/id :t_user/username :t_user/title
+                   :t_user/first_names :t_user/last_name
+                   :t_user/active_roles
                    {:>/projects (comp/get-query ListUserProjects)}
                    {:t_user/latest_news (comp/get-query NewsItem)}]
    :initial-state {:>/projects         []
