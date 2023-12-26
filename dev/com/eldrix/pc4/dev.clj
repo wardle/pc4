@@ -11,7 +11,6 @@
     [com.eldrix.pc4.rsdb.results :as results]
     [com.eldrix.pc4.system :as pc4]
     [com.eldrix.pc4.users :as users]
-    [dev.nu.morse :as morse]
     [integrant.core :as ig]
     [integrant.repl :as ig.repl]
     [integrant.repl.state]
@@ -42,13 +41,14 @@
   (portal/open {:launcher :intellij})
   (portal/open)
   (add-tap #'portal/submit)
-  (morse/launch-in-proc)
   (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
   (tap> (pc4/config :dev))
   (tap> integrant.repl.state/system)
 
   (ig.repl/go [:com.eldrix.pc4.pedestal/server])
   (pc4/halt! (system))
+  (ig.repl/halt)
+  (pc4/halt! integrant.repl.state/system)
   (reset-system)
   (def system integrant.repl.state/system)
   (def pathom (:pathom/boundary-interface integrant.repl.state/system))
