@@ -91,7 +91,7 @@
                     pc4.ui.admissions/PatientAdmissions
                     pc4.ui.ninflamm/PatientNeuroInflammatory
                     pc4.ui.results/PatientResults
-                    pc4.ui.projects/ProjectPage]})
+                    pc4.ui.projects/ProjectHome]})
 
 (def ui-main-router (comp/factory MainRouter))
 

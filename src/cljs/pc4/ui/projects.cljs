@@ -240,112 +240,220 @@
 
 (def ui-project-users (comp/factory ProjectUsers))
 
-(defsc ProjectHome
-  [this {:t_project/keys [id active? date_from date_to virtual long_description
-                          inclusion_criteria exclusion_criteria type pseudonymous
-                          count_registered_patients count_discharged_episodes]
-         :as             project}]
-  {:ident         :t_project/id
-   :query         [:t_project/id :t_project/active? :t_project/date_from :t_project/date_to :t_project/type
-                   :t_project/virtual :t_project/pseudonymous :t_project/long_description
-                   :t_project/inclusion_criteria :t_project/exclusion_criteria
-                   :t_project/count_registered_patients :t_project/count_discharged_episodes]
-   :initial-state {}
-   :route-segment ["home"]}
-  (if-not (seq project)
-    (div (ui/box-error-message :message "No project information available"))
-    (div :.bg-white.shadow.overflow-hidden.sm:rounded-lg
-      (div :.px-4.py-5.sm:px-6
-        (p :.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html long_description}}))
-      (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
-        (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
-          (div :.sm:col-span-1
-            (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
-            (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
-          (div :.sm:col-span-1
-            (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
-            (dom/dd :.mt-1.text-sm.text-gray-900
-                    (str/join " " (remove nil? [(when virtual "VIRTUAL")
-                                                (when pseudonymous "PSEUDONYMOUS")
-                                                (str/upper-case (if type (name type) ""))]))))
-          (div :.sm:col-span-1
-            (dt :.text-sm.font-medium.text-gray-500 "Date from")
-            (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
-          (div :.sm:col-span-1
-            (dt :.text-sm.font-medium.text-gray-500 "Date to")
-            (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
-          (div :.sm:col-span-1
-            (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
-            (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
-          (div :.sm:col-span-1
-            (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
-            (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
-          (when inclusion_criteria
-            (div :.sm:col-span-2
-              (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
-              (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
-          (when exclusion_criteria
-            (div :.sm:col-span-2
-              (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
-              (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
+#_(defsc ProjectHome
+    [this {:t_project/keys [id active? date_from date_to virtual long_description
+                            inclusion_criteria exclusion_criteria type pseudonymous
+                            count_registered_patients count_discharged_episodes]
+           :as             project}]
+    {:ident         :t_project/id
+     :query         [:t_project/id :t_project/active? :t_project/date_from :t_project/date_to :t_project/type
+                     :t_project/virtual :t_project/pseudonymous :t_project/long_description
+                     :t_project/inclusion_criteria :t_project/exclusion_criteria
+                     :t_project/count_registered_patients :t_project/count_discharged_episodes]
+     :initial-state {}
+     :route-segment ["home"]}
+    (if-not (seq project)
+      (div (ui/box-error-message :message "No project information available"))
+      (div :.bg-white.shadow.overflow-hidden.sm:rounded-lg
+        (div :.px-4.py-5.sm:px-6
+          (p :.mt-1.max-w-2xl.text-sm.text-gray-500 {:dangerouslySetInnerHTML {:__html long_description}}))
+        (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
+          (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
+            (div :.sm:col-span-1
+              (dom/dt :.text-sm.font-medium.text-gray-500 "Status")
+              (dom/dd :.mt-1.text-sm.text-gray-900 (if active? "Active" "Inactive")))
+            (div :.sm:col-span-1
+              (dom/dt :.text-sm.font-medium.text-gray-500 "Type")
+              (dom/dd :.mt-1.text-sm.text-gray-900
+                      (str/join " " (remove nil? [(when virtual "VIRTUAL")
+                                                  (when pseudonymous "PSEUDONYMOUS")
+                                                  (str/upper-case (if type (name type) ""))]))))
+            (div :.sm:col-span-1
+              (dt :.text-sm.font-medium.text-gray-500 "Date from")
+              (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_from)))
+            (div :.sm:col-span-1
+              (dt :.text-sm.font-medium.text-gray-500 "Date to")
+              (dd :.mt-1.text-sm.text-gray-900 (ui/format-date date_to)))
+            (div :.sm:col-span-1
+              (dt :.text-sm.font-medium.text-gray-500 "Registered patients")
+              (dd :.mt-1.text-sm.text-gray-900 count_registered_patients))
+            (div :.sm:col-span-1
+              (dt :.text-sm.font-medium.text-gray-500 "Discharged episodes")
+              (dd :.mt-1.text-sm.text-gray-900 count_discharged_episodes))
+            (when inclusion_criteria
+              (div :.sm:col-span-2
+                (dt :.text-sm.font-medium.text-gray-500 "Inclusion criteria")
+                (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html inclusion_criteria}})))
+            (when exclusion_criteria
+              (div :.sm:col-span-2
+                (dt :.text-sm.font-medium.text-gray-500 "Exclusion criteria")
+                (dd :.mt-1.text-sm.text-gray-900 {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))))))))
 
-(def ui-project-home (comp/factory ProjectHome))
+#_(def ui-project-home (comp/factory ProjectHome))
 
-(defsc ProjectPage
-  [this {:t_project/keys       [id title pseudonymous]
-         home                  :>/home
-         search                :>/search
-         register-pseudonymous :>/register-pseudonymous
-         register-nnn          :>/register-nnn
-         users                 :>/users}]
-  {:ident               :t_project/id
-   :route-segment       ["project" :t_project/id]
-   :query               [:t_project/id :t_project/title :t_project/pseudonymous
-                         {[:session/authenticated-user '_] [:t_user/first_names :t_user/last_name]}
-                         {:>/home (comp/get-query ProjectHome)}
-                         {:>/users (comp/get-query ProjectUsers)}
-                         {:>/register-pseudonymous (comp/get-query RegisterByPseudonym)}
-                         {:>/register-nnn (comp/get-query RegisterByNnn)}
-                         {:>/search (comp/get-query PatientSearchByPseudonym)}]
-   :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
-                          (when-let [project-id (some-> id (js/parseInt))]
-                            (println "entering project page: project-id" project-id)
-                            (dr/route-deferred [:t_project/id project-id]
-                                               (fn []
-                                                 (log/info "Loading project: " project-id)
-                                                 (df/load! app [:t_project/id project-id] ProjectPage
-                                                           {:target               [:ui/current-project]
-                                                            :post-mutation        `dr/target-ready
-                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
-   :allow-route-change? (constantly true)}
-  (let [selected-page (or (comp/get-state this :selected-page) :home)]
-    (comp/fragment
-      (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
-        (dom/ul :.flex
-          (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
-          (ui/flat-menu [{:title "Home" :id :home}
-                         (if pseudonymous {:title "Register" :id :register}
-                                          {:title "Register / Search" :id :register})
-                         (when pseudonymous {:title "Search" :id :search})
-                         {:title "Users" :id :users}]
-                        :selected-id selected-page
-                        :select-fn (fn [{:keys [id] :as item}]
-                                     (println "selected " item)
-                                     (comp/set-state! this {:selected-page id})))))
-      (case selected-page
-        :home (ui-project-home home)
-        :search (ui-patient-search-by-pseudonym search)
-        :register (if pseudonymous
-                    (ui-register-by-pseudonym register-pseudonymous)
-                    (ui-register-by-nnn register-nnn))
-        :users (ui-project-users users)
-        (ui/box-error-message :message "Page not found")))))
+#_(defsc ProjectPage
+    [this {:t_project/keys       [id title pseudonymous]
+           home                  :>/home
+           search                :>/search
+           register-pseudonymous :>/register-pseudonymous
+           register-nnn          :>/register-nnn
+           users                 :>/users}]
+    {:ident               :t_project/id
+     :route-segment       ["project" :t_project/id]
+     :query               [:t_project/id :t_project/title :t_project/pseudonymous
+                           {[:session/authenticated-user '_] [:t_user/first_names :t_user/last_name]}
+                           {:>/home (comp/get-query ProjectHome)}
+                           {:>/users (comp/get-query ProjectUsers)}
+                           {:>/register-pseudonymous (comp/get-query RegisterByPseudonym)}
+                           {:>/register-nnn (comp/get-query RegisterByNnn)}
+                           {:>/search (comp/get-query PatientSearchByPseudonym)}]
+     :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
+                            (when-let [project-id (some-> id (js/parseInt))]
+                              (println "entering project page: project-id" project-id)
+                              (dr/route-deferred [:t_project/id project-id]
+                                                 (fn []
+                                                   (log/info "Loading project: " project-id)
+                                                   (df/load! app [:t_project/id project-id] ProjectPage
+                                                             {:target               [:ui/current-project]
+                                                              :post-mutation        `dr/target-ready
+                                                              :post-mutation-params {:target [:t_project/id project-id]}})))))
+     :allow-route-change? (constantly true)}
+    (let [selected-page (or (comp/get-state this :selected-page) :home)]
+      (comp/fragment
+        (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.sm:m-2.border-gray-200
+          (dom/ul :.flex
+            (div :.font-bold.text-lg.min-w-min.mr-6.py-1 title)
+            (ui/flat-menu [{:title "Home" :id :home}
+                           (if pseudonymous {:title "Register" :id :register}
+                                            {:title "Register / Search" :id :register})
+                           (when pseudonymous {:title "Search" :id :search})
+                           {:title "Users" :id :users}]
+                          :selected-id selected-page
+                          :select-fn (fn [{:keys [id] :as item}]
+                                       (println "selected " item)
+                                       (comp/set-state! this {:selected-page id})))))
+        (case selected-page
+          :home (ui-project-home home)
+          :search (ui-patient-search-by-pseudonym search)
+          :register (if pseudonymous
+                      (ui-register-by-pseudonym register-pseudonymous)
+                      (ui-register-by-nnn register-nnn))
+          :users (ui-project-users users)
+          (ui/box-error-message :message "Page not found")))))
 
 
-(def ui-project-page (comp/factory ProjectPage))
+#_(def ui-project-page (comp/factory ProjectPage))
 
 
 (defsc AboutPage [this params]
   {:route-segment ["about"]}
   (dom/div (dom/h3 "About")))
 
+
+(defsc Menu
+  [this {:keys [project selected-id sub-menu]}]
+  (let [{:t_project/keys [id title pseudonymous]} project
+        content (fn [s] (dom/span :.truncate s))]
+    (comp/fragment
+      (div :.px-2.pt-1.pb-8.font-bold title)
+      (ui/ui-vertical-navigation
+        {:selected-id selected-id
+         :items       [{:id      :home
+                        :content (content "Home")}
+                       (when pseudonymous
+                         {:id      :find-pseudonymous-patient
+                          :content (content "Find patient")})
+                       (if pseudonymous
+                         {:id      :register-pseudonymous-patient
+                          :content (content "Register patient")}
+                         {:id      :register-patient
+                          :content (content "Register patient")})
+                       {:id      :team
+                        :content (content "Team")}
+                       {:id      :reports
+                        :content (content "Downloads")}]
+         :sub-menu    sub-menu}))))
+
+(def ui-menu (comp/factory Menu))
+
+(defsc Layout
+  [this {:keys [props menu content] :or {props {}}}]
+  (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2 props
+    (div :.col-span-1.p-2.pt-4 menu)
+    (div :.col-span-1.md:col-span-5.pt-2 content)))
+
+(def ui-layout (comp/factory Layout))
+
+
+(defsc AdministrativeUser [this {:t_user/keys [full_name]}]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/full_name]}
+  (when full_name full_name))
+
+(def ui-administrative-user (comp/factory AdministrativeUser))
+
+(defsc ParentProject [this {:t_project/keys [id title]}]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/title]}
+  (when id
+    (dom/a {:onClick #(dr/change-route! this ["projects" id "home"])} title)))
+
+(def ui-parent-project (comp/factory ParentProject))
+
+(defsc ProjectHome
+  [this {:t_project/keys [title type pseudonymous long_description date_from date_to administrator_user
+                          parent_project count_registered_patients
+                          count_discharged_episodes count_pending_referrals
+                          address1 address2 address3 address4 postcode
+                          inclusion_criteria exclusion_criteria] :as project}]
+  {:ident         :t_project/id
+   :query         [:t_project/id :t_project/title :t_project/date_from :t_project/date_to
+                   :t_project/count_pending_referrals :t_project/count_registered_patients :t_project/count_discharged_episodes
+                   :t_project/type
+                   :t_project/pseudonymous :t_project/long_description :t_project/inclusion_criteria :t_project/exclusion_criteria
+                   :t_project/address1 :t_project/address2 :t_project/address3 :t_project/address4 :t_project/postcode
+                   {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+                   {:t_project/administrator_user (comp/get-query AdministrativeUser)}
+                   {:t_project/parent_project (comp/get-query ParentProject)}]
+   :route-segment ["projects" :t_project/id "home"]
+   :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
+                    (log/debug "on-enter project home" route-params)
+                    (when-let [project-id (some-> id (js/parseInt))]
+                      (dr/route-deferred [:t_project/id project-id]
+                                         (fn []
+                                           (df/load! app [:t_project/id project-id] ProjectHome
+                                                     {:target               [:ui/current-project]
+                                                      :post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :pre-merge (fn [{:keys [current-normalized data-tree]}]
+                (tap> {:pre-merge {:current-normalized current-normalized
+                                   :data-tree data-tree
+                                   :nilified (com.fulcrologic.fulcro.algorithms.merge/nilify-not-found data-tree)}})
+                (merge current-normalized data-tree))}
+  (tap> project)
+  (ui-layout
+    {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
+     :menu  (ui-menu {:project project :selected-id :home})
+     :content
+     (ui/ui-two-column-card
+       {:title       title
+        :title-attrs {:classes (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}
+        :subtitle    (when long_description (div {:dangerouslySetInnerHTML {:__html long_description}}))
+        :items        [{:title "Date from" :content (ui/format-date date_from)}
+                       {:title "Date to" :content (ui/format-date date_to)}
+                       {:title "Administrator" :content (if (seq administrator_user) (ui-administrative-user administrator_user) "Not known")}
+                       {:title "Registered patients" :content count_registered_patients}
+                       {:title "Pending referrals" :content count_pending_referrals}
+                       {:title "Discharged episodes" :content count_discharged_episodes}
+                       {:title "Type" :content (str/join " / " (remove nil? [(when type (name type))
+                                                                             (when pseudonymous "PSEUDONYMOUS")]))}
+                       {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
+                       {:title "Parent" :content (when (seq parent_project) (ui-parent-project parent_project))}]
+        :long-items  [{:title   "Address"
+                       :content (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
+                      {:title   "Inclusion criteria"
+                       :content (when inclusion_criteria (div {:dangerouslySetInnerHTML {:__html inclusion_criteria}}))}
+                      {:title   "Exclusion criteria"
+                       :content (when exclusion_criteria (div {:dangerouslySetInnerHTML {:__html exclusion_criteria}}))}]})}))
+
+(def ui-project-home (comp/factory ProjectHome))
