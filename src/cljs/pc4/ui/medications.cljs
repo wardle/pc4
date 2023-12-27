@@ -314,24 +314,22 @@
                    patient
                    {:selected-id :medications
                     :sub-menu    {:items [{:id      :add-medication
-                                           :content (ui/ui-menu-button {:onClick do-add} "Add medication")}]}})
-
-         :content
-         (comp/fragment
-           (when (:t_medication/id editing-medication)
-             (ui-edit-medication editing-medication))
-           (ui/ui-table {}
-             (ui/ui-table-head {}
-               (ui/ui-table-row {}
-                 (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" "Reason for stopping" ""])))
-             (ui/ui-table-body {}
-               (->> medications
-                    (remove #(#{:RECORDED_IN_ERROR} (:t_medication/reason_for_stopping %)))
-                    (sort-by (juxt medication-by-date-from
-                                   #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+                                           :content (ui/ui-menu-button {:onClick do-add} "Add medication")}]}})}
+        (comp/fragment
+          (when (:t_medication/id editing-medication)
+            (ui-edit-medication editing-medication))
+          (ui/ui-table {}
+            (ui/ui-table-head {}
+              (ui/ui-table-row {}
+                (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" "Reason for stopping" ""])))
+            (ui/ui-table-body {}
+              (->> medications
+                   (remove #(#{:RECORDED_IN_ERROR} (:t_medication/reason_for_stopping %)))
+                   (sort-by (juxt medication-by-date-from
+                                  #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
 
 
-                    (map #(ui-medication-list-item % {:onClick (fn [] (do-edit %))
-                                                      :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))}))))
+                   (map #(ui-medication-list-item % {:onClick (fn [] (do-edit %))
+                                                     :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))))
 
 (def ui-patient-medications (comp/factory PatientMedications))

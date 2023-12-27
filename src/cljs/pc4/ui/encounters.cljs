@@ -70,15 +70,14 @@
                  patient
                  {:selected-id :encounters
                   :sub-menu    {:items [{:id      ::add
-                                         :content (ui/ui-menu-button {:onClick #(println "Add")} "Add encounter")}]}})
+                                         :content (ui/ui-menu-button {:onClick #(println "Add")} "Add encounter")}]}})}
 
-       :content
-       (ui/ui-table {}
-         (ui/ui-table-head {}
-           (ui/ui-table-row {}
-             (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
-         (ui/ui-table-body {}
-           (for [encounter encounters]
-             (ui-encounter-list-item encounter
-                                     {:onClick #(println "edit" encounter)
-                                      :classes ["cursor-pointer" "hover:bg-gray-200"]}))))})))
+      (ui/ui-table {}
+        (ui/ui-table-head {}
+          (ui/ui-table-row {}
+            (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
+        (ui/ui-table-body {}
+          (for [encounter encounters]
+            (ui-encounter-list-item encounter
+                                    {:onClick #(println "edit" encounter)
+                                     :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))

@@ -329,23 +329,21 @@
                      {:selected-id :relapses
                       :sub-menu
                       {:items [{:id      :add-ms-event
-                                :content (when show-ms? (ui/ui-menu-button {:onClick do-add} "Add disease event"))}]}})
+                                :content (when show-ms? (ui/ui-menu-button {:onClick do-add} "Add disease event"))}]}})}
+          (comp/fragment
+            (tap> patient)
+            (when (:t_ms_event/id editing-ms-event)
+              (ui-edit-ms-event editing-ms-event))
+            (ui/ui-panel {:classes ["mb-4"]}
+              (ui/ui-simple-form {}
+                (ui/ui-simple-form-item {:label "Neuroinflammatory diagnostic category"}
+                  (ui/ui-select-popup-button
+                    {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
+                     :default-value not-ms-diagnosis         ;; we take care not to call onChange unless user chooses to do so here
+                     :options       all-ms-diagnoses
+                     :id-key        :t_ms_diagnosis/id
+                     :display-key   :t_ms_diagnosis/name
+                     :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])}))))
 
-           :content
-           (comp/fragment
-             (tap> patient)
-             (when (:t_ms_event/id editing-ms-event)
-               (ui-edit-ms-event editing-ms-event))
-             (ui/ui-panel {:classes ["mb-4"]}
-               (ui/ui-simple-form {}
-                 (ui/ui-simple-form-item {:label "Neuroinflammatory diagnostic category"}
-                   (ui/ui-select-popup-button
-                     {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
-                      :default-value not-ms-diagnosis         ;; we take care not to call onChange unless user chooses to do so here
-                      :options       all-ms-diagnoses
-                      :id-key        :t_ms_diagnosis/id
-                      :display-key   :t_ms_diagnosis/name
-                      :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])}))))
-
-             (when show-ms?                                 ;; TODO: allow creation
-               (ui-summary-multiple-sclerosis summary_multiple_sclerosis)))})))))
+            (when show-ms?                                 ;; TODO: allow creation
+              (ui-summary-multiple-sclerosis summary_multiple_sclerosis))))))))

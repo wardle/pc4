@@ -116,12 +116,13 @@
 
 (def ui-pseudonymous-menu (comp/computed-factory PseudonymousMenu))
 
-(defsc Layout [this {:keys [banner menu content]}]
+(defsc Layout [this {:keys [banner menu]}]
   (comp/fragment
     banner
     (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
       (div :.col-span-1.p-2 menu)
-      (div :.col-span-1.md:col-span-5.pt-2 content))))
+      (div :.col-span-1.md:col-span-5.pt-2
+        (comp/children this)))))
 
 (def ui-layout (comp/factory Layout))
 
@@ -148,21 +149,21 @@
   (when (and id patient_identifier)
     (ui-layout
       {:banner  (ui-patient-banner banner)
-       :menu    (ui-pseudonymous-menu patient {:selected-id :home})
-       :content (ui/ui-two-column-card
-                  {:title "Demographics"
-                   :items [{:title "First names" :content first_names}
-                           {:title "Last name" :content last_name}
-                           {:title "Title" :content title}
-                           {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                           {:title "Date of birth" :content (ui/format-date date_birth)}
-                           (if date_death {:title "Date of death" :content (ui/format-date date_death)}
-                                          {:title "Current age" :content current_age})
-                           {:title "Address1" :content (:t_address/address1 address)}
-                           {:title "Address2" :content (:t_address/address2 address)}
-                           {:title "Address3" :content (:t_address/address3 address)}
-                           {:title "Address4" :content (:t_address/address4 address)}
-                           {:title "Postal code" :content (:t_address/postcode address)}]})})))
+       :menu    (ui-pseudonymous-menu patient {:selected-id :home})}
+      (ui/ui-two-column-card
+        {:title "Demographics"
+         :items [{:title "First names" :content first_names}
+                 {:title "Last name" :content last_name}
+                 {:title "Title" :content title}
+                 {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                 {:title "Date of birth" :content (ui/format-date date_birth)}
+                 (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                {:title "Current age" :content current_age})
+                 {:title "Address1" :content (:t_address/address1 address)}
+                 {:title "Address2" :content (:t_address/address2 address)}
+                 {:title "Address3" :content (:t_address/address3 address)}
+                 {:title "Address4" :content (:t_address/address4 address)}
+                 {:title "Postal code" :content (:t_address/postcode address)}]}))))
 
 
 

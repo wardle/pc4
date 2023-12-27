@@ -52,16 +52,14 @@
        :menu   (patients/ui-pseudonymous-menu
                  patient
                  {:selected-id :results
-                  :sub-menu    {:items []}})
-
-       :content
-       (ui/ui-table {}
-         (ui/ui-table-head {}
-           (ui/ui-table-row {}
-             (for [heading ["Date/time" "Investigation" "Result"]]
-               (ui/ui-table-heading {:react-key heading} heading))))
-         (ui/ui-table-body {}
-           (for [result (sort-by #(some-> :t_result/date .valueOf) results)]
-             (ui-result-list-item result
-                                     {:onClick #(println "edit" result)
-                                      :classes ["cursor-pointer" "hover:bg-gray-200"]}))))})))
+                  :sub-menu    {:items []}})}
+      (ui/ui-table {}
+        (ui/ui-table-head {}
+          (ui/ui-table-row {}
+            (for [heading ["Date/time" "Investigation" "Result"]]
+              (ui/ui-table-heading {:react-key heading} heading))))
+        (ui/ui-table-body {}
+          (for [result (sort-by #(some-> :t_result/date .valueOf) results)]
+            (ui-result-list-item result
+                                    {:onClick #(println "edit" result)
+                                     :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))

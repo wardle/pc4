@@ -142,21 +142,19 @@
                    patient
                    {:selected-id :admissions
                     :sub-menu    {:items [{:id      :add-admission
-                                           :content (ui/ui-menu-button {:onClick do-add} "Add admission")}]}})
-
-         :content
-         (comp/fragment
-           (when (:t_episode/id editing-admission)
-             (ui-edit-admission editing-admission))
-           (dom/div
-             (when (seq episodes)
-               (ui/ui-table {}
-                 (ui/ui-table-head {}
-                   (ui/ui-table-row {}
-                     (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
-                 (ui/ui-table-body {}
-                   (for [episode (reverse (sort-by #(some-> % :t_episode/date_registration .valueOf) episodes))]
-                     (ui-episode-list-item episode
-                                           {:onClick (fn [] (do-edit episode))
-                                            :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))}))))
+                                           :content (ui/ui-menu-button {:onClick do-add} "Add admission")}]}})}
+        (comp/fragment
+          (when (:t_episode/id editing-admission)
+            (ui-edit-admission editing-admission))
+          (dom/div
+            (when (seq episodes)
+              (ui/ui-table {}
+                (ui/ui-table-head {}
+                  (ui/ui-table-row {}
+                    (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
+                (ui/ui-table-body {}
+                  (for [episode (reverse (sort-by #(some-> % :t_episode/date_registration .valueOf) episodes))]
+                    (ui-episode-list-item episode
+                                          {:onClick (fn [] (do-edit episode))
+                                           :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))))
 

@@ -176,21 +176,19 @@
                    patient
                    {:selected-id :diagnoses
                     :sub-menu    {:items [{:id      :add-diagnosis
-                                           :content (ui/ui-menu-button {:onClick do-add-diagnosis} "Add diagnosis")}]}})
-
-         :content
-         (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
-               inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
-           (comp/fragment
-             (when (:t_diagnosis/id editing-diagnosis)
-               (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
-             (diagnoses-table {:title     "Active diagnoses"
-                               :diagnoses active-diagnoses
-                               :onClick   do-edit-diagnosis})
-             (when (seq inactive-diagnoses)
-               (diagnoses-table {:title     "Inactive diagnoses"
-                                 :diagnoses inactive-diagnoses
-                                 :onClick   do-edit-diagnosis}))))}))))
+                                           :content (ui/ui-menu-button {:onClick do-add-diagnosis} "Add diagnosis")}]}})}
+        (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
+              inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
+          (comp/fragment
+            (when (:t_diagnosis/id editing-diagnosis)
+              (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
+            (diagnoses-table {:title     "Active diagnoses"
+                              :diagnoses active-diagnoses
+                              :onClick   do-edit-diagnosis})
+            (when (seq inactive-diagnoses)
+              (diagnoses-table {:title     "Inactive diagnoses"
+                                :diagnoses inactive-diagnoses
+                                :onClick   do-edit-diagnosis}))))))))
 
 
 
