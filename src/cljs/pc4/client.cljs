@@ -49,8 +49,7 @@
   (let [csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML")]
     (app/fulcro-app
       {;:global-eql-transform global-eql-transform
-       :render-middleware
-       (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
+       ;:render-middleware (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
        :remotes
        {:remote (net/fulcro-http-remote
                   {:url                "/api"
