@@ -234,6 +234,7 @@
    ::http/enable-csrf     {}
    ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
                                            (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+                           :cookie-name "pc4-session"
                            :cookie-attrs {:same-site :strict}}})
 
 (s/def ::env (s/keys :req [:pathom/boundary-interface
