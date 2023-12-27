@@ -2,6 +2,7 @@
   (:require
     [clojure.string :as str]
     [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.data-fetch :as df]
     [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
@@ -196,4 +197,48 @@
 (def ui-login (comp/factory Login))
 
 
+(defn professional-registration
+  [{:t_user/keys [professional_registration professional_registration_url]
+    :t_professional_registration_authority/keys [abbreviation]}]
+  (dom/a {:href professional_registration_url :target "_new"
+          :classes (when professional_registration_url ["cursor-pointer" "underline" "text-blue-600" "hover:text-blue-800"])}
+    (when-not (str/blank? professional_registration)
+      (str abbreviation " " professional_registration))))
 
+(defsc UserProfile
+  [this {:t_user/keys [id username title first_names last_name email full_name postnomial
+                       job_title custom_job_title send_email_for_messages professional_registration] :as user
+         :t_professional_registration_authority/keys [abbreviation name]}]
+  {:ident         :t_user/id
+   :query         [:t_user/id :t_user/username :t_user/title :t_user/first_names :t_user/last_name :t_user/full_name
+                   :t_user/email :t_user/job_title :t_user/custom_job_title
+                   :t_user/professional_registration
+                   :t_user/professional_registration_url
+                   :t_user/send_email_for_messages
+                   :t_user/count_incomplete_messages
+                   :t_user/count_unread_messages
+                   :t_user/postnomial
+                   :t_professional_registration_authority/abbreviation
+                   :t_professional_registration_authority/name]
+   :route-segment ["users" :t_user/id "profile"]
+   :will-enter    (fn [app {:t_user/keys [id] :as route-params}]
+                    (when-let [user-id (some-> id (js/parseInt))]
+                      (dr/route-deferred [:t_user/id user-id]
+                                         (fn []
+                                           (df/load! app [:t_user/id user-id] UserProfile
+                                                     {:post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_user/id user-id]}})))))}
+  (tap> user)
+  (ui/ui-layout
+    {}
+    (ui/ui-two-column-card
+      {:title      full_name
+       :subtitle   (or custom_job_title job_title)
+       :items      [{:title "First names" :content first_names}
+                    {:title "Last name" :content last_name}
+                    {:title "Email" :content email}
+                    {:title "Send email for messages" :content (if send_email_for_messages "Yes" "No")}
+                    {:title "Professional registration"
+                     :content (professional-registration user)}]
+
+       :long-items []})))

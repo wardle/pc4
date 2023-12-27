@@ -64,6 +64,11 @@
       (dom/title {} text))
     (path {:stroke "currentColor" :strokeLinecap "round" :strokeLinejoin "round" :strokeWidth "2" :d "M10 11V6m0 8h.01M19 10a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"})))
 
+(defn avatar-14 []
+  (dom/span :.inline-block.h-14.w-14.overflow-hidden.rounded-full.bg-gray-100
+    (dom/svg :.h-full.w-full.text-gray-300 {:fill "currentColor" :viewBox "0 0 24 24"}
+      (dom/path {:d "M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"}))))
+
 (defn box-error-message [& {:keys [title message]}]
   (when message
     (dom/div :.bg-red-100.border.border-red-400.text-red-700.px-4.py-3.rounded.relative.shadow-md {:role "alert"}
@@ -431,6 +436,16 @@
 (def ui-simple-form (comp/factory UISimpleForm))
 
 
+(defsc Layout
+  [this {:keys [props menu] :or {props {}}}]
+  (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2 props
+    (div :.col-span-1.p-2.pt-4 menu)
+    (div :.col-span-1.md:col-span-5.pt-2
+      (comp/children this))))
+
+(def ui-layout (comp/factory Layout))
+
+
 (defsc UITwoColumnCard [this {:keys [title title-attrs subtitle items long-items]}]
   (div :.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
     (div :.px-4.py-5.sm:px-6 title-attrs
@@ -474,6 +489,27 @@
                 content))))))))
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
+
+(defsc GridList [this _]
+  (dom/ul :.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3
+    {:role "list"}
+    (comp/children this)))
+
+(def ui-grid-list (comp/factory GridList))
+
+(defsc UIGridListItem [this {:keys [title subtitle image]}]
+  (dom/li :.col-span-1.divide-y.divide-gray-200.border.rounded-lg.bg-white.shadow-lg
+    (div :.flex.w-full.items-center.justify-between.space-x-6.p-6
+      (div :.flex-1.truncate
+        (div :.flex.items-center.space-x-3
+          (dom/h3 :.truncate.text-sm.font-medium.text-gray-900 title))
+        (dom/p :.mt-1.truncate.text-sm.text-gray-500 subtitle))
+      (when image (cond
+                    (:url image) (dom/img :.max-h-16.max-w-16.flex-shrink-0.rounded-full.bg-gray-300 {:src (:url image) :alt title})
+                    (:content image) (:content image))))
+    (comp/children this)))
+
+(def ui-grid-list-item (comp/factory UIGridListItem))
 
 (defsc MenuButton [this {:keys [disabled? role onClick]}]
   (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
