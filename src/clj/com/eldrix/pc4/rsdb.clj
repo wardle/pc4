@@ -1161,8 +1161,8 @@
   - we are already fetching user once, so just include properties and pass along"
   [{conn    :com.eldrix.rsdb/conn
     config  :com.eldrix.rsdb/config
-    manager :authorization-manager
-    user    :authenticated-user}
+    manager :session/authorization-manager
+    user    :session/authenticated-user :as env}
    {:keys [project-id nhs-number gender date-birth] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient-by-pseudonym
    ::pco/output  [:t_patient/patient_identifier
@@ -1172,7 +1172,7 @@
   (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {}))
     (if-let [global-salt (:legacy-global-pseudonym-salt config)]
-      (let [params' (assoc params :user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch
+      (let [params' (assoc params :user-id (:t_user/id user)
                                   :salt global-salt
                                   :nhs-number (nnn/normalise nhs-number)
                                   :date-birth (cond
