@@ -231,7 +231,6 @@
    ::http/allowed-origins (if (= "*" allowed-origins) (constantly true) allowed-origins)
    ::http/secure-headers  {:content-security-policy-settings {:object-src "none"}}
    ::http/host            (or host "127.0.0.1")
-   ::http/enable-csrf     {}
    ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
                                            (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
                            :cookie-name "pc4-session"
@@ -261,6 +260,7 @@
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers transit-read-handlers}]))
               (http/transit-body-interceptor
                 ::transit-json-body "application/transit+json;charset=UTF-8" :json {:handlers transit-write-handlers})
+              (csrf/anti-forgery) ;; we manually insert interceptor here, as otherwise default-interceptors includes a non-customised body params
               service-error-handler)
       (http/create-server)
       (http/start)))
