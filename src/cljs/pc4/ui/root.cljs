@@ -84,7 +84,7 @@
 
 (defrouter MainRouter [this props]
   {:router-targets [HomePage
-                    pc4.ui.patients/NewPatientDemographics
+                    pc4.ui.patients/PatientDemographics
                     pc4.ui.diagnoses/PatientDiagnoses
                     pc4.ui.medications/PatientMedications
                     pc4.ui.encounters/PatientEncounters

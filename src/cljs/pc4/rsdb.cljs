@@ -24,7 +24,7 @@
 (defmutation register-patient
   [params]
   (remote [env]
-          (m/returning env 'pc4.ui.patients/NewPatientDemographics))
+          (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
     [{:keys [app state ref] :as env}]
     (tap> {:mutation-env env})                              ;; ref = ident of the component
@@ -39,7 +39,7 @@
   (remote
     [env]
     (log/debug "Registering pseudonymous patient:" env)
-    (m/returning env 'pc4.ui.patients/NewPatientDemographics))
+    (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
     [{:keys [app state ref] :as env}]
     (tap> {:mutation-env env})                              ;; ref = ident of the component

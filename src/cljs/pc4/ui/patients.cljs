@@ -126,7 +126,7 @@
 
 (def ui-layout (comp/factory Layout))
 
-(defsc NewPatientDemographics
+(defsc PatientDemographics
   [this {:t_patient/keys [id patient_identifier status title first_names last_name nhs_number date_birth date_death current_age address] :as patient :>/keys [banner]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id
@@ -139,10 +139,10 @@
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                     (log/debug "on-enter patient demographics" route-params)
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                      (println "entering patient demographics page; patient-identifier:" patient-identifier " : " NewPatientDemographics)
+                      (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientDemographics)
                       (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                          (fn []
-                                           (df/load! app [:t_patient/patient_identifier patient-identifier] NewPatientDemographics
+                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDemographics
                                                      {:target               [:ui/current-patient]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
