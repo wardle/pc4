@@ -176,30 +176,8 @@
 
 
 
-(defsc NeuroinflammatoryDiagnosis
-  [this {:t_ms_diagnosis/keys [id name]}]
-  {:ident :t_ms_diagnosis/id
-   :query [:t_ms_diagnosis/id :t_ms_diagnosis/name]})
 
-(defsc ChooseNeuroinflammatoryDiagnosis
-  [this {sms-id           :t_summary_multiple_sclerosis/id
-         patient          :t_summary_multiple_sclerosis/patient
-         ms-diagnosis     :t_summary_multiple_sclerosis/ms_diagnosis
-         all-ms-diagnoses :com.eldrix.rsdb/all-ms-diagnoses
-         :as              params}]
-  {:ident :t_summary_multiple_sclerosis/id
-   :query [:t_summary_multiple_sclerosis/id
-           {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
-           {:t_summary_multiple_sclerosis/ms_diagnosis (comp/get-query NeuroinflammatoryDiagnosis)}
-           {:com.eldrix.rsdb/all-ms-diagnoses (comp/get-query NeuroinflammatoryDiagnosis)}]}
-  (println params)
-  (ui/ui-select-popup-button {:value       ms-diagnosis
-                              :options     all-ms-diagnoses
-                              :id-key      :t_ms_diagnosis/id
-                              :display-key :t_ms_diagnosis/name
-                              :onChange    #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (merge patient %))])}))
 
-(def ui-choose-neuroinflammatory-diagnosis (comp/factory ChooseNeuroinflammatoryDiagnosis))
 
 (defsc InspectEditLsoa
   [this {:t_patient/keys [patient_identifier lsoa11]}]
