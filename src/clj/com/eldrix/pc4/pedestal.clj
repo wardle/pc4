@@ -44,7 +44,7 @@
     [ctx ex]
     [{:interceptor ::login}]
     (assoc ctx :response {:status 400 :body (ex-message ex)})
-    [{:interceptor ::attach-claims}]
+    [{:interceptor ::add-authorization-manager}]
     (assoc ctx :response {:status 401 :body "Unauthenticated."})
     [{:interceptor :io.pedestal.http.impl.servlet-interceptor/ring-response}]
     (assoc ctx :response {:status 400 :body {:error (Throwable->map ex)}})
@@ -149,8 +149,9 @@
    :enter
    (fn [ctx]
      (log/trace "api request: " (get-in ctx [:request :transit-params]))
-     (let [user (get-in ctx [:request :session :authenticated-user])]
-       (assoc ctx :authorization-manager (rsdb.users/authorization-manager2 user))))})
+     (if-let [user (get-in ctx [:request :session :authenticated-user])]
+       (assoc ctx :authorization-manager (rsdb.users/authorization-manager2 user))
+       (throw (ex-info "Unauthenticated" {}))))})
 
 (def api
   {:name ::api
@@ -265,8 +266,7 @@
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers transit-read-handlers}]))
-              (http/transit-body-interceptor
-                ::transit-json-body "application/transit+json;charset=UTF-8" :json {:handlers transit-write-handlers})
+              (http/transit-body-interceptor ::transit-json-body "application/transit+json;charset=UTF-8" :json {:handlers transit-write-handlers})
               (csrf/anti-forgery)                           ;; we manually insert interceptor here, as otherwise default-interceptors includes a non-customised body params
               service-error-handler)
       (http/create-server)
