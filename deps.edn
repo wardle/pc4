@@ -47,10 +47,6 @@
   expound/expound                      {:mvn/version "0.9.0"}
   integrant/integrant                  {:mvn/version "0.8.1"}
   lambdaisland/uri                     {:mvn/version "1.16.134"}
-  metosin/reitit-core                  {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-http                  {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-interceptors          {:mvn/version "0.7.0-alpha7"}
-  metosin/reitit-pedestal              {:mvn/version "0.7.0-alpha7"}
   migratus/migratus                    {:mvn/version "1.5.4"}
   org.jsoup/jsoup                      {:mvn/version "1.17.1"}
   org.postgresql/postgresql            {:mvn/version "42.7.1"}

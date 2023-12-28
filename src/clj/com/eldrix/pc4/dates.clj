@@ -1,8 +1,7 @@
 (ns com.eldrix.pc4.dates
-  (:require [clojure.string :as str]
-            [cognitect.transit :as transit])
-  (:import (java.time LocalDate LocalDateTime ZonedDateTime Period)
-           (java.time.format DateTimeFormatter DateTimeParseException)
+  (:require [clojure.string :as str])
+  (:import (java.time LocalDate Period)
+           (java.time.format  DateTimeParseException)
            (java.time.temporal ChronoUnit TemporalAccessor)))
 
 
@@ -93,40 +92,6 @@
           :else
           (str minutes "min"))))))
 
-(def transit-writers
-  {LocalDateTime
-   (transit/write-handler (constantly "LocalDateTime")
-                          (fn [^LocalDateTime date]
-                            (.format date DateTimeFormatter/ISO_LOCAL_DATE_TIME)))
-
-   ZonedDateTime
-   (transit/write-handler (constantly "ZonedDateTime")
-                          (fn [^ZonedDateTime date]
-                            (.format date DateTimeFormatter/ISO_ZONED_DATE_TIME)))
-
-   LocalDate
-   (transit/write-handler (constantly "LocalDate")
-                          (fn [^LocalDate date]
-                            (.format date DateTimeFormatter/ISO_LOCAL_DATE)))})
-
-(def transit-readers
-  {"LocalDateTime" (transit/read-handler (fn [^String s]
-                                           (LocalDateTime/parse s)))
-   "ZonedDateTime" (transit/read-handler (fn [^String s]
-                                           (ZonedDateTime/parse s)))
-   "LocalDate"     (transit/read-handler (fn [^String s]
-                                           (LocalDate/parse s)))})
-
-(comment
-
-  (def out (java.io.ByteArrayOutputStream. 2000))
-  (def w (transit/writer out :json {:handlers transit-writers}))
-  (transit/write w (LocalDate/now))
-  (.toString out)
-  (def in (java.io.ByteArrayInputStream. (.toByteArray out)))
-  (def r (transit/reader in :json {:handlers transit-readers}))
-  (def x (transit/read r))
-  (print x))
 
 
 

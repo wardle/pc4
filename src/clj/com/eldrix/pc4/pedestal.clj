@@ -10,18 +10,18 @@
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [io.pedestal.http :as http]
+            [io.pedestal.http.body-params :as body-params]
             [io.pedestal.http.csrf :as csrf]
+            [io.pedestal.http.route :as route]
             [io.pedestal.interceptor.error :as intc.error]
             [io.pedestal.interceptor :as intc]
-            [io.pedestal.http.body-params :as body-params]
             [integrant.core :as ig]
-            [reitit.http]
-            [reitit.pedestal]
             [ring.middleware.session.cookie]
             [rum.core :as rum])
   (:import (clojure.lang ExceptionInfo)
            (com.fulcrologic.fulcro.algorithms.tempid TempId)
-           (java.time LocalDate)))
+           (java.time LocalDate LocalDateTime ZonedDateTime)
+           (java.time.format DateTimeFormatter)))
 
 
 (set! *warn-on-reflection* true)
@@ -97,7 +97,8 @@
 
 (def landing
   "Interceptor to return the pc4 front-end application."
-  {:enter
+  {:name ::landing
+   :enter
    (fn [ctx]
      (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :main :output-name])
            csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
@@ -111,28 +112,18 @@
                                   (rum/render-html
                                     (landing-page app {:csrf-token csrf-token})))}))))})
 
-(def login
-  "The login endpoint enforces a specific pathom call rather than permitting
-  arbitrary requests. "
-  {:enter
-   (fn [ctx]
-     (let [{:keys [system value password query] :as params} (get-in ctx [:request :transit-params])]
-       (log/info "login endpoint; parameters" (dissoc params :password))
-       (execute-pathom ctx nil [{(list 'pc4.users/login
-                                       {:system system :value value :password password})
-                                 query}])))})
-
 (s/def ::operation symbol?)
 (s/def ::params map?)
 (s/def ::login-op (s/cat :operation ::operation :params ::params))
 (s/def ::login-mutation (s/map-of ::login-op vector?))
 (s/def ::login (s/coll-of ::login-mutation :kind vector? :count 1))
 
-(def login-mutation
+(def login
   "A login endpoint designed for fulcro clients in which login is simply a mutation. We need to take special
   measures to prevent arbitrary pathom queries at this endpoint. The alternative here would be to use a different pathom
    environment that contains only a single resolver, login."
-  {:enter
+  {:name ::login
+   :enter
    (fn [{:keys [request] :as ctx}]
      (let [params (:transit-params request)                 ;; [{(pc4.users/login {:username "system", :password "password"}) [...]]
            op-name (when (s/valid? ::login params) (-> params (get 0) keys first first))]
@@ -146,34 +137,39 @@
   "A simple health check. Pass in a uuid to test the resolver backend.
   This means the health check can potentially be extended to include additional
   resolution."
-  {:enter (fn [ctx]
+  {:name  ::ping
+   :enter (fn [ctx]
             (let [{:keys [uuid] :as params} (get-in ctx [:request :transit-params])]
               (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}])))})
 
 
 (def authorization-manager
   "Add an authorization manager into the context."
-  {:enter
+  {:name ::add-authorization-manager
+   :enter
    (fn [ctx]
      (log/trace "api request: " (get-in ctx [:request :transit-params]))
      (let [user (get-in ctx [:request :session :authenticated-user])]
        (assoc ctx :authorization-manager (rsdb.users/authorization-manager2 user))))})
 
 (def api
-  {:enter
+  {:name ::api
+   :enter
    (fn [ctx]
+     (tap> {:api ctx})
      (log/trace "api request: " (get-in ctx [:request :transit-params]))
      (let [params (get-in ctx [:request :transit-params])
            authorization-manager (:authorization-manager ctx)
-           env {:authorization-manager authorization-manager
-                :session               (get-in ctx [:request :session])}]
+           env {:session/authorization-manager authorization-manager
+                :session/authenticated-user    (get-in ctx [:request :session :authenticated-user])}]
        (execute-pathom ctx env params)))})
 
 (def get-user-photo
   "Return a user photograph.
   This endpoint is designed to flexibly handle lookup of a user photograph.
   TODO: fallback to active directory photograph."
-  {:enter
+  {:name ::get-user-photo
+   :enter
    (fn [{:com.eldrix.rsdb/keys [conn] :as ctx}]
      (let [system (get-in ctx [:request :path-params :system])
            value (get-in ctx [:request :path-params :value])]
@@ -186,46 +182,60 @@
            ctx)
          ctx)))})
 
+(def tap-ctx
+  {:name  ::tap
+   :enter (fn [ctx] (tap> ctx) ctx)})
 
-(defn routes []
-  (log/info "loading routes")
-  [["/"
-    {:name :landing
-     :get  {:interceptors [landing]}}]
-   ["/login"
-    {:name :login
-     :post {:interceptors [login]}}]                        ;; for legacy clients (re-frame / pc4-ward)
-   ["/login-mutation"
-    {:name :login-mutation
-     :post {:interceptors [login-mutation]}}]               ;; for fulcro clients (fulcro / pc4-ms)
-   ["/ping"
-    {:name :ping
-     :post {:interceptors [ping]}}]
-   ["/api"
-    {:name :api
-     :post {:interceptors [authorization-manager api]}}]
-   ["/users/:system/:value/photo"
-    {:name :get-user-photo
-     :get  {:interceptors [get-user-photo]}}]])
-
+(def routes
+  (route/expand-routes
+    #{["/" :get [landing]]
+      ["/login" :post [login]]
+      ["/api" :post [authorization-manager api]]
+      ["/users/:system/:value/photo" :get [authorization-manager get-user-photo]]}))
 
 (def transit-read-handlers
-  (merge dates/transit-readers
-         {com.fulcrologic.fulcro.algorithms.tempid/tag
-          (transit/read-handler (fn [uuid]
-                                  (com.fulcrologic.fulcro.algorithms.tempid/tempid uuid)))}))
+  {"LocalDateTime"
+   (transit/read-handler (fn [^String s]
+                           (LocalDateTime/parse s)))
+
+   "ZonedDateTime"
+   (transit/read-handler (fn [^String s]
+                           (ZonedDateTime/parse s)))
+
+   "LocalDate"
+   (transit/read-handler (fn [^String s]
+                           (LocalDate/parse s)))
+
+   com.fulcrologic.fulcro.algorithms.tempid/tag
+   (transit/read-handler (fn [uuid] (tempid/tempid uuid)))})
+
 (def transit-write-handlers
-  (merge dates/transit-writers
-         {ExceptionInfo (transit/write-handler "ex-info" ex-data)
-          Throwable     (transit/write-handler "java.lang.Exception" Throwable->map)
-          TempId        (transit/write-handler com.fulcrologic.fulcro.algorithms.tempid/tag #(.-id ^TempId %))}))
+  {LocalDateTime
+   (transit/write-handler (constantly "LocalDateTime")
+                          (fn [^LocalDateTime date]
+                            (.format date DateTimeFormatter/ISO_LOCAL_DATE_TIME)))
+
+   ZonedDateTime
+   (transit/write-handler (constantly "ZonedDateTime")
+                          (fn [^ZonedDateTime date]
+                            (.format date DateTimeFormatter/ISO_ZONED_DATE_TIME)))
+
+   LocalDate
+   (transit/write-handler (constantly "LocalDate")
+                          (fn [^LocalDate date]
+                            (.format date DateTimeFormatter/ISO_LOCAL_DATE)))
+
+   Throwable
+   (transit/write-handler "java.lang.Exception" Throwable->map)
+   TempId
+   (transit/write-handler tempid/tag #(.-id ^TempId %))})
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key session-timeout-seconds] :or {port 8080, join? false}}]
   {::http/type            :jetty
    ::http/join?           join?
    ::http/log-request     true
-   ::http/routes          []
+   ::http/routes          routes
    ::http/resource-path   "/public"
    ::http/port            port
    ::http/allowed-origins (if (= "*" allowed-origins) (constantly true) allowed-origins)
@@ -233,7 +243,7 @@
    ::http/host            (or host "127.0.0.1")
    ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
                                            (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
-                           :cookie-name "pc4-session"
+                           :cookie-name  "pc4-session"
                            :cookie-attrs {:same-site :strict}}})
 
 (s/def ::env (s/keys :req [:pathom/boundary-interface
@@ -251,16 +261,13 @@
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (-> (make-service-map config)
       (http/default-interceptors)
-      (reitit.pedestal/replace-last-interceptor
-        (reitit.pedestal/routing-interceptor
-          (reitit.http/router ((if dev? #'routes (constantly (#'routes)))))))
       (http/dev-interceptors)
       (update ::http/interceptors conj
               (intc/interceptor (inject env))
               (body-params/body-params (body-params/default-parser-map :transit-options [{:handlers transit-read-handlers}]))
               (http/transit-body-interceptor
                 ::transit-json-body "application/transit+json;charset=UTF-8" :json {:handlers transit-write-handlers})
-              (csrf/anti-forgery) ;; we manually insert interceptor here, as otherwise default-interceptors includes a non-customised body params
+              (csrf/anti-forgery)                           ;; we manually insert interceptor here, as otherwise default-interceptors includes a non-customised body params
               service-error-handler)
       (http/create-server)
       (http/start)))
