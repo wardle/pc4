@@ -1,5 +1,6 @@
 (ns pc4.rsdb
-  (:require [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
+  (:require [clojure.string :as str]
+            [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.algorithms.merge :as merge]
             [com.fulcrologic.fulcro.data-fetch :as df]
@@ -9,14 +10,15 @@
             [taoensso.timbre :as log]))
 
 (defmutation search-patient-by-pseudonym
-  [params]
+  [{:keys [project-id pseudonym]}]
   (action [{:keys [state] :as env}]
-          (if (empty? params)
-            (swap! state dissoc :ui/search-patient-pseudonymous)))
-  (remote [env]
-          (when (seq params)
+          (when (str/blank? pseudonym)
+            (swap! state update-in [:t_project/id project-id] dissoc :ui/search-patient-pseudonymous)))
+  (remote [{:keys [ref] :as env}]
+          (println "search" {:s pseudonym, :project-id project-id})
+          (when-not (str/blank? pseudonym)
             (-> env
-                (m/with-target [:ui/search-patient-pseudonymous])
+                (m/with-target [:t_project/id project-id :ui/search-patient-pseudonymous])
                 (m/returning 'pc4.ui.patients/PatientBanner)))))
 
 (defmutation register-patient
@@ -133,7 +135,7 @@
 (defmutation delete-ms-event
   [{:t_ms_event/keys [id summary_multiple_sclerosis_fk]}]
   (action [{:keys [state]}]
-    (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
+          (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
   (remote [env] true))
 
 (defmutation save-pseudonymous-patient-postal-code

@@ -17,44 +17,6 @@
 
   (:import [goog.date Date]))
 
-(defsc PatientSearchByPseudonym
-  [this {project-id :t_project/id
-         patient    :ui/search-patient-pseudonymous}]
-  {:ident                (fn [] [:component/id :patient-search-by-pseudonym])
-   :query                [:t_project/id
-                          {[:ui/search-patient-pseudonymous '_] (comp/get-query pc4.ui.patients/PatientBanner)}]
-   :initial-state        {:t_project/id :param/id}
-   :componentWillUnmount #(comp/transact! @SPA [(pc4.rsdb/search-patient-by-pseudonym {})])}
-  (div
-    :.bg-white.overflow-hidden.shadow.sm:rounded-lg
-    (div
-      :.px-4.py-6.sm:p-6
-      (dom/form
-        :.divide-y.divide-gray-200 {:onSubmit evt/prevent-default!}
-        (div :.divide-y.divide-gray-200.sm:space-y-5
-          (div
-            (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
-                    (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
-            (div :.mt-4
-              (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
-              (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-                {:type      "text" :placeholder "Start typing pseudonym"
-                 :autoFocus true
-                 :value     (or (comp/get-state this :s) "")
-                 :onKeyDown #(when (and patient (evt/enter-key? %))
-                               (dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"]))
-                 :onChange  #(let [s (evt/target-value %)]
-                               (comp/set-state! this {:s s})
-                               (when (>= (count s) 3)
-                                 (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])))}))
-            (when (:t_patient/patient_identifier patient)
-              (div
-                (pc4.ui.patients/ui-patient-banner patient)
-                (ui/ui-submit-button {:label   "View patient record »"
-                                      :onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])})))))))))
-
-(def ui-patient-search-by-pseudonym (comp/factory PatientSearchByPseudonym))
-
 
 (defn clear-register-pseudonymous-form*
   [state project-id]
@@ -240,10 +202,10 @@
               (when (fs/invalid-spec? props :ui/nhs-number)
                 (ui/box-error-message {:message "Invalid NHS number"}))
               (ui/ui-local-date {:id         "date-birth"
-                                 :value date-birth
-                                 :label "Date of birth:"
+                                 :value      date-birth
+                                 :label      "Date of birth:"
                                  :min-date   (Date. 1900 1 1)
-                                 :max-date (Date.)
+                                 :max-date   (Date.)
                                  :onChange   #(m/set-value!! this :ui/date-birth %)
                                  :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
                                  :onEnterKey do-register})
@@ -262,7 +224,55 @@
           (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
                                 :onClick do-register}))))))
 
+(defsc FindPseudonymous
+  [this {project-id :t_project/id :as props
+         patient    :ui/search-patient-pseudonymous}]
+  {:ident               :t_project/id
+   :route-segment       ["projects" :t_project/id "find-by-pseudonym"]
+   :query               [:t_project/id :t_project/type :t_project/title :t_project/pseudonymous
+                         {:ui/search-patient-pseudonymous (comp/get-query pc4.ui.patients/PatientBanner)}]
 
+   :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
+                          (when-let [project-id (some-> id (js/parseInt))]
+                            (comp/transact! app [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id})])
+                            (dr/route-deferred [:t_project/id project-id]
+                                               (fn []
+                                                 (df/load! app [:t_project/id project-id] FindPseudonymous
+                                                           {:target               [:ui/current-project]
+                                                            :post-mutation        `dr/target-ready
+                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :allow-route-change? (constantly true)
+   :will-leave          (fn [this {:t_project/keys [id]}]
+                          #(comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id id})]))}
+  (ui-layout
+    {:project props :selected-id :find-pseudonymous}
+    (div
+      :.bg-white.overflow-hidden.shadow.sm:rounded-lg
+      (div
+        :.px-4.py-6.sm:p-6
+        (dom/form
+          :.divide-y.divide-gray-200 {:onSubmit evt/prevent-default!}
+          (div :.divide-y.divide-gray-200.sm:space-y-5
+            (div
+              (dom/h3 :.text-lg.leading-6.font-medium.text-gray-900 "Search by pseudonymous identifier"
+                      (p :.max-w-2xl.text-sm.text-gray-500 "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."))
+              (div :.mt-4
+                (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
+                (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+                  {:type      "text" :placeholder "Start typing pseudonym"
+                   :autoFocus true
+                   :value     (or (comp/get-state this :s) "")
+                   :onKeyDown #(when (and patient (evt/enter-key? %))
+                                 (dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"]))
+                   :onChange  #(let [s (evt/target-value %)]
+                                 (comp/set-state! this {:s s})
+                                 (when (>= (count s) 3)
+                                   (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])))}))
+              (when (:t_patient/patient_identifier patient)
+                (div
+                  (pc4.ui.patients/ui-patient-banner patient)
+                  (ui/ui-submit-button {:label   "View patient record »"
+                                        :onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])}))))))))))
 
 (def role->badge-class
   {:INACTIVE              "bg-black text-white"
@@ -299,7 +309,7 @@
 (defsc ProjectTeam [this {:t_project/keys [id title type users] :as project}]
   {:ident         :t_project/id
    :query         (fn [this]
-                    `[:t_project/id :t_project/title :t_project/type
+                    `[:t_project/id :t_project/title :t_project/type :t_project/pseudonymous
                       ({:t_project/users ~(comp/get-query ProjectTeamMember)} {:group-by :user})])
    :route-segment ["projects" :t_project/id "team"]
    :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
