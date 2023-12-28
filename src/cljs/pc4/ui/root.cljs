@@ -96,6 +96,7 @@
                     pc4.ui.projects/FindPseudonymous
                     pc4.ui.projects/RegisterPseudonymous
                     pc4.ui.projects/ProjectTeam
+                    pc4.ui.projects/ProjectDownloads
                     pc4.ui.users/UserProfile]})
 
 (def ui-main-router (comp/factory MainRouter))

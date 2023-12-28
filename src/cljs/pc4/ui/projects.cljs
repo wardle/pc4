@@ -88,7 +88,7 @@
                        {:id      :team
                         :content (content "Team")
                         :onClick #(dr/change-route! this ["projects" id "team"])}
-                       {:id      :reports
+                       {:id      :downloads
                         :content (content "Downloads")
                         :onClick #(dr/change-route! this ["projects" id "downloads"])}]
          :sub-menu    sub-menu}))))
@@ -275,6 +275,27 @@
                   (pc4.ui.patients/ui-patient-banner patient)
                   (ui/ui-submit-button {:label   "View patient record »"
                                         :onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])}))))))))))
+
+
+(defsc ProjectDownloads
+  [this {:t_project/keys [title pseudonymous] :as project}]
+  {:ident         :t_project/id
+   :query         [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]
+   :route-segment ["projects" :t_project/id "downloads"]
+   :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
+                    (log/debug "on-enter project home" route-params)
+                    (when-let [project-id (some-> id (js/parseInt))]
+                      (dr/route-deferred [:t_project/id project-id]
+                                         (fn []
+                                           (df/load! app [:t_project/id project-id] ProjectDownloads
+                                                     {:target               [:ui/current-project]
+                                                      :post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_project/id project-id]}})))))}
+  (ui-layout
+    {:project project :selected-id :downloads}
+    (ui/ui-panel {}
+      (dom/h3 "There are no downloads available for this service"))))
+
 
 (def role->badge-class
   {:INACTIVE              "bg-black text-white"
