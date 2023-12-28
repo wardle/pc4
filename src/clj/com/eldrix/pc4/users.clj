@@ -24,15 +24,15 @@
    :date-time (LocalDateTime/now)})
 
 (pco/defmutation perform-login
-  [{session   :session :as env}
+  [{session :session :as env}
    {:keys [system value password]}]
   {::pco/op-name 'pc4.users/perform-login}
   (when-let [user (rsdb-users/perform-login! env value password)]
     (println {:perform-login user})
     (api-middleware/augment-response user
-                                     (fn [response]
-                                       (assoc response :session (assoc session :authenticated-user
-                                                                               (select-keys user [:t_user/id :t_user/active_roles])))))))
+      (fn [response]
+        (assoc response :session (assoc session :authenticated-user
+                                                (select-keys user [:t_user/id :t_role/is_system :t_user/active_roles])))))))
 
 (pco/defmutation logout
   [env _]
@@ -122,10 +122,8 @@
 
 (def all-resolvers
   [ping-operation
-   login-operation
    perform-login
    logout
-   refresh-token-operation
    authenticated-user
    (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
    (pbir/equivalence-resolver :urn:oid:2.5.4/surname :urn:oid:2.5.4.4)

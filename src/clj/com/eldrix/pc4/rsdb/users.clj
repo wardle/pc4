@@ -331,6 +331,9 @@
       (authorized-any? [_ permission]
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
+
+(s/def ::user-for-authorization-manager (s/keys :req [:t_user/active_roles :t_role/is_system]))
+
 (defn authorization-manager2
   "Create an authorization manager for the user specified, providing subsequent
   decisions on authorization for a given action via an open-ended permission
@@ -338,6 +341,9 @@
   at the time of creation. The manager is principally designed for use in a
   single request-response cycle."
   ^AuthorizationManager [user]
+  (when-not (s/valid? ::user-for-authorization-manager user)
+    (log/error "invalid authenticated error" (s/explain-data ::user-for-authorization-manager user))
+    (throw (ex-info "Invalid authenticated user" (s/explain-data ::user-for-authorization-manager user))))
   (if (:t_role/is_system user)
     (reify auth/AuthorizationManager                        ;; system user: can do everything...
       (authorized? [_ patient-project-ids permission] true)

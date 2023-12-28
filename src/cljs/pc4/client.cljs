@@ -45,20 +45,22 @@
   (transit/type-handler Big "f"
                         (fn [^Big x] (.toString x))
                         #(Big. %)))
+
+(def secured-request-middleware
+  (-> (net/wrap-csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML"))
+      (net/wrap-fulcro-request)))
+
 (defn make-SPA []
-  (let [csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML")]
-    (app/fulcro-app
-      {;:global-eql-transform global-eql-transform
-       ;:render-middleware (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
-       :remotes
-       {:remote (net/fulcro-http-remote
-                  {:url                "/api"
-                   :request-middleware (-> (net/wrap-csrf-token csrf-token)
-                                           (net/wrap-fulcro-request))})
-        :login  (net/fulcro-http-remote
-                  {:url                "/login-mutation"
-                   :request-middleware (-> (net/wrap-csrf-token csrf-token)
-                                           (net/wrap-fulcro-request))})}})))
+  (app/fulcro-app
+    {;:global-eql-transform global-eql-transform
+     ;:render-middleware (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
+     :remotes
+     {:remote (net/fulcro-http-remote
+                {:url                "/api"
+                 :request-middleware secured-request-middleware})
+      :login  (net/fulcro-http-remote
+                {:url                "/login"
+                 :request-middleware secured-request-middleware})}}))
 
 
 (defn ^:export init []
