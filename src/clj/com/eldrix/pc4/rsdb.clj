@@ -1125,21 +1125,22 @@
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user}
+    manager :session/authorization-manager
+    user    :session/authenticated-user}
    {:keys [project-id nhs-number] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/project_fk]}
-  (log/info "register patient:" {:user user :params params})
+  (log/info "register patient:" {:params params})
   (if-not (and manager (auth/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {}))
-    (let [user-id (:t_user/id (users/fetch-user conn (:value user)))] ;; TODO: include better user information in context
+    (let [user-id (:t_user/id user)]
       (if (s/valid? ::register-patient params)
         (jdbc/with-transaction [txn conn {:isolation :serializable}]
           (projects/register-patient txn project-id user-id params))
         (do (log/error "invalid call" (s/explain-data ::register-patient params))
             (throw (ex-info "invalid NHS number" {:nnn nhs-number})))))))
+
 
 
 (comment
