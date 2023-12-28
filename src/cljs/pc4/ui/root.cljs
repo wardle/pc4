@@ -92,6 +92,7 @@
                     pc4.ui.ninflamm/PatientNeuroInflammatory
                     pc4.ui.results/PatientResults
                     pc4.ui.projects/ProjectHome
+                    pc4.ui.projects/RegisterByNnn
                     pc4.ui.projects/FindPseudonymous
                     pc4.ui.projects/RegisterPseudonymous
                     pc4.ui.projects/ProjectTeam
@@ -107,9 +108,9 @@
                    {:ui/login (comp/get-query users/Login)}
                    {:ui/all-reasons-for-stopping-medication (comp/get-query pc4.ui.medications/MedicationReasonForStopping)}]
 
-   :initial-state {:session/authenticated-user {}
-                   :ui/main-router             {}
-                   :ui/login                   {}
+   :initial-state {:session/authenticated-user             {}
+                   :ui/main-router                         {}
+                   :ui/login                               {}
                    :ui/all-reasons-for-stopping-medication []}}
 
   (div

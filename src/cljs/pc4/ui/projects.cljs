@@ -37,21 +37,21 @@
 
 
 (defn clear-register-patient-form*
-  [state-map]
+  [state-map project-id]
+  (println "clearing form for" project-id)
   (-> state-map
       (fs/add-form-config* (comp/registry-key->class ::RegisterByNnn)
-                           [:component/id :register-by-nnn]
+                           [:t_project/id project-id]
                            {:destructive? true})
-      (update-in [:component/id :register-by-nnn]
+      (update-in [:t_project/id project-id]
                  #(-> %
                       (dissoc :ui/error)
                       (assoc :ui/nhs-number "")))))
 
 
-(defmutation clear-register-patient-form [_]
+(defmutation clear-register-patient-form [{:keys [project-id]}]
   (action [{:keys [state]}]
-          (swap! state clear-register-patient-form*)))
-
+          (swap! state clear-register-patient-form* project-id)))
 
 
 
@@ -60,57 +60,6 @@
                              #(pos-int? (Date/compare % (Date. 1900 1 1)))
                              #(nat-int? (Date/compare (Date.) %))))
 (s/def :ui/sex #{:MALE :FEMALE})
-
-
-
-(defsc RegisterByNnn
-  [this {project-id :t_project/id
-         :ui/keys   [nhs-number error] :as props}]
-  {:ident                (fn [] [:component/id :register-by-nnn])
-   :query                [:t_project/id
-                          :ui/nhs-number :ui/date-birth :ui/sex :ui/error
-                          fs/form-config-join]
-   :initial-state        {}
-   :form-fields          #{:ui/nhs-number}
-   :componentDidMount    (fn [this] (comp/transact! this [(clear-register-patient-form nil)]))
-   :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-patient-form nil)]))}
-  (let [do-register (fn [] (do (println "Attempting to register" props)
-                               (comp/transact! this [(pc4.rsdb/register-patient
-                                                       {:project-id project-id, :nhs-number nhs-number})])))]
-    (div :.space-y-6
-      (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-        (div :.md:grid.md:grid-cols-3.md:gap-6
-          (div :.md:col-span-1.pr-6
-            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
-            (div :.mt-1.mr-12.text-sm.text-gray-500)
-            (p "Please enter patient details.")
-            (p :.mt-4 "This is safe to use even if patient already registered."))
-          (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
-            (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-            (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                             {:onChange   (fn [nnn]
-                                            (when (= 10 (count (nnn/normalise nnn)))
-                                              (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
-                                            (m/set-string!! this :ui/nhs-number :value nnn))
-                              :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
-                              :onEnterKey do-register})
-            (when (fs/invalid-spec? props :ui/nhs-number)
-              (ui/box-error-message {:message "Invalid NHS number"}))
-            (when error
-              (div (ui/box-error-message {:message error}))))))
-
-      (div :.flex.justify-end.mr-8
-        (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
-                              :onClick do-register})))))
-
-
-(def ui-register-by-nnn (comp/factory RegisterByNnn))
-
-
-
-
-
-
 
 
 
@@ -156,6 +105,59 @@
 
 (def ui-layout (comp/factory Layout))
 
+
+(defsc RegisterByNnn
+  [this {project-id :t_project/id
+         :ui/keys   [nhs-number error] :as props}]
+  {:ident               :t_project/id
+   :route-segment       ["projects" :t_project/id "register-patient"]
+   :query               [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous
+                         :ui/nhs-number :ui/date-birth :ui/sex :ui/error
+                         fs/form-config-join]
+   :initial-state       {}
+   :form-fields         #{:ui/nhs-number}
+   :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
+                          (when-let [project-id (some-> id (js/parseInt))]
+                            (comp/transact! app [(clear-register-patient-form {:project-id project-id})])
+                            (dr/route-deferred [:t_project/id project-id]
+                                               (fn []
+                                                 (df/load! app [:t_project/id project-id] RegisterByNnn
+                                                           {:target               [:ui/current-project]
+                                                            :post-mutation        `dr/target-ready
+                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :allow-route-change? (constantly true)
+   :will-leave          (fn [this {:t_project/keys [id]}] (comp/transact! this [(clear-register-patient-form {:project-id id})]))}
+
+  (ui-layout
+    {:project props :selected-id :register-patient}
+    (let [do-register (fn [] (do (println "Attempting to register" props)
+                                 (comp/transact! this [(pc4.rsdb/register-patient
+                                                         {:project-id project-id, :nhs-number nhs-number})])))]
+      (div :.space-y-6
+        (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+          (div :.md:grid.md:grid-cols-3.md:gap-6
+            (div :.md:col-span-1.pr-6
+              (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Find or register a patient")
+              (div :.mt-1.mr-12.text-sm.text-gray-500)
+              (p "Please enter patient details.")
+              (p :.mt-4 "This is safe to use even if patient already registered."))
+            (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
+              (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+              (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
+                               {:onChange   (fn [nnn]
+                                              (when (= 10 (count (nnn/normalise nnn)))
+                                                (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
+                                              (m/set-string!! this :ui/nhs-number :value nnn))
+                                :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                                :onEnterKey do-register})
+              (when (fs/invalid-spec? props :ui/nhs-number)
+                (ui/box-error-message {:message "Invalid NHS number"}))
+              (when error
+                (div (ui/box-error-message {:message error}))))))
+
+        (div :.flex.justify-end.mr-8
+          (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
+                                :onClick do-register}))))))
 
 (defsc RegisterPseudonymous
   [this {project-id :t_project/id project-type :t_project/type :as props

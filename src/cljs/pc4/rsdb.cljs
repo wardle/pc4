@@ -24,13 +24,13 @@
 (defmutation register-patient
   [params]
   (remote [env]
-          (m/returning env 'pc4.ui.patients/PatientPage))
+          (m/returning env 'pc4.ui.patients/NewPatientDemographics))
   (ok-action
-    [{:keys [state ref] :as env}]
+    [{:keys [app state ref] :as env}]
     (tap> {:mutation-env env})                              ;; ref = ident of the component
     (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
       (do (log/debug "register patient : patient id: " patient-id)
-          (dr/change-route! @pc4.app/SPA ["patient" patient-id]))
+          (dr/change-route! app ["pt" patient-id "home"]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Unable to register patient.")))))
 
