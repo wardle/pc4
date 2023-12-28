@@ -283,7 +283,7 @@
         (ui/ui-table-head {}
           (ui/ui-table-row {}
             (for [{:keys [s key title]} relapse-headings]
-              (ui/ui-table-heading (cond-> {:key (or key s)} title (assoc :title title)) s))))
+              (ui/ui-table-heading (cond-> {:react-key (or key s)} title (assoc :title title)) s))))
         (ui/ui-table-body {}
           (for [event (sort-by #(some-> % :t_ms_event/date .valueOf) events)]
             (ui-ms-event-list-item event {:onClick #(comp/transact! this [(edit-ms-event {:patient-identifier patient-identifier
