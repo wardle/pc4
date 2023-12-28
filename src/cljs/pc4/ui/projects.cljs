@@ -57,20 +57,21 @@
 
 
 (defn clear-register-pseudonymous-form*
-  [state-map]
-  (-> state-map
-      (fs/add-form-config* (comp/registry-key->class ::RegisterByPseudonym)
-                           [:component/id :register-pseudonymous-patient]
+  [state project-id]
+  (-> state
+      (fs/add-form-config* (comp/registry-key->class ::RegisterPseudonymous)
+                           [:t_project/id project-id]
                            {:destructive? true})
-      (update-in [:component/id :register-pseudonymous-patient]
+      (update-in [:t_project/id project-id]
                  #(-> %
                       (dissoc :ui/error)
                       (assoc :ui/nhs-number "" :ui/sex nil :ui/date-birth nil)))))
 
 
-(defmutation clear-register-pseudonymous-form [_]
+(defmutation clear-register-pseudonymous-form
+  [{:t_project/keys [id]}]
   (action [{:keys [state]}]
-          (swap! state clear-register-pseudonymous-form*)))
+          (swap! state clear-register-pseudonymous-form* id)))
 
 
 (defn clear-register-patient-form*
@@ -143,110 +144,6 @@
 
 (def ui-register-by-nnn (comp/factory RegisterByNnn))
 
-(defsc RegisterByPseudonym
-  [this {project-id :t_project/id
-         :ui/keys   [nhs-number date-birth sex error] :as props}]
-  {:ident                (fn [] [:component/id :register-pseudonymous-patient])
-   :query                [:t_project/id
-                          :ui/nhs-number :ui/date-birth :ui/sex :ui/error
-                          fs/form-config-join]
-   :initial-state        {}
-   :form-fields          #{:ui/nhs-number :ui/date-birth :ui/sex}
-   :componentDidMount    (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))
-   :componentWillUnmount (fn [this] (comp/transact! this [(clear-register-pseudonymous-form nil)]))}
-  (let [do-register (fn [] (do (println "Attempting to register" props)
-                               (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
-                                                                                              :nhs-number nhs-number
-                                                                                              :date-birth date-birth
-                                                                                              :sex        sex})])))]
-    (div :.space-y-6
-      (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-        (div :.md:grid.md:grid-cols-3.md:gap-6
-          (div :.md:col-span-1.pr-6
-            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
-            (div :.mt-1.mr-12.text-sm.text-gray-500)
-            (p "Please enter patient details.")
-            (p :.mt-4 "This is safe to use even if patient already registered.")
-            (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
-          (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
-            (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-            (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                             {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
-                              :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
-                              :onEnterKey do-register})
-            (when (fs/invalid-spec? props :ui/nhs-number)
-              (ui/box-error-message {:message "Invalid NHS number"}))
-            (ui/ui-local-date {:id       "date-birth" :value date-birth :label "Date of birth:"
-                               :min-date (Date. 1900 1 1) :max-date (Date.)}
-                              {:onChange   #(m/set-value!! this :ui/date-birth %)
-                               :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
-                               :onEnterKey do-register})
-            (when (fs/invalid-spec? props :ui/date-birth)
-              (ui/box-error-message {:message "Invalid date of birth"}))
-            (ui/ui-select-popup-button {:id         "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
-                                        :options    [:MALE :FEMALE] :display-key name
-                                        :onChange   #(do (m/set-value!! this :ui/sex %)
-                                                         (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
-                                        :onEnterKey do-register})
-            (when (fs/invalid-spec? props :ui/sex)
-              (ui/box-error-message {:message "Invalid sex"}))
-            (when error
-              (div (ui/box-error-message {:message error}))))))
-      (div :.flex.justify-end.mr-8
-        (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
-                              :onClick do-register})))))
-
-
-(def ui-register-by-pseudonym (comp/factory RegisterByPseudonym))
-
-
-(defsc ProjectUser
-  [this {:t_user/keys [id first_names last_name title custom_job_title job_title_name email]}]
-  {:ident         :t_user/id
-   :query         [:t_user/id
-                   :t_user/first_names :t_user/last_name
-                   :t_user/title
-                   :t_user/custom_job_title
-                   :t_user/job_title_name :t_user/email]
-   :initial-state {}}
-  (tr
-    (td :.px-6.py-4.whitespace-nowrap.text-sm.font-medium.text-gray-900 (str/join " " [title first_names last_name]))
-    (td :.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 (or custom_job_title job_title_name))
-    (td :.px-6.py-4.whitespace-nowrap.text-sm.text-gray-500 email)))
-
-(def ui-project-user (comp/factory ProjectUser {:keyfn :t_user/id}))
-
-(defsc ProjectUsers
-  [this {:t_project/keys [users] :as props}]
-  {:ident         :t_project/id
-   :query         [:t_project/id
-                   {:t_project/users (comp/get-query ProjectUser)}]
-   :route-segment ["users"]
-   :initial-state {:t_project/users {}}}
-  (div :.flex.flex-col
-    (div :.-my-2.overflow-x-auto.sm:-mx-6.lg:-mx-8
-      (div :.py-2.align-middle.inline-block.min-w-full.sm:px-6.lg:px-8
-        (div :.shadow.overflow-hidden.border-b.border-gray-200.sm:rounded-lg
-          (table :.min-w-full.divide-y.divide-gray-200
-                 (thead :.bg-gray-50
-                        (tr
-                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Name")
-                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Title")
-                          (th :.px-6.py-3.text-left.text-xs.font-medium.text-gray-500.uppercase.tracking-wider {:scope "col"} "Email")))
-                 (tbody :.bg-white.divide-y.divide-gray-200
-                        (for [user (sort-by (juxt :t_user/last_name :t_user/first_names) (reduce-kv (fn [acc k v] (conj acc (first v))) [] (group-by :t_user/id users)))
-                              :let [id (:t_user/id user)]]
-                          (ui-project-user user)))))))))
-
-(def ui-project-users (comp/factory ProjectUsers))
-
-(defsc AboutPage [this params]
-  {:route-segment ["about"]}
-  (dom/div (dom/h3 "About")))
-
-
-
-
 
 
 
@@ -267,21 +164,105 @@
                         :content (content "Home")
                         :onClick #(dr/change-route! this ["projects" id "home"])}
                        (when pseudonymous
-                         {:id      :find-pseudonymous-patient
-                          :content (content "Find patient")})
+                         {:id      :find-pseudonymous
+                          :content (content "Find patient")
+                          :onClick #(dr/change-route! this ["projects" id "find-by-pseudonym"])})
                        (if pseudonymous
-                         {:id      :register-pseudonymous-patient
-                          :content (content "Register patient")}
+                         {:id      :register-pseudonymous
+                          :content (content "Register patient")
+                          :onClick #(dr/change-route! this ["projects" id "register-pseudonymous"])}
                          {:id      :register-patient
-                          :content (content "Register patient")})
+                          :content (content "Register patient")
+                          :onClick #(dr/change-route! this ["projects" id "register-patient"])})
                        {:id      :team
                         :content (content "Team")
                         :onClick #(dr/change-route! this ["projects" id "team"])}
                        {:id      :reports
-                        :content (content "Downloads")}]
+                        :content (content "Downloads")
+                        :onClick #(dr/change-route! this ["projects" id "downloads"])}]
          :sub-menu    sub-menu}))))
 
 (def ui-menu (comp/factory Menu))
+
+
+(defsc Layout
+  [this {:keys [project] :as props}]
+  (ui/ui-layout
+    {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
+     :menu  (ui-menu props)}
+    (comp/children this)))
+
+(def ui-layout (comp/factory Layout))
+
+
+(defsc RegisterPseudonymous
+  [this {project-id :t_project/id project-type :t_project/type :as props
+         :ui/keys   [nhs-number date-birth sex error]}]
+  {:ident               :t_project/id
+   :route-segment       ["projects" :t_project/id "register-pseudonymous"]
+   :query               [:t_project/id :t_project/type :t_project/title :t_project/pseudonymous
+                         :ui/nhs-number :ui/date-birth :ui/sex :ui/error
+                         fs/form-config-join]
+   :form-fields         #{:ui/nhs-number :ui/date-birth :ui/sex}
+   :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
+                          (when-let [project-id (some-> id (js/parseInt))]
+                            (comp/transact! app [(clear-register-pseudonymous-form {:t_project/id project-id})])
+                            (dr/route-deferred [:t_project/id project-id]
+                                               (fn []
+                                                 (df/load! app [:t_project/id project-id] RegisterPseudonymous
+                                                           {:target               [:ui/current-project]
+                                                            :post-mutation        `dr/target-ready
+                                                            :post-mutation-params {:target [:t_project/id project-id]}})))))
+   :allow-route-change? (constantly true)
+   :will-leave          (fn [this {:t_project/keys [id]}] (comp/transact! this [(clear-register-pseudonymous-form {:t_project/id id})]))}
+  (ui-layout
+    {:project props :selected-id :register-pseudonymous}
+    (let [do-register (fn [] (do (println "Attempting to register" props)
+                                 (comp/transact! this [(pc4.rsdb/register-patient-by-pseudonym {:project-id project-id
+                                                                                                :nhs-number nhs-number
+                                                                                                :date-birth date-birth
+                                                                                                :sex        sex})])))]
+      (div :.space-y-6
+        (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+          (div :.md:grid.md:grid-cols-3.md:gap-6
+            (div :.md:col-span-1.pr-6
+              (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Register a patient")
+              (div :.mt-1.mr-12.text-sm.text-gray-500)
+              (p "Please enter patient details.")
+              (p :.mt-4 "This is safe to use even if patient already registered.")
+              (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
+            (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
+              (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+              (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
+                               {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+                                :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                                :onEnterKey do-register})
+              (when (fs/invalid-spec? props :ui/nhs-number)
+                (ui/box-error-message {:message "Invalid NHS number"}))
+              (ui/ui-local-date {:id         "date-birth"
+                                 :value date-birth
+                                 :label "Date of birth:"
+                                 :min-date   (Date. 1900 1 1)
+                                 :max-date (Date.)
+                                 :onChange   #(m/set-value!! this :ui/date-birth %)
+                                 :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/date-birth})])
+                                 :onEnterKey do-register})
+              (when (fs/invalid-spec? props :ui/date-birth)
+                (ui/box-error-message {:message "Invalid date of birth"}))
+              (ui/ui-select-popup-button {:id         "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
+                                          :options    [:MALE :FEMALE] :display-key name
+                                          :onChange   #(do (m/set-value!! this :ui/sex %)
+                                                           (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
+                                          :onEnterKey do-register})
+              (when (fs/invalid-spec? props :ui/sex)
+                (ui/box-error-message {:message "Invalid sex"}))
+              (when error
+                (div (ui/box-error-message {:message error}))))))
+        (div :.flex.justify-end.mr-8
+          (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
+                                :onClick do-register}))))))
+
+
 
 (def role->badge-class
   {:INACTIVE              "bg-black text-white"
@@ -330,15 +311,11 @@
                                                      {:target               [:ui/current-project]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_project/id project-id]}})))))}
-  (ui/ui-layout
-    {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
-     :menu  (ui-menu {:project project :selected-id :team})}
-    (tap> {:users users
-           :sorted-users (sort-by :t_user/last_name users)})
+  (ui-layout
+    {:project project :selected-id :team}
     (ui/ui-grid-list {}
       (for [user (sort-by :t_user/last_name users)]
         (ui-project-team-member user)))))
-
 
 (defsc AdministrativeUser [this {:t_user/keys [full_name]}]
   {:ident :t_user/id
@@ -380,10 +357,8 @@
                                                      {:target               [:ui/current-project]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_project/id project-id]}})))))}
-  (tap> project)
-  (ui/ui-layout
-    {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
-     :menu  (ui-menu {:project project :selected-id :home})}
+  (ui-layout
+    {:project project :selected-id :home}
     (ui/ui-two-column-card
       {:title       title
        :title-attrs {:classes (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}

@@ -93,6 +93,7 @@
                     pc4.ui.results/PatientResults
                     pc4.ui.projects/ProjectHome
                     pc4.ui.projects/ProjectTeam
+                    pc4.ui.projects/RegisterPseudonymous
                     pc4.ui.users/UserProfile]})
 
 (def ui-main-router (comp/factory MainRouter))
