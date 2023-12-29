@@ -98,10 +98,11 @@
 
 (defsc Layout
   [this {:keys [project] :as props}]
-  (ui/ui-layout
-    {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
-     :menu  (ui-menu props)}
-    (comp/children this)))
+  (when (:t_project/id project)
+    (ui/ui-layout
+      {:props {:classes [(case (:t_project/type project) :NHS "bg-amber-50" :RESEARCH "bg-purple-50" nil)]}
+       :menu  (ui-menu props)}
+      (comp/children this))))
 
 (def ui-layout (comp/factory Layout))
 
