@@ -144,11 +144,9 @@
   (ok-action [{:keys [component]}]
              (df/refresh! component)))
 
-(defmutation edit-death-certificate
-  [params]
-  (action [{:keys [ref state]}]
-          (swap! state update-in ref assoc :ui/editing-death-certificate params)))
-
-(defmutation notify-death
-  [params]
-  (remove [env] (m/returning env 'pc4.ui.patients/PatientDeathCertificate)))
+(defmutation set-date-death
+  [{:t_patient/keys [patient_identifier]}]
+  (remote [env] (m/returning env 'pc4.ui.patients/PatientDemographics))
+  (ok-action [{:keys [state]}]
+             (swap! state (fn [st]
+                            (update-in st [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)))))
