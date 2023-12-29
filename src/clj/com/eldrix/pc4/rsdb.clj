@@ -1201,7 +1201,9 @@
   (projects/search-by-project-pseudonym conn project-id pseudonym))
 
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
-  [{conn :com.eldrix.rsdb/conn manager :authorization-manager} patient-identifier permission]
+  [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} patient-identifier permission]
+  (when-not manager
+    (throw (ex-info "missing authorization manager" {:expected :session/authorization-manager, :found env})))
   (when-not patient-identifier
     (throw (ex-info "invalid request: missing patient-identifier" {})))
   (let [project-ids (patients/active-project-identifiers conn patient-identifier)]
@@ -1227,7 +1229,7 @@
 (pco/defmutation save-diagnosis!
   [{conn    :com.eldrix.rsdb/conn
     manager :authorization-manager
-    user    :authenticated-user
+    user    :session/authenticated-user
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
   (log/info "save diagnosis request: " params "user: " user)
@@ -1255,7 +1257,7 @@
                 :t_medication/reason_for_stopping
                 :t_medication/events]))
 (pco/defmutation save-medication!
-  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, user :authenticated-user, :as env}
+  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, user :session/authenticated-user, :as env}
    {patient-id :t_patient/patient_identifier, medication-id :t_medication/id, patient-pk :t_medication/patient_fk, :as params}]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " user)
@@ -1299,8 +1301,8 @@
 
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env} {patient-identifier :t_patient/patient_identifier :as params}]
   {::pco/op-name 'pc4.rsdb/save-ms-diagnosis}
   (log/info "save ms diagnosis:" params " user:" user)
@@ -1324,7 +1326,7 @@
 (pco/defmutation save-pseudonymous-patient-postal-code!
   [{conn :com.eldrix.rsdb/conn
     ods  :com.eldrix.clods.graph/svc
-    user :authenticated-user}
+    user :session/authenticated-user}
    {patient-identifier :t_patient/patient_identifier
     postcode           :uk.gov.ons.nhspd/PCD2 :as params}]
   {::pco/op-name 'pc4.rsdb/save-pseudonymous-patient-postal-code}
@@ -1349,8 +1351,8 @@
 
 (pco/defmutation save-ms-event!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env}
    {:t_ms_event/keys [id] :as params}]
   {::pco/op-name 'pc4.rsdb/save-ms-event}
@@ -1384,8 +1386,8 @@
 
 (pco/defmutation delete-ms-event!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env} {ms-event-id :t_ms_event/id :as params}]
   {::pco/op-name 'pc4.rsdb/delete-ms-event}
   (log/info "delete ms event:" params " user:" user)
@@ -1407,8 +1409,8 @@
                 :t_encounter/episode_fk]))
 
 (pco/defmutation save-encounter!
-  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager
-    user :authenticated-user, :as env} params]
+  [{conn :com.eldrix.rsdb/conn, manager :session/authorization-manager
+    user :session/authenticated-user, :as env} params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
   (log/info "save encounter request: " params "user: " user)
   (let [date (:t_encounter/date_time params)
@@ -1427,8 +1429,8 @@
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env}
    {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier :as params}]
@@ -1444,8 +1446,8 @@
 (s/def ::save-result (s/keys :req [:t_patient/patient_identifier]))
 (pco/defmutation save-result!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-result}
   (log/info "save result request: " params "user: " user)
@@ -1462,8 +1464,8 @@
 
 (pco/defmutation delete-result!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/delete-result}
   (log/info "delete result request: " params "user: " user)
@@ -1478,8 +1480,8 @@
                                     :t_death_certificate/part2]))
 (pco/defmutation notify-death!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env}
    {patient-identifier :t_patient/patient_identifier :as params}]
   {::pco/op-name 'pc4.rsdb/notify-death}
@@ -1490,6 +1492,16 @@
   (jdbc/with-transaction [txn conn {:isolation :serializable}]
     (patients/notify-death! txn params)))
 
+(pco/defmutation set-date-death!
+  [{conn    :com.eldrix.rsdb/conn
+    manager :session/authorization-manager
+    user    :session/authenticated-user :as env}
+   {patient-identifier :t_patient/patient_identifier :as params}]
+  {::pco/op-name 'pc4.rsdb/set-date-death}
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (patients/set-date-death conn params))
+
+
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
 (s/def :t_user/new_password string?)
@@ -1498,7 +1510,7 @@
                                  :opt [:t_user/password]))
 (pco/defmutation change-password!
   [{conn               :com.eldrix.rsdb/conn
-    authenticated-user :authenticated-user
+    authenticated-user :session/authenticated-user
     :as                env}
    {username     :t_user/username
     password     :t_user/password
@@ -1521,8 +1533,8 @@
                                       :t_episode/date_discharge]))
 (pco/defmutation save-admission!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env} params]
   {::pco/op-name 'pc4.rsdb/save-admission}
   (log/info "save admission request: " params "user: " user)
@@ -1548,8 +1560,8 @@
 
 (pco/defmutation delete-admission!
   [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :authenticated-user
+    manager :session/authorization-manager
+    user    :session/authenticated-user
     :as     env}
    {episode-id :t_episode/id
     patient-fk :t_episode/patient_fk
@@ -1704,7 +1716,8 @@
    notify-death!
    change-password!
    save-admission!
-   delete-admission!])
+   delete-admission!
+   set-date-death!])
 
 (comment
   (require '[next.jdbc.connection])
