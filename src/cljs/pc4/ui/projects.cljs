@@ -106,7 +106,6 @@
 
 (def ui-layout (comp/factory Layout))
 
-
 (defsc RegisterByNnn
   [this {project-id :t_project/id
          :ui/keys   [nhs-number error] :as props}]
