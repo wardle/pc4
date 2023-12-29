@@ -25,6 +25,15 @@
   (app/mount! @SPA root/Root "app")
   (comp/refresh-dynamic-queries! @SPA))
 
+(defn global-error-action
+  [env]
+  (log/error "global error action")
+  (tap> {:global-error-action env}))
+
+(defn remote-error? [result]
+  (tap> {:remote-error? result})
+  (or (app/default-remote-error? result)))
+
 (defn global-eql-transform
   "As the default transform but also asking that any Pathom errors during load! are returned,
   so that they can be inspected e.g. in `:remote-error?`"
@@ -46,6 +55,7 @@
                         (fn [^Big x] (.toString x))
                         #(Big. %)))
 
+
 (def secured-request-middleware
   (-> (net/wrap-csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML"))
       (net/wrap-fulcro-request)))
@@ -60,7 +70,9 @@
                  :request-middleware secured-request-middleware})
       :login  (net/fulcro-http-remote
                 {:url                "/login"
-                 :request-middleware secured-request-middleware})}}))
+                 :request-middleware secured-request-middleware})}
+     :remote-error?       remote-error?
+     :global-error-action global-error-action}))
 
 
 (defn ^:export init []
