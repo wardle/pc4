@@ -3,6 +3,7 @@
             [clojure.string :as str]
             [com.eldrix.nhsnumber :as nhs-number]
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
@@ -13,6 +14,24 @@
             [pc4.users]
             [taoensso.timbre :as log]))
 
+(declare PatientDemographics)
+
+(defmutation edit-demographics
+  [{:keys [patient-identifier]}]
+  (action
+    [{:keys [state]}]
+    (swap! state (fn [st]
+                   (-> st
+                       (fs/add-form-config* PatientDemographics [:t_patient/patient_identifier patient-identifier] {:destructive? true})
+                       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-demographics] true))))))
+(defmutation cancel-edit-demographics
+  [{:keys [patient-identifier]}]
+  (action
+    [{:keys [state]}]
+    (swap! state (fn [st]
+                   (-> st
+                       (fs/pristine->entity* [:t_patient/patient_identifier patient-identifier])
+                       (update-in [:t_patient/patient_identifier patient-identifier :ui/editing-demographics] not))))))
 
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
@@ -83,7 +102,7 @@
 
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
-(defsc PseudonymousMenu
+(defsc PatientMenu
   "Patient menu. At the moment, we have a different menu for pseudonymous
   patients but this will become increasingly unnecessary."
   [this {:t_patient/keys [patient_identifier]
@@ -114,7 +133,7 @@
                     :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
      :sub-menu    sub-menu}))
 
-(def ui-pseudonymous-menu (comp/computed-factory PseudonymousMenu))
+(def ui-patient-menu (comp/computed-factory PatientMenu))
 
 (defsc Layout [this {:keys [banner menu]}]
   (comp/fragment
@@ -126,44 +145,98 @@
 
 (def ui-layout (comp/factory Layout))
 
+(defsc EditDeathCertificate
+  [this params]
+  {:ident       :t_death_certificate/id
+   :query       [:t_death_certificate/id
+                 :t_death_certificate/part1a
+                 :t_death_certificate/part1b
+                 :t_death_certificate/part1c
+                 :t_death_certificate/part2]
+   :form-fields #{:t_death_certificate/part1a :t_death_certificate/part1b
+                  :t_death_certificate/part1c :t_death_certificate/part2}}
+  (ui/ui-modal {}
+    (dom/h1 "Edit death certificate")))
+
+(def ui-edit-death-certificate (comp/factory EditDeathCertificate))
+
+
 (defsc PatientDemographics
-  [this {:t_patient/keys [id patient_identifier status title first_names last_name nhs_number date_birth date_death current_age address] :as patient :>/keys [banner]}]
+  [this {:t_patient/keys [id patient_identifier status title first_names last_name nhs_number date_birth date_death current_age address] :as patient
+         :>/keys         [banner] :ui/keys [editing-demographics]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id
                    :t_patient/patient_identifier :t_patient/status
                    :t_patient/title :t_patient/first_names :t_patient/last_name
                    :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
+                   {:t_patient/death_certificate (comp/get-query EditDeathCertificate)}
                    {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
-                   {:>/banner (comp/get-query PatientBanner)}]
+                   {:>/banner (comp/get-query PatientBanner)}
+                   :ui/editing-demographics
+                   fs/form-config-join]
    :route-segment ["pt" :t_patient/patient_identifier "home"]
+   :form-fields   #{:t_patient/title
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/date_birth
+                    :t_patient/date_death}
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
-                    (log/debug "on-enter patient demographics" route-params)
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                      (println "entering patient demographics page; patient-identifier:" patient-identifier " : " PatientDemographics)
                       (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                          (fn []
                                            (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDemographics
                                                      {:target               [:ui/current-patient]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
-  (when (and id patient_identifier)
-    (ui-layout
-      {:banner  (ui-patient-banner banner)
-       :menu    (ui-pseudonymous-menu patient {:selected-id :home})}
-      (ui/ui-two-column-card
-        {:title "Demographics"
-         :items [{:title "First names" :content first_names}
-                 {:title "Last name" :content last_name}
-                 {:title "Title" :content title}
-                 {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                 {:title "Date of birth" :content (ui/format-date date_birth)}
-                 (if date_death {:title "Date of death" :content (ui/format-date date_death)}
-                                {:title "Current age" :content current_age})
-                 {:title "Address1" :content (:t_address/address1 address)}
-                 {:title "Address2" :content (:t_address/address2 address)}
-                 {:title "Address3" :content (:t_address/address3 address)}
-                 {:title "Address4" :content (:t_address/address4 address)}
-                 {:title "Postal code" :content (:t_address/postcode address)}]}))))
+
+  (let [do-edit #(comp/transact! this [(edit-demographics {:patient-identifier patient_identifier})])
+        do-cancel-edit #(comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})])
+        do-save #(comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
+                                                                       :t_patient/date_death date_death})])]
+    (when (and id patient_identifier)
+      (ui-layout
+        {:banner (ui-patient-banner banner)
+         :menu   (ui-patient-menu patient
+                   {:selected-id :home
+                    :sub-menu    {:items [{:id      ::edit
+                                           :content (ui/ui-menu-button {:onClick do-edit} "Edit demographics")}]}})}
+        (when editing-demographics
+          (ui/ui-modal
+            {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
+                       {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
+             :onClose do-cancel-edit}
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-item {:label "First names"}
+                (div :.pt-2 first_names))
+              (ui/ui-simple-form-item {:label "Last name"}
+                (div :.pt-2 last_name))
+              (ui/ui-simple-form-item {:label "Date of birth"}
+                (div :.pt-2 (ui/format-date date_birth)))
+              (ui/ui-simple-form-item {:label "Date of death"}
+                (ui/ui-local-date
+                  {:value    date_death
+                   :min-date date_birth
+                   :max-date (goog.date.Date.)
+                   :onChange #(m/set-value! this :t_patient/date_death %)})))))
+        (ui/ui-two-column-card
+          {:title "Demographics"
+           :items [{:title "First names" :content first_names}
+                   {:title "Last name" :content last_name}
+                   {:title "Title" :content title}
+                   {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                   {:title "Date of birth" :content (ui/format-date date_birth)}
+                   (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                  {:title "Current age" :content current_age})]})
+        (ui/ui-two-column-card
+          {:title "Current address"
+           :items
+           (if (= :PSEUDONYMOUS status)
+             [{:title "LSOA code" :content (:t_address/address1 address)}]
+             [{:title "Address1" :content (:t_address/address1 address)}
+              {:title "Address2" :content (:t_address/address2 address)}
+              {:title "Address3" :content (:t_address/address3 address)}
+              {:title "Address4" :content (:t_address/address4 address)}
+              {:title "Postal code" :content (:t_address/postcode address)}])})))))
 
 
 
@@ -193,124 +266,12 @@
                        :onClick   #(do (println "Save address" patient_identifier postcode)
                                        (comp/transact! (comp/get-parent this)
                                                        [(list 'pc4.rsdb/save-pseudonymous-patient-postal-code
-                                                          {:t_patient/patient_identifier patient_identifier
-                                                           :uk.gov.ons.nhspd/PCD2        postcode})])
+                                                              {:t_patient/patient_identifier patient_identifier
+                                                               :uk.gov.ons.nhspd/PCD2        postcode})])
                                        (comp/set-state! this {:ui/editing false :ui/postcode ""}))
                        :disabled? (str/blank? postcode)} "Save")
         (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing false :ui/postcode ""})} "Cancel")))))
 
 (def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
 
-
-(defsc PatientDeathCertificate
-  [this {:t_patient/keys           [date_death]
-         :t_death_certificate/keys [part1a part1b part1c part2]
-         banner                    :>/banner}]
-  {:ident          :t_patient/patient_identifier
-   :query          [{:>/banner (comp/get-query PatientBanner)}
-                    :t_patient/patient_identifier
-                    :t_patient/date_death
-                    :t_death_certificate/part1a
-                    :t_death_certificate/part1b
-                    :t_death_certificate/part1c
-                    :t_death_certificate/part2]
-   :initLocalState (fn [this props]
-                     (select-keys props [:t_patient/date_death :t_death_certificate/part1a
-                                         :t_death_certificate/part1b :t_death_certificate/part1b
-                                         :t_death_certificate/part1c
-                                         :t_death_certificate/part2]))}
-  (let [state (comp/get-state this)
-        disabled (nil? (:t_patient/date_death state))]
-    (println "state: " state)
-    (if-not (:ui/editing state)
-      (div
-        (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
-        (ui/ui-button {:onClick #(comp/set-state! this (assoc state :ui/editing true))} "Edit"))
-      (ui/ui-modal {:title   (ui-patient-banner banner)
-                    :actions [{:id :save, :role :primary :title "Save"}
-                              {:id      :cancel, :title "Cancel"
-                               :onClick #(comp/set-state! this {:ui/editing false})}]}
-        (ui/ui-simple-form {:title "Death certificate"}
-          (ui/ui-simple-form-item {:label "Date of death"}
-            (ui/ui-local-date {:value (:t_patient/date_death state)}
-                              {:onChange #(comp/set-state! this (assoc state :t_patient/date_death %))}))
-          (ui/ui-simple-form-item {:label "Certificate"}
-            (ui/ui-textfield {:label    "Part 1a" :value (:t_death_certificate/part1a state)
-                              :disabled disabled}
-                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1a %))})
-            (ui/ui-textfield {:label    "Part 1b" :value (:t_death_certificate/part1b state)
-                              :disabled disabled}
-                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1b %))})
-            (ui/ui-textfield {:label    "Part 1c" :value (:t_death_certificate/part1c state)
-                              :disabled disabled}
-                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part1c %))})
-            (ui/ui-textfield {:label    "Part 2" :value (:t_death_certificate/part2 state)
-                              :disabled disabled}
-                             {:onChange #(comp/set-state! this (assoc state :t_death_certificate/part2 %))})))))))
-
-
-(def ui-patient-death-certificate (comp/factory PatientDeathCertificate))
-
-
-(defsc EditDeathCertificate
-  [this params]
-  {:ident         (fn [] [:component/id :edit-death-certificate])
-   :query         [:t_patient/id
-                   :t_patient/patient_identifier
-                   :t_patient/date_death
-                   :t_death_certificate/part1a
-                   :t_death_certificate/part1b
-                   :t_death_certificate/part1c
-                   :t_death_certificate/part2]
-   :initial-state {}
-   :form-fields   #{:t_patient/date_death
-                    :t_death_certificate/part1a :t_death_certificate/part1b
-                    :t_death_certificate/part1c :t_death_certificate/part2}}
-  (dom/h1 "Edit death certificate"))
-
-(def ui-edit-death-certificate (comp/factory EditDeathCertificate))
-
-(defmutation edit-death-certificate
-  [{:t_patient/keys [patient_identifier]}]
-  (action
-    [{:keys [state]}]
-    (swap! state (fn [state]
-                   (-> state
-                       #_(fs/add-form-config* EditDeathCertificate [:t_patient/id id])
-                       (targeting/integrate-ident* [:t_patient/patient_identifier patient_identifier] :replace [:component/id :edit-death-certificate :patient]))))))
-
-(defmutation cancel-edit-death-certificate
-  [_]
-  (action [{:keys [state]}]
-          (swap! state (fn [state]
-                         (update-in state [:component/id :edit-death-certificate] dissoc :patient)))))
-
-
-(defsc PatientDeathCertificate2
-  [this {:t_patient/keys [id patient_identifier date_death]
-         banner          :>/banner
-         :ui/keys        [editing-death-certificate] :as params}]
-  {:ident         :t_patient/patient_identifier
-   :query         [{:>/banner (comp/get-query PatientBanner)}
-                   :t_patient/id
-                   :t_patient/patient_identifier
-                   :t_patient/date_death
-                   {:ui/editing-death-certificate (comp/get-query EditDeathCertificate)}]
-   :initial-state {:ui/editing-death-certificate {}}}
-  (println params)
-  (let [editing (:patient editing-death-certificate)
-        cancel-edit-fn #(comp/transact! this [(cancel-edit-death-certificate nil)])]
-    (if-not editing
-      (div
-        (if-not date_death "Alive" (str "Died on " (ui/format-date date_death)))
-        (ui/ui-button {:onClick #(do (println "edit clicked")
-                                     (comp/transact! this [(edit-death-certificate {:t_patient/id id})]))} "Edit"))
-      (ui/ui-modal
-        {:title   (ui-patient-banner banner)
-         :actions [{:id :save, :role :primary :title "Save"}
-                   {:id :cancel, :title "Cancel" :onClick cancel-edit-fn}]
-         :onClose cancel-edit-fn}
-        (ui-edit-death-certificate editing-death-certificate)))))
-
-(def ui-patient-death-certificate2 (comp/factory PatientDeathCertificate2))
 

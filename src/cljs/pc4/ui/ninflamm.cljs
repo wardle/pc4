@@ -324,7 +324,7 @@
                                                                               :t_ms_event/site_unknown                  true}})])]
         (patients/ui-layout
           {:banner (patients/ui-patient-banner banner)
-           :menu   (patients/ui-pseudonymous-menu
+           :menu   (patients/ui-patient-menu
                      patient
                      {:selected-id :relapses
                       :sub-menu

@@ -310,7 +310,7 @@
     (when patient_identifier
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-pseudonymous-menu
+         :menu   (patients/ui-patient-menu
                    patient
                    {:selected-id :medications
                     :sub-menu    {:items [{:id      :add-medication

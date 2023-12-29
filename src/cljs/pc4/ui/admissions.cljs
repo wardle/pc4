@@ -138,7 +138,7 @@
                                                                   :t_episode/patient_fk id}})])]
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-pseudonymous-menu
+         :menu   (patients/ui-patient-menu
                    patient
                    {:selected-id :admissions
                     :sub-menu    {:items [{:id      :add-admission

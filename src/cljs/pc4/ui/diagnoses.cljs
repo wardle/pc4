@@ -172,7 +172,7 @@
           do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-pseudonymous-menu
+         :menu   (patients/ui-patient-menu
                    patient
                    {:selected-id :diagnoses
                     :sub-menu    {:items [{:id      :add-diagnosis
