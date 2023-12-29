@@ -448,20 +448,21 @@
 
 
 (defsc UITwoColumnCard [this {:keys [title title-attrs subtitle items long-items]}]
-  (div :.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
-    (div :.px-4.py-5.sm:px-6 title-attrs
-      (dom/h3 :.text-base.font-semibold.leading-6.text-gray-900 title)
-      (div :.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle))
-    (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
-      (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
-        (for [{:keys [title content]} items]
-          (div :.sm:col-span-1 {:key title}
-            (dom/dt :.text-sm.font-medium.text-gray-500 title)
-            (dom/dd :.mt-1.text-sm.text-gray-900 content)))
-        (for [{:keys [title content]} long-items]
-          (div :.sm:col-span-2 {:key title}
-            (dom/dt :.text-sm.font-medium.text-gray-500 title)
-            (dom/dd :.mt-1.text-sm.text-gray-900 content)))))))
+  (div :.pb-2
+    (div :.overflow-hidden.bg-white.border.shadow-lg.sm:rounded-lg
+      (div :.px-4.py-5.sm:px-6 title-attrs
+        (dom/h3 :.text-base.font-semibold.leading-6.text-gray-900 title)
+        (div :.mt-1.max-w-2xl.text-sm.text-gray-500 subtitle))
+      (div :.border-t.border-gray-200.px-4.py-5.sm:px-6
+        (dom/dl :.grid.grid-cols-1.gap-x-4.gap-y-8.sm:grid-cols-2
+          (for [{:keys [title content]} items]
+            (div :.sm:col-span-1 {:key title}
+              (dom/dt :.text-sm.font-medium.text-gray-400 title)
+              (dom/dd :.mt-1.text-sm.text-gray-900 content)))
+          (for [{:keys [title content]} long-items]
+            (div :.sm:col-span-2 {:key title}
+              (dom/dt :.text-sm.font-medium.text-gray-400 title)
+              (dom/dd :.mt-1.text-sm.text-gray-900 content))))))))
 
 (def ui-two-column-card (comp/factory UITwoColumnCard))
 
