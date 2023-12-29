@@ -187,13 +187,14 @@
                                                                                              :string->model parse-local-date})))
 
 (defsc UILocalDate
-  [this {:keys [id label value min-date max-date onBlur onChange onEnterKey]}]
+  [this {:keys [id label disabled value min-date max-date onBlur onChange onEnterKey]}]
   (div
     (when label (ui-label {:for id :label label}))
     (div :.mt-1
       (ui-local-date-input
         (cond-> {:type "date" :value value}
                 id (assoc :name id)
+                disabled (assoc :disabled "true")
                 min-date (assoc :min (unparse-local-date min-date))
                 max-date (assoc :max (unparse-local-date max-date))
                 onBlur (assoc :onBlur onBlur)
