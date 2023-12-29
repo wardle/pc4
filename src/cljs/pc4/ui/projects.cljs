@@ -283,7 +283,6 @@
    :query         [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous]
    :route-segment ["projects" :t_project/id "downloads"]
    :will-enter    (fn [app {:t_project/keys [id] :as route-params}]
-                    (log/debug "on-enter project home" route-params)
                     (when-let [project-id (some-> id (js/parseInt))]
                       (dr/route-deferred [:t_project/id project-id]
                                          (fn []
