@@ -201,8 +201,8 @@
   One additional row will be returned than requested. This should be used to
   generate the `first-id` for the next page request."
   [patient-pk {:keys [first-id page-size] :or {page-size 20}}]
-  (cond-> {:select :id :from :t_encounter
-           :join [:t_patient [:= :t_patient.id :patient_fk]]
+  (cond-> {:select   :id :from :t_encounter
+           :join     [:t_patient [:= :t_patient.id :patient_fk]]
            :order-by [[:date_time :desc] [:id :desc]]}
     (pos-int? page-size)
     (assoc :limit (inc page-size))
