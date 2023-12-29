@@ -707,12 +707,19 @@
 
 
 (s/fdef set-date-death
-  :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id :t_patient/date_death])))
+  :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier) :t_patient/date_death])))
 
-(defn set-date-death [conn {patient-pk :t_patient/id date_death :t_patient/date_death}]
-  (jdbc/execute-one! conn (sql/format {:update [:t_patient]
-                                       :where  [:= :id patient-pk]
-                                       :set    {:date_death date_death}})))
+(defn set-date-death
+  [conn {patient-pk :t_patient/id, patient-identifier :t_patient/patient_identifier, date_death :t_patient/date_death :as params}]
+  (db/execute-one!
+    conn
+    (sql/format {:update [:t_patient]
+                 :where  (cond
+                           patient-pk [:= :id patient-pk]
+                           patient-identifier [:= :patient_identifier patient-identifier]
+                           :else (throw (ex-info "missing patient pk or identifier" params)))
+                 :set    {:date_death date_death}})
+    {:return-keys true}))
 
 
 (s/fdef notify-death!
