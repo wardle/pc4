@@ -185,7 +185,52 @@
 
 (def tap-ctx
   {:name  ::tap
-   :enter (fn [ctx] (tap> ctx) ctx)})
+   :enter (fn [ctx] (tap> {:on-enter ctx}) ctx)
+   :leave (fn [ctx] (tap> {:on-leave ctx}) ctx)})
+
+(defn- current-time []
+  (quot (System/currentTimeMillis) 1000))
+
+(defn- session-expired?
+  [{:keys [idle-timeout]}]
+  (let [now (current-time)
+        expired? (and idle-timeout (< idle-timeout now))]
+    (log/info {:idle-timeout idle-timeout
+               :now          now
+               :expired?     expired?})
+    expired?))
+
+(def session-timeout
+  "If we have a logged-in user, check the idle timeout."
+  {:name  ::session-timeout
+   :enter (fn [ctx]
+            (let [session (get-in ctx [:request :session])
+                  user (:authenticated-user session)]
+              (if (and user (session-expired? session))
+                (assoc ctx :response {:status  200
+                                      :headers {}           ;; have to return headers to stop interceptor chain
+                                      :body    {:error "Your session timed out"}
+                                      :session (dissoc session :authenticated-user :idle-timeout)})
+                ctx)))})
+
+(def session-keep-alive
+  {:name ::session-keep-alive
+   :leave
+   (fn [{:keys [request response] :as ctx}]
+     (let [response-session? (contains? response :session)
+           request-session (:session request)
+           user (or (:authenticated-user request-session) (get-in response [:session :authenticated-user]))]
+       (cond
+         ;; no logged in user => do nothing
+         (not user) ctx
+         ;; we have a user, but no session in the response so far => add an idle timeout
+         (not response-session?)
+         (assoc-in ctx [:response :session]
+                   (assoc request-session :idle-timeout (+ (current-time) 10)))
+         ;; we have a user, and a response session => update the idle timeout
+         :else
+         (update-in ctx [:response :session] assoc :idle-timeout (+ (current-time) 10)))))})
+
 
 (def routes
   (route/expand-routes
