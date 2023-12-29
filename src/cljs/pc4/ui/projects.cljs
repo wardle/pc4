@@ -293,8 +293,9 @@
   (ui-layout
     {:project project :selected-id :downloads}
     (ui/ui-panel {}
-      (dom/h3 "There are no downloads available for this service"))))
-
+      (div :.pb-4
+        (dom/h3 :.text-base.font-semibold.leading-6.text-gray-900 "Downloads"))
+      (dom/p "There are no downloads linked to this service yet."))))
 
 (def role->badge-class
   {:INACTIVE              "bg-black text-white"
