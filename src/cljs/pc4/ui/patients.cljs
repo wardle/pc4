@@ -161,97 +161,6 @@
 (def ui-edit-death-certificate (comp/factory EditDeathCertificate))
 
 
-(defsc PatientDemographics
-  [this {:t_patient/keys [id patient_identifier status title first_names last_name nhs_number date_birth date_death current_age address] :as patient
-         :>/keys         [banner] :ui/keys [editing-demographics]}]
-  {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/id
-                   :t_patient/patient_identifier :t_patient/status
-                   :t_patient/title :t_patient/first_names :t_patient/last_name
-                   :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
-                   {:t_patient/death_certificate (comp/get-query EditDeathCertificate)}
-                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
-                   {:>/banner (comp/get-query PatientBanner)}
-                   :ui/editing-demographics
-                   fs/form-config-join]
-   :route-segment ["pt" :t_patient/patient_identifier "home"]
-   :form-fields   #{:t_patient/title
-                    :t_patient/first_names
-                    :t_patient/last_name
-                    :t_patient/date_birth
-                    :t_patient/date_death}
-   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
-                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
-                                         (fn []
-                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDemographics
-                                                     {:target               [:ui/current-patient]
-                                                      :post-mutation        `dr/target-ready
-                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
-
-  (let [do-edit #(comp/transact! this [(edit-demographics {:patient-identifier patient_identifier})])
-        do-cancel-edit #(comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})])
-        do-save #(comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
-                                                                       :t_patient/date_death date_death})])]
-    (when (and id patient_identifier)
-      (ui-layout
-        {:banner (ui-patient-banner banner)
-         :menu   (ui-patient-menu patient
-                   {:selected-id :home
-                    :sub-menu    {:items [{:id      ::edit
-                                           :content (ui/ui-menu-button {:onClick do-edit} "Edit demographics")}]}})}
-        (when editing-demographics
-          (ui/ui-modal
-            {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
-                       {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
-             :onClose do-cancel-edit}
-            (ui/ui-simple-form {}
-              (ui/ui-simple-form-item {:label "First names"}
-                (div :.pt-2 first_names))
-              (ui/ui-simple-form-item {:label "Last name"}
-                (div :.pt-2 last_name))
-              (ui/ui-simple-form-item {:label "Date of birth"}
-                (div :.pt-2 (ui/format-date date_birth)))
-              (ui/ui-simple-form-item {:label "Date of death"}
-                (ui/ui-local-date
-                  {:value    date_death
-                   :min-date date_birth
-                   :max-date (goog.date.Date.)
-                   :onChange #(m/set-value! this :t_patient/date_death %)})))))
-        (ui/ui-two-column-card
-          {:title "Demographics"
-           :items [{:title "First names" :content first_names}
-                   {:title "Last name" :content last_name}
-                   {:title "Title" :content title}
-                   {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                   {:title "Date of birth" :content (ui/format-date date_birth)}
-                   (if date_death {:title "Date of death" :content (ui/format-date date_death)}
-                                  {:title "Current age" :content current_age})]})
-        (ui/ui-two-column-card
-          {:title "Current address"
-           :items
-           (if (= :PSEUDONYMOUS status)
-             [{:title "LSOA code" :content (:t_address/address1 address)}]
-             [{:title "Address1" :content (:t_address/address1 address)}
-              {:title "Address2" :content (:t_address/address2 address)}
-              {:title "Address3" :content (:t_address/address3 address)}
-              {:title "Address4" :content (:t_address/address4 address)}
-              {:title "Postal code" :content (:t_address/postcode address)}])})))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 (defsc InspectEditLsoa
   [this {:t_patient/keys [patient_identifier lsoa11]}]
   (let [editing (comp/get-state this :ui/editing)
@@ -273,5 +182,102 @@
         (ui/ui-button {:onClick #(comp/set-state! this {:ui/editing false :ui/postcode ""})} "Cancel")))))
 
 (def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
+
+
+(defsc PatientDemographics
+  [this {:t_patient/keys [id patient_identifier status sex title first_names last_name nhs_number date_birth date_death current_age address] :as patient
+         :>/keys         [banner] :ui/keys [editing-demographics editing-death-certificate]}]
+  {:ident         :t_patient/patient_identifier
+   :query         [:t_patient/id
+                   :t_patient/patient_identifier :t_patient/status
+                   :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/sex
+                   :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
+                   {:t_patient/death_certificate (comp/get-query EditDeathCertificate)}
+                   :t_patient/lsoa11
+                   {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
+                   {:>/banner (comp/get-query PatientBanner)}
+                   :ui/editing-demographics
+                   :ui/editing-death-certificate
+                   fs/form-config-join]
+   :route-segment ["pt" :t_patient/patient_identifier "home"]
+   :form-fields   #{:t_patient/title
+                    :t_patient/first_names
+                    :t_patient/last_name
+                    :t_patient/date_birth
+                    :t_patient/date_death}
+   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
+                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                         (fn []
+                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDemographics
+                                                     {:target               [:ui/current-patient]
+                                                      :post-mutation        `dr/target-ready
+                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
+
+  (let [do-edit #(comp/transact! this [(edit-demographics {:patient-identifier patient_identifier})])
+        do-cancel-edit #(comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})])
+        do-save #(comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
+                                                                       :t_patient/date_death         date_death})])]
+    (when (and id patient_identifier)
+      (ui-layout
+        {:banner (ui-patient-banner banner)
+         :menu   (ui-patient-menu patient
+                   {:selected-id :home
+                    :sub-menu    {:items [{:id      ::edit
+                                           :content (ui/ui-menu-button {:onClick do-edit} "Edit demographics")}
+                                          (when-not  (:t_death_certificate/id editing-death-certificate)
+                                            {:id ::add-death-certificate
+                                             :content (ui/ui-menu-button {:onClick #(println "death certificate")}
+                                                                         "Add death certificate")})]}})}
+        (when editing-demographics
+          ;; at the moment, this only supports pseudonymous patients
+          (ui/ui-modal
+            {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
+                       {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
+             :onClose do-cancel-edit}
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-item {:label "Gender"}
+                (div :.pt-2 (name sex)))
+              (ui/ui-simple-form-item {:label "Date of birth"}
+                (div :.pt-2 (ui/format-month-year date_birth)))
+              (ui/ui-simple-form-item {:label "Date of death"}
+                (ui/ui-local-date
+                  {:value    date_death
+                   :min-date date_birth
+                   :max-date (goog.date.Date.)
+                   :onChange #(m/set-value! this :t_patient/date_death %)})))))
+        (when editing-death-certificate
+          (ui-edit-death-certificate editing-death-certificate))
+        (ui/ui-two-column-card
+          {:title "Demographics"
+           :items [{:title "First names" :content first_names}
+                   {:title "Last name" :content last_name}
+                   {:title "Title" :content title}
+                   {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                   {:title "Date of birth" :content (ui/format-date date_birth)}
+                   (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                  {:title "Current age" :content current_age})]})
+        (ui/ui-two-column-card
+          {:title "Current address"
+           :items
+           (if (= :PSEUDONYMOUS status)
+             [{:title "LSOA code" :content (ui-inspect-edit-lsoa patient)}]
+             [{:title "Address1" :content (:t_address/address1 address)}
+              {:title "Address2" :content (:t_address/address2 address)}
+              {:title "Address3" :content (:t_address/address3 address)}
+              {:title "Address4" :content (:t_address/address4 address)}
+              {:title "Postal code" :content (:t_address/postcode address)}])})))))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
