@@ -35,9 +35,11 @@
                                                 (select-keys user [:t_user/id :t_role/is_system :t_user/active_roles])))))))
 
 (pco/defmutation logout
-  [env _]
+  [{session :session :as env} _]
   {::pco/op-name 'pc4.users/logout}
-  (api-middleware/augment-response {:session/authenticated-user nil} #(assoc % :session nil)))
+  (api-middleware/augment-response {:session/authenticated-user nil}
+    (fn [response]
+      (assoc response :session (dissoc session :authenticated-user)))))
 
 (pco/defresolver authenticated-user
   "Returns the authenticated user based on parameters in the environment"
