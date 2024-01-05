@@ -66,8 +66,8 @@
 
 (defn avatar-14 []
   (dom/span :.inline-block.h-14.w-14.overflow-hidden.rounded-full.bg-gray-100
-    (dom/svg :.h-full.w-full.text-gray-300 {:fill "currentColor" :viewBox "0 0 24 24"}
-      (dom/path {:d "M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"}))))
+            (dom/svg :.h-full.w-full.text-gray-300 {:fill "currentColor" :viewBox "0 0 24 24"}
+              (dom/path {:d "M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"}))))
 
 (defn box-error-message [& {:keys [title message]}]
   (when message
@@ -138,12 +138,10 @@
 
 (defsc UITextField
   "A styled textfield control."
-  [this
-   {:keys [id value type label placeholder required auto-focus disabled help-text] :or {type "text"}}
-   {:keys [onChange onBlur onEnterKey]}]
+  [this {:keys [id value type label placeholder required auto-focus disabled help-text onChange onBlur onEnterKey] :or {type "text"}}]
   (div
     (when label (ui-label {:for id :label label}))
-    (div :.mt-1
+    (div
       (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
         {:name      id :type type :placeholder placeholder
          :required  required
@@ -156,21 +154,46 @@
          :onWheel   #(when (= type "number") (-> % .-target .blur))})
       (when help-text (dom/p :.text-sm.text-gray-500.italic help-text)))))
 
-(def ui-textfield (comp/computed-factory UITextField))
+(def ui-textfield
+  "Textfield control. Parameters:
+  - id
+  - value
+  - type
+  - label
+  - placeholder
+  - required
+  - auto-focus
+  - disabled
+  - help-text
+  - onChange
+  - onBlur
+  - onEnter"
+  (comp/factory UITextField))
 
 (defsc UITextArea
-  [this {:keys [id name value label rows onChange] :or {rows 5}}]
+  [this {:keys [id name value label rows onChange disabled] :or {rows 5}}]
   (div
-    (when label (label :.block.text-sm.font-medium.text-gray-700 {:for id} label))
-    (div :.mt-1
+    (when label (dom/label :.block.text-sm.font-medium.text-gray-700.pt-2 {:htmlFor id} label))
+    (div
       (dom/textarea :.comment.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
         {:id       id
+         :classes  (when disabled ["text-gray-600" "bg-gray-50" "italic"])
          :rows     (str rows)
          :name     name
          :value    (or value "")
+         :disabled disabled
          :onChange #(when onChange (let [v (-> % .-target .-value)] (onChange (if (str/blank? v) nil v))))}))))
 
-(def ui-textarea (comp/factory UITextArea))
+(def ui-textarea
+  "TextArea control. Parameters:
+  - id
+  - name
+  - disabled
+  - value
+  - label
+  - rows
+  - onChange"
+  (comp/factory UITextArea))
 
 (defn unparse-local-date [^Date d]
   (when d (.toIsoString d true)))
@@ -190,7 +213,7 @@
   [this {:keys [id label disabled value min-date max-date onBlur onChange onEnterKey]}]
   (div
     (when label (ui-label {:for id :label label}))
-    (div :.mt-1
+    (div
       (ui-local-date-input
         (cond-> {:type "date" :value value}
                 id (assoc :name id)
@@ -218,11 +241,12 @@
         forced-value (if (not (contains? all-options value)) default-value value)]
     (when (and onChange (not= value forced-value))
       (onChange forced-value))
-    (div
+    (comp/fragment
       (when label (ui-label {:for name :label label}))
-      (dom/select :.mt-1.block.pl-3.pr-10.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+      (dom/select :.block.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
                   {:name      name
                    :disabled  disabled?
+                   :classes   (when disabled? ["bg-gray-100" "text-gray-600"])
                    :value     (str (id-key forced-value))
                    :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
                    :onChange  #(when onChange
@@ -235,7 +259,23 @@
                         :let [id (id-key option)]]
                     (dom/option :.py-1 {:key id :value (str id)} (display-key option)))))))
 
-(def ui-select-popup-button (comp/factory UISelectPopupButton))
+(def ui-select-popup-button
+  "HTML Select control as a popup button. Parameters:
+  - name
+  - label
+  - value
+  - options
+  - id-key
+  - display-key
+  - default-value
+  - no-selection-string
+  - disabled?
+  - sort?
+  - update-options?
+  - onChange
+  - onEnterKey
+  - sort-fn"
+  (comp/factory UISelectPopupButton))
 
 (defsc UISubmitButton
   [this {:keys [label disabled? onClick]}]
@@ -419,10 +459,11 @@
 
 (def ui-simple-form-title (comp/factory UISimpleFormTitle))
 
-(defsc UISimpleFormItem [this {:keys [htmlFor label]}]
-  (div :.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-    (dom/label :.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 {:htmlFor htmlFor} label)
-    (div :.mt-1.sm:mt-0.sm:col-span-2
+(defsc UISimpleFormItem [this {:keys [htmlFor label sub-label]}]
+  (div :.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-2
+    (dom/label :.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2 (when htmlFor {:htmlFor htmlFor}) label
+      (when sub-label (dom/span :.block.text-xs.font-medium.text-gray-400 sub-label)))
+    (div :.pt-2.sm:pt-0.sm:col-span-2
       (comp/children this))))
 
 (def ui-simple-form-item (comp/factory UISimpleFormItem))
@@ -481,14 +522,16 @@
             {:key id, :onClick onClick}
             (dom/span :.pr-2 icon) content)))
       (when sub-menu
-        (dom/div :.mt-4
+        (dom/div :.mt-4.flex
           (dom/h3 :.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu))
-          (dom/div :.pt-1.space-y-1
+          (dom/div :.pt-1.space-y-1.w-full
             (for [{:keys [id onClick content]} (:items sub-menu)
                   :when content]
-              (dom/a :.group.flex.items-center.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900
-                {:key id, :onClick onClick}
-                content))))))))
+              (if onClick                                   ;; if onClick => render as a link
+                (dom/a :.group.flex.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900
+                  {:key id, :onClick onClick}
+                  content)
+                (div {:key id} content)))))))))
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
 
