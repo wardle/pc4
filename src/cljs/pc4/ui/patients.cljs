@@ -169,8 +169,8 @@
       (ui/ui-link-button {:onClick #(do (comp/set-state! this {:ui/editing true :ui/postcode ""}))}
                          (or lsoa11 "Not yet set"))
       (div :.space-y-6
-        (ui/ui-textfield {:label "Enter postal code" :value postcode}
-                         {:onChange #(comp/set-state! this {:ui/postcode %})})
+        (ui/ui-textfield {:label    "Enter postal code" :value postcode
+                          :onChange #(comp/set-state! this {:ui/postcode %})})
         (ui/ui-button {:role      :primary
                        :onClick   #(do (println "Save address" patient_identifier postcode)
                                        (comp/transact! (comp/get-parent this)
@@ -225,8 +225,8 @@
                    {:selected-id :home
                     :sub-menu    {:items [{:id      ::edit
                                            :content (ui/ui-menu-button {:onClick do-edit} "Edit demographics")}
-                                          (when-not  (:t_death_certificate/id editing-death-certificate)
-                                            {:id ::add-death-certificate
+                                          (when-not (:t_death_certificate/id editing-death-certificate)
+                                            {:id      ::add-death-certificate
                                              :content (ui/ui-menu-button {:onClick #(println "death certificate")}
                                                                          "Add death certificate")})]}})}
         (when editing-demographics
