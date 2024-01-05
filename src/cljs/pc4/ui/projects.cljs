@@ -125,8 +125,7 @@
                                                            {:target               [:ui/current-project]
                                                             :post-mutation        `dr/target-ready
                                                             :post-mutation-params {:target [:t_project/id project-id]}})))))
-   :allow-route-change? (constantly true)
-   :will-leave          (fn [this {:t_project/keys [id]}] (comp/transact! this [(clear-register-patient-form {:project-id id})]))}
+   :allow-route-change? (constantly true)}
 
   (ui-layout
     {:project props :selected-id :register-patient}
@@ -143,8 +142,8 @@
               (p :.mt-4 "This is safe to use even if patient already registered."))
             (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
               (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-              (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                               {:onChange   (fn [nnn]
+              (ui/ui-textfield {:id         "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true
+                                :onChange   (fn [nnn]
                                               (when (= 10 (count (nnn/normalise nnn)))
                                                 (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
                                               (m/set-string!! this :ui/nhs-number :value nnn))
@@ -197,8 +196,8 @@
               (p :.mt-4 "Patient identifiable information is not stored but simply used to generate a pseudonym."))
             (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
               (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-              (ui/ui-textfield {:id "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true}
-                               {:onChange   #(m/set-string!! this :ui/nhs-number :value %)
+              (ui/ui-textfield {:id         "nnn" :value nhs-number :label "NHS Number:" :placeholder "Enter NHS number" :auto-focus true
+                                :onChange   #(m/set-string!! this :ui/nhs-number :value %)
                                 :onBlur     #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
                                 :onEnterKey do-register})
               (when (fs/invalid-spec? props :ui/nhs-number)
@@ -245,7 +244,7 @@
                                                             :post-mutation-params {:target [:t_project/id project-id]}})))))
    :allow-route-change? (constantly true)
    :will-leave          (fn [this {:t_project/keys [id]}]
-                          #(comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id id})]))}
+                          (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id id})]))}
   (ui-layout
     {:project props :selected-id :find-pseudonymous}
     (div
@@ -329,6 +328,11 @@
 
 (def ui-project-team-member (comp/factory ProjectTeamMember {:keyfn :t_user/id}))
 
+
+
+(defn team-filter-active [])
+
+
 (defsc ProjectTeam [this {:t_project/keys [id title type users] :as project}]
   {:ident         :t_project/id
    :query         (fn [this]
@@ -344,11 +348,31 @@
                                                      {:target               [:ui/current-project]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_project/id project-id]}})))))}
-  (ui-layout
-    {:project project :selected-id :team}
-    (ui/ui-grid-list {}
-      (for [user (sort-by :t_user/last_name users)]
-        (ui-project-team-member user)))))
+  (let [active-filter (or (comp/get-state this :ui/active-filter) :ACTIVE) ;; use component local state so resets when move away
+        name-filter (or (some-> (comp/get-state this :ui/name-filter) str/lower-case) "")
+        users (cond->> (sort-by :t_user/last_name users)
+                       (= active-filter :ACTIVE)
+                       (filter :t_user/active?)
+                       (= active-filter :INACTIVE)
+                       (remove :t_user/active?)
+                       (not (str/blank? name-filter))
+                       (filter #(str/includes? (str/lower-case (:t_user/full_name %)) name-filter)))]
+    (ui-layout
+      {:project  project :selected-id :team
+       :sub-menu {:items [{:id      ::active-filter
+                           :content (ui/ui-select-popup-button {:value         active-filter
+                                                                :default-value :ACTIVE
+                                                                :options       [:ACTIVE :INACTIVE :ALL]
+                                                                :display-key   name
+                                                                :sort?         false
+                                                                :onChange      #(comp/set-state! this {:ui/active-filter %})})}
+                          {:id      ::name-filter
+                           :content (ui/ui-textfield {:label "Name"
+                                                      :value name-filter
+                                                      :onChange #(comp/set-state! this {:ui/name-filter %})})}]}}
+      (ui/ui-grid-list {}
+        (for [user users]
+          (ui-project-team-member user))))))
 
 (defsc AdministrativeUser [this {:t_user/keys [full_name]}]
   {:ident :t_user/id
