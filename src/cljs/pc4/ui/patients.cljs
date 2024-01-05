@@ -7,12 +7,39 @@
             [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.dom :as dom :refer [div p dt dd table thead tbody tr th td]]
+            [com.fulcrologic.fulcro.algorithms.merge :as merge]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [pc4.ui.core :as ui]
             [pc4.ui.snomed :as snomed]
             [pc4.users]
             [taoensso.timbre :as log]))
+
+(defn unload-related*
+  [state patient-identifier k table-name]
+  (let [path (conj [:t_patient/patient_identifier patient-identifier k])
+        idents (get-in state path)]
+    (reduce (fn [state ident]
+              (let [id (second ident)]
+                (-> state
+                    (update table-name dissoc id)
+                    (merge/remove-ident* ident path)))) state idents)))
+
+(defn close-patient-record*
+  [state patient-identifier]
+  (-> state
+      (unload-related* patient-identifier :t_patient/encounters :t_encounter/id)
+      (unload-related* patient-identifier :t_patient/episodes :t_episode/id)
+      (unload-related* patient-identifier :t_patient/diagnoses :t_diagnosis/id)
+      (unload-related* patient-identifier :t_patient/medications :t_medication/id)))
+
+(defmutation close-patient-record
+  "Close a patient record. Unloads data from most important relationships such
+  as encounters, episodes, diagnoses and medications for the patient specified."
+  [{:keys [patient-identifier]}]
+  (action
+    [{:keys [state]}]
+    (swap! state close-patient-record* patient-identifier)))
 
 (declare PatientDemographics)
 
