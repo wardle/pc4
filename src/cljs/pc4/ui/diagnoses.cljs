@@ -97,22 +97,22 @@
                                                         :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)}))))
         (ui/ui-simple-form-item {:label "Date of onset"}
           (ui/ui-local-date {:name     "date-onset" :value date_onset :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value!! this :t_diagnosis/date_onset %)}))
+                             :onChange #(m/set-value! this :t_diagnosis/date_onset %)}))
         (ui/ui-simple-form-item {:label "Date of diagnosis"}
           (ui/ui-local-date {:name     "date-diagnosis" :value date_diagnosis :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value!! this :t_diagnosis/date_diagnosis %)}))
+                             :onChange #(m/set-value! this :t_diagnosis/date_diagnosis %)}))
         (ui/ui-simple-form-item {:label "Date to"}
           (ui/ui-local-date {:name     "date-to" :value date_to :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value!! this :t_diagnosis/date_to %)}))
+                             :onChange #(m/set-value! this :t_diagnosis/date_to %)}))
         (ui/ui-simple-form-item {:label "Status"}
           (ui/ui-select-popup-button
             {:name     "status", :value status, :update-options? false
              :options  (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
                                    ["ACTIVE"])
-             :onChange #(m/set-value!! this :t_diagnosis/status %)}))
+             :onChange #(m/set-value! this :t_diagnosis/status %)}))
         (ui/ui-simple-form-item {:label "Notes"}
           (ui/ui-textarea {:value    notes
-                           :onChange #(m/set-value!! this :t_diagnosis/notes %)}))
+                           :onChange #(m/set-value! this :t_diagnosis/notes %)}))
         (when id
           (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
