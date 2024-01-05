@@ -86,12 +86,12 @@
       (ui/ui-simple-form {}
         (ui/ui-simple-form-title {:title "Admission to hospital"})
         (ui/ui-simple-form-item {:label "Date of admission"}
-          (ui/ui-local-date {:name  "date-registration"
-                             :value date_registration
+          (ui/ui-local-date {:name     "date-registration"
+                             :value    date_registration
                              :onChange #(m/set-value!! this :t_episode/date_registration %)}))
         (ui/ui-simple-form-item {:label "Date of discharge"}
-          (ui/ui-local-date {:name  "date-discharge"
-                             :value date_discharge
+          (ui/ui-local-date {:name     "date-discharge"
+                             :value    date_discharge
                              :onChange #(m/set-value!! this :t_episode/date_discharge %)}))
         (when (seq encounters)
           (dom/p :.text-gray-500.pt-8 "This episode cannot be deleted as it has encounters linked to it."))))))
@@ -99,11 +99,16 @@
 
 (def ui-edit-admission (comp/factory EditAdmission))
 
+(defsc Project [this {:t_project/keys [id title is_admission]}]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/title :t_project/is_admission]})
+
 (defsc EpisodeListItem
   [this {:t_episode/keys [id date_registration date_discharge]}
    {:keys [onClick] :as computed-props}]
   {:ident :t_episode/id
-   :query [:t_episode/id :t_episode/patient_fk :t_episode/date_registration :t_episode/date_discharge]}
+   :query [:t_episode/id :t_episode/patient_fk :t_episode/date_registration :t_episode/date_discharge
+           {:t_episode/project (comp/get-query Project)}]}
   (ui/ui-table-row computed-props
     (ui/ui-table-cell {} (ui/format-date date_registration))
     (ui/ui-table-cell {} (ui/format-date date_discharge))))
@@ -131,11 +136,11 @@
                     (merge {:ui/editing-admission {}} current-normalized data-tree))}
   (when patient_identifier
     (let [do-edit #(df/load! this [:t_episode/id (:t_episode/id %)] EditAdmission
-                             {:post-mutation `edit-admission
+                             {:post-mutation        `edit-admission
                               :post-mutation-params {:patient-identifier patient_identifier :episode %}})
           do-add #(comp/transact! this [(add-admission {:patient-identifier patient_identifier
-                                                        :episode {:t_episode/id         (tempid/tempid)
-                                                                  :t_episode/patient_fk id}})])]
+                                                        :episode            {:t_episode/id         (tempid/tempid)
+                                                                             :t_episode/patient_fk id}})])]
       (patients/ui-layout
         {:banner (patients/ui-patient-banner banner)
          :menu   (patients/ui-patient-menu
@@ -153,7 +158,10 @@
                   (ui/ui-table-row {}
                     (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
                 (ui/ui-table-body {}
-                  (for [episode (reverse (sort-by #(some-> % :t_episode/date_registration .valueOf) episodes))]
+                  (for [episode (->> episodes
+                                     (filter #(-> % :t_episode/project :t_project/is_admission))
+                                     (sort-by #(some-> % :t_episode/date_registration .valueOf))
+                                     reverse)]
                     (ui-episode-list-item episode
                                           {:onClick (fn [] (do-edit episode))
                                            :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))))
