@@ -107,7 +107,9 @@
                 (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-medication] {})) ;; clear modal dialog)
             ;; if cancelling a newly created diagnosis, delete it and its relationship
             (tempid/tempid? medication-id)
-            (merge/remove-ident* [:t_medication/id medication-id] [:t_patient/patient_identifier patient-identifier :t_patient/medications])
+            (->
+              (update :t_medication/id dissoc medication-id)
+              (merge/remove-ident* [:t_medication/id medication-id] [:t_patient/patient_identifier patient-identifier :t_patient/medications]))
             ;; remove all temporarily created medication events linked to this medication
             (seq temp-event-ids)
             (update :t_medication_event/id (fn [m] (apply dissoc m temp-event-ids))))))
