@@ -182,7 +182,7 @@
              :sort?         false
              :default-value "UNKNOWN"
              :onChange      #(m/set-value! this :t_ms_event/impact %)}))
-        (ui/ui-simple-form-item {:label "Site"}
+        (ui/ui-simple-form-item {:label "Sites"}
           (div :.columns-1.sm:columns-2.md:columns-3.lg:columns-4
             (ui/ui-multiple-checkboxes
               {:value        ms-event
