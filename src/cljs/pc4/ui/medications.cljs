@@ -158,7 +158,7 @@
     (let [term (get-in event-concept [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
       (if (str/blank? term)
         (snomed/ui-autocomplete choose-event
-                                {:value  event-concept, :constraint "<473010000"
+                                {:value  event-concept, :constraint "<404684003"
                                  :onSave #(m/set-value! this :t_medication_event/event_concept %)})
         (let [s (get-in event-concept [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
           (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_medication_event/event_concept nil)} term)))))))
