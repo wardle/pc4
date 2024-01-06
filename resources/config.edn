@@ -194,6 +194,7 @@
   :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
   :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
   :com.eldrix/hermes              #ig/ref :com.eldrix/hermes
+  :com.eldrix/nhspd               #ig/ref :com.eldrix/nhspd
   :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
   :com.eldrix.pc4/jobs            #ig/ref :com.eldrix.pc4/jobs
   :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
