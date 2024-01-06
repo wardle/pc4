@@ -52,7 +52,11 @@
   (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
 
 
-
+(s/def ::save-fn fn?)
+(s/def ::params map?)
+(s/def ::id-key keyword?)
+(s/fdef create-or-save-entity
+  :args (s/cat :request (s/keys :req-un [::save-fn ::params ::id-key])))
 (defn create-or-save-entity
   "Save an entity which may have a tempid.
   Parameters:
@@ -1442,25 +1446,23 @@
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (patients/delete-encounter! conn encounter-id))))
 
-
-(s/def ::save-result (s/keys :req [:t_patient/patient_identifier]))
 (pco/defmutation save-result!
   [{conn    :com.eldrix.rsdb/conn
     manager :session/authorization-manager
     user    :session/authenticated-user
-    :as     env} params]
+    :as     env}
+   {:keys [patient-identifier result] :as params}]
   {::pco/op-name 'pc4.rsdb/save-result}
   (log/info "save result request: " params "user: " user)
-  (when-not (s/valid? ::save-result params)
-    (log/error "invalid save result request" (s/explain-data ::save-result params))
-    (throw (ex-info "Invalid save result request" (s/explain-data ::save-result params))))
-  (let [params' (-> params
-                    (dissoc :t_patient/patient_identifier)
-                    (assoc :patient_fk (patients/patient-identifier->pk conn (:t_patient/patient_identifier params))
-                           :user_fk (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
-    (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (jdbc/with-transaction [txn conn]
-          (results/save-result! txn params')))))
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (try
+    (jdbc/with-transaction [txn conn]
+      (if-let [result-type (results/result-type-by-entity-name (:t_result_type/result_entity_name result))]
+        (let [id-key (keyword (name (::results/table result-type)) "id")]
+          (create-or-save-entity {:id-key  id-key, :params result
+                                  :save-fn #(results/save-result! txn %)}))
+        (throw (ex-info "missing entity name" params))))
+    (catch Exception e (.printStackTrace e))))
 
 (pco/defmutation delete-result!
   [{conn    :com.eldrix.rsdb/conn

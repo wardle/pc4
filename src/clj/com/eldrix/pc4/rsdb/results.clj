@@ -136,10 +136,23 @@
   (log/info "updating result" {:table table :data data})
   (db/execute-one! conn (sql/format {:update [table]
                                      :where  [:= :id result-id]
-                                     :set    data}) {:return-keys true}))
+                                     :set    data})
+                   {:return-keys true}))
+
+(defn fetch-result-sql [table {:keys [patient-pk patient-identifier result-id]}]
+  {:select    :*
+   :from      table
+   :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
+   :where     (cond-> [:and [:<> :is_deleted "true"]]
+                result-id
+                (conj [:= (keyword (name table) "id") result-id])
+                patient-pk
+                (conj [:= :patient_fk patient-pk])
+                patient-identifier
+                (conj [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]))})
 
 (s/fdef save-result*
-  :args (s/cat :conn ::db/conn
+  :args (s/cat :conn ::db/txn
                :result-type (s/keys :req [::entity-name ::table ::spec])
                :result-data (s/keys :opt-un [::user_fk ::patient_fk])))
 (defn- save-result*
@@ -155,20 +168,21 @@
 
   If non-namespaced values are supplied for :user_fk and :patient_fk, they will be used to create
   namespaced keys if they don't exist."
-  [conn {entity-name ::entity-name table ::table spec ::spec} {:keys [user_fk patient_fk] :as data}]
+  [txn {entity-name ::entity-name table ::table spec ::spec} {:keys [user_fk patient_fk] :as data}]
   (let [id-key (keyword (name table) "id")
         id (get data id-key)
         user-key (keyword (name table) "user_fk")
         patient-key (keyword (name table) "patient_fk")
         data' (cond-> (dissoc data :user_fk :patient_fk)    ;; create user_fk and patient_fk namespaced keys if they don't exist
-                      (nil? (get data user-key))
-                      (assoc user-key user_fk)
-                      (nil? (get data patient-key))
-                      (assoc patient-key patient_fk))]
+                (nil? (get data user-key))
+                (assoc user-key user_fk)
+                (nil? (get data patient-key))
+                (assoc patient-key patient_fk))]
     (when-not (s/valid? spec data')
       (throw (ex-info "Failed to save result; invalid data" (s/explain spec data'))))
-    (if id (-update-result! conn table id (dissoc data' id-key))
-           (-insert-result! conn table entity-name data'))))
+    (let [result (if id (-update-result! txn table id (dissoc data' id-key))
+                        (-insert-result! txn table entity-name data'))]
+      (db/execute-one! txn (sql/format (fetch-result-sql table {:patient-pk patient_fk :result-id (get result id-key)}))))))
 
 (def annotation-multiple-sclerosis-summary #{"TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"})
 
@@ -292,15 +306,11 @@
                                                  :t_result_liver_function/free_t4
                                                  :t_result_liver_function/tsh]))
 
+
 (s/fdef default-fetch-fn
   :args (s/cat :conn ::db/conn :table keyword? :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])))
 (defn- default-fetch-fn [conn table {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
-  (db/execute! conn (sql/format {:select    [:*]
-                                 :from      [table]
-                                 :left-join [:t_result_type [:= :t_result_type/id :result_type_fk]]
-                                 :where     [:and
-                                             [:= :patient_fk (or patient-pk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]})]
-                                             [:<> :is_deleted "true"]]})))
+  (db/execute! conn (sql/format (fetch-result-sql table {:patient-pk patient-pk :patient-identifier patient-identifier}))))
 
 (s/fdef normalize-result
   :args (s/cat :result map? :result-type (s/keys :req [::entity-name ::table] :opt [::summary-fn])))
@@ -309,6 +319,7 @@
   (let [table' (name table)
         id-key (keyword table' "id")
         date-key (keyword table' "date")]
+    (log/debug "normalizing result" {:entity-name entity-name :table table :result result})
     (assoc result
       :t_result_type/result_entity_name entity-name
       :t_result/id (get result id-key)
@@ -339,7 +350,8 @@
                    (assoc m :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id v)
                    (and has-ms-annotation? (= "t_annotation_mri_brain_multiple_sclerosis_new" (namespace k)))
                    (assoc m (keyword "t_result_mri_brain" (name k)) v)
-                   :else m)) {} result)))
+                   :else m))
+               {} result)))
 
 (defn ^:private t2-counts
   "Calculates T2 counts by using data in the scan and the prior scan.
@@ -362,13 +374,13 @@
                                 (when (and prior-scan old-t2-lower old-t2-upper t2-change)
                                   [(+ old-t2-lower t2-change) (+ old-t2-upper t2-change)]))]
     (cond-> scan
-            (and t2-lower' t2-upper')
-            (assoc :t_result_mri_brain/t2_range_lower t2-lower'
-                   :t_result_mri_brain/t2_range_upper t2-upper')
-            (and t2-lower' t2-upper' old-t2-upper old-t2-lower)
-            (assoc :t_result_mri_brain/calc_change_t2 (math/round (-  (/ (+ t2-lower' t2-upper') 2) (/ (+ old-t2-lower old-t2-upper) 2))))
-            (nat-int? t2-change)
-            (assoc :t_result_mri_brain/calc_change_t2 t2-change))))
+      (and t2-lower' t2-upper')
+      (assoc :t_result_mri_brain/t2_range_lower t2-lower'
+             :t_result_mri_brain/t2_range_upper t2-upper')
+      (and t2-lower' t2-upper' old-t2-upper old-t2-lower)
+      (assoc :t_result_mri_brain/calc_change_t2 (math/round (- (/ (+ t2-lower' t2-upper') 2) (/ (+ old-t2-lower old-t2-upper) 2))))
+      (nat-int? t2-change)
+      (assoc :t_result_mri_brain/calc_change_t2 t2-change))))
 
 
 
@@ -419,22 +431,22 @@
     result
     (let [[gad-lower gad-upper] (lesion-range (parse-count-lesions gad))]
       (assoc result :t_result_mri_brain/gad_range_lower gad-lower
-               :t_result_mri_brain/gad_range_upper gad-upper))))
+                    :t_result_mri_brain/gad_range_upper gad-upper))))
 
 (defn print-mri-brain-results
   "Internal function to display results of sequential scans for REPL usage and
   validation."
   [results]
-  (let [key-map {:t_result_mri_brain/patient_fk :patient-pk
-                 :t_result_mri_brain/id :id
-                 :t_result_mri_brain/date :date
-                 :t_result_mri_brain/total_t2_hyperintense :total-t2
-                 :t_result_mri_brain/change_t2_hyperintense :change-t2
+  (let [key-map {:t_result_mri_brain/patient_fk                     :patient-pk
+                 :t_result_mri_brain/id                             :id
+                 :t_result_mri_brain/date                           :date
+                 :t_result_mri_brain/total_t2_hyperintense          :total-t2
+                 :t_result_mri_brain/change_t2_hyperintense         :change-t2
                  :t_result_mri_brain/compare_to_result_mri_brain_fk :compare-id
-                 :t_result_mri_brain/total_gad_enhancing_lesions :total-gad
-                 :t_result_mri_brain/t2_range_lower :t2-lower
-                 :t_result_mri_brain/t2_range_upper :t2-upper
-                 :t_result_mri_brain/calc_change_t2 :calc-t2-change}]
+                 :t_result_mri_brain/total_gad_enhancing_lesions    :total-gad
+                 :t_result_mri_brain/t2_range_lower                 :t2-lower
+                 :t_result_mri_brain/t2_range_upper                 :t2-upper
+                 :t_result_mri_brain/calc_change_t2                 :calc-t2-change}]
     (->> results
          (map #(update-keys % key-map))
          (clojure.pprint/print-table [:patient-pk :id :date :total-t2 :change-t2 :total-gad :t2-lower :t2-upper :calc-t2-change]))))
@@ -444,9 +456,6 @@
   (-> (fetch-mri-brain-results conn nil {:t_patient/id 117445})
       all-t2-counts
       print-mri-brain-results))
-
-
-
 
 
 (s/fdef fetch-mri-brain-results
@@ -541,8 +550,8 @@
                                     :t_result_mri_brain/compare_to_result_mri_brain_fk
                                     :t_result_mri_brain/multiple_sclerosis_summary])]
     (when-not (or (empty? ms-annot) (s/valid? ::t_annotation_mri_brain_multiple_sclerosis ms-annot))
-      (throw (ex-info "Invalid MRI brain annotation data" (s/explain-data ::t_annotation_mri_brain_multiple_sclerosis ms-annot))))
-    (let [result (save-result* txn result-type data')]     ;; this will validate the MRI data
+      (throw (ex-info "invalid MRI brain annotation data" (s/explain-data ::t_annotation_mri_brain_multiple_sclerosis ms-annot))))
+    (let [result (save-result* txn result-type data')]      ;; this will validate the MRI data
       (when-not result
         (throw (ex-info "failed to save MRI brain result" data')))
       (if (empty? ms-annot)
@@ -557,8 +566,8 @@
   (let [t4 (:t_result_thyroid_function/free_t4 result)
         tsh (:t_result_thyroid_function/tsh result)]
     (str/join " " (cond-> []
-                          t4 (conj (str "T4: " t4))
-                          tsh (conj (str "TSH: " tsh))))))
+                    t4 (conj (str "T4: " t4))
+                    tsh (conj (str "TSH: " tsh))))))
 
 (def result-types
   "Frustratingly, the legacy system manages types using both entities and a
@@ -630,6 +639,7 @@
         result' (reduce-kv (fn [m k v] (let [nspace (namespace k)]
                                          (if (or (nil? nspace) (= nspace table))
                                            (assoc m k v) m))) {} result)]
+    (log/debug "saving result" result-type)
     (if save-fn
       (save-fn txn result-type result')
       (-> (save-result* txn result-type result')
