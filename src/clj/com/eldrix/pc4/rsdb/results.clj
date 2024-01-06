@@ -319,7 +319,6 @@
   (let [table' (name table)
         id-key (keyword table' "id")
         date-key (keyword table' "date")]
-    (log/debug "normalizing result" {:entity-name entity-name :table table :result result})
     (assoc result
       :t_result_type/result_entity_name entity-name
       :t_result/id (get result id-key)
