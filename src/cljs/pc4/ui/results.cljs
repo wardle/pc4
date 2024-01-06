@@ -114,6 +114,9 @@
                   :disabled? (not valid)
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result result})])}
+                 {:id ::delete :title "Delete"
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
        :onClose cancel-edit}
       (ui/ui-simple-form {}

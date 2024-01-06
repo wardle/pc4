@@ -145,6 +145,20 @@
   (ok-action [{:keys [state]}]
              (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
 
+
+(defn delete-result*
+  [state patient-identifier result-id]
+  (-> state
+      (update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)
+      (update :t_result/id dissoc result-id)
+      (merge/remove-ident* [:t_result/id result-id] [:t_patient/patient_identifier patient-identifier :t_patient/results])))
+
+(defmutation delete-result
+  [{:keys [patient-identifier result]}]
+  (remote [env] true)
+  (ok-action [{:keys [state]}]
+             (swap! state delete-result* patient-identifier (:t_result/id result))))
+
 (defmutation save-pseudonymous-patient-postal-code
   [params]
   (remote [env] true)

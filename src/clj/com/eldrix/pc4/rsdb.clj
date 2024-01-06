@@ -1468,11 +1468,12 @@
   [{conn    :com.eldrix.rsdb/conn
     manager :session/authorization-manager
     user    :session/authenticated-user
-    :as     env} params]
+    :as     env}
+   {:keys [patient-identifier result]}]
   {::pco/op-name 'pc4.rsdb/delete-result}
-  (log/info "delete result request: " params "user: " user)
-  (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-      (results/delete-result! conn params)))
+  (log/info "delete result request: " result "user: " user)
+  (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+      (results/delete-result! conn result)))
 
 (s/def ::notify-death (s/keys :req [:t_patient/patient_identifier
                                     :t_patient/date_death]
