@@ -109,11 +109,11 @@
         default-t2-mode (cond has-change-t2 :relative has-total-t2 :absolute :else :not-counted)
         valid (s/valid? ::result-mri-brain result)
         cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
-    (tap> (s/explain-data ::result-mri-brain result))
     (ui/ui-modal
       {:actions [{:id        ::save :role, :primary, :title "Save"
                   :disabled? (not valid)
-                  :onClick   #(tap> {:save-result result})}
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
        :onClose cancel-edit}
       (ui/ui-simple-form {}
@@ -125,10 +125,10 @@
             (ui/box-error-message {:message "Invalid date for scan"})))
         (ui/ui-simple-form-item {:label "Report"}
           (ui/ui-textarea {:value    report
-                           :rows     6
+                           :rows     4
                            :onChange #(m/set-value! this :t_result_mri_brain/report %)}))
         (ui/ui-simple-form-item {:label     "Interpretation"
-                                 :sub-label "In the context of neuroinflammatory disease"}
+                                 :sub-label "in the context of multiple sclerosis"}
           (ui/ui-select-popup-button {:value    multiple_sclerosis_summary
                                       :options  ["TYPICAL" "ATYPICAL" "NON_SPECIFIC" "ABNORMAL_UNRELATED" "NORMAL"]
                                       :sort?    false
@@ -137,14 +137,14 @@
           (div :.pt-2
             (ui/ui-checkbox {:checked     with_gadolinium
                              :description "Was the scan performed with gadolinium?"
-                             :onChange    #(do (when-not % (m/set-value! this :t_result_mri_brain/total_gad_enhancing_lesions ""))
+                             :onChange    #(do (when-not % (m/set-value! this :t_result_mri_brain/total_gad_enhancing_lesions nil))
                                                (m/set-value! this :t_result_mri_brain/with_gadolinium %))})))
         (when with_gadolinium
           (ui/ui-simple-form-item {:label "Number of enhancing lesions"}
             (ui/ui-textfield {:value     total_gad_enhancing_lesions
                               :disabled  (not with_gadolinium)
                               :help-text lesion-count-help-text
-                              :onChange  #(m/set-value! this :t_result_mri_brain/total_gad_enhancing_lesions %)
+                              :onChange  #(m/set-value! this :t_result_mri_brain/total_gad_enhancing_lesions (when-not (str/blank? %) %))
                               :onBlur    #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_brain/total_gad_enhancing_lesions})])})
             (when (fs/invalid-spec? result :t_result_mri_brain/total_gad_enhancing_lesions)
               (ui/box-error-message {:message "Invalid enhancing lesion count"}))))
@@ -164,8 +164,8 @@
             (ui/ui-textfield {:value     total_t2_hyperintense
                               :disabled  (not= :absolute t2-mode)
                               :help-text lesion-count-help-text
-                              :onChange  #(do (m/set-value! this :t_result_mri_brain/total_t2_hyperintense %)
-                                              (m/set-value! this :t_result_mri_brain/change_t2_hyperintense ""))
+                              :onChange  #(do (m/set-value! this :t_result_mri_brain/total_t2_hyperintense (when-not (str/blank? %) %))
+                                              (m/set-value! this :t_result_mri_brain/change_t2_hyperintense nil))
                               :onBlur    #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_brain/total_t2_hyperintense})])})
             (when (fs/invalid-spec? result :t_result_mri_brain/total_t2_hyperintense)
               (ui/box-error-message {:message "Invalid T2 lesion count"}))))
@@ -202,8 +202,8 @@
               (ui/ui-textfield {:value     change_t2_hyperintense
                                 :disabled  (or (not= :relative t2-mode) (nil? compare_to_result_mri_brain_fk))
                                 :help-text "Use +x or -x to record the change in T2 hyperintense lesions compared to previous scan"
-                                :onChange  #(do (m/set-value! this :t_result_mri_brain/change_t2_hyperintense %)
-                                                (m/set-value! this :t_result_mri_brain/total_t2_hyperintense ""))
+                                :onChange  #(do (m/set-value! this :t_result_mri_brain/change_t2_hyperintense (when-not (str/blank? %) %))
+                                                (m/set-value! this :t_result_mri_brain/total_t2_hyperintense nil))
                                 :onBlur    #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_brain/change_t2_hyperintense})])})
               (when (fs/invalid-spec? result :t_result_mri_brain/change_t2_hyperintense)
                 (ui/box-error-message {:message "Invalid change in T2 lesion count"})))))))))
