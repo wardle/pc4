@@ -251,11 +251,12 @@
          :menu   (ui-patient-menu patient
                    {:selected-id :home
                     :sub-menu    {:items [{:id      ::edit
-                                           :content (ui/ui-menu-button {:onClick do-edit} "Edit demographics")}
+                                           :onClick do-edit
+                                           :content "Edit demographics"}
                                           (when-not (:t_death_certificate/id editing-death-certificate)
                                             {:id      ::add-death-certificate
-                                             :content (ui/ui-menu-button {:onClick #(println "death certificate")}
-                                                                         "Add death certificate")})]}})}
+                                             :onClick #(println "add certificate")
+                                             :content "Add death certificate"})]}})}
         (when editing-demographics
           ;; at the moment, this only supports pseudonymous patients
           (ui/ui-modal

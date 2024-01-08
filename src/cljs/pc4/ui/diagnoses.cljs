@@ -176,7 +176,8 @@
                    patient
                    {:selected-id :diagnoses
                     :sub-menu    {:items [{:id      :add-diagnosis
-                                           :content (ui/ui-menu-button {:onClick do-add-diagnosis} "Add diagnosis")}]}})}
+                                           :onClick do-add-diagnosis
+                                           :content "Add diagnosis"}]}})}
         (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
               inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
           (comp/fragment

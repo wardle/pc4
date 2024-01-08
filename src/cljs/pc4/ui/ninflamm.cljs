@@ -329,7 +329,9 @@
                      {:selected-id :relapses
                       :sub-menu
                       {:items [{:id      :add-ms-event
-                                :content (when show-ms? (ui/ui-menu-button {:onClick do-add} "Add disease event"))}]}})}
+                                :onClick do-add
+                                :hidden (not show-ms?)
+                                :content "Add disease event"}]}})}
           (comp/fragment
             (tap> patient)
             (when (:t_ms_event/id editing-ms-event)

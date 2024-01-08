@@ -315,7 +315,8 @@
                    patient
                    {:selected-id :medications
                     :sub-menu    {:items [{:id      :add-medication
-                                           :content (ui/ui-menu-button {:onClick do-add} "Add medication")}]}})}
+                                           :onClick do-add
+                                           :content "Add medication"}]}})}
         (comp/fragment
           (when (:t_medication/id editing-medication)
             (ui-edit-medication editing-medication))
