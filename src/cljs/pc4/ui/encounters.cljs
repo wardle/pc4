@@ -70,7 +70,8 @@
                  patient
                  {:selected-id :encounters
                   :sub-menu    {:items [{:id      ::add
-                                         :content (ui/ui-menu-button {:onClick #(println "Add")} "Add encounter")}]}})}
+                                         :onClick #(println "add encounter")
+                                         :content "Add encounter"}]}})}
 
       (ui/ui-table {}
         (ui/ui-table-head {}
