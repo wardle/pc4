@@ -511,27 +511,27 @@
   "Vertical navigation bar with optional nested sub-menu."
   [this {:keys [selected-id items sub-menu]}]
   (dom/nav {:aria-label "Sidebar"}
-    (div :.space-y-1
+    (div
       (for [{:keys [id icon content onClick]} items
             :when id]
         (if (= selected-id id)
-          (dom/a :.bg-gray-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+          (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
             {:key id, :aria-current "page"}
             (dom/span :.span.pr-2 icon) content)
-          (dom/a :.cursor-pointer.text-gray-600.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+          (dom/a :.cursor-pointer.text-gray-600.hover:bg-green-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
             {:key id, :onClick onClick}
-            (dom/span :.pr-2 icon) content)))
-      (when sub-menu
-        (dom/div :.mt-4.flex
-          (dom/h3 :.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu))
-          (dom/div :.pt-1.space-y-1.w-full
-            (for [{:keys [id onClick content]} (:items sub-menu)
-                  :when content]
-              (if onClick                                   ;; if onClick => render as a link
-                (dom/a :.group.flex.rounded-md.px-3.my-2.text-sm.font-medium.text-gray-600.hover:bg-gray-50.hover:text-gray-900
-                  {:key id, :onClick onClick}
-                  content)
-                (div {:key id} content)))))))))
+            (dom/span :.pr-2 icon) content))))
+    (when sub-menu
+      (dom/div :.mt-4.border-t.border-dashed
+        (dom/h3 :.px-3.text-sm.font-medium.text-gray-500 (:title sub-menu))
+        (dom/div :.mt-4.space-y-1.w-full
+          (for [{:keys [id onClick content]} (:items sub-menu)
+                :when content]
+            (if onClick                                   ;; if onClick => render as a link
+              (dom/a :.w-full.inline-flex.justify-center.cursor-pointer.group.rounded-md.px-3.py-2.text-xs.font-medium.text-blue-600.bg-blue-100.hover:bg-blue-400.hover:text-blue-50
+                {:key id, :onClick onClick}
+                content)
+              (div {:key id} content))))))))
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
 
