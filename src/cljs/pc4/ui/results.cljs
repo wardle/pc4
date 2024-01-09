@@ -14,7 +14,6 @@
             [taoensso.timbre :as log])
   (:import (goog.date Date)))
 
-
 (defn edit-result*
   [state patient-identifier class result]
   (let [ident [:t_result/id (:t_result/id result)]]
@@ -26,9 +25,23 @@
             (fs/add-form-config* class ident))))
 
 (defmutation edit-result
-  [{:keys [patient-identifier id-key class result no-load] :as params}]
+  [{:keys [patient-identifier class result] :as params}]
   (action [{:keys [state]}]
+          (println "edit result" params)
           (swap! state edit-result* patient-identifier class result)))
+
+(defn add-result*
+  [state patient-identifier class {:t_result/keys [id] :as result}]
+  (let [ident [:t_result/id id]]
+    (-> state
+        (assoc-in [:t_result/id id] result)
+        (update-in [:t_patient/patient_identifier patient-identifier :t_patient/results] conj ident)
+        (edit-result* patient-identifier class result))))
+
+(defmutation add-result
+  [{:keys [patient-identifier class result] :as params}]
+  (action [{:keys [state]}]
+          (swap! state add-result* patient-identifier class result)))
 
 (defn cancel-edit-result*
   "Cancels editing a result. For a newly created result, this deletes the result
@@ -95,31 +108,35 @@
                   :t_result_mri_brain/with_gadolinium
                   :t_result_mri_brain/total_gad_enhancing_lesions}
    :query       [:t_result/id
-                 :t_result_mri_brain/date :t_result_mri_brain/report
+                 :t_result_mri_brain/date
+                 :t_result_mri_brain/report
                  :t_result_mri_brain/multiple_sclerosis_summary
-                 :t_result_mri_brain/change_t2_hyperintense :t_result_mri_brain/total_t2_hyperintense
+                 :t_result_mri_brain/total_t2_hyperintense
+                 :t_result_mri_brain/change_t2_hyperintense
                  :t_result_mri_brain/with_gadolinium :t_result_mri_brain/total_gad_enhancing_lesions
                  :t_result_mri_brain/compare_to_result_mri_brain_fk
                  :ui/t2-mode :ui/current-patient
                  fs/form-config-join]}
-  (let [has-total-t2 (not (str/blank? total_t2_hyperintense))
+  (let [result (dissoc result :all-results ::fs/config ::fs/fields ::fs/complete? ::fs/pristine-state)
+        has-total-t2 (not (str/blank? total_t2_hyperintense))
         has-change-t2 (not (str/blank? change_t2_hyperintense))
         disable-change-t2-mode (or has-change-t2 has-total-t2)
         default-t2-mode (cond has-change-t2 :relative has-total-t2 :absolute :else :not-counted)
         valid (s/valid? ::result-mri-brain result)
         cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (tap> {:valid-mri-brain (s/explain-data ::result-mri-brain result)})
     (ui/ui-modal
       {:actions [{:id        ::save :role, :primary, :title "Save"
                   :disabled? (not valid)
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
-                                                                                 :result result})])}
-                 {:id ::delete :title "Delete"
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
-                                                                                 :result result})])}
+                                                                                 :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
        :onClose cancel-edit}
       (ui/ui-simple-form {}
-        (ui/ui-simple-form-item {:label "Date"}
+        (ui/ui-simple-form-item {:label "Date of MRI scan of brain"}
           (ui/ui-local-date {:value    date
                              :onChange #(m/set-value! this :t_result_mri_brain/date %)
                              :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_brain/date})])})
@@ -217,12 +234,15 @@
     :t_result_type/result_entity_name "ResultMriBrain"
     ::class                           EditMriBrain
     ::editor                          ui-edit-mri-brain
+    ::table                           :t_result_mri_brain
     ::spec                            ::result-mri-brain
     ::initial-data                    {:t_result_mri_brain/with_gadolinium false
                                        :t_result_mri_brain/report          ""}}
    {:t_result_type/name               "MRI spine"
     :t_result_type/result_entity_name "ResultMriSpine"
-    ;    ::editor                          edit-result-mri-spine
+    ::class                           EditMriSpine
+    ::editor                          ui-edit-mri-spine
+    ::table                           :t_result_mri_spine
     ::spec                            ::result-mri-spine
     ::initial-data                    {:t_result_mri_spine/type   "CERVICAL_AND_THORACIC"
                                        :t_result_mri_spine/report ""}}
@@ -264,6 +284,18 @@
             (assoc acc entity-name result-type))
           {} supported-results))
 
+(defn create-result
+  [{:t_result_type/keys [result_entity_name] ::keys [table initial-data]} patient-pk]
+  (let [result-id (tempid/tempid)
+        table-name (name table)
+        kw-patient-fk (keyword table-name "patient_fk")
+        kw-result-id (keyword table-name "id")]
+    (assoc initial-data
+      kw-patient-fk patient-pk
+      :t_result_type/result_entity_name result_entity_name
+      :t_result/id result-id
+      kw-result-id result-id)))
+
 (defsc ResultListItem
   [this {:t_result/keys [id date summary]
          entity-name    :t_result_type/result_entity_name
@@ -283,16 +315,17 @@
 (def ui-result-list-item (comp/computed-factory ResultListItem {:keyfn :t_result/id}))
 
 (defsc PatientResults
-  [this {:t_patient/keys [id patient_identifier results] :as patient
-         :>/keys         [banner] :ui/keys [editing-result]}]
+  [this {:t_patient/keys [patient_identifier results] :as patient
+         :>/keys         [banner] :ui/keys [editing-result choose-investigation]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "results"]
    :query         [:t_patient/patient_identifier
                    :t_patient/id
                    {:ui/editing-result (comp/get-query ResultListItem)}
+                   :ui/choose-investigation
                    {:>/banner (comp/get-query patients/PatientBanner)}
                    {:t_patient/results (comp/get-query ResultListItem)}]
-   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+   :will-enter    (fn [app {:t_patient/keys [patient_identifier]}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
                       (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
                                          (fn []
@@ -300,31 +333,48 @@
                                                      {:target               [:ui/current-patient]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
-  (when patient_identifier
-    (patients/ui-layout
-      {:banner (patients/ui-patient-banner banner)
-       :menu   (patients/ui-patient-menu
-                 patient
-                 {:selected-id :results
-                  :sub-menu    {:items []}})}
-      (when editing-result
-        (let [{::keys [editor]} (result-type-by-entity-name (:t_result_type/result_entity_name editing-result))
-              cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient_identifier
-                                                                      :result             editing-result})])]
-          (if editor
-            (editor editing-result {:patient-identifier patient_identifier
-                                    :all-results        results})
-            (ui/ui-modal {:actions [{:id ::close, :title "Close", :onClick cancel-edit}] :onClose cancel-edit}
-              (div "It is not currently possible to edit this result.")))))
-      (ui/ui-table {}
-        (ui/ui-table-head {}
-          (ui/ui-table-row {}
-            (for [heading ["Date/time" "Investigation" "Result"]]
-              (ui/ui-table-heading {:react-key heading} heading))))
-        (ui/ui-table-body {}
-          (for [result (sort-by #(some-> % :t_result/date .valueOf -) results)]
-            (ui-result-list-item result
-                                 {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
-                                                                                :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
-                                                                                :result             result})])
-                                  :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))
+  (let [do-add-result (fn [_]
+                        (comp/transact! this [(add-result {:patient-identifier patient_identifier
+                                                           :class              (::class choose-investigation)
+                                                           :result             (create-result choose-investigation (:t_patient/id patient))})]))]
+
+    (when patient_identifier
+      (patients/ui-layout
+        {:banner (patients/ui-patient-banner banner)
+         :menu   (patients/ui-patient-menu
+                   patient
+                   {:selected-id :results
+                    :sub-menu    {:items [{:id      ::select-result
+                                           :content (div :.border
+                                                      (ui/ui-select-popup-button
+                                                        {:options     (filter ::editor supported-results)
+                                                         :value       choose-investigation
+                                                         :display-key :t_result_type/name
+                                                         :id-key      :t_result_type/result_entity_name
+                                                         :onChange    #(m/set-value! this :ui/choose-investigation %)}))}
+                                          (when (::editor choose-investigation) ;;only show 'add' button when we support
+                                            {:id      ::add-result
+                                             :content "Add investigation"
+                                             :onClick do-add-result})]}})}
+
+        (when editing-result
+          (let [{::keys [editor]} (result-type-by-entity-name (:t_result_type/result_entity_name editing-result))
+                cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient_identifier
+                                                                        :result             editing-result})])]
+            (if editor
+              (editor editing-result {:patient-identifier patient_identifier
+                                      :all-results        results})
+              (ui/ui-modal {:actions [{:id ::close, :title "Close", :onClick cancel-edit}] :onClose cancel-edit}
+                (div "It is not currently possible to edit this result.")))))
+        (ui/ui-table {}
+          (ui/ui-table-head {}
+            (ui/ui-table-row {}
+              (for [heading ["Date/time" "Investigation" "Result"]]
+                (ui/ui-table-heading {:react-key heading} heading))))
+          (ui/ui-table-body {}
+            (for [result (sort-by #(some-> % :t_result/date .valueOf -) results)]
+              (ui-result-list-item result
+                                   {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
+                                                                                  :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
+                                                                                  :result             result})])
+                                    :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
