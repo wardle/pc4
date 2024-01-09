@@ -129,7 +129,6 @@
       (dissoc :t_form_ms_relapse/ms_disease_course)
       (assoc :t_form_ms_relapse/ms_disease_course_fk (get-in form [:t_form_ms_relapse/ms_disease_course :t_ms_disease_course/id]))))
 
-
 (defn all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
   [conn patient-identifier]
@@ -189,7 +188,6 @@
 
 (defn all-keys-in-namespace? [pred m]
   (every? pred (map namespace (keys m))))
-
 
 (defn delete-all-forms-sql [encounter-id table-name]
   {:update (keyword table-name)
@@ -318,7 +316,6 @@
                                          :where  [:= :id id]
                                          :set    {:is_deleted "true"}}))))
 
-
 (s/def ::save-form (s/keys :req [:t_encounter/id
                                  :t_user/id]))
 
@@ -351,9 +348,6 @@
        (if (= 0 (count-forms tx encounter-id table))        ;; check we have no existing form...
          (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id))
          (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data})))))))
-
-
-
 
 (s/def ::save-encounter-with-forms (s/keys :req [:t_encounter/date_time
                                                  :t_episode/id
@@ -409,7 +403,6 @@
   ()
   group-by
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
-  (encounters->form_ms_relapse conn encounters)
   (com.eldrix.pc4.rsdb.patients/active-episodes conn 124010)
   (all-active-encounter-ids conn 124010)
   (com.eldrix.pc4.rsdb.patients/save-encounter! conn {:t_encounter/encounter_template_fk 1
