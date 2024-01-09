@@ -138,13 +138,17 @@
           (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
   (remote [env] true))
 
-
 (defmutation save-result
-  [{:keys [patient-identifier]}]
-  (remote [env] (m/returning env 'pc4.ui.results/ResultListItem))
-  (ok-action [{:keys [state]}]
-             (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
-
+  [{:keys [patient-identifier result class]}]
+  (action
+    [{:keys [state]}]
+    (swap! state fs/entity->pristine* [:t_result/id (:t_result/id result)]))
+  (remote
+    [{:keys [component] :as env}]
+    (m/returning env (or class component)))
+  (ok-action
+    [{:keys [state]}]
+    (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
 
 (defn delete-result*
   [state patient-identifier result-id]
