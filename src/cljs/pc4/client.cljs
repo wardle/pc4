@@ -52,7 +52,6 @@
                         (fn [^Big x] (.toString x))
                         #(Big. %)))
 
-
 (def secured-request-middleware
   (-> (net/wrap-csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML"))
       (net/wrap-fulcro-request)))
@@ -71,7 +70,6 @@
      :remote-error?       remote-error?
      :global-error-action global-error-action}))
 
-
 (defn ^:export init []
   (log/info "Application starting.")
   (when-not js/pc4_network_csrf_token (log/warn "No CSRF token found in web page"))
@@ -85,7 +83,6 @@
   (inspect/app-started! @SPA)
   (app/mounted? @SPA)
   (app/set-root! SPA root/Root {:initialize-state? true})
-
 
   (reset! (::app/state-atom SPA) {})
 
