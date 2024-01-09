@@ -102,12 +102,12 @@
    {:keys [patient-identifier]}]
   {:ident       :t_result/id
    :form-fields #{:t_result_mri_spine/date :t_result_mri_spine/type :t_result_mri_spine/report}
-   :query       [:t_result/id :t_result_mri_spine/date :t_result_mri_spine/type
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_mri_spine/date :t_result_mri_spine/type
                  :t_result_mri_spine/report fs/form-config-join]}
   (let [cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
     (ui/ui-modal
-      {:title   "MRI scan of spine"
-       :actions [{:id        ::save :role, :primary, :title "Save"
+      {:actions [{:id        ::save :role, :primary, :title "Save"
                   :disabled? (not date)
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
@@ -120,6 +120,7 @@
         (ui/ui-simple-form-item {:label "Date of MRI scan of spine"}
           (ui/ui-local-date {:value    date
                              :onChange #(m/set-value! this :t_result_mri_spine/date %)
+                             :max-date (Date.)
                              :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_spine/date})])})
           (when (fs/invalid-spec? result :t_result_mri_spine/date)
             (ui/box-error-message {:message "Invalid date for scan"})))
@@ -153,7 +154,7 @@
                   :t_result_mri_brain/compare_to_result_mri_brain_fk
                   :t_result_mri_brain/with_gadolinium
                   :t_result_mri_brain/total_gad_enhancing_lesions}
-   :query       [:t_result/id
+   :query       [:t_result/id :t_result/date :t_result/summary
                  :t_result_mri_brain/date
                  :t_result_mri_brain/report
                  :t_result_mri_brain/multiple_sclerosis_summary
