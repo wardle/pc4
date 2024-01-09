@@ -179,7 +179,7 @@
                 (nil? (get data patient-key))
                 (assoc patient-key patient_fk))]
     (when-not (s/valid? spec data')
-      (throw (ex-info "Failed to save result; invalid data" (s/explain spec data'))))
+      (throw (ex-info "Failed to save result; invalid data" (s/explain-data spec data'))))
     (let [result (if id (-update-result! txn table id (dissoc data' id-key))
                         (-insert-result! txn table entity-name data'))]
       (db/execute-one! txn (sql/format (fetch-result-sql table {:patient-pk patient_fk :result-id (get result id-key)}))))))
