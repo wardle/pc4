@@ -51,7 +51,6 @@
 (s/def ::register-patient-by-pseudonym
   (s/keys :req-un [::user-id ::project-id ::nhs-number ::sex ::date-birth]))
 
-
 (s/def ::save-fn fn?)
 (s/def ::params map?)
 (s/def ::id-key keyword?)
@@ -69,7 +68,6 @@
       (let [result (save-fn (dissoc params id-key))]
         (assoc result :tempids {id (id-key result)}))
       (save-fn params))))
-
 
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
@@ -133,7 +131,6 @@
   [{:t_patient/keys [date_birth date_death]}]
   {:t_patient/current_age (when-not date_death (dates/age-display date_birth (LocalDate/now)))})
 
-
 (pco/defresolver patient->hospitals
   [{conn :com.eldrix.rsdb/conn} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
@@ -156,8 +153,6 @@
   {::pco/input  [:t_patient_hospital/hospital_fk]
    ::pco/output [{:t_patient_hospital/hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   {:t_patient_hospital/hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital_fk}})
-
-
 
 (pco/defresolver patient-hospital->authority
   [{clods :com.eldrix.clods.graph/svc} {hospital_fk         :t_patient_hospital/hospital_fk
@@ -299,9 +294,6 @@
                             (filter #(patients/diagnosis-active? % on-date'))
                             (map :t_diagnosis/concept_fk diagnoses))]
        (boolean (seq (hermes/intersect-ecl hermes concept-ids ecl))))}))
-
-
-
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
@@ -735,7 +727,6 @@
   {::pco/output [{:t_patient/paged_encounters [{:paging [:cursor :results]}]}]}
   (let [{:keys [cursor page-size]} (pco/params env)]))
 
-
 (pco/defresolver patient->results
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
   {::pco/output [{:t_patient/results [:t_result_mri_brain/date
@@ -910,8 +901,6 @@
                  {:t_encounter/form_weight_height (first (get forms encounter-id))}))
           encounter-ids)))
 
-
-
 (pco/defresolver encounter->form_smoking
   [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
@@ -967,7 +956,6 @@
      (case authority
        "GMC" (str "https://www.gmc-uk.org/doctors/" reg)
        nil))})
-
 
 (pco/defresolver user-by-nadex
   "Resolves rsdb user properties from a NADEX username if that user is
@@ -1064,7 +1052,6 @@
               active-roles (filter :t_project_user/active?)
               active-projects (filter :t_project/active?))}))
 
-
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
   filtering by a SNOMED expression (ECL). Language preferences can be specified
@@ -1124,8 +1111,6 @@
                                 :org.hl7.fhir.HumanName/given  (str/split first_names #" ")
                                 :org.hl7.fhir.HumanName/family last_name}]})
 
-
-
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
   [{conn    :com.eldrix.rsdb/conn
@@ -1145,8 +1130,6 @@
         (do (log/error "invalid call" (s/explain-data ::register-patient params))
             (throw (ex-info "invalid NHS number" {:nnn nhs-number})))))))
 
-
-
 (comment
   (s/explain-data ::register-patient {:user-id    1
                                       :project-id 5
@@ -1161,9 +1144,7 @@
   "Register a legacy pseudonymous patient. This will be deprecated in the
   future.
   TODO: switch to more pluggable and routine coercion of data, rather than
-  managing by hand
-  TODO: fix :authenticated-user so it includes a fuller dataset for each request
-  - we are already fetching user once, so just include properties and pass along"
+  managing by hand."
   [{conn    :com.eldrix.rsdb/conn
     config  :com.eldrix.rsdb/config
     manager :session/authorization-manager
@@ -1251,7 +1232,6 @@
               (tempid/tempid? diagnosis-id)
               (assoc :tempids {diagnosis-id (:t_diagnosis/id diag)})))))))
 
-
 (s/def ::save-medication
   (s/keys :req [:t_medication/patient_fk :t_medication/medication]
           :opt [:t_patient/patient_identifier
@@ -1297,7 +1277,6 @@
     (do (guard-can-for-patient? env (or patient-id (patients/pk->identifier conn patient-pk)) :PATIENT_EDIT)
         (patients/delete-medication! conn params))))
 
-
 (s/def ::save-ms-diagnosis
   (s/keys :req [:t_user/id
                 :t_ms_diagnosis/id
@@ -1321,7 +1300,6 @@
               (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e)))))
           (assoc (patient->summary-multiple-sclerosis env params)
             :t_patient/patient_identifier patient-identifier)))))
-
 
 (s/def ::save-pseudonymous-postal-code
   (s/keys :req [:t_patient/patient_identifier
@@ -1352,7 +1330,6 @@
                 :t_ms_event/summary_multiple_sclerosis_fk]
           :opt [:t_ms_event/notes]))
 
-
 (pco/defmutation save-ms-event!
   [{conn    :com.eldrix.rsdb/conn
     manager :session/authorization-manager
@@ -1382,8 +1359,6 @@
                              (or (:t_ms_event_type/id params)
                                  (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
 
-
-
 (s/def ::delete-ms-event
   (s/keys :req [:t_user/id
                 :t_ms_event/id]))
@@ -1402,7 +1377,6 @@
       (when-let [patient-identifier (patients/patient-identifier-for-ms-event conn params')]
         (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (patients/delete-ms-event! conn params')))))
-
 
 (s/def ::save-encounter
   (s/keys :req [:t_patient/patient_identifier
@@ -1504,7 +1478,6 @@
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (patients/set-date-death conn params))
 
-
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
 (s/def :t_user/new_password string?)
@@ -1529,7 +1502,6 @@
             (users/check-password conn nil username password)) ;; otherwise, we do check current password
       (users/save-password conn user new-password)
       (throw (ex-info "Cannot change password: incorrect password." {})))))
-
 
 (s/def ::save-admission (s/keys :req [:t_episode/patient_fk
                                       :t_episode/date_registration
@@ -1559,7 +1531,6 @@
       (let [episode (next.jdbc.sql/insert! conn :t_episode (dissoc params' :t_episode/id))]
         (assoc episode :tempids {(:t_episode/id params') (:t_episode/id episode)}))
       (next.jdbc.sql/update! conn :t_episode params' {:id (:t_episode/id params')} {:return-keys true}))))
-
 
 (pco/defmutation delete-admission!
   [{conn    :com.eldrix.rsdb/conn
@@ -1808,11 +1779,9 @@
   (users/fetch-user conn "ma090906")
   user
 
-
   (time (map #(assoc % :t_project/slug (projects/make-slug (:t_project/title %)))
              (jdbc/execute! conn (sql/format {:select [:t_project/id :t_project/title :t_project/name]
                                               :from   [:t_project]}))))
-
 
   (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
   (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
