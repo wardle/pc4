@@ -178,8 +178,9 @@
   As this resolves to a local hospital CRN, clients can then resolve FHIR
   properties against this record to fetch FHIR-flavoured data.
   TODO: switch to using a parameterised resolver to check match status."
-  [{clods :com.eldrix.clods.graph/svc} {auth :t_patient_hospital/authoritative_demographics
-                                        crn  :t_patient_hospital/patient_identifier}]
+  [{clods :com.eldrix.clods.graph/svc}
+   {auth :t_patient_hospital/authoritative_demographics
+    crn  :t_patient_hospital/patient_identifier}]
   {::pco/input  [:t_patient_hospital/authoritative_demographics
                  :t_patient_hospital/patient_identifier]
    ::pco/output [:wales.nhs.abuhb.Patient/CRN
@@ -1148,8 +1149,8 @@
   [{conn    :com.eldrix.rsdb/conn
     config  :com.eldrix.rsdb/config
     manager :session/authorization-manager
-    user    :session/authenticated-user :as env}
-   {:keys [project-id nhs-number gender date-birth] :as params}]
+    user    :session/authenticated-user}
+   {:keys [project-id nhs-number date-birth] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient-by-pseudonym
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/stored_pseudonym
@@ -1241,7 +1242,9 @@
                 :t_medication/reason_for_stopping
                 :t_medication/events]))
 (pco/defmutation save-medication!
-  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager, user :session/authenticated-user, :as env}
+  [{conn    :com.eldrix.rsdb/conn
+    manager :authorization-manager
+    user    :session/authenticated-user, :as env}
    {patient-id :t_patient/patient_identifier, medication-id :t_medication/id, patient-pk :t_medication/patient_fk, :as params}]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " user)
@@ -1421,19 +1424,22 @@
         (patients/delete-encounter! conn encounter-id))))
 
 (pco/defmutation save-result!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :session/authorization-manager
-    user    :session/authenticated-user
-    :as     env}
+  [{conn                 :com.eldrix.rsdb/conn
+    manager              :session/authorization-manager
+    {user-id :t_user/id} :session/authenticated-user
+    :as                  env}
    {:keys [patient-identifier result] :as params}]
   {::pco/op-name 'pc4.rsdb/save-result}
-  (log/info "save result request: " params "user: " user)
+  (log/info "save result request: " params "user: " user-id)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (try
     (jdbc/with-transaction [txn conn]
       (if-let [result-type (results/result-type-by-entity-name (:t_result_type/result_entity_name result))]
-        (let [id-key (keyword (name (::results/table result-type)) "id")]
-          (create-or-save-entity {:id-key  id-key, :params result
+        (let [table-name (name (::results/table result-type))
+              id-key (keyword table-name "id")
+              user-key (keyword table-name "user_fk")]
+          (create-or-save-entity {:id-key  id-key
+                                  :params  (assoc result user-key user-id)
                                   :save-fn #(results/save-result! txn %)}))
         (throw (ex-info "missing entity name" params))))
     (catch Exception e (.printStackTrace e))))
