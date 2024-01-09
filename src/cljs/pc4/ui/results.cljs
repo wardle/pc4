@@ -64,8 +64,8 @@
           (println "cancel edit" params)
           (swap! state cancel-edit-result* patient-identifier result)))
 
-(def lesion-count-help-text "Format as one of x, ~x, x+/-y, x-y or >x'")
-
+;;
+;;
 
 (def re-count-lesion
   #"(^\d+$)|(^~\d+$)|(^>\d+$)|(^\d+\+/\-\d+$)|(^\d+\-\d+$)")
@@ -75,6 +75,9 @@
   A plus or minus sign is mandatory in order to be absolutely clear this is reflecting change."
   #"(?<change>^(\+|-)(\d+)$)")
 
+(def mri-spine-types #{"CERVICAL_AND_THORACIC" "CERVICAL" "LUMBOSACRAL" "WHOLE_SPINE" "THORACIC"})
+(s/def :t_result_mri_spine/date some?)
+(s/def :t_result_mri_spine/type mri-spine-types)
 (s/def :t_result_mri_brain/patient_fk int?)
 (s/def :t_result_mri_brain/date some?)
 (s/def :t_result_mri_brain/compare_to_result_mri_brain_fk (s/nilable int?))
@@ -90,6 +93,49 @@
                                         :t_result_mri_brain/total_gad_enhancing_lesions
                                         :t_result_mri_brain/multiple_sclerosis_summary]))
 
+;;
+;;
+
+(defsc EditMriSpine
+  [this {:t_result_mri_spine/keys [date report]
+         scan-type                :t_result_mri_spine/type, :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_mri_spine/date :t_result_mri_spine/type :t_result_mri_spine/report}
+   :query       [:t_result/id :t_result_mri_spine/date :t_result_mri_spine/type
+                 :t_result_mri_spine/report fs/form-config-join]}
+  (let [cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:title   "MRI scan of spine"
+       :actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of MRI scan of spine"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_mri_spine/date %)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_mri_spine/date})])})
+          (when (fs/invalid-spec? result :t_result_mri_spine/date)
+            (ui/box-error-message {:message "Invalid date for scan"})))
+        (ui/ui-simple-form-item {:label "Type"}
+          (ui/ui-select-popup-button
+            {:value    scan-type
+             :options  mri-spine-types
+             :onChange #(m/set-value! this :t_result_mri_spine/type %)}))
+        (ui/ui-simple-form-item {:label "Report"}
+          (ui/ui-textarea {:value    report
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_mri_spine/report (or % ""))}))))))
+
+(def ui-edit-mri-spine (comp/computed-factory EditMriSpine {:keyfn :t_result_mri_spine/id}))
+
+(def lesion-count-help-text "Format as one of x, ~x, x+/-y, x-y or >x'")
 
 (defsc EditMriBrain
   [this
