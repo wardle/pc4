@@ -17,7 +17,6 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
-            [com.eldrix.concierge.nhs-number :as nhs-number]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.verhoeff :as verhoeff]
@@ -63,11 +62,14 @@
   :params   : parameters
   :id-key   : keyword of id"
   [{:keys [save-fn params id-key]}]
-  (let [id (id-key params)]
+  (if-let [id (id-key params)]
     (if (tempid/tempid? id)
       (let [result (save-fn (dissoc params id-key))]
+        (println "result " {:result result :id-key id-key})
+        (println "tempids" {id (id-key result)})
         (assoc result :tempids {id (id-key result)}))
-      (save-fn params))))
+      (save-fn params))
+    (throw (ex-info "missing id" {:id-key id-key :params params}))))
 
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
@@ -1213,13 +1215,13 @@
     ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :authorization-manager
-    user    :session/authenticated-user
-    :as     env} params]
+  [{conn                 :com.eldrix.rsdb/conn
+    manager              :session/authorization-manager
+    {user-id :t_user/id} :session/authenticated-user
+    :as                  env} params]
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
-  (log/info "save diagnosis request: " params "user: " user)
-  (let [params' (assoc params ::user-id (:t_user/id (users/fetch-user conn (:value user))) ;; TODO: remove fetch of user id
+  (log/info "save diagnosis request: " params "user: " user-id)
+  (let [params' (assoc params :t_diagnosis/user_fk (:t_user/id user-id)
                               :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
     (if-not (s/valid? ::save-diagnosis (dissoc params' :t_diagnosis/id))
       (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
