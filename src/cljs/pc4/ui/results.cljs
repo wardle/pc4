@@ -127,7 +127,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
-                  :hidden  new?
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -201,7 +201,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
-                  :hidden  new?
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -232,12 +232,15 @@
   (let [new? (tempid/tempid? (:t_result/id result))
         cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
     (ui/ui-modal
-      {:actions [{:id        ::save :role, :primary, :title "Save"
+      {:actions [{:id        ::save
+                  :role      :primary
+                  :title     "Save"
                   :disabled? (not date)
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
-                 {:id      ::delete :title "Delete"
-                  :hidden  new?
+                 {:id      ::delete
+                  :title   "Delete"
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -274,7 +277,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
-                  :hidden  new?
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -312,7 +315,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
-                  :hidden  new?
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -502,7 +505,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
-                  :hidden  new?
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -738,7 +741,7 @@
                                                         {:options             (filter ::editor supported-results)
                                                          :value               choose-investigation
                                                          :display-key         :t_result_type/name
-                                                         :no-selection-string "[Show all]"
+                                                         :no-selection-string "[---- Show all ----]"
                                                          :id-key              :t_result_type/result_entity_name
                                                          :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
                                           (when (::editor choose-investigation) ;;only show 'add' button when we support
