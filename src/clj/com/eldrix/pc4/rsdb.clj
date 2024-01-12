@@ -1288,13 +1288,12 @@
                 :t_patient/patient_identifier]))
 
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
-  [{conn    :com.eldrix.rsdb/conn
-    manager :session/authorization-manager
-    user    :session/authenticated-user
-    :as     env} {patient-identifier :t_patient/patient_identifier :as params}]
+  [{conn                 :com.eldrix.rsdb/conn
+    {user-id :t_user/id} :session/authenticated-user
+    :as                  env} {patient-identifier :t_patient/patient_identifier :as params}]
   {::pco/op-name 'pc4.rsdb/save-ms-diagnosis}
-  (log/info "save ms diagnosis:" params " user:" user)
-  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))]
+  (log/info "save ms diagnosis:" params " user:" user-id)
+  (let [params' (assoc params :t_user/id user-id)]
     (if-not (s/valid? ::save-ms-diagnosis params')
       (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
