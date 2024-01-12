@@ -145,7 +145,7 @@
   ;; create a demographic service that can resolve a identifier against a
   ;; a given authority returning patient data in a FHIR representation
   (fn demographic-service [authority {:org.hl7.fhir.Identifier/keys [system value]}]
-    (case authority ;; we double check that we have an active configuration before resolving
+    (case authority                                         ;; we double check that we have an active configuration before resolving
       :EMPI (when empi (empi/resolve! empi system value))
       :CAVUHB (when cavuhb (cav-pms/fetch-patient cavuhb system value))
       (constantly nil))))
@@ -157,22 +157,24 @@
   (log/info "creating pathom registry" {:n-operations (count ops)})
   (run! #(log/trace "op: " %)
         (sort (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))) ops)))
-  (merge (dissoc env :pathom/ops)
-         (-> {::p.error/lenient-mode? true}
-             (pci/register ops)
-             (p.plugin/register
-               {::p.plugin/id 'err
-                ::pcr/wrap-resolver-error
-                (fn [_]
-                  (fn [env node error]
-                    (log/error "pathom resolver error" {:node node :error error})))
-                ::pcr/wrap-mutate
-                (fn [mutate]
-                  (fn [env params]
-                    (try
-                      (mutate env params)
-                      (catch Throwable err
-                        {::pcr/mutation-error (ex-message err)}))))}))))
+  (-> env
+      (dissoc :pathom/ops)
+      (assoc ::p.error/lenient-mode? true
+             :com.wsscode.pathom3.format.eql/map-select-include #{:tempids}) ;; always include request for tempids
+      (pci/register ops)
+      (p.plugin/register
+        {::p.plugin/id 'err
+         ::pcr/wrap-resolver-error
+         (fn [_]
+           (fn [env node error]
+             (log/error "pathom resolver error" {:node node :error error})))
+         ::pcr/wrap-mutate
+         (fn [mutate]
+           (fn [env params]
+             (try
+               (mutate env params)
+               (catch Throwable err
+                 {::pcr/mutation-error (ex-message err)}))))})))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
