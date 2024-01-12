@@ -109,13 +109,20 @@
 (defn change-event-site*
   [event k v]
   (cond
-    (and (= k :t_ms_event/site_unknown) v)                  ;; if site_unknown is checked, clear all other sites
+    ;; if site_unknown is checked, clear all other sites
+    (and (= k :t_ms_event/site_unknown) v)
     (apply assoc (assoc event :t_ms_event/site_unknown true) (reduce #(conj %1 %2 false) [] (next all-ms-event-sites)))
-    (= k :t_ms_event/site_unknown)                          ;; if site_unknown is unchecked, just uncheck it
+
+    ;; if site_unknown is unchecked, just uncheck it
+    (= k :t_ms_event/site_unknown)
     (assoc event k v)
-    (false? v)                                              ;; if a site is unchecked, just uncheck it
+
+    ;; if a site is unchecked, just uncheck it
+    (false? v)
     (assoc event k v)
-    :else                                                   ;; if another site is checked, uncheck site_unknown
+
+    ;; if another site is checked, uncheck site_unknown
+    :else
     (assoc event k v :t_ms_event/site_unknown false)))
 
 (defmutation toggle-event-site [{:keys [ms-event-id k v]}]
@@ -330,7 +337,7 @@
                       :sub-menu
                       {:items [{:id      :add-ms-event
                                 :onClick do-add
-                                :hidden (not show-ms?)
+                                :hidden  (not show-ms?)
                                 :content "Add disease event"}]}})}
           (comp/fragment
             (tap> patient)
