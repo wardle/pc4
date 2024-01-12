@@ -85,14 +85,20 @@
                        (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
 
 (defmutation create-admission
-  [params]
-  (action [{:keys [ref state]}]
-          (swap! state update-in ref assoc :ui/editing-admission params)))
+  [{:t_episode/keys [id] :as episode}]
+  (action
+    [{:keys [ref state]}]
+    (let [ident [:t_episode/id id]]
+      (swap! state (fn [s]
+                     (-> s
+                         (update-in ref assoc :ui/editing-admission episode)
+                         (update-in (conj ref :t_patient/episodes) conj ident)))))))
 
 (defmutation save-admission
   [{:t_episode/keys [id] :as params}]
   (remote
-    [{:keys [ref state] :as env}] true)
+    [{:keys [ref state] :as env}]
+    (m/returning env 'pc4.ui.admissions/EpisodeListItem))
   (ok-action                                                ;; once admission is saved, close modal editing form
     [{:keys [ref state] :as env}]
     (swap! state assoc-in (conj ref :ui/editing-admission) {})))

@@ -59,6 +59,10 @@
   (action [{:keys [state]}]
           (swap! state add-admission* patient-identifier episode)))
 
+(defsc Project [this {:t_project/keys [id title is_admission]}]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/title :t_project/is_admission]})
+
 (defsc EditAdmission
   [this {:t_episode/keys [id date_registration date_discharge encounters] :as episode
          :ui/keys        [current-patient]}]
@@ -98,10 +102,6 @@
 
 
 (def ui-edit-admission (comp/factory EditAdmission))
-
-(defsc Project [this {:t_project/keys [id title is_admission]}]
-  {:ident :t_project/id
-   :query [:t_project/id :t_project/title :t_project/is_admission]})
 
 (defsc EpisodeListItem
   [this {:t_episode/keys [id date_registration date_discharge]}
