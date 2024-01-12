@@ -39,7 +39,7 @@
         (edit-result* patient-identifier class result))))
 
 (defmutation add-result
-  [{:keys [patient-identifier class result] :as params}]
+  [{:keys [patient-identifier class result]}]
   (action [{:keys [state]}]
           (swap! state add-result* patient-identifier class result)))
 
@@ -75,7 +75,21 @@
   A plus or minus sign is mandatory in order to be absolutely clear this is reflecting change."
   #"(?<change>^(\+|-)(\d+)$)")
 
+(def jc-virus-options #{"POSITIVE" "NEGATIVE"})
+(s/def :t_result_jc_virus/jc_virus jc-virus-options)
+(s/def :t_result_jc_virus/date some?)
+(s/def ::result-jc-virus (s/keys :req [:t_result_jc_virus/date :t_result_jc_virus/jc_virus]))
+(def csf-ocb-options #{"POSITIVE" "PAIRED" "NEGATIVE" "EQUIVOCAL"})
+(s/def :t_result_csf_ocb/date some?)
+(s/def :t_result_csf_ocb/result csf-ocb-options)
+(s/def ::result-csf-ocb (s/keys :req [:t_result_csf_ocb/date :t_result_csf_ocb/result]))
 (def mri-spine-types #{"CERVICAL_AND_THORACIC" "CERVICAL" "LUMBOSACRAL" "WHOLE_SPINE" "THORACIC"})
+(s/def :t_result_full_blood_count/date some?)
+(s/def :t_result_renal/date some?)
+(s/def :t_result_urinalysis/date some?)
+(s/def :t_result_thyroid_function/date some?)
+(s/def :t_result_liver_function/date some?)
+(s/def :t_result_ecg/date some?)
 (s/def :t_result_mri_spine/date some?)
 (s/def :t_result_mri_spine/type mri-spine-types)
 (s/def :t_result_mri_brain/patient_fk int?)
@@ -96,6 +110,313 @@
 ;;
 ;;
 
+
+(defsc EditThyroidFunctionTests
+  [this {:t_result_thyroid_function/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_thyroid_function/date :t_result_thyroid_function/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_thyroid_function/date :t_result_thyroid_function/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of thyroid function test"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_thyroid_function/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_thyroid_function/date})])})
+          (when (fs/invalid-spec? result :t_result_thyroid_function/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_thyroid_function/notes (or % ""))}))))))
+
+(def ui-edit-thyroid-function-tests (comp/computed-factory EditThyroidFunctionTests))
+
+
+(defsc EditLiverFunctionTests
+  [this {:t_result_liver_function/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_liver_function/date :t_result_liver_function/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_liver_function/date :t_result_liver_function/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of liver function test"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_liver_function/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_liver_function/date})])})
+          (when (fs/invalid-spec? result :t_result_liver_function/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_liver_function/notes (or % ""))}))))))
+
+(def ui-edit-liver-function-tests (comp/computed-factory EditLiverFunctionTests))
+
+
+(defsc EditUrinalysis
+  [this {:t_result_urinalysis/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_urinalysis/date :t_result_urinalysis/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_urinalysis/date :t_result_urinalysis/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of urinalysis"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_urinalysis/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_urinalysis/date})])})
+          (when (fs/invalid-spec? result :t_result_urinalysis/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_urinalysis/notes (or % ""))}))))))
+
+(def ui-edit-urinalysis (comp/computed-factory EditUrinalysis))
+
+(defsc EditElectrocardiogram
+  [this {:t_result_ecg/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_ecg/date :t_result_ecg/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_ecg/date :t_result_ecg/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of electrocardiogram"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_ecg/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_ecg/date})])})
+          (when (fs/invalid-spec? result :t_result_ecg/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_ecg/notes (or % ""))}))))))
+
+(def ui-edit-electrocardiogram (comp/computed-factory EditElectrocardiogram))
+
+
+(defsc EditRenalProfile
+  [this {:t_result_renal/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_renal/date :t_result_renal/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_renal/date :t_result_renal/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of renal profile"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_renal/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_renal/date})])})
+          (when (fs/invalid-spec? result :t_result_renal/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_renal/notes (or % ""))}))))))
+
+(def ui-edit-renal-profile (comp/computed-factory EditRenalProfile))
+
+
+(defsc EditJcVirus
+  [this {:t_result_jc_virus/keys [date jc_virus] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_jc_virus/date :t_result_jc_virus/jc_virus}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_jc_virus/date :t_result_jc_virus/jc_virus
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid (:t_result/id result))
+        valid (s/valid? ::result-jc-virus result)
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not valid)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id      ::delete :title "Delete"
+                  :hidden  new?
+                  :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of JC Virus"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_jc_virus/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_csf_ocb/date})])})
+          (when (fs/invalid-spec? result :t_result_jc_virus/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Result"}
+          (ui/ui-select-popup-button
+            {:value               jc_virus
+             :options             jc-virus-options
+             :no-selection-string "= Choose ="
+             :onBlur              #(comp/transact! this [(fs/mark-complete! {:field :t_result_csf_ocb/result})])
+             :onChange            #(m/set-value! this :t_result_jc_virus/jc_virus %)})
+          (when (fs/invalid-spec? result :t_result_jc_virus/jc_virus)
+            (ui/box-error-message {:message "You must enter a result"})))))))
+
+(def ui-edit-jc-virus (comp/computed-factory EditJcVirus))
+
+
+(defsc EditCsfOcb
+  [this {date       :t_result_csf_ocb/date
+         ocb-result :t_result_csf_ocb/result :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_csf_ocb/date :t_result_csf_ocb/result}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_csf_ocb/date :t_result_csf_ocb/result
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        valid (s/valid? ::result-csf-ocb result)
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not valid)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 (when-not new?
+                   {:id      ::delete :title "Delete"
+                    :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                   :result             result})])})
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of CSF oligoclonal bands (LP)"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_csf_ocb/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_csf_ocb/date})])})
+          (when (fs/invalid-spec? result :t_result_csf_ocb/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Result"}
+          (ui/ui-select-popup-button
+            {:value               ocb-result
+             :options             csf-ocb-options
+             :no-selection-string "= Choose ="
+             :onBlur              #(comp/transact! this [(fs/mark-complete! {:field :t_result_csf_ocb/result})])
+             :onChange            #(m/set-value! this :t_result_csf_ocb/result %)})
+          (when (fs/invalid-spec? result :t_result_csf_ocb/result)
+            (ui/box-error-message {:message "You must enter a result"})))))))
+
+(def ui-edit-csf-ocb (comp/computed-factory EditCsfOcb))
+
+(defsc EditFullBloodCount
+  [this {:t_result_full_blood_count/keys [date notes] :as result}
+   {:keys [patient-identifier]}]
+  {:ident       :t_result/id
+   :form-fields #{:t_result_full_blood_count/date :t_result_full_blood_count/notes}
+   :query       [:t_result/id :t_result/date :t_result/summary
+                 :t_result_full_blood_count/date :t_result_full_blood_count/notes
+                 '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+    (ui/ui-modal
+      {:actions [{:id        ::save :role, :primary, :title "Save"
+                  :disabled? (not date)
+                  :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
+                                                                                 :result             result})])}
+                 (when-not new?
+                   {:id      ::delete :title "Delete"
+                    :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
+                                                                                   :result             result})])})
+                 {:id ::cancel :title "Cancel" :onClick cancel-edit}]
+       :onClose cancel-edit}
+      (ui/ui-simple-form {}
+        (ui/ui-simple-form-item {:label "Date of full blood count"}
+          (ui/ui-local-date {:value    date
+                             :onChange #(m/set-value! this :t_result_full_blood_count/date %)
+                             :max-date (Date.)
+                             :onBlur   #(comp/transact! this [(fs/mark-complete! {:field :t_result_full_blood_count/date})])})
+          (when (fs/invalid-spec? result :t_result_full_blood_count/date)
+            (ui/box-error-message {:message "Invalid date for investigation"})))
+        (ui/ui-simple-form-item {:label "Notes"}
+          (ui/ui-textarea {:value    notes
+                           :rows     4
+                           :onChange #(m/set-value! this :t_result_full_blood_count/notes (or % ""))}))))))
+
+(def ui-edit-full-blood-count (comp/computed-factory EditFullBloodCount))
+
 (defsc EditMriSpine
   [this {:t_result_mri_spine/keys [date report]
          scan-type                :t_result_mri_spine/type, :as result}
@@ -104,14 +425,16 @@
    :form-fields #{:t_result_mri_spine/date :t_result_mri_spine/type :t_result_mri_spine/report}
    :query       [:t_result/id :t_result/date :t_result/summary
                  :t_result_mri_spine/date :t_result_mri_spine/type
-                 :t_result_mri_spine/report fs/form-config-join]}
-  (let [cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
+                 :t_result_mri_spine/report '* fs/form-config-join]}
+  (let [new? (tempid/tempid? (:t_result/id result))
+        cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient-identifier :result result})])]
     (ui/ui-modal
       {:actions [{:id        ::save :role, :primary, :title "Save"
                   :disabled? (not date)
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
+                  :hidden? new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -161,10 +484,11 @@
                  :t_result_mri_brain/total_t2_hyperintense
                  :t_result_mri_brain/change_t2_hyperintense
                  :t_result_mri_brain/with_gadolinium :t_result_mri_brain/total_gad_enhancing_lesions
-                 :t_result_mri_brain/compare_to_result_mri_brain_fk
+                 :t_result_mri_brain/compare_to_result_mri_brain_fk '*
                  :ui/t2-mode :ui/current-patient
                  fs/form-config-join]}
-  (let [result (dissoc result :all-results ::fs/config ::fs/fields ::fs/complete? ::fs/pristine-state)
+  (let [new? (tempid/tempid? (:t_result/id result))
+        result (dissoc result :all-results ::fs/config ::fs/fields ::fs/complete? ::fs/pristine-state)
         has-total-t2 (not (str/blank? total_t2_hyperintense))
         has-change-t2 (not (str/blank? change_t2_hyperintense))
         disable-change-t2-mode (or has-change-t2 has-total-t2)
@@ -178,6 +502,7 @@
                   :onClick   #(comp/transact! this [(list 'pc4.rsdb/save-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id      ::delete :title "Delete"
+                  :hidden  new?
                   :onClick #(comp/transact! this [(list 'pc4.rsdb/delete-result {:patient-identifier patient-identifier
                                                                                  :result             result})])}
                  {:id ::cancel :title "Cancel" :onClick cancel-edit}]
@@ -295,35 +620,51 @@
                                        :t_result_mri_spine/report ""}}
    {:t_result_type/name               "CSF OCB"
     :t_result_type/result_entity_name "ResultCsfOcb"
-    ;    ::editor                          edit-result-csf-ocb
+    ::class                           EditCsfOcb
+    ::editor                          ui-edit-csf-ocb
+    ::table                           :t_result_csf_ocb
     ::spec                            ::result-csf-ocb}
    {:t_result_type/name               "JC virus"
     :t_result_type/result_entity_name "ResultJCVirus"
-    ;    ::editor                          edit-result-jc-virus
+    ::class                           EditJcVirus
+    ::editor                          ui-edit-jc-virus
+    ::table                           :t_result_jc_virus
     ::spec                            ::result-jc-virus}
    {:t_result_type/name               "Renal profile"
     :t_result_type/result_entity_name "ResultRenalProfile"
-    ;    ::editor                          (make-edit-result "Renal profile" :t_result_renal)
+    ::class                           EditRenalProfile
+    ::editor                          ui-edit-renal-profile
+    ::table                           :t_result_renal
     ::spec                            ::result-renal}
    {:t_result_type/name               "Full blood count"
     :t_result_type/result_entity_name "ResultFullBloodCount"
-    ;    ::editor                          (make-edit-result "Full blood count" :t_result_full_blood_count)
+    ::class                           EditFullBloodCount
+    ::table                           :t_result_full_blood_count
+    ::editor                          ui-edit-full-blood-count
     ::spec                            ::result-full-blood-count}
    {:t_result_type/name               "Electrocardiogram (ECG)"
     :t_result_type/result_entity_name "ResultECG"
-    ;    ::editor                          (make-edit-result "Electrocardiogram (ECG)" :t_result_ecg)
+    ::class                           EditElectrocardiogram
+    ::editor                          ui-edit-electrocardiogram
+    ::table                           :t_result_ecg
     ::spec                            ::result-ecg}
    {:t_result_type/name               "Urinalysis"
     :t_result_type/result_entity_name "ResultUrinalysis"
-    ;    ::editor                          (make-edit-result "Urinalysis" :t_result_urinalysis)
+    ::class                           EditUrinalysis
+    ::editor                          ui-edit-urinalysis
+    ::table                           :t_result_urinalysis
     ::spec                            ::result-urinalysis}
    {:t_result_type/name               "Liver function tests"
     :t_result_type/result_entity_name "ResultLiverFunction"
-    ;    ::editor                          (make-edit-result "Liver function tests" :t_result_liver_function)
+    ::class                           EditLiverFunctionTests
+    ::editor                          ui-edit-liver-function-tests
+    ::table                           :t_result_liver_function
     ::spec                            ::result-liver-function}
    {:t_result_type/name               "Thyroid function tests"
     :t_result_type/result_entity_name "ResultThyroidFunction"
-    ;    ::editor                          edit-result-thyroid-function
+    ::class                           EditThyroidFunctionTests
+    ::editor                          ui-edit-thyroid-function-tests
+    ::table                           :t_result_thyroid_function
     ::spec                            ::result-thyroid-function}])
 
 (def result-type-by-entity-name
@@ -338,8 +679,8 @@
         kw-patient-fk (keyword table-name "patient_fk")
         kw-result-id (keyword table-name "id")]
     (assoc initial-data
-      kw-patient-fk patient-pk
       :t_result_type/result_entity_name result_entity_name
+      kw-patient-fk patient-pk
       :t_result/id result-id
       kw-result-id result-id)))
 
@@ -394,11 +735,12 @@
                     :sub-menu    {:items [{:id      ::select-result
                                            :content (div :.border
                                                       (ui/ui-select-popup-button
-                                                        {:options     (filter ::editor supported-results)
-                                                         :value       choose-investigation
-                                                         :display-key :t_result_type/name
-                                                         :id-key      :t_result_type/result_entity_name
-                                                         :onChange    #(m/set-value! this :ui/choose-investigation %)}))}
+                                                        {:options             (filter ::editor supported-results)
+                                                         :value               choose-investigation
+                                                         :display-key         :t_result_type/name
+                                                         :no-selection-string "[Show all]"
+                                                         :id-key              :t_result_type/result_entity_name
+                                                         :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
                                           (when (::editor choose-investigation) ;;only show 'add' button when we support
                                             {:id      ::add-result
                                              :content "Add investigation"
@@ -419,9 +761,14 @@
               (for [heading ["Date/time" "Investigation" "Result"]]
                 (ui/ui-table-heading {:react-key heading} heading))))
           (ui/ui-table-body {}
-            (for [result (sort-by #(some-> % :t_result/date .valueOf -) results)]
-              (ui-result-list-item result
-                                   {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
-                                                                                  :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
-                                                                                  :result             result})])
-                                    :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
+            (let [result-filter (if-let [entity-name (:t_result_type/result_entity_name choose-investigation)]
+                                  #(= (:t_result_type/result_entity_name %) entity-name)
+                                  (constantly true))]
+              (for [result (->> results
+                                (filter result-filter)
+                                (sort-by #(some-> % :t_result/date .valueOf -)))]
+                (ui-result-list-item result
+                                     {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
+                                                                                    :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
+                                                                                    :result             result})])
+                                      :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))

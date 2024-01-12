@@ -3,6 +3,7 @@
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.algorithms.merge :as merge]
+            [com.fulcrologic.fulcro.components :as comp]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
@@ -57,7 +58,8 @@
           (println "save diagnosis: " (:ast env))
           true)
   (ok-action                                                ;; we simply close the modal dialog once we have confirmed the save...
-    [{:keys [ref state]}]
+    [{:keys [ref state result mutation-return-value]}]
+    (tap> {:ok-save-diag {:result result :mut-ret mutation-return-value}})
     (swap! state (fn [s]
                    (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
 
@@ -138,16 +140,23 @@
           (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
   (remote [env] true))
 
+
+(def result-properties
+  #{:t_result/id :t_result/date :t_result/summary
+    :t_result_type/id :t_result_type/name :t_result_type/result_entity_name})
+
 (defmutation save-result
-  [{:keys [patient-identifier result class]}]
+  [{:keys [patient-identifier result]}]
   (action
     [{:keys [state]}]
     (swap! state fs/entity->pristine* [:t_result/id (:t_result/id result)]))
   (remote
     [{:keys [component] :as env}]
-    (m/returning env (or class component)))
+    (m/returning env (comp/get-class component)))
+
   (ok-action
-    [{:keys [state]}]
+    [{:keys [state result component mutation-return-value] :as env}]
+    (tap> {:ok-save-result env})
     (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
 
 (defn delete-result*
