@@ -1368,13 +1368,12 @@
                 :t_ms_event/id]))
 
 (pco/defmutation delete-ms-event!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :session/authorization-manager
-    user    :session/authenticated-user
-    :as     env} {ms-event-id :t_ms_event/id :as params}]
+  [{conn                 :com.eldrix.rsdb/conn
+    {user-id :t_user/id} :session/authenticated-user, :as env}
+   {ms-event-id :t_ms_event/id :as params}]
   {::pco/op-name 'pc4.rsdb/delete-ms-event}
-  (log/info "delete ms event:" params " user:" user)
-  (let [params' (assoc params :t_user/id (:t_user/id (users/fetch-user conn (:value user))))] ;; TODO: need a better way than this...
+  (log/info "delete ms event:" params " user:" user-id)
+  (let [params' (assoc params :t_user/id user-id)]
     (if-not (s/valid? ::delete-ms-event params')
       (do (log/error "invalid call" (s/explain-data ::delete-ms-event params'))
           (throw (ex-info "Invalid data" (s/explain-data ::delete-ms-event params'))))
@@ -1391,14 +1390,15 @@
                 :t_encounter/episode_fk]))
 
 (pco/defmutation save-encounter!
-  [{conn :com.eldrix.rsdb/conn, manager :session/authorization-manager
-    user :session/authenticated-user, :as env} params]
+  [{conn                 :com.eldrix.rsdb/conn
+    {user-id :t_user/id} :session/authenticated-user, :as env}
+   params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
-  (log/info "save encounter request: " params "user: " user)
+  (log/info "save encounter request: " params "user: " user-id)
   (let [date (:t_encounter/date_time params)
         params' (-> params
                     (assoc :t_encounter/date_time (if (instance? LocalDate date) (.atStartOfDay date) date)
-                           :t_user/id (:t_user/id (users/fetch-user conn (:value user)))))] ;; TODO: need a better way than this...
+                           :t_user/id (:t_user/id user-id)))]
     (when-not (s/valid? ::save-encounter params')
       (log/error "invalid call" (s/explain-data ::save-encounter params'))
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
@@ -1514,17 +1514,15 @@
                                       :t_episode/date_registration
                                       :t_episode/date_discharge]))
 (pco/defmutation save-admission!
-  [{conn    :com.eldrix.rsdb/conn
-    manager :session/authorization-manager
-    user    :session/authenticated-user
-    :as     env} params]
+  [{conn                 :com.eldrix.rsdb/conn
+    {user-id :t_user/id} :session/authenticated-user
+    :as                  env} params]
   {::pco/op-name 'pc4.rsdb/save-admission}
-  (log/info "save admission request: " params "user: " user)
+  (log/info "save admission request: " params "user: " user-id)
   (when-not (s/valid? ::save-admission (dissoc params :t_episode/id))
     (log/error "invalid save result request" (s/explain-data ::save-admission params))
     (throw (ex-info "Invalid save result request" (s/explain-data ::save-admission params))))
-  (let [user-id (:t_user/id (users/fetch-user conn (:value user)))
-        project-id (or (:t_episode/project_fk params)
+  (let [project-id (or (:t_episode/project_fk params)
                        (:t_project/id (next.jdbc/execute-one! conn (sql/format {:select :id :from :t_project :where [:= :name "ADMISSION"]})))
                        (throw (ex-info "No project named 'ADMISSION' available to be used for default admission episodes." {})))
         params' (assoc params :t_episode/project_fk project-id
