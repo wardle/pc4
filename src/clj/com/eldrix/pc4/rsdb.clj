@@ -750,6 +750,7 @@
 (pco/defresolver encounter-by-id
   [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
   {::pco/output [:t_encounter/id
+                 :t_encounter/patient_fk
                  :t_encounter/date_time
                  :t_encounter/active
                  :t_encounter/is_deleted
@@ -761,6 +762,10 @@
                  :t_encounter/notes]}
   (let [encounter (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
     (assoc encounter :t_encounter/active (not (:t_encounter/is_deleted encounter)))))
+
+(pco/defresolver encounter->patient
+  [{:t_encounter/keys [patient_fk]}]
+  {:t_encounter/patient {:t_patient/id patient_fk}})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -1642,6 +1647,7 @@
    project->all-parents
    patient->encounters
    encounter-by-id
+   encounter->patient
    encounter->users
    encounters->encounter_template
    encounter->hospital
