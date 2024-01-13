@@ -13,12 +13,16 @@
             [pc4.ui.snomed :as snomed]
             [taoensso.timbre :as log]))
 
+(defsc Project [this params]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/title]})
+
 (defsc EncounterTemplateTitle [this {:t_encounter_template/keys [title project]}]
   {:ident :t_encounter_template/id
    :query [:t_encounter_template/id
            :t_encounter_template/title
-           {:t_encounter_template/project [:t_project/id :t_project/title]}]}
-  (dom/span {:title (:t_project/title project) } title))
+           {:t_encounter_template/project (comp/get-query Project)}]}
+  (dom/span {:title (:t_project/title project)} title))
 
 (def ui-encounter-template-title (comp/factory EncounterTemplateTitle))
 
@@ -48,7 +52,7 @@
 
 (defsc PatientEncounters
   [this {:t_patient/keys [id patient_identifier encounters] :as patient
-         :>/keys [banner]}]
+         :>/keys         [banner]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "encounters"]
    :query         [:t_patient/patient_identifier
@@ -78,7 +82,7 @@
           (ui/ui-table-row {}
             (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
         (ui/ui-table-body {}
-          (for [encounter encounters]
+          (for [{:t_encounter/keys [id] :as encounter} encounters]
             (ui-encounter-list-item encounter
-                                    {:onClick #(println "edit" encounter)
+                                    {:onClick #(dr/change-route! this ["encounter" id])
                                      :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))

@@ -15,6 +15,7 @@
     [pc4.ui.core :as ui]
     [pc4.ui.admissions]
     [pc4.ui.diagnoses]
+    [pc4.ui.encounter]
     [pc4.ui.encounters]
     [pc4.ui.medications]
     [pc4.ui.ninflamm]
@@ -88,6 +89,7 @@
                     pc4.ui.diagnoses/PatientDiagnoses
                     pc4.ui.medications/PatientMedications
                     pc4.ui.encounters/PatientEncounters
+                    pc4.ui.encounter/EditEncounter
                     pc4.ui.admissions/PatientAdmissions
                     pc4.ui.ninflamm/PatientNeuroInflammatory
                     pc4.ui.results/PatientResults
