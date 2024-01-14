@@ -741,7 +741,7 @@
                                                         {:options             (filter ::editor supported-results)
                                                          :value               choose-investigation
                                                          :display-key         :t_result_type/name
-                                                         :no-selection-string "[---- Show all ----]"
+                                                         :no-selection-string ""
                                                          :id-key              :t_result_type/result_entity_name
                                                          :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
                                           (when (::editor choose-investigation) ;;only show 'add' button when we support
