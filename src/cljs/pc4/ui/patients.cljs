@@ -99,12 +99,12 @@
   {:ident :t_episode/id
    :query [:t_episode/id :t_episode/project_fk :t_episode/stored_pseudonym]})
 
-(defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth sex date_death
+(defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth current_age sex date_death
                                              title first_names last_name address episodes]
                             current-project :ui/current-project}
                       {:keys [onClose] :as computed-props}]
   {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex
+   :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex :t_patient/current_age
                    :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
                    {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
                    {:t_patient/episodes (comp/get-query PatientEpisode)}
@@ -116,12 +116,12 @@
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
       (ui-patient-banner* {:name     (when sex (name sex))
-                           :born     (ui/format-month-year date_birth)
+                           :born     (str (ui/format-month-year date_birth)  (when current_age (str " (~" current_age ")")))
                            :address  pseudonym
                            :deceased (ui/format-month-year date_death)} computed-props)
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
         (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
-                             :born       (ui/format-date date_birth)
+                             :born       (str (ui/format-date date_birth) (when current_age (str " (" current_age ")")))
                              :nhs-number nhs_number
                              :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
                              :deceased   date_death} computed-props)))))
