@@ -175,7 +175,7 @@
   (div
     (when label (dom/label :.block.text-sm.font-medium.text-gray-700.pt-2 {:htmlFor id} label))
     (div
-      (dom/textarea :.comment.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+      (dom/textarea :.comment.shadow-sm.focus:ring-indigo-500.border.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
         {:id       id
          :classes  (when disabled ["text-gray-600" "bg-gray-50" "italic"])
          :rows     (str rows)
@@ -211,7 +211,7 @@
 
 (defsc UILocalDate
   [this {:keys [id label disabled value min-date max-date onBlur onChange onEnterKey]}]
-  (div
+  (div :.pt-2
     (when label (ui-label {:for id :label label}))
     (div
       (ui-local-date-input
@@ -237,13 +237,13 @@
   (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
                            (conj options value) options))
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
-        default-value (or default-value (when (str/blank? no-selection-string) (first sorted-options)))
+        default-value (or default-value no-selection-string (first sorted-options))
         forced-value (if (not (contains? all-options value)) default-value value)]
     (when (and onChange (not= value forced-value))
       (onChange forced-value))
     (comp/fragment
       (when label (ui-label {:for name :label label}))
-      (dom/select :.block.py-2.text-base.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
+      (dom/select :.block.w-full.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
                   {:name      name
                    :disabled  disabled?
                    :classes   (when disabled? ["bg-gray-100" "text-gray-600"])
