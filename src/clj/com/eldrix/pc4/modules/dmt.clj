@@ -42,15 +42,13 @@
   a potential hook to create combined cohorts in the future should need arise."
   {:cardiff   {:prefix           "CF"
                :only-dmt-patients true
-               :projects         ["NINFLAMMCARDIFF"]
-               :consent-form-ids [12]}
+               :projects         ["NINFLAMMCARDIFF"]}
    :cambridge {:prefix   "CB"
                :projects ["CAMBRIDGEMS"]}
    :plymouth  {:prefix   "PL"
                :projects ["PLYMOUTH"]}})
 
 (s/def ::centre (set (keys study-centres)))
-
 
 (def study-medications
   "A list of interesting drugs for studies of multiple sclerosis.
