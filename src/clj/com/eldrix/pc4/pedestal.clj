@@ -161,8 +161,9 @@
      (log/trace "api request: " (get-in ctx [:request :transit-params]))
      (let [params (get-in ctx [:request :transit-params])
            authorization-manager (:authorization-manager ctx)
+           authenticated-user (get-in ctx [:request :session :authenticated-user])
            env {:session/authorization-manager authorization-manager
-                :session/authenticated-user    (get-in ctx [:request :session :authenticated-user])}]
+                :session/authenticated-user    authenticated-user}]
        (execute-pathom ctx env params)))})
 
 (def get-user-photo
