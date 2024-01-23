@@ -15,6 +15,30 @@
     :forms #{"FormEdss" "FormMSRelapse" "FormSmokingHistory" "FormWeightHeight"}
     :class NeuroinflammatoryComposite}])
 
+(def edss-scores
+  ["SCORE0_0" "SCORE1_0" "SCORE1_5" "SCORE2_0" "SCORE2_5" "SCORE3_0" "SCORE3_5"
+   "SCORE4_0" "SCORE4_5" "SCORE5_0" "SCORE5_5" "SCORE6_0" "SCORE6_5" "SCORE7_0"
+   "SCORE7_5" "SCORE8_0" "SCORE8_5" "SCORE9_0" "SCORE9_5" "SCORE10_0"
+   "SCORE_LESS_THAN_4"])
+
+(defsc FormEdss [this {:t_encounter/keys [form_edss form_ms_relapse] :as encounter} {:keys [onChange]}]
+  (ui/ui-simple-form-item {:label "EDSS"}
+    (div :.space-y-4
+      (ui/ui-select-popup-button
+        {:name "edss"
+         :value         (:t_form_edss/edss_score form_edss)
+         :options       edss-scores
+         :sort?         true
+         :onChange      #(when onChange (onChange (assoc-in encounter [:t_encounter/form_edss :t_form_edss/edss_score] %)))})
+      (ui/ui-checkbox
+        {:label    "In relapse?"
+         :checked  (:t_form_ms_relapse/in_relapse form_ms_relapse)
+         :onChange #(when onChange (onChange (assoc-in encounter [:t_encounter/form_ms_relapse :t_form_ms_relapse/in_relapse] %)))}))))
+
+(def ui-form-edss (comp/computed-factory FormEdss))
+
+(defsc FormMsDiseaseCourse [this {:t_encounter/keys [form_ms_relapse]}])
+
 
 (defsc Layout [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [date_time is_deleted encounter_template]} encounter
@@ -70,4 +94,6 @@
   (tap> encounter)
   (ui-layout {:banner    (-> encounter :t_encounter/patient :>/banner)
               :encounter encounter
-              :menu      []}))
+              :menu      []}
+             (ui/ui-panel {}
+               (ui-form-edss encounter))))
