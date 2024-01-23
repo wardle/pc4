@@ -145,7 +145,7 @@
   ;; create a demographic service that can resolve a identifier against a
   ;; a given authority returning patient data in a FHIR representation
   (fn demographic-service [authority {:org.hl7.fhir.Identifier/keys [system value]}]
-    (case authority                                         ;; we double check that we have an active configuration before resolving
+    (case authority                                         ;; we double-check that we have an active configuration before resolving
       :EMPI (when empi (empi/resolve! empi system value))
       :CAVUHB (when cavuhb (cav-pms/fetch-patient cavuhb system value))
       (constantly nil))))
@@ -167,6 +167,8 @@
          ::pcr/wrap-resolver-error
          (fn [_]
            (fn [env node error]
+             (when (instance? Throwable error)
+               (.printStackTrace ^Throwable error))
              (log/error "pathom resolver error" {:node node :error error})))
          ::pcr/wrap-mutate
          (fn [mutate]
@@ -174,6 +176,7 @@
              (try
                (mutate env params)
                (catch Throwable err
+                 (.printStackTrace err)
                  {::pcr/mutation-error (ex-message err)}))))})))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
