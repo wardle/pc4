@@ -116,7 +116,7 @@
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
       (ui-patient-banner* {:name     (when sex (name sex))
-                           :born     (str (ui/format-month-year date_birth)  (when current_age (str " (~" current_age ")")))
+                           :born     (str (ui/format-month-year date_birth) (when current_age (str " (~" current_age ")")))
                            :address  pseudonym
                            :deceased (ui/format-month-year date_death)} computed-props)
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
@@ -126,51 +126,82 @@
                              :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
                              :deceased   date_death} computed-props)))))
 
-
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc PatientMenu
   "Patient menu. At the moment, we have a different menu for pseudonymous
   patients but this will become increasingly unnecessary."
-  [this {:t_patient/keys [patient_identifier]
-         pseudonym       :t_episode/stored_pseudonym}
+  [this {:t_patient/keys [patient_identifier permissions] :as patient}
    {:keys [selected-id sub-menu]}]
-  (ui/ui-vertical-navigation
-    {:selected-id selected-id
-     :items       [{:id      :home
-                    :content "Home"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "home"])}
-                   {:id      :diagnoses
-                    :content "Diagnoses"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
-                   {:id      :medications
-                    :content "Medication"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
-                   {:id      :relapses
-                    :content "Relapses"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "neuroinflammatory"])}
-                   {:id      :encounters
-                    :content "Encounters"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
-                   {:id      :results
-                    :content "Investigations"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
-                   {:id      :admissions
-                    :content "Admissions"
-                    :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
-     :sub-menu    sub-menu}))
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/permissions]}
+  (cond
+    (permissions :PATIENT_VIEW)
+    (ui/ui-vertical-navigation
+      {:selected-id selected-id
+       :items
+       [{:id      :home
+         :content "Home"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "home"])}
+        {:id      :diagnoses
+         :content "Diagnoses"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
+        {:id      :medications
+         :content "Medication"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
+        {:id      :relapses
+         :content "Relapses"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "neuroinflammatory"])}
+        {:id      :encounters
+         :content "Encounters"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
+        {:id      :results
+         :content "Investigations"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
+        {:id      :admissions
+         :content "Admissions"
+         :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
+       :sub-menu    sub-menu})
+    :else
+    (ui/ui-vertical-navigation
+      {:selected-id :break-glass
+       :items       [{:id      :break-glass
+                      :content "No access"}]})))
 
 (def ui-patient-menu (comp/computed-factory PatientMenu))
 
-(defsc Layout [this {:keys [banner menu]}]
-  (comp/fragment
-    banner
-    (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
-      (div :.col-span-1.p-2 menu)
-      (div :.col-span-1.md:col-span-5.pt-2
-        (comp/children this)))))
+(defsc PatientBreakGlass
+  [this {:t_patient/keys [patient_identifier]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/authorization :t_patient/suggested_registrations]}
+  (div :.pl-2.pr-2
+    (ui/ui-panel {:classes ["bg-red-100" "text-red-800"]}
+      (dom/p :.font-bold.text-lg.min-w-min "You do not have permission to view this patient record.")
+      (dom/p :.font-light.text-sm.tracking-tighter "This patient is not registered to any of your registered projects.
+You may only view patient records if you are registered to one of this patient's projects. "))))
 
-(def ui-layout (comp/factory Layout))
+(def ui-patient-break-glass (comp/factory PatientBreakGlass))
+
+(defsc Layout
+  [this {:t_patient/keys [patient_identifier permissions] :>/keys [banner menu break-glass]}
+   {:keys [selected-id sub-menu]}]
+  {:ident :t_patient/patient_identifier
+   :query [:t_patient/patient_identifier :t_patient/permissions
+           {:>/banner (comp/get-query PatientBanner)}
+           {:>/menu (comp/get-query PatientMenu)}
+           {:>/break-glass (comp/get-query PatientBreakGlass)}]}
+  (when patient_identifier
+    (comp/fragment
+      (ui-patient-banner banner)                            ;; always show the banner
+      (if (permissions :PATIENT_VIEW)
+        (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
+          (div :.col-span-1.p-2
+            (ui-patient-menu menu {:selected-id selected-id :sub-menu sub-menu}))
+          (div :.col-span-1.md:col-span-5.pt-2
+            (comp/children this)))
+        (ui-patient-break-glass break-glass)))))
+
+(def ui-layout (comp/computed-factory Layout))
 
 (defsc EditDeathCertificate
   [this params]
@@ -186,7 +217,6 @@
     (dom/h1 "Edit death certificate")))
 
 (def ui-edit-death-certificate (comp/factory EditDeathCertificate))
-
 
 (defsc InspectEditLsoa
   [this {:t_patient/keys [patient_identifier lsoa11]}]
@@ -210,19 +240,20 @@
 
 (def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
 
-
 (defsc PatientDemographics
-  [this {:t_patient/keys [id patient_identifier status sex title first_names last_name nhs_number date_birth date_death current_age address] :as patient
-         :>/keys         [banner] :ui/keys [editing-demographics editing-death-certificate]}]
+  [this {:t_patient/keys [id patient_identifier status sex title first_names
+                          last_name nhs_number date_birth date_death current_age
+                          address permissions] :as patient
+         :>/keys [layout] :ui/keys [editing-demographics editing-death-certificate]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id
                    :t_patient/patient_identifier :t_patient/status
                    :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/sex
                    :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
                    {:t_patient/death_certificate (comp/get-query EditDeathCertificate)}
-                   :t_patient/lsoa11
+                   :t_patient/lsoa11 :t_patient/permissions
                    {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
-                   {:>/banner (comp/get-query PatientBanner)}
+                   {:>/layout (comp/get-query Layout)}
                    :ui/editing-demographics
                    :ui/editing-death-certificate
                    fs/form-config-join]
@@ -245,18 +276,17 @@
         do-cancel-edit #(comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})])
         do-save #(comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
                                                                        :t_patient/date_death         date_death})])]
-    (when (and id patient_identifier)
-      (ui-layout
-        {:banner (ui-patient-banner banner)
-         :menu   (ui-patient-menu patient
-                   {:selected-id :home
-                    :sub-menu    {:items [{:id      ::edit
-                                           :onClick do-edit
-                                           :content "Edit demographics"}
-                                          (when-not (:t_death_certificate/id editing-death-certificate)
-                                            {:id      ::add-death-certificate
-                                             :onClick #(println "add certificate")
-                                             :content "Add death certificate"})]}})}
+    (ui-layout layout
+      {:selected-id :home
+       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
+                               {:id      ::edit
+                                :onClick do-edit
+                                :content "Edit demographics"})
+                             (when (and (permissions :PATIENT_EDIT) (not (:t_death_certificate/id editing-death-certificate)))
+                               {:id      ::add-death-certificate
+                                :onClick #(println "add certificate")
+                                :content "Add death certificate"})]}}
+      (when (and id patient_identifier)
         (when editing-demographics
           ;; at the moment, this only supports pseudonymous patients
           (ui/ui-modal
@@ -276,25 +306,26 @@
                    :onChange #(m/set-value! this :t_patient/date_death %)})))))
         (when editing-death-certificate
           (ui-edit-death-certificate editing-death-certificate))
-        (ui/ui-two-column-card
-          {:title "Demographics"
-           :items [{:title "First names" :content first_names}
-                   {:title "Last name" :content last_name}
-                   {:title "Title" :content title}
-                   {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                   {:title "Date of birth" :content (ui/format-date date_birth)}
-                   (if date_death {:title "Date of death" :content (ui/format-date date_death)}
-                                  {:title "Current age" :content current_age})]})
-        (ui/ui-two-column-card
-          {:title "Current address"
-           :items
-           (if (= :PSEUDONYMOUS status)
-             [{:title "LSOA code" :content (ui-inspect-edit-lsoa patient)}]
-             [{:title "Address1" :content (:t_address/address1 address)}
-              {:title "Address2" :content (:t_address/address2 address)}
-              {:title "Address3" :content (:t_address/address3 address)}
-              {:title "Address4" :content (:t_address/address4 address)}
-              {:title "Postal code" :content (:t_address/postcode address)}])})))))
+        (comp/fragment
+          (ui/ui-two-column-card
+            {:title "Demographics"
+             :items [{:title "First names" :content first_names}
+                     {:title "Last name" :content last_name}
+                     {:title "Title" :content title}
+                     {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                     {:title "Date of birth" :content (ui/format-date date_birth)}
+                     (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                    {:title "Current age" :content current_age})]})
+          (ui/ui-two-column-card
+            {:title "Current address"
+             :items
+             (if (= :PSEUDONYMOUS status)
+               [{:title "LSOA code" :content (ui-inspect-edit-lsoa patient)}]
+               [{:title "Address1" :content (:t_address/address1 address)}
+                {:title "Address2" :content (:t_address/address2 address)}
+                {:title "Address3" :content (:t_address/address3 address)}
+                {:title "Address4" :content (:t_address/address4 address)}
+                {:title "Postal code" :content (:t_address/postcode address)}])}))))))
 
 
 

@@ -707,14 +707,14 @@
 
 (defsc PatientResults
   [this {:t_patient/keys [patient_identifier results] :as patient
-         :>/keys         [banner] :ui/keys [editing-result choose-investigation]}]
+         :>/keys         [layout] :ui/keys [editing-result choose-investigation]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "results"]
    :query         [:t_patient/patient_identifier
                    :t_patient/id
                    {:ui/editing-result (comp/get-query ResultListItem)}
                    :ui/choose-investigation
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/results (comp/get-query ResultListItem)}]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier]}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
@@ -729,49 +729,46 @@
                                                            :class              (::class choose-investigation)
                                                            :result             (create-result choose-investigation (:t_patient/id patient))})]))]
 
-    (when patient_identifier
-      (patients/ui-layout
-        {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-patient-menu
-                   patient
-                   {:selected-id :results
-                    :sub-menu    {:items [{:id      ::select-result
-                                           :content (div :.border
-                                                      (ui/ui-select-popup-button
-                                                        {:options             (filter ::editor supported-results)
-                                                         :value               choose-investigation
-                                                         :display-key         :t_result_type/name
-                                                         :no-selection-string ""
-                                                         :id-key              :t_result_type/result_entity_name
-                                                         :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
-                                          (when (::editor choose-investigation) ;;only show 'add' button when we support
-                                            {:id      ::add-result
-                                             :content "Add investigation"
-                                             :onClick do-add-result})]}})}
+    (patients/ui-layout layout
+      {:selected-id :results
+       :sub-menu    {:items [{:id      ::select-result
+                              :content (div (ui/ui-select-popup-button
+                                              {:options             (filter ::editor supported-results)
+                                               :value               choose-investigation
+                                               :display-key         :t_result_type/name
+                                               :no-selection-string "«Show all»"
+                                               :id-key              :t_result_type/result_entity_name
+                                               :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
+                             (if (::editor choose-investigation) ;;only show 'add' button when we support
+                               {:id      ::add-result
+                                :content (str "Add '" (:t_result_type/name choose-investigation) "'...")
+                                :onClick do-add-result}
+                               {:id      ::help-text
+                                :content (dom/span :.p-4.flex.text-xs.text-gray-400 "To add an investigation, choose a type from the options")})]}}
 
-        (when editing-result
-          (let [{::keys [editor]} (result-type-by-entity-name (:t_result_type/result_entity_name editing-result))
-                cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient_identifier
-                                                                        :result             editing-result})])]
-            (if editor
-              (editor editing-result {:patient-identifier patient_identifier
-                                      :all-results        results})
-              (ui/ui-modal {:actions [{:id ::close, :title "Close", :onClick cancel-edit}] :onClose cancel-edit}
-                (div "It is not currently possible to edit this result.")))))
-        (ui/ui-table {}
-          (ui/ui-table-head {}
-            (ui/ui-table-row {}
-              (for [heading ["Date/time" "Investigation" "Result"]]
-                (ui/ui-table-heading {:react-key heading} heading))))
-          (ui/ui-table-body {}
-            (let [result-filter (if-let [entity-name (:t_result_type/result_entity_name choose-investigation)]
-                                  #(= (:t_result_type/result_entity_name %) entity-name)
-                                  (constantly true))]
-              (for [result (->> results
-                                (filter result-filter)
-                                (sort-by #(some-> % :t_result/date .valueOf -)))]
-                (ui-result-list-item result
-                                     {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
-                                                                                    :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
-                                                                                    :result             result})])
-                                      :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))
+      (when editing-result
+        (let [{::keys [editor]} (result-type-by-entity-name (:t_result_type/result_entity_name editing-result))
+              cancel-edit #(comp/transact! this [(cancel-edit-result {:patient-identifier patient_identifier
+                                                                      :result             editing-result})])]
+          (if editor
+            (editor editing-result {:patient-identifier patient_identifier
+                                    :all-results        results})
+            (ui/ui-modal {:actions [{:id ::close, :title "Close", :onClick cancel-edit}] :onClose cancel-edit}
+              (div "It is not currently possible to edit this result.")))))
+      (ui/ui-table {}
+        (ui/ui-table-head {}
+          (ui/ui-table-row {}
+            (for [heading ["Date/time" "Investigation" "Result"]]
+              (ui/ui-table-heading {:react-key heading} heading))))
+        (ui/ui-table-body {}
+          (let [result-filter (if-let [entity-name (:t_result_type/result_entity_name choose-investigation)]
+                                #(= (:t_result_type/result_entity_name %) entity-name)
+                                (constantly true))]
+            (for [result (->> results
+                              (filter result-filter)
+                              (sort-by #(some-> % :t_result/date .valueOf -)))]
+              (ui-result-list-item result
+                                   {:onClick #(comp/transact! this [(edit-result {:patient-identifier patient_identifier
+                                                                                  :class              (::class (result-type-by-entity-name (:t_result_type/result_entity_name result)))
+                                                                                  :result             result})])
+                                    :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))

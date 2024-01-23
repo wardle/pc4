@@ -149,11 +149,11 @@
                                                             :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
 
 (defsc PatientDiagnoses
-  [this {:t_patient/keys [patient_identifier diagnoses] :as patient
-         :>/keys         [banner], :ui/keys [editing-diagnosis]}]
+  [this {:t_patient/keys [patient_identifier diagnoses permissions] :as patient
+         :>/keys         [layout], :ui/keys [editing-diagnosis]}]
   {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+   :query         [:t_patient/patient_identifier :t_patient/permissions
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/diagnoses (comp/get-query DiagnosisListItem)}
                    {:ui/editing-diagnosis (comp/get-query EditDiagnosis)}]
    :route-segment ["pt" :t_patient/patient_identifier "diagnoses"]
@@ -167,29 +167,26 @@
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
-  (when patient_identifier
-    (let [do-edit-diagnosis #(comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier :diagnosis %})])
-          do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
-      (patients/ui-layout
-        {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-patient-menu
-                   patient
-                   {:selected-id :diagnoses
-                    :sub-menu    {:items [{:id      :add-diagnosis
-                                           :onClick do-add-diagnosis
-                                           :content "Add diagnosis"}]}})}
-        (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
-              inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
-          (comp/fragment
-            (when (:t_diagnosis/id editing-diagnosis)
-              (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
-            (diagnoses-table {:title     "Active diagnoses"
-                              :diagnoses active-diagnoses
-                              :onClick   do-edit-diagnosis})
-            (when (seq inactive-diagnoses)
-              (diagnoses-table {:title     "Inactive diagnoses"
-                                :diagnoses inactive-diagnoses
-                                :onClick   do-edit-diagnosis}))))))))
+  (let [do-edit-diagnosis #(comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier :diagnosis %})])
+        do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
+    (patients/ui-layout layout
+      {:selected-id :diagnoses
+       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
+                               {:id      :add-diagnosis
+                                :onClick do-add-diagnosis
+                                :content "Add diagnosis"})]}}
+      (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
+            inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
+        (comp/fragment
+          (when (:t_diagnosis/id editing-diagnosis)
+            (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
+          (diagnoses-table {:title     "Active diagnoses"
+                            :diagnoses active-diagnoses
+                            :onClick   do-edit-diagnosis})
+          (when (seq inactive-diagnoses)
+            (diagnoses-table {:title     "Inactive diagnoses"
+                              :diagnoses inactive-diagnoses
+                              :onClick   do-edit-diagnosis})))))))
 
 
 

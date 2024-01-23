@@ -300,10 +300,10 @@
 
 (defsc PatientNeuroInflammatory
   [this {:t_patient/keys [id patient_identifier summary_multiple_sclerosis] :as patient
-         :>/keys         [banner], :ui/keys [editing-ms-event all-ms-diagnoses]}]
+         :>/keys         [layout], :ui/keys [editing-ms-event all-ms-diagnoses]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id :t_patient/patient_identifier
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/summary_multiple_sclerosis (comp/get-query SummaryMultipleSclerosis)}
                    {:ui/editing-ms-event (comp/get-query EditMsEvent)}
                    {[:ui/all-ms-diagnoses '_] [:t_ms_diagnosis/id :t_ms_diagnosis/name]}]
@@ -329,18 +329,13 @@
                                                                               :t_ms_event/patient_fk                    id
                                                                               :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
                                                                               :t_ms_event/site_unknown                  true}})])]
-        (patients/ui-layout
-          {:banner (patients/ui-patient-banner banner)
-           :menu   (patients/ui-patient-menu
-                     patient
-                     {:selected-id :relapses
-                      :sub-menu
-                      {:items [{:id      :add-ms-event
-                                :onClick do-add
-                                :hidden  (not show-ms?)
-                                :content "Add disease event"}]}})}
+        (patients/ui-layout layout
+          {:selected-id :relapses
+           :sub-menu    {:items [{:id      :add-ms-event
+                                  :onClick do-add
+                                  :hidden  (not show-ms?)
+                                  :content "Add disease event"}]}}
           (comp/fragment
-            (tap> patient)
             (when (:t_ms_event/id editing-ms-event)
               (ui-edit-ms-event editing-ms-event))
             (ui/ui-panel {:classes ["mb-4"]}

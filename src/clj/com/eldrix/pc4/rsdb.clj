@@ -5,7 +5,7 @@
   Depending on real-life usage, we could pre-fetch relationships and therefore
   save multiple database round-trips, particularly for to-one relationships.
   Such a change would be trivial because pathom would simply not bother
-  trying to resolve data that already exists. "
+  trying to resolve data that already exists."
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [clojure.tools.logging.readable :as log]
@@ -90,6 +90,45 @@
   [^String html]
   (Jsoup/clean html (Safelist.)))
 
+(pco/defresolver patient->permissions
+  "Return authorization permissions for current user to access given patient."
+  [{authenticated-user :session/authenticated-user, conn :com.eldrix.rsdb/conn}
+   {:t_patient/keys [patient_identifier]}]
+  {:t_patient/permissions
+   (if (:t_role/is_system authenticated-user)
+     auth/all-permissions                                   ;; system user gets all permissions
+     (let [patient-active-project-ids (patients/active-project-identifiers conn patient_identifier)
+           roles-by-project-id (:t_user/active_roles authenticated-user) ; a map of project-id to PermissionSets for that project
+           roles (vals (select-keys roles-by-project-id patient-active-project-ids))]
+       (into #{} (mapcat auth/permission-sets) roles)))})
+
+(defn wrap-tap-resolver
+  "A transform to debug inputs to a resolver"
+  [{::pco/keys [op-name] :as resolver}]
+  (update resolver ::pco/resolve
+          (fn [resolve]
+            (fn [env inputs]
+              (tap> {:op-name  op-name,
+                     :resolver resolver, :env env, :inputs inputs})
+              (resolve env inputs)))))
+
+(defn make-wrap-patient-authorize
+  "A transform to add authorization to a resolver for a patient. Defaults to
+  checking permission :PATIENT_VIEW."
+  ([] (make-wrap-patient-authorize {:permission :PATIENT_VIEW}))
+  ([{:keys [permission]}]
+   (fn [resolver]
+     (-> resolver
+         (update ::pco/input                                ;; add :t_patient/permissions into resolver inputs
+                 (fn [attrs]
+                   (vec (distinct (conj attrs :t_patient/permissions)))))
+         (update ::pco/resolve                              ;; wrap resolver to check permissions
+                 (fn [resolve]                              ;; old resolver
+                   (fn [env {:t_patient/keys [permissions] :as params}]
+                     (if (permissions permission)
+                       (resolve env params)                 ;; new resolver calls old resolver if permitted
+                       {:t_patient/authorization permissions}))))))))
+
 (def patient-properties
   [:t_patient/id
    :t_patient/patient_identifier
@@ -112,7 +151,9 @@
 
 (pco/defresolver patient-by-identifier
   [{:com.eldrix.rsdb/keys [conn]} {patient_identifier :t_patient/patient_identifier}]
-  {::pco/output patient-properties}
+  {::pco/input     [:t_patient/patient_identifier]
+   ::pco/transform wrap-tap-resolver
+   ::pco/output    patient-properties}
   (when patient_identifier
     (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient_identifier]}))))
 
@@ -213,12 +254,14 @@
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
-  {::pco/output [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/output    [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
   {:t_patient/country_of_birth (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->ethnic-origin
   [{concept-id :t_patient/ethnic_origin_concept_fk}]
-  {::pco/output [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/output    [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
   {:t_patient/ethnic_origin (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->racial-group
@@ -238,15 +281,16 @@
 
 (pco/defresolver patient->death_certificate
   [{conn :com.eldrix.rsdb/conn} patient]
-  {::pco/input  [:t_patient/id]
-   ::pco/output [:t_death_certificate/part1a                ;; flatten properties into top-level as this is a to-one relationship
-                 :t_death_certificate/part1b
-                 :t_death_certificate/part1c
-                 :t_death_certificate/part2
-                 {:t_patient/death_certificate [:t_death_certificate/part1a
-                                                :t_death_certificate/part1b
-                                                :t_death_certificate/part1c
-                                                :t_death_certificate/part2]}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/input     [:t_patient/id]
+   ::pco/output    [:t_death_certificate/part1a             ;; flatten properties into top-level as this is a to-one relationship
+                    :t_death_certificate/part1b
+                    :t_death_certificate/part1c
+                    :t_death_certificate/part2
+                    {:t_patient/death_certificate [:t_death_certificate/part1a
+                                                   :t_death_certificate/part1b
+                                                   :t_death_certificate/part1c
+                                                   :t_death_certificate/part2]}]}
   (let [certificate (patients/fetch-death-certificate conn patient)]
     (assoc certificate :t_patient/death_certificate certificate)))
 
@@ -254,16 +298,17 @@
   "Returns diagnoses for a patient. Optionally takes a parameter:
   - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
   [{hermes :com.eldrix/hermes, conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
-  {::pco/output [{:t_patient/diagnoses [:t_diagnosis/concept_fk
-                                        {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
-                                        :t_diagnosis/date_diagnosis
-                                        :t_diagnosis/date_diagnosis_accuracy
-                                        :t_diagnosis/date_onset
-                                        :t_diagnosis/date_onset_accuracy
-                                        :t_diagnosis/date_to
-                                        :t_diagnosis/date_to_accuracy
-                                        :t_diagnosis/status
-                                        :t_diagnosis/full_description]}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/output    [{:t_patient/diagnoses [:t_diagnosis/concept_fk
+                                           {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
+                                           :t_diagnosis/date_diagnosis
+                                           :t_diagnosis/date_diagnosis_accuracy
+                                           :t_diagnosis/date_onset
+                                           :t_diagnosis/date_onset_accuracy
+                                           :t_diagnosis/date_to
+                                           :t_diagnosis/date_to_accuracy
+                                           :t_diagnosis/status
+                                           :t_diagnosis/full_description]}]}
   (let [diagnoses (db/execute! conn (sql/format {:select [:*]
                                                  :from   [:t_diagnosis]
                                                  :where  [:and
@@ -284,8 +329,9 @@
 
 (pco/defresolver patient->has-diagnosis
   [{hermes :com.eldrix/hermes, :as env} {diagnoses :t_patient/diagnoses}]
-  {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
-   ::pco/output [:t_patient/has_diagnosis]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/input     [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
+   ::pco/output    [:t_patient/has_diagnosis]}
   (let [params (pco/params env)
         ecl (or (:ecl params) (throw (ex-info "Missing mandatory parameter: ecl" env)))
         on-date (:on-date params)
@@ -300,13 +346,14 @@
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/output [{:t_patient/summary_multiple_sclerosis
-                  [:t_summary_multiple_sclerosis/id
-                   :t_summary_multiple_sclerosis/ms_diagnosis_fk
-                   {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
-                   {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
-                   :t_ms_diagnosis/id                       ; we flatten this to-one attribute
-                   :t_ms_diagnosis/name]}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/output    [{:t_patient/summary_multiple_sclerosis
+                     [:t_summary_multiple_sclerosis/id
+                      :t_summary_multiple_sclerosis/ms_diagnosis_fk
+                      {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
+                      {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
+                      :t_ms_diagnosis/id                    ; we flatten this to-one attribute
+                      :t_ms_diagnosis/name]}]}
   (let [sms (patients/fetch-summary-multiple-sclerosis conn patient-identifier)
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
@@ -369,10 +416,11 @@
 
 (pco/defresolver patient->medications
   [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
-  {::pco/input  [:t_patient/id]
-   ::pco/output [{:t_patient/medications
-                  (into medication-properties
-                        [{:t_medication/events medication-event-properties}])}]}
+  {::pco/transform (make-wrap-patient-authorize)
+   ::pco/input     [:t_patient/id]
+   ::pco/output    [{:t_patient/medications
+                     (into medication-properties
+                           [{:t_medication/events medication-event-properties}])}]}
   {:t_patient/medications
    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
      (let [medication (patients/fetch-medications-and-events txn patient)
@@ -520,6 +568,36 @@
           (mapv #(assoc % :t_episode/status (projects/episode-status %)
                           :t_episode/project {:t_project/id (:t_episode/project_fk %)}
                           :t_episode/patient {:t_patient/id patient-pk}))))})
+
+
+(pco/defresolver patient->pending-referrals
+  "Return pending referrals - either all (`:all`) or only those to which the current user
+  can register (`:user`), defaulting to `:all`"
+  [{manager :session/authorization-manager :as env} {:t_patient/keys [episodes]}]
+  {::pco/output [{:t_patient/pending_referrals episode-properties}]}
+  {:t_patient/pending_referrals
+   (let [mode (or (:mode (pco/params env)) :all)
+         pending-referrals (filter #(= :referred (:t_episode/status %)) episodes)]
+     (case mode
+       :all
+       pending-referrals
+       :user
+       (filter #(auth/authorized? manager (hash-set (:t_episode/project_fk %)) :PROJECT_REGISTER) pending-referrals)
+       (throw (ex-info "invalid 'mode' for t_patient/pending_referrals" (pco/params env)))))})
+
+(pco/defresolver patient->suggested-registrations
+  "Return suggested registrations given the patient and current user. This
+  could make suggestions based on current diagnoses and treatments, and project
+  configurations. Such additional functionality will be made available via
+  parameters."
+  [{conn :com.eldrix.rsdb/conn, user :session/authenticated-user, :as env}
+   {:t_patient/keys [patient_identifier]}]
+  {::pco/output [{:t_patient/suggested_registrations [:t_project/id]}]}
+  {:t_patient/suggested_registrations
+   (let [roles (users/roles-for-user conn (:t_user/username user))
+         project-ids (patients/active-project-identifiers conn patient_identifier)]
+     (->> (users/projects-with-permission roles :PROJECT_REGISTER)
+          (remove #(project-ids (:t_project/id %)))))})       ;; remove any projects to which patient already registered
 
 (pco/defresolver episode-by-id
   [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
@@ -1591,7 +1669,8 @@
          db/medication-reasons-for-stopping)})
 
 (def all-resolvers
-  [patient-by-identifier
+  [patient->permissions
+   patient-by-identifier
    patient-by-pk
    patient-by-pseudonym
    patient->current-age
@@ -1626,6 +1705,8 @@
    address->housing
    address->stored-lsoa
    patient->episodes
+   patient->pending-referrals
+   patient->suggested-registrations
    episode-by-id
    episode->project
    episode->patient

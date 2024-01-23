@@ -52,12 +52,12 @@
 
 (defsc PatientEncounters
   [this {:t_patient/keys [id patient_identifier encounters] :as patient
-         :>/keys         [banner]}]
+         :>/keys         [layout]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "encounters"]
    :query         [:t_patient/patient_identifier
                    :t_patient/id
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/encounters (comp/get-query EncounterListItem)}]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
@@ -67,22 +67,18 @@
                                                      {:target               [:ui/current-patient]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
-  (when patient_identifier
-    (patients/ui-layout
-      {:banner (patients/ui-patient-banner banner)
-       :menu   (patients/ui-patient-menu
-                 patient
-                 {:selected-id :encounters
-                  :sub-menu    {:items [{:id      ::add
-                                         :onClick #(println "add encounter")
-                                         :content "Add encounter"}]}})}
+  (patients/ui-layout layout
+    {:selected-id :encounters
+     :sub-menu    {:items [{:id      ::add
+                            :onClick #(println "add encounter")
+                            :content "Add encounter"}]}}
 
-      (ui/ui-table {}
-        (ui/ui-table-head {}
-          (ui/ui-table-row {}
-            (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
-        (ui/ui-table-body {}
-          (for [{:t_encounter/keys [id] :as encounter} encounters]
-            (ui-encounter-list-item encounter
-                                    {:onClick #(dr/change-route! this ["encounter" id])
-                                     :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))
+    (ui/ui-table {}
+      (ui/ui-table-head {}
+        (ui/ui-table-row {}
+          (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
+      (ui/ui-table-body {}
+        (for [{:t_encounter/keys [id] :as encounter} encounters]
+          (ui-encounter-list-item encounter
+                                  {:onClick #(dr/change-route! this ["encounter" id])
+                                   :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))

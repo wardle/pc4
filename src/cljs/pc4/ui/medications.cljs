@@ -286,12 +286,12 @@
   (- 0 (if-let [date-from (:t_medication/date_from med)] (.valueOf date-from) 0)))
 
 (defsc PatientMedications
-  [this {:t_patient/keys [id patient_identifier medications] :as patient
-         :>/keys         [banner], :ui/keys [editing-medication]}]
+  [this {:t_patient/keys [id patient_identifier medications permissions] :as patient
+         :>/keys         [layout], :ui/keys [editing-medication]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "medications"]
-   :query         [:t_patient/id :t_patient/patient_identifier
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+   :query         [:t_patient/id :t_patient/patient_identifier :t_patient/permissions
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/medications (comp/get-query MedicationListItem)}
                    {:ui/editing-medication (comp/get-query EditMedication)}]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
@@ -308,30 +308,27 @@
   (tap> {:patient-medication medications})
   (let [do-edit #(comp/transact! this [(edit-medication {:patient-identifier patient_identifier :medication %})])
         do-add #(comp/transact! this [(add-medication {:patient-identifier patient_identifier :medication {:t_medication/id (tempid/tempid)}})])]
-    (when patient_identifier
-      (patients/ui-layout
-        {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-patient-menu
-                   patient
-                   {:selected-id :medications
-                    :sub-menu    {:items [{:id      :add-medication
-                                           :onClick do-add
-                                           :content "Add medication"}]}})}
-        (comp/fragment
-          (when (:t_medication/id editing-medication)
-            (ui-edit-medication editing-medication))
-          (ui/ui-table {}
-            (ui/ui-table-head {}
-              (ui/ui-table-row {}
-                (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" "Reason for stopping" ""])))
-            (ui/ui-table-body {}
-              (->> medications
-                   (remove #(#{:RECORDED_IN_ERROR} (:t_medication/reason_for_stopping %)))
-                   (sort-by (juxt medication-by-date-from
-                                  #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+    (patients/ui-layout layout
+      {:selected-id :medications
+       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
+                               {:id      :add-medication
+                                :onClick do-add
+                                :content "Add medication"})]}}
+      (comp/fragment
+        (when (:t_medication/id editing-medication)
+          (ui-edit-medication editing-medication))
+        (ui/ui-table {}
+          (ui/ui-table-head {}
+            (ui/ui-table-row {}
+              (map #(ui/ui-table-heading {:react-key %} %) ["Treatment" "Date from" "Date to" "Reason for stopping" ""])))
+          (ui/ui-table-body {}
+            (->> medications
+                 (remove #(#{:RECORDED_IN_ERROR} (:t_medication/reason_for_stopping %)))
+                 (sort-by (juxt medication-by-date-from
+                                #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
 
 
-                   (map #(ui-medication-list-item % {:onClick (fn [] (do-edit %))
-                                                     :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))))
+                 (map #(ui-medication-list-item % {:onClick (fn [] (do-edit %))
+                                                   :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))
 
 (def ui-patient-medications (comp/factory PatientMedications))

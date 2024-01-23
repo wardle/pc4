@@ -508,7 +508,7 @@
   (when-let [user (fetch-user conn username {:with-credentials true})]
     (when (authenticate env user password)
       (record-login! conn username)
-      (-> (select-keys user [:t_user/id :t_role/is_system :t_job_title/is_clinical])
+      (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical])
           (assoc :t_user/active_roles (active-roles-by-project-id conn username))))))
 
 (defn is-nhs-wales-email? [email]

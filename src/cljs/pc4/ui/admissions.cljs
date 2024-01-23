@@ -117,10 +117,10 @@
 
 (defsc PatientAdmissions
   [this {:t_patient/keys [id patient_identifier episodes] :as patient
-         :>/keys         [banner], :ui/keys [editing-admission]}]
+         :>/keys         [layout], :ui/keys [editing-admission]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id :t_patient/patient_identifier
-                   {:>/banner (comp/get-query patients/PatientBanner)}
+                   {:>/layout (comp/get-query patients/Layout)}
                    {:t_patient/episodes (comp/get-query EpisodeListItem)}
                    {:ui/editing-admission (comp/get-query EditAdmission)}]
    :route-segment ["pt" :t_patient/patient_identifier "admissions"]
@@ -134,36 +134,32 @@
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
    :pre-merge     (fn [{:keys [current-normalized data-tree]}]
                     (merge {:ui/editing-admission {}} current-normalized data-tree))}
-  (when patient_identifier
-    (let [do-edit #(df/load! this [:t_episode/id (:t_episode/id %)] EditAdmission
-                             {:post-mutation        `edit-admission
-                              :post-mutation-params {:patient-identifier patient_identifier :episode %}})
-          do-add #(comp/transact! this [(add-admission {:patient-identifier patient_identifier
-                                                        :episode            {:t_episode/id         (tempid/tempid)
-                                                                             :t_episode/patient_fk id}})])]
-      (patients/ui-layout
-        {:banner (patients/ui-patient-banner banner)
-         :menu   (patients/ui-patient-menu
-                   patient
-                   {:selected-id :admissions
-                    :sub-menu    {:items [{:id      :add-admission
-                                           :onClick do-add
-                                           :content "Add admission"}]}})}
-        (comp/fragment
-          (when (:t_episode/id editing-admission)
-            (ui-edit-admission editing-admission))
-          (dom/div
-            (when (seq episodes)
-              (ui/ui-table {}
-                (ui/ui-table-head {}
-                  (ui/ui-table-row {}
-                    (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
-                (ui/ui-table-body {}
-                  (for [episode (->> episodes
-                                     (filter #(-> % :t_episode/project :t_project/is_admission))
-                                     (sort-by #(some-> % :t_episode/date_registration .valueOf))
-                                     reverse)]
-                    (ui-episode-list-item episode
-                                          {:onClick (fn [] (do-edit episode))
-                                           :classes ["cursor-pointer" "hover:bg-gray-200"]})))))))))))
+  (let [do-edit #(df/load! this [:t_episode/id (:t_episode/id %)] EditAdmission
+                           {:post-mutation        `edit-admission
+                            :post-mutation-params {:patient-identifier patient_identifier :episode %}})
+        do-add #(comp/transact! this [(add-admission {:patient-identifier patient_identifier
+                                                      :episode            {:t_episode/id         (tempid/tempid)
+                                                                           :t_episode/patient_fk id}})])]
+    (patients/ui-layout layout
+      {:selected-id :admissions
+       :sub-menu    {:items [{:id      :add-admission
+                              :onClick do-add
+                              :content "Add admission"}]}}
+      (comp/fragment
+        (when (:t_episode/id editing-admission)
+          (ui-edit-admission editing-admission))
+        (dom/div
+          (when (seq episodes)
+            (ui/ui-table {}
+              (ui/ui-table-head {}
+                (ui/ui-table-row {}
+                  (map #(ui/ui-table-heading {:react-key %} %) ["Date of admission" "Date of discharge" "Problems"])))
+              (ui/ui-table-body {}
+                (for [episode (->> episodes
+                                   (filter #(-> % :t_episode/project :t_project/is_admission))
+                                   (sort-by #(some-> % :t_episode/date_registration .valueOf))
+                                   reverse)]
+                  (ui-episode-list-item episode
+                                        {:onClick (fn [] (do-edit episode))
+                                         :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))))
 
