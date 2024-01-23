@@ -136,22 +136,31 @@
 
 (def ui-label (comp/factory UILabel))
 
+(defsc UITextField*
+  [this {:keys [id value type placeholder required auto-focus disabled
+                onChange onBlur onEnterKey] :or {type "text"}}]
+  (dom/input :.p-2.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+    {:name      id :type type :placeholder placeholder
+     :required  required
+     :classes   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
+     :disabled  disabled :value (or value "")
+     :autoFocus auto-focus
+     :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
+     :onBlur    #(when onBlur (onBlur))
+     :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
+     :onWheel   #(when (= type "number") (-> % .-target .blur))}))
+
+(def ui-textfield* (comp/factory UITextField*))
+
 (defsc UITextField
   "A styled textfield control."
-  [this {:keys [id value type label placeholder required auto-focus disabled help-text onChange onBlur onEnterKey] :or {type "text"}}]
+  [this {:keys [id value type label placeholder required auto-focus disabled
+                help-text onChange onBlur onEnterKey] :or {type "text"} :as params}]
+
   (div
     (when label (ui-label {:for id :label label}))
     (div
-      (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
-        {:name      id :type type :placeholder placeholder
-         :required  required
-         :classes   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
-         :disabled  disabled :value (or value "")
-         :autoFocus auto-focus
-         :onChange  #(when onChange (let [v (evt/target-value %)] (onChange v)))
-         :onBlur    #(when onBlur (onBlur))
-         :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
-         :onWheel   #(when (= type "number") (-> % .-target .blur))})
+      (ui-textfield* params)
       (when help-text (dom/p :.text-sm.text-gray-500.italic help-text)))))
 
 (def ui-textfield
@@ -527,7 +536,7 @@
         (dom/div :.mt-4.space-y-1.w-full
           (for [{:keys [id onClick content]} (:items sub-menu)
                 :when content]
-            (if onClick                                   ;; if onClick => render as a link
+            (if onClick                                     ;; if onClick => render as a link
               (dom/a :.w-full.inline-flex.justify-center.cursor-pointer.group.rounded-md.px-3.py-2.text-xs.font-medium.text-blue-600.bg-blue-100.hover:bg-blue-400.hover:text-blue-50
                 {:key id, :onClick onClick}
                 content)
