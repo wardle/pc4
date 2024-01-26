@@ -174,7 +174,7 @@
        :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
                                {:id      :add-diagnosis
                                 :onClick do-add-diagnosis
-                                :content "Add diagnosis"})]}}
+                                :content "Add diagnosis..."})]}}
       (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
         (comp/fragment

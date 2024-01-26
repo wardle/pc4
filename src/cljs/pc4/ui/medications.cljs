@@ -313,7 +313,7 @@
        :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
                                {:id      :add-medication
                                 :onClick do-add
-                                :content "Add medication"})]}}
+                                :content "Add medication..."})]}}
       (comp/fragment
         (when (:t_medication/id editing-medication)
           (ui-edit-medication editing-medication))

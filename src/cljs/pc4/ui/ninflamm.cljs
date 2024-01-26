@@ -334,7 +334,7 @@
            :sub-menu    {:items [{:id      :add-ms-event
                                   :onClick do-add
                                   :hidden  (not show-ms?)
-                                  :content "Add disease event"}]}}
+                                  :content "Add disease event..."}]}}
           (comp/fragment
             (when (:t_ms_event/id editing-ms-event)
               (ui-edit-ms-event editing-ms-event))

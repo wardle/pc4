@@ -144,7 +144,7 @@
       {:selected-id :admissions
        :sub-menu    {:items [{:id      :add-admission
                               :onClick do-add
-                              :content "Add admission"}]}}
+                              :content "Add admission..."}]}}
       (comp/fragment
         (when (:t_episode/id editing-admission)
           (ui-edit-admission editing-admission))

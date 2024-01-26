@@ -71,7 +71,7 @@
     {:selected-id :encounters
      :sub-menu    {:items [{:id      ::add
                             :onClick #(println "add encounter")
-                            :content "Add encounter"}]}}
+                            :content "Add encounter..."}]}}
 
     (ui/ui-table {}
       (ui/ui-table-head {}
