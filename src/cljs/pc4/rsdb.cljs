@@ -190,3 +190,19 @@
   (ok-action [{:keys [state]}]
              (swap! state (fn [st]
                             (update-in st [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)))))
+
+(defmutation register-patient-to-project
+  [{:keys [patient project-id] :as params}]
+  (action [env]
+          (log/info "registering patient to project" params))
+  (remote [env] true)
+  (ok-action
+    [{:keys [component state]}]
+    (df/refresh! component)))
+
+(defmutation break-glass
+  [{:keys [patient-identifier]}]
+  (remote [env] true)
+  (ok-action
+    [{:keys [component]}]
+    (df/refresh! component)))

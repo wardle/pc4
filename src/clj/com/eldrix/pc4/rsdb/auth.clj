@@ -87,6 +87,18 @@
    #{:LOGIN,
      :BIOBANK_UPLOAD}})
 
+
+(defn expand-permission-sets
+  "Given a set of what are essentially 'roles', expand into the permissions that
+  these roles provide.
+  e.g.
+  ```
+  (expand-permission-sets #{:NORMAL_USER :POWER_USER})
+  =>
+  ```"
+  [sets]
+  (into #{} (mapcat permission-sets) sets))
+
 (defprotocol AuthorizationManager
   "Finely-grained authorization, based upon users, roles and projects.
   Given a set of project-ids, for example, representing the set of patient's

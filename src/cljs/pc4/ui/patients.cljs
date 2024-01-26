@@ -137,7 +137,7 @@
    :query [:t_patient/patient_identifier :t_patient/permissions]}
   (cond
     (permissions :PATIENT_VIEW)
-    (ui/ui-vertical-navigation
+    (ui/ui-vertical-navigation2
       {:selected-id selected-id
        :items
        [{:id      :home
@@ -160,37 +160,100 @@
          :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
         {:id      :admissions
          :content "Admissions"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]
-       :sub-menu    sub-menu})
+         :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]}
+      (ui/ui-vertical-navigation-title {:title ""})
+      (ui/ui-vertical-navigation-submenu {:items sub-menu}))
     :else
-    (ui/ui-vertical-navigation
+    (ui/ui-vertical-navigation2
       {:selected-id :break-glass
        :items       [{:id      :break-glass
                       :content "No access"}]})))
 
 (def ui-patient-menu (comp/computed-factory PatientMenu))
 
+
+(defsc SuggestedRegistration [this params]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/title]})
+
+(def ui-suggested-registration (comp/factory SuggestedRegistration {:keyfn :t_project/id}))
+
+(defsc AdministratorUser [this params]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/full_name]})
+
 (defsc PatientBreakGlass
-  [this {:t_patient/keys [patient_identifier]}]
+  [this {:t_patient/keys [patient_identifier suggested_registrations administrators] :as patient
+         :ui/keys        [administrator project explanation]}]
   {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/authorization :t_patient/suggested_registrations]}
+   :query [:t_patient/id :t_patient/patient_identifier :t_patient/permissions
+           {:t_patient/suggested_registrations (comp/get-query SuggestedRegistration)}
+           {:t_patient/administrators (comp/get-query AdministratorUser)}
+           :ui/administrator :ui/project :ui/explanation]}
   (div :.pl-2.pr-2
-    (ui/ui-panel {:classes ["bg-red-100" "text-red-800"]}
+    (ui/ui-panel {:classes ["bg-red-50" "text-red-800"]}
       (dom/p :.font-bold.text-lg.min-w-min "You do not have permission to view this patient record.")
-      (dom/p :.font-light.text-sm.tracking-tighter "This patient is not registered to any of your registered projects.
-You may only view patient records if you are registered to one of this patient's projects. "))))
+      (dom/p "This patient is not registered to any of your registered projects.")
+      (dom/p "You may only view patient records if you are registered to one of this patient's projects or you
+               obtain emergency 'break-glass' access for clinical reasons."))
+    (div :.grid.grid-cols-1.md:grid-cols-2.md:gap-4.m-4
+      (when (seq suggested_registrations)
+        (ui/ui-active-panel
+          {:title    "Register a patient to one of your projects"
+           :subtitle "This is most suitable when this patient is under the care of a specific service
+                           or part of a specific project given a relationship between you, the project or service, and
+                           the patient. Once you register a patient to a service, you may subsequently
+                           discharge that patient should ongoing registration not be required."
+           :classes  (when administrator ["opacity-50"])}
+          (div :.space-y-2
+            (ui/ui-select-popup-button
+              {:options             suggested_registrations
+               :no-selection-string "« choose a project to which patient should be registered »"
+               :display-key         :t_project/title
+               :id-key              :t_project/id
+               :value               project
+               :onChange            #(do (m/set-value! this :ui/project %)
+                                         (when % (m/set-value! this :ui/administrator nil)
+                                                 (m/set-value! this :ui/explanation nil)))})
+            (ui/ui-active-panel-button {:title    "Register »"
+                                        :disabled (not project)
+                                        :onClick  #(do
+                                                     (println "register" {:patient (select-keys patient [:t_patient/id]) :project-id (:t_project/id project)})
+                                                     (comp/transact! this [(list 'pc4.rsdb/register-patient-to-project {:patient    (select-keys patient [:t_patient/id :t_patient/patient_identifier])
+                                                                                                                        :project-id (:t_project/id project)})]))}))))
+      (ui/ui-active-panel
+        {:title    "Get emergency access via 'break-glass'"
+         :subtitle "This is most suitable when you are a clinician and need access in an emergency for
+                           clinical reasons, you have a direct care relationship with the patient, but you only need temporary access.
+                           Break-glass events are logged and checked, and last only for the session."
+         :classes  (when project ["opacity-50"])}
+        (div :.space-y-2
+          (ui/ui-select-popup-button
+            {:no-selection-string "« choose administrator to be notified »"
+             :options             administrators
+             :display-key         :t_user/full_name
+             :id-key              :t_user/id
+             :value               administrator
+             :onChange            #(do (m/set-value! this :ui/administrator %)
+                                       (when % (m/set-value! this :ui/project nil)))})
+          (ui/ui-textarea {:label    "Explain why break-glass access is needed. "
+                           :value    explanation
+                           :onChange #(m/set-value! this :ui/explanation %)})
+          (ui/ui-active-panel-button {:title    "Break-glass »"
+                                      :disabled (or (str/blank? explanation) (not administrator))
+                                      :onClick #(comp/transact! this [(list 'pc4.rsdb/break-glass {:patient-identifier patient_identifier})])}))))))
 
 (def ui-patient-break-glass (comp/factory PatientBreakGlass))
 
 (defsc Layout
-  [this {:t_patient/keys [patient_identifier permissions] :>/keys [banner menu break-glass]}
+  [this {:t_patient/keys [id patient_identifier permissions] :>/keys [banner menu break-glass]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/permissions
+   :query [:t_patient/id :t_patient/patient_identifier :t_patient/permissions
            {:>/banner (comp/get-query PatientBanner)}
            {:>/menu (comp/get-query PatientMenu)}
            {:>/break-glass (comp/get-query PatientBreakGlass)}]}
-  (when patient_identifier
+  (if (and id patient_identifier)
     (comp/fragment
       (ui-patient-banner banner)                            ;; always show the banner
       (if (permissions :PATIENT_VIEW)
@@ -199,7 +262,8 @@ You may only view patient records if you are registered to one of this patient's
             (ui-patient-menu menu {:selected-id selected-id :sub-menu sub-menu}))
           (div :.col-span-1.md:col-span-5.pt-2
             (comp/children this)))
-        (ui-patient-break-glass break-glass)))))
+        (ui-patient-break-glass break-glass)))
+    (div :.p-2 (ui/box-error-message :message "Patient not found"))))
 
 (def ui-layout (comp/computed-factory Layout))
 
@@ -278,54 +342,55 @@ You may only view patient records if you are registered to one of this patient's
                                                                        :t_patient/date_death         date_death})])]
     (ui-layout layout
       {:selected-id :home
-       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
-                               {:id      ::edit
-                                :onClick do-edit
-                                :content "Edit demographics"})
-                             (when (and (permissions :PATIENT_EDIT) (not (:t_death_certificate/id editing-death-certificate)))
-                               {:id      ::add-death-certificate
-                                :onClick #(println "add certificate")
-                                :content "Add death certificate"})]}}
-      (when (and id patient_identifier)
-        (when editing-demographics
-          ;; at the moment, this only supports pseudonymous patients
-          (ui/ui-modal
-            {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
-                       {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
-             :onClose do-cancel-edit}
-            (ui/ui-simple-form {}
-              (ui/ui-simple-form-item {:label "Gender"}
-                (div :.pt-2 (name sex)))
-              (ui/ui-simple-form-item {:label "Date of birth"}
-                (div :.pt-2 (ui/format-month-year date_birth)))
-              (ui/ui-simple-form-item {:label "Date of death"}
-                (ui/ui-local-date
-                  {:value    date_death
-                   :min-date date_birth
-                   :max-date (goog.date.Date.)
-                   :onChange #(m/set-value! this :t_patient/date_death %)})))))
-        (when editing-death-certificate
-          (ui-edit-death-certificate editing-death-certificate))
-        (comp/fragment
-          (ui/ui-two-column-card
-            {:title "Demographics"
-             :items [{:title "First names" :content first_names}
-                     {:title "Last name" :content last_name}
-                     {:title "Title" :content title}
-                     {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                     {:title "Date of birth" :content (ui/format-date date_birth)}
-                     (if date_death {:title "Date of death" :content (ui/format-date date_death)}
-                                    {:title "Current age" :content current_age})]})
-          (ui/ui-two-column-card
-            {:title "Current address"
-             :items
-             (if (= :PSEUDONYMOUS status)
-               [{:title "LSOA code" :content (ui-inspect-edit-lsoa patient)}]
-               [{:title "Address1" :content (:t_address/address1 address)}
-                {:title "Address2" :content (:t_address/address2 address)}
-                {:title "Address3" :content (:t_address/address3 address)}
-                {:title "Address4" :content (:t_address/address4 address)}
-                {:title "Postal code" :content (:t_address/postcode address)}])}))))))
+       :sub-menu    [{:id      ::view-episodes
+                      :onClick #(dr/change-route! this ["pt" patient_identifier "episodes"])
+                      :content "Episodes"}
+                     (when (permissions :PATIENT_EDIT)
+                       {:id      ::edit
+                        :onClick do-edit
+                        :content "Edit demographics..."})
+                     (when (and (permissions :PATIENT_EDIT) (not (:t_death_certificate/id editing-death-certificate)))
+                       {:id      ::add-death-certificate
+                        :onClick #(println "add certificate")
+                        :content "Add death certificate..."})]}
+      (when editing-demographics
+        ;; at the moment, this only supports pseudonymous patients
+        (ui/ui-modal
+          {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
+                     {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
+           :onClose do-cancel-edit}
+          (ui/ui-simple-form {}
+            (ui/ui-simple-form-item {:label "Gender"}
+              (div :.pt-2 (name sex)))
+            (ui/ui-simple-form-item {:label "Date of birth"}
+              (div :.pt-2 (ui/format-month-year date_birth)))
+            (ui/ui-simple-form-item {:label "Date of death"}
+              (ui/ui-local-date
+                {:value    date_death
+                 :min-date date_birth
+                 :max-date (goog.date.Date.)
+                 :onChange #(m/set-value! this :t_patient/date_death %)})))))
+      (when editing-death-certificate
+        (ui-edit-death-certificate editing-death-certificate))
+      (ui/ui-two-column-card
+        {:title "Demographics"
+         :items [{:title "First names" :content first_names}
+                 {:title "Last name" :content last_name}
+                 {:title "Title" :content title}
+                 {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
+                 {:title "Date of birth" :content (ui/format-date date_birth)}
+                 (if date_death {:title "Date of death" :content (ui/format-date date_death)}
+                                {:title "Current age" :content current_age})]})
+      (ui/ui-two-column-card
+        {:title "Current address"
+         :items
+         (if (= :PSEUDONYMOUS status)
+           [{:title "LSOA code" :content (ui-inspect-edit-lsoa patient)}]
+           [{:title "Address1" :content (:t_address/address1 address)}
+            {:title "Address2" :content (:t_address/address2 address)}
+            {:title "Address3" :content (:t_address/address3 address)}
+            {:title "Address4" :content (:t_address/address4 address)}
+            {:title "Postal code" :content (:t_address/postcode address)}])}))))
 
 
 

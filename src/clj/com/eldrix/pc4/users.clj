@@ -28,11 +28,11 @@
    {:keys [system value password]}]
   {::pco/op-name 'pc4.users/perform-login}
   (when-let [user (rsdb-users/perform-login! env value password)]
-    (println {:perform-login user})
+    (log/trace "performing login" {:username value})
     (api-middleware/augment-response user
       (fn [response]
         (assoc response :session (assoc session :authenticated-user
-                                                (select-keys user [:t_user/id :t_role/is_system :t_user/active_roles])))))))
+                                                (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_user/active_roles])))))))
 
 (pco/defmutation logout
   [{session :session :as env} _]

@@ -129,7 +129,7 @@
    (let [active-projects (set (map :t_episode/project_fk (active-episodes conn patient-identifier)))]
      (if-not include-parents?
        active-projects
-       (into active-projects (flatten (map #(projects/all-parents-ids conn %) active-projects)))))))
+       (into active-projects (mapcat #(projects/all-parents-ids conn %) active-projects))))))
 
 (s/def ::on-date #(instance? LocalDate %))
 (s/def ::patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})

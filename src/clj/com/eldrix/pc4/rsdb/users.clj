@@ -57,19 +57,19 @@
     (or (str/blank? username) (str/blank? password))
     false
 
-    (= authentication_method :LOCAL)                       ;; TODO: force password change for these users
+    (= authentication_method :LOCAL)                        ;; TODO: force password change for these users
     (let [md (MessageDigest/getInstance "SHA")
           hash (Base64/encodeBase64String (.digest md (.getBytes password)))]
       (log/warn "warning: using outdated password check for user " username)
       (= credential hash))
 
-    (= authentication_method :LOCAL17)                     ;; TODO: upgrade to more modern hash here and in rsdb codebase
+    (= authentication_method :LOCAL17)                      ;; TODO: upgrade to more modern hash here and in rsdb codebase
     (BCrypt/checkpw password credential)
 
     (and nadex (= authentication_method :NADEX))
     (nadex/can-authenticate? nadex username password)
 
-    (= authentication_method :NADEX)                       ;; TODO: remove this fallback
+    (= authentication_method :NADEX)                        ;; TODO: remove this fallback
     (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
         (BCrypt/checkpw password credential))
 
@@ -249,10 +249,16 @@
   :args (s/cat :conn ::db/conn :username string? :opts (s/? (s/keys :opt [:t_project/id])))
   :ret (s/coll-of ::role))
 (defn roles-for-user
-  "Return the roles for the given user, each flattened and pre-fetched to
+  "Return the 'roles' for the given user, each flattened and pre-fetched to
   include keys from the 't_project_user' and related 't_project' tables.
 
   In essence, a user will have roles as defined by `t_project_user` rows.
+  - :t_project_user/id
+  - :t_project_user/user_fk
+  - :t_project_user/project_fk
+  - :t_project_user/role - one of PID_DATA POWER_USER NORMAL_USER BIOBANK_ADMINISTRATOR LIMITED_USER
+  - :t_project_user/date_from
+  - :t_project_user/date_to
 
   For convenience, the following properties are also included:
   - :t_project_user/active?     - whether the role is active
@@ -348,12 +354,13 @@
     (reify auth/AuthorizationManager                        ;; system user: can do everything...
       (authorized? [_ patient-project-ids permission] true)
       (authorized-any? [_ permission] true))
-    (let [active-roles (:t_user/active_roles user)]
-      (reify auth/AuthorizationManager                        ;; non-system users defined by project roles
+    (let [permissions-by-project (update-vals (:t_user/active_roles user) auth/expand-permission-sets)] ;; a map of project-id to a set of permissions
+      (reify auth/AuthorizationManager                      ;; non-system users defined by project roles
         (authorized? [_ project-ids permission]
-          (some #(contains? (active-roles %) permission) project-ids))
+          (log/info "checking auth:" {:project-ids project-ids :permission permission :permissions permissions-by-project})
+          (some #(contains? (permissions-by-project %) permission) project-ids))
         (authorized-any? [_ permission]
-          (some #(active-roles %) permission) active-roles)))))
+          (some #(permissions-by-project %) permission) permissions-by-project)))))
 
 (defn ^:deprecated make-authorization-manager
   "DEPRECATED: Use [[authorization-manager]] instead.
@@ -395,6 +402,23 @@
 (defn job-title [{custom-job-title :t_user/custom_job_title, job-title :t_job_title/name}]
   (if (str/blank? custom-job-title) job-title custom-job-title))
 
+
+(defn administrator-users-sql
+  "Returns SQL to get basic information about administrative users for the projects specified."
+  [project-ids]
+  {:select [:id :username :first_names :last_name :title]
+   :from   :t_user
+   :where  (cond->[:or [:= :username "system"]]
+             (seq project-ids)
+             (conj [:in :id {:select-distinct :administrator_user_fk
+                                :from            :t_project
+                                :where           [:in :id project-ids]}]))})
+
+(defn administrator-users
+  "Returns administrator users for the projects specified."
+  [conn project-ids]
+  (log/info "sql" (administrator-users-sql project-ids))
+  (db/execute! conn (sql/format (administrator-users-sql project-ids))))
 
 (defn random-password
   "Returns a vector of new random password and its credential.

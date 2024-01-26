@@ -249,7 +249,7 @@
         default-value (or default-value no-selection-string (first sorted-options))
         forced-value (if (not (contains? all-options value)) default-value value)]
     (when (and onChange (not= value forced-value))
-      (onChange forced-value))
+      (onChange (if (= no-selection-string forced-value) nil forced-value)))
     (comp/fragment
       (when label (ui-label {:for name :label label}))
       (dom/select :.block.w-full.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
@@ -544,6 +544,56 @@
 
 (def ui-vertical-navigation (comp/factory UIVerticalNavigation))
 
+(defsc VerticalNavigation
+  "Vertical navigation bar."
+  [this {:keys [selected-id items]}]
+  (dom/nav {:aria-label "Sidebar"}
+    (for [{:keys [id icon content onClick]} items
+          :when id]
+      (if (= selected-id id)
+        (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+          {:key id, :aria-current "page"}
+          (dom/span :.span.pr-2 icon) content)
+        (dom/a :.cursor-pointer.text-gray-600.hover:bg-green-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+          {:key id, :onClick onClick}
+          (dom/span :.pr-2 icon) content)))
+    (comp/children this)))
+
+(def ui-vertical-navigation2 (comp/factory VerticalNavigation))
+
+(defsc VerticalNavigationTitle [this {:keys [title]}]
+  (dom/div :.mt-4.border-t.border-dashed.border-gray-500
+    (dom/h3 :.px-3.text-sm.font-medium.text-gray-500 title)))
+
+(def ui-vertical-navigation-title (comp/factory VerticalNavigationTitle))
+
+(defsc VerticalNavigationSubmenu
+  [this {:keys [selected-id items]}]
+  (div :.sm:p-2
+    (for [{:keys [id icon content onClick]} items
+          :when id]
+      (if (= selected-id id)
+        (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
+          {:key id, :aria-current "page"}
+          (dom/span :.span.pr-2 icon) content)
+        (dom/a :.cursor-pointer.text-gray-600.hover:bg-purple-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
+          {:key id, :onClick onClick}
+          (dom/span :.pr-2 icon) content)))))
+
+(def ui-vertical-navigation-submenu (comp/factory VerticalNavigationSubmenu))
+
+(defsc VerticalNavigationActions [this {:keys [actions]}]
+  (dom/div :.mt-4.space-y-1.w-full
+    (for [{:keys [id onClick content]} actions
+          :when content]
+      (if onClick                                           ;; if onClick => render as a link
+        (dom/a :.w-full.inline-flex.justify-center.cursor-pointer.group.rounded-md.px-3.py-2.text-xs.font-medium.text-blue-600.bg-blue-100.hover:bg-blue-400.hover:text-blue-50
+          {:key id, :onClick onClick}
+          content)
+        (div {:key id} content)))))
+
+(def ui-vertical-navigation-actions (comp/factory VerticalNavigationActions))
+
 (defsc GridList [this _]
   (dom/ul :.grid.grid-cols-1.gap-6.sm:grid-cols-2.lg:grid-cols-3
     {:role "list"}
@@ -622,3 +672,23 @@
       (comp/children this))))
 
 (def ui-panel (comp/factory UIPanel))
+
+(defsc ActivePanel [this {:keys [title subtitle classes]}]
+  (div :.bg-white.shadow-lg.sm:rounded-lg.border {:classes classes}
+    (div :.px-4.py-5.sm:p-6
+      (dom/h3 :.text-base.font-semibold.leading-6.text-gray-900 title)
+      (div :.mt-2.max-w-xl.text-sm.text-gray-500
+        (dom/p subtitle))
+      (div :.mt-5
+        (comp/children this)))))
+
+(def ui-active-panel (comp/factory ActivePanel))
+
+(defsc ActivePanelButton [this {:keys [title disabled onClick]}]
+  (dom/button :.inline-flex.items-center.rounded-md.px-3.py-2.text-sm.font-semibold.text-white.shadow-sm
+    {:classes (if disabled ["bg-indigo-400" "cursor-not-allowed"] ["bg-indigo-600" "hover:bg-indigo-500" "focus-visible:outline" "focus-visible:outline-2" "focus-visible:outline-offset-2" "focus-visible:outline-indigo-500"])
+     :type    "button"
+     :onClick #(when (and (not disabled) onClick) (onClick))}
+    title))
+
+(def ui-active-panel-button (comp/factory ActivePanelButton))

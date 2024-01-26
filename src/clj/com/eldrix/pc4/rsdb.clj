@@ -11,6 +11,7 @@
             [clojure.tools.logging.readable :as log]
             [com.eldrix.nhsnumber :as nnn]
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
+            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
             [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
@@ -99,8 +100,8 @@
      auth/all-permissions                                   ;; system user gets all permissions
      (let [patient-active-project-ids (patients/active-project-identifiers conn patient_identifier)
            roles-by-project-id (:t_user/active_roles authenticated-user) ; a map of project-id to PermissionSets for that project
-           roles (vals (select-keys roles-by-project-id patient-active-project-ids))]
-       (into #{} (mapcat auth/permission-sets) roles)))})
+           roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
+       (auth/expand-permission-sets roles)))})
 
 (defn wrap-tap-resolver
   "A transform to debug inputs to a resolver"
@@ -596,8 +597,17 @@
   {:t_patient/suggested_registrations
    (let [roles (users/roles-for-user conn (:t_user/username user))
          project-ids (patients/active-project-identifiers conn patient_identifier)]
-     (->> (users/projects-with-permission roles :PROJECT_REGISTER)
-          (remove #(project-ids (:t_project/id %)))))})       ;; remove any projects to which patient already registered
+     (->> (users/projects-with-permission roles :PATIENT_REGISTER)
+          (filter :t_project/active?)                       ;; only return currently active projects
+          (remove #(project-ids (:t_project/id %)))         ;; remove any projects to which patient already registered
+          (map #(select-keys % [:t_project/id :t_project/title]))))}) ;; only return data relating to projects
+
+(pco/defresolver patient->administrators
+  "Return administrators linked to the projects to which this patient is linked."
+  [{conn :com.eldrix.rsdb/conn} {:t_patient/keys [patient_identifier]}]
+  {::pco/output [{:t_patient/administrators [:t_user/id :t_user/username :t_user/first_names :t_user/last_name]}]}
+  ;; TODO: patient->active-project-ids should be its own resolver to avoid duplication
+  {:t_patient/administrators (users/administrator-users conn (patients/active-project-identifiers conn patient_identifier))})
 
 (pco/defresolver episode-by-id
   [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
@@ -1271,6 +1281,8 @@
   (log/debug "search-patient-by-pseudonym" params)
   (projects/search-by-project-pseudonym conn project-id pseudonym))
 
+
+
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
   [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} patient-identifier permission]
   (when-not manager
@@ -1281,6 +1293,37 @@
     (when-not (auth/authorized? manager project-ids permission)
       (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
                                                                           :permission         permission})))))
+(defn guard-can-for-project?                                ;; TODO: turn into a macro for defmutation?
+  [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} project-id permission]
+  (when-not manager
+    (throw (ex-info "missing authorization manager" {:expected :session/authorization-manager, :found env})))
+  (let [project-ids #{project-id}]
+    (when-not (auth/authorized? manager project-ids permission)
+      (throw (ex-info "You are not authorised to perform this operation" {:project-id project-id
+                                                                          :permission permission})))))
+
+(pco/defmutation register-patient-to-project!
+  [{conn :com.eldrix.rsdb/conn, user :session/authenticated-user :as env} {:keys [patient project-id] :as params}]
+  {::pco/op-name 'pc4.rsdb/register-patient-to-project}
+  (when (or (not (s/valid? (s/keys :req [:t_patient/id :t_patient/patient_identifier]) patient)) (not (int? project-id)))
+    (throw (ex-info "invalid call" params)))
+  (guard-can-for-project? env project-id :PATIENT_REGISTER)
+  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+    (try
+      (let [episode (projects/register-patient-project! txn project-id (:t_user/id user) patient)]
+        (log/info "registered patient to project" {:request params :result episode}))
+      (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e))))))
+
+(pco/defmutation break-glass!
+  [{session :session user :session/authenticated-user :as env} {:keys [patient-identifier] :as params}]
+  {::pco/op-name 'pc4.rsdb/break-glass}
+  (when-not patient-identifier
+    (throw (ex-info "invalid params" params)))
+  (log/info "break glass" {:patient patient-identifier :user (:t_user/username user)})
+  (api-middleware/augment-response {}
+    (fn [response]
+      (assoc response :session (assoc session :break-glass patient-identifier)))))
+
 
 (s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
 (s/def ::save-diagnosis
@@ -1707,6 +1750,7 @@
    patient->episodes
    patient->pending-referrals
    patient->suggested-registrations
+   patient->administrators
    episode-by-id
    episode->project
    episode->patient
@@ -1767,6 +1811,8 @@
    ;; mutations - VERBS
    register-patient!
    register-patient-by-pseudonym!
+   register-patient-to-project!
+   break-glass!
    search-patient-by-pseudonym
    save-diagnosis!
    save-medication!

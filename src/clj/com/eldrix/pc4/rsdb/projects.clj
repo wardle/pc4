@@ -391,15 +391,27 @@
   "Returns episodes for patient related to the specific project.
   Parameters:
   - conn        : database connection or pool
-  - patient-pk  : patient primary key (NB: not the same as `patient-identifier`)
+  - patient     : patient - containing either :t_patient/id or :t_patient/patient_identifier
   - project-id  : project id"
-  [conn patient-identifier project-id]
-  (db/execute! conn (sql/format {:select     [:t_episode/*]
-                                 :from       :t_episode
-                                 :inner-join [:t_patient [:= :t_patient/id :t_episode/patient_fk]]
-                                 :where      [:and
-                                              [:= :patient_identifier patient-identifier]
-                                              [:= :project_fk project-id]]})))
+  [conn {:t_patient/keys [id patient_identifier] :as patient} project-id]
+  (db/execute! conn
+               (cond
+                 id
+                 (sql/format {:select [:t_episode/*]
+                              :from   :t_episode
+                              :where  [:and
+                                       [:= :patient_fk id]
+                                       [:= :project_fk project-id]]})
+                 patient_identifier
+                 (sql/format {:select     [:t_episode/*]
+                              :from       :t_episode
+                              :inner-join [:t_patient [:= :t_patient/id :t_episode/patient_fk]]
+                              :where      [:and
+                                           [:= :patient_identifier patient_identifier]
+                                           [:= :project_fk project-id]]})
+                 :else
+                 (throw (ex-info "missing :t_patient/id and :t_patient/patient_identifier" patient)))))
+
 
 (defn ^:deprecated legacy-pseudonyms
   "Returns legacy pseudonyms for a given patient
@@ -593,8 +605,8 @@
   episodes for the same project; it is simply that a patient should not have
   more than one active episode for a project that must be enforced. As such,
   this must be processed within a read-repeatable transaction."
-  [txn project-id user-id {patient-id :t_patient/id} & {:keys [adopt-pending? pseudonym] :or {adopt-pending? true}}]
-  (let [episodes (->> (episodes-for-patient-in-project txn patient-id project-id)
+  [txn project-id user-id {patient-pk :t_patient/id :as patient} & {:keys [adopt-pending? pseudonym] :or {adopt-pending? true}}]
+  (let [episodes (->> (episodes-for-patient-in-project txn patient project-id)
                       (sort-by :t_episode/date_registration)
                       (group-by episode-status))
         registered (first (:registered episodes))
@@ -609,13 +621,12 @@
       ;; no current or pending referral, or we're not adopting existing referrals, so create a new episode:
       :else
       (create-episode! txn (cond-> {:t_episode/project_fk           project-id
-                                    :t_episode/patient_fk           patient-id
+                                    :t_episode/patient_fk           patient-pk
                                     :t_episode/registration_user_fk user-id
                                     :t_episode/referral_user_fk     user-id
                                     :t_episode/date_referral        (LocalDate/now)
                                     :t_episode/date_registration    (LocalDate/now)}
                              pseudonym (assoc :t_episode/stored_pseudonym pseudonym))))))
-
 
 (s/fdef register-patient
   :args (s/cat :txn ::db/repeatable-read-txn
@@ -745,6 +756,7 @@
                                                                              :dbname          "rsdb"
                                                                              :maximumPoolSize 2}))
 
+  (jdbc/execute! conn (sql/format (administrators-sql #{5})))
   (make-slug "MND Cwm Taf")
 
   (group-by :t_project/type (all-children conn 5))
@@ -782,7 +794,7 @@
   (map episode-status (com.eldrix.pc4.rsdb.patients/fetch-episodes conn 14032))
 
   (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (com.eldrix.pc4.rsdb.patients/fetch-episodes conn 43518)))
-  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn 43518 37)))
+  (group-by :t_episode/status (map #(assoc % :t_episode/status (episode-status %)) (episodes-for-patient-in-project conn {:t_patient/patient_identifier 43518} 37)))
   (discharge-episode! conn 1 {:t_episode/id 46540})
   (register-patient-project! conn 18 2 {:t_patient/id 14031})
   (register-episode! conn 1 {:t_episode/id 46538})
