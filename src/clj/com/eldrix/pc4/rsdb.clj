@@ -91,13 +91,24 @@
   [^String html]
   (Jsoup/clean html (Safelist.)))
 
+(pco/defresolver patient->break-glass
+  [{session :session} {:t_patient/keys [patient_identifier]}]
+  {:t_patient/break_glass (= patient_identifier (:break-glass session))})
+
 (pco/defresolver patient->permissions
   "Return authorization permissions for current user to access given patient."
   [{authenticated-user :session/authenticated-user, conn :com.eldrix.rsdb/conn}
-   {:t_patient/keys [patient_identifier]}]
+   {:t_patient/keys [patient_identifier break_glass]}]
   {:t_patient/permissions
-   (if (:t_role/is_system authenticated-user)
-     auth/all-permissions                                   ;; system user gets all permissions
+   (cond
+     ;; system user gets all known permissions
+     (:t_role/is_system authenticated-user)
+     auth/all-permissions
+     ;; break-glass provides only "normal user" access
+     break_glass
+     (:NORMAL_USER auth/permission-sets)
+     ;; otherwise, generate permissions based on intersection of patient and user
+     :else
      (let [patient-active-project-ids (patients/active-project-identifiers conn patient_identifier)
            roles-by-project-id (:t_user/active_roles authenticated-user) ; a map of project-id to PermissionSets for that project
            roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
@@ -1320,7 +1331,8 @@
   (when-not patient-identifier
     (throw (ex-info "invalid params" params)))
   (log/info "break glass" {:patient patient-identifier :user (:t_user/username user)})
-  (api-middleware/augment-response {}
+  (api-middleware/augment-response {:t_patient/patient_identifier patient-identifier
+                                    :t_patient/break_glass        true}
     (fn [response]
       (assoc response :session (assoc session :break-glass patient-identifier)))))
 
@@ -1712,7 +1724,8 @@
          db/medication-reasons-for-stopping)})
 
 (def all-resolvers
-  [patient->permissions
+  [patient->break-glass
+   patient->permissions
    patient-by-identifier
    patient-by-pk
    patient-by-pseudonym

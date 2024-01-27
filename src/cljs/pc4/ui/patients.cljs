@@ -61,7 +61,7 @@
                        (update-in [:t_patient/patient_identifier patient-identifier :ui/editing-demographics] not))))))
 
 (defsc PatientBanner*
-  [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose content]}]
+  [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose]}]
   (div :.grid.grid-cols-1.border-2.shadow-lg.p-1.sm:p-4.lg:m-2.sm:m-0.border-gray-200.relative
     (when onClose
       (div :.absolute.top-0.5.sm:-top-2.5.right-0.sm:-right-2.5
@@ -90,8 +90,7 @@
         (div :.text-right.min-w-min (dom/span :.text-sm.font-thin "CRN ") (dom/span :.font-bold hospital-identifier))))
     (div :.grid.grid-cols-1 {:className (if-not deceased "bg-gray-100" "bg-red-100")}
       (div :.font-light.text-sm.tracking-tighter.text-gray-500.truncate address))
-    (when content
-      (div content))))
+    (comp/children this)))
 
 (def ui-patient-banner* (comp/computed-factory PatientBanner*))
 
@@ -118,13 +117,15 @@
       (ui-patient-banner* {:name     (when sex (name sex))
                            :born     (str (ui/format-month-year date_birth) (when current_age (str " (~" current_age ")")))
                            :address  pseudonym
-                           :deceased (ui/format-month-year date_death)} computed-props)
+                           :deceased (ui/format-month-year date_death)} computed-props
+                          (comp/children this))
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
         (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
                              :born       (str (ui/format-date date_birth) (when current_age (str " (" current_age ")")))
                              :nhs-number nhs_number
                              :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
-                             :deceased   date_death} computed-props)))))
+                             :deceased   date_death} computed-props
+                            (comp/children this))))))
 
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
@@ -246,16 +247,20 @@
 (def ui-patient-break-glass (comp/factory PatientBreakGlass))
 
 (defsc Layout
-  [this {:t_patient/keys [id patient_identifier permissions] :>/keys [banner menu break-glass]}
+  [this {:t_patient/keys [id patient_identifier permissions]
+         is-break-glass :t_patient/break_glass :>/keys [banner menu break-glass]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/id :t_patient/patient_identifier :t_patient/permissions
+           :t_patient/break_glass
            {:>/banner (comp/get-query PatientBanner)}
            {:>/menu (comp/get-query PatientMenu)}
            {:>/break-glass (comp/get-query PatientBreakGlass)}]}
   (if (and id patient_identifier)
     (comp/fragment
-      (ui-patient-banner banner)                            ;; always show the banner
+      (ui-patient-banner banner {} ;; always show the banner
+                                (when is-break-glass
+                                  (ui/box-error-message :message "You have temporary access to this record.")))
       (if (permissions :PATIENT_VIEW)
         (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
           (div :.col-span-1.p-2

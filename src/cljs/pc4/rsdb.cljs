@@ -202,6 +202,9 @@
 
 (defmutation break-glass
   [{:keys [patient-identifier]}]
+  (action
+    [env]
+    (log/info "breakglass for patient" patient-identifier))
   (remote [env] true)
   (ok-action
     [{:keys [component]}]

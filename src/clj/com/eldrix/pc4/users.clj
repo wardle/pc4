@@ -39,7 +39,7 @@
   {::pco/op-name 'pc4.users/logout}
   (api-middleware/augment-response {:session/authenticated-user nil}
     (fn [response]
-      (assoc response :session (dissoc session :authenticated-user)))))
+      (assoc response :session (dissoc session :authenticated-user :break-glass)))))
 
 (pco/defresolver authenticated-user
   "Returns the authenticated user based on parameters in the environment"
