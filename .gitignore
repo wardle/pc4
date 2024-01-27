@@ -14,3 +14,4 @@ pc4-server/.portal/intellij.edn
 /.shadow-cljs/
 *.zip
 resources/public/css/output.css
+/target/

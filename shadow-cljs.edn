@@ -10,14 +10,11 @@
 
                  ;; guardrails checks only during dev
                  :dev               {:compiler-options
-                                     {:closure-defines {pc4.client.server-url "http://127.0.0.1:8080"}
-                                      :external-config {:guardrails {}}}}
+                                     {:external-config {:guardrails {}}}}
 
                  :devtools          {:http-port  8022
                                      :http-root  "resources/public"
                                      :after-load pc4.client/refresh
                                      :preloads   [com.fulcrologic.fulcro.inspect.preload
-                                                  com.fulcrologic.fulcro.inspect.dom-picker-preload
-                                                  holyjak.fulcro-troubleshooting]}
-                 :release           {:compiler-options
-                                     {:closure-defines {pc4.client.server-url "https://patientcare.app:8080"}}}}}}
+                                                  com.fulcrologic.fulcro.inspect.dom-picker-preload]}
+                 :release           {}}}}

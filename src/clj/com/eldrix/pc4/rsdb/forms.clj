@@ -120,7 +120,7 @@
                                 (subs table 2)
                                 (throw (ex-info "Cannot determine default form name" form)))) form)) {} forms))
 
-(ns-unmap *ns* 'normalize)                                  ;; => unmap the var from the namespace
+#_(ns-unmap *ns* 'normalize)                                  ;; => unmap the var from the namespace
 (defmulti normalize #(some-> % first first namespace))
 (defmethod normalize :default [form] form)
 (defmethod normalize nil [form] nil)

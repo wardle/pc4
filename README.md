@@ -136,6 +136,36 @@ variables. For example:
 PORT=9000 clj -X:run :profile :dev
 ```
 
+To build an uberjar
+
+```shell
+clj -T:build uber
+```
+
+To run on development machine from uberjar:
+```shell
+java --add-opens "java.base/java.nio=ALL-UNNAMED" --add-opens "java.base/sun.nio.ch=ALL-UNNAMED" -jar target/pc4-server-1.0.1726.jar dev
+```
+
+To run in production:
+
+```shell
+java --add-opens "java.base/java.nio=ALL-UNNAMED" --add-opens "java.base/sun.nio.ch=ALL-UNNAMED" -jar target/pc4-server-1.0.1726.jar pc4
+```
+
+In some constrained environments, that make running from source code difficult, the server
+runs a socket REPL on port 5555.
+
+As such, you can then connect to that REPL and invoke certain developer-time functions.
+
+e.g.
+```shell
+nc localhost 5555
+=>
+user=> (require '[com.eldrix.pc4.modules.dmt])
+user=> (com.eldrix.pc4.modules.dmt/export {:profile :dev :centre :cardiff})
+```
+
 # Developer information
 
 Install babashka, and run
