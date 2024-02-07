@@ -62,6 +62,11 @@
 (defn uber [_]
   (println "Building uberjar")
   (clean nil)
+  (b/compile-clj {:basis        uber-basis
+                  :src-dirs     ["src/clj"]
+                  :ns-compile   ['com.eldrix.pc4.core]
+                  :compile-opts {:elide-meta [:doc :added]}
+                  :class-dir    class-dir})
   (b/copy-file {:src    (str "resources/config.edn")
                 :target (str class-dir "/config.edn")})
   (b/copy-file {:src    (str "resources/logback.xml")
@@ -72,11 +77,6 @@
                :target-dir class-dir})
   (css nil)
   (cljs nil)
-  (b/compile-clj {:basis        uber-basis
-                  :src-dirs     ["src/clj"]
-                  :ns-compile   ['com.eldrix.pc4.core]
-                  :compile-opts {:elide-meta [:doc :added]}
-                  :class-dir    class-dir})
   (b/uber {:class-dir class-dir
            :uber-file uber-file
            :basis     uber-basis

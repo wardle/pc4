@@ -17,7 +17,7 @@
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.nhspd.core :as nhspd]
-            [com.eldrix.odsweekly.core :as odsweekly]
+           #_[com.eldrix.odsweekly.core :as odsweekly]
             [com.eldrix.pc4.filestorage :as fstore]
             [com.eldrix.pc4.rsdb :as rsdb]
             [com.eldrix.pc4.rsdb.migrations :as migrations]
@@ -49,11 +49,11 @@
 (defmethod ig/halt-key! :com.eldrix/clods [_ clods]
   (.close clods))
 
-(defmethod ig/init-key :com.eldrix/ods-weekly [_ {:keys [root f path]}]
-  (if-let [path' (or path (when (and root f) (.getCanonicalPath (io/file root f))))]
-    (do (log/info "opening ods-weekly from " path')
-        (odsweekly/open-index path'))
-    (log/info "skipping ods-weekly; no path specified")))
+#_(defmethod ig/init-key :com.eldrix/ods-weekly [_ {:keys [root f path]}]
+    (if-let [path' (or path (when (and root f) (.getCanonicalPath (io/file root f))))]
+      (do (log/info "opening ods-weekly from " path')
+          (odsweekly/open-index path'))
+      (log/info "skipping ods-weekly; no path specified")))
 
 (defmethod ig/init-key :com.eldrix/deprivare [_ {:keys [root f path]}]
   (let [path' (or path (.getCanonicalPath (io/file root f)))]
