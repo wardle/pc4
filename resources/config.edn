@@ -65,19 +65,19 @@
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  ;; service providing access to the ODS weekly dataset
- :com.eldrix/ods-weekly
- {:root #ref [:com.eldrix.pc4/root]
-  :f    "ods-weekly-2023-06-08.db"}
+ #_:com.eldrix/ods-weekly
+ #_{:root #ref [:com.eldrix.pc4/root]
+    :f    "ods-weekly-2023-06-08.db"}
 
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
  {:root #ref [:com.eldrix.pc4/root]
-  :f    "depriv.db"}
+  :f    "depriv-v2.0-2024.02.07.db"}
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd
  {:root #ref [:com.eldrix.pc4/root]
-  :f    "dmd-2023-06-05.db"}
+  :f    "dmd-2024-01-29.db"}
 
  ;; service providing access to SNOMED CT
  :com.eldrix/hermes
@@ -142,16 +142,16 @@
  ;; :com.eldrix.pc4.mail/smtp #profile {:cvx     {:host "cavmail.cymru.nhs.uk"} :default nil}
 
  ;; asynchronous queue job processing service
- :com.eldrix.pc4/jobs
- {:pool-size                1
-  :delay-ms                 5000
-  :termination-timeout-secs 5
-  :com.eldrix.rsdb/conn     #ig/ref :com.eldrix.rsdb/conn
-  :uk.gov.notify/api-key    #ref [:secrets :uk.gov :notify :api-key]
-  :templates                {[:user/email :message/received] "5926fb5c-04c9-4d0f-8018-ce0e895e3641"
-                             [:user/email :extract-started]  "94f360c3-8c6b-43fc-abf9-9b57dc857b91"
-                             [:user/email :extract-finished] "dbeb7930-42d8-4eb5-af09-46d2b19433cb"
-                             [:user/sms :message/received]   "765ef309-74d0-43d8-80ea-1dbd9e92a3e8"}}
+ #_:com.eldrix.pc4/jobs
+ #_{:pool-size                1
+    :delay-ms                 5000
+    :termination-timeout-secs 5
+    :com.eldrix.rsdb/conn     #ig/ref :com.eldrix.rsdb/conn
+    :uk.gov.notify/api-key    #ref [:secrets :uk.gov :notify :api-key]
+    :templates                {[:user/email :message/received] "5926fb5c-04c9-4d0f-8018-ce0e895e3641"
+                               [:user/email :extract-started]  "94f360c3-8c6b-43fc-abf9-9b57dc857b91"
+                               [:user/email :extract-finished] "dbeb7930-42d8-4eb5-af09-46d2b19433cb"
+                               [:user/sms :message/received]   "765ef309-74d0-43d8-80ea-1dbd9e92a3e8"}}
 
 
  :com.eldrix.pc4/fake-login-provider
@@ -190,13 +190,13 @@
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
   :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
-  :com.eldrix.odsweekly.graph/svc #ig/ref :com.eldrix/ods-weekly
+  ;:com.eldrix.odsweekly.graph/svc #ig/ref :com.eldrix/ods-weekly
   :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
   :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
   :com.eldrix/hermes              #ig/ref :com.eldrix/hermes
   :com.eldrix/nhspd               #ig/ref :com.eldrix/nhspd
   :com.eldrix.pc4/login           #ig/ref :com.eldrix.pc4/login
-  :com.eldrix.pc4/jobs            #ig/ref :com.eldrix.pc4/jobs
+  ;  :com.eldrix.pc4/jobs            #ig/ref :com.eldrix.pc4/jobs
   :com.eldrix.rsdb/conn           #ig/ref :com.eldrix.rsdb/conn
   :com.eldrix.rsdb/config         #ig/ref :com.eldrix.rsdb/config
   :wales.nhs.cavuhb/pms           #ig/ref :wales.nhs.cavuhb/pms
@@ -230,9 +230,8 @@
                              :pc4     true}
   :dev?            #profile {:default true :pc4 false :cvx false}
   :session-key     #ref [:secrets :pc4 :session-key]
-  :env             {:pathom/boundary-interface       #ig/ref :pathom/boundary-interface
-                    :com.eldrix.rsdb/conn            #ig/ref :com.eldrix.rsdb/conn
-                    :com.eldrix.pc4/login            #ig/ref :com.eldrix.pc4/login
-                    :com.eldrix.pc4/filestorage      #ig/ref :com.eldrix.pc4/filestorage
-                    :com.eldrix.pc4/check-migrations #ig/ref :com.eldrix.rsdb/check-migrations
-                    :com.eldrix.pc4/cljs-modules     #ig/ref :com.eldrix.pc4/cljs-modules}}}
+  :env             {:pathom/boundary-interface   #ig/ref :pathom/boundary-interface
+                    :com.eldrix.rsdb/conn        #ig/ref :com.eldrix.rsdb/conn
+                    :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
+                    :com.eldrix.pc4/filestorage  #ig/ref :com.eldrix.pc4/filestorage
+                    :com.eldrix.pc4/cljs-modules #ig/ref :com.eldrix.pc4/cljs-modules}}}

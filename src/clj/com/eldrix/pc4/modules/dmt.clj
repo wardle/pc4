@@ -742,18 +742,8 @@
 (defn deprivation-decile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
   (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_decile (deprivare/fetch-lsoa deprivare lsoa)))
 
-(def fetch-max-depriv-rank (memoize deprivare/fetch-max))
-
 (defn deprivation-quartile-for-lsoa [{:com.eldrix/keys [deprivare]} lsoa]
-  (when-let [data (deprivare/fetch-lsoa deprivare lsoa)]
-    (let [rank (:uk-composite-imd-2020-mysoc/UK_IMD_E_rank data)
-          max-rank (fetch-max-depriv-rank deprivare :uk-composite-imd-2020-mysoc/UK_IMD_E_rank)
-          x (/ rank max-rank)]
-      (cond
-        (>= x 3/4) 4
-        (>= x 2/4) 3
-        (>= x 1/4) 2
-        :else 1))))
+  (:uk-composite-imd-2020-mysoc/UK_IMD_E_pop_quartile (deprivare/fetch-lsoa deprivare lsoa)))
 
 (defn deprivation-quartile-for-address
   "Given an address, determine a deprivation quartile.
@@ -840,7 +830,7 @@
   from SNOMED when possible."
   [{:com.eldrix/keys [hermes dmd] :as system} concept-id]
   (if-let [product (dmd/fetch-product dmd concept-id)]
-    (let [atc (or (com.eldrix.dmd.store2/atc-code dmd product)
+    (let [atc (or (dmd/atc-for-product dmd concept-id)
                   (infer-atc-for-non-dmd system concept-id))]
       (cond-> {:nm (or (:VTM/NM product) (:VMP/NM product) (:AMP/NM product) (:VMPP/NM product) (:AMPP/NM product))}
               atc (assoc :atc atc)))
