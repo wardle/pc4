@@ -1,1 +1,1 @@
-ALTER TABLE t_ms_event DROP COLUMN pseudonymous;
+ALTER TABLE t_project DROP COLUMN pseudonymous;
