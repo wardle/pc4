@@ -3,7 +3,7 @@
             [clojure.tools.build.api :as b]
             [deps-deploy.deps-deploy :as dd]))
 
-(def lib 'com.eldrix/pc4-server)
+(def lib 'com.eldrix/pc4)
 (def version (format "1.0.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
@@ -16,7 +16,7 @@
 
 (defn jar [_]
   (clean nil)
-  (println "Building" jar-file)
+  (println "** Building" jar-file)
   (b/write-pom {:class-dir class-dir
                 :lib       lib
                 :version   version
@@ -36,32 +36,33 @@
   "Installs pom and library jar in local maven repository"
   [_]
   (jar nil)
-  (println "Installing :" lib version)
+  (println "** Installing :" lib version)
   (b/install {:basis     basis
               :lib       lib
               :class-dir class-dir
               :version   version
               :jar-file  jar-file}))
 
-(defn cljs [_]
-  (println "Compiling cljs for production")
+(defn cljs [{:keys [verbose] :or {verbose true}}]
+  (when verbose (println "Compiling cljs for production"))
   (b/process {:command-args ["yarn" "shadow-cljs" "release" "main"]})
   (let [manifest (edn/read-string (slurp "resources/public/js/compiled/manifest.edn"))
         modules (map :output-name manifest)]
     (b/copy-file {:src    (str "resources/public/js/compiled/manifest.edn")
                   :target (str class-dir "/public/js/compiled/manifest.edn")})
     (doseq [module modules]
-      (println "Copying module" module)
+      (println "** Copying module" module)
       (b/copy-file {:src    (str "resources/public/js/compiled/" module)
                     :target (str class-dir "/public/js/compiled/" module)}))))
 
-(defn css [_]
-  (println "Generating CSS for production")
+(defn css [{:keys [verbose] :or {verbose true}}]
+  (when verbose (println "Generating CSS for production"))
   (b/process {:command-args ["yarn" "tailwindcss" "-o" (str class-dir "/public/css/output.css") "--minify"]}))
 
-(defn uber [_]
-  (println "Building uberjar")
+(defn uber [{:keys [out] :or {out uber-file}}]
+  (println "****************************************\n** Building uberjar: " out)
   (clean nil)
+  (println "****************************************\n** 1/4 Compiling clj")
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src/clj"]
                   :ns-compile   ['com.eldrix.pc4.core]
@@ -75,10 +76,13 @@
                :target-dir (str class-dir "/migrations")})
   (b/copy-dir {:src-dirs   ["src/clj"]
                :target-dir class-dir})
-  (css nil)
-  (cljs nil)
+  (println "****************************************\n** 2/4 Building CSS for production")
+  (css {:verbose false})
+  (println "****************************************\n** 3/4 Compiling cljs for production")
+  (cljs {:verbose false})
+  (println "****************************************\n** 4/4: Building uberjar")
   (b/uber {:class-dir class-dir
-           :uber-file uber-file
+           :uber-file (str out)
            :basis     uber-basis
            :main      'com.eldrix.pc4.core
            :exclude   [#"(?i)^META-INF/license/.*"
