@@ -15,3 +15,4 @@ pc4-server/.portal/intellij.edn
 *.zip
 resources/public/css/output.css
 /target/
+*.jar
