@@ -225,12 +225,10 @@
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
   :host            "0.0.0.0"
-  :join?           #profile {:default false
-                             :cvx     true
-                             :pc4     true}
-  :dev?            #profile {:default true :pc4 false :cvx false}
+  :join?           #profile {:default false, :cvx false, :pc4 false}
   :session-key     #ref [:secrets :pc4 :session-key]
-  :env             {:pathom/boundary-interface   #ig/ref :pathom/boundary-interface
+  :env             {:use-tailwind-cdn            #profile {:default false, :dev true}
+                    :pathom/boundary-interface   #ig/ref :pathom/boundary-interface
                     :com.eldrix.rsdb/conn        #ig/ref :com.eldrix.rsdb/conn
                     :com.eldrix.pc4/login        #ig/ref :com.eldrix.pc4/login
                     :com.eldrix.pc4/filestorage  #ig/ref :com.eldrix.pc4/filestorage

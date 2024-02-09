@@ -80,13 +80,14 @@
   - src - filename of the compiled JS (usually obtained from the shadow cljs build).
   The filename changing means that version updates do not require users to forcibly refresh their browser to
   avoid using cached downloads."
-  [src {:keys [title csrf-token]}]
+  [src {:keys [title csrf-token use-tailwind-cdn]}]
   [:html {:lang "en"}
    [:head
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
-    [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}]
-    #_[:script {:src "https://cdn.tailwindcss.com"}]
+    (if use-tailwind-cdn
+      [:script {:src "https://cdn.tailwindcss.com"}]
+      [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}])
     [:script
      {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
     [:title (or title "pc4")]]
@@ -99,7 +100,7 @@
   "Interceptor to return the pc4 front-end application."
   {:name ::landing
    :enter
-   (fn [ctx]
+   (fn [{:keys [use-tailwind-cdn] :as ctx}]
      (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :main :output-name])
            csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
        (if (str/blank? csrf-token)
@@ -110,7 +111,7 @@
                     {:status 200 :headers {"Content-Type" "text/html"}
                      :body   (str "<!DOCTYPE html>\n"
                                   (rum/render-html
-                                    (landing-page app {:csrf-token csrf-token})))}))))})
+                                    (landing-page app {:csrf-token csrf-token :use-tailwind-cdn use-tailwind-cdn})))}))))})
 
 (s/def ::operation symbol?)
 (s/def ::params map?)
@@ -225,7 +226,8 @@
            user (or (:authenticated-user request-session) (get-in response [:session :authenticated-user]))]
        (cond
          ;; no logged in user => do nothing
-         (not user) ctx
+         (not user)
+         ctx
          ;; we have a user, but no session in the response so far => add an idle timeout
          (not response-session?)
          (assoc-in ctx [:response :session]
@@ -302,7 +304,7 @@
 (s/def ::config (s/keys :req-un [::env]
                         :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
 
-(defmethod ig/init-key ::server [_ {:keys [dev? env session-key] :as config}]
+(defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
   (log/info "running HTTP server" (dissoc config :env :session-key))
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid server configuration" (s/explain-data ::config config))))
