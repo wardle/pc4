@@ -44,7 +44,7 @@
 
   upload     {:doc  "Upload production artefact"
               :task (do
-                      (println "***** Uploading to production server")
+                      (println "***** Uploading to production server - https://patientcare.app")
                       (sh "scp -i " (str (fs/home) "/.aws/LightsailDefaultKey-eu-west-2.pem") uber-filename "ec2-user@patientcare.app:"))}
 
   pc4        {:doc  "Build and upload production artefact"
