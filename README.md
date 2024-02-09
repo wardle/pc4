@@ -153,6 +153,25 @@ To run in production:
 java --add-opens "java.base/java.nio=ALL-UNNAMED" --add-opens "java.base/sun.nio.ch=ALL-UNNAMED" -jar target/pc4-server-1.0.1726.jar pc4
 ```
 
+To run on combinations of architectures and operating systems that are not supported by the built-in native lmdb binaries, 
+you can install your own lmdb library and use that:
+
+e.g. on FreeBSD:
+
+```shell
+$ pkg info -lx lmdb | grep liblmdb
+
+	/usr/local/lib/liblmdb.a
+	/usr/local/lib/liblmdb.so
+	/usr/local/lib/liblmdb.so.0
+```
+
+And then run like this:
+
+```shell
+java -Dlmdbjava.native.lib=/usr/local/lib/liblmdb.so -jar pc4-v1.0.815-921-g59b12ca.jar --profile pc4 validate
+```
+
 In some constrained environments, that make running from source code difficult, the server
 runs a socket REPL on port 5555.
 
