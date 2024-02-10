@@ -25,7 +25,7 @@
   watch-cljs {:doc  "Compile cljs for development [and watch]"
               :task (do (println "Running shadow-cljs")
                         (shell "yarn shadow-cljs -A:dev watch main"))}
-  nrepl      {:doc "Run a nREPL with cider middleware "
+  nrepl      {:doc  "Run a nREPL with cider middleware "
               :task (do (println "Running nREPL with cider middleware")
                         (shell "clj -M:dev:portal:nrepl"))}
 
@@ -37,10 +37,10 @@
               :task (do (println "***** Building pc4 front-end for production release")
                         (shell "yarn shadow-cljs release main"))}
 
-  uber {:doc  "Create an uberjar for production"
-        :task (do
-                (println "***** Creating uberjar" uber-filename)
-                (shell "clj" "-T:build" "uber" ":out" uber-filename))}
+  uber       {:doc  "Create an uberjar for production"
+              :task (do
+                      (println "***** Creating uberjar" uber-filename)
+                      (shell "clj" "-T:build" "uber" ":out" uber-filename))}
 
   upload     {:doc  "Upload production artefact"
               :task (do
