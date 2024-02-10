@@ -10,6 +10,7 @@
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [pc4.app :refer [SPA]]
+            [pc4.route :as route]
             [pc4.ui.core :as ui]
             [pc4.ui.patients]
             [pc4.rsdb]
@@ -73,24 +74,24 @@
         {:selected-id selected-id
          :items       [{:id      :home
                         :content (content "Home")
-                        :onClick #(dr/change-route! this ["projects" id "home"])}
+                        :onClick #(route/route-to! ::route/project-home {:id id})}
                        (when pseudonymous
                          {:id      :find-pseudonymous
                           :content (content "Find patient")
-                          :onClick #(dr/change-route! this ["projects" id "find-by-pseudonym"])})
+                          :onClick #(route/route-to! ::route/project-find-by-pseudonym {:id id})})
                        (if pseudonymous
                          {:id      :register-pseudonymous
                           :content (content "Register patient")
-                          :onClick #(dr/change-route! this ["projects" id "register-pseudonymous"])}
+                          :onClick #(route/route-to! ::route/project-register-pseudonymous {:id id})}
                          {:id      :register-patient
                           :content (content "Register patient")
-                          :onClick #(dr/change-route! this ["projects" id "register-patient"])})
+                          :onClick #(route/route-to! ::route/project-register-by-nnn {:id id})})
                        {:id      :team
                         :content (content "Team")
-                        :onClick #(dr/change-route! this ["projects" id "team"])}
+                        :onClick #(pc4.route/route-to! ::route/project-team {:id id})}
                        {:id      :downloads
                         :content (content "Downloads")
-                        :onClick #(dr/change-route! this ["projects" id "downloads"])}]
+                        :onClick #(route/route-to! ::route/project-downloads {:id id})}]
          :sub-menu    sub-menu}))))
 
 (def ui-menu (comp/factory Menu))
@@ -212,11 +213,12 @@
                                  :onEnterKey do-register})
               (when (fs/invalid-spec? props :ui/date-birth)
                 (ui/box-error-message {:message "Invalid date of birth"}))
-              (ui/ui-select-popup-button {:id         "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
-                                          :options    [:MALE :FEMALE] :display-key name
-                                          :onChange   #(do (m/set-value!! this :ui/sex %)
-                                                           (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
-                                          :onEnterKey do-register})
+              (ui/ui-select-popup-button {:id            "sex" :value sex :label "Sex" :no-selection-string "- Choose -"
+                                          :default-value nil
+                                          :options       [:MALE :FEMALE] :display-key name
+                                          :onChange      #(do (m/set-value! this :ui/sex %)
+                                                              (comp/transact! this [(fs/mark-complete! {:field :ui/sex})]))
+                                          :onEnterKey    do-register})
               (when (fs/invalid-spec? props :ui/sex)
                 (ui/box-error-message {:message "Invalid sex"}))
               (when error

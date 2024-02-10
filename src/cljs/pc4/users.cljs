@@ -32,7 +32,7 @@
              (let [user-id (get-in result [:body 'pc4.users/perform-login :t_user/id])]
                (log/debug "response from remote: " result)
                (swap! state update-login-state* {:error (when-not user-id "Invalid username or password") :loading false})
-               (dr/change-route! app ["home"])))
+               #_(dr/change-route! app ["home"])))
   (error-action [{:keys [state] :as env}]
                 (swap! state #(-> %
                                   (assoc-in [:component/id :login :ui/loading?] false)
@@ -41,14 +41,15 @@
 (defmutation logout
   [{:keys [message]}]
   (ok-action [{:keys [app state]}]
-          (js/console.log "Performing logout action" message)
-          (swap! state (fn [s]
-                         (cond-> (assoc s :session/authenticated-user {})
-                                 message
-                                 (assoc-in [:component/id :login :ui/error] message))))
-          (dr/change-route! app ["login"])
-          (.reload js/window.location true))
+             (js/console.log "Performing logout action" message)
+             (swap! state (fn [s]
+                            (cond-> (assoc s :session/authenticated-user {})
+                                    message
+                                    (assoc-in [:component/id :login :ui/error] message))))
+             (pc4.route/route-to! :home)
+             #_(dr/change-route! app ["login"])
+             (.reload js/window.location true))
   (error-action [_]
-    (.reload js/window.location true))
+                (.reload js/window.location true))
   (remote [_] true))
 

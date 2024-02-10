@@ -248,8 +248,9 @@
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
         default-value (or default-value no-selection-string (first sorted-options))
         forced-value (if (not (contains? all-options value)) default-value value)]
-    (when (and onChange (not= value forced-value))
-      (onChange (if (= no-selection-string forced-value) nil forced-value)))
+    (when (and onChange (not= value forced-value) (not= no-selection-string forced-value))
+      (println {:value value :forced-value forced-value})
+      (onChange forced-value))
     (comp/fragment
       (when label (ui-label {:for name :label label}))
       (dom/select :.block.w-full.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md

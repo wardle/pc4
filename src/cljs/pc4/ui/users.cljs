@@ -7,6 +7,7 @@
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
     [pc4.app :refer [SPA]]
+    [pc4.route :as route]
     [pc4.ui.core :as ui]
     [pc4.ui.nav]
     [pc4.ui.projects]
@@ -43,7 +44,8 @@
    :ident :t_project/id}
   (dom/a :.cursor-pointer
     {:onClick #(do (js/console.log "selecting project " id name title)
-                   (dr/change-route! this (dr/path-to pc4.ui.projects/ProjectHome id "home")))}
+                   (route/route-to! ::route/project-home {:id id})
+                   #_(dr/change-route! this (dr/path-to pc4.ui.projects/ProjectHome id "home")))}
     (dom/div :.px-3.py-1.text-sm.border
       {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}
       title)))
@@ -140,9 +142,9 @@
   (pc4.ui.nav/ui-nav-bar {:title     "PatientCare v4" :show-user? true
                           :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                           :initials  initials
-                          :photo     (when has_photo (str "http://localhost:8080/users/cymru.nhs.uk/" username "/photo"))
+                          :photo     (when has_photo (str "/users/cymru.nhs.uk/" username "/photo"))
                           :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout {})])}]}
-                         {:on-home #(dr/change-route! this ["home"])}))
+                         {:on-home #(route/route-to! ::route/home)}))
 
 (def ui-nav-bar (comp/factory NavBar))
 
@@ -198,9 +200,9 @@
 
 
 (defn professional-registration
-  [{:t_user/keys [professional_registration professional_registration_url]
+  [{:t_user/keys                                [professional_registration professional_registration_url]
     :t_professional_registration_authority/keys [abbreviation]}]
-  (dom/a {:href professional_registration_url :target "_new"
+  (dom/a {:href    professional_registration_url :target "_new"
           :classes (when professional_registration_url ["cursor-pointer" "underline" "text-blue-600" "hover:text-blue-800"])}
     (when-not (str/blank? professional_registration)
       (str abbreviation " " professional_registration))))
@@ -238,7 +240,7 @@
                     {:title "Last name" :content last_name}
                     {:title "Email" :content email}
                     {:title "Send email for messages" :content (if send_email_for_messages "Yes" "No")}
-                    {:title "Professional registration"
+                    {:title   "Professional registration"
                      :content (professional-registration user)}]
 
        :long-items []})))

@@ -10,6 +10,7 @@
     [edn-query-language.core :as eql]
     [taoensso.timbre :as log]
     [pc4.app :refer [SPA]]
+    [pc4.route :as route]
     [pc4.rsdb]
     [pc4.ui.root :as root]
     [pc4.ui.users]
@@ -77,6 +78,7 @@
   ;(inspect/app-started! @SPA)
   (app/set-root! @SPA root/Root {:initialize-state? true})
   (dr/initialize! @SPA)
+  (pc4.route/start!)
   (app/mount! @SPA root/Root "app" {:initialize-state? false}))
 
 (comment

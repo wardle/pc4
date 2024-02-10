@@ -11,6 +11,7 @@
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             [pc4.ui.core :as ui]
+            [pc4.route :as route]
             [pc4.ui.snomed :as snomed]
             [pc4.users]
             [taoensso.timbre :as log]))
@@ -143,25 +144,25 @@
        :items
        [{:id      :home
          :content "Home"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "home"])}
+         :onClick #(route/route-to! ::route/patient-home {:id patient_identifier})}
         {:id      :diagnoses
          :content "Diagnoses"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
+         :onClick #(route/route-to! ::route/patient-diagnoses {:id patient_identifier})}
         {:id      :medications
          :content "Medication"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
+         :onClick #(route/route-to! ::route/patient-medications {:id patient_identifier})}
         {:id      :relapses
          :content "Relapses"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "neuroinflammatory"])}
+         :onClick #(route/route-to! ::route/patient-relapses {:id patient_identifier})}
         {:id      :encounters
          :content "Encounters"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
+         :onClick #(route/route-to! ::route/patient-encounters {:id patient_identifier})}
         {:id      :results
          :content "Investigations"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
+         :onClick #(route/route-to! ::route/patient-results {:id patient_identifier})}
         {:id      :admissions
          :content "Admissions"
-         :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]}
+         :onClick #(route/route-to! ::route/patient-admissions {:id patient_identifier})}]}
       (ui/ui-vertical-navigation-title {:title ""})
       (ui/ui-vertical-navigation-submenu {:items sub-menu}))
     :else
@@ -242,13 +243,13 @@
                            :onChange #(m/set-value! this :ui/explanation %)})
           (ui/ui-active-panel-button {:title    "Break-glass »"
                                       :disabled (or (str/blank? explanation) (not administrator))
-                                      :onClick #(comp/transact! this [(list 'pc4.rsdb/break-glass {:patient-identifier patient_identifier})])}))))))
+                                      :onClick  #(comp/transact! this [(list 'pc4.rsdb/break-glass {:patient-identifier patient_identifier})])}))))))
 
 (def ui-patient-break-glass (comp/factory PatientBreakGlass))
 
 (defsc Layout
   [this {:t_patient/keys [id patient_identifier permissions]
-         is-break-glass :t_patient/break_glass :>/keys [banner menu break-glass]}
+         is-break-glass  :t_patient/break_glass :>/keys [banner menu break-glass]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/id :t_patient/patient_identifier :t_patient/permissions
@@ -258,9 +259,9 @@
            {:>/break-glass (comp/get-query PatientBreakGlass)}]}
   (if (and id patient_identifier)
     (comp/fragment
-      (ui-patient-banner banner {} ;; always show the banner
-                                (when is-break-glass
-                                  (ui/box-error-message :message "You have temporary access to this record.")))
+      (ui-patient-banner banner {}                          ;; always show the banner
+                         (when is-break-glass
+                           (ui/box-error-message :message "You have temporary access to this record.")))
       (if (permissions :PATIENT_VIEW)
         (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2
           (div :.col-span-1.p-2
