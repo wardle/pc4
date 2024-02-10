@@ -87,31 +87,42 @@
     [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
     (if use-tailwind-cdn
       [:script {:src "https://cdn.tailwindcss.com"}]
-      [:link {:href "css/output.css" :rel "stylesheet" :type "text/css"}])
+      [:link {:href "/css/output.css" :rel "stylesheet" :type "text/css"}])
     [:script
      {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
     [:title (or title "pc4")]]
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
-    [:script {:src (str "js/compiled/" src)}]]])
+    [:script {:src (str "/js/compiled/" src)}]]])
+
+(defn landing*
+  [{:keys [use-tailwind-cdn] :as ctx}]
+  (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :main :output-name])
+        csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
+    (if (str/blank? csrf-token)
+      (log/warn "Missing CSRF token; has CSRF protection been enabled?"))
+    (if-not app
+      (log/error (str "Missing front-end app. Found modules: " (keys (:com.eldrix.pc4/cljs-modules ctx))) {})
+      (assoc ctx :response
+                 {:status 200 :headers {"Content-Type" "text/html"}
+                  :body   (str "<!DOCTYPE html>\n"
+                               (rum/render-html
+                                 (landing-page app {:csrf-token csrf-token :use-tailwind-cdn use-tailwind-cdn})))}))))
 
 (def landing
   "Interceptor to return the pc4 front-end application."
-  {:name ::landing
-   :enter
-   (fn [{:keys [use-tailwind-cdn] :as ctx}]
-     (let [app (get-in ctx [:com.eldrix.pc4/cljs-modules :main :output-name])
-           csrf-token (get-in ctx [:request ::csrf/anti-forgery-token])]
-       (if (str/blank? csrf-token)
-         (log/warn "Missing CSRF token; has CSRF protection been enabled?"))
-       (if-not app
-         (log/error (str "Missing front-end app. Found modules: " (keys (:com.eldrix.pc4/cljs-modules ctx))) {})
-         (assoc ctx :response
-                    {:status 200 :headers {"Content-Type" "text/html"}
-                     :body   (str "<!DOCTYPE html>\n"
-                                  (rum/render-html
-                                    (landing-page app {:csrf-token csrf-token :use-tailwind-cdn use-tailwind-cdn})))}))))})
+  {:name  ::landing
+   :enter landing*})
+
+(def not-found
+  {:name ::not-found
+   :leave
+   (fn [ctx]
+     (if (and (not (http/response? (:response ctx)))
+              (= :get (:request-method (:request ctx))))
+       (landing* ctx)
+       ctx))})
 
 (s/def ::operation symbol?)
 (s/def ::params map?)
@@ -283,19 +294,20 @@
 
 (defn make-service-map
   [{:keys [port allowed-origins host join? session-key session-timeout-seconds] :or {port 8080, join? false}}]
-  {::http/type            :jetty
-   ::http/join?           join?
-   ::http/log-request     true
-   ::http/routes          routes
-   ::http/resource-path   "/public"
-   ::http/port            port
-   ::http/allowed-origins (if (= "*" allowed-origins) (constantly true) allowed-origins)
-   ::http/secure-headers  {:content-security-policy-settings {:object-src "none"}}
-   ::http/host            (or host "127.0.0.1")
-   ::http/enable-session  {:store        (ring.middleware.session.cookie/cookie-store
-                                           (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
-                           :cookie-name  "pc4-session"
-                           :cookie-attrs {:same-site :strict}}})
+  {::http/type                  :jetty
+   ::http/join?                 join?
+   ::http/log-request           true
+   ::http/routes                routes
+   ::http/resource-path         "/public"
+   ::http/port                  port
+   ::http/allowed-origins       (if (= "*" allowed-origins) (constantly true) allowed-origins)
+   ::http/secure-headers        {:content-security-policy-settings {:object-src "none"}}
+   ::http/host                  (or host "127.0.0.1")
+   ::http/enable-session        {:store        (ring.middleware.session.cookie/cookie-store
+                                                 (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+                                 :cookie-name  "pc4-session"
+                                 :cookie-attrs {:same-site :strict}}
+   ::http/not-found-interceptor not-found})
 
 (s/def ::env (s/keys :req [:pathom/boundary-interface
                            :com.eldrix.rsdb/conn
