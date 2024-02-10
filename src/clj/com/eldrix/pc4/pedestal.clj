@@ -305,7 +305,7 @@
                         :opt-un [::port ::host ::allowed-origins ::join? ::session-key]))
 
 (defmethod ig/init-key ::server [_ {:keys [env session-key] :as config}]
-  (log/info "running HTTP server" (dissoc config :env :session-key))
+  (log/info "starting HTTP server" (dissoc config :env :session-key))
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid server configuration" (s/explain-data ::config config))))
   (when-not session-key
