@@ -29,16 +29,16 @@
         options-summary
         ""
         "Commands:"
-        "  serve    : run pc4 server"
-        "  migrate  : run any pending database migrations"
-        "  validate : validate pc4 configuration"]
+        "  serve   : run pc4 server"
+        "  migrate : run any pending database migrations"
+        "  status  : report pc4 configuration status"]
        (str/join \newline)))
 
 (defn serve [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
   (log/info "starting pc4 with profile" {:profile profile})
   (pc4/load-namespaces profile [:com.eldrix.pc4.pedestal/server])
-  (pc4/init profile [:com.eldrix.pc4.pedestal/server :repl/server]))
+  (pc4/init profile [:repl/server :com.eldrix.pc4.pedestal/server]))
 
 (defn migrate [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
@@ -46,7 +46,7 @@
   (pc4/init profile [:com.eldrix.rsdb/run-migrations]))
 
 
-(def validation-checks
+(def status-checks
   [{:title         "SNOMED CT (using Hermes)"
     :pathom/entity {:info.snomed.Concept/id 24700007}
     :pathom/eql    [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]
@@ -76,10 +76,10 @@
 
 (def title-fmt
   (str "%-"
-       (apply max (map count (map :title validation-checks)))
+       (apply max (map count (map :title status-checks)))
        "s"))
 
-(defn validate-service [system {:keys [title test expected] :pathom/keys [entity eql] :as data}]
+(defn service-status [system {:keys [title test expected] :pathom/keys [entity eql] :as data}]
   (let [pathom (:pathom/boundary-interface system)
         result (cond
                  test
@@ -90,17 +90,17 @@
       :result result
       :success (= result expected)
       :message (if (= result expected)
-                 (str "- " (format title-fmt title) " : ✅ ")
-                 (str "- " (format title-fmt title) " : ❌ " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
+                 (str "- " (format title-fmt title) " : success ")
+                 (str "- " (format title-fmt title) " : failure " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
 
-(defn validate [{:keys [profile]}]
+(defn status [{:keys [profile]}]
   (when-not profile
     (exit 1 "Missing profile"))
   (let [system (pc4/init profile [:pathom/boundary-interface])]
     (run! println
-          (->> validation-checks
+          (->> status-checks
                (sort-by :title)
-               (map #(validate-service system %))
+               (map #(service-status system %))
                (map :message)))
     (pc4/halt! system)))
 
@@ -116,7 +116,7 @@
       {:exit-message (usage summary)}
       errors
       {:error true, :exit-message (error-msg errors)}
-      (#{"serve" "migrate" "validate"} command)
+      (#{"serve" "migrate" "status"} command)
       {:command command :options options}
       :else
       {:error true, :exit-message (usage summary)})))
@@ -129,7 +129,7 @@
       (case command
         "serve" (serve {:profile profile})
         "migrate" (migrate {:profile profile})
-        "validate" (validate {:profile profile})))))
+        "status" (status {:profile profile})))))
 
 
 (comment
