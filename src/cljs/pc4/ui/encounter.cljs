@@ -52,7 +52,7 @@
             (div :.shadow.bg-gray-50
               (div :.pl-4.font-semibold.bg-gray-200.text-center.italic.text-gray-600
                 (ui/format-date date_time))
-              (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:text-wrap "pretty"}}
+              (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
                 project-title)
               (div :.font-bold.text-lg.min-w-min.p-4.pt-0.text-center
                 title)))
