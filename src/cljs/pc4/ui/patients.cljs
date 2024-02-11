@@ -313,11 +313,12 @@
 (defsc PatientDemographics
   [this {:t_patient/keys [id patient_identifier status sex title first_names
                           last_name nhs_number date_birth date_death current_age
-                          address permissions] :as patient
+                          authoritative_demographics address permissions] :as patient
          :>/keys [layout] :ui/keys [editing-demographics editing-death-certificate]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id
                    :t_patient/patient_identifier :t_patient/status
+                   :t_patient/authoritative_demographics
                    :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/sex
                    :t_patient/nhs_number :t_patient/date_birth :t_patient/date_death :t_patient/current_age
                    {:t_patient/death_certificate (comp/get-query EditDeathCertificate)}
@@ -360,22 +361,47 @@
                         :onClick #(println "add certificate")
                         :content "Add death certificate..."})]}
       (when editing-demographics
-        ;; at the moment, this only supports pseudonymous patients
         (ui/ui-modal
-          {:actions [{:id ::save :title "Save" :role :primary :onClick do-save}
+          {:actions [(when (= :LOCAL authoritative_demographics) {:id ::save :title "Save" :role :primary :onClick do-save})
+                     (when (= :PSEUDONYMOUS status) {:id ::change :title "Change registration details..." :onClick nil})
                      {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
            :onClose do-cancel-edit}
-          (ui/ui-simple-form {}
-            (ui/ui-simple-form-item {:label "Gender"}
-              (div :.pt-2 (name sex)))
-            (ui/ui-simple-form-item {:label "Date of birth"}
-              (div :.pt-2 (ui/format-month-year date_birth)))
-            (ui/ui-simple-form-item {:label "Date of death"}
-              (ui/ui-local-date
-                {:value    date_death
-                 :min-date date_birth
-                 :max-date (goog.date.Date.)
-                 :onChange #(m/set-value! this :t_patient/date_death %)})))))
+          (cond
+            (= :PSEUDONYMOUS status)
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-title {:title "Edit patient demographics (pseudonymous registration)"})
+              (div :.text-sm.font-medium.text-gray-400
+                "This patient was registered using NHS number, date of birth and gender, with those details used
+                to generate a pseudonym. If these registration details were entered incorrectly, some users have
+                permission to edit that registration information. Most users can only enter date of death information here.")
+              (ui/ui-simple-form-item {:label "Gender"}
+                (div :.pt-2 (name sex)))
+              (ui/ui-simple-form-item {:label "Date of birth"}
+                (div :.pt-2 (ui/format-month-year date_birth)))
+              (ui/ui-simple-form-item {:label "Date of death"}
+                (ui/ui-local-date
+                  {:value    date_death
+                   :min-date date_birth
+                   :max-date (goog.date.Date.)
+                   :onChange #(m/set-value! this :t_patient/date_death %)})))
+            (= :LOCAL authoritative_demographics)
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-title {:title "Edit patient demographics"})
+              (ui/box-error-message {:title "Not implemented"
+                                     :message "Editing non-pseudonymous patient data is not currently supported."}))
+            (= :CAVUHB authoritative_demographics)
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-title {:title "Patient demographics managed by CAV PMS"})
+              (div :.text-sm.font-medium.text-gray-400
+                "This patient is managed by Cardiff and Vale patient management system (PMS) and so you cannot
+                change demographics from here."))
+            (= :EMPI authoritative_demographics)
+            (ui/ui-simple-form {}
+              (ui/ui-simple-form-title {:title "Patient demographics managed by NHS Wales' eMPI"})
+              (div :.text-sm.font-medium.text-gray-400
+                "This patient is managed by the NHS Wales enterprise master patient index (eMPI) and so you cannot
+                change demographics from here.")))))
+
       (when editing-death-certificate
         (ui-edit-death-certificate editing-death-certificate))
       (ui/ui-two-column-card
