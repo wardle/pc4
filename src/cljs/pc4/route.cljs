@@ -1,5 +1,4 @@
 (ns pc4.route
-  "See https://chrisodonnell.dev/posts/giftlist/routing/#html5-routing"
   (:require [bidi.bidi :as bidi]
             [pc4.app :refer [SPA]]
             [com.fulcrologic.fulcro.mutations :refer [defmutation]]
@@ -42,7 +41,7 @@
       ::project-downloads (dr/change-route! @SPA ["projects" id "downloads"])
       ::patient-home (dr/change-route! @SPA ["pt" id "home"])
       ::patient-diagnoses (dr/change-route! @SPA ["pt" id "diagnoses"])
-      ::patient-medications #(dr/change-route! @SPA ["pt" id "medications"])
+      ::patient-medications (dr/change-route! @SPA ["pt" id "medications"])
       ::patient-relapses (dr/change-route! @SPA ["pt" id "neuroinflammatory"])
       ::patient-encounters (dr/change-route! @SPA ["pt" id "encounters"])
       ::patient-results (dr/change-route! @SPA ["pt" id "results"])
