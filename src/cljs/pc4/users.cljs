@@ -6,6 +6,7 @@
     [com.fulcrologic.fulcro.dom.events :as evt]
     [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
     [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [pc4.route :as route]
     [taoensso.timbre :as log]))
 
 
@@ -46,7 +47,7 @@
                             (cond-> (assoc s :session/authenticated-user {})
                                     message
                                     (assoc-in [:component/id :login :ui/error] message))))
-             (pc4.route/route-to! :home)
+             (route/route-to! ::route/home)
              #_(dr/change-route! app ["login"])
              (.reload js/window.location true))
   (error-action [_]
