@@ -573,10 +573,14 @@
   (div :.sm:p-2
     (for [{:keys [id icon content onClick]} items
           :when id]
-      (if (= selected-id id)
+      (cond
+        (= selected-id id)
         (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
           {:key id, :aria-current "page"}
           (dom/span :.span.pr-2 icon) content)
+        (not onClick)
+        (div (dom/span :.span.pr-2 icon) content)
+        :else
         (dom/a :.cursor-pointer.text-gray-600.hover:bg-purple-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
           {:key id, :onClick onClick}
           (dom/span :.pr-2 icon) content)))))

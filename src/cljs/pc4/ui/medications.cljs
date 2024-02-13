@@ -310,10 +310,10 @@
         do-add #(comp/transact! this [(add-medication {:patient-identifier patient_identifier :medication {:t_medication/id (tempid/tempid)}})])]
     (patients/ui-layout layout
       {:selected-id :medications
-       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
-                               {:id      :add-medication
-                                :onClick do-add
-                                :content "Add medication..."})]}}
+       :sub-menu    [(when (permissions :PATIENT_EDIT)
+                       {:id      :add-medication
+                        :onClick do-add
+                        :content "Add medication..."})]}
       (comp/fragment
         (when (:t_medication/id editing-medication)
           (ui-edit-medication editing-medication))

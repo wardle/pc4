@@ -69,9 +69,9 @@
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
   (patients/ui-layout layout
     {:selected-id :encounters
-     :sub-menu    {:items [{:id      ::add
-                            :onClick #(println "add encounter")
-                            :content "Add encounter..."}]}}
+     :sub-menu    [{:id      ::add
+                    :onClick #(println "add encounter")
+                    :content "Add encounter..."}]}
 
     (ui/ui-table {}
       (ui/ui-table-head {}

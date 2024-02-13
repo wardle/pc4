@@ -731,20 +731,20 @@
 
     (patients/ui-layout layout
       {:selected-id :results
-       :sub-menu    {:items [{:id      ::select-result
-                              :content (div (ui/ui-select-popup-button
-                                              {:options             (filter ::editor supported-results)
-                                               :value               choose-investigation
-                                               :display-key         :t_result_type/name
-                                               :no-selection-string "«Show all»"
-                                               :id-key              :t_result_type/result_entity_name
-                                               :onChange            #(m/set-value! this :ui/choose-investigation %)}))}
-                             (if (::editor choose-investigation) ;;only show 'add' button when we support
-                               {:id      ::add-result
-                                :content (str "Add '" (:t_result_type/name choose-investigation) "'...")
-                                :onClick do-add-result}
-                               {:id      ::help-text
-                                :content (dom/span :.p-4.flex.text-xs.text-gray-400 "To add an investigation, choose a type from the options")})]}}
+       :sub-menu    [{:id      ::select-result
+                      :content (ui/ui-select-popup-button
+                                 {:options             (filter ::editor supported-results)
+                                  :value               choose-investigation
+                                  :display-key         :t_result_type/name
+                                  :no-selection-string "«Show all»"
+                                  :id-key              :t_result_type/result_entity_name
+                                  :onChange            #(m/set-value! this :ui/choose-investigation %)})}
+                     (if (::editor choose-investigation)    ;;only show 'add' button when we support
+                       {:id      ::add-result
+                        :content (str "Add '" (:t_result_type/name choose-investigation) "'...")
+                        :onClick do-add-result}
+                       {:id      ::help-text
+                        :content (dom/span :.pl-2.flex.text-xs.text-gray-400.italic "To add an investigation, choose a type from the options")})]}
 
       (when editing-result
         (let [{::keys [editor]} (result-type-by-entity-name (:t_result_type/result_entity_name editing-result))

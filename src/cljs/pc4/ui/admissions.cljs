@@ -142,9 +142,9 @@
                                                                            :t_episode/patient_fk id}})])]
     (patients/ui-layout layout
       {:selected-id :admissions
-       :sub-menu    {:items [{:id      :add-admission
-                              :onClick do-add
-                              :content "Add admission..."}]}}
+       :sub-menu    [{:id      :add-admission
+                      :onClick do-add
+                      :content "Add admission..."}]}
       (comp/fragment
         (when (:t_episode/id editing-admission)
           (ui-edit-admission editing-admission))

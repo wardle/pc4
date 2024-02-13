@@ -171,10 +171,10 @@
         do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
     (patients/ui-layout layout
       {:selected-id :diagnoses
-       :sub-menu    {:items [(when (permissions :PATIENT_EDIT)
-                               {:id      :add-diagnosis
-                                :onClick do-add-diagnosis
-                                :content "Add diagnosis..."})]}}
+       :sub-menu    [(when (permissions :PATIENT_EDIT)
+                       {:id      :add-diagnosis
+                        :onClick do-add-diagnosis
+                        :content "Add diagnosis..."})]}
       (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
         (comp/fragment
