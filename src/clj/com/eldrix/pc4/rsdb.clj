@@ -1623,12 +1623,30 @@
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (patients/set-date-death conn params))
 
+(pco/defmutation change-pseudonymous-registration
+  [{conn :com.eldrix.rsdb/conn, config :com.eldrix.rsdb/config, :as env}
+   {patient-pk :t_patient/id :t_patient/keys [patient_identifier nhs_number sex date_birth] :as params}]
+  {::pco/op-name 'pc4.rsdb/change-pseudonymous-registration}
+  (guard-can-for-patient? env patient_identifier :PATIENT_CHANGE_PSEUDONYMOUS_DATA)
+  ;; check that we are not changing the existing NHS number
+  (let [{old-nhs-number :t_patient/nhs_number :as existing-patient} (patients/fetch-patient conn patient-pk)]
+    (when (not= old-nhs-number nhs_number)
+      (throw (ex-info "You are currently not permitted to change NHS number" {:existing  existing-patient
+                                                                              :requested params}))))
+  (if-let [global-salt (:legacy-global-pseudonym-salt config)]
+    (jdbc/with-transaction [txn conn {:isolation :serializable}]
+      (projects/update-legacy-pseudonymous-patient! txn global-salt patient-pk {:nhs-number nhs_number
+                                                                                :date-birth date_birth
+                                                                                :sex        sex}))
+    (throw (ex-info "missing global salt in configuration" config))))
+
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
 (s/def :t_user/new_password string?)
 (s/def ::change-password (s/keys :req [:t_user/username
                                        :t_user/new_password]
                                  :opt [:t_user/password]))
+
 (pco/defmutation change-password!
   [{conn               :com.eldrix.rsdb/conn
     authenticated-user :session/authenticated-user
@@ -1843,7 +1861,8 @@
    change-password!
    save-admission!
    delete-admission!
-   set-date-death!])
+   set-date-death!
+   change-pseudonymous-registration])
 
 (comment
   (require '[next.jdbc.connection])

@@ -4,8 +4,8 @@ Tasks that are currently my priority for this development cycle:
 
 ## Tasks prior to deployment to patientcare.app:
 
-* [ ] Add 'change registration data' option for pseudonymous patients in case team(s) made a mistake originally
-* [ ] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
+* [x] Add 'change registration data' option for pseudonymous patients in case team(s) made a mistake originally
+* [x] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
 * [ ] Finish edit encounter page to at least cover what is deployed currently.
 * [ ] Edit and save death certificate information
 * [x] Add LSOA name when possible to pseudonymous patient data

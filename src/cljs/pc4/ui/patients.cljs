@@ -59,7 +59,8 @@
     (swap! state (fn [st]
                    (-> st
                        (fs/pristine->entity* [:t_patient/patient_identifier patient-identifier])
-                       (update-in [:t_patient/patient_identifier patient-identifier :ui/editing-demographics] not))))))
+                       (update-in [:t_patient/patient_identifier patient-identifier :ui/editing-demographics] not)
+                       (assoc-in [:t_patient/patient_identifier patient-identifier :ui/change-registration-data] false))))))
 
 (defsc PatientBanner*
   [this {:keys [name nhs-number gender born hospital-identifier address deceased]} {:keys [onClose]}]
@@ -95,7 +96,9 @@
 
 (def ui-patient-banner* (comp/computed-factory PatientBanner*))
 
-(defsc PatientEpisode [this props]
+(defsc PatientEpisode
+  "Component only for data fetch purposes in order to return appropriate project-specific pseudonym."
+  [this props]
   {:ident :t_episode/id
    :query [:t_episode/id :t_episode/project_fk :t_episode/stored_pseudonym]})
 
@@ -119,6 +122,7 @@
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
       (ui-patient-banner* {:name     (when sex (name sex))
                            :born     (str (ui/format-month-year date_birth) (when current_age (str " (~" current_age ")")))
+                           :address  (str/join " : " [lsoa_name pseudonym])
                            :deceased (ui/format-month-year date_death)} computed-props
                           (comp/children this))
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
@@ -166,6 +170,7 @@
          :onClick #(route/route-to! ::route/patient-admissions {:id patient_identifier})}]}
       (ui/ui-vertical-navigation-title {:title ""})
       (ui/ui-vertical-navigation-submenu {:items sub-menu}))
+    ;; No permission -> show break glass and a limited menu
     :else
     (ui/ui-vertical-navigation2
       {:selected-id :break-glass
@@ -173,7 +178,6 @@
                       :content "No access"}]})))
 
 (def ui-patient-menu (comp/computed-factory PatientMenu))
-
 
 (defsc SuggestedRegistration [this params]
   {:ident :t_project/id
@@ -311,11 +315,64 @@
 
 (def ui-inspect-edit-lsoa (comp/factory InspectEditLsoa))
 
+(defsc EditPseudonymousPatientDemographics
+  [this {:t_patient/keys [id patient_identifier sex date_birth date_death]}]
+  (ui/ui-simple-form {}
+    (ui/ui-simple-form-title
+      {:title "Edit patient demographics (pseudonymous registration)"})
+    (div :.text-sm.font-medium.text-gray-400
+      "This patient was registered using NHS number, date of birth and gender, with those details used
+  to generate a pseudonym. If these registration details were entered incorrectly, some users have
+  permission to edit that registration information. Most users can only enter date of death information here
+  and cannot change registration data.")
+    (ui/ui-simple-form-item {:label "Gender"}
+      (div :.pt-2 (name sex)))
+    (ui/ui-simple-form-item {:label "Date of birth"}
+      (div :.pt-2 (ui/format-month-year date_birth)))
+    (ui/ui-simple-form-item {:label "Date of death"}        ;; we only allow editing of date of death in this view
+      (ui/ui-local-date
+        {:value    date_death
+         :min-date date_birth
+         :max-date (goog.date.Date.)
+         :onChange #(m/set-value! (comp/get-parent this) :t_patient/date_death %)}))))
+
+(def ui-edit-pseudonymous-patient-demographics (comp/factory EditPseudonymousPatientDemographics))
+
+(defsc EditPseudonymousPatientRegistration
+  [this {:t_patient/keys [id sex date_birth date_death nhs_number] :as patient}]
+  (ui/ui-simple-form {}
+    (ui/ui-simple-form-title
+      {:title "Edit patient demographics (pseudonymous registration)"})
+    (div :.text-red-400.space-y-2
+      (dom/p :.font-bold.italic
+        "Danger: You are changing the registration data used for this patient record. ")
+      (dom/p :.text-sm.font-medium
+        "This changes the date of birth and gender for this record, and will therefore
+         change the project-specific pseudonym used to access the record. This is only
+         possible for privileged users. If you click 'Save', you will automatically close
+         this patient record. You will be able to re-open the same record by searching
+         for the correct combination of NHS number, date of birth and gender."))
+    (ui/ui-simple-form-item {:label "NHS number"}
+      (div :.pt-2.text-gray-500.italic (nhs-number/format-nnn nhs_number)))
+    (ui/ui-simple-form-item {:label "Gender"}
+      (ui/ui-select-popup-button {:id            "sex" :value sex
+                                  :options       [:MALE :FEMALE] :display-key name
+                                  :onChange      #(m/set-value! (comp/get-parent this) :t_patient/sex %)}))
+    (ui/ui-simple-form-item {:label "Date of birth"}
+      (ui/ui-local-date
+        {:value    date_birth
+         :min-date (goog.date.Date. 1900 1 1)
+         :max-date (goog.date.Date.)
+         :onChange #(m/set-value! (comp/get-parent this) :t_patient/date_birth %)}))))
+
+(def ui-edit-pseudonymous-patient-registration (comp/factory EditPseudonymousPatientRegistration))
+
+
 (defsc PatientDemographics
   [this {:t_patient/keys [id patient_identifier status sex title first_names
                           last_name nhs_number date_birth date_death current_age
                           authoritative_demographics address permissions] :as patient
-         :>/keys [layout] :ui/keys [editing-demographics editing-death-certificate]}]
+         :>/keys [layout] :ui/keys [editing-demographics editing-death-certificate change-registration-data]}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/id
                    :t_patient/patient_identifier :t_patient/status
@@ -327,10 +384,12 @@
                    {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode]}
                    {:>/layout (comp/get-query Layout)}
                    :ui/editing-demographics
+                   :ui/change-registration-data
                    :ui/editing-death-certificate
                    fs/form-config-join]
    :route-segment ["pt" :t_patient/patient_identifier "home"]
    :form-fields   #{:t_patient/title
+                    :t_patient/sex
                     :t_patient/first_names
                     :t_patient/last_name
                     :t_patient/date_birth
@@ -345,14 +404,19 @@
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
 
   (let [do-edit #(comp/transact! this [(edit-demographics {:patient-identifier patient_identifier})])
-        do-cancel-edit #(comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})])
-        do-save #(comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
-                                                                       :t_patient/date_death         date_death})])]
+        do-cancel-edit #(do (m/set-value! this :ui/change-registration-data false)
+                            (comp/transact! this [(cancel-edit-demographics {:patient-identifier patient_identifier})]))
+        do-change-reg #(do (m/set-value! this :ui/change-registration-data true)
+                           (m/set-value! this :t_patient/date_birth nil))
+        do-save-dod #(do (m/set-value! this :ui/change-registration-data false)
+                         (comp/transact! this [(list 'pc4.rsdb/set-date-death {:t_patient/patient_identifier patient_identifier
+                                                                               :t_patient/date_death         date_death})]))
+        do-save-reg #(comp/transact! this [(list 'pc4.rsdb/change-pseudonymous-registration (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_birth :t_patient/date_death :t_patient/sex :t_patient/nhs_number]))])]
     (ui-layout layout
       {:selected-id :home
        :sub-menu    [{:id      ::view-episodes
                       :onClick #(dr/change-route! this ["pt" patient_identifier "episodes"])
-                      :content "Episodes"}
+                      :content "View episodes"}
                      (when (permissions :PATIENT_EDIT)
                        {:id      ::edit
                         :onClick do-edit
@@ -363,45 +427,36 @@
                         :content "Add death certificate..."})]}
       (when editing-demographics
         (ui/ui-modal
-          {:actions [(when (= :LOCAL authoritative_demographics) {:id ::save :title "Save" :role :primary :onClick do-save})
-                     (when (= :PSEUDONYMOUS status) {:id ::change :title "Change registration details..." :onClick nil})
+          {:actions [(when (and (= :LOCAL authoritative_demographics) (not change-registration-data))
+                       {:id ::save :title "Save" :role :primary :onClick do-save-dod})
+                     (when (and (= :LOCAL authoritative_demographics) change-registration-data)
+                       {:id ::save-reg :title "Save and close record..." :role :primary :onClick do-save-reg :disabled? (not date_birth)})
+                     (when (and (= :PSEUDONYMOUS status) (not change-registration-data))
+                       {:id ::change :title "Change registration details..." :onClick do-change-reg :disabled? (not (permissions :PATIENT_CHANGE_PSEUDONYMOUS_DATA))})
                      {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
            :onClose do-cancel-edit}
           (cond
-            (= :PSEUDONYMOUS status)
-            (ui/ui-simple-form {}
-              (ui/ui-simple-form-title {:title "Edit patient demographics (pseudonymous registration)"})
-              (div :.text-sm.font-medium.text-gray-400
-                "This patient was registered using NHS number, date of birth and gender, with those details used
-                to generate a pseudonym. If these registration details were entered incorrectly, some users have
-                permission to edit that registration information. Most users can only enter date of death information here.")
-              (ui/ui-simple-form-item {:label "Gender"}
-                (div :.pt-2 (name sex)))
-              (ui/ui-simple-form-item {:label "Date of birth"}
-                (div :.pt-2 (ui/format-month-year date_birth)))
-              (ui/ui-simple-form-item {:label "Date of death"}
-                (ui/ui-local-date
-                  {:value    date_death
-                   :min-date date_birth
-                   :max-date (goog.date.Date.)
-                   :onChange #(m/set-value! this :t_patient/date_death %)})))
+            (and (= :PSEUDONYMOUS status) (not change-registration-data))
+            (ui-edit-pseudonymous-patient-demographics patient)
+            (and (= :PSEUDONYMOUS status) change-registration-data)
+            (ui-edit-pseudonymous-patient-registration patient)
             (= :LOCAL authoritative_demographics)
             (ui/ui-simple-form {}
               (ui/ui-simple-form-title {:title "Edit patient demographics"})
-              (ui/box-error-message {:title "Not implemented"
+              (ui/box-error-message {:title   "Not implemented"
                                      :message "Editing non-pseudonymous patient data is not currently supported."}))
             (= :CAVUHB authoritative_demographics)
             (ui/ui-simple-form {}
               (ui/ui-simple-form-title {:title "Patient demographics managed by CAV PMS"})
               (div :.text-sm.font-medium.text-gray-400
                 "This patient is managed by Cardiff and Vale patient management system (PMS) and so you cannot
-                change demographics from here."))
+change demographics from here."))
             (= :EMPI authoritative_demographics)
             (ui/ui-simple-form {}
               (ui/ui-simple-form-title {:title "Patient demographics managed by NHS Wales' eMPI"})
               (div :.text-sm.font-medium.text-gray-400
                 "This patient is managed by the NHS Wales enterprise master patient index (eMPI) and so you cannot
-                change demographics from here.")))))
+change demographics from here.")))))
 
       (when editing-death-certificate
         (ui-edit-death-certificate editing-death-certificate))
@@ -411,7 +466,7 @@
                  {:title "Last name" :content last_name}
                  {:title "Title" :content title}
                  {:title "NHS number" :content (nhs-number/format-nnn nhs_number)}
-                 {:title "Date of birth" :content (ui/format-date date_birth)}
+                 {:title "Date of birth" :content (if (= :PSEUDONYMOUS status) (ui/format-month-year date_birth) (ui/format-date date_birth))}
                  (if date_death {:title "Date of death" :content (ui/format-date date_death)}
                                 {:title "Current age" :content current_age})]})
       (ui/ui-two-column-card

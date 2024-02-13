@@ -25,6 +25,7 @@
     :PATIENT_MERGE,                                         ;; merge patients
     :PATIENT_FAMILY_MERGE,                                  ;; merge families
     :PATIENT_UNLOCK,                                        ;; unlock a patient record for editing (for data that has an editing time window)
+    :PATIENT_CHANGE_PSEUDONYMOUS_DATA                       ;; change information used to generate pseudonym
     :PATIENT_DELETE,                                        ;; explicitly delete a patient
 
     :USER_REGISTER,                                         ;; register (or deregister) a user?
@@ -66,6 +67,7 @@
      :PATIENT_VIEW,
      :PATIENT_VIEWPID,
      :PATIENT_UNLOCK,
+     :PATIENT_CHANGE_PSEUDONYMOUS_DATA
      :NEWS_CREATE}
 
    :PID_DATA

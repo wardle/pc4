@@ -185,11 +185,35 @@
              (df/refresh! component)))
 
 (defmutation set-date-death
-  [{:t_patient/keys [patient_identifier]}]
-  (remote [env] (m/returning env 'pc4.ui.patients/PatientDemographics))
-  (ok-action [{:keys [state]}]
-             (swap! state (fn [st]
-                            (update-in st [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)))))
+  [{:t_patient/keys [patient_identifier] :as patient}]
+  (action
+    [env]
+    (log/info "setting date of death" (select-keys patient [:t_patient/patient_identifier :t_patient/date_death])))
+  (remote
+    [env]
+    (m/returning env 'pc4.ui.patients/PatientDemographics))
+  (ok-action
+    [{:keys [state]}]
+    (swap! state (fn [st]
+                   (-> st
+                       (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
+                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))))
+
+(defmutation change-pseudonymous-registration
+  [{:t_patient/keys [id patient_identifier nhs_number date_birth sex date_death] :as patient}]
+  (action
+    [env]
+    (log/info "changing pseudonymous registration data" (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_birth :t_patient/date_death :t_patient/sex :t_patient/nhs_number])))
+  (remote
+    [env]
+    (m/returning env 'pc4.ui.patients/PatientDemographics))
+  (ok-action
+    [{:keys [app component state]}]
+    (swap! state (fn [st]
+                   (-> st
+                       (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
+                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))
+    (df/refresh! component)))
 
 (defmutation register-patient-to-project
   [{:keys [patient project-id] :as params}]
