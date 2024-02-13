@@ -1757,6 +1757,7 @@
    patient->addresses
    patient->address
    patient->lsoa11
+   (pbir/alias-resolver :t_patient/lsoa11 :uk.gov.ons/lsoa)
    (pbir/alias-resolver :t_address/postcode :uk.gov.ons.nhspd/PCDS)
    address->housing
    address->stored-lsoa

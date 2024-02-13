@@ -8,7 +8,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
 * [ ] Finish edit encounter page to at least cover what is deployed currently.
 * [ ] Edit and save death certificate information
-* [ ] Add LSOA name when possible to pseudonymous patient data
+* [x] Add LSOA name when possible to pseudonymous patient data
 * [ ] Fix patient sub menus
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
