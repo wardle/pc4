@@ -755,6 +755,7 @@
                                     :all-results        results})
             (ui/ui-modal {:actions [{:id ::close, :title "Close", :onClick cancel-edit}] :onClose cancel-edit}
               (div "It is not currently possible to edit this result.")))))
+      (ui/ui-title {:title (if choose-investigation (str (:t_result_type/name choose-investigation) " results") "All results")})
       (ui/ui-table {}
         (ui/ui-table-head {}
           (ui/ui-table-row {}
