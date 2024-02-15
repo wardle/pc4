@@ -6,7 +6,8 @@ Tasks that are currently my priority for this development cycle:
 
 * [x] Add 'change registration data' option for pseudonymous patients in case team(s) made a mistake originally
 * [x] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
-* [ ] Finish edit encounter page to at least cover what is deployed currently.
+* [ ] Convert current 'edit' encounter page into a view encounter page as per legacy system
+* [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [ ] Edit and save death certificate information
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
@@ -14,10 +15,12 @@ Tasks that are currently my priority for this development cycle:
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
+* [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
 * [ ] Messaging between users
 * [ ] Encounter wizard
 * [ ] Generate documents from encounters; re-use original mechanics for backwards compatibility and then add new template model?
+* [ ] Remove existing but unused 'job' queue system and replace with something off-the-shelf 
 
 ## Other work - not critical to either deployment at the moment
 
