@@ -275,7 +275,7 @@
                 (div
                   (pc4.ui.patients/ui-patient-banner patient)
                   (ui/ui-submit-button {:label   "View patient record »"
-                                        :onClick #(dr/change-route! this ["pt" (:t_patient/patient_identifier patient) "home"])}))))))))))
+                                        :onClick #(route/route-to! ::route/patient-home {:id (:t_patient/patient_identifier patient)})}))))))))))
 
 
 (defsc ProjectDownloads
