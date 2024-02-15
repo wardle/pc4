@@ -104,13 +104,13 @@
 
 (defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth current_age sex date_death
                                              title first_names last_name address episodes]
-                            :wales-imd-2019-ranks/keys [lsoa_name]
+                            w-lsoa-name :wales-imd-2019-ranks/lsoa_name e-lsoa-name :england-imd-2019-ranks/lsoa_name
                             current-project :ui/current-project}
                       {:keys [onClose] :as computed-props}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex :t_patient/current_age
                    :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
-                   :wales-imd-2019-ranks/lsoa_name
+                   :wales-imd-2019-ranks/lsoa_name :england-imd-2019-ranks/lsoa_name
                    {:t_patient/address [:t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/address5 :t_address/postcode]}
                    {:t_patient/episodes (comp/get-query PatientEpisode)}
                    {[:ui/current-project '_] [:t_project/id]}]
@@ -120,9 +120,9 @@
   (let [project-id (:t_project/id current-project)
         pseudonym (when project-id (:t_episode/stored_pseudonym (first (filter #(= (:t_episode/project_fk %) project-id) episodes))))]
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
-      (ui-patient-banner* {:name     (when sex (name sex))
+      (ui-patient-banner* {:name     (str/join " / " [(when sex (name sex)) (or w-lsoa-name e-lsoa-name)])
                            :born     (str (ui/format-month-year date_birth) (when current_age (str " (~" current_age ")")))
-                           :address  (str/join " : " [lsoa_name pseudonym])
+                           :address  pseudonym
                            :deceased (ui/format-month-year date_death)} computed-props
                           (comp/children this))
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
