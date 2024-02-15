@@ -72,7 +72,7 @@
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
  {:root #ref [:com.eldrix.pc4/root]
-  :f    "depriv-v2.0-2024.02.07.db"}
+  :f    "depriv-v2.0-2024.02.15.db"}
 
  ;; service providing access to the UK dictionary of medicines and devices (dm+d)
  :com.eldrix/dmd

@@ -19,7 +19,7 @@
   ; com.eldrix/ods-weekly                {:mvn/version "0.1.43"}
   com.eldrix/nhs-number                {:mvn/version "1.0.54"}
   com.eldrix/concierge                 {:mvn/version "1.0.189"}
-  com.eldrix/deprivare                 {:mvn/version "2.0.64"}
+  com.eldrix/deprivare                 {:mvn/version "2.0.72"}
   com.eldrix/dmd                       {:mvn/version "1.0.170-alpha"}
   com.eldrix/hermes                    {:mvn/version "1.4.1351"}
   com.eldrix/zipf                      {:mvn/version "0.1.8"}
