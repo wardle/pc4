@@ -123,7 +123,7 @@
     (if (= :PSEUDONYMOUS status)                            ;; could use polymorphism to choose component here?
       (ui-patient-banner* {:name     (when sex (name sex))
                            :born     (str (ui/format-month-year date_birth) (when current_age (str " (~" current_age ")")))
-                           :address  (div {} (dom/span :.mr-4 (when lsoa-name (str lsoa-name " ")) (dom/span {} pseudonym)))
+                           :address  (div {} (dom/span :.mr-4 (when lsoa-name (str lsoa-name " "))) (dom/span {} pseudonym))
                            :deceased (ui/format-month-year date_death)} computed-props
                           (comp/children this))
       (let [{:t_address/keys [address1 address2 address3 address4 address5 postcode]} address]
