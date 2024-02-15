@@ -10,6 +10,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Edit and save death certificate information
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
+* [ ] Fix navigation to patient record on patient register to use new routing 
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
