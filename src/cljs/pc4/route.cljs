@@ -34,11 +34,6 @@
     (case handler
       ::home (dr/change-route! @SPA ["home"])
       ::project-home (dr/change-route! @SPA ["projects" id "home"])
-      ::project-team (dr/change-route! @SPA ["projects" id "team"])
-      ::project-find-by-pseudonym (dr/change-route! @SPA ["projects" id "find-by-pseudonym"])
-      ::project-register-pseudonymous (dr/change-route! @SPA ["projects" id "register-pseudonymous"])
-      ::project-register-by-nnn (dr/change-route! @SPA ["projects" id "register-patient"])
-      ::project-downloads (dr/change-route! @SPA ["projects" id "downloads"])
       ::patient-home (dr/change-route! @SPA ["pt" id "home"])
       ::patient-diagnoses (dr/change-route! @SPA ["pt" id "diagnoses"])
       ::patient-medications (dr/change-route! @SPA ["pt" id "medications"])
@@ -68,8 +63,8 @@
 (defmutation route-to
   [{:keys [handler params]}]
   (action
-    [_]
-    (route-to! handler params)))
+   [_]
+   (route-to! handler params)))
 
 (comment
   (bidi/path-for routes :home)
