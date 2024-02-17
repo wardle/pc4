@@ -44,7 +44,7 @@
    :ident :t_project/id}
   (dom/a :.cursor-pointer
     {:onClick #(do (js/console.log "selecting project " id name title)
-                   (route/route-to! ::route/project-home {:id id})
+                   (route/route-to! ::route/project-home {:project-id id})
                    #_(dr/change-route! this (dr/path-to pc4.ui.projects/ProjectHome id "home")))}
     (dom/div :.px-3.py-1.text-sm.border
       {:classes [(if (= :RESEARCH type) "bg-pink-50 hover:bg-pink-100" "bg-yellow-50 hover:bg-yellow-100")]}

@@ -7,6 +7,7 @@
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
+            [pc4.route :as route]
             [pc4.ui.ninflamm]
             [taoensso.timbre :as log]))
 
@@ -23,20 +24,22 @@
                 (m/returning 'pc4.ui.patients/PatientBanner)))))
 
 (defmutation register-patient
-  [params]
+  [{:keys [project-id]}]
   (remote [env]
           (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
     [{:keys [app state ref] :as env}]
     (tap> {:mutation-env env})                              ;; ref = ident of the component
-    (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
-      (do (log/debug "register patient : patient id: " patient-id)
-          (dr/change-route! app ["pt" patient-id "home"]))
+    (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
+      (do (log/debug "register patient : patient id: " patient-identifier)
+          (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
+                                                    :params {:project-id project-id
+                                                             :patient-identifier patient-identifier}})]))
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Unable to register patient.")))))
 
 (defmutation register-patient-by-pseudonym
-  [params]
+  [{:keys [project-id] :as params}]
   (remote
     [env]
     (log/debug "Registering pseudonymous patient:" env)
@@ -44,9 +47,12 @@
   (ok-action
     [{:keys [app state ref] :as env}]
     (tap> {:mutation-env env})                              ;; ref = ident of the component
-    (if-let [patient-id (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
-      (do (log/debug "register patient : patient id: " patient-id)
-          (dr/change-route! app ["pt" patient-id "home"]))
+    (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
+      (do (log/debug "register patient : patient id: " patient-identifier)
+          (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
+                                                    :params {:project-id project-id
+                                                             :patient-identifier patient-identifier}})]))
+
       (do (log/debug "failed to register patient:" env)
           (swap! state update-in ref assoc :ui/error "Incorrect patient demographics")))))
 
