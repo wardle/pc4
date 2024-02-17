@@ -72,7 +72,7 @@
         has-clinical? (seq (:NHS grouped))
         has-research? (seq (:RESEARCH grouped))]
     (div :.border-solid.border-gray-800.bg-gray-50.border.rounded.shadow-lg
-      (ui-patient-by-id {})
+      (ui-patient-by-id {})                                 ;; TODO: replace with patient search component when appropriate
       (div :.bg-gray-800.text-white.px-2.py-2.border-solid.border-grey-800 "My projects / services")
       (when has-clinical?
         (comp/fragment
