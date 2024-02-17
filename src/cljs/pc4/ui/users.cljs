@@ -59,7 +59,7 @@
      :autoFocus true
      :value     (or (comp/get-state this :s) "")
      :onKeyDown #(when (evt/enter-key? %)
-                   (dr/change-route! this ["pt" (js/parseInt (comp/get-state this :s)) "home"]))
+                   (route/route-to! ::route/patient-home {:patient-identifier (some-> (comp/get-state this :s) parse-long)}))
      :onChange  #(let [s (evt/target-value %)]
                    (comp/set-state! this {:s s}))}))
 
