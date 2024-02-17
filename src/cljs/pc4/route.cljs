@@ -14,7 +14,8 @@
   ["/" {""         ::home
         "project/" {[:project-id]                                 ::project-home
                     [:project-id "/patient/" :patient-identifier] ::project-patient}
-        "patient/" {[:patient-identifier] ::patient-home}}])
+        "patient/" {[:patient-identifier] ::patient-home}
+        "user/"    {[:user-id] ::user-home}}])
 
 (defn match-route
   [url]
@@ -37,6 +38,8 @@
         (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "home"]))
     ::patient-home
     (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "home"])
+    ::user-home
+    (dr/change-route! @SPA ["user" (:user-id route-params) "profile"])
     ;; otherwise, fallback to the home
     (do (log/info "No match for route" matched-route)
         (dr/change-route! @SPA ["home"]))))

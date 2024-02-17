@@ -31,7 +31,7 @@
         (p :.text-lg.font-medium.text-indigo-600.truncate title)
         (div :.ml-2.flex-shrink-0.flex
           (p :.px-2.inline-flex.text-xs.leading-5.font-semibold.rounded-full.bg-blue-100.text-green-800
-             (dom/time {:date-time date_time} (ui/format-date date_time)))))
+            (dom/time {:date-time date_time} (ui/format-date date_time)))))
       (div :.sm:flex.sm:justify-between
         (div :.mb-2.flex.items-center.text-sm.text-gray-500.sm:mt-0
           (p "by " (ui-news-author author)))))
@@ -222,7 +222,7 @@
                    :t_user/postnomial
                    :t_professional_registration_authority/abbreviation
                    :t_professional_registration_authority/name]
-   :route-segment ["users" :t_user/id "profile"]
+   :route-segment ["user" :t_user/id "profile"]
    :will-enter    (fn [app {:t_user/keys [id] :as route-params}]
                     (when-let [user-id (some-> id (js/parseInt))]
                       (dr/route-deferred [:t_user/id user-id]

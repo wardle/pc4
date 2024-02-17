@@ -311,7 +311,7 @@
            {:t_user/roles [:t_project_user/active? :t_project_user/role]}]}
   (ui/ui-grid-list-item
    {:title    (dom/a :.cursor-pointer.underline.text-blue-600.hover:text-blue-800
-                     {:onClick #(dr/change-route! this ["users" id "profile"])} full_name)
+                     {:onClick #(route/route-to! ::route/user-home {:user-id id}) #_(dr/change-route! this ["users" id "profile"])} full_name)
     :subtitle (or job_title custom_job_title)
     :image    (if photo_url {:url photo_url} {:content (ui/avatar-14)})}
    (div :.flex.w-full.items-center.p-6.space-x-6
