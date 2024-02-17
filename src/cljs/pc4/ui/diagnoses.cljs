@@ -151,22 +151,27 @@
 (defsc PatientDiagnoses
   [this {:t_patient/keys [patient_identifier diagnoses permissions] :as patient
          :>/keys         [layout], :ui/keys [editing-diagnosis]}]
-  {:ident         :t_patient/patient_identifier
-   :query         [:t_patient/patient_identifier :t_patient/permissions
-                   {:>/layout (comp/get-query patients/Layout)}
-                   {:t_patient/diagnoses (comp/get-query DiagnosisListItem)}
-                   {:ui/editing-diagnosis (comp/get-query EditDiagnosis)}]
-   :route-segment ["pt" :t_patient/patient_identifier "diagnoses"]
-   :will-enter    (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
-                    (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
-                                         (fn []
-                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDiagnoses
-                                                     {:target               [:ui/current-patient]
-                                                      :post-mutation        `dr/target-ready
-                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
-   :pre-merge     (fn [{:keys [current-normalized data-tree]}]
-                    (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
+  {:ident               :t_patient/patient_identifier
+   :query               [:t_patient/patient_identifier :t_patient/permissions
+                         {:>/layout (comp/get-query patients/Layout)}
+                         {:t_patient/diagnoses (comp/get-query DiagnosisListItem)}
+                         {:ui/editing-diagnosis (comp/get-query EditDiagnosis)}]
+   :route-segment       ["pt" :t_patient/patient_identifier "diagnoses"]
+   :will-enter          (fn [app {:t_patient/keys [patient_identifier] :as route-params}]
+                          (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
+                            (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                               (fn []
+                                                 (df/load! app [:t_patient/patient_identifier patient-identifier] PatientDiagnoses
+                                                           {:target               [:ui/current-patient]
+                                                            :post-mutation        `dr/target-ready
+                                                            :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))
+   :allow-route-change? (constantly true)
+   :will-leave          (fn [this {:t_patient/keys [patient_identifier] :ui/keys [editing-diagnosis]}]
+                          (comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient_identifier
+                                                                        :diagnosis          editing-diagnosis})]))
+
+   :pre-merge           (fn [{:keys [current-normalized data-tree]}]
+                          (merge {:ui/editing-diagnosis {}} current-normalized data-tree))}
   (let [do-edit-diagnosis #(comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier :diagnosis %})])
         do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
     (patients/ui-layout layout
