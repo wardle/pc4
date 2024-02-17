@@ -55,7 +55,7 @@
 
 (defsc PatientById [this props]
   (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-    {:type      "text" :placeholder "Patient identifier"
+    {:type      "text" :placeholder "Search by patient identifier"
      :autoFocus true
      :value     (or (comp/get-state this :s) "")
      :onKeyDown #(when (evt/enter-key? %)
