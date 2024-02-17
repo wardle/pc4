@@ -11,7 +11,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
-* [ ] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
+* [x] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
