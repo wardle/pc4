@@ -16,3 +16,4 @@ pc4-server/.portal/intellij.edn
 resources/public/css/output.css
 /target/
 *.jar
+*.csv
