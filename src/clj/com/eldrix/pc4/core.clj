@@ -11,7 +11,6 @@
   (println msg)
   (System/exit status))
 
-
 (def cli-options
   [["-h" "--help"]
    [nil "--profile PROFILE" "Configuration profile to use (dev/pc4/cvx/pc4-dev)"
@@ -44,7 +43,6 @@
   (when-not profile (exit 1 "Missing profile"))
   (log/info "Running database migrations with profile" {:profile profile})
   (pc4/init profile [:com.eldrix.rsdb/run-migrations]))
-
 
 (def status-checks
   [{:title         "SNOMED CT (using Hermes)"
@@ -87,11 +85,11 @@
                  (and entity eql)
                  (pathom {:pathom/entity entity :pathom/eql eql}))]
     (assoc data
-      :result result
-      :success (= result expected)
-      :message (if (= result expected)
-                 (str "- " (format title-fmt title) " : success ")
-                 (str "- " (format title-fmt title) " : failure " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
+           :result result
+           :success (= result expected)
+           :message (if (= result expected)
+                      (str "- " (format title-fmt title) " : success ")
+                      (str "- " (format title-fmt title) " : failure " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
 
 (defn status [{:keys [profile]}]
   (when-not profile
@@ -130,7 +128,6 @@
         "serve" (serve {:profile profile})
         "migrate" (migrate {:profile profile})
         "status" (status {:profile profile})))))
-
 
 (comment
   (cli/parse-opts ["--profile" "cvx"] cli-options))
