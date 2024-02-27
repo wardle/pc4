@@ -26,14 +26,14 @@ Tasks that are currently my priority for this development cycle:
 ## Other work - not critical to either deployment at the moment
 
 * [ ] Add network connectivity error bar when offline
-* [ ] Add current project identifier into URL to better support HTML routing (back and forward). Otherwise, one can go 
+* [x] Add current project identifier into URL to better support HTML routing (back and forward). Otherwise, one can go 
 'back' and not view a patient in context of the same project that they originally used.
 * [ ] EDSS graph generation -> basically a Clojure port of existing logic for server side rendering or evaluate front-end graph rendering of EDSS
 * [ ] Session timeout logic
 * [ ] Replace /login endpoint with one using /api that, in absence of session, permits *some* queries such as login, as well as resolving session/authenticated-user, 
 so that front-end can resume a live session from the same browser.
-* [ ] Switch ods-weekly to a SQLite backend and use to derive lists of GPs for a given surgery
-* [ ] Upgrade codelists to use new versions of hermes and dmd
 * [ ] Consider switching nhspd and clods to use SQLite
+* [x] Switch ods-weekly to a SQLite backend and use to derive lists of GPs for a given surgery
+* [x] Upgrade codelists to use new versions of hermes and dmd
 * [ ] Check that hades uses latest hermes
 * [ ] Better user profile page, perhaps shown modally when from context of project team page?
