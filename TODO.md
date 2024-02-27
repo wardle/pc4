@@ -19,7 +19,6 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
 * [ ] Messaging between users
-* [ ] Encounter wizard
 * [ ] Encounter wizard, including clinic codes
 * [ ] Generate documents from encounters; re-use original mechanics for backwards compatibility and then add new template model?
 * [ ] Remove existing but unused 'job' queue system and replace with something off-the-shelf 
