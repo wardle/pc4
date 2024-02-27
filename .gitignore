@@ -17,3 +17,5 @@ resources/public/css/output.css
 /target/
 *.jar
 *.csv
+/problems.json
+/metadata.json
