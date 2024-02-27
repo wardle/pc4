@@ -32,7 +32,6 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Session timeout logic
 * [ ] Replace /login endpoint with one using /api that, in absence of session, permits *some* queries such as login, as well as resolving session/authenticated-user, 
 so that front-end can resume a live session from the same browser.
-* [ ] Consider switching nhspd and clods to use SQLite
 * [x] Switch ods-weekly to a SQLite backend and use to derive lists of GPs for a given surgery
 * [x] Upgrade codelists to use new versions of hermes and dmd
 * [ ] Check that hades uses latest hermes
