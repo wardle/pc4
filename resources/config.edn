@@ -65,9 +65,9 @@
   :nhspd #ig/ref :com.eldrix/nhspd}
 
  ;; service providing access to the ODS weekly dataset
- #_:com.eldrix/ods-weekly
- #_{:root #ref [:com.eldrix.pc4/root]
-    :f    "ods-weekly-2023-06-08.db"}
+ :com.eldrix/ods-weekly
+ {:root #ref [:com.eldrix.pc4/root]
+  :f    "ods-weekly-2024-02-15.db"}
 
  ;; service providing access to UK deprivation indices
  :com.eldrix/deprivare
@@ -177,7 +177,7 @@
  ;; defined either statically (via #clj/var) or dynamically (via #ig/ref).
  :pathom/ops
  [#clj/var com.eldrix.clods.graph/all-resolvers
-  ;#clj/var com.eldrix.odsweekly.graph/all-resolvers
+  #clj/var com.eldrix.odsweekly.graph/all-resolvers
   #ig/ref :com.eldrix.deprivare/ops                         ;; operations for deprivare are determined dynamically at runtime
   #clj/var com.eldrix.dmd.graph/all-resolvers
   #clj/var com.eldrix.pc4.rsdb/all-resolvers
@@ -190,7 +190,7 @@
  :pathom/env
  {:pathom/ops                     #ig/ref :pathom/ops
   :com.eldrix.clods.graph/svc     #ig/ref :com.eldrix/clods
-  ;:com.eldrix.odsweekly.graph/svc #ig/ref :com.eldrix/ods-weekly
+  :com.eldrix.odsweekly.graph/svc #ig/ref :com.eldrix/ods-weekly
   :com.eldrix.dmd.graph/store     #ig/ref :com.eldrix/dmd
   :com.eldrix.deprivare.graph/svc #ig/ref :com.eldrix/deprivare
   :com.eldrix/hermes              #ig/ref :com.eldrix/hermes

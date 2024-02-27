@@ -16,7 +16,7 @@
 
   com.eldrix/clods                     {:mvn/version "1.1.198"}
   com.eldrix/nhspd                     {:mvn/version "1.1.48"}
-  ; com.eldrix/ods-weekly                {:mvn/version "0.1.43"}
+  com.eldrix/ods-weekly                {:mvn/version "1.0.54"}
   com.eldrix/nhs-number                {:mvn/version "1.0.54"}
   com.eldrix/concierge                 {:mvn/version "1.0.189"}
   com.eldrix/deprivare                 {:mvn/version "2.0.72"}
