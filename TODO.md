@@ -6,7 +6,7 @@ Tasks that are currently my priority for this development cycle:
 
 * [x] Add 'change registration data' option for pseudonymous patients in case team(s) made a mistake originally
 * [x] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
-* [ ] Edit and save death certificate information
+* [x] Edit and save death certificate information
 * [ ] Convert current 'edit' encounter page into a view encounter page as per legacy system
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Add LSOA name when possible to pseudonymous patient data
@@ -35,3 +35,4 @@ so that front-end can resume a live session from the same browser.
 * [ ] Upgrade codelists to use new versions of hermes and dmd
 * [ ] Consider switching nhspd and clods to use SQLite
 * [ ] Check that hades uses latest hermes
+* [ ] Better user profile page, perhaps shown modally when from context of project team page?

@@ -28,33 +28,33 @@
   (remote [env]
           (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
-    [{:keys [app state ref] :as env}]
-    (tap> {:mutation-env env})                              ;; ref = ident of the component
-    (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
-      (do (log/debug "register patient : patient id: " patient-identifier)
-          (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
-                                                    :params {:project-id project-id
-                                                             :patient-identifier patient-identifier}})]))
-      (do (log/debug "failed to register patient:" env)
-          (swap! state update-in ref assoc :ui/error "Unable to register patient.")))))
+   [{:keys [app state ref] :as env}]
+   (tap> {:mutation-env env})                              ;; ref = ident of the component
+   (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient :t_patient/patient_identifier])]
+     (do (log/debug "register patient : patient id: " patient-identifier)
+         (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
+                                                   :params {:project-id project-id
+                                                            :patient-identifier patient-identifier}})]))
+     (do (log/debug "failed to register patient:" env)
+         (swap! state update-in ref assoc :ui/error "Unable to register patient.")))))
 
 (defmutation register-patient-by-pseudonym
   [{:keys [project-id] :as params}]
   (remote
-    [env]
-    (log/debug "Registering pseudonymous patient:" env)
-    (m/returning env 'pc4.ui.patients/PatientDemographics))
+   [env]
+   (log/debug "Registering pseudonymous patient:" env)
+   (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
-    [{:keys [app state ref] :as env}]
-    (tap> {:mutation-env env})                              ;; ref = ident of the component
-    (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
-      (do (log/debug "register patient : patient id: " patient-identifier)
-          (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
-                                                    :params {:project-id project-id
-                                                             :patient-identifier patient-identifier}})]))
+   [{:keys [app state ref] :as env}]
+   (tap> {:mutation-env env})                              ;; ref = ident of the component
+   (if-let [patient-identifier (get-in env [:result :body 'pc4.rsdb/register-patient-by-pseudonym :t_patient/patient_identifier])]
+     (do (log/debug "register patient : patient id: " patient-identifier)
+         (comp/transact! app [(pc4.route/route-to {:handler ::route/project-patient
+                                                   :params {:project-id project-id
+                                                            :patient-identifier patient-identifier}})]))
 
-      (do (log/debug "failed to register patient:" env)
-          (swap! state update-in ref assoc :ui/error "Incorrect patient demographics")))))
+     (do (log/debug "failed to register patient:" env)
+         (swap! state update-in ref assoc :ui/error "Incorrect patient demographics")))))
 
 (defmutation save-diagnosis
   [{:t_diagnosis/keys [id] :t_patient/keys [patient_identifier] :as diagnosis}]
@@ -64,10 +64,10 @@
           (println "save diagnosis: " (:ast env))
           true)
   (ok-action                                                ;; we simply close the modal dialog once we have confirmed the save...
-    [{:keys [ref state result mutation-return-value]}]
-    (tap> {:ok-save-diag {:result result :mut-ret mutation-return-value}})
-    (swap! state (fn [s]
-                   (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
+   [{:keys [ref state result mutation-return-value]}]
+   (tap> {:ok-save-diag {:result result :mut-ret mutation-return-value}})
+   (swap! state (fn [s]
+                  (assoc-in s [:t_patient/patient_identifier patient_identifier :ui/editing-diagnosis] {})))))
 
 (defmutation save-medication
   [{:t_medication/keys [id] :t_patient/keys [patient_identifier] :as medication}]
@@ -77,37 +77,37 @@
           (log/info "saving medication:" (:ast env))
           true)
   (ok-action                                                ;; we simply close the modal dialog once we have confirmed the save...
-    [{:keys [ref state] :as env}]
-    (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {})))
+   [{:keys [ref state] :as env}]
+   (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {})))
 
 (defmutation delete-medication
   [{:t_medication/keys [id] :as medication, :t_patient/keys [patient_identifier]}]
   (remote [env] true)
   (ok-action
-    [{:keys [state]}]
-    (swap! state (fn [s]
-                   (-> s
-                       (merge/remove-ident* [:t_medication/id id] [:t_patient/patient_identifier patient_identifier :t_patient/medications])
-                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
+   [{:keys [state]}]
+   (swap! state (fn [s]
+                  (-> s
+                      (merge/remove-ident* [:t_medication/id id] [:t_patient/patient_identifier patient_identifier :t_patient/medications])
+                      (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
 
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]
   (action
-    [{:keys [ref state]}]
-    (let [ident [:t_episode/id id]]
-      (swap! state (fn [s]
-                     (-> s
-                         (update-in ref assoc :ui/editing-admission episode)
-                         (update-in (conj ref :t_patient/episodes) conj ident)))))))
+   [{:keys [ref state]}]
+   (let [ident [:t_episode/id id]]
+     (swap! state (fn [s]
+                    (-> s
+                        (update-in ref assoc :ui/editing-admission episode)
+                        (update-in (conj ref :t_patient/episodes) conj ident)))))))
 
 (defmutation save-admission
   [{:t_episode/keys [id] :as params}]
   (remote
-    [{:keys [ref state] :as env}]
-    (m/returning env 'pc4.ui.admissions/EpisodeListItem))
+   [{:keys [ref state] :as env}]
+   (m/returning env 'pc4.ui.admissions/EpisodeListItem))
   (ok-action                                                ;; once admission is saved, close modal editing form
-    [{:keys [ref state] :as env}]
-    (swap! state assoc-in (conj ref :ui/editing-admission) {})))
+   [{:keys [ref state] :as env}]
+   (swap! state assoc-in (conj ref :ui/editing-admission) {})))
 
 (defmutation delete-admission
   [{:t_episode/keys [id patient_fk]}]
@@ -115,12 +115,12 @@
           (println "Deleting admission" id "patient pk" patient_fk)
           true)
   (ok-action                                                ;; once admission is deleted, close modal editing form
-    [{:keys [ref state mutation-return-value] :as env}]
-    (when-not (:com.wsscode.pathom3.connect.runner/mutation-error mutation-return-value) ;; TODO: show an error
-      (swap! state (fn [s] (-> s
-                               (update :t_episode/id dissoc id)
-                               (merge/remove-ident* [:t_episode/id id] (conj ref :t_patient/episodes))
-                               (assoc-in (conj ref :ui/editing-admission) {})))))))
+   [{:keys [ref state mutation-return-value] :as env}]
+   (when-not (:com.wsscode.pathom3.connect.runner/mutation-error mutation-return-value) ;; TODO: show an error
+     (swap! state (fn [s] (-> s
+                              (update :t_episode/id dissoc id)
+                              (merge/remove-ident* [:t_episode/id id] (conj ref :t_patient/episodes))
+                              (assoc-in (conj ref :ui/editing-admission) {})))))))
 
 (defmutation save-ms-diagnosis
   [params]
@@ -137,8 +137,8 @@
           (swap! state fs/entity->pristine* [:t_ms_event/id id]))
   (remote [env] true)
   (ok-action                                                ;; once ms event saved, close modal form
-    [{:keys [ref state app] :as env}]
-    (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-ms-event] {})))
+   [{:keys [ref state app] :as env}]
+   (swap! state assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-ms-event] {})))
 
 (defn delete-ms-event*
   [state summary-multiple-sclerosis-id ms-event-id]
@@ -152,7 +152,6 @@
           (swap! state delete-ms-event* summary_multiple_sclerosis_fk id))
   (remote [env] true))
 
-
 (def result-properties
   #{:t_result/id :t_result/date :t_result/summary
     :t_result_type/id :t_result_type/name :t_result_type/result_entity_name})
@@ -160,16 +159,16 @@
 (defmutation save-result
   [{:keys [patient-identifier result]}]
   (action
-    [{:keys [state]}]
-    (swap! state fs/entity->pristine* [:t_result/id (:t_result/id result)]))
+   [{:keys [state]}]
+   (swap! state fs/entity->pristine* [:t_result/id (:t_result/id result)]))
   (remote
-    [{:keys [component] :as env}]
-    (m/returning env (comp/get-class component)))
+   [{:keys [component] :as env}]
+   (m/returning env (comp/get-class component)))
 
   (ok-action
-    [{:keys [state result component mutation-return-value] :as env}]
-    (tap> {:ok-save-result env})
-    (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
+   [{:keys [state result component mutation-return-value] :as env}]
+   (tap> {:ok-save-result env})
+   (swap! state update-in [:t_patient/patient_identifier patient-identifier] dissoc :ui/editing-result)))
 
 (defn delete-result*
   [state patient-identifier result-id]
@@ -190,36 +189,43 @@
   (ok-action [{:keys [component]}]
              (df/refresh! component)))
 
-(defmutation set-date-death
-  [{:t_patient/keys [patient_identifier] :as patient}]
+(defmutation notify-death
+  [{:t_patient/keys [patient_identifier date_death] :t_death_certificate/keys [id part1a part1b part1c part2]}]
   (action
-    [env]
-    (log/info "setting date of death" (select-keys patient [:t_patient/patient_identifier :t_patient/date_death])))
+   [{:keys [state]}]
+   (when (nil? date_death)
+     (swap! state (fn [st]
+                    (-> st
+                        (assoc-in [:t_patient/patient_identifier patient_identifier :t_death_certificate/part1a] nil)
+                        (assoc-in [:t_patient/patient_identifier patient_identifier :t_death_certificate/part1b] nil)
+                        (assoc-in [:t_patient/patient_identifier patient_identifier :t_death_certificate/part1c] nil)
+                        (assoc-in [:t_patient/patient_identifier patient_identifier :t_death_certificate/part2] nil))))))
   (remote
-    [env]
-    (m/returning env 'pc4.ui.patients/PatientDemographics))
+   [env]
+   (m/returning env 'pc4.ui.patients/PatientDemographics))
+
   (ok-action
-    [{:keys [state]}]
-    (swap! state (fn [st]
-                   (-> st
-                       (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
-                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))))
+   [{:keys [state]}]
+   (swap! state (fn [st]
+                  (-> st
+                      (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
+                      (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))))
 
 (defmutation change-pseudonymous-registration
   [{:t_patient/keys [id patient_identifier nhs_number date_birth sex date_death] :as patient}]
   (action
-    [env]
-    (log/info "changing pseudonymous registration data" (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_birth :t_patient/date_death :t_patient/sex :t_patient/nhs_number])))
+   [env]
+   (log/info "changing pseudonymous registration data" (select-keys patient [:t_patient/id :t_patient/patient_identifier :t_patient/date_birth :t_patient/date_death :t_patient/sex :t_patient/nhs_number])))
   (remote
-    [env]
-    (m/returning env 'pc4.ui.patients/PatientDemographics))
+   [env]
+   (m/returning env 'pc4.ui.patients/PatientDemographics))
   (ok-action
-    [{:keys [app component state]}]
-    (swap! state (fn [st]
-                   (-> st
-                       (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
-                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))
-    (df/refresh! component)))
+   [{:keys [app component state]}]
+   (swap! state (fn [st]
+                  (-> st
+                      (update-in [:t_patient/patient_identifier patient_identifier :ui/editing-demographics] not)
+                      (assoc-in [:t_patient/patient_identifier patient_identifier :ui/change-registration-data] false))))
+   (df/refresh! component)))
 
 (defmutation register-patient-to-project
   [{:keys [patient project-id] :as params}]
@@ -227,15 +233,15 @@
           (log/info "registering patient to project" params))
   (remote [env] true)
   (ok-action
-    [{:keys [component state]}]
-    (df/refresh! component)))
+   [{:keys [component state]}]
+   (df/refresh! component)))
 
 (defmutation break-glass
   [{:keys [patient-identifier]}]
   (action
-    [env]
-    (log/info "breakglass for patient" patient-identifier))
+   [env]
+   (log/info "breakglass for patient" patient-identifier))
   (remote [env] true)
   (ok-action
-    [{:keys [component]}]
-    (df/refresh! component)))
+   [{:keys [component]}]
+   (df/refresh! component)))

@@ -195,6 +195,12 @@ bb tasks
 
 for commonly needed development requirements.
 
+For example, it would be usual to run shadow-cljs and to run a server REPL:
+```shell
+bb watch-cljs
+bb nrepl
+```
+
 ### Current status
 
 This is a work-in-progress. 

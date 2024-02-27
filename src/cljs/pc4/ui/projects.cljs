@@ -304,14 +304,16 @@
 
 (def ui-role-badge (comp/factory RoleBadge {:keyfn :t_project_user/role}))
 
-(defsc ProjectTeamMember [this {:t_user/keys [id first_names last_name full_name job_title photo_url custom_job_title roles active?] :as user}]
+
+(defsc ProjectTeamMember  ;;TODO: delegate clicking on a user profile to parent component to act upon
+  [this {:t_user/keys [id first_names last_name full_name job_title photo_url custom_job_title roles active?] :as user}]
   {:ident :t_user/id
    :query [:t_user/id :t_user/first_names :t_user/last_name :t_user/full_name :t_user/job_title
            :t_user/custom_job_title :t_user/active? :t_user/photo_url
            {:t_user/roles [:t_project_user/active? :t_project_user/role]}]}
   (ui/ui-grid-list-item
    {:title    (dom/a :.cursor-pointer.underline.text-blue-600.hover:text-blue-800
-                     {:onClick #(route/route-to! ::route/user-home {:user-id id}) #_(dr/change-route! this ["users" id "profile"])} full_name)
+                     {:onClick #(route/route-to! ::route/user-profile {:user-id id}) #_(dr/change-route! this ["users" id "profile"])} full_name)
     :subtitle (or job_title custom_job_title)
     :image    (if photo_url {:url photo_url} {:content (ui/avatar-14)})}
    (div :.flex.w-full.items-center.p-6.space-x-6
