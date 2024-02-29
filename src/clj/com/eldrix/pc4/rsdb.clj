@@ -1639,7 +1639,7 @@
   {::pco/op-name 'pc4.rsdb/change-pseudonymous-registration}
   (guard-can-for-patient? env patient_identifier :PATIENT_CHANGE_PSEUDONYMOUS_DATA)
   ;; check that we are not changing the existing NHS number
-  (let [{old-nhs-number :t_patient/nhs_number :as existing-patient} (patients/fetch-patient conn patient-pk)]
+  (let [{old-nhs-number :t_patient/nhs_number :as existing-patient} (patients/fetch-patient conn params)]
     (when (not= old-nhs-number nhs_number)
       (throw (ex-info "You are currently not permitted to change NHS number" {:existing  existing-patient
                                                                               :requested params}))))
