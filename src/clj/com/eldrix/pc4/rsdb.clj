@@ -114,6 +114,16 @@
            roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
        (auth/expand-permission-sets roles)))})
 
+(pco/defresolver project->permissions
+  "Return authorization permissions for current user to access given project."
+  [{authenticated-user :session/authenticated-user, conn :com.eldrix.rsdb/conn}
+   {project-id :t_project/id}]
+  {:t_project/permissions
+   (if (:t_role/is_system authenticated-user)
+     auth/all-permissions
+     (let [roles (get (:t_user/active_roles authenticated-user) project-id)]
+       (auth/expand-permission-sets roles)))})
+
 (defn wrap-tap-resolver
   "A transform to debug inputs to a resolver"
   [{::pco/keys [op-name] :as resolver}]
@@ -1744,6 +1754,7 @@
 (def all-resolvers
   [patient->break-glass
    patient->permissions
+   project->permissions
    patient-by-identifier
    patient-by-pk
    patient-by-pseudonym
