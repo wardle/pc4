@@ -13,6 +13,8 @@ Tasks that are currently my priority for this development cycle:
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
 * [x] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
+* [ ] Change password page
+* [ ] Force change password page for newly created accounts
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
@@ -34,5 +36,6 @@ Tasks that are currently my priority for this development cycle:
 so that front-end can resume a live session from the same browser.
 * [x] Switch ods-weekly to a SQLite backend and use to derive lists of GPs for a given surgery
 * [x] Upgrade codelists to use new versions of hermes and dmd
-* [ ] Check that hades uses latest hermes
+* [x] Check that hades uses latest hermes
 * [ ] Better user profile page, perhaps shown modally when from context of project team page?
+* [ ] Remove passwords in favour of non-password based authentication for non NHS Wales users
