@@ -1,37 +1,37 @@
 (ns pc4.ui.root
   (:require
-    [clojure.string :as str]
-    [com.fulcrologic.fulcro.algorithms.merge :as merge]
-    [com.fulcrologic.fulcro.application :as app]
-    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.data-fetch :as df]
-    [com.fulcrologic.fulcro.dom :as dom :refer [div ul li p h3 button b]]
-    [com.fulcrologic.fulcro.dom.html-entities :as ent]
-    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
-    [com.fulcrologic.fulcro.ui-state-machines :as uism :refer [defstatemachine]]
-    [com.fulcrologic.fulcro.algorithms.form-state :as fs]
-    [pc4.app :refer [SPA]]
-    [pc4.ui.core :as ui]
-    [pc4.ui.admissions]
-    [pc4.ui.diagnoses]
-    [pc4.ui.encounter]
-    [pc4.ui.encounters]
-    [pc4.ui.medications]
-    [pc4.ui.ninflamm]
-    [pc4.ui.patients]
-    [pc4.ui.results]
-    [pc4.ui.users :as users]
-    [pc4.ui.projects]
-    [taoensso.timbre :as log]))
+   [clojure.string :as str]
+   [com.fulcrologic.fulcro.algorithms.merge :as merge]
+   [com.fulcrologic.fulcro.application :as app]
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+   [com.fulcrologic.fulcro.data-fetch :as df]
+   [com.fulcrologic.fulcro.dom :as dom :refer [div ul li p h3 button b]]
+   [com.fulcrologic.fulcro.dom.html-entities :as ent]
+   [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
+   [com.fulcrologic.fulcro.ui-state-machines :as uism :refer [defstatemachine]]
+   [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+   [pc4.app :refer [SPA]]
+   [pc4.ui.core :as ui]
+   [pc4.ui.admissions]
+   [pc4.ui.diagnoses]
+   [pc4.ui.encounter]
+   [pc4.ui.encounters]
+   [pc4.ui.medications]
+   [pc4.ui.ninflamm]
+   [pc4.ui.patients]
+   [pc4.ui.results]
+   [pc4.ui.users :as users]
+   [pc4.ui.projects]
+   [taoensso.timbre :as log]))
 
 (defn field [{:keys [label valid? error-message] :as props}]
   (let [input-props (-> props (assoc :name label) (dissoc :label :valid? :error-message))]
     (div :.ui.field
-      (dom/label {:htmlFor label} label)
-      (dom/input input-props)
-      (dom/div :.ui.error.message {:classes [(when valid? "hidden")]}
-     error-message))))
+         (dom/label {:htmlFor label} label)
+         (dom/input input-props)
+         (dom/div :.ui.error.message {:classes [(when valid? "hidden")]}
+                  error-message))))
 
 (defsc Main [this props]
   {:query         [:main/welcome-message]
@@ -39,11 +39,11 @@
    :ident         (fn [] [:component/id :main])
    :route-segment ["home"]}
   (div :.ui.container.segment
-    (h3 "Main")
-    (p (str "Welcome to the Fulcro template. "
-            "The Sign up and login functionalities are partially implemented, "
-            "but mostly this is just a blank slate waiting "
-            "for your project."))))
+       (h3 "Main")
+       (p (str "Welcome to the Fulcro template. "
+               "The Sign up and login functionalities are partially implemented, "
+               "but mostly this is just a blank slate waiting "
+               "for your project."))))
 
 (defsc Settings [this {:keys [:account/time-zone :account/real-name] :as props}]
   {:query         [:account/time-zone :account/real-name :account/crap]
@@ -51,8 +51,8 @@
    :route-segment ["settings"]
    :initial-state {}}
   (div :.ui.container.segment
-    (h3 "Settings")
-    (div "TODO")))
+       (h3 "Settings")
+       (div "TODO")))
 
 (defsc SnomedDescription [this {:info.snomed.Description/keys [term] :as props}]
   {:query [:info.snomed.Description/id :info.snomed.Description/term]
@@ -114,10 +114,10 @@
                    :ui/all-reasons-for-stopping-medication []}}
 
   (div
-    (if-not (seq authenticated-user)
-      (users/ui-login login)
-      (comp/fragment (users/ui-nav-bar authenticated-user)
-                     (ui-main-router router)))))
+   (if-not (seq authenticated-user)
+     (users/ui-login login)
+     (comp/fragment (users/ui-nav-bar authenticated-user)
+                    (ui-main-router router)))))
 
 (comment
   (comp/get-query Root))
