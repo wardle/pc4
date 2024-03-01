@@ -25,15 +25,13 @@
     [pc4.ui.projects]
     [taoensso.timbre :as log]))
 
-
 (defn field [{:keys [label valid? error-message] :as props}]
   (let [input-props (-> props (assoc :name label) (dissoc :label :valid? :error-message))]
     (div :.ui.field
       (dom/label {:htmlFor label} label)
       (dom/input input-props)
       (dom/div :.ui.error.message {:classes [(when valid? "hidden")]}
-        error-message))))
-
+     error-message))))
 
 (defsc Main [this props]
   {:query         [:main/welcome-message]
@@ -55,7 +53,6 @@
   (div :.ui.container.segment
     (h3 "Settings")
     (div "TODO")))
-
 
 (defsc SnomedDescription [this {:info.snomed.Description/keys [term] :as props}]
   {:query [:info.snomed.Description/id :info.snomed.Description/term]
@@ -82,7 +79,6 @@
 
 (def ui-home-page (comp/factory HomePage))
 
-
 (defrouter MainRouter [this props]
   {:router-targets [HomePage
                     pc4.ui.patients/PatientDemographics
@@ -99,7 +95,8 @@
                     pc4.ui.projects/RegisterPseudonymous
                     pc4.ui.projects/ProjectTeam
                     pc4.ui.projects/ProjectDownloads
-                    pc4.ui.users/UserProfile]})
+                    pc4.ui.users/UserProfile
+                    pc4.ui.users/ChangePassword]})
 
 (def ui-main-router (comp/factory MainRouter))
 

@@ -52,7 +52,6 @@
 
 (def ui-project-button (comp/factory ProjectButton {:keyfn :t_project/id}))
 
-
 (defsc PatientById [this props]
   (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
     {:type      "text" :placeholder "Search by patient identifier"
@@ -89,11 +88,8 @@
 
 (def ui-list-user-projects (comp/factory ListUserProjects))
 
-
 (defsc UserHomePage
   [this {:>/keys      [projects]
-         :t_user/keys [latest_news]
-         :as          user}]
          :t_user/keys [latest_news must_change_password]}]
   {:ident         :t_user/id
    :query         [:t_user/id :t_user/username :t_user/title
@@ -135,7 +131,6 @@
   (when (seq active-remotes)
     (ui/ui-loading {})))
 
-
 (defsc NavBar
   [this {:t_user/keys [id username title first_names last_name initials has_photo] :as params}]
   {:ident         :t_user/id
@@ -146,7 +141,8 @@
                           :full-name (str (when-not (str/blank? title) (str title " ")) first_names " " last_name)
                           :initials  initials
                           :photo     (when has_photo (str "/users/cymru.nhs.uk/" username "/photo"))
-                          :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout {})])}]}
+                          :user-menu [{:id :change-pw :title "Change password" :onClick #(route/route-to! ::route/change-password)}
+                                      {:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout {})])}]}
                          {:on-home #(route/route-to! ::route/home)}))
 
 (def ui-nav-bar (comp/factory NavBar))
@@ -201,6 +197,39 @@
 
 (def ui-login (comp/factory Login))
 
+(defsc ChangePassword
+  [this {:ui/keys [error]}]
+  {:ident         (fn [] [:component/id :change-password])
+   :query         [:ui/error]
+   :initial-state {:ui/error nil}
+   :route-segment ["change-password"]}
+  (let [old-password (comp/get-state this :old-password)
+        new-password1 (comp/get-state this :new-password1)
+        new-password2 (comp/get-state this :new-password2)
+        mismatch? (and (not (str/blank? new-password1)) (not (str/blank? new-password2)) (not= new-password1 new-password2))
+        disabled? (or (str/blank? old-password) (str/blank? new-password1) (not= new-password1 new-password2))]
+    (div :.container.mx-auto
+      (ui/ui-active-panel
+        {:title "Change password"}
+        (ui/ui-simple-form
+          {}
+          (ui/ui-simple-form-item {:label "Old password:"}
+            (ui/ui-textfield {:type     "password"
+                              :value    old-password
+                              :onChange #(comp/set-state! this {:old-password %})}))
+          (ui/ui-simple-form-item {:label "New password:"}
+            (ui/ui-textfield {:value    new-password1
+                              :onChange #(comp/set-state! this {:new-password1 %})}))
+          (ui/ui-simple-form-item {:label "Enter new password again:"}
+            (ui/ui-textfield {:value    new-password2
+                              :onChange #(comp/set-state! this {:new-password2 %})}))
+          (when mismatch?
+            (ui/box-error-message {:message "New passwords do not match. Try again."}))
+          (when error
+            (ui/box-error-message {:message error}))
+          (ui/ui-submit-button {:label     "Change password »"
+                                :disabled? disabled?
+                                :onClick   #(when-not disabled? (println "change password!"))}))))))
 
 (defn professional-registration
   [{:t_user/keys                                [professional_registration professional_registration_url]
