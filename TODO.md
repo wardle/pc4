@@ -27,6 +27,7 @@ Tasks that are currently my priority for this development cycle:
 
 ## Other work - not critical to either deployment at the moment
 
+* [ ] Add default project configuration into top-level application configuration, and override (by merge) on per-project basis?
 * [ ] Add network connectivity error bar when offline
 * [x] Add current project identifier into URL to better support HTML routing (back and forward). Otherwise, one can go 
 'back' and not view a patient in context of the same project that they originally used.
