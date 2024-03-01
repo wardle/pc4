@@ -119,9 +119,8 @@
 
   (ui-layout
    {:project props :selected-id :register-patient}
-   (let [do-register (fn [] (do (println "Attempting to register" props)
-                                (comp/transact! this [(pc4.rsdb/register-patient
-                                                       {:project-id project-id, :nhs-number nhs-number})])))]
+   (let [do-register (fn [] (println "Attempting to register" props)
+                       (comp/transact! this [(pc4.rsdb/register-patient {:project-id project-id, :nhs-number nhs-number})]))]
      (div :.space-y-6
           (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
                (div :.md:grid.md:grid-cols-3.md:gap-6
