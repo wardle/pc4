@@ -1,14 +1,13 @@
 (ns pc4.users
   (:require
-    [clojure.string :as str]
-    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
-    [com.fulcrologic.fulcro.dom.events :as evt]
-    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [pc4.route :as route]
-    [taoensso.timbre :as log]))
-
+   [clojure.string :as str]
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+   [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
+   [com.fulcrologic.fulcro.dom.events :as evt]
+   [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+   [pc4.route :as route]
+   [taoensso.timbre :as log]))
 
 (defn update-login-state*
   [state {:keys [error loading]}]
@@ -45,8 +44,8 @@
              (js/console.log "Performing logout action" message)
              (swap! state (fn [s]
                             (cond-> (assoc s :session/authenticated-user {})
-                                    message
-                                    (assoc-in [:component/id :login :ui/error] message))))
+                              message
+                              (assoc-in [:component/id :login :ui/error] message))))
              (route/route-to! ::route/home)
              #_(dr/change-route! app ["login"])
              (.reload js/window.location true))
