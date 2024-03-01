@@ -34,7 +34,6 @@
   (when s (let [len (count s)]
             (if (> len length) (str (subs s 0 length) "…") s))))
 
-
 (defsc PlaceholderImage
   "Generates an SVG image placeholder of the given size and with the given label
   (defaults to showing 'w x h'.
@@ -52,7 +51,6 @@
       (dom/text #js {:textAnchor "middle" :x (/ w 2) :y (/ h 2)} label))))
 
 (def ui-placeholder (comp/factory PlaceholderImage))
-
 
 (defn icon-chevron-down []
   (svg :.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
@@ -75,7 +73,6 @@
       (when title (dom/span :.strong.font-bold.mr-4 title))
       (dom/span :.block.sm:inline message))))
 
-
 (defn flat-menu
   "A simple flat menu.
   Parameters:
@@ -92,7 +89,6 @@
           (dom/a :.inline-block.border.border-white.rounded.text-gray-400.italic.py-1.px-3.cursor-not-allowed title)
           :else
           (dom/a :.inline-block.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.py-1.px-3.cursor-pointer {:onClick #(when select-fn (select-fn item))} title))))))
-
 
 (defsc UILoading
   "Display a spinning loading image"
@@ -139,7 +135,7 @@
 (defsc UITextField*
   [this {:keys [id value type placeholder required auto-focus disabled
                 onChange onBlur onEnterKey] :or {type "text"}}]
-  (dom/input :.p-2.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+  (dom/input :.p-2.shadow-sm.focus:ring-indigo-500.border.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
     {:name      id :type type :placeholder placeholder
      :required  required
      :classes   (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-600" "bg-gray-50" "italic"])
@@ -210,7 +206,6 @@
 (defn parse-local-date [s]
   (when s (Date/fromIsoString s)))
 
-
 (def ui-local-date-input
   "A goog.Date input. Can be used like `dom/input` but onChange and onBlur handlers will be passed a Date instead
   of a raw react event, and you should supply a goog.Date for `:value` instead of a string.
@@ -237,7 +232,6 @@
   "A UI control to edit a date.
   Properties: id, label value min-date max-date onBlur onChange onEnterKey"
   (comp/factory UILocalDate))
-
 
 (defsc UISelectPopupButton
   [this {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?
@@ -392,7 +386,6 @@
   - :onClick    : onClick handler"
   (comp/factory UIButton {:keyfn :key}))
 
-
 (defsc UILinkButton [this {:keys [onClick]}]
   (dom/a :.pt-2.pb-2.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
     {:onClick onClick}
@@ -401,7 +394,6 @@
 (def ui-link-button
   "A link with an onClick handler that can be used as a button."
   (comp/factory UILinkButton))
-
 
 (defsc UIButtonWithDropdown [this props]
   (let [choices []
@@ -460,7 +452,6 @@
   - :onClose - fn if modal closed"
   (comp/factory UIModal))
 
-
 (defsc UISimpleFormTitle [this {:keys [title]}]
   (div :.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
     (div :.mt-1.sm:mt-0.sm:col-span-2
@@ -487,7 +478,6 @@
 
 (def ui-simple-form (comp/factory UISimpleForm))
 
-
 (defsc Layout
   [this {:keys [props menu] :or {props {}}}]
   (div :.grid.grid-cols-1.md:grid-cols-6.gap-x-4.relative.pr-2 props
@@ -496,7 +486,6 @@
       (comp/children this))))
 
 (def ui-layout (comp/factory Layout))
-
 
 (defsc UITwoColumnCard [this {:keys [title title-attrs subtitle items long-items]}]
   (div :.pb-2
@@ -630,7 +619,6 @@
 
 (def ui-menu-button (comp/factory MenuButton))
 
-
 (defsc Checkbox [this {:keys [name label description checked onChange]}]
   (div :.relative.flex.items-start
     (div :.flex.items-center.h-5
@@ -671,8 +659,8 @@
   - display-key : a function such as a keyword, a map or function to derive display"
   (comp/factory MultipleCheckboxes))
 
-(defsc UIPanel [this props]
-  (dom/div :.bg-white.shadow.sm:rounded-lg.border.shadow-lg.w-full props
+(defsc UIPanel [this {:keys [classes]}]
+  (dom/div :.shadow.sm:rounded-lg.border.shadow-lg.w-full {:classes (or classes ["bg-white"])}
     (dom/div :.px-4.py-6.sm:p-6
       (comp/children this))))
 
