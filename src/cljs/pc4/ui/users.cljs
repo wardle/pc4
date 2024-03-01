@@ -94,24 +94,27 @@
   [this {:>/keys      [projects]
          :t_user/keys [latest_news]
          :as          user}]
+         :t_user/keys [latest_news must_change_password]}]
   {:ident         :t_user/id
    :query         [:t_user/id :t_user/username :t_user/title
                    :t_user/first_names :t_user/last_name
-                   :t_user/active_roles
+                   :t_user/active_roles :t_user/must_change_password
                    {:>/projects (comp/get-query ListUserProjects)}
                    {:t_user/latest_news (comp/get-query NewsItem)}]
    :initial-state {:>/projects         []
                    :t_user/latest_news []}}
 
-  (tap> user)
-  (div
-    #_(pc4.ui.ui/ui-nav-bar {:title     "PatientCare v4" :show-user? true
-                             :full-name (str first_names " " last_name) :initials initials
-                             :user-menu [{:id :logout :title "Sign out" :onClick #(comp/transact! @SPA [(list 'pc4.users/logout)])}]})
-    (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
-      (div :.md:mr-2 (ui-list-user-projects projects))
-      (div :.col-span-3
-        (map ui-news-item latest_news)))))
+  (div :.grid.grid-cols-1.md:grid-cols-4.md:gap-4.m-4
+    (div :.md:mr-2 (ui-list-user-projects projects))
+    (div :.col-span-3.space-y-4
+      (when must_change_password
+        (ui/ui-panel {:classes ["bg-red-50" "text-red-800"]}
+          (dom/p :.font-bold.text-lg.min-w-min "Attention: You must change your password")
+          (dom/p :.pb-4 "Please change your password as soon as possible.")
+          (ui/ui-button {:role    :primary
+                         :onClick #(route/route-to! ::route/change-password)}
+                        "Change password...")))
+      (map ui-news-item latest_news))))
 
 (def ui-user-home-page (comp/factory UserHomePage))
 
