@@ -40,3 +40,5 @@ so that front-end can resume a live session from the same browser.
 * [x] Check that hades uses latest hermes
 * [ ] Better user profile page, perhaps shown modally when from context of project team page?
 * [ ] Remove passwords in favour of non-password based authentication for non NHS Wales users
+* [ ] Add status page in which connections to external systems are checked and status reported
+
