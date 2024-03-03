@@ -18,6 +18,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [honey.sql :as sql]
             [next.jdbc :as jdbc]
+            [next.jdbc.sql]
             [com.eldrix.clods.core :as clods]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.hermes.verhoeff :as verhoeff]
@@ -28,14 +29,12 @@
             [com.eldrix.pc4.rsdb.patients :as patients]
             [com.eldrix.pc4.rsdb.projects :as projects]
             [com.eldrix.pc4.rsdb.results :as results]
-            [com.eldrix.pc4.rsdb.users :as users]
-            [clojure.set :as set])
+            [com.eldrix.pc4.rsdb.users :as users])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate LocalDateTime)
-           (java.util Base64 Locale)
+           (java.time LocalDate)
+           (java.util Locale)
            (org.jsoup Jsoup)
-           (org.jsoup.safety Safelist)
-           (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
+           (org.jsoup.safety Safelist)))
 
 (s/def :uk.gov.ons.nhspd/PCD2 string?)
 (s/def :info.snomed.Concept/id (s/and int? verhoeff/valid?))
