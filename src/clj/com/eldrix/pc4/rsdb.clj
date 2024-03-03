@@ -1663,6 +1663,7 @@
     (throw (ex-info "invalid parameters for change-password! " (s/explain-data ::change-password params))))
   (when-not (= username (:t_user/username authenticated-user))
     (throw (ex-info "You cannot change password of a different user" {:requested-user username, :authenticated-user authenticated-user})))
+  (log/info "changing password for user" username)
   (let [user (users/fetch-user conn username {:with-credentials true})]
     (if (users/authenticate env user password)
       (users/save-password conn user new-password)
