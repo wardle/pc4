@@ -1657,11 +1657,10 @@
     authenticated-user :session/authenticated-user, :as env}
    {username     :t_user/username
     password     :t_user/password
-    new-password :t_user/new_password :as params}]
+    new-password :t_user/new_password, :as params}]
   {::pco/op-name 'pc4.rsdb/change-password}
   (when-not (s/valid? ::change-password params)
     (throw (ex-info "invalid parameters for change-password! " (s/explain-data ::change-password params))))
-  (log/info "authenticated user" authenticated-user)
   (when-not (= username (:t_user/username authenticated-user))
     (throw (ex-info "You cannot change password of a different user" {:requested-user username, :authenticated-user authenticated-user})))
   (let [user (users/fetch-user conn username {:with-credentials true})]
