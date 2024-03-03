@@ -256,7 +256,7 @@
      (swap! state #(-> % (assoc-in [:component/id :change-password :ui/error] err)))
      (do (swap! state (fn [st]
                         (-> st
-                            (assoc-in [:t_user id :t_user/must_change_password] false))))
+                            (assoc-in [:t_user/id id :t_user/must_change_password] false))))
          (route/route-to! ::route/home))))  ;; TODO: probably should execute using comp/transact rather than direct?
   (error-action
    [{:keys [state]}]
