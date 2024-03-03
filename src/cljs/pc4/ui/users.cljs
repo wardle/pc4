@@ -197,17 +197,25 @@
 
 (def ui-login (comp/factory Login))
 
+(defsc UserForChangePassword [this params]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/username]})
+
 (defsc ChangePassword
-  [this {:ui/keys [error]}]
+  [this {user :session/authenticated-user, :ui/keys [error]}]
   {:ident         (fn [] [:component/id :change-password])
-   :query         [:ui/error]
+   :query         [:ui/error
+                   {[:session/authenticated-user '_] (comp/get-query UserForChangePassword)}]
    :initial-state {:ui/error nil}
    :route-segment ["change-password"]}
   (let [old-password (comp/get-state this :old-password)
         new-password1 (comp/get-state this :new-password1)
         new-password2 (comp/get-state this :new-password2)
         mismatch? (and (not (str/blank? new-password1)) (not (str/blank? new-password2)) (not= new-password1 new-password2))
-        disabled? (or (str/blank? old-password) (str/blank? new-password1) (not= new-password1 new-password2))]
+        disabled? (or (str/blank? old-password) (str/blank? new-password1) (not= new-password1 new-password2))
+        change-password #(when-not disabled?
+                           (comp/transact! this [(list 'pc4.rsdb/change-password
+                                                       (assoc user :t_user/password old-password :t_user/new_password new-password1))]))]
     (div :.container.mx-auto
          (ui/ui-active-panel
           {:title "Change password"}
@@ -218,10 +226,12 @@
                                                      :value    old-password
                                                      :onChange #(comp/set-state! this {:old-password %})}))
            (ui/ui-simple-form-item {:label "New password:"}
-                                   (ui/ui-textfield {:value    new-password1
+                                   (ui/ui-textfield {:type     "password"
+                                                     :value    new-password1
                                                      :onChange #(comp/set-state! this {:new-password1 %})}))
            (ui/ui-simple-form-item {:label "Enter new password again:"}
-                                   (ui/ui-textfield {:value    new-password2
+                                   (ui/ui-textfield {:type     "password"
+                                                     :value    new-password2
                                                      :onChange #(comp/set-state! this {:new-password2 %})}))
            (when mismatch?
              (ui/box-error-message {:message "New passwords do not match. Try again."}))
@@ -229,8 +239,7 @@
              (ui/box-error-message {:message error}))
            (ui/ui-submit-button {:label     "Change password »"
                                  :disabled? disabled?
-                                 :onClick   #(when-not disabled? (println "change password!"))}))))))
-
+                                 :onClick   change-password}))))))
 (defn professional-registration
   [{:t_user/keys                                [professional_registration professional_registration_url]
     :t_professional_registration_authority/keys [abbreviation]}]
