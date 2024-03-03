@@ -254,9 +254,10 @@
    [{:keys [result state]}]
    (if-let [err (get-in result [:body 'pc4.rsdb/change-password :com.wsscode.pathom3.connect.runner/mutation-error])]
      (swap! state #(-> % (assoc-in [:component/id :change-password :ui/error] err)))
-     (swap! state (fn [st]
-                    (-> st
-                        (assoc-in [:t_user id :t_user/must_change_password] false))))))
+     (do (swap! state (fn [st]
+                        (-> st
+                            (assoc-in [:t_user id :t_user/must_change_password] false))))
+         (route/route-to! ::route/home))))
   (error-action
    [{:keys [state]}]
    (swap! state #(-> % (assoc-in [:component/id :change-password :ui/error] "Error. Please try again.")))))
