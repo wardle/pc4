@@ -399,8 +399,7 @@ and cannot change registration data.")
         (dom/p :.text-sm.font-medium
                "This changes the date of birth and gender for this record, and will therefore
                 change the project-specific pseudonym used to access the record. This is only
-                possible for privileged users. This action will be logged but it is recommended
-                that you record the prior pseudonym and newly generated pseudonym."))
+                possible for privileged users."))
    (ui/ui-simple-form-item {:label "NHS number"}
                            (div :.pt-2.text-gray-500.italic (nnn/format-nnn nhs_number)))
    (ui/ui-simple-form-item {:label "Gender"}
@@ -486,9 +485,9 @@ and cannot change registration data.")
      (when editing-demographics
        (ui/ui-modal
         {:actions [(when (and (= :LOCAL authoritative_demographics) (not change-registration-data))
-                     {:id ::save :title "Save..." :role :primary :onClick do-save-dod})
+                     {:id ::save :title "Save" :role :primary :onClick do-save-dod})
                    (when (and (= :LOCAL authoritative_demographics) change-registration-data)
-                     {:id ::save-reg :title "Save..." :role :primary :onClick do-save-reg :disabled? (not date_birth)})
+                     {:id ::save-reg :title "Save" :role :primary :onClick do-save-reg :disabled? (not date_birth)})
                    (when (and (= :PSEUDONYMOUS status) (not change-registration-data))
                      {:id ::change :title "Change registration details..." :onClick do-change-reg :disabled? (not (permissions :PATIENT_CHANGE_PSEUDONYMOUS_DATA))})
                    {:id ::cancel :title "Cancel" :onClick do-cancel-edit}]
