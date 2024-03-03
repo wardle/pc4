@@ -36,7 +36,6 @@
            (java.time LocalDate LocalDateTime)
            (com.eldrix.pc4.rsdb.auth AuthorizationManager)))
 
-
 (s/def ::role
   (s/keys :req [:t_project_user/id
                 :t_project_user/date_from :t_project_user/date_to
@@ -76,7 +75,6 @@
     :else                                                   ;; no matching method: log an error
     (log/error "unsupported authentication method:" authentication_method)))
 
-
 (defn- ^:deprecated can-authenticate-with-password?
   "Support for legacy rsdb authentication.
   For development, we temporarily use the fallback local authentication
@@ -109,20 +107,20 @@
   [conn namespace username]
   (when (and conn (= "cymru.nhs.uk" namespace))
     (jdbc/execute-one!
-      conn (sql/format {:select :id :from :t_user
-                        :where  [:= :username (.toLowerCase username)]}))))
+     conn (sql/format {:select :id :from :t_user
+                       :where  [:= :username (.toLowerCase username)]}))))
 
 (defn- save-password!
   [conn username new-password & {:keys [update-auth-method?]}]
   (let [hash (BCrypt/hashpw new-password (BCrypt/gensalt))]
     (jdbc/execute-one!
-      conn
-      (sql/format {:update :t_user
-                   :where  [:= :username username]
-                   :set    (cond-> {:credential           hash
-                                    :must_change_password false}
-                             update-auth-method?
-                             (assoc :authentication_method :LOCAL17))}))))
+     conn
+     (sql/format {:update :t_user
+                  :where  [:= :username username]
+                  :set    (cond-> {:credential           hash
+                                   :must_change_password false}
+                            update-auth-method?
+                            (assoc :authentication_method :LOCAL17))}))))
 
 (defn save-password
   "Save a password for the given user.
@@ -139,36 +137,36 @@
 (defn count-unread-messages
   [conn username]
   (jdbc.plan/select-one!
-    conn :unread_messages
-    (sql/format {:select [[:%count.t_message/id :unread_messages]]
-                 :from   [:t_message :t_user]
-                 :where  [:and
-                          [:= :t_user/username username]
-                          [:= :t_message/to_user_fk :t_user/id]
-                          [:= :is_unread "true"]]})))
+   conn :unread_messages
+   (sql/format {:select [[:%count.t_message/id :unread_messages]]
+                :from   [:t_message :t_user]
+                :where  [:and
+                         [:= :t_user/username username]
+                         [:= :t_message/to_user_fk :t_user/id]
+                         [:= :is_unread "true"]]})))
 
 (defn count-incomplete-messages
   [conn username]
   (jdbc.plan/select-one!
-    conn :incomplete_messages
-    (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
-                 :from   [:t_message :t_user]
-                 :where  [:and
-                          [:= :t_user/username username]
-                          [:= :t_message/to_user_fk :t_user/id]
-                          [:= :is_completed "false"]]})))
+   conn :incomplete_messages
+   (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
+                :from   [:t_message :t_user]
+                :where  [:and
+                         [:= :t_user/username username]
+                         [:= :t_message/to_user_fk :t_user/id]
+                         [:= :is_completed "false"]]})))
 
 (defn projects
   [conn username]
   (db/execute!
-    conn
-    (sql/format {:select [:*]
-                 :from   [:t_project]
-                 :where  [:in :t_project/id {:select [:t_project_user/project_fk]
-                                             :from   [:t_project_user :t_user]
-                                             :where  [:and
-                                                      [:= :t_project_user/user_fk :t_user/id]
-                                                      [:= :t_user/username username]]}]})))
+   conn
+   (sql/format {:select [:*]
+                :from   [:t_project]
+                :where  [:in :t_project/id {:select [:t_project_user/project_fk]
+                                            :from   [:t_project_user :t_user]
+                                            :where  [:and
+                                                     [:= :t_project_user/user_fk :t_user/id]
+                                                     [:= :t_user/username username]]}]})))
 
 (defn sql-active-project-ids
   "Generate SQL to return a user's active project identifiers.
@@ -212,7 +210,6 @@
   (let [project-ids (set (map :t_project/id (projects conn username)))]
     (into project-ids (map #(projects/all-children-ids conn %) project-ids))))
 
-
 (defn roles-for-user-sql
   ([username]
    (roles-for-user-sql username {}))
@@ -224,7 +221,7 @@
              :t_project [:= :project_fk :t_project/id]
              :t_role [:= :role_fk :t_role/id]]
     :where  (if project-id [:and [:= :t_user/username username] [:= :t_project/id project-id]]
-                           [:= :t_user/username username])}))
+                [:= :t_user/username username])}))
 
 (s/fdef roles-for-user
   :args (s/cat :conn ::db/conn :username string? :opts (s/? (s/keys :opt [:t_project/id])))
@@ -259,11 +256,11 @@
    (roles-for-user conn username {}))
   ([conn username opts]
    (->> (db/execute!
-          conn
-          (sql/format (roles-for-user-sql username opts)))
+         conn
+         (sql/format (roles-for-user-sql username opts)))
         (map #(assoc % :t_project_user/active? (projects/role-active? %)
-                       :t_project/active? (projects/active? %)
-                       :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
+                     :t_project/active? (projects/active? %)
+                     :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
 
 (s/fdef permissions-for-project
   :args (s/cat :roles (s/coll-of ::role) :project-id int?))
@@ -318,7 +315,6 @@
       (authorized-any? [_ permission]
         (some #(contains? (:t_project_user/permissions %) permission) roles)))))
 
-
 (s/def ::user-for-authorization-manager (s/keys :req [:t_user/active_roles :t_role/is_system]))
 
 (defn authorization-manager2
@@ -372,28 +368,27 @@
   ([conn username {:keys [with-credentials] :or {with-credentials false}}]
    (db/execute-one! conn
                     (sql/format (cond-> (assoc fetch-user-query
-                                          :where [:= :username (str/lower-case username)])
+                                               :where [:= :username (str/lower-case username)])
                                   with-credentials
                                   (update :select conj :credential))))))
 
 (defn fetch-user-by-id [conn user-id]
   (db/execute-one! conn (sql/format (assoc fetch-user-query
-                                      :where [:= :t_user/id user-id]))))
+                                           :where [:= :t_user/id user-id]))))
 
 (defn job-title [{custom-job-title :t_user/custom_job_title, job-title :t_job_title/name}]
   (if (str/blank? custom-job-title) job-title custom-job-title))
-
 
 (defn administrator-users-sql
   "Returns SQL to get basic information about administrative users for the projects specified."
   [project-ids]
   {:select [:id :username :first_names :last_name :title]
    :from   :t_user
-   :where  (cond->[:or [:= :username "system"]]
+   :where  (cond-> [:or [:= :username "system"]]
              (seq project-ids)
              (conj [:in :id {:select-distinct :administrator_user_fk
-                                :from            :t_project
-                                :where           [:in :id project-ids]}]))})
+                             :from            :t_project
+                             :where           [:in :id project-ids]}]))})
 
 (defn administrator-users
   "Returns administrator users for the projects specified."
@@ -465,17 +460,16 @@
                                             :where  [:= :username username]
                                             :set    {:must_change_password true}})))
 
-
 (defn fetch-user-photo [conn username]
   (jdbc/execute-one!
-    conn
-    (sql/format
-      {:select [:username :data :originalfilename :mimetype :size]
-       :from   [:erattachmentdata :erattachment :t_user]
-       :where  [:and
-                [:= :erattachment/attachmentdataid :erattachmentdata/id]
-                [:= :erattachment/id :t_user/photo_fk]
-                [:= :t_user/username username]]})))
+   conn
+   (sql/format
+    {:select [:username :data :originalfilename :mimetype :size]
+     :from   [:erattachmentdata :erattachment :t_user]
+     :where  [:and
+              [:= :erattachment/attachmentdataid :erattachmentdata/id]
+              [:= :erattachment/id :t_user/photo_fk]
+              [:= :t_user/username username]]})))
 
 (defn has-photo? [conn username]
   (jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user
@@ -487,14 +481,14 @@
   the moment, all recent news is returned."
   [conn username]
   (db/execute! conn (sql/format
-                      {:select    [:t_news/id :date_time :t_news/title :body
-                                   :username :t_user/id :t_user/title :first_names :last_name :postnomial :custom_initials
-                                   :email :custom_job_title :t_job_title/name]
-                       :from      [:t_news]
-                       :left-join [:t_user [:= :author_fk :t_user/id]
-                                   :t_job_title [:= :job_title_fk :t_job_title/id]]
-                       :order-by  [[:date_time :desc]]
-                       :limit     5})))
+                     {:select    [:t_news/id :date_time :t_news/title :body
+                                  :username :t_user/id :t_user/title :first_names :last_name :postnomial :custom_initials
+                                  :email :custom_job_title :t_job_title/name]
+                      :from      [:t_news]
+                      :left-join [:t_user [:= :author_fk :t_user/id]
+                                  :t_job_title [:= :job_title_fk :t_job_title/id]]
+                      :order-by  [[:date_time :desc]]
+                      :limit     5})))
 
 (defn record-login!
   "Record the date of login for audit purposes. At the moment, this simply
@@ -504,7 +498,6 @@
   ([conn username] (record-login! conn username (LocalDateTime/now)))
   ([conn username ^LocalDateTime date]
    (jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
-
 
 (defn perform-login!                                        ;; TODO: use single SQL to fetch user data and active roles
   "Returns a user with the given username iff the password is correct, including
@@ -556,8 +549,6 @@
         send-email
         (assoc :email (queue/enqueue-job txn :user/email {:message-id (:t_message/id message)
                                                           :to         email :subject subject :body body}))))))
-
-
 
 (comment
   (require '[next.jdbc.connection])
