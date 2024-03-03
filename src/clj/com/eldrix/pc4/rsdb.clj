@@ -250,7 +250,7 @@
    ::pco/output [:wales.nhs.abuhb.Patient/CRN
                  :wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
   {:wales.nhs.abuhb.Patient/CRN         (when (= auth :CAVUHB) crn)
-   :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB crn))})
+   :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB) crn)})
 
 (pco/defresolver patient->demographics-authority
   [{authoritative_demographics :t_patient/authoritative_demographics
