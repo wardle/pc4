@@ -1654,7 +1654,7 @@
 
 (pco/defmutation change-password!
   [{conn               :com.eldrix.rsdb/conn
-    authenticated-user :session/authenticated-user}
+    authenticated-user :session/authenticated-user, :as env}
    {username     :t_user/username
     password     :t_user/password
     new-password :t_user/new_password :as params}]
@@ -1664,10 +1664,10 @@
   (log/info "authenticated user" authenticated-user)
   (when-not (= username (:t_user/username authenticated-user))
     (throw (ex-info "You cannot change password of a different user" {:requested-user username, :authenticated-user authenticated-user})))
-  (if (users/check-password conn nil username password)
-    (let [user (users/fetch-user conn username)]
-      (users/save-password conn user new-password))
-    (throw (ex-info "Cannot change password: incorrect password." {}))))
+  (let [user (users/fetch-user conn username {:with-credentials true})]
+    (if (users/authenticate env user password)
+      (users/save-password conn user new-password)
+      (throw (ex-info "Cannot change password: incorrect old password." {})))))
 
 (s/def ::save-admission (s/keys :req [:t_episode/patient_fk
                                       :t_episode/date_registration

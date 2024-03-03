@@ -105,25 +105,6 @@
         (log/error "unsupported authentication method:" authentication_method)
         false))))
 
-(defn ^:deprecated check-password
-  "Check a user's credentials.
-  Returns a map containing :t_user/id and :t_user/username if the password is
-  correct.
-  Parameters:
-   - conn     : database connection
-   - nadex    : LDAP connection pool
-   - username : username
-   - password : password."
-  [conn nadex username password]
-  (let [user (jdbc/execute-one!
-               conn
-               (sql/format {:select [:id :username :credential :authentication_method]
-                            :from   [:t_user]
-                            :where  [:= :username (.toLowerCase username)]}))]
-    (when (authenticate {:wales.nhs/nadex nadex} user password)
-      (select-keys user [:t_user/id :t_user/username]))))
-
-
 (defn is-rsdb-user?
   [conn namespace username]
   (when (and conn (= "cymru.nhs.uk" namespace))
