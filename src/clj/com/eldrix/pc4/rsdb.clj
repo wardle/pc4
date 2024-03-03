@@ -73,9 +73,9 @@
 
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
-    (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
-    (or (nil? date_onset) (nil? date_to) (.isBefore date_onset date_to) (.equals date_onset date_to))
-    (or (nil? date_diagnosis) (nil? date_to) (.isBefore date_diagnosis date_to) (.equals date_diagnosis date_to))))
+   (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
+   (or (nil? date_onset) (nil? date_to) (.isBefore date_onset date_to) (.equals date_onset date_to))
+   (or (nil? date_diagnosis) (nil? date_to) (.isBefore date_diagnosis date_to) (.equals date_diagnosis date_to))))
 
 (defn valid-diagnosis-status? [{:t_diagnosis/keys [status date_to]}]
   (case status
@@ -225,7 +225,7 @@
                  :t_patient_hospital/hospital_identifier]
    ::pco/output [:t_patient_hospital/authoritative_demographics]}
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
-                                                 (clods/parse-org-id hospital_identifier))
+                                     (clods/parse-org-id hospital_identifier))
         org (clods/fetch-org clods root extension)]
     {:t_patient_hospital/authoritative_demographics
      (cond
@@ -379,8 +379,8 @@
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
-                :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
-                                                                                  :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
+            :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
+                                                                              :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
 (pco/defresolver summary-multiple-sclerosis->events
   [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
@@ -457,7 +457,7 @@
                   (update :t_medication/events
                           (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
                                              (assoc evt :t_medication_event/event_concept
-                                                        (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+                                                    (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
              medication)))})
 
 (pco/defresolver medication-by-id
@@ -530,8 +530,8 @@
     {:t_patient/lsoa11
      (when current-address
        (or
-         (when (and address1 (re-matches lsoa-re address1)) address1)
-         (when postcode (get (com.eldrix.nhspd.core/fetch-postcode nhspd postcode) "LSOA11"))))}))
+        (when (and address1 (re-matches lsoa-re address1)) address1)
+        (when postcode (get (com.eldrix.nhspd.core/fetch-postcode nhspd postcode) "LSOA11"))))}))
 
 (pco/defresolver address->stored-lsoa
   "Returns a stored LSOA for the address specified.
@@ -587,9 +587,8 @@
                                                       [:t_episode/date_referral :asc]
                                                       [:t_episode/date_discharge :asc]]}))
           (mapv #(assoc % :t_episode/status (projects/episode-status %)
-                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}
-                          :t_episode/patient {:t_patient/id patient-pk}))))})
-
+                        :t_episode/project {:t_project/id (:t_episode/project_fk %)}
+                        :t_episode/patient {:t_patient/id patient-pk}))))})
 
 (pco/defresolver patient->pending-referrals
   "Return pending referrals - either all (`:all`) or only those to which the current user
@@ -635,8 +634,8 @@
   (let [result (jdbc/execute-one! conn (sql/format {:select :* :from :t_episode
                                                     :where  [:= :id id]}))]
     (assoc result :t_episode/status (projects/episode-status result)
-                  :t_episode/project {:t_project/id (:t_episode/project_fk result)}
-                  :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
+           :t_episode/project {:t_project/id (:t_episode/project_fk result)}
+           :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -747,7 +746,7 @@
                                        :where  [:= :project_fk project-id]}))
         (map #(let [encounter-type-id (:t_encounter_template/encounter_type_fk %)]
                 (assoc % :t_encounter_type/id encounter-type-id
-                         :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
+                       :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
 
 (pco/defresolver project->parent
   [{parent-id :t_project/parent_project_fk}]
@@ -990,8 +989,8 @@
                    {:t_encounter/form_ms_relapse
                     (if ms_disease_course_fk
                       (assoc form :t_form_ms_relapse/ms_disease_course
-                                  {:t_ms_disease_course/id   ms_disease_course_fk
-                                   :t_ms_disease_course/name (:t_ms_disease_course/name form)})
+                             {:t_ms_disease_course/id   ms_disease_course_fk
+                              :t_ms_disease_course/name (:t_ms_disease_course/name form)})
                       form)})))
           encounter-ids)))
 
@@ -1165,8 +1164,8 @@
   (let [{:keys [project-id active-roles active-projects]} (pco/params env)]
     {:t_user/roles
      (cond->> (users/roles-for-user conn username {:t_project/id project-id})
-              active-roles (filter :t_project_user/active?)
-              active-projects (filter :t_project/active?))}))
+       active-roles (filter :t_project_user/active?)
+       active-projects (filter :t_project/active?))}))
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
@@ -1275,12 +1274,12 @@
     (throw (ex-info "Not authorized" {}))
     (if-let [global-salt (:legacy-global-pseudonym-salt config)]
       (let [params' (assoc params :user-id (:t_user/id user)
-                                  :salt global-salt
-                                  :nhs-number (nnn/normalise nhs-number)
-                                  :date-birth (cond
-                                                (instance? LocalDate date-birth) date-birth
-                                                (string? date-birth) (LocalDate/parse date-birth)
-                                                :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
+                           :salt global-salt
+                           :nhs-number (nnn/normalise nhs-number)
+                           :date-birth (cond
+                                         (instance? LocalDate date-birth) date-birth
+                                         (string? date-birth) (LocalDate/parse date-birth)
+                                         :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
         (if (s/valid? ::register-patient-by-pseudonym params')
           (jdbc/with-transaction [txn conn {:isolation :serializable}]
             (projects/register-legacy-pseudonymous-patient txn params'))
@@ -1300,8 +1299,6 @@
                   :t_episode/project_fk]}
   (log/debug "search-patient-by-pseudonym" params)
   (projects/search-by-project-pseudonym conn project-id pseudonym))
-
-
 
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
   [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} patient-identifier permission]
@@ -1342,24 +1339,23 @@
   (log/info "break glass" {:patient patient-identifier :user (:t_user/username user)})
   (api-middleware/augment-response {:t_patient/patient_identifier patient-identifier
                                     :t_patient/break_glass        true}
-    (fn [response]
-      (assoc response :session (assoc session :break-glass patient-identifier)))))
-
+                                   (fn [response]
+                                     (assoc response :session (assoc session :break-glass patient-identifier)))))
 
 (s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
 (s/def ::save-diagnosis
   (s/and
-    (s/keys :req [:t_patient/patient_identifier
-                  :t_diagnosis/diagnosis
-                  :t_diagnosis/status]
-            :opt [:t_diagnosis/date_onset
-                  :t_diagnosis/date_diagnosis
-                  :t_diagnosis/date_onset_accuracy
-                  :t_diagnosis/date_diagnosis_accuracy
-                  :t_diagnosis/date_to
-                  :t_diagnosis/date_to_accuracy])
-    valid-diagnosis-status?
-    ordered-diagnostic-dates?))
+   (s/keys :req [:t_patient/patient_identifier
+                 :t_diagnosis/diagnosis
+                 :t_diagnosis/status]
+           :opt [:t_diagnosis/date_onset
+                 :t_diagnosis/date_diagnosis
+                 :t_diagnosis/date_onset_accuracy
+                 :t_diagnosis/date_diagnosis_accuracy
+                 :t_diagnosis/date_to
+                 :t_diagnosis/date_to_accuracy])
+   valid-diagnosis-status?
+   ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
   [{conn                 :com.eldrix.rsdb/conn
@@ -1369,7 +1365,7 @@
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
   (log/info "save diagnosis request: " params "user: " user-id)
   (let [params' (assoc params :t_diagnosis/user_fk (:t_user/id user-id)
-                              :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
+                       :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
     (if-not (s/valid? ::save-diagnosis (dissoc params' :t_diagnosis/id))
       (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-diagnosis params'))))
@@ -1450,7 +1446,7 @@
               (patients/save-ms-diagnosis! txn params')
               (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e)))))
           (assoc (patient->summary-multiple-sclerosis env params)
-            :t_patient/patient_identifier patient-identifier)))))
+                 :t_patient/patient_identifier patient-identifier)))))
 
 (s/def ::save-pseudonymous-postal-code
   (s/keys :req [:t_patient/patient_identifier
@@ -1496,19 +1492,19 @@
                                  (patients/patient-identifier-for-ms-event conn params))]
       (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
       (create-or-save-entity
-        {:id-key  :t_ms_event/id
-         :save-fn #(patients/save-ms-event! conn %)
-         :params  (-> params
-                      (dissoc :t_patient/patient_identifier
-                              :t_ms_event/type
-                              :t_ms_event_type/id
-                              :t_ms_event_type/abbreviation
-                              :t_ms_event_type/name
-                              :t_ms_event/is_relapse
-                              :t_ms_event/is_progressive)
-                      (assoc :t_ms_event/ms_event_type_fk
-                             (or (:t_ms_event_type/id params)
-                                 (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
+       {:id-key  :t_ms_event/id
+        :save-fn #(patients/save-ms-event! conn %)
+        :params  (-> params
+                     (dissoc :t_patient/patient_identifier
+                             :t_ms_event/type
+                             :t_ms_event_type/id
+                             :t_ms_event_type/abbreviation
+                             :t_ms_event_type/name
+                             :t_ms_event/is_relapse
+                             :t_ms_event/is_progressive)
+                     (assoc :t_ms_event/ms_event_type_fk
+                            (or (:t_ms_event_type/id params)
+                                (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
 
 (s/def ::delete-ms-event
   (s/keys :req [:t_user/id
@@ -1658,22 +1654,20 @@
 
 (pco/defmutation change-password!
   [{conn               :com.eldrix.rsdb/conn
-    authenticated-user :session/authenticated-user
-    :as                env}
+    authenticated-user :session/authenticated-user}
    {username     :t_user/username
     password     :t_user/password
     new-password :t_user/new_password :as params}]
   {::pco/op-name 'pc4.rsdb/change-password}
   (when-not (s/valid? ::change-password params)
     (throw (ex-info "invalid parameters for change-password! " (s/explain-data ::change-password params))))
-  (let [user (users/fetch-user conn username)]
-    (when-not (= username (:value authenticated-user))
-      (throw (ex-info "You cannot change the password of a different user." {:requested-user     username
-                                                                             :authenticated-user (:value user)})))
-    (if (or (:t_user/must_change_password user)             ;; we don't need current password if we're forcing password change
-            (users/check-password conn nil username password)) ;; otherwise, we do check current password
-      (users/save-password conn user new-password)
-      (throw (ex-info "Cannot change password: incorrect password." {})))))
+  (log/info "authenticated user" authenticated-user)
+  (when-not (= username (:t_user/username authenticated-user))
+    (throw (ex-info "You cannot change password of a different user" {:requested-user username, :authenticated-user authenticated-user})))
+  (if (users/check-password conn nil username password)
+    (let [user (users/fetch-user conn username)]
+      (users/save-password conn user new-password))
+    (throw (ex-info "Cannot change password: incorrect password." {}))))
 
 (s/def ::save-admission (s/keys :req [:t_episode/patient_fk
                                       :t_episode/date_registration
@@ -1691,10 +1685,10 @@
                        (:t_project/id (next.jdbc/execute-one! conn (sql/format {:select :id :from :t_project :where [:= :name "ADMISSION"]})))
                        (throw (ex-info "No project named 'ADMISSION' available to be used for default admission episodes." {})))
         params' (assoc params :t_episode/project_fk project-id
-                              :t_episode/date_referral (:t_episode/date_registration params)
-                              :t_episode/registration_user_fk user-id
-                              :t_episode/referral_user_fk user-id
-                              :t_episode/discharge_user_fk user-id)]
+                       :t_episode/date_referral (:t_episode/date_registration params)
+                       :t_episode/registration_user_fk user-id
+                       :t_episode/referral_user_fk user-id
+                       :t_episode/discharge_user_fk user-id)]
     (guard-can-for-patient? env (patients/pk->identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
     (log/info "writing episode" params')
     (if (tempid/tempid? (:t_episode/id params'))
