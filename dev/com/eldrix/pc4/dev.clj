@@ -1,21 +1,21 @@
 (ns com.eldrix.pc4.dev
   (:require
-    [clojure.repl :as repl :refer [doc]]
-    [clojure.spec.alpha :as s]
-    [clojure.spec.gen.alpha :as gen]
-    [clojure.spec.test.alpha :as stest]
-    [cognitect.transit :as transit]
-    [com.eldrix.clods.core :as clods]
-    [com.eldrix.pc4.pedestal]
-    [com.eldrix.pc4.rsdb.patients :as patients]
-    [com.eldrix.pc4.rsdb.results :as results]
-    [com.eldrix.pc4.system :as pc4]
-    [com.eldrix.pc4.users :as users]
-    [integrant.core :as ig]
-    [integrant.repl :as ig.repl]
-    [integrant.repl.state]
-    [next.jdbc :as jdbc]
-    [portal.api :as portal]))
+   [clojure.repl :as repl :refer [doc]]
+   [clojure.spec.alpha :as s]
+   [clojure.spec.gen.alpha :as gen]
+   [clojure.spec.test.alpha :as stest]
+   [cognitect.transit :as transit]
+   [com.eldrix.clods.core :as clods]
+   [com.eldrix.pc4.pedestal]
+   [com.eldrix.pc4.rsdb.patients :as patients]
+   [com.eldrix.pc4.rsdb.results :as results]
+   [com.eldrix.pc4.system :as pc4]
+   [com.eldrix.pc4.users :as users]
+   [integrant.core :as ig]
+   [integrant.repl :as ig.repl]
+   [integrant.repl.state]
+   [next.jdbc :as jdbc]
+   [portal.api :as portal]))
 
 (stest/instrument)                                          ;; turn on instrumentation for development
 (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
@@ -46,6 +46,7 @@
   (tap> integrant.repl.state/system)
 
   (ig.repl/go [:com.eldrix.pc4.pedestal/server])
+
   (pc4/halt! (system))
   (ig.repl/halt)
   (pc4/halt! integrant.repl.state/system)
@@ -53,7 +54,6 @@
   (def system integrant.repl.state/system)
   (def pathom (:pathom/boundary-interface integrant.repl.state/system))
 
-  
   (:com.eldrix.deprivare/ops (pc4/config :dev))
   ;; start a system without a server  (REPL usage only)
   (def system (pc4/init :dev [:pathom/env]))
@@ -102,7 +102,6 @@
   (type resp)
   (keys (get resp 'pc4.rsdb/register-patient-by-pseudonym)))
 
-
 (comment
   (def system (pc4/init :dev [:pathom/boundary-interface]))
   (pc4/halt! system)
@@ -131,9 +130,6 @@
               {:t_patient/surgery [:uk.nhs.ord/name
                                    :uk.nhs.ord/orgId]}]}]))
 
-
-
-
 (comment
   (def system (pc4/init :dev))
   (pc4/load-namespaces :dev/dell)
@@ -142,11 +138,11 @@
   (def process (:pathom/boundary-interface system))
 
   (process
-    [{'(wales.nhs.empi/fetch-patient
-         {:system "https://fhir.nhs.uk/Id/nhs-number" :value "1234567890"})
-      [:org.hl7.fhir.Patient/identifier
-       :org.hl7.fhir.Patient/name
-       :org.hl7.fhir.Patient/gender]}])
+   [{'(wales.nhs.empi/fetch-patient
+       {:system "https://fhir.nhs.uk/Id/nhs-number" :value "1234567890"})
+     [:org.hl7.fhir.Patient/identifier
+      :org.hl7.fhir.Patient/name
+      :org.hl7.fhir.Patient/gender]}])
 
   (process [{[:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id "W93036"]
              [:uk.nhs.ord/orgId
@@ -178,7 +174,6 @@
                                                                                 '(:info.snomed.Concept/parentRelationshipIds {:type 116680003})]}]}
                     :info.snomed.Concept/id
                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}])
-
 
   (com.eldrix.dmd.store/fetch-product (get-in system [:pathom/registry :com.eldrix.dmd.graph/store]) 108537001)
 
@@ -236,8 +231,6 @@
                                            {:t_patient_hospital/hospital [:uk.nhs.ord/name
                                                                           :org.w3.2004.02.skos.core/prefLabel]}]}]}]))
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   THIS COMMENT BLOCK IS FOR INTERACTIVE USE WITH THE REMOTE SERVER PC4   ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -277,15 +270,13 @@
   (next.jdbc.sql/update! conn :t_user {:credential "xxxx"} {:t_user/id 967})
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
 
-
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 3)
 
   (com.eldrix.pc4.rsdb.users/register-user-to-project (:com.eldrix.rsdb/conn system) {:username   "xxx" :project-id 1})
 
   (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "xxx")
 
-
-  ;; find a patient with given NHS number
+;; find a patient with given NHS number
   (next.jdbc/execute! (:com.eldrix.rsdb/conn system) (honey.sql/format {:select [:id :patient_identifier :sex :nhs_number :date-birth :date-death]
                                                                         :from [:t_patient]
                                                                         :where [:= :nhs_number "xxx"]}))
@@ -306,7 +297,6 @@
                                                                   :date-birth (java.time.LocalDate/of 1900 1 1)})
   (com.eldrix.pc4.rsdb.projects/fetch-project (:com.eldrix.rsdb/conn system) 126)
 
-
   (com.eldrix.pc4.rsdb.projects/discharge-episode! (:com.eldrix.rsdb/conn system) 1 {:t_episode/id 48256})
 
   (require '[com.eldrix.pc4.modules.dmt])
@@ -321,16 +311,6 @@
   (com.eldrix.pc4.modules.dmt/all-patient-diagnoses system [124079])
   (com.eldrix.pc4.modules.dmt/write-data system :cambridge))
 
-
-
-
-
-
-
-
-
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -342,7 +322,6 @@
 
 (comment
   (def x (com.eldrix.pc4.rsdb.results/parse-count-lesions "5+/-2"))
-
 
   (results/lesion-range (com.eldrix.pc4.rsdb.results/parse-count-lesions ">12"))
 
