@@ -51,7 +51,7 @@
   - LOCAL: an outdated SHA encoded password dating from rsdb's first version
   - LOCAL17: a slightly more modern password encoding from 2017
   - NADEX : use of NHS Wales' active directory"
-  [{:wales.nhs/keys [nadex]} {:t_user/keys [username credential authentication_method]} password]
+  [{:wales.nhs/keys [nadex]} {:t_user/keys [username credential authentication_method] :as user} password]
   (cond
     (or (str/blank? username) (str/blank? password))
     false
@@ -62,15 +62,18 @@
       (log/warn "warning: using outdated password check for user " username)
       (= credential hash))
 
-    (= authentication_method :LOCAL17)                      ;; TODO: upgrade to more modern hash here and in rsdb codebase
+    (and credential (= authentication_method :LOCAL17))                      ;; TODO: upgrade to more modern hash here and in rsdb codebase
     (BCrypt/checkpw password credential)
 
     (and nadex (= authentication_method :NADEX))
     (nadex/can-authenticate? nadex username password)
 
-    (= authentication_method :NADEX)                        ;; TODO: remove this fallback
+    (and credential (= authentication_method :NADEX))                        ;; TODO: remove this fallback
     (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
         (BCrypt/checkpw password credential))
+
+    (not credential)
+    (throw (ex-info "missing credential for user" user))
 
     :else                                                   ;; no matching method: log an error
     (log/error "unsupported authentication method:" authentication_method)))
@@ -568,8 +571,7 @@
 
   (fetch-user-photo conn "rh084967")
   (fetch-user conn "ma090906")
-  (check-password conn nil "system" "password")
-  (authenticate {} (fetch-user conn "system") "password")
+  (authenticate {} (fetch-user conn "system" {:with-credentials true}) "password")
   (group-by :t_project_user/role (roles-for-user conn "ma090906"))
   (map :t_project/id (roles-for-user conn "ma090906"))
   (filter #(= 15 (:t_project/id %)) (roles-for-user conn "ma090906"))
