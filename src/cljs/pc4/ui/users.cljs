@@ -211,6 +211,7 @@
   (let [old-password (comp/get-state this :old-password)
         new-password1 (comp/get-state this :new-password1)
         new-password2 (comp/get-state this :new-password2)
+        visited (or (comp/get-state this :visited) #{})
         mismatch? (and (not (str/blank? new-password1)) (not (str/blank? new-password2)) (not= new-password1 new-password2))
         disabled? (or (str/blank? old-password) (str/blank? new-password1) (not= new-password1 new-password2))
         change-password #(when-not disabled?
@@ -228,12 +229,14 @@
            (ui/ui-simple-form-item {:label "New password:"}
                                    (ui/ui-textfield {:type     "password"
                                                      :value    new-password1
-                                                     :onChange #(comp/set-state! this {:new-password1 %})}))
+                                                     :onChange #(comp/set-state! this {:new-password1 %})
+                                                     :onBlur #(comp/set-state! this {:visited (conj visited :one)})}))
            (ui/ui-simple-form-item {:label "Enter new password again:"}
                                    (ui/ui-textfield {:type     "password"
                                                      :value    new-password2
-                                                     :onChange #(comp/set-state! this {:new-password2 %})}))
-           (when mismatch?
+                                                     :onChange #(comp/set-state! this {:new-password2 %})
+                                                     :onBlur #(comp/set-state! this {:visited (conj visited :two)})}))
+           (when (and (:one visited) (:two visited) mismatch?)
              (ui/box-error-message {:message "New passwords do not match. Try again."}))
            (when error
              (ui/box-error-message {:message error}))
