@@ -50,7 +50,10 @@
   (pc4/halt! (system))
   (ig.repl/halt)
   (pc4/halt! integrant.repl.state/system)
+
+  ;; in vim, mark this form using mm  - then run anytime, using ,emm
   (reset-system)
+
   (def system integrant.repl.state/system)
   (def pathom (:pathom/boundary-interface integrant.repl.state/system))
 
