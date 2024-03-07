@@ -11,7 +11,8 @@
             [pc4.ui.core :as ui]
             [pc4.ui.patients :as patients]
             [pc4.ui.snomed :as snomed]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [pc4.route :as route]))
 
 (defsc Project [this params]
   {:ident :t_project/id
@@ -42,12 +43,12 @@
            {:t_encounter/form_weight_height
             [:t_form_weight_height/weight_kilogram]}]}
   (ui/ui-table-row computed-props
-    (ui/ui-table-cell {} (ui/format-date date_time))
-    (ui/ui-table-cell {} (ui-encounter-template-title encounter_template))
-    (ui/ui-table-cell {} (str (:t_form_edss/score form_edss)))
-    (ui/ui-table-cell {} (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
-    (ui/ui-table-cell {} (get-in form_ms_relapse [:t_form_ms_relapse/ms_disease_course :t_ms_disease_course/name]))
-    (ui/ui-table-cell {} (some-> (:t_form_weight_height/weight_kilogram form_weight_height) (str "kg")))))
+                   (ui/ui-table-cell {} (ui/format-date date_time))
+                   (ui/ui-table-cell {} (ui-encounter-template-title encounter_template))
+                   (ui/ui-table-cell {} (str (:t_form_edss/score form_edss)))
+                   (ui/ui-table-cell {} (case (:t_form_ms_relapse/in_relapse form_ms_relapse) true "Yes" false "No" ""))
+                   (ui/ui-table-cell {} (get-in form_ms_relapse [:t_form_ms_relapse/ms_disease_course :t_ms_disease_course/name]))
+                   (ui/ui-table-cell {} (some-> (:t_form_weight_height/weight_kilogram form_weight_height) (str "kg")))))
 (def ui-encounter-list-item (comp/computed-factory EncounterListItem {:keyfn :t_encounter/id}))
 
 (defsc PatientEncounters
@@ -68,17 +69,17 @@
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
   (patients/ui-layout layout
-    {:selected-id :encounters
-     :sub-menu    [{:id      ::add
-                    :onClick #(println "add encounter")
-                    :content "Add encounter..."}]}
+                      {:selected-id :encounters
+                       :sub-menu    [{:id      ::add
+                                      :onClick #(println "add encounter")
+                                      :content "Add encounter..."}]}
 
-    (ui/ui-table {}
-      (ui/ui-table-head {}
-        (ui/ui-table-row {}
-          (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
-      (ui/ui-table-body {}
-        (for [{:t_encounter/keys [id] :as encounter} encounters]
-          (ui-encounter-list-item encounter
-                                  {:onClick #(dr/change-route! this ["encounter" id])
-                                   :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))
+                      (ui/ui-table {}
+                                   (ui/ui-table-head {}
+                                                     (ui/ui-table-row {}
+                                                                      (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
+                                   (ui/ui-table-body {}
+                                                     (for [{:t_encounter/keys [id] :as encounter} encounters]
+                                                       (ui-encounter-list-item encounter
+                                                                               {:onClick #(route/route-to! ::route/encounter {:encounter-id id})
+                                                                                :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))
