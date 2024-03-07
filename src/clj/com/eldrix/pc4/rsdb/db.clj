@@ -41,7 +41,6 @@
    :t_medication_event/sample_obtained_antibodies parse-boolean
    :t_medication_event/severity                   keyword
    :t_ms_event/date                               parse-local-date
-   :t_form_ms_relapse/in_relapse                  parse-boolean
    :t_patient/date_birth                          parse-local-date
    :t_patient/date_death                          parse-local-date
    :t_patient/sex                                 keyword
@@ -101,7 +100,6 @@
    :t_ms_event/site_unknown                       parse-boolean
    :t_ms_event/site_vestibular                    parse-boolean
    :t_ms_events/is_relapse                        parse-boolean})
-
 
 (defn parse-entity
   "Simple mapping from rsdb source data.
