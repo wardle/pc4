@@ -111,10 +111,10 @@
   [m & {:keys [remove-nils?] :or {remove-nils? false}}]
   (when m
     (reduce-kv
-      (fn [m k v]
-        (when (or (not remove-nils?) v)
-          (assoc m k (let [f (get property-parsers k)]
-                       (if (and f v) (f v) v))))) {} m)))
+     (fn [m k v]
+       (when (or (not remove-nils?) v)
+         (assoc m k (let [f (get property-parsers k)]
+                      (if (and f v) (f v) v))))) {} m)))
 
 (defn execute!
   ([connectable sql-params]
