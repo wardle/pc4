@@ -475,9 +475,9 @@ and cannot change registration data.")
     (ui-layout
      layout
      {:selected-id :home
-      :sub-menu    [{:id      ::view-episodes
-                     :onClick #(println "view episodes")
-                     :content "View episodes"}
+      :sub-menu    [#_{:id      ::view-episodes
+                       :onClick #(println "view episodes")
+                       :content "View episodes"}
                     (when (permissions :PATIENT_EDIT)
                       {:id      ::edit
                        :onClick do-edit
