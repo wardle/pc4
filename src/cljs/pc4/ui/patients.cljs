@@ -514,9 +514,6 @@ and cannot change registration data.")
                              (div :.text-sm.font-medium.text-gray-400
                                   "This patient is managed by the NHS Wales enterprise master patient index (eMPI) and so you cannot
                                     change demographics from here.")))))
-
-     #_(when editing-death-certificate
-         (ui-edit-patient-death-certificate editing-death-certificate))
      (ui/ui-two-column-card
       {:title "Demographics"
        :items [{:title "First names" :content first_names}
