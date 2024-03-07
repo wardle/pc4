@@ -45,17 +45,71 @@
             [com.eldrix.pc4.rsdb.patients :as patients])
   (:import (java.time LocalDateTime)))
 
-(def forms
-  "Support for legacy forms. Here each form is represented by a database table and a form type. "
-  [{:form-type-id 1 :table "t_form_ace_r" :title "ACE-R" :key nil :entity-name "FormAceR"}
-   {:form-type-id 2 :table "t_form_edss" :title "EDSS (short form)" :key nil :entity-name "FormEdss"}
-   {:form-type-id 3 :table "t_form_edss_full" :title "EDSS (Neurostatus)" :key nil :entity-name "FormEdssFull"}
+(s/def ::conn any?)
+(s/def ::form-type-id (s/nilable int?))
+(s/def ::table string?)
+(s/def ::nm string?)
+(s/def ::normalize fn?)
+(s/def ::summary fn?)
+(s/def ::normalized-form-type (s/keys :req-un [::form-type-id ::table ::table-kw ::nm ::parse ::summary]))
+(s/def ::include-deleted boolean?)
+
+(def edss-score->score
+  {"SCORE0_0"          "0.0"
+   "SCORE1_0"          "1.0"
+   "SCORE1_5"          "1.5"
+   "SCORE2_0"          "2.0"
+   "SCORE2_5"          "2.5"
+   "SCORE3_0"          "3.0"
+   "SCORE3_5"          "3.5"
+   "SCORE4_0"          "4.0"
+   "SCORE4_5"          "4.5"
+   "SCORE5_0"          "5.0"
+   "SCORE5_5"          "5.5"
+   "SCORE6_0"          "6.0"
+   "SCORE6_5"          "6.5"
+   "SCORE7_0"          "7.0"
+   "SCORE7_5"          "7.5"
+   "SCORE8_0"          "8.0"
+   "SCORE8_5"          "8.5"
+   "SCORE9_0"          "9.0"
+   "SCORE9_5"          "9.5"
+   "SCORE10_0"         "10.0"
+   "SCORE_LESS_THAN_4" "<4"})
+
+(def forms*
+  "Support for legacy forms. Here each form is represented by a database table and a form type."
+  [{:form-type-id 1
+    :table        "t_form_ace_r"
+    :title        "ACE-R"
+    :key          nil
+    :entity-name "FormAceR"}
+   {:form-type-id 2
+    :table        "t_form_edss"
+    :title        "EDSS (short form)"
+    :key          nil
+    :entity-name  "FormEdss"
+    :parse        (fn [{:t_form_edss/keys [edss_score] :as form}]
+                    (assoc form :t_form_edss/score (edss-score->score edss_score)))
+    :summary      (fn [{:t_form_edss/keys [score]}] score)}
+   {:form-type-id 3
+    :table        "t_form_edss_full"
+    :title        "EDSS (Neurostatus)"
+    :key          nil
+    :entity-name "FormEdssFull"}
    {:form-type-id 4 :table "t_form_hospital_anxiety_and_depression_brief" :title "HAD (short form)" :key nil :entity-name "FormHospitalAnxietyAndDepressionBrief"}
    {:form-type-id 5 :table "t_form_hospital_anxiety_and_depression" :title "HAD" :key nil :entity-name "FormHospitalAnxietyAndDepression"}
    {:form-type-id 6 :table "t_form_icars" :title "ICARS" :key nil :entity-name "FormIcars"}
    {:form-type-id 7 :table "t_form_mmse" :title "MMSE" :key nil :entity-name "FormMmse"}
    {:form-type-id 8 :table "t_form_motor_updrs" :title "Motor-UPDRS" :key nil :entity-name "FormMotorUpdrs"}
-   {:form-type-id 9 :table "t_form_ms_relapse" :title "MS Relapse / disease course" :key nil :entity-name "FormMSRelapse"}
+   {:form-type-id 9
+    :table       "t_form_ms_relapse"
+    :title       "MS Relapse / disease course"
+    :key         nil
+    :entity-name "FormMSRelapse"
+    :parse       (fn [form] (-> form
+                                (update :t_form_ms_relapse/in_relapse parse-boolean)
+                                (update :t_form_ms_relapse/strict_validation parse-boolean)))}
    {:form-type-id 10 :table "t_form_nine_hole_peg" :title "Nine-hole peg" :key nil :entity-name "FormNineHolePeg"}
    {:form-type-id 11 :table "t_form_sara" :title "SARA" :key nil :entity-name " FormSara "}
    {:form-type-id 12 :table "t_form_timed_walk" :title "Timed walk" :key nil :entity-name " FormTimedWalk "}
@@ -73,7 +127,7 @@
    {:form-type-id 32 :table "t_form_routine_observations" :title "Routine observations (P/BP)" :key nil :entity-name "FormRoutineObservations"}
    {:form-type-id 35 :table "t_form_alsfrs" :title "ALS Functional Rating Scale" :key nil :entity-name "FormALSFRS"}
    {:form-type-id 36 :table "t_form_lung_function" :title "Lung function" :key nil :entity-name "FormLungFunction"}
-   {:form-type-id 37 :name "form_smoking_history" :table "t_smoking_history" :title "Smoking history" :key nil :entity-name "FormSmokingHistory"}
+   {:form-type-id 37 :nm    "form_smoking_history" :table "t_smoking_history" :title "Smoking history" :key nil :entity-name "FormSmokingHistory"}
    {:form-type-id 38 :table "t_form_walking_distance" :title "Walking distance" :key nil :entity-name "FormWalkingDistance"}
    {:form-type-id 39 :table "t_form_neurology_curriculum" :title "Neurology curriculum" :key nil :entity-name "FormNeurologyCurriculum"}
    {:form-type-id 40 :table "t_form_follow_up" :title "Follow up" :key nil :entity-name "FormFollowUp"}
@@ -114,54 +168,99 @@
    {:form-type-id nil                                       ;;; the consent form is a special form, that is not listed as an official form in t_form_type.
     :table        "t_form_consent" :title "Consent form" :key nil :entity-name "FormConsent"}])
 
-(def form-by-name
-  (reduce (fn [acc {nm :name, table :table :as form}]
-            (assoc acc (or nm (if (str/starts-with? table "t_form")
-                                (subs table 2)
-                                (throw (ex-info "Cannot determine default form name" form)))) form)) {} forms))
+(s/fdef normalize-form-type
+  :args (s/cat :form-type (s/keys :req-un [::form-type-id ::table] :opt-un [::nm ::parse ::summary])))
+(defn normalize-form-type
+  "Normalizes a form type by ensuring it provides a name as well as normalize 
+  and summary functions."
+  [{:keys [nm table parse summary] :as form-type}]
+  (assoc form-type
+         :nm (or nm (if (str/starts-with? table "t_form") (subs table 2) (throw (ex-info "Cannot determine default form name" form-type))))
+         :table-kw (keyword table)
+         :summary (or summary (constantly nil))
+         :parse (or parse identity)))
 
-#_(ns-unmap *ns* 'normalize)                                  ;; => unmap the var from the namespace
-(defmulti normalize #(some-> % first first namespace))
-(defmethod normalize :default [form] form)
-(defmethod normalize nil [form] nil)
-(defmethod normalize "t_form_ms_relapse" [form]
-  (-> (merge {:t_form_ms_relapse/in_relapse false} form)
-      (dissoc :t_form_ms_relapse/ms_disease_course)
-      (assoc :t_form_ms_relapse/ms_disease_course_fk (get-in form [:t_form_ms_relapse/ms_disease_course :t_ms_disease_course/id]))))
+(def forms (map normalize-form-type forms*))
+
+(def form-type-by-name
+  "Return form type by name.
+  e.g.,
+  ```
+    (form-type-by-name \"form_edss\")
+  ```"
+  (reduce (fn [acc {:keys [nm] :as form-type}] (assoc acc nm form-type)) {} forms))
+
+(s/fdef parse-form
+  :args (s/cat :form-type ::normalized-form-type :form any?))
+(defn parse-form
+  "Parse form data from the database - annotating with type information,
+  generating a summary and converting properties when appropriate."
+  [{:keys [form-type-id table table-kw title allow-multiple? summary parse]} form]
+  (let [k-is-deleted (keyword table "is_deleted")]
+    (-> form
+        parse
+        (update k-is-deleted parse-boolean)
+        (assoc :t_form/form_type_id      form-type-id
+               :t_form/form_namespace    table-kw
+               :t_form/title             title
+               :t_form/one_per_encounter (not allow-multiple?)
+               :t_form/summary_result    (summary form)))))
+
+(s/fdef form-for-encounter-sql
+  :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
+(defn form-for-encounter-sql
+  "Generate SQL to return a form for the given encounter.
+  - encounter-id    : encounter identifier
+  - table           : table e.g. `:t_form_edss`
+  - include-deleted : whether to include deleted forms, default `false`."
+  [encounter-id table {:keys [include-deleted]}]
+  {:select :*
+   :from   table
+   :where  [:and
+            [:= :encounter_fk encounter-id]
+            (when-not include-deleted [:= :is_deleted "false"])]})
+
+(s/fdef forms-for-encounter
+  :args (s/cat :conn ::conn :encounter-id int?))
+(defn forms-for-encounter
+  "Return forms for the given encounter. Returns only 'active' non-deleted forms. 
+  Normalizes each result, annotating with form type information as well as a result
+  summary."
+  [conn encounter-id]
+  (reduce
+   (fn [acc {:keys [table-kw allow-multiple?] :as form-type}]
+     (let [stmt (form-for-encounter-sql encounter-id table-kw {:include-deleted false})]
+       (if allow-multiple?
+         (if-let [forms (seq (jdbc/execute! conn (sql/format stmt)))]
+           (into acc (map #(parse-form form-type %)) forms)
+           acc)
+         (if-let [form (jdbc/execute-one! conn (sql/format stmt))]
+           (conj acc (parse-form form-type form))
+           acc))))
+   [] forms))
 
 (defn all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
   [conn patient-identifier]
   (into #{} (map :t_encounter/id)
         (jdbc/plan conn (sql/format
-                          {:select [:t_encounter/id]
-                           :from   :t_encounter
-                           :where  [:and
-                                    [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
-                                    [:<> :t_encounter/is_deleted "true"]]}))))
+                         {:select [:t_encounter/id]
+                          :from   :t_encounter
+                          :where  [:and
+                                   [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                   [:<> :t_encounter/is_deleted "true"]]}))))
 
-(def edss-score->score
-  {"SCORE0_0"          "0.0"
-   "SCORE1_0"          "1.0"
-   "SCORE1_5"          "1.5"
-   "SCORE2_0"          "2.0"
-   "SCORE2_5"          "2.5"
-   "SCORE3_0"          "3.0"
-   "SCORE3_5"          "3.5"
-   "SCORE4_0"          "4.0"
-   "SCORE4_5"          "4.5"
-   "SCORE5_0"          "5.0"
-   "SCORE5_5"          "5.5"
-   "SCORE6_0"          "6.0"
-   "SCORE6_5"          "6.5"
-   "SCORE7_0"          "7.0"
-   "SCORE7_5"          "7.5"
-   "SCORE8_0"          "8.0"
-   "SCORE8_5"          "8.5"
-   "SCORE9_0"          "9.0"
-   "SCORE9_5"          "9.5"
-   "SCORE10_0"         "10.0"
-   "SCORE_LESS_THAN_4" "<4"})
+(comment
+  (require '[clojure.spec.test.alpha :as stest])
+  (stest/instrument)
+  (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
+  (sql/format (form-for-encounter-sql 145 "t_form_edss" {:include-deleted false}))
+  (next.jdbc/execute! conn (sql/format (form-for-encounter-sql 145 "t_form_edss" {})))
+  (sql/format {:select :* :from :t_form_edss :where [:and [:= :encounter_fk 1]]})
+  (all-active-encounter-ids conn 14031)
+  (def results (forms-for-encounter conn 8042))
+  results
+  (forms-for-encounter conn 1834))
 
 (defn encounter->form_smoking_history
   "Return a form smoking history for the encounter."
@@ -218,9 +317,9 @@
   ([{encounter-id :t_encounter/id :as encounter} table-name form-data delete-before-insert]
    (when table-name
      (let [user-key (keyword table-name "user_fk")
-           form-data (cond-> (normalize form-data)
-                       (nil? (get form-data user-key))
-                       (assoc user-key (:t_user/id encounter)))
+           form-data (if (and (map? form-data) (nil? (get form-data user-key)))
+                       (assoc form-data user-key (:t_user/id encounter))
+                       form-data)
            id-key (keyword table-name "id")
            id (get form-data id-key)
            encounter-fk (get form-data (keyword table-name "encounter_fk"))]
@@ -267,94 +366,11 @@
   [encounter]
   (->> (keys encounter)
        (reduce
-         (fn [acc k]
-           (if-let [{:keys [table]} (form-by-name (name k))]
-             (into acc (save-form-sql encounter table (get encounter k)))
-             acc)) [])
+        (fn [acc k]
+          (if-let [{:keys [table]} (form-type-by-name (name k))]
+            (into acc (save-form-sql encounter table (get encounter k)))
+            acc)) [])
        (remove nil?)))
-
-(defn ^:deprecated insert-form!
-  "Inserts a form.
-  e.g
-
-  (insert form! conn :t_form_edss {:encounter_fk 1
-                                   :t_form_edss/user_fk 1
-                                   :t_form_edss/edss_score \"SCORE1_0\"}).
-
-  This manages the form id safely, because the legacy WebObjects application
-  uses horizontal inheritance so that the identifiers are generated from a
-  sequence from 't_form'."
-  [conn table data]
-  (log/info "writing form" {:table table :data (select-keys-by-namespace data table)})
-  (db/execute-one! conn (sql/format {:insert-into [table]
-                                     ;; note as this table uses legacy WO horizontal inheritance, we use t_form_seq to generate identifiers manually.
-                                     :values      [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
-                                                           :is_deleted   "false"
-                                                           :date_created (LocalDateTime/now)}
-                                                          (select-keys-by-namespace data table))]})
-                   {:return-keys true}))
-
-(defn ^:deprecated count-forms [conn encounter-id form-name]
-  (:count (jdbc/execute-one! conn (sql/format {:select [:%count.id]
-                                               :from   [form-name]
-                                               :where  [:and [:= :encounter_fk encounter-id]
-                                                        [:<> :is_deleted "true"]]}))))
-
-(defn ^:deprecated delete-all-forms!
-  "Delete all forms of the specific type 'table' from the encounter."
-  [conn table {encounter-id :t_encounter/id}]
-  (jdbc/execute-one! conn (sql/format {:update table
-                                       :where  [:and [:= :is_deleted "false"]
-                                                [:= :encounter_fk encounter-id]]
-                                       :set    {:is_deleted "true"}})))
-
-(defn ^:deprecated delete-form!
-  [conn table data]
-  (when-let [id (get data (keyword (name table) "id"))]
-    (log/info "Deleting form" {:table table :id id})
-    (jdbc/execute-one! conn (sql/format {:update table
-                                         :where  [:= :id id]
-                                         :set    {:is_deleted "true"}}))))
-
-(s/def ::save-form (s/keys :req [:t_encounter/id
-                                 :t_user/id]))
-
-(defn ^:deprecated save-form!
-  "Saves an arbitrary form. Designed for forms that permit only a single
-  instance per encounter.
-  Parameters:
-  - tx    : a database transaction
-  - table : form table, e.g. :t_form_edss
-  - data  : form data, e.g. {:t_form_edss/id 1 :t_form_edss/edss_score \"SCORE0_0\"}
-  - pred  : a predicate, optional, if the form has content
-
-  If the form does not have content as defined by pred, the existing form will
-  will be removed from the encounter. The default predicate simply looks for
-  keys for the table, except 'id'."
-  ([tx table data] (save-form! tx table data nil))
-  ([tx table data pred]
-   (when-not (s/valid? ::save-form data)
-     (throw (ex-info "Invalid parameters" (s/explain-data ::save-form data))))
-   (let [form-id-key (keyword (name table) "id")
-         pred' (if pred pred (partial some-keys-in-namespace? table))
-         encounter-id (:t_encounter/id data)
-         user-id (:t_user/id data)
-         data' (dissoc data form-id-key)                    ;; data without the identifier
-         has-data? (pred' data')]
-     (when (get data form-id-key)                           ;; when we have an existing form - delete it
-       (delete-form! tx table data))
-     (if-not has-data?
-       (log/debug "skipping writing form; no data" {:table table :data data})
-       (if (= 0 (count-forms tx encounter-id table))        ;; check we have no existing form...
-         (insert-form! tx table (assoc data' :user_fk user-id :encounter_fk encounter-id))
-         (throw (ex-info "A form of this type already exists in the encounter" {:table table :data data})))))))
-
-(s/def ::save-encounter-with-forms (s/keys :req [:t_encounter/date_time
-                                                 :t_episode/id
-                                                 :t_patient/patient_identifier
-                                                 :t_encounter_template/id
-                                                 :t_user/id]
-                                           :opt [:t_encounter/id]))
 
 (defn save-encounter-and-forms-sql
   "Generates a sequence of SQL to write the encounter and any nested forms
@@ -363,26 +379,6 @@
   (into [(patients/save-encounter-sql encounter)]
         (save-encounter-forms-sql encounter)))
 
-(s/fdef save-encounter-with-forms!
-  :args (s/cat :txn ::db/txn :data ::save-encounter-with-forms))
-(defn ^:deprecated save-encounter-with-forms!
-  [txn data]
-  (log/info "saving encounter with forms" {:data data})
-  (when-not (s/valid? ::save-encounter-with-forms data)
-    (throw (ex-info "Invalid parameters" (s/explain-data ::save-encounter-with-forms data))))
-  (let [encounter (patients/save-encounter! txn (merge (when (:t_encounter/id data) {:t_encounter/id (:t_encounter/id data)})
-                                                       {:t_encounter/date_time             (:t_encounter/date_time data)
-                                                        :t_encounter/episode_fk            (:t_episode/id data)
-                                                        :t_patient/patient_identifier      (:t_patient/patient_identifier data)
-                                                        :t_encounter/encounter_template_fk (:t_encounter_template/id data)}))
-        _ (log/info "saved encounter, result:" {:encounter encounter})
-        data' (assoc data :t_encounter/id (:t_encounter/id encounter))]
-    (save-form! txn :t_form_edss data' :t_form_edss/edss_score)
-    (save-form! txn :t_form_ms_relapse data')
-    (save-form! txn :t_smoking_history data')
-    (save-form! txn :t_form_weight_height data')
-    encounter))
-
 (s/def ::save-encounter-and-forms
   (s/keys :req [:t_encounter/date_time
                 :t_encounter/encounter_template_fk]
@@ -390,6 +386,7 @@
 (s/fdef save-encounter-and-forms!
   :args (s/cat :txn ::db/txn :encounter ::save-encounter-and-forms))
 (defn save-encounter-and-forms!
+  "Saves the given encounter, which can include form data."
   [txn encounter]
   (log/info "saving encounter and forms" encounter)
   (let [[encounter-sql & forms-sql-stmts] (save-encounter-and-forms-sql encounter)
@@ -400,29 +397,7 @@
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
-  ()
-  group-by
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (com.eldrix.pc4.rsdb.patients/active-episodes conn 124010)
-  (all-active-encounter-ids conn 124010)
-  (com.eldrix.pc4.rsdb.patients/save-encounter! conn {:t_encounter/encounter_template_fk 1
-                                                      :t_encounter/episode_fk            48221
-                                                      :t_encounter/patient_fk            124010
-                                                      :t_encounter/date_time             (LocalDateTime/now)})
-  (save-form! conn :t_form_edss {:t_form_edss/edss_score "SCORE1_0"
-                                 :t_form_edss/id         244555
-                                 :t_user/id              1
-                                 :t_encounter/id         529783} :t_form_edss/edss_score)
-  (save-encounter-with-forms! conn {:t_encounter/id                               529792
-                                    :t_encounter/date_time                        (LocalDateTime/now)
-                                    :t_episode/id                                 48221
-                                    :t_patient/patient_identifier                 124010
-                                    :t_form_edss/edss_score                       "SCORE0_0"
-                                    :t_form_edss/id                               244573
-                                    :t_encounter_template/id                      1
-                                    :t_form_ms_relapse/in_relapse                 true
-                                    :t_form_ms_relapse/ms_disease_course_fk       5
-                                    :t_smoking_history/status                     "EX-SMOKER"
-                                    :t_smoking_history/current_cigarettes_per_day 0
-                                    :t_user/id                                    1}))
+  (all-active-encounter-ids conn 124010))
 
