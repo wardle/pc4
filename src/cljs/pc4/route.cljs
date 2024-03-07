@@ -14,6 +14,7 @@
         "project/"        {[:project-id]                                 ::project-home
                            [:project-id "/patient/" :patient-identifier] ::project-patient}
         "patient/"        {[:patient-identifier] ::patient-home}
+        "encounter/"      {[:encounter-id] ::encounter}
         "user/"           {[:user-id] ::user-profile}
         "change-password" ::change-password}])
 
@@ -30,9 +31,7 @@
     ::project-home
     (dr/change-route! @SPA ["projects" (:project-id route-params) "home"])
     ::project-patient
-    (do (js/console.log (str "loading patient in context of project" {:project (:project-id route-params)
-                                                                      :patient (:patient-identifier route-params)}))
-        (df/load! @SPA [:t_project/id (parse-long (:project-id route-params))]
+    (do (df/load! @SPA [:t_project/id (parse-long (:project-id route-params))]
                   (raw/nc [:t_project/id :t_project/title :t_project/type])
                   {:target [:ui/current-project]})
         (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "home"]))
@@ -42,6 +41,8 @@
     (dr/change-route! @SPA ["user" (:user-id route-params) "profile"])
     ::change-password
     (dr/change-route! @SPA ["change-password"])
+    ::encounter
+    (dr/change-route! @SPA ["encounter" (:encounter-id route-params)])
     ;; otherwise, fallback to the home
     (do (log/info "No match for route" matched-route)
         (dr/change-route! @SPA ["home"]))))
@@ -64,8 +65,8 @@
 (defmutation route-to
   [{:keys [handler params]}]
   (action
-    [_]
-    (route-to! handler params)))
+   [_]
+   (route-to! handler params)))
 
 (comment
   (bidi/path-for routes :home)
