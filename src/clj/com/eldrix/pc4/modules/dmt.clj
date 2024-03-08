@@ -40,9 +40,13 @@
 (def study-centres
   "This defines each logical centre with a list of internal 'projects' providing
   a potential hook to create combined cohorts in the future should need arise."
-  {:cardiff   {:prefix           "CF"
-               :only-dmt-patients true
-               :projects         ["NINFLAMMCARDIFF"]}
+  {:cardiff           {:prefix           "CF"
+                       :only-dmt-patients true
+                       :projects         ["NINFLAMMCARDIFF"]}
+   :cardiff-consented {:prefix "CF"
+                       :only-dmt-patients true
+                       :projects ["NINFLAMMCARDIFF" "MSEPIDEM2000" "SNOWDONIA"]
+                       :consent-form-ids [12]}
    :cambridge {:prefix   "CB"
                :projects ["CAMBRIDGEMS"]}
    :plymouth  {:prefix   "PL"
