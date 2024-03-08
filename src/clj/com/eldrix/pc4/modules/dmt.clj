@@ -1117,9 +1117,12 @@
                                                                          [:in :patient_identifier patient-ids]
                                                                          [:= :authoritative_demographics "LOCAL"]]}))))
 
-
-(defn make-metadata [system]
-  (let [deps (edn/read (PushbackReader. (io/reader "deps.edn")))]
+(defn make-metadata
+  "Create metadata for the given system. Dependencies are pulled from deps.edn, which should 
+  be found either in the current directory, or in the classpath. The latter requires a build
+  of the uberjar to copy the deps.edn file into the classpath appropriately."
+  [system]
+  (let [deps (edn/read (PushbackReader. (io/reader (or (io/resource "deps.edn") "deps.edn"))))]
     {:data      (fetch-most-recent-encounter-date-time system)
      :pc4       {:url "https://github.com/wardle/pc4"
                  :sha (str/trim (:out (clojure.java.shell/sh "/bin/sh" "-c" "git rev-parse HEAD")))}
