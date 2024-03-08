@@ -31,7 +31,6 @@
   (b/jar {:class-dir class-dir
           :jar-file  jar-file}))
 
-
 (defn install
   "Installs pom and library jar in local maven repository"
   [_]
@@ -68,6 +67,8 @@
                   :ns-compile   ['com.eldrix.pc4.core]
                   :compile-opts {:elide-meta [:doc :added]}
                   :class-dir    class-dir})
+  (b/copy-file {:src (str "deps.edn")
+                :target (str class-dir "/deps.edn")})
   (b/copy-file {:src    (str "resources/config.edn")
                 :target (str class-dir "/config.edn")})
   (b/copy-file {:src    (str "resources/logback.xml")
