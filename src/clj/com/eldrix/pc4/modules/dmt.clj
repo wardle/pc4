@@ -357,7 +357,6 @@
                                                              "M06.1" "E85.0" "D86."]}))
   (codelists/member? ct-disorders [9631008])
 
-
   (def diag-cats (make-codelist-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
   (diag-cats [6204001])
@@ -365,7 +364,6 @@
   (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
   codelists
   (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
-
 
   (map #(hash-map :title (:term %) :release-date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
   (def calcium-channel-blockers (codelists/make-codelist system {:atc "C08" :exclusions {:atc "C08CA01"}}))
@@ -386,7 +384,6 @@
 
   (hermes/get-preferred-synonym (:com.eldrix/hermes system) 445130008 "en-GB"))
 
-
 (defn make-atc-regexps [{:keys [codelist] :as med}]
   (when-let [atc (or (:atc codelist) (get-in codelist [:inclusions :atc]))]
     (if (coll? atc)
@@ -400,7 +397,6 @@
 (defn get-study-classes [atc]
   (keep identity (map (fn [[re-atc med]] (when (re-matches re-atc atc) med)) study-medication-atc)))
 
-
 (defmulti to-local-date class)
 
 (defmethod to-local-date LocalDateTime [^LocalDateTime x]
@@ -413,7 +409,6 @@
 (comment
   study-medication-atc
   (first (get-study-classes "N05BA")))
-
 
 (defn all-ms-dmts
   "Returns a collection of multiple sclerosis disease modifying medications with
@@ -475,27 +470,26 @@
 
   (group-by :t_patient/patient_identifier
             (->> (db/execute! conn (sql/format
-                                     {:select    [:t_patient/patient_identifier
-                                                  :date :source :impact :abbreviation :name]
-                                      :from      [:t_ms_event]
-                                      :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
-                                                  :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
-                                      :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
-                                      :order-by  [[:t_ms_event/date :desc]]
-                                      :where     [:in :t_patient/patient_identifier patient-ids]}))
+                                    {:select    [:t_patient/patient_identifier
+                                                 :date :source :impact :abbreviation :name]
+                                     :from      [:t_ms_event]
+                                     :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
+                                                 :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
+                                     :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
+                                     :order-by  [[:t_ms_event/date :desc]]
+                                     :where     [:in :t_patient/patient_identifier patient-ids]}))
                  (map #(assoc % :t_ms_event/is_relapse (patients/ms-event-is-relapse? %))))))
 
 (defn jc-virus-for-patients [{conn :com.eldrix.rsdb/conn} patient-ids]
   (->> (db/execute! conn (sql/format
-                           {:select [:t_patient/patient_identifier
-                                     :date :jc_virus :titre]
-                            :from   [:t_result_jc_virus]
-                            :join   [:t_patient [:= :t_result_jc_virus/patient_fk :t_patient/id]]
-                            :where  [:and
-                                     [:<> :t_result_jc_virus/is_deleted "true"]
-                                     [:in :t_patient/patient_identifier patient-ids]]}))
+                          {:select [:t_patient/patient_identifier
+                                    :date :jc_virus :titre]
+                           :from   [:t_result_jc_virus]
+                           :join   [:t_patient [:= :t_result_jc_virus/patient_fk :t_patient/id]]
+                           :where  [:and
+                                    [:<> :t_result_jc_virus/is_deleted "true"]
+                                    [:in :t_patient/patient_identifier patient-ids]]}))
        (map #(update % :t_result_jc_virus/date to-local-date))))
-
 
 (defn mri-brains-for-patient [conn patient-identifier]
   (let [results (->> (results/fetch-mri-brain-results conn nil {:t_patient/patient_identifier patient-identifier})
@@ -534,11 +528,10 @@
                                 (let [diag (first diags)
                                       first-event (get first-ms-events (:t_patient/patient_identifier diag))]
                                   (assoc diag
-                                    :has_multiple_sclerosis (boolean diag)
-                                    :date_first_event first-event
+                                         :has_multiple_sclerosis (boolean diag)
+                                         :date_first_event first-event
                                     ;; use first recorded event as onset, or date onset in diagnosis
-                                    :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
-
+                                         :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
 
 (defn fetch-patient-diagnoses
   [{conn :com.eldrix.rsdb/conn} patient-ids]
@@ -599,28 +592,27 @@
                              (map #(let [wt (:t_form_weight_height/weight_kilogram %)
                                          ht (or (:t_form_weight_height/height_metres %) default-ht)]
                                      (if (and wt ht) (assoc % :body_mass_index (with-precision 2 (/ wt (* ht ht))))
-                                                     %)) forms))))))
+                                         %)) forms))))))
 
 (defn fetch-form-ms-relapse
   "Get a longitudinal record of MS disease activity, results keyed by patient identifier."
   [{conn :com.eldrix.rsdb/conn} patient-ids]
   (group-by :t_patient/patient_identifier
             (db/execute! conn (sql/format
-                                {:select    [:t_patient/patient_identifier
-                                             :t_encounter/date_time
-                                             :t_form_ms_relapse/in_relapse
-                                             :t_ms_disease_course/name
-                                             :t_form_ms_relapse/activity
-                                             :t_form_ms_relapse/progression]
-                                 :from      [:t_form_ms_relapse]
-                                 :join      [:t_encounter [:= :t_encounter/id :t_form_ms_relapse/encounter_fk]
-                                             :t_patient [:= :t_encounter/patient_fk :t_patient/id]]
-                                 :left-join [:t_ms_disease_course [:= :t_ms_disease_course/id :t_form_ms_relapse/ms_disease_course_fk]]
-                                 :where     [:and
-                                             [:<> :t_encounter/is_deleted "true"]
-                                             [:<> :t_form_ms_relapse/is_deleted "true"]
-                                             [:in :t_patient/patient_identifier patient-ids]]}))))
-
+                               {:select    [:t_patient/patient_identifier
+                                            :t_encounter/date_time
+                                            :t_form_ms_relapse/in_relapse
+                                            :t_ms_disease_course/name
+                                            :t_form_ms_relapse/activity
+                                            :t_form_ms_relapse/progression]
+                                :from      [:t_form_ms_relapse]
+                                :join      [:t_encounter [:= :t_encounter/id :t_form_ms_relapse/encounter_fk]
+                                            :t_patient [:= :t_encounter/patient_fk :t_patient/id]]
+                                :left-join [:t_ms_disease_course [:= :t_ms_disease_course/id :t_form_ms_relapse/ms_disease_course_fk]]
+                                :where     [:and
+                                            [:<> :t_encounter/is_deleted "true"]
+                                            [:<> :t_form_ms_relapse/is_deleted "true"]
+                                            [:in :t_patient/patient_identifier patient-ids]]}))))
 
 (def convert-edss-score
   {"SCORE10_0"         10.0
@@ -704,8 +696,8 @@
                  (merge form-relapse % {:t_form_ms_relapse/date_status_recorded (to-local-date (:t_encounter/date_time form-relapse))})
                  (assoc % :t_form_ms_relapse/in_relapse false))) ;; if no recent relapse recorded, record as FALSE explicitly.
          (map #(assoc % :t_form_edss/edss_score (convert-edss-score (:t_form_edss/edss_score %))
-                        :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
-                        :t_encounter/date (to-local-date (:t_encounter/date_time %))))
+                      :t_ms_disease_course/type (simplify-ms-disease-course (:t_ms_disease_course/name %))
+                      :t_encounter/date (to-local-date (:t_encounter/date_time %))))
          (group-by :t_patient/patient_identifier)
          (reduce-kv (fn [acc k v] (assoc acc k (sort-by :t_encounter/date_time v))) {}))))
 
@@ -720,7 +712,6 @@
        first
        :t_encounter/date_time))
 
-
 (defn relapses-between-dates
   "Filter the event list for a patient to only include relapse-type events between the two dates specified, inclusive."
   [events ^LocalDate from-date ^LocalDate to-date]
@@ -734,7 +725,6 @@
   (get (ms-events-for-patients system [5506]) 5506)
   (def d1 (LocalDate/of 2014 1 1))
   (relapses-between-dates (get (ms-events-for-patients system [5506]) 5506) (.minusMonths d1 24) d1))
-
 
 (defn lsoa-for-postcode [{:com.eldrix/keys [clods]} postcode]
   (get (com.eldrix.clods.core/fetch-postcode clods postcode) "LSOA11"))
@@ -833,11 +823,11 @@
     (let [atc (or (dmd/atc-for-product dmd concept-id)
                   (infer-atc-for-non-dmd system concept-id))]
       (cond-> {:nm (or (:VTM/NM product) (:VMP/NM product) (:AMP/NM product) (:VMPP/NM product) (:AMPP/NM product))}
-              atc (assoc :atc atc)))
+        atc (assoc :atc atc)))
     (let [atc (infer-atc-for-non-dmd system concept-id)
           term (:term (hermes/get-preferred-synonym hermes concept-id "en-GB"))]
       (cond-> {:nm term}
-              atc (assoc :atc atc)))))
+        atc (assoc :atc atc)))))
 
 (defn first-he-dmt-after-date
   "Given a list of medications for a single patient, return the first
@@ -873,13 +863,13 @@
 (defn count-dmts [medications]
   (->> medications
        (keep-indexed (fn [i medication] (cond-> (assoc medication :switch? false)
-                                                (> i 0) (assoc :switch? true :switch_from (:dmt (nth medications (dec i)))))))
+                                          (> i 0) (assoc :switch? true :switch_from (:dmt (nth medications (dec i)))))))
        (map #(assoc %
-               :exposure_days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
-               :n_prior_dmts (count-dmts-before medications (:t_medication/date_from %))
-               :n_prior_platform_dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
-               :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
-               :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
+                    :exposure_days (days-between (:t_medication/date_from %) (:t_medication/date_to %))
+                    :n_prior_dmts (count-dmts-before medications (:t_medication/date_from %))
+                    :n_prior_platform_dmts (count-dmts-before medications (:t_medication/date_from %) :platform-dmt)
+                    :n_prior_he_dmts (count-dmts-before medications (:t_medication/date_from %) :he-dmt)
+                    :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
 (defn patient-raw-dmt-medications
   [{conn :com.eldrix.rsdb/conn :as system} patient-ids]
@@ -905,17 +895,17 @@
   (let [active-encounters (active-encounters-for-patients system patient-ids)
         last-contact-dates (update-vals active-encounters #(:t_encounter/date_time (first %)))]
     (update-vals
-      (patient-raw-dmt-medications system patient-ids)
-      (fn [v]
-        (->> v
-             (partition-by :dmt)                            ;; this partitions every time :dmt changes, which gives us sequential groups of medications
-             (map #(let [start (first %)                    ;; we then simply look at the first, and the last in that group.
-                         end (last %)
-                         date-to (or (:t_medication/date_to end) (to-local-date (get last-contact-dates (:t_patient/patient_identifier (first %)))))]
-                     (if date-to
-                       (assoc start :t_medication/date_to date-to) ;; return a single entry with start date from the first and end date from the last
-                       start)))
-             count-dmts)))))
+     (patient-raw-dmt-medications system patient-ids)
+     (fn [v]
+       (->> v
+            (partition-by :dmt)                            ;; this partitions every time :dmt changes, which gives us sequential groups of medications
+            (map #(let [start (first %)                    ;; we then simply look at the first, and the last in that group.
+                        end (last %)
+                        date-to (or (:t_medication/date_to end) (to-local-date (get last-contact-dates (:t_patient/patient_identifier (first %)))))]
+                    (if date-to
+                      (assoc start :t_medication/date_to date-to) ;; return a single entry with start date from the first and end date from the last
+                      start)))
+            count-dmts)))))
 
 (defn cohort-entry-meds
   "Return a map of patient id to cohort entry medication.
@@ -929,7 +919,6 @@
        (keep identity)
        (map #(vector (:t_patient/patient_identifier %) %))
        (into {})))
-
 
 (defn alemtuzumab-medications
   "Returns alemtuzumab medication records for the patients specified.
@@ -1046,7 +1035,7 @@
   (let [make-pt-id #(str (get-in study-centres [centre :prefix]) (format "%06d" %))
         rows (->> (data-fn system patient-ids)
                   (map #(assoc % ::centre (name centre)
-                                 ::patient-id (make-pt-id (:t_patient/patient_identifier %)))))
+                               ::patient-id (make-pt-id (:t_patient/patient_identifier %)))))
         columns' (or columns (keys (first rows)))
         title-fn' (merge {::patient-id "patient_id" ::centre "centre"} title-fn) ;; add a default column titles
         headers (mapv #(name (or (title-fn' %) %)) columns')]
@@ -1137,8 +1126,7 @@
                  :study-diagnoses   study-diagnosis-categories}}))
 
 (defn make-problem-report [system patient-ids]
-  {
-   ;; generate a list of patients with more than one death certificate
+  {;; generate a list of patients with more than one death certificate
    :more-than-one-death-certificate
    (or (patients-with-more-than-one-death-certificate system) [])
 
@@ -1341,7 +1329,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
 (defn date-in-range-inclusive?
   [^LocalDate date-from ^LocalDate date-to ^LocalDate date]
   (when (and date-from date-to date)
@@ -1368,8 +1355,6 @@
   (fetch-patient-admissions system "ADMISSION" [17490])
   (group-by :t_patient/patient_identifier (all-patient-diagnoses system [17490]))
   (time (make-admissions-table system [17490])))
-
-
 
 (def admissions-table
   {:filename "patient-admissions.csv"
@@ -1539,7 +1524,6 @@
               :t_result_mri_brain/change_t2_hyperintense         "t2_change"
               :t_result_mri_brain/calc_change_t2                 "calc_t2_change"}})
 
-
 (defn write-local-date [^LocalDate o ^Appendable out _options]
   (.append out \")
   (.append out (.format (DateTimeFormatter/ISO_DATE) o))
@@ -1552,8 +1536,6 @@
 
 (extend LocalDate json/JSONWriter {:-write write-local-date})
 (extend LocalDateTime json/JSONWriter {:-write write-local-date-time})
-
-
 
 (def export-tables
   [patients-table
@@ -1607,7 +1589,6 @@
                   (= SEX' sex)
                   (.equalsIgnoreCase LAST_NAME last_name)))))
 
-
 (def ^:private demographic-eql
   [:t_patient/id
    :t_patient/patient_identifier
@@ -1644,7 +1625,7 @@
                              (fn [hosps]
                                (map #(assoc % :demographic-match (matching-cav-demog? pt %)) hosps))))]
     (when pt (assoc pt2 :potential-authoritative-demographics
-                        (first (filter :demographic-match (:t_patient/hospitals pt2)))))))
+                    (first (filter :demographic-match (:t_patient/hospitals pt2)))))))
 
 (s/def ::profile keyword?)
 (s/def ::export-options (s/keys :req-un [::profile]))
@@ -1687,20 +1668,20 @@
        (patients-with-local-demographics system)
        (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
        (map #(hash-map
-               :t_patient/patient_identifier (:t_patient/patient_identifier %)
-               :first_names (:t_patient/first_names %)
-               :last_name (:t_patient/last_name %)
-               :date_birth (:t_patient/date_birth %)
-               :nhs_number (:t_patient/nhs_number %)
-               :demog (:t_patient/authoritative_demographics %)
-               :match_org (get-in % [:potential-authoritative-demographics :t_patient_hospital/hospital_fk])
-               :crn (get-in % [:potential-authoritative-demographics :t_patient_hospital/patient_identifier])
-               :cav_match (boolean (get-in % [:potential-authoritative-demographics :demographic-match]))
-               :cav_crn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/HOSPITAL_ID])
-               :cav_nnn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/NHS_NUMBER])
-               :cav_dob (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/DATE_BIRTH])
-               :cav_fname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/FIRST_NAMES])
-               :cav_lname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/LAST_NAME])))))
+              :t_patient/patient_identifier (:t_patient/patient_identifier %)
+              :first_names (:t_patient/first_names %)
+              :last_name (:t_patient/last_name %)
+              :date_birth (:t_patient/date_birth %)
+              :nhs_number (:t_patient/nhs_number %)
+              :demog (:t_patient/authoritative_demographics %)
+              :match_org (get-in % [:potential-authoritative-demographics :t_patient_hospital/hospital_fk])
+              :crn (get-in % [:potential-authoritative-demographics :t_patient_hospital/patient_identifier])
+              :cav_match (boolean (get-in % [:potential-authoritative-demographics :demographic-match]))
+              :cav_crn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/HOSPITAL_ID])
+              :cav_nnn (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/NHS_NUMBER])
+              :cav_dob (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/DATE_BIRTH])
+              :cav_fname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/FIRST_NAMES])
+              :cav_lname (get-in % [:potential-authoritative-demographics :wales.nhs.cavuhb.Patient/LAST_NAME])))))
 
 (defn check-demographics
   "Check demographics report. Run as:
@@ -1740,8 +1721,6 @@
 
     (pc4/halt! system)))
 
-
-
 (defn admission->episode [patient-pk user-id {:wales.nhs.cavuhb.Admission/keys [DATE_FROM DATE_TO] :as admission}]
   (when (and admission DATE_FROM DATE_TO)
     {:t_episode/patient_fk        patient-pk
@@ -1769,13 +1748,12 @@
         project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
         project-id (:t_project/id project)]
     (dorun
-      (->> (fetch-study-patient-identifiers system centre)
-           (mapcat #(admissions-for-patient system %))
-           (remove nil?)
-           (map #(assoc % :t_episode/project_fk project-id))
-           (map #(projects/register-completed-episode! (:com.eldrix.rsdb/conn system) %))))
+     (->> (fetch-study-patient-identifiers system centre)
+          (mapcat #(admissions-for-patient system %))
+          (remove nil?)
+          (map #(assoc % :t_episode/project_fk project-id))
+          (map #(projects/register-completed-episode! (:com.eldrix.rsdb/conn system) %))))
     (pc4/halt! system)))
-
 
 (defn update-admissions
   [{:keys [profile project-id]}]
@@ -1847,9 +1825,7 @@
   [{:keys [dir out]}]
   (merge-matching-data (str dir) (str out)))
 
-
 ;; experimental JSON output
-
 
 (comment
   (def system (pc4/init :dev [:pathom/boundary-interface]))
@@ -1865,13 +1841,13 @@
 
   (def data (map (fn [{:t_patient/keys [patient_identifier] :as patient}]
                    (assoc patient
-                     :diagnoses (get diagnoses patient_identifier)
-                     :medication (get non-dmt-meds patient_identifier)
-                     :ms-events (get ms-events patient_identifier)
-                     :dmts (get dmt-regimens patient_identifier)
+                          :diagnoses (get diagnoses patient_identifier)
+                          :medication (get non-dmt-meds patient_identifier)
+                          :ms-events (get ms-events patient_identifier)
+                          :dmts (get dmt-regimens patient_identifier)
                      ;:encounters (get encounters patient_identifier)
-                     :edss (get edss patient_identifier)
-                     :mri-brain (get mri-brains patient_identifier))) patients))
+                          :edss (get edss patient_identifier)
+                          :mri-brain (get mri-brains patient_identifier))) patients))
   (with-open [writer (io/writer (io/file "patients.json"))]
     (json/write data writer)))
 
@@ -1915,7 +1891,6 @@
                                         [{:t_patient/demographics_authority
                                           [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
 
-
   (let [project (projects/project-with-name (:com.eldrix.rsdb/conn system) "ADMISSION")
         project-id (:t_project/id project)]
     (doseq [episode (remove nil? (mapcat #(admissions-for-patient system %) [93718]))]
@@ -1956,12 +1931,6 @@
                                                                        {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
                                                                        :uk.nhs.dmd/NM]}]}]}])))
 
-
-
-
-
-
-
 (comment
   (require '[portal.api :as p])
   (p/open)
@@ -1979,8 +1948,8 @@
   (def user-projects (set (map :t_project/id (users/projects-with-permission roles :DATA_DOWNLOAD))))
   (def requested-projects #{5})
   (def patient-ids (patients/patients-in-projects
-                     rsdb-conn
-                     (clojure.set/intersection user-projects requested-projects)))
+                    rsdb-conn
+                    (clojure.set/intersection user-projects requested-projects)))
   (count patient-ids)
   (take 4 patient-ids)
 
@@ -2009,31 +1978,28 @@
             [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}
              :uk.nhs.dmd/NM]}])
 
-
   (def natalizumab (get
-                     (pathom [{[:info.snomed.Concept/id 36030311000001108]
-                               [:uk.nhs.dmd/TYPE
-                                :uk.nhs.dmd/NM
-                                :uk.nhs.dmd/ATC
-                                :uk.nhs.dmd/VPID
-                                :info.snomed.Concept/parentRelationshipIds
-                                {:uk.nhs.dmd/VMPS [:info.snomed.Concept/id
-                                                   :uk.nhs.dmd/VPID
-                                                   :uk.nhs.dmd/NM
-                                                   :uk.nhs.dmd/ATC
-                                                   :uk.nhs.dmd/BNF]}]}])
-                     [:info.snomed.Concept/id 36030311000001108]))
+                    (pathom [{[:info.snomed.Concept/id 36030311000001108]
+                              [:uk.nhs.dmd/TYPE
+                               :uk.nhs.dmd/NM
+                               :uk.nhs.dmd/ATC
+                               :uk.nhs.dmd/VPID
+                               :info.snomed.Concept/parentRelationshipIds
+                               {:uk.nhs.dmd/VMPS [:info.snomed.Concept/id
+                                                  :uk.nhs.dmd/VPID
+                                                  :uk.nhs.dmd/NM
+                                                  :uk.nhs.dmd/ATC
+                                                  :uk.nhs.dmd/BNF]}]}])
+                    [:info.snomed.Concept/id 36030311000001108]))
   (def all-rels (apply clojure.set/union (vals (:info.snomed.Concept/parentRelationshipIds natalizumab))))
   (map #(:term (com.eldrix.hermes.core/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) all-rels)
 
   (tap> natalizumab)
   (reduce-kv (fn [m k v] (assoc m k (if (map? v) (dissoc v :com.wsscode.pathom3.connect.runner/attribute-errors) v))) {} natalizumab)
 
-
-
   (pathom [{'(info.snomed.Search/search
-               {:constraint "<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|" ;; search UK products
-                :max-hits   10})
+              {:constraint "<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|" ;; search UK products
+               :max-hits   10})
             [:info.snomed.Concept/id
              :uk.nhs.dmd/NM
              :uk.nhs.dmd/TYPE
