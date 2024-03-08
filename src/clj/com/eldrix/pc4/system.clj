@@ -162,21 +162,21 @@
              :com.wsscode.pathom3.format.eql/map-select-include #{:tempids}) ;; always include request for tempids
       (pci/register ops)
       (p.plugin/register
-        {::p.plugin/id 'err
-         ::pcr/wrap-resolver-error
-         (fn [_]
-           (fn [env node error]
-             (when (instance? Throwable error)
-               (.printStackTrace ^Throwable error))
-             (log/error "pathom resolver error" {:node node :error error})))
-         ::pcr/wrap-mutate
-         (fn [mutate]
-           (fn [env params]
-             (try
-               (mutate env params)
-               (catch Throwable err
-                 (.printStackTrace err)
-                 {::pcr/mutation-error (ex-message err)}))))})))
+       {::p.plugin/id 'err
+        ::pcr/wrap-resolver-error
+        (fn [_]
+          (fn [env node error]
+            (when (instance? Throwable error)
+              (.printStackTrace ^Throwable error))
+            (log/error "pathom resolver error" {:node node :error error})))
+        ::pcr/wrap-mutate
+        (fn [mutate]
+          (fn [env params]
+            (try
+              (mutate env params)
+              (catch Throwable err
+                (.printStackTrace err)
+                {::pcr/mutation-error (ex-message err)}))))})))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
@@ -186,7 +186,6 @@
         (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config)))
       (catch Exception _ (log/warn "unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))
-
 
 (defmethod ig/init-key :com.eldrix.pc4/filestorage [_ {:keys [link-duration retention-duration] :as config}]
   (let [config' (cond-> config
@@ -280,8 +279,8 @@
   (reload)
   (:pathom/env system)
   (rsdb/save-pseudonymous-patient-postal-code! (:pathom/env
-                                                 system) {:t_patient/patient_identifier 124018
-                                                          :uk.gov.ons.nhspd/PCD2        "CF14 4XW"})
+                                                system) {:t_patient/patient_identifier 124018
+                                                         :uk.gov.ons.nhspd/PCD2        "CF14 4XW"})
   (clods/fetch-postcode (:com.eldrix/clods system) "CF14 4XW")
   (keys system)
   ((:pathom/boundary-interface system) [{[:uk.gov.ons.nhspd/PCDS "b30 1hl"]
@@ -304,9 +303,9 @@
                                                                 [:info.snomed.Description/active :info.snomed.Description/lowercaseTerm]}]}]))))
 
   ((:pathom/boundary-interface system) [{'(info.snomed.Search/search
-                                            {:s          "mult scl"
-                                             :constraint "<404684003"
-                                             :max-hits   10})
+                                           {:s          "mult scl"
+                                            :constraint "<404684003"
+                                            :max-hits   10})
                                          [:info.snomed.Concept/id
                                           :info.snomed.Description/id
                                           :info.snomed.Description/term
@@ -314,7 +313,7 @@
                                           :info.snomed.Concept/active]}])
 
   ((:pathom/boundary-interface system) [{'(info.snomed/parse
-                                            {:s "He has multiple sclerosis."})
+                                           {:s "He has multiple sclerosis."})
                                          [:info.snomed.Concept/id
                                           :info.snomed.Description/id
                                           :info.snomed.Description/term
@@ -322,7 +321,7 @@
                                           :info.snomed.Concept/active]}])
 
   ((:pathom/boundary-interface system) [{'(pc4.users/login
-                                            {:system "cymru.nhs.uk" :value "ma090906'" :password "password"})
+                                           {:system "cymru.nhs.uk" :value "ma090906'" :password "password"})
                                          [:urn:oid:1.2.840.113556.1.4/sAMAccountName
                                           :io.jwt/token
                                           :urn:oid:2.5.4/givenName
@@ -345,13 +344,13 @@
                                             :org.hl7.fhir.HumanName/suffix]}]}])
 
   ((:pathom/boundary-interface system) [{'(pc4.users/refresh-token
-                                            {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIzOTYxMzc1fQ.q3O6NcIuNexVU268C2l8KoIjGQ2AT19sSn77FbwD03o"})
+                                           {:token "eyJhbGciOiJIUzI1NiJ9.eyJzeXN0ZW0iOiJ1ay5uaHMuY3ltcnUiLCJ2YWx1ZSI6Im1hMDkwOTA2IiwiZXhwIjoxNjIzOTYxMzc1fQ.q3O6NcIuNexVU268C2l8KoIjGQ2AT19sSn77FbwD03o"})
                                          [:io.jwt/token]}])
 
   ((:pathom/boundary-interface system) {:system "cymru.nhs.uk" :value "ma090906" :password "password"})
 
   ((:pathom/boundary-interface system) [{'(wales.nhs.cavuhb/fetch-patient
-                                            {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
+                                           {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
                                          [:org.hl7.fhir.Patient/birthDate
                                           :wales.nhs.cavuhb.Patient/DATE_DEATH
                                           :uk.nhs.cfh.isb1505/display-age
@@ -393,8 +392,6 @@
                                           :t_patient/status
                                           :t_patient/date_death]}])
 
-
-
   ((:pathom/boundary-interface system)
    [{[:info.snomed.Concept/id 24700007] [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/lowercaseTerm]}]}])
 
@@ -433,9 +430,6 @@
                                                                   :date-birth (LocalDate/of 1975 5 1)})
   (#'com.eldrix.pc4.rsdb.users/save-password! (:com.eldrix.rsdb/conn system) "system" "password")
   (com.eldrix.pc4.rsdb.users/check-password (:com.eldrix.rsdb/conn system) nil "system" "password")
-
-
-
 
   (comment
     (config :dev)))
