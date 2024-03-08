@@ -54,7 +54,7 @@
   "A list of interesting drugs for studies of multiple sclerosis.
   They are classified as either platform DMTs or highly efficacious DMTs.
   We define by the use of the SNOMED CT expression constraint language, usually
-  on the basis of active ingredients together with ATC codes. "
+  on the basis of active ingredients, together with ATC codes. "
   {:dmf
    {:description "Dimethyl fumarate"
     :atc         "L04AX07"
