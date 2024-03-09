@@ -245,7 +245,9 @@
    {:project props :selected-id :find-pseudonymous}
    (div :.bg-white.overflow-hidden.shadow.sm:rounded-lg.space-y-2
         (ui/ui-active-panel {:title    "Search by pseudonymous identifier"
-                             :subtitle "Enter a project-specific pseudonym, or choose register to search by patient identifiable information."}
+                             :subtitle (dom/span "Start typing a project-specific pseudonym. Instead, you can also search for a patient by using "
+                                                 (ui/ui-link-button {:onClick #(dr/change-route! this ["projects" project-id "register-pseudonymous"])} "register patient")
+                                                 " to search by patient identifiable information.")}
                             (div :.mt-4
                                  (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
                                  (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
