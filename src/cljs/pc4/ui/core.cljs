@@ -387,7 +387,7 @@
   (comp/factory UIButton {:keyfn :key}))
 
 (defsc UILinkButton [this {:keys [onClick]}]
-  (dom/a :.pt-2.pb-2.border.border-white.rounded.hover:border-gray-200.text-blue-500.hover:bg-gray-200.cursor-pointer
+  (dom/a :.pt-1.pb-1.rounded.text-blue-500.hover:bg-blue-200.cursor-pointer
          {:onClick onClick}
          (comp/children this)))
 
