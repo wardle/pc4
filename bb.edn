@@ -1,6 +1,4 @@
 ;; Deployment build file
-;; This is unnecessarily complicated. pc4 should be a single repository simplifying both dev and release
-;; For now, while the structures are not finalised, this creates a build artefact that can be run in production
 
 {:tasks
  {:requires  ([babashka.fs :as fs]
