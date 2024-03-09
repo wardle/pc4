@@ -31,7 +31,7 @@
            (java.time.temporal ChronoUnit Temporal)
            (java.time.format DateTimeFormatter)
            (java.io PushbackReader File)
-           (java.nio.file Files LinkOption)
+           (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)))
 
 (def study-master-date
