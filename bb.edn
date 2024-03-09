@@ -1,5 +1,6 @@
 ;; Deployment build file
-
+;; Note: generated build products are built using git describe
+;; This uses the last *annotated* tag - ie a tag with a commit message. 
 {:tasks
  {:requires  ([babashka.fs :as fs]
               [babashka.process :refer [sh]]
