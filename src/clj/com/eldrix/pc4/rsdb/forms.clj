@@ -49,9 +49,10 @@
 (s/def ::form-type-id (s/nilable int?))
 (s/def ::table string?)
 (s/def ::nm string?)
-(s/def ::normalize fn?)
+(s/def ::parse fn?)
+(s/def ::unparse fn?)
 (s/def ::summary fn?)
-(s/def ::normalized-form-type (s/keys :req-un [::form-type-id ::table ::table-kw ::nm ::parse ::summary]))
+(s/def ::normalized-form-type (s/keys :req-un [::form-type-id ::table ::table-kw ::nm ::parse ::unparse ::summary]))
 (s/def ::include-deleted boolean?)
 
 (def edss-score->score
