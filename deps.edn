@@ -2,13 +2,13 @@
  ["src/clj" "src/cljs" "resources"]
 
  :deps
- {org.clojure/clojure                  {:mvn/version "1.12.0-alpha5"}
+ {org.clojure/clojure                  {:mvn/version "1.12.0-alpha9"}
   org.clojure/core.async               {:mvn/version "1.6.681"}
-  org.clojure/data.csv                 {:mvn/version "1.0.1"}
-  org.clojure/data.xml                 {:mvn/version "0.2.0-alpha8"}
-  org.clojure/data.zip                 {:mvn/version "1.0.0"}
-  org.clojure/tools.cli                {:mvn/version "1.0.219"}
-  org.clojure/tools.logging            {:mvn/version "1.2.4"}
+  org.clojure/data.csv                 {:mvn/version "1.1.0"}
+  org.clojure/data.xml                 {:mvn/version "0.2.0-alpha9"}
+  org.clojure/data.zip                 {:mvn/version "1.1.0"}
+  org.clojure/tools.cli                {:mvn/version "1.1.230"}
+  org.clojure/tools.logging            {:mvn/version "1.3.0"}
 
   wonder.core/ERExtensions             {:mvn/version "7.4"
                                         :exclusions  [log4j/log4j
@@ -20,15 +20,15 @@
   com.eldrix/nhs-number                {:mvn/version "1.0.54"}
   com.eldrix/concierge                 {:mvn/version "1.0.189"}
   com.eldrix/deprivare                 {:mvn/version "2.0.72"}
-  com.eldrix/dmd                       {:mvn/version "1.0.170-alpha"}
-  com.eldrix/hermes                    {:mvn/version "1.4.1351"}
+  com.eldrix/dmd                       {:mvn/version "1.0.180"}
+  com.eldrix/hermes                    {:mvn/version "1.4.1362"}
   com.eldrix/zipf                      {:mvn/version "0.1.8"}
 
   aero/aero                            {:mvn/version "1.1.6"}
   buddy/buddy-core                     {:mvn/version "1.11.423"}
   buddy/buddy-sign                     {:mvn/version "3.5.351"}
   com.draines/postal                   {:mvn/version "2.0.5"}
-  com.github.seancorfield/honeysql     {:mvn/version "2.5.1103"}
+  com.github.seancorfield/honeysql     {:mvn/version "2.6.1126"}
   com.github.seancorfield/next.jdbc    {:mvn/version "1.3.909"}
   ;com.wsscode/pathom3                  {:mvn/version "2023.08.22-alpha"}
   com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
@@ -37,67 +37,67 @@
   io.pedestal/pedestal.service         {:mvn/version "0.6.3"}
   io.pedestal/pedestal.jetty           {:mvn/version "0.6.3"}
 
-  com.fulcrologic/fulcro               {:mvn/version "3.6.10"}
-  com.fulcrologic/guardrails           {:mvn/version "1.1.13"}
+  com.fulcrologic/fulcro               {:mvn/version "3.7.3"}
+  com.fulcrologic/guardrails           {:mvn/version "1.2.4"}
 
   expound/expound                      {:mvn/version "0.9.0"}
   integrant/integrant                  {:mvn/version "0.8.1"}
-  lambdaisland/uri                     {:mvn/version "1.16.134"}
-  migratus/migratus                    {:mvn/version "1.5.4"}
-  org.jsoup/jsoup                      {:mvn/version "1.17.1"}
-  org.postgresql/postgresql            {:mvn/version "42.7.1"}
+  lambdaisland/uri                     {:mvn/version "1.19.155"}
+  migratus/migratus                    {:mvn/version "1.5.5"}
+  org.jsoup/jsoup                      {:mvn/version "1.17.2"}
+  org.postgresql/postgresql            {:mvn/version "42.7.2"}
   rum/rum                              {:mvn/version "0.12.11"}
-  software.amazon.awssdk/s3            {:mvn/version "2.22.4"}
-  software.amazon.awssdk/apache-client {:mvn/version "2.22.4"}
-  com.taoensso/timbre                  {:mvn/version "6.3.1"}}
+  software.amazon.awssdk/s3            {:mvn/version "2.25.7"}
+  software.amazon.awssdk/apache-client {:mvn/version "2.25.7"}
+  com.taoensso/timbre                  {:mvn/version "6.5.0"}}
 
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
   "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
  :aliases
- {:build         {:deps       {io.github.clojure/tools.build {:git/tag "v0.9.6" :git/sha "8e78bcc"}
+ {:build         {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.0" :git/sha "3a2c484"}
                                slipset/deps-deploy           {:mvn/version "RELEASE"}}
                   :ns-default build}
 
-  :run           {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
+  :run           {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
                   :main-opts  ["-m" "com.eldrix.pc4.core"]}
 
   :server        {:exec-fn    com.eldrix.pc4.core/run
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
 
-  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
+  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
                   :exec-fn    com.eldrix.pc4.core/migrate}
 
   :repl-server   {:exec-fn    clojure.core.server/start-server
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.4.14"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
                   :exec-args  {:name          "repl-server"
                                :port          5555
                                :accept        clojure.core.server/repl
                                :server-daemon false}}
 
   :dev           {:extra-paths ["dev"]
-                  :extra-deps  {org.clojure/clojurescript                {:mvn/version "1.11.121"}
+                  :extra-deps  {org.clojure/clojurescript                {:mvn/version "1.11.132"}
                                 bidi/bidi                                {:mvn/version "2.1.6"}
                                 binaryage/devtools                       {:mvn/version "1.0.7"}
-                                ch.qos.logback/logback-classic           {:mvn/version "1.4.14"}
+                                ch.qos.logback/logback-classic           {:mvn/version "1.5.3"}
                                 clj-commons/pushy                        {:mvn/version "0.3.10"}
                                 com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.1.1"}
+                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
                                 fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                                 integrant/repl                           {:mvn/version "0.3.3"}
                                 org.clojure/test.check                   {:mvn/version "1.1.1"}
-                                thheller/shadow-cljs                     {:mvn/version "2.26.2"}}
+                                thheller/shadow-cljs                     {:mvn/version "2.27.5"}}
                   :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                 "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
-  :nrepl         {:extra-deps {nrepl/nrepl       {:mvn/version "1.0.0"}
-                               cider/cider-nrepl {:mvn/version "0.42.1"}}
+  :nrepl         {:extra-deps {nrepl/nrepl       {:mvn/version "1.1.1"}
+                               cider/cider-nrepl {:mvn/version "0.47.0"}}
                   :main-opts  ["--main" "nrepl.cmdline"
                                "--middleware" "[cider.nrepl/cider-middleware]"
                                "--interactive"]}
-  :portal        {:extra-deps {djblue/portal {:mvn/version "0.51.0"}}}
+  :portal        {:extra-deps {djblue/portal {:mvn/version "0.52.2"}}}
 
   :morse         {:extra-deps {io.github.nubank/morse {:git/tag "v2023.10.06.02" :git/sha "88b5ff7"}}}
 
