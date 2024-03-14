@@ -139,7 +139,7 @@
    {:form-type-id 45 :table "t_form_bronchiolitis_tal_score" :title "Tal score (Bronchiolitis)" :key nil :entity-name "FormBronchiolitisTalScore"}
    {:form-type-id 46 :table "t_form_croup_westley" :title "Westley score (Croup)" :key nil :entity-name "FormCroupWestley"}
    {:form-type-id 47 :table "t_form_nice_feverish_child" :title "NICE feverish child assessment" :key nil :entity-name "FormNiceFeverishChild"}
-   {:form-type-id 48 :table "t_form_prescription" :title "Prescription" :key nil :entity-name "FormPrescription"}
+   {:form-type-id 48 :table "t_form_prescription" :title "Prescription" :key nil :entity-name "FormPrescription" :allow-multiple? true}
    {:form-type-id 49 :table "t_form_mnd_symptom" :title "MND symptoms" :key nil :entity-name "FormMndSymptom"}
    {:form-type-id 50 :table "t_form_adrt" :title "Advance Decisions to Refuse Treatment" :key nil :entity-name "FormAdrt"}
    {:form-type-id 52 :table "t_form_multiple_sclerosis_dmt" :title "MS DMT Assessment" :key nil :entity-name "FormMultipleSclerosisDmt"}
