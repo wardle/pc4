@@ -36,14 +36,16 @@
   In order to make it easier to migrate, it would be ideal to represent most
   forms flattened within an encounter. For the few forms that permit multiple
   forms per encounter, they would be represented as a to-many property."
-  (:require [clojure.string :as str]
-            [honey.sql :as sql]
-            [com.eldrix.pc4.rsdb.db :as db]
-            [clojure.spec.alpha :as s]
-            [next.jdbc :as jdbc]
-            [clojure.tools.logging.readable :as log]
-            [com.eldrix.pc4.rsdb.patients :as patients])
-  (:import (java.time LocalDateTime)))
+  (:require
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]
+   [clojure.tools.logging.readable :as log]
+   [com.eldrix.pc4.rsdb.db :as db]
+   [com.eldrix.pc4.rsdb.patients :as patients]
+   [honey.sql :as sql]
+   [next.jdbc :as jdbc])
+  (:import
+   (java.time LocalDateTime)))
 
 (s/def ::conn any?)
 (s/def ::form-type-id (s/nilable int?))
@@ -172,16 +174,20 @@
 (s/fdef normalize-form-type
   :args (s/cat :form-type (s/keys :req-un [::form-type-id ::table] :opt-un [::nm ::parse ::summary])))
 (defn normalize-form-type
-  "Normalizes a form type by ensuring it provides a name as well as normalize 
-  and summary functions."
-  [{:keys [nm table parse summary] :as form-type}]
+  "Normalizes a form type by ensuring it provides a name as well as default 
+  no-op parse, unparse and summary functions if not explicitly provided."
+  [{:keys [nm table parse unparse summary] :as form-type}]
   (assoc form-type
          :nm (or nm (if (str/starts-with? table "t_form") (subs table 2) (throw (ex-info "Cannot determine default form name" form-type))))
          :table-kw (keyword table)
          :summary (or summary (constantly nil))
-         :parse (or parse identity)))
+         :parse (or parse identity)
+         :unparse (or unparse identity)))
 
-(def forms (map normalize-form-type forms*))
+(def forms
+  "A sequence of all known 'forms', each with a defined name and default no-op
+  parse, unparse and summary functions if not explicitly provided."
+  (map normalize-form-type forms*))
 
 (def form-type-by-name
   "Return form type by name.
@@ -191,21 +197,28 @@
   ```"
   (reduce (fn [acc {:keys [nm] :as form-type}] (assoc acc nm form-type)) {} forms))
 
+(def form-type-by-id
+  (reduce (fn [acc {:keys [form-type-id] :as form-type}]
+            (assoc acc form-type-id form-type)) {} forms))
+
 (s/fdef parse-form
   :args (s/cat :form-type ::normalized-form-type :form any?))
 (defn parse-form
   "Parse form data from the database - annotating with type information,
   generating a summary and converting properties when appropriate."
   [{:keys [form-type-id table table-kw title allow-multiple? summary parse]} form]
-  (let [k-is-deleted (keyword table "is_deleted")]
+  (let [form-id (get form (keyword table "id"))
+        k-is-deleted (keyword table "is_deleted")]
     (-> form
         parse
         (update k-is-deleted parse-boolean)
-        (assoc :t_form/form_type_id      form-type-id
-               :t_form/form_namespace    table-kw
-               :t_form/title             title
-               :t_form/one_per_encounter (not allow-multiple?)
-               :t_form/summary_result    (summary form)))))
+        (assoc :t_form/id                     form-id
+               :t_form/summary_result         (summary form)
+               :t_form/form_type {:t_form_type/id                form-type-id
+                                  :t_form_type/table             table
+                                  :t_form_type/namespace         table-kw
+                                  :t_form_type/title             title
+                                  :t_form_type/one_per_encounter (not allow-multiple?)}))))
 
 (s/fdef form-for-encounter-sql
   :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
@@ -240,15 +253,90 @@
            acc))))
    [] forms))
 
+(defn ^:private form-types-for-encounter
+  "Return the available form types for a given encounter based on the
+  encounter template for that encounter. Returns a map of form status to a sequence
+  of form types, which will include ordering, id and title information.
+  e.g.,
+  (form-types-for-encounter conn 246234)
+  ;; =>
+  ;;  {:available
+  ;;   (#:t_form_type{:ordering 0,
+  ;;                  :id 30,
+  ;;                  :title \"Ishihara\",
+  ;;                  :table \"t_form_ishihara\"}
+  ;;    #:t_form_type{:ordering 0,
+  ;;                  :id 7,
+  ;;                  :title \"MMSE\",
+  ;;                  :table \"t_form_mmse\"}
+  ;;    #:t_form_type{:ordering 0,
+  ;;                  :id 13,
+  ;;                  :title \"SOAP\",
+  ;;                  :table \"t_form_soap\"})} "
+  [conn encounter-id]
+  (reduce
+   (fn [acc {:t_encounter_template__form_type/keys [formtypeid status ordering]}]
+     (let [{:keys [title table table-kw allow-multiple]} (form-type-by-id formtypeid)]
+       (update acc (keyword (str/lower-case status))
+               conj
+               (hash-map :t_form_type/id                formtypeid
+                         :t_form_type/table             table
+                         :t_form_type/namespace         table-kw
+                         :t_form_type/title             title
+                         :t_form_type/ordering          ordering
+                         :t_form_type/one_per_encounter (not allow-multiple)))))
+   {}
+   (jdbc/plan conn (sql/format
+                    {:select :* :from :t_encounter_template__form_type
+                     :where [:=  :encountertemplateid {:select :encounter_template_fk :from :t_encounter :where [:= :id encounter-id]}]}))))
+
+(defn forms-and-form-types-in-encounter
+  "For a given encounter, returns the forms already completed, and any other available forms. 
+  Depending on the encounter template, there will be mandatory, available or optional forms. 
+  Where there are mandatory forms, a user interface can force the user to complete as per the 
+  legacy application. Available forms are forms that should be easily accessible to the end-user.
+  Optional forms can be less accessible to the end-user because they are less frequently used.
+  Returns a map with the following keys: 
+  - :available - an ordered sequence of form types, ordered by `ordering` (as per encounter template) and title
+  - :optional  - an ordered sequence of form types as per :available, but less often used as per template
+  - :mandatory - an ordered sequence of form types as per :available but mandatory as per template
+  - :existing  - a sequence of form types that have already been recorded
+  - :completed - a sequence of forms (each with `:t_form/form_type`) already completed."
+  [conn encounter-id]
+  (let [completed (forms-for-encounter conn encounter-id)            ;; already completed forms
+        existing (map :t_form/form_type completed)                   ;; get form types for the completed forms
+        existing-type-ids (into #{} (map :t_form_type/id) existing)  ;; get a set of form-type ids for completed forms
+        form-types-by-status (form-types-for-encounter conn encounter-id) ;; get available forms as per encounter template
+        order-by-id (reduce (fn [acc {:t_form_type/keys [id ordering]}] (assoc acc id ordering)) {} (:available form-types-by-status))]
+    (assoc
+     (update-vals form-types-by-status ;; remove already completed forms from each category
+                  (fn [form-types]
+                    (->> form-types  ;; remove any existing and sort by ordering and title
+                         (remove #(existing-type-ids (:t_form_type/id %)))
+                         (sort-by (juxt :t_form_type/ordering :t_form_type/title)))))
+     :completed
+     (->> completed                                    ;; annotate completed forms with order, and then sort 
+          (map (fn [{:t_form/keys [form_type] :as form}]
+                 (assoc-in form [:t_form/form_type :t_form_type/ordering] (order-by-id (:t_form_type/id form_type)))))
+          (sort-by (juxt (comp :t_form_type/ordering :t_form/form_type) (comp :t_form_type/title :t_form/form_type))))
+     :existing
+     (->> existing
+          (map (fn [{:t_form_type/keys [id] :as form-type}]
+                 (assoc form-type :t_form_type/ordering (order-by-id id))))
+          (sort-by (juxt :t_form_type/ordering :t_form_type/title))))))
+
 (defn all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
   [conn patient-identifier]
-  (into #{} (map :t_encounter/id)
+  (into #{}
+        (map :t_encounter/id)
         (jdbc/plan conn (sql/format
                          {:select [:t_encounter/id]
                           :from   :t_encounter
                           :where  [:and
-                                   [:= :patient_fk {:select [:t_patient/id] :from [:t_patient] :where [:= :patient_identifier patient-identifier]}]
+                                   [:= :patient_fk {:select [:t_patient/id]
+                                                    :from [:t_patient]
+                                                    :where [:= :patient_identifier patient-identifier]}]
                                    [:<> :t_encounter/is_deleted "true"]]}))))
 
 (comment
@@ -261,7 +349,12 @@
   (all-active-encounter-ids conn 14031)
   (def results (forms-for-encounter conn 8042))
   results
-  (forms-for-encounter conn 1834))
+  (forms-for-encounter conn 1834)
+  (forms-for-encounter conn 246234)
+  (form-types-for-encounter conn 246234)
+  (forms-and-form-types-in-encounter conn 246234)
+  (forms-and-form-types-in-encounter conn 280071)
+  (map #(forms-and-form-types-in-encounter conn %) (all-active-encounter-ids conn 14031)))
 
 (defn encounter->form_smoking_history
   "Return a form smoking history for the encounter."
