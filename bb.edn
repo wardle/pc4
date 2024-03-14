@@ -26,7 +26,7 @@
                         (shell "yarn shadow-cljs -A:dev watch main"))}
   nrepl      {:doc  "Run a nREPL with cider middleware "
               :task (do (println "Running nREPL with cider middleware")
-                        (shell "clj -M:dev:portal:nrepl"))}
+                        (shell "clj -M:dev:test:portal:nrepl"))}
 
   serve      {:doc  "Run a development server. Note: it is usually to directly run from a REPL."
               :task (do (println "Running development server")
