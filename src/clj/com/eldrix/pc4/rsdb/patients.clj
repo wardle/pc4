@@ -1,10 +1,8 @@
 (ns com.eldrix.pc4.rsdb.patients
-  (:require [clojure.set :as set]
-            [clojure.tools.logging.readable :as log]
+  (:require [clojure.tools.logging.readable :as log]
             [next.jdbc :as jdbc]
             [next.jdbc.sql]
             [honey.sql :as sql]
-            [com.eldrix.pc4.fhir :as fhir]
             [com.eldrix.pc4.rsdb.db :as db]
             [com.eldrix.pc4.rsdb.projects :as projects]
             [clojure.spec.alpha :as s]
