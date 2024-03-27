@@ -350,9 +350,10 @@
         events' (mapv #(unparse-medication-event id' %) events)]
     (log/info "upserted medication" med'')
     (log/info "upserting medication events" events')
-    (if (seq events')
-      (assoc med'' :t_medication/events (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true})))
-      med'')))
+    (assoc med'' :t_medication/events 
+           (if (seq events')
+             (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
+             []))))
 
 (s/fdef delete-medication!
   :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id])))
