@@ -78,7 +78,7 @@
       (is (= (dissoc med :t_medication/events) (dissoc med3 :t_medication/events)))
       (is (= 2 (count (:t_medication/events med3))))
       (is (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med)))
-          (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med3))))))
+             (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med3))))))
     (let [med4 (patients/upsert-medication! *conn* (assoc med :t_medication/events []))
           meds (patients/fetch-medications-and-events *conn* *patient*)]
       (is (= 0 (count (:t_medication/events med4))))
