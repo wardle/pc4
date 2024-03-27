@@ -1,7 +1,6 @@
 (ns com.eldrix.pc4.rsdb.patients-test
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest use-fixtures is]]
-            [com.eldrix.concierge.wales.empi :as empi]
             [com.eldrix.pc4.rsdb.patients :as patients]
             [com.eldrix.pc4.rsdb.projects :as projects]
             [next.jdbc :as jdbc])
