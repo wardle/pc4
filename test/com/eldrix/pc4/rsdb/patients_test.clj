@@ -46,7 +46,7 @@
       (is (= 774459007 (:t_medication/medication_concept_fk med')))
       (is (= (LocalDate/of 2020 1 1) (:t_medication/date_from med')))
       (is (= (LocalDate/of 2020 1 3) (:t_medication/date_to med')))
-      (is (= med' (first meds)))
+      (is (= (dissoc med' :t_medication/events) (first meds))) ;; upsert-medication! will return {:t_medication/events []}
       (patients/delete-medication! *conn* med')
       (is (empty? (patients/fetch-medications *conn* *patient*))))))
 
@@ -77,11 +77,11 @@
     (let [med3 (patients/upsert-medication! *conn* (assoc med :t_medication/events events))]
       (is (= (dissoc med :t_medication/events) (dissoc med3 :t_medication/events)))
       (is (= 2 (count (:t_medication/events med3))))
-      (is (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med))))
-          (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med3))))))
+      (is (= (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med)))
+          (set (map #(dissoc % :t_medication_event/id) (:t_medication/events med3))))))
     (let [med4 (patients/upsert-medication! *conn* (assoc med :t_medication/events []))
           meds (patients/fetch-medications-and-events *conn* *patient*)]
-      (= (= 0 (count (:t_medication/events med4))))
-      (= med4 (first meds))
+      (is (= 0 (count (:t_medication/events med4))))
+      (is (= med4 (first meds)))
       (patients/delete-medication! *conn* med4)
-      (= 0 (count (patients/fetch-medications-and-events *conn* *patient*))))))
+      (is (= 0 (count (patients/fetch-medications-and-events *conn* *patient*)))))))
