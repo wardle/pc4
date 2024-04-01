@@ -841,8 +841,9 @@
   deleted. Returns the updated 'deleted' form."
   [conn form]
   (let [{:keys [form-type delete-sql]} (form->type-and-sql form)]
-    (when delete-sql
-      (parse-form form-type (db/execute-one! conn (sql/format delete-sql) {:return-keys true})))))
+    (if delete-sql
+      (parse-form form-type (db/execute-one! conn (sql/format delete-sql) {:return-keys true}))
+      (throw (ex-info "cannot delete form; no existing id" form)))))
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))

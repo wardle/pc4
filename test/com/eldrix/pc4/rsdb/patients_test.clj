@@ -90,7 +90,7 @@
       (is (= 0 (count (patients/fetch-medications-and-events *conn* *patient*)))))))
 
 
-(deftest test-encounter
+(deftest test-encounter-forms
   (with-patient 
     (fn []
       (let [patient 
@@ -176,6 +176,7 @@
             _
             (is (= updated-edss (first completed-forms)))
 
+            ;; delete the form and check it is a) deleted, and b) forms-and-form-types then returns correctly.
             deleted-edss
             (forms/delete-form! *conn* updated-edss)
 
@@ -185,7 +186,7 @@
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
-            _ ;; there should be an EDSS form available or completed at this point 
+            _ ;; there should now be an EDSS form available but nothing completed at this point 
             (is (= [1 0 0 0 0 1] 
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
                     (count existing-form-types) (count completed-forms) (count deleted-forms)])) ]
