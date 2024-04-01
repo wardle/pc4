@@ -114,15 +114,18 @@
             (is (= [0 0 0 0 0 0] 
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
                     (count existing-form-types) (count completed-forms) (count deleted-forms)])) 
-            _ ;; now add short form EDSS to the encounter template 'available' form lists
+
+            _ ;; add short form EDSS to the encounter template 'available' form lists
             (sql/insert! *conn* :t_encounter_template__form_type {:encountertemplateid encounter-template-id
                                                                   :formtypeid          2
                                                                   :status              "AVAILABLE"})
-            _ ;; now check that short form EDSS is available within encounter
+
+            _ ;; check that short form EDSS is available within encounter
             (is (= 2 (-> (forms/forms-and-form-types-in-encounter *conn* encounter-id)
                          :available-form-types first :t_form_type/id)))
-
-            saved-edss ;; add a short-form EDSS result
+            
+            ;; add a short-form EDSS result
+            saved-edss
             (forms/save-form! *conn* {:t_form_edss/id           nil
                                       :t_form_edss/encounter_fk encounter-id 
                                       :t_form_edss/user_fk      1
@@ -132,11 +135,12 @@
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
+            ;; should now have one existing form type as we have one completed form
             _ 
             (is (= [0 0 0 1 1 0]
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
                     (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
-            
+
             ;; the only completed form should be an EDSS form
             returned-edss 
             (first completed-forms)
@@ -147,7 +151,7 @@
 
             _
             (is (= "SCORE1_0" (:t_form_edss/edss_score returned-edss)))
-             
+
             ;; update the EDSS form - we should get the *same* result when updating as inserting
             nop-updated-edss
             (forms/save-form! *conn* returned-edss)
@@ -157,11 +161,11 @@
 
             updated-edss
             (forms/save-form! *conn* (assoc returned-edss :t_form_edss/edss_score "SCORE2_0"))
-            
+
             ;; check EDSS result now updated 
             _
             (is (= "SCORE2_0" (:t_form_edss/edss_score updated-edss)))
-           
+
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
@@ -171,10 +175,10 @@
                     (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
             _
             (is (= updated-edss (first completed-forms)))
-            
+
             deleted-edss
             (forms/delete-form! *conn* updated-edss)
-            
+
             _
             (is (= true (:t_form_edss/is_deleted deleted-edss)))
 
