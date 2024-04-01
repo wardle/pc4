@@ -783,9 +783,9 @@
 
 (defn form->type-and-sql
   "Returns a map containing :form-type and :sql for the given form.
-  - :form-type : the form type for the given form
-  - :sql       : SQL to either insert or update a form 
-  
+  - :form-type  : the form type for the given form
+  - :save-sql   : SQL to either insert or update a form as appropriate 
+  - :delete-sql : SQL to delete the form; nil if does not exist 
   Returns an update statement if there is an existing id, or an insert
   statement if not. As currently all supported forms uses legacy WO horizontal
   inheritance, we use t_form_seq to generate identifiers manually. "
@@ -793,7 +793,7 @@
   (let [{:keys [form-type data]} (unparse-form form)
         {:keys [table-kw]} form-type]
     {:form-type form-type
-     :sql       (if-let [id (:id data)]
+     :save-sql  (if-let [id (:id data)] 
                   {:update    table-kw 
                    :set       (dissoc data :id) 
                    :where     [:= :id id]
@@ -802,7 +802,12 @@
                    :values      [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
                                          :is_deleted   "false" 
                                          :date_created (LocalDateTime/now)}
-                                        (dissoc data :id))]})}))
+                                        (dissoc data :id))]})
+     :delete-sql (when-let [id (:id data)]  
+                   {:update table-kw
+                    :set {:is_deleted "true"}
+                    :where [:= :id id]
+                    :returning :*})}))
 
 (defn save-form! 
   "Saves a form to the database. Matches the form to its form-type using the 
@@ -811,8 +816,16 @@
   should be possible to use the return of `save-form!` in another call of 
   `save-form!` without changing the result."
   [conn form]
-  (let [{:keys [form-type sql]} (form->type-and-sql form)]
-    (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))))
+  (let [{:keys [form-type save-sql]} (form->type-and-sql form)]
+    (parse-form form-type (db/execute-one! conn (sql/format save-sql) {:return-keys true}))))
+
+(defn delete-form!
+  "'Deletes' a form. Forms are never actually deleted, but merely marked as 
+  deleted. Returns the updated 'deleted' form."
+  [conn form]
+  (let [{:keys [form-type delete-sql]} (form->type-and-sql form)]
+    (when delete-sql
+      (parse-form form-type (db/execute-one! conn (sql/format delete-sql) {:return-keys true})))))
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
@@ -820,7 +833,7 @@
                        :t_form_edss/user_fk 1 
                        :t_form_edss/encounter_fk 123 
                        :t_form_edss/edss_score "SCORE1_0"})
-  (honey.sql/format (:sql (form->type-and-sql {:t_form_edss/id 55 
+  (honey.sql/format (:save-sql (form->type-and-sql {:t_form_edss/id 55 
                                                :t_form_edss/user_fk 1
                                                :t_form_edss/encounter_fk 123 
                                                :t_form_edss/edss_score "SCORE1_0"})))

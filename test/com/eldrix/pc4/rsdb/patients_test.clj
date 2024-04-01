@@ -129,7 +129,7 @@
                                       :t_form_edss/edss_score   "SCORE1_0"})
 
             ;; get available and completed form types now we have created a form 
-            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms] :as afs}
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
             _ 
@@ -158,12 +158,34 @@
             updated-edss
             (forms/save-form! *conn* (assoc returned-edss :t_form_edss/edss_score "SCORE2_0"))
             
+            ;; check EDSS result now updated 
             _
             (is (= "SCORE2_0" (:t_form_edss/edss_score updated-edss)))
-            ]
-        #_(clojure.pprint/pprint {:saved-edss saved-edss
-                                :returned-edss returned-edss
-                                :nop-updated-edss nop-updated-edss})))) )
+           
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
+
+            _
+            (is (= [0 0 0 1 1]
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
+                    (count existing-form-types) (count completed-forms)] ))
+            _
+            (is (= updated-edss (first completed-forms)))
+            
+            deleted-edss
+            (forms/delete-form! *conn* updated-edss)
+            
+            _
+            (is (= true (:t_form_edss/is_deleted deleted-edss)))
+
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            (forms/forms-and-form-types-in-encounter *conn* encounter-id)
+
+            _ ;; there should be an EDSS form available or completed at this point 
+            (is (= [1 0 0 0 0] 
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
+                    (count existing-form-types) (count completed-forms)])) ]
+        #_(clojure.pprint/pprint deleted-edss)))))
 
 
 (comment
