@@ -470,16 +470,18 @@
   [{:keys [form-type-id table table-kw title allow-multiple? summary parse]} form]
   (let [form-id (get form (keyword table "id"))
         k-is-deleted (keyword table "is_deleted")
+        is-deleted (parse-boolean (get form k-is-deleted))
         form' (parse form)]
     (-> form'
-        (update k-is-deleted parse-boolean)
-        (assoc :t_form/id form-id
+        (assoc k-is-deleted is-deleted)
+        (assoc :t_form/id             form-id
+               :t_form/is_deleted     is-deleted
                :t_form/summary_result (summary form')   ;; care to generate summary using parsed form and not raw form fetch result
-               :t_form/form_type {:t_form_type/id                form-type-id
-                                  :t_form_type/table             table
-                                  :t_form_type/namespace         table-kw
-                                  :t_form_type/title             title
-                                  :t_form_type/one_per_encounter (not allow-multiple?)}))))
+               :t_form/form_type      {:t_form_type/id                form-type-id
+                                       :t_form_type/table             table
+                                       :t_form_type/namespace         table-kw
+                                       :t_form_type/title             title
+                                       :t_form_type/one_per_encounter (not allow-multiple?)}))))
 
 (s/fdef form-for-encounter-sql
   :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
@@ -564,9 +566,11 @@
   - :optional-form-types  - an ordered sequence of form types as per :available, but less often used as per template
   - :mandatory-form-types - an ordered sequence of form types as per :available but mandatory as per template
   - :existing-form-types  - a sequence of form types that have already been recorded
-  - :completed-forms      - a sequence of forms (each with `:t_form/form_type`) already completed."
+  - :completed-forms      - a sequence of forms (each with `:t_form/form_type`) already completed
+  - :deleted-forms        - a sequence of forms (each with `:t_form/form_type`) deleted from the encounter."
   [conn encounter-id]
-  (let [completed (forms-for-encounter conn encounter-id {:include-deleted false})   ;; already completed forms
+  (let [forms (forms-for-encounter conn encounter-id {:include-deleted true})   ;; all forms
+        completed (remove :t_form/is_deleted forms)                       ;; already completed forms
         existing (map :t_form/form_type completed)                         ;; get form types for the completed forms
         existing-type-ids (into #{} (map :t_form_type/id) existing)        ;; get a set of form-type ids for completed forms
         form-types-by-status (form-types-for-encounter conn encounter-id)  ;; get available forms as per encounter template
@@ -580,7 +584,8 @@
      :optional-form-types  optional
      :mandatory-form-types mandatory
      :existing-form-types  (sort-by :t_form_type/title existing)
-     :completed-forms      (sort-by (comp :t_form_type/title :t_form/form_type) completed)}))
+     :completed-forms      (sort-by (comp :t_form_type/title :t_form/form_type) completed)
+     :deleted-forms        (sort-by (comp :t_form_type/title :t_form/form_type) (filter :t_form/is_deleted forms))}))
 
 (defn all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
@@ -610,6 +615,12 @@
   (forms-and-form-types-in-encounter conn 246234)
   (forms-and-form-types-in-encounter conn 280071)
   (map #(forms-and-form-types-in-encounter conn %) (all-active-encounter-ids conn 14031)))
+
+;;
+;;
+;;
+;;
+;;
 
 (defn encounter->form_smoking_history
   "Return a form smoking history for the encounter."
@@ -744,6 +755,12 @@
     (doseq [stmt forms-sql-stmts]
       (db/execute! txn (sql/format stmt)))
     encounter'))                                            ;; take care to return updated encounter entity.
+
+;;
+;;
+;;
+;;
+;;
 
 (defn unparse-form
   "Prepare a form to be written to the database. Returns a map containing:

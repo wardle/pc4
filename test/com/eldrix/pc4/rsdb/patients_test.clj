@@ -107,13 +107,13 @@
                                        :t_encounter/date_time             (java.time.LocalDateTime/now)
                                        :t_encounter/notes                 "Notes"})
             ;; get available and completed form types for this newly created encounter -> should be none!
-            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
             _ ;; there should be no forms available or completed at this point 
-            (is (= [0 0 0 0 0] 
+            (is (= [0 0 0 0 0 0] 
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms)])) 
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)])) 
             _ ;; now add short form EDSS to the encounter template 'available' form lists
             (sql/insert! *conn* :t_encounter_template__form_type {:encountertemplateid encounter-template-id
                                                                   :formtypeid          2
@@ -129,13 +129,13 @@
                                       :t_form_edss/edss_score   "SCORE1_0"})
 
             ;; get available and completed form types now we have created a form 
-            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
             _ 
-            (is (= [0 0 0 1 1]
+            (is (= [0 0 0 1 1 0]
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms)] ))
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
             
             ;; the only completed form should be an EDSS form
             returned-edss 
@@ -162,13 +162,13 @@
             _
             (is (= "SCORE2_0" (:t_form_edss/edss_score updated-edss)))
            
-            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
             _
-            (is (= [0 0 0 1 1]
+            (is (= [0 0 0 1 1 0]
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms)] ))
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
             _
             (is (= updated-edss (first completed-forms)))
             
@@ -178,13 +178,13 @@
             _
             (is (= true (:t_form_edss/is_deleted deleted-edss)))
 
-            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms]}
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
             _ ;; there should be an EDSS form available or completed at this point 
-            (is (= [1 0 0 0 0] 
+            (is (= [1 0 0 0 0 1] 
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms)])) ]
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)])) ]
         #_(clojure.pprint/pprint deleted-edss)))))
 
 
