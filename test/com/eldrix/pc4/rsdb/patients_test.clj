@@ -203,24 +203,30 @@
             (sql/insert! *conn* :t_encounter_template
                          {:encounter_type_fk 1, :title "Test encounter", :register_to_project_for_weeks -1})
             ;; create a single encounter to which we'll add some forms
-            {encounter-id :t_encounter/id :as encounter}
+            {encounter-id :t_encounter/id}
             (patients/save-encounter! *conn*
                                       {:t_encounter/patient_fk            (:t_patient/id patient)
                                        :t_encounter/encounter_template_fk (:t_encounter_template/id encounter-template)
                                        :t_encounter/date_time             (java.time.LocalDateTime/now)
                                        :t_encounter/notes                 "Notes"})
+
+            ;; generate some random forms
             forms
             (gen/sample (forms/gen-form {:t_form/id nil, :t_form/is_deleted false, :t_form/encounter_fk encounter-id, :t_form/user_fk 1}))
 
+            ;; and add them to the database
             _
             (doseq [form forms]
-              (println "saving form")
-              (clojure.pprint/pprint form)
               (forms/save-form! *conn* form))
 
+            ;; and let's check all is correct
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms] :as afs}
-            (forms/forms-and-form-types-in-encounter *conn* encounter-id)]
+            (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
-        (clojure.pprint/pprint afs)))))
+            ;; some forms are only allowed one per encounter, so older ones should  have been marked as deleted automatically
+            _
+            (is (= (count forms) (+ (count completed-forms) (count deleted-forms))))]
+
+        #_(clojure.pprint/pprint afs)))))
 
 (comment)
