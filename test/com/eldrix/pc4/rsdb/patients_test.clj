@@ -1,6 +1,7 @@
 (ns com.eldrix.pc4.rsdb.patients-test
   (:require [clojure.pprint]
             [clojure.spec.test.alpha :as stest]
+            [clojure.spec.gen.alpha :as gen]
             [clojure.test :refer [deftest use-fixtures is]]
             [com.eldrix.pc4.rsdb.forms :as forms]
             [com.eldrix.pc4.rsdb.patients :as patients]
@@ -59,13 +60,13 @@
                 {:t_medication_event/type     :INFUSION_REACTION
                  :t_medication_event/severity :LIFE_THREATENING}]
         med (patients/upsert-medication!
-              *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
-                      :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
-                      :t_medication/as_required           true
-                      :t_medication/date_from             (LocalDate/of 2020 1 1)
-                      :t_medication/date_to               (LocalDate/of 2020 1 1)
-                      :t_medication/reason_for_stopping   :ADVERSE_EVENT
-                      :t_medication/events                events})
+             *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
+                     :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
+                     :t_medication/as_required           true
+                     :t_medication/date_from             (LocalDate/of 2020 1 1)
+                     :t_medication/date_to               (LocalDate/of 2020 1 1)
+                     :t_medication/reason_for_stopping   :ADVERSE_EVENT
+                     :t_medication/events                events})
         meds (patients/fetch-medications-and-events *conn* *patient*)]
     (is (= 2 (count (:t_medication/events (first meds)))))
     (is (= (set (map #(merge {:t_medication_event/severity nil :t_medication_event/event_concept_fk nil} %) events))
@@ -89,21 +90,20 @@
       (patients/delete-medication! *conn* med4)
       (is (= 0 (count (patients/fetch-medications-and-events *conn* *patient*)))))))
 
-
 (deftest test-encounter-forms
-  (with-patient 
+  (with-patient
     (fn []
-      (let [patient 
+      (let [patient
             *patient*
             ;; create a suitable encounter template for our test
-            {encounter-template-id :t_encounter_template/id :as encounter-template} 
-            (sql/insert! *conn* :t_encounter_template 
+            {encounter-template-id :t_encounter_template/id :as encounter-template}
+            (sql/insert! *conn* :t_encounter_template
                          {:encounter_type_fk 1, :title "Test encounter", :register_to_project_for_weeks -1})
             ;; create a single encounter to which we'll add some forms
-            {encounter-id :t_encounter/id :as encounter} 
+            {encounter-id :t_encounter/id :as encounter}
             (patients/save-encounter! *conn*
                                       {:t_encounter/patient_fk            (:t_patient/id patient)
-                                       :t_encounter/encounter_template_fk (:t_encounter_template/id encounter-template) 
+                                       :t_encounter/encounter_template_fk (:t_encounter_template/id encounter-template)
                                        :t_encounter/date_time             (java.time.LocalDateTime/now)
                                        :t_encounter/notes                 "Notes"})
             ;; get available and completed form types for this newly created encounter -> should be none!
@@ -111,9 +111,9 @@
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
             _ ;; there should be no forms available or completed at this point 
-            (is (= [0 0 0 0 0 0] 
-                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms) (count deleted-forms)])) 
+            (is (= [0 0 0 0 0 0]
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types)
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))
 
             _ ;; add short form EDSS to the encounter template 'available' form lists
             (sql/insert! *conn* :t_encounter_template__form_type {:encountertemplateid encounter-template-id
@@ -123,26 +123,27 @@
             _ ;; check that short form EDSS is available within encounter
             (is (= 2 (-> (forms/forms-and-form-types-in-encounter *conn* encounter-id)
                          :available-form-types first :t_form_type/id)))
-            
+
             ;; add a short-form EDSS result
             saved-edss
             (forms/save-form! *conn* {:t_form_edss/id           nil
-                                      :t_form_edss/encounter_fk encounter-id 
+                                      :t_form_edss/encounter_fk encounter-id
                                       :t_form_edss/user_fk      1
-                                      :t_form_edss/edss_score   "SCORE1_0"})
+                                      :t_form_edss/edss_score   "SCORE1_0"
+                                      :t_form_edss/is_deleted   false})
 
             ;; get available and completed form types now we have created a form 
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
 
             ;; should now have one existing form type as we have one completed form
-            _ 
+            _
             (is (= [0 0 0 1 1 0]
-                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types)
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))
 
             ;; the only completed form should be an EDSS form
-            returned-edss 
+            returned-edss
             (first completed-forms)
 
             ;; it should be exactly the same as what was returned from save-form!
@@ -171,8 +172,8 @@
 
             _
             (is (= [0 0 0 1 1 0]
-                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms) (count deleted-forms)] ))
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types)
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))
             _
             (is (= updated-edss (first completed-forms)))
 
@@ -187,11 +188,39 @@
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
             _ ;; there should now be an EDSS form available but nothing completed at this point 
-            (is (= [1 0 0 0 0 1] 
-                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types) 
-                    (count existing-form-types) (count completed-forms) (count deleted-forms)])) ]
+            (is (= [1 0 0 0 0 1]
+                   [(count available-form-types) (count optional-form-types) (count mandatory-form-types)
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))]
         #_(clojure.pprint/pprint deleted-edss)))))
 
+(deftest test-all-forms
+  (with-patient
+    (fn []
+      (let [patient
+            *patient*
+            ;; create a suitable encounter template for our test
+            {encounter-template-id :t_encounter_template/id :as encounter-template}
+            (sql/insert! *conn* :t_encounter_template
+                         {:encounter_type_fk 1, :title "Test encounter", :register_to_project_for_weeks -1})
+            ;; create a single encounter to which we'll add some forms
+            {encounter-id :t_encounter/id :as encounter}
+            (patients/save-encounter! *conn*
+                                      {:t_encounter/patient_fk            (:t_patient/id patient)
+                                       :t_encounter/encounter_template_fk (:t_encounter_template/id encounter-template)
+                                       :t_encounter/date_time             (java.time.LocalDateTime/now)
+                                       :t_encounter/notes                 "Notes"})
+            forms
+            (gen/sample (forms/gen-form {:t_form/id nil, :t_form/is_deleted false, :t_form/encounter_fk encounter-id, :t_form/user_fk 1}))
 
-(comment
-  )
+            _
+            (doseq [form forms]
+              (println "saving form")
+              (clojure.pprint/pprint form)
+              (forms/save-form! *conn* form))
+
+            {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms] :as afs}
+            (forms/forms-and-form-types-in-encounter *conn* encounter-id)]
+
+        (clojure.pprint/pprint afs)))))
+
+(comment)

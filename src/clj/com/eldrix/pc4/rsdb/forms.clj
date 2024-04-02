@@ -87,7 +87,8 @@
 (s/def :t_form_edss/id (s/nilable pos-int?))
 (s/def :t_form_edss/edss_score (set (keys edss-score->score)))
 (s/def :t_form_edss/user_fk pos-int?)
-(s/def ::t_form_edss (s/keys :req [:t_form_edss/id :t_form_edss/encounter_fk :t_form_edss/user_fk :t_form_edss/edss_score]))
+(s/def :t_form_edss/is_deleted boolean?)
+(s/def ::t_form_edss (s/keys :req [:t_form_edss/id :t_form_edss/encounter_fk :t_form_edss/user_fk :t_form_edss/is_deleted :t_form_edss/edss_score]))
 
 (comment
   (ns-unalias *ns* 'gen)
@@ -532,25 +533,29 @@
   :t_form/user_fk and :t_form/encounter_fk and these will be used in the
   generation of any forms."
   ([] (gen/one-of (map gen-form* (filter :spec forms))))
-  ([{:t_form/keys [user_fk encounter_fk] :as form}]
+  ([{:t_form/keys [id is_deleted user_fk encounter_fk] :as form}]
    (gen/fmap
     #(let [{:keys [form-type]} (unparse-form %)
            {:keys [table]} form-type
+           id-key (keyword table "id")
+           is-deleted-key (keyword table "is_deleted")
            user-key (keyword table "user_fk")
            encounter-key (keyword table "encounter_fk")]
        (cond-> (merge % form)
+         (contains? form :t_form/id) (assoc id-key id)
+         (some? is_deleted) (assoc is-deleted-key is_deleted)
          user_fk (assoc user-key user_fk)
          encounter_fk (assoc encounter-key encounter_fk)))
     (gen-form))))
 
 (comment
   (gen/sample (gen-form-by-table "t_form_edss"))
-  (gen/sample (gen-form {:t_form/user_fk 100 :t_form/encounter_fk 1001})))
+  (gen/sample (gen-form {:t_form/id nil :t_form/user_fk 100 :t_form/encounter_fk 1001})))
 
 (s/fdef form-for-encounter-sql
   :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
 (defn ^:private form-for-encounter-sql
-  "Generate SQL to return a form for the given encounter.
+  "Generate SQL to return form(s) for the given encounter.
   - encounter-id    : encounter identifier
   - table           : table e.g. `:t_form_edss`
   - include-deleted : whether to include deleted forms, default `false`."
@@ -559,7 +564,8 @@
    :from   table
    :where  [:and
             [:= :encounter_fk encounter-id]
-            (when-not include-deleted [:= :is_deleted "false"])]})
+            (when-not include-deleted [:= :is_deleted "false"])]
+   :order-by [[:date_created :desc]]})
 
 (s/fdef forms-for-encounter
   :args (s/cat :conn ::conn :encounter-id int? :opts (s/? (s/keys :opt-un [::include-deleted]))))
