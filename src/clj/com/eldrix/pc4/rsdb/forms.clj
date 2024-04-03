@@ -682,11 +682,11 @@
   (map #(forms-and-form-types-in-encounter conn %) (all-active-encounter-ids conn 14031)))
 
 (defn form->type-and-save-sql
-  "Returns a map containing :form-type, :pre-save-sql and :save-sql for the 
+  "Returns a map containing :form-type, :pre-sql and :sql for the 
   given form.
-  - :form-type    : the form type for the given form
-  - :pre-save-sql : SQL statement to run pre-save, may be nil
-  - :save-sql     : SQL to either insert or update a form as appropriate 
+  - :form-type : the form type for the given form
+  - :pre-sql   : SQL statement to run pre-save, may be nil
+  - :sql       : SQL to either insert or update a form as appropriate 
   Returns an update statement if there is an existing id, or an insert
   statement if not. As currently all supported forms uses legacy WO horizontal
   inheritance, we use t_form_seq to generate identifiers manually. It would be
@@ -698,40 +698,64 @@
   (let [{:keys [form-type data]} (unparse-form form)
         {:keys [table-kw allow-multiple]} form-type
         form-id (:id data)]
-    {:form-type    form-type
-     :pre-save-sql (when (and (not form-id) (not allow-multiple))
-                     {:update table-kw
-                      :set {:is_deleted "true"}
-                      :where [:= :encounter_fk (:encounter_fk data)]})
-     :save-sql     (if form-id                        ;; if we have an existing form, update it 
-                     {:update    table-kw
-                      :set       (dissoc data :id)
-                      :where     [:= :id form-id]
-                      :returning :*}
-                     {:insert-into table-kw           ;; otherwise, insert a form 
-                      :values [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
-                                       :is_deleted   "false"
-                                       :date_created (LocalDateTime/now)}
-                                      (dissoc data :id))]})}))
+    {:form-type form-type
+     :pre-sql   (when (and (not form-id) (not allow-multiple))
+                  {:update table-kw
+                   :set {:is_deleted "true"}
+                   :where [:= :encounter_fk (:encounter_fk data)]})
+     :sql       (if form-id                        ;; if we have an existing form, update it 
+                  {:update    table-kw
+                   :set       (dissoc data :id)
+                   :where     [:= :id form-id]
+                   :returning :*}
+                  {:insert-into table-kw           ;; otherwise, insert a form 
+                   :values [(merge {:id           {:select [[[:nextval "t_form_seq"]]]}
+                                    :is_deleted   "false"
+                                    :date_created (LocalDateTime/now)}
+                                   (dissoc data :id))]})}))
 
 (defn ^:private form->type-and-delete-sql
+  "Returns a map containing :form-type and :sql to delete the given form.
+  Parameters:
+  - :form   - the form to delete (a map)
+  Result is a map containing:
+  - :form-type : the form type for the given form
+  - :sql       : SQL to delete the form; nil if does not exist"
+  [form]
+  (let [{:keys [form-type data]} (unparse-form form)
+        {:keys [table-kw]} form-type
+        form-id (:id data)]
+    {:form-type form-type
+     :sql       (when form-id
+                  {:update table-kw
+                   :set {:is_deleted "true"}
+                   :where [:= :id form-id]
+                   :returning :*})}))
+
+(defn ^:private form->type-and-undelete-sql
   "Returns a map containing :form-type and :sql for the given form.
   Parameters:
   - :form   - the form to delete (a map)
-  - :delete - to delete or undelete
   Result is a map containing:
-  - :form-type  : the form type for the given form
-  - :delete-sql : SQL to delete the form; nil if does not exist"
-  [form delete]
+  - :form-type : the form type for the given form
+  - :pre-sql   : SQL to execute prior to undeletion SQL; may be nil
+  - :sql       : SQL to undelete the form; nil if does not exist"
+  [form]
   (let [{:keys [form-type data]} (unparse-form form)
-        {:keys [table-kw]} form-type]
-    {:form-type  form-type
-     :delete-sql (when-let [id (:id data)]
-                   {:update table-kw
-                    :set {:is_deleted (if delete "true" "false")}
-                    :where [:= :id id]
-                    :returning :*})}))
-
+        {:keys [table-kw allow-multiple]} form-type
+        form-id (:id data)]
+    {:form-type form-type
+     :pre-sql   (when (and form-id (not allow-multiple))
+                  {:update table-kw  ;; mark any other forms in encounter as deleted when undeleting a form 
+                   :set {:is_deleted "true"}
+                   :where [:and
+                           [:= :encounter_fk (:encounter_fk data)]
+                           [:<> :id form-id]]})
+     :sql      (when form-id
+                 {:update table-kw
+                  :set {:is_deleted "false"}
+                  :where [:= :id form-id]
+                  :returning :*})}))
 (defn save-form!
   "Saves a form to the database. Matches the form to its form-type using the 
   namespace and handles either 'insert' or 'update' appropriately depending
@@ -739,12 +763,12 @@
   should be possible to use the return of `save-form!` in another call of 
   `save-form!` without changing the result."
   [conn form]
-  (let [{:keys [form-type pre-save-sql save-sql]} (form->type-and-save-sql form)]
-    (log/debug "saving form" {:form form :form-type form-type :pre-save-sql pre-save-sql :save-sql save-sql})
-    (when pre-save-sql
-      (db/execute-one! conn (sql/format pre-save-sql)))
-    (if save-sql
-      (parse-form form-type (db/execute-one! conn (sql/format save-sql) {:return-keys true}))
+  (let [{:keys [form-type pre-sql sql]} (form->type-and-save-sql form)]
+    (log/debug "saving form" {:form form :form-type form-type :pre-save-sql pre-sql :save-sql sql})
+    (when pre-sql
+      (db/execute-one! conn (sql/format pre-sql)))
+    (if sql
+      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
       (throw (ex-info "cannot save form; no SQL generated" form)))))
 
 (defn delete-form!
@@ -752,17 +776,19 @@
   deleted. Returns the updated 'deleted' form. Throws an exception if the form does
   not exist and does not have an existing id."
   [conn form]
-  (let [{:keys [form-type delete-sql]} (form->type-and-delete-sql form true)]
-    (if delete-sql
-      (parse-form form-type (db/execute-one! conn (sql/format delete-sql) {:return-keys true}))
+  (let [{:keys [form-type sql]} (form->type-and-delete-sql form)]
+    (if sql
+      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
       (throw (ex-info "cannot delete form; no existing id" form)))))
 
 (defn undelete-form!
   "'Undelete' a form."
   [conn form]
-  (let [{:keys [form-type delete-sql]} (form->type-and-delete-sql form false)]
-    (if delete-sql
-      (parse-form form-type (db/execute-one! conn (sql/format delete-sql) {:return-keys true}))
+  (let [{:keys [form-type pre-sql sql]} (form->type-and-undelete-sql form)]
+    (when pre-sql
+      (db/execute-one! conn (sql/format pre-sql)))
+    (if sql
+      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
       (throw (ex-info "cannot undelete form; no existing id" form)))))
 
 (comment
