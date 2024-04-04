@@ -44,7 +44,9 @@
    [com.eldrix.pc4.rsdb.db :as db]
    [com.eldrix.pc4.rsdb.patients :as patients]
    [honey.sql :as sql]
-   [next.jdbc :as jdbc])
+   [next.jdbc :as jdbc]
+   [next.jdbc.result-set :as rs]
+   [clojure.math :as math])
   (:import
    (java.time LocalDateTime)))
 
@@ -52,12 +54,13 @@
 (s/def ::form-type-id (s/nilable int?))
 (s/def ::table string?)
 (s/def ::nm string?)
+(s/def ::nspace keyword?)
 (s/def ::parse fn?)
 (s/def ::unparse fn?)
 (s/def ::summary fn?)
 (s/def ::spec some?)
 (s/def ::normalized-form-type
-  (s/keys :req-un [::form-type-id ::table ::table-kw ::nm ::parse ::unparse ::summary]
+  (s/keys :req-un [::form-type-id ::table ::nm ::nspace ::parse ::unparse ::summary]
           :opt-un [::spec]))
 
 (def edss-score->score
@@ -83,16 +86,17 @@
    "SCORE10_0"         "10.0"
    "SCORE_LESS_THAN_4" "<4"})
 
-(s/def :t_form_edss/encounter_fk pos-int?)
-(s/def :t_form_edss/id (s/nilable pos-int?))
-(s/def :t_form_edss/edss_score (set (keys edss-score->score)))
-(s/def :t_form_edss/user_fk pos-int?)
-(s/def :t_form_edss/is_deleted boolean?)
-(s/def ::t_form_edss (s/keys :req [:t_form_edss/id :t_form_edss/encounter_fk :t_form_edss/user_fk :t_form_edss/is_deleted :t_form_edss/edss_score]))
+(s/def :form_edss/encounter_fk pos-int?)
+(s/def :form_edss/id (s/nilable pos-int?))
+(s/def :form_edss/edss_score (set (keys edss-score->score)))
+(s/def :form_edss/user_fk pos-int?)
+(s/def :form_edss/is_deleted boolean?)
+(s/def ::form_edss (s/keys :req [:form_edss/id :form_edss/encounter_fk
+                                 :form_edss/user_fk :form_edss/is_deleted :form_edss/edss_score]))
 
 (comment
   (ns-unalias *ns* 'gen)
-  (gen/generate (s/gen ::t_form_edss)))
+  (gen/generate (s/gen ::form_edss)))
 
 (def ^:private forms*
   "Support for legacy forms. Here each form is represented by a database table and a form type."
@@ -106,11 +110,11 @@
     :title        "EDSS (short form)"
     :key          nil
     :entity-name  "FormEdss"
-    :parse        (fn [{:t_form_edss/keys [edss_score] :as form}]
-                    (assoc form :t_form_edss/score (edss-score->score edss_score)))
-    :unparse      (fn [form] (dissoc form :t_form_edss/score))
-    :summary      (fn [{:t_form_edss/keys [score]}] score)
-    :spec         ::t_form_edss}
+    :parse        (fn [{:form_edss/keys [edss_score] :as form}]
+                    (assoc form :form_edss/score (edss-score->score edss_score)))
+    :unparse      (fn [form] (dissoc form :form_edss/score))
+    :summary      (fn [{:form_edss/keys [score]}] score)
+    :spec         ::form_edss}
    {:form-type-id 3
     :table        "t_form_edss_full"
     :title        "EDSS (Neurostatus)"
@@ -147,8 +151,8 @@
     :key          nil
     :entity-name  "FormMSRelapse"
     :parse        (fn [form] (-> form
-                                 (update :t_form_ms_relapse/in_relapse parse-boolean)
-                                 (update :t_form_ms_relapse/strict_validation parse-boolean)))}
+                                 (update :form_ms_relapse/in_relapse parse-boolean)
+                                 (update :form_ms_relapse/strict_validation parse-boolean)))}
    {:form-type-id 10
     :table        "t_form_nine_hole_peg"
     :title        "Nine-hole peg"
@@ -213,7 +217,15 @@
     :table        "t_form_weight_height"
     :title        "Weight and height"
     :key          nil
-    :entity-name  "FormWeightHeight"}
+    :entity-name  "FormWeightHeight"
+    :summary      (fn [{:form_weight_height/keys [weight_kilogram height_metres]}]
+                    (str/join ", "
+                              (remove nil? [(when weight_kilogram (str weight_kilogram "kg"))
+                                            (when height_metres (str height_metres "m"))
+                                            (when (and weight_kilogram height_metres)
+                                              (str "BMI: "
+                                                   (format "%.1f" (/ weight_kilogram (math/pow height_metres 2)))
+                                                   "kg/m²"))])))}
    {:form-type-id 30
     :table        "t_form_ishihara"
     :title        "Ishihara"
@@ -222,7 +234,8 @@
    {:form-type-id 32
     :table        "t_form_routine_observations"
     :title        "Routine observations (P/BP)"
-    :key          nil :entity-name "FormRoutineObservations"}
+    :key          nil
+    :entity-name "FormRoutineObservations"}
    {:form-type-id 35
     :table        "t_form_alsfrs"
     :title        "ALS Functional Rating Scale"
@@ -430,26 +443,22 @@
   "Normalizes a form type by ensuring it provides a name as well as default 
   no-op parse, unparse and summary functions if not explicitly provided."
   [{:keys [nm table parse unparse summary] :as form-type}]
-  (assoc form-type
-         :nm (or nm (if (str/starts-with? table "t_form") (subs table 2) (throw (ex-info "Cannot determine default form name" form-type))))
-         :table-kw (keyword table)
-         :summary (or summary (constantly nil))
-         :parse (or parse identity)
-         :unparse (or unparse identity)))
+  (let [nm (or nm         ;; use explicit name, or determine from the database table name if provided
+               (if (str/starts-with? table "t_form")
+                 (subs table 2)
+                 (throw (ex-info "Cannot determine default form name" form-type))))]
+    (assoc form-type
+           :nm       nm
+           :nspace   (keyword nm)
+           :table-kw (when table (keyword table))
+           :summary  (or summary (constantly nil))
+           :parse    (or parse identity)
+           :unparse  (or unparse identity))))
 
 (def ^:private forms
   "A sequence of all known 'forms', each with a defined name and default no-op
   parse, unparse and summary functions if not explicitly provided."
   (map normalize-form-type forms*))
-
-(def ^:private form-type-by-table
-  "Return form type by table
-  e.g.,
-  ```
-    (form-type-by-table \"t_form_edss\")
-  ```
-  "
-  (reduce (fn [acc {:keys [table] :as form-type}] (assoc acc table form-type)) {} forms))
 
 (def ^:private form-type-by-name
   "Return form type by name.
@@ -468,21 +477,25 @@
 (defn ^:private parse-form
   "Parse form data from the database - annotating with type information,
   generating a summary and converting properties when appropriate."
-  [{:keys [form-type-id table table-kw title allow-multiple? summary parse]} form]
-  (let [form-id (get form (keyword table "id"))
-        k-is-deleted (keyword table "is_deleted")
-        is-deleted (let [v (get form k-is-deleted)] (if (string? v) (parse-boolean v) v))
-        form' (parse form)]
-    (-> form'
-        (assoc k-is-deleted is-deleted)
-        (assoc :t_form/id             form-id
-               :t_form/is_deleted     is-deleted
-               :t_form/summary_result (summary form')   ;; care to generate summary using parsed form and not raw form fetch result
-               :t_form/form_type      {:t_form_type/id                form-type-id
-                                       :t_form_type/table             table
-                                       :t_form_type/namespace         table-kw
-                                       :t_form_type/title             title
-                                       :t_form_type/one_per_encounter (not allow-multiple?)}))))
+  [{:keys [form-type-id nm table nspace title allow-multiple? summary parse]} form]
+  (let [form-id (:id form)
+        is-deleted (let [v (:is_deleted form)] (if (string? v) (parse-boolean v) v))
+        namespaced-form (update-keys form (fn [k] (keyword nm (name k))))
+        parsed-form (parse namespaced-form)]  ;; call the form specific 'parse' with a namespaced entity
+    (assoc parsed-form
+           :form/id                  form-id
+           (keyword nm "is_deleted") is-deleted
+           :form/is_deleted          is-deleted
+           :form/summary_result      (summary namespaced-form)   ;; care to generate summary using parsed form and not raw form fetch result
+           :form/form_type           {:form_type/id                form-type-id
+                                      :form_type/nm                nm
+                                      :form_type/table             table
+                                      :form_type/nspace            nspace
+                                      :form_type/title             title
+                                      :form_type/one_per_encounter (not allow-multiple?)})))
+
+(defn form->name [form]
+  (some #(let [nspace (namespace %)] (case nspace "form" nil nil nil nspace)) (keys form)))
 
 (defn ^:private unparse-form
   "Prepare a form to be written to the database. Returns a map containing:
@@ -492,8 +505,8 @@
   any custom form-type 'unparse' function called, and then form data is 
   returned as a map of keys without namespaces."
   [form]
-  (if-let [nspace (some namespace (keys form))]
-    (if-let [{:keys [spec unparse] :as form-type} (or (form-type-by-table nspace) (form-type-by-name nspace))]
+  (if-let [nspace (form->name form)]
+    (if-let [{:keys [spec unparse] :as form-type} (form-type-by-name nspace)]
       (if (and spec (not (s/valid? spec form))) ;; if there is a spec, and it is invalid, throw
         (throw (ex-info "invalid form" (s/explain-data spec form)))
         {:form-type form-type
@@ -507,8 +520,8 @@
                        ;; if the namespace matches the form namespace, add non-namespaced version of key
                       (= nspace nspace')
                       (assoc acc (keyword (name k)) v)
-                       ;; if the key has the special namespace :t_form, it is a computed property, so ignore it
-                      (= "t_form" nspace')
+                       ;; if the key has the special namespace :form, it is a computed property, so ignore it
+                      (= "form" nspace')
                       acc
                        ;; otherwise, it is a key we do not recognise, so throw an exception
                       :else
@@ -521,36 +534,39 @@
 (defn ^:private gen-form*
   "Create a test.check generator for the given form type."
   [{:keys [spec] :as form-type}]
-  (gen/fmap #(parse-form form-type %) (s/gen spec)))
+  (gen/fmap #(parse-form form-type (update-keys % (comp keyword name))) (s/gen spec)))
 
-(defn ^:private gen-form-by-table
-  [table]
-  (gen-form* (form-type-by-table table)))
+(defn ^:private gen-form-by-name [nm]
+  (gen-form* (form-type-by-name nm)))
 
 (defn gen-form
   "A clojure test.check generator for any supported form.
   A single map may be provided containing one or both of 
-  :t_form/user_fk and :t_form/encounter_fk and these will be used in the
+  :form/user_fk and :form/encounter_fk and these will be used in the
   generation of any forms."
   ([] (gen/one-of (map gen-form* (filter :spec forms))))
-  ([{:t_form/keys [id is_deleted user_fk encounter_fk] :as form}]
+  ([{:form/keys [id is_deleted user_fk encounter_fk] :as form}]
    (gen/fmap
     #(let [{:keys [form-type]} (unparse-form %)
-           {:keys [table]} form-type
-           id-key (keyword table "id")
-           is-deleted-key (keyword table "is_deleted")
-           user-key (keyword table "user_fk")
-           encounter-key (keyword table "encounter_fk")]
+           {:keys [nm]} form-type
+           id-key (keyword nm "id")
+           is-deleted-key (keyword nm "is_deleted")
+           user-key (keyword nm "user_fk")
+           encounter-key (keyword nm "encounter_fk")]
        (cond-> (merge % form)
-         (contains? form :t_form/id) (assoc id-key id)
+         (contains? form :form/id) (assoc id-key id)
          (some? is_deleted) (assoc is-deleted-key is_deleted)
          user_fk (assoc user-key user_fk)
          encounter_fk (assoc encounter-key encounter_fk)))
     (gen-form))))
 
 (comment
-  (gen/sample (gen-form-by-table "t_form_edss"))
-  (gen/sample (gen-form {:t_form/id nil :t_form/user_fk 100 :t_form/encounter_fk 1001})))
+  (gen/sample (gen-form-by-name "form_edss"))
+  (gen/sample (gen-form {:form/id nil :form/user_fk 100 :form/encounter_fk 1001}))
+  (def s (:summary (form-type-by-name "form_weight_height")))
+  (s {:form_weight_height/weight_kilogram 79.9
+      :form_weight_height/height_metres 1.812})
+  (format "%.1f" 3.45))
 
 (s/fdef form-for-encounter-sql
   :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
@@ -577,10 +593,12 @@
   ([conn encounter-id {:keys [include-deleted] :or {include-deleted false}}]
    (reduce
     (fn [acc {:keys [table-kw] :as form-type}]
-      (let [stmt (form-for-encounter-sql encounter-id table-kw {:include-deleted include-deleted})]
-        (if-let [forms (seq (jdbc/execute! conn (sql/format stmt)))]
-          (into acc (map #(parse-form form-type %)) forms)
-          acc)))
+      (if table-kw
+        (let [stmt (form-for-encounter-sql encounter-id table-kw {:include-deleted include-deleted})]
+          (if-let [forms (seq (jdbc/execute! conn (sql/format stmt) {:builder-fn rs/as-unqualified-maps}))]
+            (into acc (map #(parse-form form-type %)) forms)
+            acc))
+        (throw (ex-info "No table-kw in form type" form-type))))
     [] forms)))
 
 (defn ^:private form-types-for-encounter
@@ -591,30 +609,30 @@
   (form-types-for-encounter conn 246234)
   ;; =>
   ;;  {:available
-  ;;   (#:t_form_type{:ordering 0,
-  ;;                  :id 30,
-  ;;                  :title \"Ishihara\",
-  ;;                  :table \"t_form_ishihara\"}
-  ;;    #:t_form_type{:ordering 0,
-  ;;                  :id 7,
-  ;;                  :title \"MMSE\",
-  ;;                  :table \"t_form_mmse\"}
-  ;;    #:t_form_type{:ordering 0,
-  ;;                  :id 13,
-  ;;                  :title \"SOAP\",
-  ;;                  :table \"t_form_soap\"})} "
+  ;;   (#:form_type{:ordering 0,
+  ;;                :id 30,
+  ;;                :title \"Ishihara\",
+  ;;                :table \"t_form_ishihara\"}
+  ;;    #:form_type{:ordering 0,
+  ;;                :id 7,
+  ;;                :title \"MMSE\",
+  ;;                :table \"t_form_mmse\"}
+  ;;    #:form_type{:ordering 0,
+  ;;                :id 13,
+  ;;                :title \"SOAP\",
+  ;;                :table \"t_form_soap\"})} "
   [conn encounter-id]
   (reduce
    (fn [acc {:t_encounter_template__form_type/keys [formtypeid status ordering]}]
-     (let [{:keys [title table table-kw allow-multiple?]} (form-type-by-id formtypeid)]
+     (let [{:keys [title nm nspace allow-multiple?]} (form-type-by-id formtypeid)]
        (update acc (keyword (str/lower-case status))
                conj
-               (hash-map :t_form_type/id                formtypeid
-                         :t_form_type/table             table
-                         :t_form_type/namespace         table-kw
-                         :t_form_type/title             title
-                         :t_form_type/ordering          ordering
-                         :t_form_type/one_per_encounter (not allow-multiple?)))))
+               (hash-map :form_type/id                formtypeid
+                         :form_type/nm                nm
+                         :form_type/namespace         nspace
+                         :form_type/title             title
+                         :form_type/ordering          ordering
+                         :form_type/one_per_encounter (not allow-multiple?)))))
    {}
    (jdbc/plan conn (sql/format
                     {:select :* :from :t_encounter_template__form_type
@@ -635,22 +653,22 @@
   - :deleted-forms        - a sequence of forms (each with `:t_form/form_type`) deleted from the encounter."
   [conn encounter-id]
   (let [forms (forms-for-encounter conn encounter-id {:include-deleted true})   ;; all forms
-        completed (remove :t_form/is_deleted forms)                       ;; already completed forms
-        existing (map :t_form/form_type completed)                         ;; get form types for the completed forms
-        existing-type-ids (into #{} (map :t_form_type/id) existing)        ;; get a set of form-type ids for completed forms
+        completed (remove :form/is_deleted forms)                       ;; already completed forms
+        existing (map :form/form_type completed)                         ;; get form types for the completed forms
+        existing-type-ids (into #{} (map :form_type/id) existing)        ;; get a set of form-type ids for completed forms
         form-types-by-status (form-types-for-encounter conn encounter-id)  ;; get available forms as per encounter template
         {:keys [mandatory available optional]}    ;; remove already completed forms from each category, and sort
         (update-vals form-types-by-status
                      (fn [form-types]
                        (->> form-types                        ;; remove any existing and sort by ordering and title
-                            (remove #(existing-type-ids (:t_form_type/id %)))
-                            (sort-by (juxt :t_form_type/ordering :t_form_type/title)))))]
+                            (remove #(existing-type-ids (:form_type/id %)))
+                            (sort-by (juxt :form_type/ordering :form_type/title)))))]
     {:available-form-types available
      :optional-form-types  optional
      :mandatory-form-types mandatory
-     :existing-form-types  (sort-by :t_form_type/title existing)
-     :completed-forms      (sort-by (comp :t_form_type/title :t_form/form_type) completed)
-     :deleted-forms        (sort-by (comp :t_form_type/title :t_form/form_type) (filter :t_form/is_deleted forms))}))
+     :existing-form-types  (sort-by :form_type/title existing)
+     :completed-forms      (sort-by (comp :form_type/title :form/form_type) completed)
+     :deleted-forms        (sort-by (comp :form_type/title :form/form_type) (filter :form/is_deleted forms))}))
 
 (defn ^:private all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
@@ -674,6 +692,7 @@
   (all-active-encounter-ids conn 14031)
   (def results (forms-for-encounter conn 8042))
   results
+  (form-for-encounter-sql 1 :t_form_edss {})
   (forms-for-encounter conn 1834)
   (forms-for-encounter conn 246234)
   (form-types-for-encounter conn 246234)
@@ -766,9 +785,9 @@
   (let [{:keys [form-type pre-sql sql]} (form->type-and-save-sql form)]
     (log/debug "saving form" {:form form :form-type form-type :pre-save-sql pre-sql :save-sql sql})
     (when pre-sql
-      (db/execute-one! conn (sql/format pre-sql)))
+      (jdbc/execute-one! conn (sql/format pre-sql)))
     (if sql
-      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
+      (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true :builder-fn rs/as-unqualified-maps}))
       (throw (ex-info "cannot save form; no SQL generated" form)))))
 
 (defn delete-form!
@@ -778,7 +797,7 @@
   [conn form]
   (let [{:keys [form-type sql]} (form->type-and-delete-sql form)]
     (if sql
-      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
+      (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true :builder-fn rs/as-unqualified-maps}))
       (throw (ex-info "cannot delete form; no existing id" form)))))
 
 (defn undelete-form!
@@ -786,36 +805,36 @@
   [conn form]
   (let [{:keys [form-type pre-sql sql]} (form->type-and-undelete-sql form)]
     (when pre-sql
-      (db/execute-one! conn (sql/format pre-sql)))
+      (jdbc/execute-one! conn (sql/format pre-sql)))
     (if sql
-      (parse-form form-type (db/execute-one! conn (sql/format sql) {:return-keys true}))
+      (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true, :builder-fn rs/as-unqualified-maps}))
       (throw (ex-info "cannot undelete form; no existing id" form)))))
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
-  (form->type-and-save-sql {:t_form_edss/id nil
-                            :t_form_edss/is_deleted false
-                            :t_form_edss/user_fk 1
-                            :t_form_edss/encounter_fk 123
-                            :t_form_edss/edss_score "SCORE1_0"})
-  (honey.sql/format (:sql (form->type-and-save-sql {:t_form_edss/id 55
-                                                    :t_form_edss/is_deleted false
-                                                    :t_form_edss/user_fk 1
-                                                    :t_form_edss/encounter_fk 123
-                                                    :t_form_edss/edss_score "SCORE1_0"})))
+  (form->type-and-save-sql {:form_edss/id nil
+                            :form_edss/is_deleted false
+                            :form_edss/user_fk 1
+                            :form_edss/encounter_fk 123
+                            :form_edss/edss_score "SCORE1_0"})
+  (honey.sql/format (:sql (form->type-and-save-sql {:form_edss/id 55
+                                                    :form_edss/is_deleted false
+                                                    :form_edss/user_fk 1
+                                                    :form_edss/encounter_fk 123
+                                                    :form_edss/edss_score "SCORE1_0"})))
   (def encounters (mapv (fn [id] {:t_encounter/id id}) (all-active-encounter-ids conn 124018)))
   (com.eldrix.pc4.rsdb.patients/active-episodes conn 124010)
   (all-active-encounter-ids conn 124010)
   (all-active-encounter-ids conn 10432)
-  (def form (save-form! conn {:t_form_edss/id nil
-                              :t_form_edss/encounter_fk 1608
-                              :t_form_edss/edss_score "SCORE1_0"
-                              :t_form_edss/user_fk 1}))
+  (def form (save-form! conn {:form_edss/id nil
+                              :form_edss/encounter_fk 1608
+                              :form_edss/edss_score "SCORE1_0"
+                              :form_edss/user_fk 1}))
   (def form' (save-form! conn form))
   (= form form'))
 
 ;; ***************************************************************************
-;; Deprecated, and soon to be deleted form functions supporting
+;; Deprecated (and soon to be deleted) form functions supporting
 ;; saving encounter and forms as a single event for the now deprecated 
 ;; re-frame based front-end
 ;; 
@@ -825,12 +844,12 @@
 (defn ^:deprecated encounter->form_smoking_history
   "Return a form smoking history for the encounter."
   [conn encounter-id]
-  (db/execute-one! conn (sql/format {:select [:t_smoking_history/id :t_smoking_history/status
-                                              :t_smoking_history/current_cigarettes_per_day]
-                                     :from   [:t_smoking_history]
-                                     :where  [:and
-                                              [:= :t_smoking_history/encounter_fk encounter-id]
-                                              [:<> :t_smoking_history/is_deleted "true"]]})))
+  (jdbc/execute-one! conn (sql/format {:select [:t_smoking_history/id :t_smoking_history/status
+                                                :t_smoking_history/current_cigarettes_per_day]
+                                       :from   [:t_smoking_history]
+                                       :where  [:and
+                                                [:= :t_smoking_history/encounter_fk encounter-id]
+                                                [:<> :t_smoking_history/is_deleted "true"]]})))
 
 (defn ^:deprecated select-keys-by-namespace
   "Like select-keys, but selects based on namespace.

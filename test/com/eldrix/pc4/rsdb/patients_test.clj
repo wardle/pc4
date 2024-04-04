@@ -122,15 +122,15 @@
 
             _ ;; check that short form EDSS is available within encounter
             (is (= 2 (-> (forms/forms-and-form-types-in-encounter *conn* encounter-id)
-                         :available-form-types first :t_form_type/id)))
+                         :available-form-types first :form_type/id)))
 
             ;; add a short-form EDSS result
             saved-edss
-            (forms/save-form! *conn* {:t_form_edss/id           nil
-                                      :t_form_edss/encounter_fk encounter-id
-                                      :t_form_edss/user_fk      1
-                                      :t_form_edss/edss_score   "SCORE1_0"
-                                      :t_form_edss/is_deleted   false})
+            (forms/save-form! *conn* {:form_edss/id           nil
+                                      :form_edss/encounter_fk encounter-id
+                                      :form_edss/user_fk      1
+                                      :form_edss/edss_score   "SCORE1_0"
+                                      :form_edss/is_deleted   false})
 
             ;; get available and completed form types now we have created a form 
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
@@ -151,7 +151,7 @@
             (is (= saved-edss returned-edss) "Form result returned from encounter should be same as save form result")
 
             _
-            (is (= "SCORE1_0" (:t_form_edss/edss_score returned-edss)))
+            (is (= "SCORE1_0" (:form_edss/edss_score returned-edss)))
 
             ;; update the EDSS form - we should get the *same* result when updating as inserting
             nop-updated-edss
@@ -161,11 +161,11 @@
             (is (= returned-edss nop-updated-edss) "Should be able to roundtrip with result of save-form! without change")
 
             updated-edss
-            (forms/save-form! *conn* (assoc returned-edss :t_form_edss/edss_score "SCORE2_0"))
+            (forms/save-form! *conn* (assoc returned-edss :form_edss/edss_score "SCORE2_0"))
 
             ;; check EDSS result now updated 
             _
-            (is (= "SCORE2_0" (:t_form_edss/edss_score updated-edss)))
+            (is (= "SCORE2_0" (:form_edss/edss_score updated-edss)))
 
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* (:t_encounter/id encounter))
@@ -182,7 +182,7 @@
             (forms/delete-form! *conn* updated-edss)
 
             _
-            (is (= true (:t_form_edss/is_deleted deleted-edss)))
+            (is (= true (:form_edss/is_deleted deleted-edss)))
 
             {:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
@@ -212,7 +212,7 @@
 
             ;; generate some random forms
             forms
-            (gen/sample (forms/gen-form {:t_form/id nil, :t_form/is_deleted false, :t_form/encounter_fk encounter-id, :t_form/user_fk 1}))
+            (gen/sample (forms/gen-form {:form/id nil, :form/is_deleted false, :form/encounter_fk encounter-id, :form/user_fk 1}))
 
             ;; and add them to the database
             _
@@ -229,4 +229,5 @@
 
         #_(clojure.pprint/pprint afs)))))
 
-(comment)
+(comment
+  (def encounter-id 1))
