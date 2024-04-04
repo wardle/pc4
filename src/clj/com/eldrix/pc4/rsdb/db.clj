@@ -2,8 +2,7 @@
   (:require [next.jdbc.date-time]
             [next.jdbc :as jdbc]
             [clojure.spec.alpha :as s]
-            [com.eldrix.nhsnumber]
-            [next.jdbc.sql.builder :as sql.builder])
+            [com.eldrix.nhsnumber])
   (:import (java.sql Connection)
            (java.time LocalDate LocalDateTime)))
 
