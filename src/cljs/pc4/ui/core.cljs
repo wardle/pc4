@@ -634,11 +634,11 @@
 (def ui-checkbox (comp/factory Checkbox))
 
 (defsc MultipleCheckboxes
-  [this {:keys [value legend keys display-key onChange onItemChange]
+  [this {:keys [value legend ks display-key onChange onItemChange]
          :or   {display-key name}}]
   (dom/fieldset :.space-y-5
                 (when legend (dom/legend :.sr-only legend))
-                (for [item keys]
+                (for [item ks]
                   ^{:key item}
                   (ui-checkbox
                    {:name     (name item)
@@ -646,16 +646,15 @@
                     :checked  (or (item value) false)
                     :onChange #(do
                                  (println "setting " {:item item :old (or (item value) false) :new %})
-                                 (cond
-                                   onChange (onChange (assoc value item %))
-                                   onItemChange (onItemChange item %)))}))))
+                                 (cond onChange (onChange (assoc value item %))
+                                       onItemChange (onItemChange item %)))}))))
 
 (def ui-multiple-checkboxes
   "A convenient way of presenting multiple checkboxes.
   Parameters:
   - legend      : a legend to be used for screenreaders
   - value       : a map containing all values
-  - keys        : a sequence of keys to be set to true or false
+  - ks          : a sequence of keys to be set to true or false
   - display-key : a function such as a keyword, a map or function to derive display"
   (comp/factory MultipleCheckboxes))
 

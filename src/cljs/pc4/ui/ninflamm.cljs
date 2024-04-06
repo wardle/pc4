@@ -23,10 +23,10 @@
   (cond-> (-> state
               (fs/pristine->entity* [:t_ms_event/id id])    ;; restore to pristine state
               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-ms-event] {}))
-          (tempid/tempid? id)
-          (->
-            (update-in [:t_ms_event/id] dissoc id)
-            (merge/remove-ident* [:t_ms_event/id id] [:t_summary_multiple_sclerosis/id summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/events]))))
+    (tempid/tempid? id)
+    (->
+     (update-in [:t_ms_event/id] dissoc id)
+     (merge/remove-ident* [:t_ms_event/id id] [:t_summary_multiple_sclerosis/id summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/events]))))
 
 (defmutation cancel-edit-ms-event
   [{:keys [patient-identifier ms-event]}]
@@ -68,7 +68,6 @@
    :query [:t_ms_event_type/id
            :t_ms_event_type/name
            :t_ms_event_type/abbreviation]})
-
 
 (defmutation load-ms-event-types
   "Lazily loads all MS event types from the server, placing results at
@@ -158,51 +157,49 @@
         do-cancel #(comp/transact! this [(cancel-edit-ms-event {:patient-identifier patient-identifier
                                                                 :ms-event           ms-event})])]
     (ui/ui-modal
-      {:actions [{:id ::save :title "Save", :role :primary, :disabled? (not date) :onClick do-save}
-                 {:id ::delete :title "Delete" :onClick do-delete}
-                 {:id ::cancel :title "Cancel" :onClick do-cancel}]
-       :onClose do-cancel}
-      (ui/ui-simple-form {}
-        (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add relapse / disease event" "Edit relapse / disease event")})
-        (ui/ui-simple-form-item {:label "Date"}
-          (ui/ui-local-date {:value    date
-                             :min-date (:t_patient/date_birth current-patient)
-                             :max-date (goog.date.Date.)
-                             :onChange #(m/set-value! this :t_ms_event/date %)}))
-        (ui/ui-simple-form-item {:label "Type"}
-          (tap> {:edit-ms-event {:all-ms-event-types all-ms-event-types
-                                 :type               type}})
-          (ui/ui-select-popup-button
-            {:value         type
-             :options       all-ms-event-types
-             :sort?         true
-             :default-value (first (filter #(= "UK" (:t_ms_event_type/abbreviation %)) all-ms-event-types))
-             :display-key   (fn [{:t_ms_event_type/keys [abbreviation name]}]
-                              (str abbreviation ": " name))
-             :sort-fn       :t_ms_event_type/id
-             :id-key        :t_ms_event_type/id
-             :onChange      #(m/set-value! this :t_ms_event/type %)}))
-        (ui/ui-simple-form-item {:label "Impact"}
-          (ui/ui-select-popup-button
-            {:value         impact
-             :options       impact-choices
-             :sort?         false
-             :default-value "UNKNOWN"
-             :onChange      #(m/set-value! this :t_ms_event/impact %)}))
-        (ui/ui-simple-form-item {:label "Sites"}
-          (div :.columns-1.sm:columns-2.md:columns-3.lg:columns-4
-            (ui/ui-multiple-checkboxes
-              {:value        ms-event
-               :display-key  ms-event-site-to-string
-               :keys         all-ms-event-sites
-               :onItemChange (fn [k v] (comp/transact! this [(toggle-event-site {:ms-event-id id :k k :v v})]))})))
-        (ui/ui-simple-form-item {:label "Notes"}
-          (ui/ui-textarea {:value    notes
-                           :onChange #(m/set-value! this :t_ms_event/notes %)}))))))
+     {:actions [{:id ::save :title "Save", :role :primary, :disabled? (not date) :onClick do-save}
+                {:id ::delete :title "Delete" :onClick do-delete}
+                {:id ::cancel :title "Cancel" :onClick do-cancel}]
+      :onClose do-cancel}
+     (ui/ui-simple-form {}
+                        (ui/ui-simple-form-title {:title (if (tempid/tempid? id) "Add relapse / disease event" "Edit relapse / disease event")})
+                        (ui/ui-simple-form-item {:label "Date"}
+                                                (ui/ui-local-date {:value    date
+                                                                   :min-date (:t_patient/date_birth current-patient)
+                                                                   :max-date (goog.date.Date.)
+                                                                   :onChange #(m/set-value! this :t_ms_event/date %)}))
+                        (ui/ui-simple-form-item {:label "Type"}
+                                                (tap> {:edit-ms-event {:all-ms-event-types all-ms-event-types
+                                                                       :type               type}})
+                                                (ui/ui-select-popup-button
+                                                 {:value         type
+                                                  :options       all-ms-event-types
+                                                  :sort?         true
+                                                  :default-value (first (filter #(= "UK" (:t_ms_event_type/abbreviation %)) all-ms-event-types))
+                                                  :display-key   (fn [{:t_ms_event_type/keys [abbreviation name]}]
+                                                                   (str abbreviation ": " name))
+                                                  :sort-fn       :t_ms_event_type/id
+                                                  :id-key        :t_ms_event_type/id
+                                                  :onChange      #(m/set-value! this :t_ms_event/type %)}))
+                        (ui/ui-simple-form-item {:label "Impact"}
+                                                (ui/ui-select-popup-button
+                                                 {:value         impact
+                                                  :options       impact-choices
+                                                  :sort?         false
+                                                  :default-value "UNKNOWN"
+                                                  :onChange      #(m/set-value! this :t_ms_event/impact %)}))
+                        (ui/ui-simple-form-item {:label "Sites"}
+                                                (div :.columns-1.sm:columns-2.md:columns-3.lg:columns-4
+                                                     (ui/ui-multiple-checkboxes
+                                                      {:value        ms-event
+                                                       :display-key  ms-event-site-to-string
+                                                       :ks           all-ms-event-sites
+                                                       :onItemChange (fn [k v] (comp/transact! this [(toggle-event-site {:ms-event-id id :k k :v v})]))})))
+                        (ui/ui-simple-form-item {:label "Notes"}
+                                                (ui/ui-textarea {:value    notes
+                                                                 :onChange #(m/set-value! this :t_ms_event/notes %)}))))))
 
 (def ui-edit-ms-event (comp/factory EditMsEvent))
-
-
 
 (def relapse-headings
   [{:s "Date"}
@@ -242,31 +239,31 @@
            :t_ms_event/site_vestibular
            {:t_ms_event/type (comp/get-query MsEventType)}]}
   (ui/ui-table-row
-    {:key     id
-     :onClick onClick
-     :classes (cond-> ["cursor-pointer" "hover:bg-gray-200"]
-                      (not is_progressive) (conj "bg-red-50/50")
-                      (not is_relapse) (conj "border-t" "border-dashed" "border-gray-400") ;; mark start of progressive disease
-                      is_progressive (conj "italic" "bg-blue-50/25"))}
-    (ui/ui-table-cell {:classes ["whitespace-nowrap"]} (ui/format-date date))
-    (ui/ui-table-cell {} (:t_ms_event_type/abbreviation type))
-    (ui/ui-table-cell {} impact)
-    (ui/ui-table-cell {} (when site_unknown "UK"))
-    (ui/ui-table-cell {} (when site_arm_motor "UE"))
-    (ui/ui-table-cell {} (when site_leg_motor "LE"))
-    (ui/ui-table-cell {} (when site_limb_sensory "SS"))
-    (ui/ui-table-cell {} (when site_sphincter "SP"))
-    (ui/ui-table-cell {} (when site_sexual "SX"))
-    (ui/ui-table-cell {} (when site_face_motor "FM"))
-    (ui/ui-table-cell {} (when site_face_sensory "FS"))
-    (ui/ui-table-cell {} (when site_diplopia "OM"))
-    (ui/ui-table-cell {} (when site_vestibular "VE"))
-    (ui/ui-table-cell {} (when site_bulbar "BB"))
-    (ui/ui-table-cell {} (when site_ataxia "CB"))
-    (ui/ui-table-cell {} (when site_optic_nerve "ON"))
-    (ui/ui-table-cell {} (when site_psychiatric "PS"))
-    (ui/ui-table-cell {} (when site_other "OT"))
-    (ui/ui-table-cell {} (when site_cognitive "MT"))))
+   {:key     id
+    :onClick onClick
+    :classes (cond-> ["cursor-pointer" "hover:bg-gray-200"]
+               (not is_progressive) (conj "bg-red-50/50")
+               (not is_relapse) (conj "border-t" "border-dashed" "border-gray-400") ;; mark start of progressive disease
+               is_progressive (conj "italic" "bg-blue-50/25"))}
+   (ui/ui-table-cell {:classes ["whitespace-nowrap"]} (ui/format-date date))
+   (ui/ui-table-cell {} (:t_ms_event_type/abbreviation type))
+   (ui/ui-table-cell {} impact)
+   (ui/ui-table-cell {} (when site_unknown "UK"))
+   (ui/ui-table-cell {} (when site_arm_motor "UE"))
+   (ui/ui-table-cell {} (when site_leg_motor "LE"))
+   (ui/ui-table-cell {} (when site_limb_sensory "SS"))
+   (ui/ui-table-cell {} (when site_sphincter "SP"))
+   (ui/ui-table-cell {} (when site_sexual "SX"))
+   (ui/ui-table-cell {} (when site_face_motor "FM"))
+   (ui/ui-table-cell {} (when site_face_sensory "FS"))
+   (ui/ui-table-cell {} (when site_diplopia "OM"))
+   (ui/ui-table-cell {} (when site_vestibular "VE"))
+   (ui/ui-table-cell {} (when site_bulbar "BB"))
+   (ui/ui-table-cell {} (when site_ataxia "CB"))
+   (ui/ui-table-cell {} (when site_optic_nerve "ON"))
+   (ui/ui-table-cell {} (when site_psychiatric "PS"))
+   (ui/ui-table-cell {} (when site_other "OT"))
+   (ui/ui-table-cell {} (when site_cognitive "MT"))))
 
 (def ui-ms-event-list-item (comp/computed-factory MsEventListItem {:keyfn :t_ms_event/id}))
 
@@ -280,21 +277,21 @@
            {[:ui/current-patient '_] [:t_patient/patient_identifier]}]}
   (let [patient-identifier (:t_patient/patient_identifier current-patient)]
     (comp/fragment
-      (when (seq event_ordering_errors)
-        (div :.pb-4 {}
-          (ui/box-error-message
-            {:title   "Warning: invalid disease relapses and events"
-             :message (dom/ul {} (for [error event_ordering_errors]
-                                   (dom/li {:key error} error)))})))
-      (ui/ui-table {}
-        (ui/ui-table-head {}
-          (ui/ui-table-row {}
-            (for [{:keys [s key title]} relapse-headings]
-              (ui/ui-table-heading (cond-> {:react-key (or key s)} title (assoc :title title)) s))))
-        (ui/ui-table-body {}
-          (for [event (sort-by #(some-> % :t_ms_event/date .valueOf) events)]
-            (ui-ms-event-list-item event {:onClick #(comp/transact! this [(edit-ms-event {:patient-identifier patient-identifier
-                                                                                          :ms-event           event})])})))))))
+     (when (seq event_ordering_errors)
+       (div :.pb-4 {}
+            (ui/box-error-message
+             {:title   "Warning: invalid disease relapses and events"
+              :message (dom/ul {} (for [error event_ordering_errors]
+                                    (dom/li {:key error} error)))})))
+     (ui/ui-table {}
+                  (ui/ui-table-head {}
+                                    (ui/ui-table-row {}
+                                                     (for [{:keys [s key title]} relapse-headings]
+                                                       (ui/ui-table-heading (cond-> {:react-key (or key s)} title (assoc :title title)) s))))
+                  (ui/ui-table-body {}
+                                    (for [event (sort-by #(some-> % :t_ms_event/date .valueOf) events)]
+                                      (ui-ms-event-list-item event {:onClick #(comp/transact! this [(edit-ms-event {:patient-identifier patient-identifier
+                                                                                                                    :ms-event           event})])})))))))
 
 (def ui-summary-multiple-sclerosis (comp/factory SummaryMultipleSclerosis))
 
@@ -330,24 +327,24 @@
                                                                               :t_ms_event/summary_multiple_sclerosis_fk (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
                                                                               :t_ms_event/site_unknown                  true}})])]
         (patients/ui-layout layout
-          {:selected-id :relapses
-           :sub-menu    [{:id      :add-ms-event
-                          :onClick do-add
-                          :hidden  (not show-ms?)
-                          :content "Add disease event..."}]}
-          (comp/fragment
-            (when (:t_ms_event/id editing-ms-event)
-              (ui-edit-ms-event editing-ms-event))
-            (ui/ui-panel {:classes ["mb-4"]}
-              (ui/ui-simple-form {}
-                (ui/ui-simple-form-item {:label "Neuroinflammatory diagnostic category"}
-                  (ui/ui-select-popup-button
-                    {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
-                     :default-value not-ms-diagnosis        ;; we take care not to call onChange unless user chooses to do so here
-                     :options       all-ms-diagnoses
-                     :id-key        :t_ms_diagnosis/id
-                     :display-key   :t_ms_diagnosis/name
-                     :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])}))))
+                            {:selected-id :relapses
+                             :sub-menu    [{:id      :add-ms-event
+                                            :onClick do-add
+                                            :hidden  (not show-ms?)
+                                            :content "Add disease event..."}]}
+                            (comp/fragment
+                             (when (:t_ms_event/id editing-ms-event)
+                               (ui-edit-ms-event editing-ms-event))
+                             (ui/ui-panel {:classes ["mb-4"]}
+                                          (ui/ui-simple-form {}
+                                                             (ui/ui-simple-form-item {:label "Neuroinflammatory diagnostic category"}
+                                                                                     (ui/ui-select-popup-button
+                                                                                      {:value         (or (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis) not-ms-diagnosis)
+                                                                                       :default-value not-ms-diagnosis        ;; we take care not to call onChange unless user chooses to do so here
+                                                                                       :options       all-ms-diagnoses
+                                                                                       :id-key        :t_ms_diagnosis/id
+                                                                                       :display-key   :t_ms_diagnosis/name
+                                                                                       :onChange      #(comp/transact! this [(list 'pc4.rsdb/save-ms-diagnosis (assoc % :t_patient/patient_identifier patient_identifier))])}))))
 
-            (when show-ms?                                  ;; TODO: allow creation
-              (ui-summary-multiple-sclerosis summary_multiple_sclerosis))))))))
+                             (when show-ms?                                  ;; TODO: allow creation
+                               (ui-summary-multiple-sclerosis summary_multiple_sclerosis))))))))
