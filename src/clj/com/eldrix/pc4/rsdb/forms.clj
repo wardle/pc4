@@ -220,8 +220,8 @@
     :entity-name  "FormWeightHeight"
     :summary      (fn [{:form_weight_height/keys [weight_kilogram height_metres]}]
                     (str/join ", "
-                              (remove nil? [(when weight_kilogram (str weight_kilogram "kg"))
-                                            (when height_metres (str height_metres "m"))
+                              (remove nil? [(when weight_kilogram (str (format "%.1f" weight_kilogram) "kg"))
+                                            (when height_metres (str (format "%.1f" height_metres) "m"))
                                             (when (and weight_kilogram height_metres)
                                               (str "BMI: "
                                                    (format "%.1f" (/ weight_kilogram (math/pow height_metres 2)))
