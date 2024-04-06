@@ -25,6 +25,8 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Generate documents from encounters; re-use original mechanics for backwards compatibility and then add new template model?
 * [ ] Remove existing but unused 'job' queue system and replace with something off-the-shelf 
 * [ ] Fix concierge integration since external changes to services (ABHB and eMPI).
+* [ ] Consider always having a 'current project' switchable at top-level to aid user context and workflow
+* [ ] Return to using HTML5 routing for pages within patient record. 
 
 ## Other work - not critical to either deployment at the moment
 
