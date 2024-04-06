@@ -1024,6 +1024,35 @@
                                                      :t_smoking_history/status]}]}
   {:t_encounter/form_smoking_history (forms/encounter->form_smoking_history conn encounter-id)})
 
+(defn form-assoc-user
+  [{:form/keys [user_fk] :as form}]
+  (assoc form :form/user {:t_user/id user_fk}))
+
+(pco/defresolver encounter->forms
+  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+  {::pco/output [:t_encounter/available_form_types
+                 :t_encounter/optional_form_types
+                 :t_encounter/mandatory_form_types
+                 :t_encounter/existing_form_types
+                 {:t_encounter/completed_forms
+                  [:form/id
+                   :form/user_fk
+                   :form/summary_result
+                   {:form/user [:t_user/id]}]}
+                 {:t_encounter/deleted_forms
+                  [:form/id
+                   :form/user_fk
+                   :form/summary_result
+                   {:form/user [:t_user/id]}]}]}
+  (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms deleted-forms]}
+        (forms/forms-and-form-types-in-encounter conn encounter-id)]
+    {:t_encounter/available_form_types available-form-types
+     :t_encounter/optional_form_types optional-form-types
+     :t_encounter/mandatory_form_types mandatory-form-types
+     :t_encounter/existing_form_types existing-form-types
+     :t_encounter/completed_forms (map form-assoc-user completed-forms)
+     :t_encounter/deleted_forms (map form-assoc-user deleted-forms)}))
+
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
   {::pco/input  [:t_encounter/id]
@@ -1332,6 +1361,9 @@
       (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e))))))
 
 (pco/defmutation break-glass!
+  "Break glass operation - registers the given patient to the break-glass.
+  TODO: should send a message to appropriate users 
+  TODO: should be recorded in new project-based audit trail / comms / events list"
   [{session :session user :session/authenticated-user :as env} {:keys [patient-identifier] :as params}]
   {::pco/op-name 'pc4.rsdb/break-glass}
   (when-not patient-identifier
@@ -1566,6 +1598,31 @@
         (throw (ex-info "Invalid 'delete encounter' data:" (s/explain-data ::delete-encounter params))))
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (patients/delete-encounter! conn encounter-id))))
+
+(pco/defmutation save-form!
+  "Save a form. Parameters are a map with
+  - patient-identifier : the patient identifier
+  - form               : the form to save"
+  [{conn :com.eldrix.rsdb/conn :as env} {:keys [patient-identifier form] :as params}]
+  {::pco/op-name 'pc4.rsdb/save-form}
+  (log/info "save form" params)
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (forms/save-form! conn form))
+
+(pco/defmutation delete-form!
+  [{conn :com.eldrix.rsdb/conn :as env}
+   {:keys [patient-identifier form] :as params}]
+  {::pco/op-name 'pc4.rsdb/delete-form}
+  (log/info "delete form" params) (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (forms/delete-form! conn form))
+
+(pco/defmutation undelete-form!
+  [{conn :com.eldrix.rsdb/conn :as env}
+   {:keys [patient-identifier form] :as params}]
+  {::pco/op-name 'pc4.rsdb/undelete-form!}
+  (log/info "undelete form" params)
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (forms/undelete-form! conn form))
 
 (pco/defmutation save-result!
   [{conn                 :com.eldrix.rsdb/conn
@@ -1820,6 +1877,7 @@
    encounters->form_ms_relapse
    encounters->form_weight_height
    encounter->form_smoking
+   encounter->forms
    patient->results
    user-by-username
    user-by-id
@@ -1844,7 +1902,9 @@
    all-ms-event-types
    all-ms-disease-courses
    medication->reasons-for-stopping
+   ;;
    ;; mutations - VERBS
+   ;;
    register-patient!
    register-patient-by-pseudonym!
    register-patient-to-project!
@@ -1857,8 +1917,14 @@
    save-pseudonymous-patient-postal-code!
    save-ms-event!
    delete-ms-event!
+   ;; encounters
    save-encounter!
    delete-encounter!
+   ;; forms
+   save-form!
+   delete-form!
+   undelete-form!
+   ;; results
    save-result!
    delete-result!
    notify-death!
