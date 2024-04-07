@@ -28,6 +28,8 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Consider always having a 'current project' switchable at top-level to aid user context and workflow
 * [ ] Return to using HTML5 routing for pages within patient record. 
 * [ ] Improve MS event ordering errors to show a warning against any individual items
+* [ ] Use 'close patient record' functionality to clear out any cached data
+* [ ] Display 'encounter locked' / 'locking in...' on encounter page
 
 ## Other work - not critical to either deployment at the moment
 
