@@ -75,19 +75,23 @@
            :t_encounter_template/title
            {:t_encounter_template/project (comp/get-query Project)}]})
 
+(defsc User [this params]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/full_name]})
+
 (defsc EditEncounter
-  [this {:t_encounter/keys [id completed_forms] :as encounter}]
+  [this {:t_encounter/keys [id completed_forms available_form_types] :as encounter}]
   {:ident         :t_encounter/id
    :route-segment ["encounter" :t_encounter/id]
-   :query         [:t_encounter/id :t_encounter/date_time
-                   :t_encounter/completed_forms  ;; we deliberately do *not* normalise these data here
-                   :t_encounter/deleted_forms
-                   :t_encounter/available_form_types
-                   :t_encounter/mandatory_form_types
-                   :t_encounter/optional_form_types
-                   {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
-                   {:t_encounter/patient
-                    [{:>/banner (comp/get-query patients/PatientBanner)}]}]
+   :query         (fn [] [:t_encounter/id :t_encounter/date_time
+                          {:t_encounter/completed_forms ['* {:form/user (comp/get-query User)}]}  ;; we deliberately do *not* normalise these data here
+                          :t_encounter/deleted_forms
+                          :t_encounter/available_form_types
+                          :t_encounter/mandatory_form_types
+                          :t_encounter/optional_form_types
+                          {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
+                          {:t_encounter/patient
+                           [{:>/banner (comp/get-query patients/PatientBanner)}]}])
    :will-enter    (fn [app {:t_encounter/keys [id] :as route-params}]
                     (when-let [encounter-id (some-> id (js/parseInt))]
                       (dr/route-deferred [:t_encounter/id encounter-id]
@@ -105,10 +109,22 @@
     {}
     (ui/ui-table
      {}
-     (ui/ui-table-head {} (ui/ui-table-row {} (ui/ui-table-heading {} "Form") (ui/ui-table-heading {} "Result")))
+     (ui/ui-table-head {} (ui/ui-table-row {} (ui/ui-table-heading {} "Form") (ui/ui-table-heading {} "Result") (ui/ui-table-heading {} "User")))
      (ui/ui-table-body
       {}
-      (for [{:form/keys [id form_type summary_result]} completed_forms
+      (for [{:form/keys [id form_type summary_result user]} completed_forms
             :let [title (:form_type/title form_type)]]
-        (ui/ui-table-row {} (ui/ui-table-cell {} title) (ui/ui-table-cell {} summary_result)))))
+        (ui/ui-table-row
+         {:onClick #(println "edit form" id)
+          :classes ["cursor-pointer" "hover:bg-gray-200"]}
+         (ui/ui-table-cell {} (dom/span :.text-blue-500.underline title))
+         (ui/ui-table-cell {} summary_result)
+         (ui/ui-table-cell {} (:t_user/full_name user))))
+      (for [{:form_type/keys [id title]} available_form_types]
+        (ui/ui-table-row
+         {:onClick #(println "add form " id)
+          :classes ["cursor-pointer" "hover:bg-gray-200"]}
+         (ui/ui-table-cell {} (dom/span :.italic title))
+         (ui/ui-table-cell {} "Pending")
+         (ui/ui-table-cell {} "")))))
     #_(ui-form-edss encounter))))
