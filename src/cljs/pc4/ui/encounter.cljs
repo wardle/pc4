@@ -115,16 +115,16 @@
       (for [{:form/keys [id form_type summary_result user]} completed_forms
             :let [title (:form_type/title form_type)]]
         (ui/ui-table-row
-         {:onClick #(println "edit form" id)
+         {:onClick #(println "edit form" {:type form_type :id id})
           :classes ["cursor-pointer" "hover:bg-gray-200"]}
          (ui/ui-table-cell {} (dom/span :.text-blue-500.underline title))
          (ui/ui-table-cell {} summary_result)
          (ui/ui-table-cell {} (:t_user/full_name user))))
-      (for [{:form_type/keys [id title]} available_form_types]
+      (for [{:form_type/keys [id title] :as form-type} available_form_types]
         (ui/ui-table-row
-         {:onClick #(println "add form " id)
-          :classes ["cursor-pointer" "hover:bg-gray-200"]}
-         (ui/ui-table-cell {} (dom/span :.italic title))
-         (ui/ui-table-cell {} "Pending")
+         {:onClick #(println "add form " form-type)
+          :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
+         (ui/ui-table-cell {} (dom/span title))
+         (ui/ui-table-cell {} (dom/span "Pending"))
          (ui/ui-table-cell {} "")))))
     #_(ui-form-edss encounter))))
