@@ -280,7 +280,6 @@
   (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "xxx")
 
 ;; find a patient with given NHS number
-  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) (honey.sql/format {:select [:id :patient_identifier :sex :nhs_number :date-birth :date-death]
                                                                         :from [:t_patient]
                                                                         :where [:= :nhs_number "xxx"]}))
   ;; find a patient with a given pseudonym
