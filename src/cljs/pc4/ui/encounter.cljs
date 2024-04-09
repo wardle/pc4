@@ -41,7 +41,7 @@
 (defsc FormMsDiseaseCourse [this {:t_encounter/keys [form_ms_relapse]}])
 
 (defsc Layout [this {:keys [banner encounter menu]}]
-  (let [{:t_encounter/keys [date_time is_deleted encounter_template]} encounter
+  (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
         {:t_encounter_template/keys [title project]} encounter_template
         {project-title :t_project/title} project]
     (comp/fragment
@@ -59,6 +59,11 @@
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
                       "Warning: this encounter has been deleted"))
+               (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
+                    (if is_locked
+                      "This encounter has been locked against editing"
+                      (str "This encounter will lock at " (ui/format-date-time lock_date_time))))
+
                menu)
           (div :.col-span-1.lg:col-span-5.pt-2
                (comp/children this))))))
@@ -80,18 +85,23 @@
    :query [:t_user/id :t_user/full_name]})
 
 (defsc EditEncounter
-  [this {:t_encounter/keys [id completed_forms available_form_types] :as encounter}]
+  [this {:t_encounter/keys [id is_locked completed_forms available_form_types] :as encounter}]
   {:ident         :t_encounter/id
    :route-segment ["encounter" :t_encounter/id]
-   :query         (fn [] [:t_encounter/id :t_encounter/date_time
-                          {:t_encounter/completed_forms ['* {:form/user (comp/get-query User)}]}  ;; we deliberately do *not* normalise these data here
-                          :t_encounter/deleted_forms
-                          :t_encounter/available_form_types
-                          :t_encounter/mandatory_form_types
-                          :t_encounter/optional_form_types
-                          {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
-                          {:t_encounter/patient
-                           [{:>/banner (comp/get-query patients/PatientBanner)}]}])
+   :query         (fn []
+                    [:t_encounter/id
+                     :t_encounter/date_time
+                     :t_encounter/is_deleted
+                     :t_encounter/lock_date_time
+                     :t_encounter/is_locked
+                     {:t_encounter/completed_forms ['* {:form/user (comp/get-query User)}]}
+                     :t_encounter/deleted_forms
+                     :t_encounter/available_form_types
+                     :t_encounter/mandatory_form_types  ;; TODO: show mandatory form types as inline forms?
+                     :t_encounter/optional_form_types   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
+                     {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
+                     {:t_encounter/patient
+                      [{:>/banner (comp/get-query patients/PatientBanner)}]}])
    :will-enter    (fn [app {:t_encounter/keys [id] :as route-params}]
                     (when-let [encounter-id (some-> id (js/parseInt))]
                       (dr/route-deferred [:t_encounter/id encounter-id]
