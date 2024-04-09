@@ -27,9 +27,9 @@
 (defmutation edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
   (action
-    [{:keys [state]}]
-    (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
-      (swap! state edit-diagnosis* patient-identifier diagnosis-id))))
+   [{:keys [state]}]
+   (when-let [diagnosis-id (:t_diagnosis/id diagnosis)]
+     (swap! state edit-diagnosis* patient-identifier diagnosis-id))))
 
 (defn add-diagnosis*
   [state patient-identifier {:t_diagnosis/keys [id] :as diagnosis}]
