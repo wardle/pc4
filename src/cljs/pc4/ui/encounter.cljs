@@ -46,15 +46,15 @@
         {project-title :t_project/title} project]
     (comp/fragment
      (patients/ui-patient-banner banner)
-     (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-4.relative.pr-2
+     (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
           (div :.col-span-1.p-2
                (when (and date_time encounter_template)
                  (div :.shadow.bg-gray-50
-                      (div :.pl-4.font-semibold.bg-gray-200.text-center.italic.text-gray-600
-                           (ui/format-date date_time))
+                      (div :.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
+                           (str (ui/format-week-day date_time) " " (ui/format-date-time date_time)))
                       (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
                            project-title)
-                      (div :.font-bold.text-lg.min-w-min.p-4.pt-0.text-center
+                      (div :.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
                            title)))
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
@@ -82,7 +82,7 @@
 
 (defsc User [this params]
   {:ident :t_user/id
-   :query [:t_user/id :t_user/full_name]})
+   :query [:t_user/id :t_user/full_name :t_user/initials]})
 
 (defsc EditEncounter
   [this {:t_encounter/keys [id is_locked completed_forms available_form_types] :as encounter}]
@@ -119,7 +119,13 @@
     {}
     (ui/ui-table
      {}
-     (ui/ui-table-head {} (ui/ui-table-row {} (ui/ui-table-heading {} "Form") (ui/ui-table-heading {} "Result") (ui/ui-table-heading {} "User")))
+     (ui/ui-table-head
+      {}
+      (ui/ui-table-row
+       {}
+       (ui/ui-table-heading {} "Form")
+       (ui/ui-table-heading {} "Result")
+       (ui/ui-table-heading {} "User")))
      (ui/ui-table-body
       {}
       (for [{:form/keys [id form_type summary_result user]} completed_forms
@@ -129,12 +135,15 @@
           :classes ["cursor-pointer" "hover:bg-gray-200"]}
          (ui/ui-table-cell {} (dom/span :.text-blue-500.underline title))
          (ui/ui-table-cell {} summary_result)
-         (ui/ui-table-cell {} (:t_user/full_name user))))
-      (for [{:form_type/keys [id title] :as form-type} available_form_types]
-        (ui/ui-table-row
-         {:onClick #(println "add form " form-type)
-          :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
-         (ui/ui-table-cell {} (dom/span title))
-         (ui/ui-table-cell {} (dom/span "Pending"))
-         (ui/ui-table-cell {} "")))))
+         (ui/ui-table-cell {}
+                           (dom/span :.hidden.lg:block (:t_user/full_name user))
+                           (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
+      (when-not is_locked
+        (for [{:form_type/keys [id title] :as form-type} available_form_types]
+          (ui/ui-table-row
+           {:onClick #(println "add form " form-type)
+            :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
+           (ui/ui-table-cell {} (dom/span title))
+           (ui/ui-table-cell {} (dom/span "Pending"))
+           (ui/ui-table-cell {} ""))))))
     #_(ui-form-edss encounter))))
