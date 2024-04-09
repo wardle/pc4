@@ -81,42 +81,42 @@
                                                                               (dissoc :ui/choose-diagnosis :ui/current-patient)))])
         cancel-diagnosis-fn #(comp/transact! this [(cancel-edit-diagnosis {:patient-identifier patient-identifier :diagnosis editing-diagnosis})])]
     (ui/ui-modal
-      {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn :disabled? (not diagnosis)}
-                 {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]
-       :onClose cancel-diagnosis-fn}
-      (ui/ui-simple-form {}
-        (when (tempid/tempid? id) (ui/ui-simple-form-title {:title "Add diagnosis"}))
-        (div :.pt-2
-          (if-not (tempid/tempid? id)                       ;; if we already have a saved diagnosis, don't allow user to change
-            (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-            (if (:info.snomed.Concept/id diagnosis)
-              (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
-                                                 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
-              (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
-                                                        :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)}))))
-        (ui/ui-simple-form-item {:label "Date of onset"}
-          (ui/ui-local-date {:name     "date-onset" :value date_onset :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value! this :t_diagnosis/date_onset %)}))
-        (ui/ui-simple-form-item {:label "Date of diagnosis"}
-          (ui/ui-local-date {:name     "date-diagnosis" :value date_diagnosis :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value! this :t_diagnosis/date_diagnosis %)}))
-        (ui/ui-simple-form-item {:label "Date to"}
-          (ui/ui-local-date {:name     "date-to" :value date_to :min-date min-date, :max-date max-date
-                             :onChange #(m/set-value! this :t_diagnosis/date_to %)}))
-        (ui/ui-simple-form-item {:label "Status"}
-          (ui/ui-select-popup-button
-            {:name     "status", :value status, :update-options? false
-             :options  (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
-                                   ["ACTIVE"])
-             :onChange #(m/set-value! this :t_diagnosis/status %)}))
-        (ui/ui-simple-form-item {:label "Notes"}
-          (ui/ui-textarea {:value    notes
-                           :onChange #(m/set-value! this :t_diagnosis/notes %)}))
-        (when id
-          (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
+     {:actions [{:id ::save-diagnosis :title "Save" :role :primary :onClick save-diagnosis-fn :disabled? (not diagnosis)}
+                {:id ::cancel-diagnosis :title "Cancel" :onClick cancel-diagnosis-fn}]
+      :onClose cancel-diagnosis-fn}
+     (ui/ui-simple-form
+      {}
+      (when (tempid/tempid? id) (ui/ui-simple-form-title {:title "Add diagnosis"}))
+      (div :.pt-2
+           (if-not (tempid/tempid? id)                       ;; if we already have a saved diagnosis, don't allow user to change
+             (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+             (if (:info.snomed.Concept/id diagnosis)
+               (dom/div :.mt-2 (ui/ui-link-button {:onClick #(m/set-value! this :t_diagnosis/diagnosis nil)}
+                                                  (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])))
+               (snomed/ui-autocomplete choose-diagnosis {:autoFocus true, :constraint "<404684003"
+                                                         :onSave    #(m/set-value! this :t_diagnosis/diagnosis %)}))))
+      (ui/ui-simple-form-item {:label "Date of onset"}
+                              (ui/ui-local-date {:name     "date-onset" :value date_onset :min-date min-date, :max-date max-date
+                                                 :onChange #(m/set-value! this :t_diagnosis/date_onset %)}))
+      (ui/ui-simple-form-item {:label "Date of diagnosis"}
+                              (ui/ui-local-date {:name     "date-diagnosis" :value date_diagnosis :min-date min-date, :max-date max-date
+                                                 :onChange #(m/set-value! this :t_diagnosis/date_diagnosis %)}))
+      (ui/ui-simple-form-item {:label "Date to"}
+                              (ui/ui-local-date {:name     "date-to" :value date_to :min-date min-date, :max-date max-date
+                                                 :onChange #(m/set-value! this :t_diagnosis/date_to %)}))
+      (ui/ui-simple-form-item {:label "Status"}
+                              (ui/ui-select-popup-button
+                               {:name     "status", :value status, :update-options? false
+                                :options  (if date_to ["INACTIVE_REVISED" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"]
+                                              ["ACTIVE"])
+                                :onChange #(m/set-value! this :t_diagnosis/status %)}))
+      (ui/ui-simple-form-item {:label "Notes"}
+                              (ui/ui-textarea {:value    notes
+                                               :onChange #(m/set-value! this :t_diagnosis/notes %)}))
+      (when id
+        (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
 (def ui-edit-diagnosis (comp/factory EditDiagnosis))
-
 
 (defsc DiagnosisListItem
   [this {:t_diagnosis/keys [id date_onset date_diagnosis date_to status diagnosis]} {:keys [onClick] :as computed-props}]
@@ -125,27 +125,27 @@
            {:t_diagnosis/diagnosis [:info.snomed.Concept/id
                                     {:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}
   (ui/ui-table-row computed-props
-    (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-    (ui/ui-table-cell {} (ui/format-date date_onset))
-    (ui/ui-table-cell {} (ui/format-date date_diagnosis))
-    (ui/ui-table-cell {} (ui/format-date date_to))
-    (ui/ui-table-cell {} (str/replace (str status) #"_" " "))))
+                   (ui/ui-table-cell {} (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                   (ui/ui-table-cell {} (ui/format-date date_onset))
+                   (ui/ui-table-cell {} (ui/format-date date_diagnosis))
+                   (ui/ui-table-cell {} (ui/format-date date_to))
+                   (ui/ui-table-cell {} (str/replace (str status) #"_" " "))))
 
 (def ui-diagnosis-list-item (comp/computed-factory DiagnosisListItem {:keyfn :t_diagnosis/id}))
 
 (defn diagnoses-table
   [{:keys [title diagnoses onClick]}]
   (dom/div
-    (ui/ui-title {:title title})
-    (ui/ui-table {}
-      (ui/ui-table-head {}
-        (ui/ui-table-row {}
-          (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"])))
-      (ui/ui-table-body {}
-        (->> diagnoses
-             (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
-             (map #(ui-diagnosis-list-item % (when onClick {:onClick (fn [] (onClick %))
-                                                            :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
+   (ui/ui-title {:title title})
+   (ui/ui-table {}
+                (ui/ui-table-head {}
+                                  (ui/ui-table-row {}
+                                                   (map #(ui/ui-table-heading {:react-key %} %) ["Diagnosis" "Date onset" "Date diagnosis" "Date to" "Status"])))
+                (ui/ui-table-body {}
+                                  (->> diagnoses
+                                       (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+                                       (map #(ui-diagnosis-list-item % (when onClick {:onClick (fn [] (onClick %))
+                                                                                      :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))))
 
 (defsc PatientDiagnoses
   [this {:t_patient/keys [patient_identifier diagnoses permissions] :as patient
@@ -174,23 +174,23 @@
   (let [do-edit-diagnosis #(comp/transact! this [(edit-diagnosis {:patient-identifier patient_identifier :diagnosis %})])
         do-add-diagnosis #(comp/transact! this [(add-diagnosis {:patient-identifier patient_identifier :diagnosis {:t_diagnosis/id (tempid/tempid)}})])]
     (patients/ui-layout layout
-      {:selected-id :diagnoses
-       :sub-menu    [(when (permissions :PATIENT_EDIT)
-                       {:id      :add-diagnosis
-                        :onClick do-add-diagnosis
-                        :content "Add diagnosis..."})]}
-      (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
-            inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
-        (comp/fragment
-          (when (:t_diagnosis/id editing-diagnosis)
-            (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
-          (diagnoses-table {:title     "Active diagnoses"
-                            :diagnoses active-diagnoses
-                            :onClick   do-edit-diagnosis})
-          (when (seq inactive-diagnoses)
-            (diagnoses-table {:title     "Inactive diagnoses"
-                              :diagnoses inactive-diagnoses
-                              :onClick   do-edit-diagnosis})))))))
+                        {:selected-id :diagnoses
+                         :sub-menu    [(when (permissions :PATIENT_EDIT)
+                                         {:id      :add-diagnosis
+                                          :onClick do-add-diagnosis
+                                          :content "Add diagnosis..."})]}
+                        (let [active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
+                              inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
+                          (comp/fragment
+                           (when (:t_diagnosis/id editing-diagnosis)
+                             (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
+                           (diagnoses-table {:title     "Active diagnoses"
+                                             :diagnoses active-diagnoses
+                                             :onClick   do-edit-diagnosis})
+                           (when (seq inactive-diagnoses)
+                             (diagnoses-table {:title     "Inactive diagnoses"
+                                               :diagnoses inactive-diagnoses
+                                               :onClick   do-edit-diagnosis})))))))
 
 
 
