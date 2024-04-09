@@ -24,11 +24,24 @@
    10 "Nov"
    11 "Dec"})
 
+(def days-en
+  {0 "Mon"
+   1 "Tue"
+   2 "Wed"
+   3 "Thu"
+   4 "Fri"
+   5 "Sat"
+   6 "Sun"})
 (defn format-date [^Date date]
   (when date (str (.getDate date) "-" (get months-en (.getMonth date)) "-" (.getYear date))))
 
 (defn format-month-year [^Date date]
   (when date (str (get months-en (.getMonth date)) " " (.getYear date))))
+
+
+(defn format-week-day [^Date date]
+  (when date
+    (get days-en (.getIsoWeekday date))))
 
 (defn truncate [s length]
   (when s (let [len (count s)]
