@@ -32,6 +32,7 @@
    4 "Fri"
    5 "Sat"
    6 "Sun"})
+
 (defn format-date [^Date date]
   (when date (str (gstr/format "%02d" (.getDate date)) "-" (get months-en (.getMonth date)) "-" (.getYear date))))
 
@@ -562,10 +563,10 @@
            (for [{:keys [id icon content onClick]} items
                  :when id]
              (if (= selected-id id)
-               (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+               (dom/a :.mt-1.border.border-green-100.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
                       {:key id, :aria-current "page"}
                       (dom/span :.span.pr-2 icon) content)
-               (dom/a :.cursor-pointer.text-gray-600.hover:bg-green-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
+               (dom/a :.mt-1.cursor-pointer.text-gray-600.border.border-green-100.bg-green-50.hover:bg-green-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
                       {:key id, :onClick onClick}
                       (dom/span :.pr-2 icon) content)))
            (comp/children this)))
@@ -591,7 +592,7 @@
            (not onClick)
            (div (dom/span :.span.pr-2 icon) content)
            :else
-           (dom/a :.cursor-pointer.text-gray-600.hover:bg-purple-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
+           (dom/a :.cursor-pointer.text-gray-600.border.border-purple-100.bg-purple-50.hover:bg-purple-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
                   {:key id, :onClick onClick}
                   (dom/span :.pr-2 icon) content)))))
 
