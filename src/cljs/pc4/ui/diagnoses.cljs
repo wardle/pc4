@@ -113,7 +113,7 @@
       (ui/ui-simple-form-item {:label "Notes"}
                               (ui/ui-textarea {:value    notes
                                                :onChange #(m/set-value! this :t_diagnosis/notes %)}))
-      (when id
+      (when (and id (not (tempid/tempid? id)))
         (dom/p :.text-gray-500.pt-8 "To delete a diagnosis, record a 'to' date and update the status as appropriate."))))))
 
 (def ui-edit-diagnosis (comp/factory EditDiagnosis))
