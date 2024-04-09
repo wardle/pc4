@@ -73,7 +73,6 @@
    :form-fields #{:t_diagnosis/date_onset :t_diagnosis/date_to :t_diagnosis/date_diagnosis
                   :t_diagnosis/diagnosis :t_diagnosis/status :t_diagnosis/notes}}
 
-
   (let [min-date (:t_patient/date_birth current-patient)
         max-date (goog.date.Date.)
         patient-identifier (:t_patient/patient_identifier current-patient)
