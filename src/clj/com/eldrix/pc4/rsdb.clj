@@ -31,7 +31,7 @@
             [com.eldrix.pc4.rsdb.results :as results]
             [com.eldrix.pc4.rsdb.users :as users])
   (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDate)
+           (java.time LocalDateTime LocalDate)
            (java.util Locale)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)))
@@ -856,19 +856,25 @@
 
 (pco/defresolver encounter-by-id
   [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
-  {::pco/output [:t_encounter/id
-                 :t_encounter/patient_fk
-                 :t_encounter/date_time
-                 :t_encounter/active
-                 :t_encounter/is_deleted
-                 :t_encounter/hospital_fk
-                 :t_encounter/ward
-                 :t_encounter/episode_fk
-                 :t_encounter/consultant_user_fk
-                 :t_encounter/encounter_template_fk
-                 :t_encounter/notes]}
-  (let [encounter (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
-    (assoc encounter :t_encounter/active (not (:t_encounter/is_deleted encounter)))))
+  {::pco/output
+   [:t_encounter/id
+    :t_encounter/patient_fk
+    :t_encounter/date_time
+    :t_encounter/lock_date_time
+    :t_encounter/is_locked
+    :t_encounter/active
+    :t_encounter/is_deleted
+    :t_encounter/hospital_fk
+    :t_encounter/ward
+    :t_encounter/episode_fk
+    :t_encounter/consultant_user_fk
+    :t_encounter/encounter_template_fk
+    :t_encounter/notes]}
+  (let [{:t_encounter/keys [is_deleted lock_date_time] :as encounter}
+        (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
+    (assoc encounter
+           :t_encounter/active (not is_deleted)
+           :t_encounter/is_locked (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))))
 
 (pco/defresolver encounter->patient
   [{:t_encounter/keys [patient_fk]}]
