@@ -38,6 +38,14 @@
 (defn format-month-year [^Date date]
   (when date (str (get months-en (.getMonth date)) " " (.getYear date))))
 
+(defn format-date-time [^DateTime datetime]
+  (when datetime
+    (str
+     (format-date datetime)
+     " "
+     (gstr/format "%02d" (.getHours datetime))
+     ":"
+     (gstr/format "%02d" (.getMinutes datetime)))))
 
 (defn format-week-day [^Date date]
   (when date
