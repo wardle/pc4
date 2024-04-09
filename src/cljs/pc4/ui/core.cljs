@@ -33,7 +33,7 @@
    5 "Sat"
    6 "Sun"})
 (defn format-date [^Date date]
-  (when date (str (.getDate date) "-" (get months-en (.getMonth date)) "-" (.getYear date))))
+  (when date (str (gstr/format "%02d" (.getDate date)) "-" (get months-en (.getMonth date)) "-" (.getYear date))))
 
 (defn format-month-year [^Date date]
   (when date (str (get months-en (.getMonth date)) " " (.getYear date))))
