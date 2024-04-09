@@ -839,17 +839,18 @@
 
 (pco/defresolver patient->results
   [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/output [{:t_patient/results [:t_result_mri_brain/date
-                                      :t_result_mri_brain/report
-                                      :t_result_mri_brain/with_gadolinium
-                                      :t_result_jc_virus/date :t_result_jc_virus/jc_virus
-                                      :t_result_csf_ocb/date :t_result_csf_ocb/result
-                                      :t_result_renal/date :t_result_renal/notes
-                                      :t_result_full_blood_count/date :t_result_full_blood_count/notes
-                                      :t_result_ecg/date :t_result_ecg/notes
-                                      :t_result_urinalysis/date :t_result_urinalysis/notes
-                                      :t_result_liver_function/date :t_result_liver_function/notes]}]}
-
+  {::pco/output
+   [{:t_patient/results
+     [:t_result_mri_brain/date
+      :t_result_mri_brain/report
+      :t_result_mri_brain/with_gadolinium
+      :t_result_jc_virus/date :t_result_jc_virus/jc_virus
+      :t_result_csf_ocb/date :t_result_csf_ocb/result
+      :t_result_renal/date :t_result_renal/notes
+      :t_result_full_blood_count/date :t_result_full_blood_count/notes
+      :t_result_ecg/date :t_result_ecg/notes
+      :t_result_urinalysis/date :t_result_urinalysis/notes
+      :t_result_liver_function/date :t_result_liver_function/notes]}]}
   {:t_patient/results
    (when patient-identifier
      (vec (com.eldrix.pc4.rsdb.results/results-for-patient conn patient-identifier)))})
@@ -872,6 +873,7 @@
     :t_encounter/notes]}
   (let [{:t_encounter/keys [is_deleted lock_date_time] :as encounter}
         (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
+    (println "encounter" encounter)
     (assoc encounter
            :t_encounter/active (not is_deleted)
            :t_encounter/is_locked (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))))
