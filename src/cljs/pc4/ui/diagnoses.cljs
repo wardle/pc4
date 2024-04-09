@@ -48,8 +48,8 @@
   (cond-> (-> state
               (fs/pristine->entity* [:t_diagnosis/id id])   ;; restore form to pristine state
               (assoc-in [:t_patient/patient_identifier patient-identifier :ui/editing-diagnosis] {})) ;; clear modal dialog
-          (tempid/tempid? id)                               ;; if cancelling a newly created diagnosis, delete it and its relationship
-          (merge/remove-ident* [:t_diagnosis/id id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))
+    (tempid/tempid? id)                               ;; if cancelling a newly created diagnosis, delete it and its relationship
+    (merge/remove-ident* [:t_diagnosis/id id] [:t_patient/patient_identifier patient-identifier :t_patient/diagnoses])))
 
 (defmutation cancel-edit-diagnosis
   [{:keys [patient-identifier diagnosis]}]
