@@ -171,7 +171,7 @@
         :content "Encounters"
         :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
        {:id      :results
-        :content "Investigations"
+        :content "Results"
         :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
        {:id      :admissions
         :content "Admissions"
