@@ -668,8 +668,9 @@
                     :checked  (or (item value) false)
                     :onChange #(do
                                  (println "setting " {:item item :old (or (item value) false) :new %})
-                                 (cond onChange (onChange (assoc value item %))
-                                       onItemChange (onItemChange item %)))}))))
+                                 (cond
+                                   onChange (onChange (assoc value item %))
+                                   onItemChange (onItemChange item %)))}))))
 
 (def ui-multiple-checkboxes
   "A convenient way of presenting multiple checkboxes.
