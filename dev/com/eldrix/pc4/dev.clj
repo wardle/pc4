@@ -279,10 +279,6 @@
 
   (com.eldrix.pc4.rsdb.users/set-must-change-password! (:com.eldrix.rsdb/conn system) "xxx")
 
-;; find a patient with given NHS number
-                                                                        :from [:t_patient]
-                                                                        :where [:= :nhs_number "xxx"]}))
-  ;; find a patient with a given pseudonym
   (com.eldrix.pc4.rsdb.projects/fetch-by-project-pseudonym (:com.eldrix.rsdb/conn system) "CAMBRIDGEMS" "xxx")
 
   (def global-salt (get-in system [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]))
