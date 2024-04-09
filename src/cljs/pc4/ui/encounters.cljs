@@ -79,7 +79,7 @@
                                                      (ui/ui-table-row {}
                                                                       (map #(ui/ui-table-heading {:react-key %} %) ["Date/time" "Type" "EDSS" "In relapse?" "Disease course" "Weight"])))
                                    (ui/ui-table-body {}
-                                                     (for [{:t_encounter/keys [id] :as encounter} encounters]
+                                                     (for [{:t_encounter/keys [id] :as encounter} (filter :t_encounter/active encounters)]
                                                        (ui-encounter-list-item encounter
                                                                                {:onClick #(route/route-to! ::route/encounter {:encounter-id id})
                                                                                 :classes ["cursor-pointer" "hover:bg-gray-200"]}))))))
