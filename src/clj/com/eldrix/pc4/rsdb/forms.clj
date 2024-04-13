@@ -150,9 +150,11 @@
     :title        "MS relapse / disease course"
     :key          nil
     :entity-name  "FormMSRelapse"
-    :parse        (fn [form] (-> form
-                                 (update :form_ms_relapse/in_relapse parse-boolean)
-                                 (update :form_ms_relapse/strict_validation parse-boolean)))}
+    :parse        (fn [form]
+                    (-> form
+                        (update :form_ms_relapse/in_relapse parse-boolean)
+                        (update :form_ms_relapse/strict_validation parse-boolean)))
+    :summary      (fn [{:form_ms_relapse/keys [in_relapse]}] (if in_relapse "In relapse" "Not in relapse"))}
    {:form-type-id 10
     :table        "t_form_nine_hole_peg"
     :title        "Nine-hole peg"
