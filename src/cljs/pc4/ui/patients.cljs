@@ -9,7 +9,8 @@
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [pc4.ui.core :as ui]
-            [pc4.users]))
+            [pc4.users]
+            [pc4.route :as route]))
 
 (defn unload-related*
   [state patient-identifier k table-name]
@@ -146,44 +147,47 @@
 (defsc PatientMenu
   "Patient menu. At the moment, we have a different menu for pseudonymous
   patients but this will become increasingly unnecessary."
-  [this {:t_patient/keys [patient_identifier permissions] :as patient}
+  [this {:t_patient/keys [patient_identifier permissions]
+         :ui/keys [current-project]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
-   :query [:t_patient/patient_identifier :t_patient/permissions]}
-  (cond
-    (permissions :PATIENT_VIEW)
-    (ui/ui-vertical-navigation2
-     {:selected-id selected-id
-      :items
-      [{:id      :home
-        :content "Home"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "home"])}
-       {:id      :diagnoses
-        :content "Diagnoses"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "diagnoses"])}
-       {:id      :medications
-        :content "Medication"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "medications"])}
-       {:id      :relapses
-        :content "Relapses"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "neuroinflammatory"])}
-       {:id      :encounters
-        :content "Encounters"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "encounters"])}
-       {:id      :results
-        :content "Results"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "results"])}
-       {:id      :admissions
-        :content "Admissions"
-        :onClick #(dr/change-route! this ["pt" patient_identifier "admissions"])}]}
-     (ui/ui-vertical-navigation-title {:title ""})
-     (ui/ui-vertical-navigation-submenu {:items sub-menu}))
+   :query [:t_patient/patient_identifier :t_patient/permissions
+           {[:ui/current-project '_] [:t_project/id]}]}
+  (let [{project-id :t_project/id} current-project]
+    (cond
+      (permissions :PATIENT_VIEW)
+      (ui/ui-vertical-navigation2
+       {:selected-id selected-id
+        :items
+        [{:id      :home
+          :content "Home"
+          :onClick #(route/route-to! ::route/patient-home {:patient-identifier patient_identifier})}
+         {:id      :diagnoses
+          :content "Diagnoses"
+          :onClick #(route/route-to! ::route/patient-diagnoses {:patient-identifier patient_identifier})}
+         {:id      :medications
+          :content "Medication"
+          :onClick #(route/route-to! ::route/patient-medications {:patient-identifier patient_identifier})}
+         {:id      :relapses
+          :content "Relapses"
+          :onClick #(route/route-to! ::route/patient-neuroinflammatory {:patient-identifier patient_identifier})}
+         {:id      :encounters
+          :content "Encounters"
+          :onClick #(route/route-to! ::route/patient-encounters {:patient-identifier patient_identifier})}
+         {:id      :results
+          :content "Results"
+          :onClick #(route/route-to! ::route/patient-results {:patient-identifier patient_identifier})}
+         {:id      :admissions
+          :content "Admissions"
+          :onClick #(route/route-to! ::route/patient-admissions {:patient-identifier patient_identifier})}]}
+       (ui/ui-vertical-navigation-title {:title ""})
+       (ui/ui-vertical-navigation-submenu {:items sub-menu}))
     ;; No permission -> show break glass and a limited menu
-    :else
-    (ui/ui-vertical-navigation2
-     {:selected-id :break-glass
-      :items       [{:id      :break-glass
-                     :content "No access"}]})))
+      :else
+      (ui/ui-vertical-navigation2
+       {:selected-id :break-glass
+        :items       [{:id      :break-glass
+                       :content "No access"}]}))))
 
 (def ui-patient-menu (comp/computed-factory PatientMenu))
 

@@ -10,13 +10,19 @@
 
 (def routes
   "The routing table maps between HTML5 URLs and our application dynamic routing."
-  ["/" {""                ::home
+  ["/" {""                                                               ::home
         "project/"        {[:project-id]                                 ::project-home
                            [:project-id "/patient/" :patient-identifier] ::project-patient}
-        "patient/"        {[:patient-identifier] ::patient-home}
-        "encounter/"      {[:encounter-id] ::encounter}
-        "user/"           {[:user-id] ::user-profile}
-        "change-password" ::change-password}])
+        "patient/"        {[:patient-identifier]                         ::patient-home
+                           [:patient-identifier "/diagnoses/"]           ::patient-diagnoses
+                           [:patient-identifier "/encounters/"]          ::patient-encounters
+                           [:patient-identifier "/medications/"]         ::patient-medications
+                           [:patient-identifier "/ninflamm/"]            ::patient-neuroinflammatory
+                           [:patient-identifier "/results/"]             ::patient-results
+                           [:patient-identifier "/admissions/"]          ::patient-admissions}
+        "encounter/"      {[:encounter-id]                               ::encounter}
+        "user/"           {[:user-id]                                    ::user-profile}
+        "change-password"                                                ::change-password}])
 
 (defn match-route
   [url]
@@ -37,6 +43,18 @@
         (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "home"]))
     ::patient-home
     (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "home"])
+    ::patient-diagnoses
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "diagnoses"])
+    ::patient-medications
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "medications"])
+    ::patient-neuroinflammatory
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "neuroinflammatory"])
+    ::patient-encounters
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "encounters"])
+    ::patient-results
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "results"])
+    ::patient-admissions
+    (dr/change-route! @SPA ["pt" (:patient-identifier route-params) "admissions"])
     ::user-profile
     (dr/change-route! @SPA ["user" (:user-id route-params) "profile"])
     ::change-password
