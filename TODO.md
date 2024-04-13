@@ -13,6 +13,7 @@ Tasks that are currently my priority for this development cycle:
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
 * [x] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
+* [ ] Always open patient record in context of a project, but allow easy switching when needed?
 * [x] Change password page
 * [x] Force change password page for newly created accounts
 
@@ -29,7 +30,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Return to using HTML5 routing for pages within patient record. 
 * [ ] Improve MS event ordering errors to show a warning against any individual items
 * [ ] Use 'close patient record' functionality to clear out any cached data
-* [ ] Display 'encounter locked' / 'locking in...' on encounter page
+* [x] Display 'encounter locked' / 'locking in...' on encounter page
 
 ## Other work - not critical to either deployment at the moment
 
@@ -47,4 +48,5 @@ so that front-end can resume a live session from the same browser.
 * [ ] Better user profile page, perhaps shown modally when from context of project team page?
 * [ ] Remove passwords in favour of non-password based authentication for non NHS Wales users
 * [ ] Add status page in which connections to external systems are checked and status reported
+* [ ] Add slide-out panel in encounter view to make it simple to see encounter list view?
 
