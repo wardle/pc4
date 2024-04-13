@@ -147,7 +147,7 @@
     :entity-name  "FormMotorUpdrs"}
    {:form-type-id 9
     :table        "t_form_ms_relapse"
-    :title        "MS Relapse / disease course"
+    :title        "MS relapse / disease course"
     :key          nil
     :entity-name  "FormMSRelapse"
     :parse        (fn [form] (-> form
