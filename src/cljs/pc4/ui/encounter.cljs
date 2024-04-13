@@ -2,9 +2,44 @@
   (:require [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.dom :as dom :refer [div]]
+            [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [pc4.ui.core :as ui]
-            [pc4.ui.patients :as patients]))
+            [pc4.ui.patients :as patients]
+            [com.fulcrologic.fulcro.algorithms.form-state :as fs]
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
+            [com.fulcrologic.fulcro.algorithms.merge :as merge]))
+
+(defn edit-form*
+  [state encounter-id class form-id]
+  (println "edit-form*" encounter-id class form-id)
+  (let [ident [:form/id form-id]]
+    (-> state
+        (fs/add-form-config* class ident {:destructive? true})
+        (assoc-in [:t_encounter/id encounter-id :ui/editing-form] ident))))
+
+(defmutation edit-form
+  [{:keys [encounter-id class form]}]
+  (action
+   [{:keys [state]}]
+   (if-let [form-id (:form/id form)]
+     (swap! state edit-form* encounter-id class form-id)
+     (throw (ex-info "Missing form id" form)))))
+
+(defn cancel-edit-form*
+  [state encounter-id form-id]
+  (cond-> (-> state
+              (fs/pristine->entity* [:form/id form-id])
+              (update-in [:t_encounter/id encounter-id] dissoc :ui/editing-form))
+    ;; if this is a temporary (newly created) form, delete it
+    (tempid/tempid? form-id)
+    (update :form/id dissoc form-id)))
+
+(defmutation cancel-edit-form
+  [{:keys [encounter-id form]}]
+  (action
+   [{:keys [state]}]
+   (swap! state cancel-edit-form* encounter-id (:form/id form))))
 
 (defsc NeuroinflammatoryComposite [this params])
 
@@ -38,7 +73,22 @@
 
 (def ui-form-edss (comp/computed-factory FormEdss))
 
-(defsc FormMsDiseaseCourse [this {:t_encounter/keys [form_ms_relapse]}])
+(defsc EditFormEdss [this {:form/keys [id] :as form}]
+  {:ident       :form/id
+   :query       [:form/id
+                 :form_edss/edss_score
+                 fs/form-config-join]
+   :form-fields #{:form_edss/edss_score}}
+  (ui/ui-simple-form-item
+   {:label "EDSS (short-form)"}
+   (ui/ui-select-popup-button
+    {:name "edss"
+     :value         (:form_edss/edss_score form)
+     :options       edss-scores
+     :sort?         true
+     :onChange      #(m/set-value! this :form_edss/edss_score %)})))
+
+(def ui-edit-form-edss (comp/factory EditFormEdss))
 
 (defsc Layout [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
@@ -84,8 +134,29 @@
   {:ident :t_user/id
    :query [:t_user/id :t_user/full_name :t_user/initials]})
 
+(defsc FormType [this params]
+  {:ident :form_type/id
+   :query [:form_type/id
+           :form_type/nm
+           :form_type/nspace
+           :form_type/one_per_encounter
+           :form_type/table
+           :form_type/title]})
+
+(defsc Form [this params]
+  {:ident :form/id
+   :query (fn []
+            [:form/id
+             '*
+             :form/form_type
+             :form/is_deleted
+             :form/summary_result
+             {:form/user (comp/get-query User)}])})
+
 (defsc EditEncounter
-  [this {:t_encounter/keys [id is_locked completed_forms available_form_types] :as encounter}]
+  [this {encounter-id :t_encounter/id
+         :t_encounter/keys [is_locked completed_forms available_form_types] :as encounter
+         :ui/keys [editing-form]}]
   {:ident         :t_encounter/id
    :route-segment ["encounter" :t_encounter/id]
    :query         (fn []
@@ -94,14 +165,14 @@
                      :t_encounter/is_deleted
                      :t_encounter/lock_date_time
                      :t_encounter/is_locked
-                     {:t_encounter/completed_forms ['* {:form/user (comp/get-query User)}]}
-                     :t_encounter/deleted_forms
-                     :t_encounter/available_form_types
-                     :t_encounter/mandatory_form_types  ;; TODO: show mandatory form types as inline forms?
-                     :t_encounter/optional_form_types   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
+                     {:t_encounter/completed_forms (comp/get-query Form)}
+                     {:t_encounter/deleted_forms (comp/get-query Form)}
+                     {:t_encounter/available_form_types (comp/get-query FormType)}
+                     {:t_encounter/mandatory_form_types (comp/get-query FormType)}  ;; TODO: show mandatory form types as inline forms?
+                     {:t_encounter/optional_form_types (comp/get-query FormType)}   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
                      {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
-                     {:t_encounter/patient
-                      [{:>/banner (comp/get-query patients/PatientBanner)}]}])
+                     {:t_encounter/patient [{:>/banner (comp/get-query patients/PatientBanner)}]}
+                     {:ui/editing-form ['*]}])
    :will-enter    (fn [app {:t_encounter/keys [id] :as route-params}]
                     (when-let [encounter-id (some-> id (js/parseInt))]
                       (dr/route-deferred [:t_encounter/id encounter-id]
@@ -110,11 +181,17 @@
                                                      {:target               [:ui/current-encounter]
                                                       :post-mutation        `dr/target-ready
                                                       :post-mutation-params {:target [:t_encounter/id encounter-id]}})))))}
-  (tap> encounter)
   (ui-layout
    {:banner    (-> encounter :t_encounter/patient :>/banner)
     :encounter encounter
     :menu      []}
+   (when editing-form
+     (ui/ui-modal
+      {:actions [{:id ::save :title "Save" :role :primary :onClick #(println "Save") :disabled? false}
+                 {:id ::cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
+       :onClose ::cancel}
+      (ui-edit-form-edss editing-form)
+      (println "editing form" editing-form)))
    (ui/ui-panel
     {}
     (ui/ui-table
@@ -128,10 +205,11 @@
        (ui/ui-table-heading {} "User")))
      (ui/ui-table-body
       {}
-      (for [{:form/keys [id form_type summary_result user]} completed_forms
+      (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
             :let [title (:form_type/title form_type)]]
         (ui/ui-table-row
-         {:onClick #(println "edit form" {:type form_type :id id})
+         {:onClick #(do (println "editing form" form)
+                        (comp/transact! this [(edit-form {:encounter-id encounter-id :class EditFormEdss :form form})]))
           :classes ["cursor-pointer" "hover:bg-gray-200"]}
          (ui/ui-table-cell {} (dom/span :.text-blue-500.underline title))
          (ui/ui-table-cell {} summary_result)
