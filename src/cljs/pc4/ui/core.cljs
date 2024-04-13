@@ -441,29 +441,34 @@
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
 
 (defsc UIModal [this {:keys [disabled? title actions onClose]}]
-  (div :.fixed.z-10.inset-0.overflow-y-auto
-       {:aria-labelledby title :role "dialog" :aria-modal "true"
-        :className       (when disabled? "hidden")}
-       (div :.flex.items-end.justify-center.min-h-max.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
-            (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
-                 {:aria-hidden "true"
-                  :onClick     #(when onClose (onClose))})
-            (span :.hidden.sm:inline-block.min-h-max {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
-            (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.max-w-screen-sm.lg:max-w-screen-lg.w-full.sm:p-6
-                 (div
-                  (div :.mt-3.text-center.sm:mt-5
-                       (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
-                  (div :.mt-2
-                       (comp/children this)))
-                 (when (seq actions)
-                   (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
-                        (for [action actions, :when (and action (not (:hidden? action)))]
-                          (ui-button
-                           {:key       (or (:id action) (log/error "action missing :id field" action))
-                            :role      (:role action)
-                            :disabled? (:disabled? action)
-                            :onClick   #(when-let [f (:onClick action)] (f))}
-                           (:title action)))))))))
+  (let [onClose' (or (when onClose
+                       (if (fn? onClose) onClose  ;; but if onClose is an id and not a fn, look for it in actions and use that for onClose:
+                           (some-> (reduce (fn [_ {:keys [id] :as v}] (when (= onClose id) (reduced v))) nil actions)
+                                   :onClick)))
+                     (constantly nil))]
+    (div :.fixed.z-10.inset-0.overflow-y-auto
+         {:aria-labelledby title :role "dialog" :aria-modal "true"
+          :className       (when disabled? "hidden")}
+         (div :.flex.items-end.justify-center.min-h-max.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+              (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
+                   {:aria-hidden "true"
+                    :onClick     onClose'})
+              (span :.hidden.sm:inline-block.min-h-max {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
+              (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.max-w-screen-sm.lg:max-w-screen-lg.w-full.sm:p-6
+                   (div
+                    (div :.mt-3.text-center.sm:mt-5
+                         (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
+                    (div :.mt-2
+                         (comp/children this)))
+                   (when (seq actions)
+                     (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
+                          (for [action actions, :when (and action (not (:hidden? action)))]
+                            (ui-button
+                             {:key       (or (:id action) (log/error "action missing :id field" action))
+                              :role      (:role action)
+                              :disabled? (:disabled? action)
+                              :onClick   #(when-let [f (:onClick action)] (f))}
+                             (:title action))))))))))
 
 (def ui-modal
   "A modal dialog.
@@ -471,7 +476,7 @@
   - :disabled?
   - :title
   - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,onClick
-  - :onClose - fn if modal closed"
+  - :onClose - fn if modal closed, or the id of the action"
   (comp/factory UIModal))
 
 (defsc UISimpleFormTitle [this {:keys [title]}]
