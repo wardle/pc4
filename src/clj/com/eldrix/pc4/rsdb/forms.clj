@@ -486,7 +486,7 @@
            :form/id                  form-id
            (keyword nm "is_deleted") is-deleted
            :form/is_deleted          is-deleted
-           :form/summary_result      (summary namespaced-form)   ;; care to generate summary using parsed form and not raw form fetch result
+           :form/summary_result      (summary parsed-form)   ;; care to generate summary using parsed form and not raw form fetch result
            :form/user_fk             (:user_fk form)
            :form/form_type           {:form_type/id                form-type-id
                                       :form_type/nm                nm
