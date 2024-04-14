@@ -12,11 +12,10 @@
 
 (defn edit-form*
   [state encounter-id class form-id]
-  (println "edit-form*" encounter-id class form-id)
   (let [ident [:form/id form-id]]
-    (-> state
-        (fs/add-form-config* class ident {:destructive? true})
-        (assoc-in [:t_encounter/id encounter-id :ui/editing-form] ident))))
+    (cond-> state
+      true (assoc-in [:t_encounter/id encounter-id :ui/editing-form] ident)
+      class (fs/add-form-config* class ident {:destructive? true}))))
 
 (defmutation edit-form
   [{:keys [encounter-id class form]}]
@@ -28,9 +27,10 @@
 
 (defn cancel-edit-form*
   [state encounter-id form-id]
-  (cond-> (-> state
-              (fs/pristine->entity* [:form/id form-id])
-              (update-in [:t_encounter/id encounter-id] dissoc :ui/editing-form))
+  (cond->
+   (-> state
+       (fs/pristine->entity* [:form/id form-id])
+       (update-in [:t_encounter/id encounter-id] dissoc :ui/editing-form))
     ;; if this is a temporary (newly created) form, delete it
     (tempid/tempid? form-id)
     (update :form/id dissoc form-id)))
@@ -40,15 +40,6 @@
   (action
    [{:keys [state]}]
    (swap! state cancel-edit-form* encounter-id (:form/id form))))
-
-(defsc NeuroinflammatoryComposite [this params])
-
-(def ui-neuroinflammatory-composite (comp/computed-factory NeuroinflammatoryComposite))
-
-(def composite-forms
-  [{:name  "Neuroinflammatory"
-    :forms #{"FormEdss" "FormMSRelapse" "FormSmokingHistory" "FormWeightHeight"}
-    :class NeuroinflammatoryComposite}])
 
 (def edss-scores
   ["SCORE0_0" "SCORE1_0" "SCORE1_5" "SCORE2_0" "SCORE2_5" "SCORE3_0" "SCORE3_5"
@@ -153,6 +144,17 @@
              :form/summary_result
              {:form/user (comp/get-query User)}])})
 
+(def forms
+  [{:nm "form_edss"
+    :class EditFormEdss
+    :view ui-edit-form-edss}])
+
+(def form-class-by-name
+  (reduce (fn [acc {:keys [nm class]}] (assoc acc nm class)) {} forms))
+
+(def form-view-by-name
+  (reduce (fn [acc {:keys [nm view]}] (assoc acc nm view)) {} forms))
+
 (defsc EditEncounter
   [this {encounter-id :t_encounter/id
          :t_encounter/keys [is_locked completed_forms available_form_types] :as encounter
@@ -186,12 +188,17 @@
     :encounter encounter
     :menu      []}
    (when editing-form
-     (ui/ui-modal
-      {:actions [{:id ::save :title "Save" :role :primary :onClick #(println "Save") :disabled? false}
-                 {:id ::cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
-       :onClose ::cancel}
-      (ui-edit-form-edss editing-form)
-      (println "editing form" editing-form)))
+     (if-let [view (form-view-by-name (get-in editing-form [:form/form_type :form_type/nm]))]
+       (ui/ui-modal
+        {:actions [{:id ::save :title "Save" :role :primary :onClick #(println "Save") :disabled? false}
+                   {:id ::cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
+         :onClose ::cancel}
+        (view editing-form))
+       (ui/ui-modal
+        {:actions [{:id ::close :title "Close" :role :primary
+                    :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
+         :onClose ::close}
+        (ui/box-error-message {:title "Not implemented" :message "It is not yet possible to view or edit this form using this application."}))))
    (ui/ui-panel
     {}
     (ui/ui-table
@@ -206,16 +213,18 @@
      (ui/ui-table-body
       {}
       (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
-            :let [title (:form_type/title form_type)]]
+            :let [form-type-name (:form_type/nm form_type)
+                  form-class (form-class-by-name form-type-name)
+                  title (:form_type/title form_type)]]
         (ui/ui-table-row
-         {:onClick #(do (println "editing form" form)
-                        (comp/transact! this [(edit-form {:encounter-id encounter-id :class EditFormEdss :form form})]))
+         {:onClick #(comp/transact! this [(edit-form {:encounter-id encounter-id :class form-class :form form})])
           :classes ["cursor-pointer" "hover:bg-gray-200"]}
          (ui/ui-table-cell {} (dom/span :.text-blue-500.underline title))
          (ui/ui-table-cell {} summary_result)
-         (ui/ui-table-cell {}
-                           (dom/span :.hidden.lg:block (:t_user/full_name user))
-                           (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
+         (ui/ui-table-cell
+          {}
+          (dom/span :.hidden.lg:block (:t_user/full_name user))
+          (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
       (when-not is_locked
         (for [{:form_type/keys [id title] :as form-type} available_form_types]
           (ui/ui-table-row
