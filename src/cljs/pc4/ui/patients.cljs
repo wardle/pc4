@@ -145,8 +145,6 @@
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc PatientMenu
-  "Patient menu. At the moment, we have a different menu for pseudonymous
-  patients but this will become increasingly unnecessary."
   [this {:t_patient/keys [patient_identifier permissions]
          :ui/keys [current-project]}
    {:keys [selected-id sub-menu]}]
@@ -265,7 +263,7 @@
 (def ui-patient-break-glass (comp/factory PatientBreakGlass))
 
 (defsc Layout
-  [this {:t_patient/keys [id patient_identifier permissions]
+  [this {:t_patient/keys [id patient_identifier permissions] :as props
          is-break-glass  :t_patient/break_glass :>/keys [banner menu break-glass]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
@@ -273,7 +271,8 @@
            :t_patient/break_glass
            {:>/banner (comp/get-query PatientBanner)}
            {:>/menu (comp/get-query PatientMenu)}
-           {:>/break-glass (comp/get-query PatientBreakGlass)}]}
+           {:>/break-glass (comp/get-query PatientBreakGlass)}
+           [df/marker-table :patient]]}
   (if (and id patient_identifier)
     (comp/fragment
      (ui-patient-banner banner {}                          ;; always show the banner
@@ -284,6 +283,11 @@
             (div :.col-span-1.p-2
                  (ui-patient-menu menu {:selected-id selected-id :sub-menu sub-menu}))
             (div :.col-span-1.md:col-span-5.pt-2
+                 (let [marker (get props [df/marker-table :patient])]
+                   (cond (df/loading? marker)
+                         (ui/ui-loading-screen {:dim? false})
+                         (df/failed? marker)
+                         "Loading failed. Please retry"))
                  (comp/children this)))
        (ui-patient-break-glass break-glass)))
     (div :.p-2 (ui/box-error-message :message "Patient not found"))))

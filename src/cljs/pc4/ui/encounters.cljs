@@ -49,7 +49,7 @@
 (def ui-encounter-list-item (comp/computed-factory EncounterListItem {:keyfn :t_encounter/id}))
 
 (defsc PatientEncounters
-  [this {:t_patient/keys [encounters]
+  [this {:t_patient/keys [patient_identifier encounters]
          :>/keys         [layout]}]
   {:ident         :t_patient/patient_identifier
    :route-segment ["pt" :t_patient/patient_identifier "encounters"]
@@ -59,12 +59,16 @@
                    {:t_patient/encounters (comp/get-query EncounterListItem)}]
    :will-enter    (fn [app {:t_patient/keys [patient_identifier]}]
                     (when-let [patient-identifier (some-> patient_identifier (js/parseInt))]
-                      (dr/route-deferred [:t_patient/patient_identifier patient-identifier]
-                                         (fn []
-                                           (df/load! app [:t_patient/patient_identifier patient-identifier] PatientEncounters
-                                                     {:target               [:ui/current-patient]
-                                                      :post-mutation        `dr/target-ready
-                                                      :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
+                      (df/load! app [:t_patient/patient_identifier patient-identifier] PatientEncounters
+                                {:target               [:ui/current-patient]
+                                 :marker               :patient})
+                      (dr/route-immediate [:t_patient/patient_identifier patient-identifier])
+                      #_(dr/route-deferred [:t_patient/patient_identifier patient-identifier]
+                                           (fn []
+                                             (df/load! app [:t_patient/patient_identifier patient-identifier] PatientEncounters
+                                                       {:target               [:ui/current-patient]
+                                                        :post-mutation        `dr/target-ready
+                                                        :post-mutation-params {:target [:t_patient/patient_identifier patient-identifier]}})))))}
   (patients/ui-layout
    layout
    {:selected-id :encounters
