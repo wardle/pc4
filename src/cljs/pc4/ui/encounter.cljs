@@ -64,7 +64,7 @@
 
 (def ui-form-edss (comp/computed-factory FormEdss))
 
-(defsc EditFormEdss [this {:form/keys [id] :as form}]
+(defsc EditFormEdss [this {:form_edss/keys [edss_score]}]
   {:ident       :form/id
    :query       [:form/id
                  :form_edss/edss_score
@@ -74,12 +74,32 @@
    {:label "EDSS (short-form)"}
    (ui/ui-select-popup-button
     {:name "edss"
-     :value         (:form_edss/edss_score form)
+     :value         edss_score
      :options       edss-scores
      :sort?         true
      :onChange      #(m/set-value! this :form_edss/edss_score %)})))
 
 (def ui-edit-form-edss (comp/factory EditFormEdss))
+
+(defsc EditFormWeightHeight
+  [this {:form_weight_height/keys [weight_kilogram height_metres]}]
+  {:ident :form/id
+   :query [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
+           fs/form-config-join]
+   :form-fields #{:form_weight_height/weight_kilogram :form_weight_height/height_metres}}
+  (comp/fragment
+   (ui/ui-simple-form-item
+    {:label "Weight (kilograms)"}
+    (ui/ui-textfield {:value    weight_kilogram
+                      :type     :number
+                      :onChange #(m/set-value! this :form_weight_height/weight_kilogram %)}))
+   (ui/ui-simple-form-item
+    {:label "Height (metres)"}
+    (ui/ui-textfield {:value    height_metres
+                      :type     :number
+                      :onChange #(m/set-value! this :form_weight_height/height_metres %)}))))
+
+(def ui-edit-form-weight-height (comp/factory EditFormWeightHeight))
 
 (defsc Layout [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
@@ -147,7 +167,10 @@
 (def forms
   [{:nm "form_edss"
     :class EditFormEdss
-    :view ui-edit-form-edss}])
+    :view ui-edit-form-edss}
+   {:nm "form_weight_height"
+    :class EditFormWeightHeight
+    :view ui-edit-form-weight-height}])
 
 (def form-class-by-name
   (reduce (fn [acc {:keys [nm class]}] (assoc acc nm class)) {} forms))
@@ -232,5 +255,4 @@
             :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
            (ui/ui-table-cell {} (dom/span title))
            (ui/ui-table-cell {} (dom/span "Pending"))
-           (ui/ui-table-cell {} ""))))))
-    #_(ui-form-edss encounter))))
+           (ui/ui-table-cell {} "")))))))))
