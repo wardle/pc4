@@ -190,6 +190,7 @@
                      :t_encounter/is_deleted
                      :t_encounter/lock_date_time
                      :t_encounter/is_locked
+                     :t_encounter/notes
                      {:t_encounter/completed_forms (comp/get-query Form)}
                      {:t_encounter/deleted_forms (comp/get-query Form)}
                      {:t_encounter/available_form_types (comp/get-query FormType)}
