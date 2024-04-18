@@ -419,7 +419,7 @@
     :key          nil
     :entity-name  "FormRehabilitationAssessment"}
    {:form-type-id 73
-    :table        "t_form_mnd_symptom"
+    :table        "t_form_motor_neurone_disease_phenotype"
     :title        "MND phenotype"
     :key          nil
     :entity-name  "FormMotorNeuroneDiseasePhenotype"}
