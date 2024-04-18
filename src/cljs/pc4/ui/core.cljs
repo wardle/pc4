@@ -256,14 +256,14 @@
   (comp/factory UILocalDate))
 
 (defsc UISelectPopupButton
-  [this {:keys [name label value options id-key display-key default-value no-selection-string disabled? sort? update-options?
+  [this {:keys [name label value options size id-key display-key default-value no-selection-string disabled? sort? update-options?
                 onChange onEnterKey sort-fn]
-         :or   {id-key identity, display-key identity, sort? true, update-options? true}}]
-  (let [all-options (set (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
-                           (conj options value) options))
+         :or   {size 1, id-key identity, display-key identity, sort? true, update-options? true}}]
+  (let [all-options (if (and update-options? value (id-key value) (not (some #(= (id-key value) (id-key %)) options)))
+                      (conj options value) options)
         sorted-options (vec (if-not sort? all-options (sort-by (or sort-fn display-key) all-options)))
         default-value (or default-value no-selection-string (first sorted-options))
-        forced-value (if (not (contains? all-options value)) default-value value)]
+        forced-value (if (not (contains? (set all-options) value)) default-value value)]
     (when (and onChange (not= value forced-value) (not= no-selection-string forced-value))
       (println {:value value :forced-value forced-value})
       (onChange forced-value))
@@ -271,6 +271,7 @@
      (when label (ui-label {:for name :label label}))
      (dom/select :.block.w-full.py-2.text-base.border.border-gray-300.focus:outline-none.focus:ring-indigo-500.focus:border-indigo-500.sm:text-sm.rounded-md
                  {:name      name
+                  :size      size
                   :disabled  disabled?
                   :classes   (when disabled? ["bg-gray-100" "text-gray-600"])
                   :value     (str (id-key forced-value))
@@ -291,6 +292,7 @@
   - label
   - value
   - options
+  - size (default 1)
   - id-key
   - display-key
   - default-value
