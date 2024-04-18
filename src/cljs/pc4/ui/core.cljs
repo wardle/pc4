@@ -303,6 +303,20 @@
   - sort-fn"
   (comp/factory UISelectPopupButton))
 
+(defsc UIRadioButton
+  [this {:keys [name value options id-key display-key onChange] :or {display-key identity, id-key identity}}]
+  (for [{:keys [id label] :as option} options
+        :let [id' (or id (id-key option))]]
+    (div :.flex.items-center.divide-y.divide-dotted
+         (dom/input {:class   "text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500"
+                     :type    "radio"
+                     :id      id'
+                     :name    name
+                     :checked (= id' (id-key value))
+                     :onChange #(when onChange (onChange id'))})
+         (dom/label {:class "ms-2 text-sm font-medium text-gray-900" :for id} (or label (display-key option))))))
+
+(def ui-radio-button (comp/factory UIRadioButton))
 (defsc UISubmitButton
   [this {:keys [label disabled? onClick]}]
   (dom/button :.ml-3.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-indigo-600
