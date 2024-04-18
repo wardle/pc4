@@ -870,10 +870,11 @@
     :t_encounter/episode_fk
     :t_encounter/consultant_user_fk
     :t_encounter/encounter_template_fk
-    :t_encounter/notes]}
+    :t_encounter/notes
+    :t_encounter/ward
+    :t_encounter/duration_minutes]}
   (let [{:t_encounter/keys [is_deleted lock_date_time] :as encounter}
         (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
-    (println "encounter" encounter)
     (assoc encounter
            :t_encounter/active (not is_deleted)
            :t_encounter/is_locked (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))))
