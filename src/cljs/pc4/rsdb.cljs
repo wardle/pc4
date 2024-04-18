@@ -9,6 +9,7 @@
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
             [pc4.route :as route]
             [pc4.ui.ninflamm]
+            [pc4.ui.encounters]
             [taoensso.timbre :as log]))
 
 (defmutation search-patient-by-pseudonym
@@ -90,6 +91,23 @@
                   (-> s
                       (merge/remove-ident* [:t_medication/id id] [:t_patient/patient_identifier patient_identifier :t_patient/medications])
                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
+
+(defmutation save-form
+  [{:keys [patient-identifier form class] :as params}]
+  (action
+   [{:keys [state]}]
+   (swap! state fs/entity->pristine* [:form/id (:form/id form)]))
+  (remote
+   [env]
+   (-> env
+       (m/with-params (-> params
+                          (dissoc :class)
+                          (update :form dissoc ::fs/config)))
+       (m/returning class)))
+  (ok-action
+   [{:keys [component ref state]}]
+   (df/refresh! component)                                  ;; refresh encounters list page with updated results from server
+   (swap! state assoc-in (conj ref :ui/editing-form) nil))) ;; close editing modal dialog
 
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]
