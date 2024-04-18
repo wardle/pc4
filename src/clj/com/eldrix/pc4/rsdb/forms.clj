@@ -737,7 +737,9 @@
                                    (dissoc data :id))]})}))
 
 (defn ^:private form->type-and-delete-sql
-  "Returns a map containing :form-type and :sql to delete the given form.
+  "Returns a map containing :form-type and :sql to 'delete' the given form.
+  In the process of deletion, forms are only marked as deleted, rather than
+  actually removed from the database.
   Parameters:
   - :form   - the form to delete (a map)
   Result is a map containing:
