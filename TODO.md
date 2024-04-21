@@ -21,16 +21,18 @@ Tasks that are currently my priority for this development cycle:
 
 * [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
+* [ ] Edit 'notes' in encounter
 * [ ] Messaging between users
 * [ ] Encounter wizard, including clinic codes
 * [ ] Generate documents from encounters; re-use original mechanics for backwards compatibility and then add new template model?
-* [ ] Remove existing but unused 'job' queue system and replace with something off-the-shelf 
+* [ ] Remove existing but unused 'job' queue system and replace with something off-the-shelf e.g. https://github.com/msolli/proletarian
 * [ ] Fix concierge integration since external changes to services (ABHB and eMPI).
 * [ ] Consider always having a 'current project' switchable at top-level to aid user context and workflow
-* [ ] Return to using HTML5 routing for pages within patient record. 
+* [x] Return to using HTML5 routing for pages within patient record. 
 * [ ] Improve MS event ordering errors to show a warning against any individual items
 * [ ] Use 'close patient record' functionality to clear out any cached data
 * [x] Display 'encounter locked' / 'locking in...' on encounter page
+* [ ] Add 'lemtrada dmt extract' as first example of new customisable download job
 
 ## Other work - not critical to either deployment at the moment
 
