@@ -190,8 +190,32 @@
             _ ;; there should now be an EDSS form available but nothing completed at this point 
             (is (= [1 0 0 0 0 1]
                    [(count available-form-types) (count optional-form-types) (count mandatory-form-types)
-                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))]
-        #_(clojure.pprint/pprint deleted-edss)))))
+                    (count existing-form-types) (count completed-forms) (count deleted-forms)]))
+
+            undeleted-edss
+            (forms/undelete-form! *conn* deleted-edss)
+
+            _
+            (is (= updated-edss undeleted-edss))
+
+            duplicate-edss; ;; add a duplicate form
+            (forms/save-form! *conn* (-> updated-edss (assoc :form_edss/id nil :form_edss/edss_score "SCORE7_0")) {:replace-singular false})
+
+            {:keys [completed-forms duplicate-form-types]}
+            (forms/forms-and-form-types-in-encounter *conn* encounter-id)
+
+            _
+            (is (= 1 (count duplicate-form-types)))
+
+            _
+            (is (= "form_edss" (-> duplicate-form-types first :form_type/nm)))
+
+            _
+            (is (= (set [duplicate-edss undeleted-edss]) (set completed-forms)))]
+
+        #_(clojure.pprint/pprint
+           {:duplicates duplicate-form-types
+            :completed  completed-forms})))))
 
 (deftest test-all-forms
   (with-patient

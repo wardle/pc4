@@ -604,6 +604,21 @@
         (throw (ex-info "No table-kw in form type" form-type))))
     [] forms)))
 
+(defn ^:private duplicate-form-types*
+  "Returns a sequence of form-types that have duplicate forms within a single
+  encounter. 
+  e.g.
+  ```
+  (duplicate-form-types* (forms-for-encounter conn 135736 {}))
+  ```"
+  [forms]
+  (reduce-kv
+   (fn [acc k v] (if (> (count v) 1) (conj acc k) acc)) []
+   (->> forms
+        (remove :form/is_deleted)
+        (filter (comp :form_type/one_per_encounter :form/form_type))
+        (group-by :form/form_type))))
+
 (defn ^:private form-types-for-encounter
   "Return the available form types for a given encounter based on the
   encounter template for that encounter. Returns a map of form status to a sequence
@@ -653,6 +668,7 @@
   - :mandatory-form-types - an ordered sequence of form types as per :available but mandatory as per template
   - :existing-form-types  - a sequence of form types that have already been recorded
   - :completed-forms      - a sequence of forms (each with `:t_form/form_type`) already completed
+  - :duplicate-form-types - a sequence of form types with duplicates and yet should only have one per encounter
   - :deleted-forms        - a sequence of forms (each with `:t_form/form_type`) deleted from the encounter."
   [conn encounter-id]
   (let [forms (forms-for-encounter conn encounter-id {:include-deleted true})   ;; all forms
@@ -670,6 +686,7 @@
      :optional-form-types  optional
      :mandatory-form-types mandatory
      :existing-form-types  (sort-by :form_type/title existing)
+     :duplicate-form-types (duplicate-form-types* forms)
      :completed-forms      (sort-by (comp :form_type/title :form/form_type) completed)
      :deleted-forms        (sort-by (comp :form_type/title :form/form_type) (filter :form/is_deleted forms))}))
 
@@ -701,6 +718,17 @@
   (form-types-for-encounter conn 246234)
   (forms-and-form-types-in-encounter conn 246234)
   (forms-and-form-types-in-encounter conn 280071)
+  (forms-and-form-types-in-encounter conn 149569)
+  (duplicate-form-types* (forms-for-encounter conn 135736 {}))
+  (reduce-kv (fn [acc k v]
+               (if (> (count v) 1)
+                 (assoc acc k v)
+                 acc))
+             {}
+             (->> (forms-for-encounter conn 135736 {})
+                  (remove :form/is_deleted)
+                  (filter (comp :form_type/one_per_encounter :form/form_type))
+                  (group-by :form/form_type)))
   (map #(forms-and-form-types-in-encounter conn %) (all-active-encounter-ids conn 14031)))
 
 (defn form->type-and-save-sql
@@ -715,13 +743,16 @@
   conceivable to use a unique constraint on the encounter foreign key but that
   fails with deleted forms, wouldn't work with generic forms using jsonb, and 
   could give rise to errors during form saves, while this approach means the 
-  latest wins while preserving all data so that users can see deleted forms."
-  [form]
+  latest wins while preserving all data so that users can see deleted forms.
+  For forms that do not allow multiple forms of the same type in a single 
+  encounter `, and when `:replace-singular` is true (default)
+  then any existing forms will be marked as deleted. "
+  [form {:keys [replace-singular] :or {replace-singular true}}]
   (let [{:keys [form-type data]} (unparse-form form)
         {:keys [table-kw allow-multiple]} form-type
         form-id (:id data)]
     {:form-type form-type
-     :pre-sql   (when (and (not form-id) (not allow-multiple))
+     :pre-sql   (when (and (not form-id) (not allow-multiple) replace-singular)
                   {:update table-kw
                    :set {:is_deleted "true"}
                    :where [:= :encounter_fk (:encounter_fk data)]})
@@ -785,15 +816,20 @@
   namespace and handles either 'insert' or 'update' appropriately depending
   on whether there is a valid id. Returns the inserted/updated form data. It
   should be possible to use the return of `save-form!` in another call of 
-  `save-form!` without changing the result."
-  [conn form]
-  (let [{:keys [form-type pre-sql sql]} (form->type-and-save-sql form)]
-    (log/debug "saving form" {:form form :form-type form-type :pre-save-sql pre-sql :save-sql sql})
-    (when pre-sql
-      (jdbc/execute-one! conn (sql/format pre-sql)))
-    (if sql
-      (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true :builder-fn rs/as-unqualified-maps}))
-      (throw (ex-info "cannot save form; no SQL generated" form)))))
+  `save-form!` without changing the result. Options include:
+  - :replace-singular - whether to replace existing forms of the same type if
+                        multiple forms of this type are not permitted within a
+                        single encounter; default true "
+  ([conn form]
+   (save-form! conn form {}))
+  ([conn form opts]
+   (let [{:keys [form-type pre-sql sql]} (form->type-and-save-sql form opts)]
+     (log/debug "saving form" {:form form :form-type form-type :pre-save-sql pre-sql :save-sql sql})
+     (when pre-sql
+       (jdbc/execute-one! conn (sql/format pre-sql)))
+     (if sql
+       (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true :builder-fn rs/as-unqualified-maps}))
+       (throw (ex-info "cannot save form; no SQL generated" form))))))
 
 (defn delete-form!
   "'Deletes' a form. Forms are never actually deleted, but merely marked as 
