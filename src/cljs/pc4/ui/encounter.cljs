@@ -242,6 +242,7 @@
                                                                                      :class class})])) :disabled? false}
                      {:id ::cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
            :onClose ::cancel}
+         ;; TODO: add a little patient banner and encounter date/time at top of modal dialog 
           (view editing-form))
          (ui/ui-modal
           {:actions [{:id ::close :title "Close" :role :primary

@@ -201,20 +201,20 @@
             duplicate-edss; ;; add a duplicate form
             (forms/save-form! *conn* (-> updated-edss (assoc :form_edss/id nil :form_edss/edss_score "SCORE7_0")) {:replace-singular false})
 
-            {:keys [completed-forms duplicate-form-types]}
+            {:keys [completed-forms duplicated-form-types]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
 
             _
-            (is (= 1 (count duplicate-form-types)))
+            (is (= 1 (count duplicated-form-types)))
 
             _
-            (is (= "form_edss" (-> duplicate-form-types first :form_type/nm)))
+            (is (= "form_edss" (-> duplicated-form-types first :form_type/nm)))
 
             _
             (is (= (set [duplicate-edss undeleted-edss]) (set completed-forms)))]
 
         #_(clojure.pprint/pprint
-           {:duplicates duplicate-form-types
+           {:duplicates duplicated-form-types
             :completed  completed-forms})))))
 
 (deftest test-all-forms

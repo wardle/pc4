@@ -604,12 +604,12 @@
         (throw (ex-info "No table-kw in form type" form-type))))
     [] forms)))
 
-(defn ^:private duplicate-form-types*
+(defn ^:private duplicated-form-types*
   "Returns a sequence of form-types that have duplicate forms within a single
   encounter. 
   e.g.
   ```
-  (duplicate-form-types* (forms-for-encounter conn 135736 {}))
+  (duplicated-form-types* (forms-for-encounter conn 135736 {}))
   ```"
   [forms]
   (reduce-kv
@@ -663,13 +663,13 @@
   legacy application. Available forms are forms that should be easily accessible to the end-user.
   Optional forms can be less accessible to the end-user because they are less frequently used.
   Returns a map with the following keys: 
-  - :available-form-types - an ordered sequence of form types, ordered by `ordering` (as per encounter template) and title
-  - :optional-form-types  - an ordered sequence of form types as per :available, but less often used as per template
-  - :mandatory-form-types - an ordered sequence of form types as per :available but mandatory as per template
-  - :existing-form-types  - a sequence of form types that have already been recorded
-  - :completed-forms      - a sequence of forms (each with `:t_form/form_type`) already completed
-  - :duplicate-form-types - a sequence of form types with duplicates and yet should only have one per encounter
-  - :deleted-forms        - a sequence of forms (each with `:t_form/form_type`) deleted from the encounter."
+  - :available-form-types  - an ordered sequence of form types, ordered by `ordering` (as per encounter template) and title
+  - :optional-form-types   - an ordered sequence of form types as per :available, but less often used as per template
+  - :mandatory-form-types  - an ordered sequence of form types as per :available but mandatory as per template
+  - :existing-form-types   - a sequence of form types that have already been recorded
+  - :completed-forms       - a sequence of forms (each with `:t_form/form_type`) already completed
+  - :duplicated-form-types - a sequence of form types with duplicates and yet should only have one per encounter
+  - :deleted-forms         - a sequence of forms (each with `:t_form/form_type`) deleted from the encounter."
   [conn encounter-id]
   (let [forms (forms-for-encounter conn encounter-id {:include-deleted true})   ;; all forms
         completed (remove :form/is_deleted forms)                       ;; already completed forms
@@ -682,13 +682,13 @@
                        (->> form-types                        ;; remove any existing and sort by ordering and title
                             (remove #(existing-type-ids (:form_type/id %)))
                             (sort-by (juxt :form_type/ordering :form_type/title)))))]
-    {:available-form-types available
-     :optional-form-types  optional
-     :mandatory-form-types mandatory
-     :existing-form-types  (sort-by :form_type/title existing)
-     :duplicate-form-types (duplicate-form-types* forms)
-     :completed-forms      (sort-by (comp :form_type/title :form/form_type) completed)
-     :deleted-forms        (sort-by (comp :form_type/title :form/form_type) (filter :form/is_deleted forms))}))
+    {:available-form-types  available
+     :optional-form-types   optional
+     :mandatory-form-types  mandatory
+     :existing-form-types   (sort-by :form_type/title existing)
+     :duplicated-form-types (duplicated-form-types* forms)
+     :completed-forms       (sort-by (comp :form_type/title :form/form_type) completed)
+     :deleted-forms         (sort-by (comp :form_type/title :form/form_type) (filter :form/is_deleted forms))}))
 
 (defn ^:private all-active-encounter-ids
   "Return a set of encounter ids for active encounters of the given patient."
@@ -719,7 +719,7 @@
   (forms-and-form-types-in-encounter conn 246234)
   (forms-and-form-types-in-encounter conn 280071)
   (forms-and-form-types-in-encounter conn 149569)
-  (duplicate-form-types* (forms-for-encounter conn 135736 {}))
+  (duplicated-form-types* (forms-for-encounter conn 135736 {}))
   (reduce-kv (fn [acc k v]
                (if (> (count v) 1)
                  (assoc acc k v)
