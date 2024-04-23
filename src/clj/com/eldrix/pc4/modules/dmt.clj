@@ -264,7 +264,8 @@
 
    :cancer
    {:description "Cancer, except skin cancers"
-    :codelist    {:inclusions {:icd10 "C"} :exclusions {:icd10 "C44"}}}
+    :codelist    {:icd10 "C"
+                  :not {:icd10 "C44"}}}
 
    :connective_tissue
    {:description "Connective tissue disorders"
