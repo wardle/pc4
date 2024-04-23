@@ -359,12 +359,14 @@
 
 (comment
   (def system (pc4/init :dev [:pathom/boundary-interface]))
-  (def ct-disorders (codelists/make-codelist system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
-                                                             "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
-                                                             "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
-                                                             "M06.1" "E85.0" "D86."]}))
-  (codelists/member? ct-disorders [9631008])
-
+  (def ct-disorders (hermes/with-historical (:com.eldrix/hermes system)
+                      (cl/realize-concepts system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
+                                                           "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
+                                                           "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
+                                                           "M06.1" "E85.0" "D86."]})))
+  (contains? ct-disorders 9631008)
+  (defn ps [concept-id] (hermes/preferred-synonym (:com.eldrix/hermes system) concept-id))
+  (ps 9631008)
   (def diag-cats (make-codelist-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
   (diag-cats [6204001])
@@ -379,30 +381,19 @@
   (def med-cats (make-codelist-category-fn system study-medications))
   (med-cats [38849111000001105])
   (ps 18464411000001104)
+  (ps 40820003)
+  (med-cats [40820003])
   (contains? (cl/realize-concepts system (:codelist (:immunosuppressant study-medications))) 18464411000001104)
   (med-cats [108432009])
-  (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
-  codelists
-  (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
 
-  (map #(hash-map :title (:term %) :release-date (:effectiveTime %)) (hermes/get-release-information (:com.eldrix/hermes system)))
-  (def calcium-channel-blockers (codelists/make-codelist system {:atc "C08" :exclusions {:atc "C08CA01"}}))
-  (codelists/member? calcium-channel-blockers [108537001])
-  (take 2 (map #(:term (hermes/get-fully-specified-name (:com.eldrix/hermes system) %)) (codelists/expand calcium-channel-blockers)))
-  (codelists/expand (codelists/make-codelist system {:icd10 "G37.3"}))
-  (codelists/member? (codelists/make-codelist system {:icd10 "I"}) [22298006])
-  (count (codelists/expand (codelists/make-codelist system {:icd10 "I"})))
-  (get-in study-diagnosis-categories [:connective-tissue :codelist])
-
-  (def cancer (codelists/make-codelist system {:inclusions {:icd10 "C"} :exclusions {:icd10 "C44"}}))
-  (codelists/disjoint? (codelists/expand cancer) (codelists/expand (codelists/make-codelist system {:icd10 "C44"})))
+  (map #(hash-map :title (:term %) :release-date (:effectiveTime %)) (hermes/release-information (:com.eldrix/hermes system)))
+  (def calcium-channel-blockers (cl/realize-concepts system {:atc "C08" :not {:atc "C08CA01"}}))
+  (ps 108537001)
+  (hermes/search (:com.eldrix/hermes system) {:s "nifedipine"})
+  (contains? calcium-channel-blockers 108537001) ;; should not contain amlodipine
   (defn ps [id] (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) id "en-GB")))
-  (map ps (codelists/expand cancer))
-  (map #(:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) % "en-GB")) (hermes/member-field-prefix (:com.eldrix/hermes system) 447562003 "mapTarget" "C44"))
-
   (vals (hermes/source-historical-associations (:com.eldrix/hermes system) 24700007))
-
-  (hermes/get-preferred-synonym (:com.eldrix/hermes system) 445130008 "en-GB"))
+  (hermes/preferred-synonym (:com.eldrix/hermes system) 445130008 "en-GB"))
 
 (defn make-atc-regexps [{:keys [codelist] :as med}]
   (when-let [atc (or (:atc codelist) (get-in codelist [:inclusions :atc]))]
