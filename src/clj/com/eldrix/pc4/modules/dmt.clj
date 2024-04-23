@@ -17,7 +17,7 @@
             [com.eldrix.dmd.core :as dmd]
             [com.eldrix.hermes.core :as hermes]
             [com.eldrix.pc4.rsdb.db :as db]
-            [com.eldrix.pc4.codelists :as codelists]
+            [com.eldrix.codelists.core :as cl]
             [com.eldrix.pc4.system :as pc4]
             [com.eldrix.pc4.rsdb.patients :as patients]
             [com.eldrix.pc4.rsdb.projects :as projects]
@@ -84,12 +84,12 @@
     :brand-names ["Avonex" "Rebif"]
     :atc         "L03AB07 NOT L03AB13"
     :class       :platform-dmt
-    :codelist    {:inclusions {:ecl
-                               "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
-                               (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
-                               :atc "L03AB07"}
-                  :exclusions {:ecl "<<12222201000001108|PLEGRIDY|"
-                               :atc "L03AB13"}}}
+    :codelist    {:ecl
+                  "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
+                                               (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
+                  :atc "L03AB07"
+                  :not {:ecl "<<12222201000001108|PLEGRIDY|"
+                        :atc "L03AB13"}}}
 
    :ifn-beta-1b
    {:description "Interferon beta 1-b"
@@ -97,7 +97,7 @@
     :atc         "L03AB08"
     :class       :platform-dmt
     :codelist    {:ecl "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
-                     (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
+                  (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
                   :atc "L03AB08"}}
 
    :peg-ifn-beta-1a
@@ -204,21 +204,20 @@
    :immunosuppressant                                       ;; NB: need to double check the list for LEM-PASS vs LEM-DUS and see if match
    {:description "Immunosuppressants"
     :class       :other
-    :codelist    {:inclusions {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]}
-                  :exclusions {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
+    :codelist    {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]
+                  :not {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
 
    :anti-retroviral
    {:description "Antiretrovirals"
     :class       :other
-    :codelist    {:inclusions {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]}
-                  :exclusions {:atc ["J05AE11" "J05AE12" "J05AE13"
-                                     "J05AF07" "J05AF08" "J05AF10"
-                                     "J05AX15" "J05AX65"]}}}
+    :codelist    {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]
+                  :not {:atc ["J05AE11" "J05AE12" "J05AE13" "J05AF07" "J05AF08" "J05AF10" "J05AX15" "J05AX65"]}}}
+
    :anti-infectious
    {:description "Anti-infectious medications"
     :class       :other
-    :codelist    {:inclusions {:atc ["J01." "J02." "J03." "J04." "J05."]}
-                  :exclusions {:atc ["J05A."]}}}
+    :codelist    {:atc ["J01" "J02" "J03" "J04" "J05"]
+                  :not {:atc ["J05A"]}}}
 
    :antidepressant
    {:description "Anti-depressants"
@@ -331,30 +330,34 @@
   "A flattened sequence of study diagnoses for convenience."
   (reduce-kv (fn [acc k v] (conj acc (assoc v :id k))) [] study-diagnosis-categories))
 
-(defn ^:deprecated make-diagnostic-category-fn
-  "Returns a function that will test a collection of concept identifiers against the diagnostic categories specified."
-  [system categories]
-  (let [codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v))))
-                             {}
-                             categories)]
-    (fn [concept-ids]
-      (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v concept-ids))) {} codelists))))
-
 (defn expand-codelists [system categories]
   (update-vals categories
                (fn [{codelist :codelist :as v}]
-                 (assoc v :codes (codelists/expand (codelists/make-codelist system codelist))))))
+                 (assoc v :codes (cl/realize-concepts system codelist)))))
+
+(defn make-codelist-fn
+  "Create a function that can check whether a sequence of concept ids match
+  the given codelist."
+  [system codelist]
+  (let [codes (cl/realize-concepts system codelist)]
+    (fn [concept-ids] (boolean (some #(contains? codes %) concept-ids)))))
+
+(defn make-codelist-fns
+  [system categories]
+  (update-vals categories
+               (fn [{:keys [codelist] :as v}]
+                 (assoc v :check-codelist-fn (make-codelist-fn system codelist)))))
 
 (defn make-codelist-category-fn
-  "Creates a function that will return a map of category to boolean, for each
-  category. "
   [system categories]
-  (let [cats' (expand-codelists system categories)]
+  (let [cats' (make-codelist-fns system categories)]
     (fn [concept-ids]
-      (reduce-kv (fn [acc k v] (assoc acc k (boolean (some true? (map #(contains? (:codes v) %) concept-ids))))) {} cats'))))
+      (reduce-kv (fn [acc k {:keys [check-codelist-fn]}] (assoc acc k (check-codelist-fn concept-ids)))
+                 {}
+                 cats'))))
 
 (comment
-
+  (def system (pc4/init :dev [:pathom/boundary-interface]))
   (def ct-disorders (codelists/make-codelist system {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32.8" "M34."
                                                              "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
                                                              "M30.0" "M31.6" "I73." "M31.4" "M35.2" "M94.1" "M02.3"
@@ -364,7 +367,19 @@
   (def diag-cats (make-codelist-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
   (diag-cats [6204001])
-
+  (map ps (cl/realize-concepts system (:codelist (:anti-platelet study-medications))))
+  (map ps (cl/realize-concepts system (:codelist (:immunosuppressant study-medications))))
+  (map ps (cl/realize-concepts system {:atc "J01"}))
+  (contains? (cl/realize-concepts system {:atc "N06A"}) 108432009)
+  (dmd/atc-for-product (:com.eldrix/dmd system) 108432009)
+  (def f (make-codelist-fn system {:atc "J01"}))
+  (f [1 2 38849111000001104])
+  (ps 38849111000001105)
+  (def med-cats (make-codelist-category-fn system study-medications))
+  (med-cats [38849111000001105])
+  (ps 18464411000001104)
+  (contains? (cl/realize-concepts system (:codelist (:immunosuppressant study-medications))) 18464411000001104)
+  (med-cats [108432009])
   (def codelists (reduce-kv (fn [acc k v] (assoc acc k (codelists/make-codelist system (:codelist v)))) {} study-diagnosis-categories))
   codelists
   (reduce-kv (fn [acc k v] (assoc acc k (codelists/member? v [9631008 24700007]))) {} codelists)
@@ -418,9 +433,11 @@
   "Returns a collection of multiple sclerosis disease modifying medications with
   SNOMED CT (dm+d) identifiers included. For validation, checks that each
   logical set of concepts is disjoint."
-  [{:com.eldrix/keys [hermes dmd] :as system}]
-  (let [result (map #(assoc % :codes (codelists/expand (codelists/make-codelist system (:codelist %)))) (remove #(= :other (:class %)) flattened-study-medications))]
-    (if (apply codelists/disjoint? (map :codes (remove #(= :other (:class %)) result)))
+  [system]
+  (let [result (->> flattened-study-medications
+                    (remove #(= :other (:class %)))
+                    (map #(assoc % :codes (cl/realize-concepts system (:codelist %)))))]
+    (if (apply cl/disjoint? (map :codes result))
       result
       (throw (IllegalStateException. "DMT specifications incorrect; sets not disjoint.")))))
 
@@ -994,7 +1011,7 @@
 (defn all-patient-diagnoses [system patient-ids]
   (let [diag-fn (make-codelist-category-fn system study-diagnosis-categories)]
     (->> (fetch-patient-diagnoses system patient-ids)
-         (map #(assoc % :icd10 (first (codelists/to-icd10 system [(:t_diagnosis/concept_fk %)]))))
+         (map #(assoc % :icd10 (first (cl/to-icd10 system [(:t_diagnosis/concept_fk %)]))))
          (map #(merge % (diag-fn [(:t_diagnosis/concept_fk %)])))
          (map #(assoc % :term (:term (hermes/get-preferred-synonym (:com.eldrix/hermes system) (:t_diagnosis/concept_fk %) "en-GB")))))))
 
@@ -1514,7 +1531,8 @@
               :t_result_mri_brain/compare_to_result_mri_brain_fk
               :t_result_mri_brain/compare_to_result_date
               :t_result_mri_brain/change_t2_hyperintense
-              :t_result_mri_brain/calc_change_t2]
+              :t_result_mri_brain/calc_change_t2
+              :t_result_mri_brain/report]
    :title-fn {:t_result_mri_brain/multiple_sclerosis_summary     "ms_summary"
               :t_result_mri_brain/with_gadolinium                "with_gad"
               :t_result_mri_brain/total_gad_enhancing_lesions    "gad_count"
@@ -1526,16 +1544,17 @@
               :t_result_mri_brain/compare_to_result_date         "compare_to_date"
               :t_result_mri_brain/compare_to_result_mri_brain_fk "compare_to_id"
               :t_result_mri_brain/change_t2_hyperintense         "t2_change"
-              :t_result_mri_brain/calc_change_t2                 "calc_t2_change"}})
+              :t_result_mri_brain/calc_change_t2                 "calc_t2_change"
+              :t_result_mri_brain/report                         "report"}})
 
 (defn write-local-date [^LocalDate o ^Appendable out _options]
   (.append out \")
-  (.append out (.format (DateTimeFormatter/ISO_DATE) o))
+  (.append out (.format DateTimeFormatter/ISO_DATE o))
   (.append out \"))
 
 (defn write-local-date-time [^LocalDateTime o ^Appendable out _options]
   (.append out \")
-  (.append out (.format (DateTimeFormatter/ISO_DATE_TIME) o))
+  (.append out (.format DateTimeFormatter/ISO_DATE_TIME o))
   (.append out \"))
 
 (extend LocalDate json/JSONWriter {:-write write-local-date})

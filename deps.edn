@@ -15,6 +15,7 @@
                                                       commons-logging/commons-logging]}
 
   com.eldrix/clods                     {:mvn/version "1.1.198"}
+  com.eldrix/codelists                 {:mvn/version "1.0.36"}
   com.eldrix/nhspd                     {:mvn/version "1.1.48"}
   com.eldrix/ods-weekly                {:mvn/version "1.0.54"}
   com.eldrix/nhs-number                {:mvn/version "1.0.54"}
