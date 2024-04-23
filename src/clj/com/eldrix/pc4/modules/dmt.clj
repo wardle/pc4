@@ -339,8 +339,8 @@
 (defn make-codelist-fn
   "Create a function that can check whether a sequence of concept ids match
   the given codelist."
-  [system codelist]
-  (let [codes (cl/realize-concepts system codelist)]
+  [{:com.eldrix/keys [hermes] :as system} codelist]
+  (let [codes (hermes/with-historical hermes (cl/realize-concepts system codelist))]
     (fn [concept-ids] (boolean (some #(contains? codes %) concept-ids)))))
 
 (defn make-codelist-fns
