@@ -96,12 +96,39 @@
 
 (def ui-layout (comp/factory Layout))
 
+(defsc FindByPatientCareIdentifier
+  [this {:t_project/keys [id permissions]}]
+  {:ident :t_project/id
+   :query [:t_project/id :t_project/permissions]}
+  (when (:PATIENT_CHANGE_PSEUDONYMOUS_DATA permissions) ;; only show this panel when the user can change pseudonymous data - ie is a power user for this project
+    (ui/ui-active-panel
+     {:title "Search by patient identifier" :subtitle "Only users with specific roles can use this search function"}
+     (dom/input
+      :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2.mb-4
+      {:type        "text"
+       :placeholder "Enter patient identifier"
+       :value       (or (comp/get-state this :patient-identifier) "")
+       :onKeyDown   #(let [patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)]
+                       (when (and (evt/enter-key? %) patient-identifier)
+                         (route/route-to! ::route/project-patient {:project-id id, :patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)})))
+       :onChange    #(let [s (evt/target-value %)]
+                       (comp/set-state! this {:patient-identifier s}))})
+     (let [patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)]
+       (ui/ui-submit-button
+        {:label     "View patient record »"
+         :disabled? (not patient-identifier)
+         :onClick   #(route/route-to! ::route/project-patient {:project-id id :patient-identifier patient-identifier})})))))
+
+(def ui-find-by-patientcare-identifier (comp/factory FindByPatientCareIdentifier))
+
 (defsc RegisterByNnn
   [this {project-id :t_project/id
+         :>/keys [f-by-id]
          :ui/keys   [nhs-number error] :as props}]
   {:ident               :t_project/id
    :route-segment       ["projects" :t_project/id "register-patient"]
    :query               [:t_project/id :t_project/title :t_project/type :t_project/pseudonymous
+                         {:>/f-by-id (comp/get-query FindByPatientCareIdentifier)}
                          :ui/nhs-number :ui/date-birth :ui/sex :ui/error
                          fs/form-config-join]
    :initial-state       {}
@@ -121,35 +148,44 @@
    {:project props :selected-id :register-patient}
    (let [do-register (fn [] (println "Attempting to register" props)
                        (comp/transact! this [(pc4.rsdb/register-patient {:project-id project-id, :nhs-number nhs-number})]))]
-     (div :.space-y-6
-          (div :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
-               (div :.md:grid.md:grid-cols-3.md:gap-6
-                    (div :.md:col-span-1.pr-6
-                         (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 "Find or register a patient")
-                         (div :.mt-1.mr-12.text-sm.text-gray-500)
-                         (p "Please enter patient details.")
-                         (p :.mt-4 "This is safe to use even if patient already registered."))
-                    (div :.mt-5.md:mt-0.md:col-span-2.space-y-4
-                         (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-                         (ui/ui-textfield {:id          "nnn"
-                                           :value       nhs-number
-                                           :label       "NHS Number:"
-                                           :placeholder "Enter NHS number"
-                                           :auto-focus  true
-                                           :onChange    (fn [nnn]
-                                                          (when (= 10 (count (nnn/normalise nnn)))
-                                                            (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
-                                                          (m/set-string!! this :ui/nhs-number :value nnn))
-                                           :onBlur      #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
-                                           :onEnterKey  do-register})
-                         (when (fs/invalid-spec? props :ui/nhs-number)
-                           (ui/box-error-message {:message "Invalid NHS number"}))
-                         (when error
-                           (div (ui/box-error-message {:message error}))))))
+     (comp/fragment
+      (div
+       :.space-y-6
+       (div
+        :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+        (div
+         :.md:grid.md:grid-cols-3.md:gap-6
+         (div
+          :.md:col-span-1.pr-6
+          (dom/h3
+           :.text-lg.font-medium.leading-6.text-gray-900 "Find or register a patient")
+          (div
+           :.mt-1.mr-12.text-sm.text-gray-500)
+          (p "Please enter patient details.")
+          (p :.mt-4 "This is safe to use even if patient already registered."))
+         (div
+          :.mt-5.md:mt-0.md:col-span-2.space-y-4
+          (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+          (ui/ui-textfield {:id          "nnn"
+                            :value       nhs-number
+                            :label       "NHS Number:"
+                            :placeholder "Enter NHS number"
+                            :auto-focus  true
+                            :onChange    (fn [nnn]
+                                           (when (= 10 (count (nnn/normalise nnn)))
+                                             (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
+                                           (m/set-string!! this :ui/nhs-number :value nnn))
+                            :onBlur      #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                            :onEnterKey  do-register})
+          (when (fs/invalid-spec? props :ui/nhs-number)
+            (ui/box-error-message {:message "Invalid NHS number"}))
+          (when error
+            (div (ui/box-error-message {:message error}))))))
 
-          (div :.flex.justify-end.mr-8
-               (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
-                                     :onClick do-register}))))))
+       (div :.flex.justify-end.mr-8
+            (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
+                                  :onClick do-register})))
+      (ui-find-by-patientcare-identifier f-by-id)))))
 
 (defsc RegisterPseudonymous
   [this {project-id :t_project/id project-type :t_project/type :as props
@@ -221,15 +257,16 @@
                                      :onClick do-register}))))))
 
 (defsc FindPseudonymous
-  [this {project-id :t_project/id :t_project/keys [permissions] :as props
+  [this {project-id :t_project/id, :as props
+         :>/keys [f-by-id]
          patient    :ui/search-patient-pseudonymous}]
   {:ident               :t_project/id
    :route-segment       ["projects" :t_project/id "find-by-pseudonym"]
    :query               [:t_project/id :t_project/type :t_project/title :t_project/pseudonymous
-                         :t_project/permissions
+                         {:>/f-by-id (comp/get-query FindByPatientCareIdentifier)}
                          {:ui/search-patient-pseudonymous (comp/get-query pc4.ui.patients/PatientBanner)}]
 
-   :will-enter          (fn [app {:t_project/keys [id] :as route-params}]
+   :will-enter          (fn [app {:t_project/keys [id] :as _route-params}]
                           (when-let [project-id (some-> id (js/parseInt))]
                             (comp/transact! app [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id})])
                             (dr/route-deferred [:t_project/id project-id]
@@ -243,43 +280,31 @@
                           (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id id})]))}
   (ui-layout
    {:project props :selected-id :find-pseudonymous}
-   (div :.bg-white.overflow-hidden.shadow.sm:rounded-lg.space-y-2
-        (ui/ui-active-panel {:title    "Search by pseudonymous identifier"
-                             :subtitle (dom/span "Start typing a project-specific pseudonym. Instead, you can also search for a patient by using "
-                                                 (ui/ui-link-button {:onClick #(dr/change-route! this ["projects" project-id "register-pseudonymous"])} "register patient")
-                                                 " to search by patient identifiable information.")}
-                            (div :.mt-4
-                                 (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
-                                 (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
-                                            {:type      "text" :placeholder "Start typing pseudonym" :autoFocus true
-                                             :value     (or (comp/get-state this :s) "")
-                                             :onKeyDown #(when (and patient (evt/enter-key? %))
-                                                           (route/route-to! ::route/project-patient {:project-id project-id :patient-identifier (:t_patient/patient_identifier patient)}))
-                                             :onChange  #(let [s (evt/target-value %)]
-                                                           (comp/set-state! this {:s s})
-                                                           (if (>= (count s) 3)
-                                                             (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])
-                                                             (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id})])))}))
-                            (when (:t_patient/patient_identifier patient)
-                              (div
-                               (pc4.ui.patients/ui-patient-banner patient)
-                               (ui/ui-submit-button {:label   "View patient record »"
-                                                     :onClick #(route/route-to! ::route/project-patient {:project-id project-id :patient-identifier (:t_patient/patient_identifier patient)})}))))
-        (when (:PATIENT_CHANGE_PSEUDONYMOUS_DATA permissions) ;; only show this panel when the user can change pseudonymous data - ie is a power user for this project
-          (ui/ui-active-panel {:title "Search by patient identifier" :subtitle "Only users with specific roles can use this search function"}
-                              (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2.mb-4
-                                         {:type        "text"
-                                          :placeholder "Enter patient identifier"
-                                          :value       (or (comp/get-state this :patient-identifier) "")
-                                          :onKeyDown   #(let [patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)]
-                                                          (when (and (evt/enter-key? %) patient-identifier)
-                                                            (route/route-to! ::route/project-patient {:project-id project-id, :patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)})))
-                                          :onChange    #(let [s (evt/target-value %)]
-                                                          (comp/set-state! this {:patient-identifier s}))})
-                              (let [patient-identifier (some-> (comp/get-state this :patient-identifier) parse-long)]
-                                (ui/ui-submit-button {:label     "View patient record »"
-                                                      :disabled? (not patient-identifier)
-                                                      :onClick   #(route/route-to! ::route/project-patient {:project-id project-id :patient-identifier patient-identifier})})))))))
+   (div
+    :.bg-white.overflow-hidden.shadow.sm:rounded-lg.space-y-2
+    (ui/ui-active-panel
+     {:title    "Search by pseudonymous identifier"
+      :subtitle (dom/span "Start typing a project-specific pseudonym. Instead, you can also search for a patient by using "
+                          (ui/ui-link-button {:onClick #(dr/change-route! this ["projects" project-id "register-pseudonymous"])} "register patient")
+                          " to search by patient identifiable information.")}
+     (div :.mt-4
+          (dom/label :.sr-only {:htmlFor "pseudonym"} "Pseudonym")
+          (dom/input :.shadow-sm.focus:ring-indigo-500.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md.pl-5.py-2
+                     {:type      "text" :placeholder "Start typing pseudonym" :autoFocus true
+                      :value     (or (comp/get-state this :s) "")
+                      :onKeyDown #(when (and patient (evt/enter-key? %))
+                                    (route/route-to! ::route/project-patient {:project-id project-id :patient-identifier (:t_patient/patient_identifier patient)}))
+                      :onChange  #(let [s (evt/target-value %)]
+                                    (comp/set-state! this {:s s})
+                                    (if (>= (count s) 3)
+                                      (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id :pseudonym s})])
+                                      (comp/transact! this [(pc4.rsdb/search-patient-by-pseudonym {:project-id project-id})])))}))
+     (when (:t_patient/patient_identifier patient)
+       (div
+        (pc4.ui.patients/ui-patient-banner patient)
+        (ui/ui-submit-button {:label   "View patient record »"
+                              :onClick #(route/route-to! ::route/project-patient {:project-id project-id :patient-identifier (:t_patient/patient_identifier patient)})}))))
+    (ui-find-by-patientcare-identifier f-by-id))))
 
 (defsc ProjectDownloads
   [this {:t_project/keys [title pseudonymous] :as project}]
@@ -423,16 +448,16 @@
     {:title       title
      :title-attrs {:classes (case type :NHS ["bg-yellow-200"] :RESEARCH ["bg-pink-200"] nil)}
      :subtitle    (when long_description (div {:dangerouslySetInnerHTML {:__html long_description}}))
-     :items       [{:title "Date from" :content (ui/format-date date_from)}
-                   {:title "Date to" :content (ui/format-date date_to)}
-                   {:title "Administrator" :content (if (seq administrator_user) (ui-administrative-user administrator_user) "Not known")}
-                   {:title "Registered patients" :content count_registered_patients}
-                   {:title "Pending referrals" :content count_pending_referrals}
-                   {:title "Discharged episodes" :content count_discharged_episodes}
-                   {:title "Type" :content (str/join " / " (remove nil? [(when type (name type))
-                                                                         (when pseudonymous "PSEUDONYMOUS")]))}
-                   {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
-                   {:title "Parent" :content (when (seq parent_project) (ui-parent-project parent_project))}]
+     :items
+     [{:title "Date from" :content (ui/format-date date_from)}
+      {:title "Date to" :content (ui/format-date date_to)}
+      {:title "Administrator" :content (if (seq administrator_user) (ui-administrative-user administrator_user) "Not known")}
+      {:title "Registered patients" :content count_registered_patients}
+      {:title "Pending referrals" :content count_pending_referrals}
+      {:title "Discharged episodes" :content count_discharged_episodes}
+      {:title "Type" :content (str/join " / " (remove nil? [(when type (name type)) (if pseudonymous "NON-IDENTIFIABLE" "IDENTIFIABLE")]))}
+      {:title "Specialty" :content (get-in project [:t_project/specialty :info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
+      {:title "Parent" :content (when (seq parent_project) (ui-parent-project parent_project))}]
      :long-items  [{:title   "Address"
                     :content (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
                    {:title   "Inclusion criteria"
