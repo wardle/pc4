@@ -14,12 +14,12 @@
         "project/"        {[:project-id]                                 ::project-home
                            [:project-id "/patient/" :patient-identifier] ::project-patient}
         "patient/"        {[:patient-identifier]                         ::patient-home
-                           [:patient-identifier "/diagnoses/"]           ::patient-diagnoses
-                           [:patient-identifier "/encounters/"]          ::patient-encounters
-                           [:patient-identifier "/medications/"]         ::patient-medications
-                           [:patient-identifier "/ninflamm/"]            ::patient-neuroinflammatory
-                           [:patient-identifier "/results/"]             ::patient-results
-                           [:patient-identifier "/admissions/"]          ::patient-admissions}
+                           [:patient-identifier "/diagnoses"]            ::patient-diagnoses
+                           [:patient-identifier "/encounters"]           ::patient-encounters
+                           [:patient-identifier "/medications"]          ::patient-medications
+                           [:patient-identifier "/ninflamm"]             ::patient-neuroinflammatory
+                           [:patient-identifier "/results"]              ::patient-results
+                           [:patient-identifier "/admissions"]           ::patient-admissions}
         "encounter/"      {[:encounter-id]                               ::encounter}
         "user/"           {[:user-id]                                    ::user-profile}
         "change-password"                                                ::change-password}])
