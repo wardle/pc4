@@ -656,7 +656,7 @@
 (defsc MenuButton [this {:keys [disabled? role onClick]}]
   (dom/button :.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:text-sm
               {:type     "button"
-               :classes  [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (when disabled? "opacity-50")]
+               :classes  [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (if disabled? "opacity-50" "cursor-pointer hover:bg-gray-200")]
                :disabled disabled?
                :onClick  #(when (not disabled?) (onClick))}
               (comp/children this)))
