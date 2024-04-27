@@ -36,9 +36,21 @@
               :task (do (println "***** Building pc4 front-end for production release")
                         (shell "yarn shadow-cljs release main"))}
 
+  uber11     {:doc  "Create an uberjar, compiling with Java 11, for production"
+              :task (let [java (-> (shell {:out :string} "/usr/libexec/java_home -F -v 11") :out)]
+                      (println "***** Creating uberjar with Java 11:" java)
+                      (shell {:extra-env {"JAVA_HOME" java}} "java" "-version")
+                      (shell {:extra-env {"JAVA_HOME" java}} "clj" "-T:build" "uber" ":out" uber-filename))}
+
+  uber21     {:doc  "Create an uberjar, compiling with Java 21, for production"
+              :task (let [java (-> (shell {:out :string} "/usr/libexec/java_home -F -v 21") :out)]
+                      (println "***** Creating uberjar with Java 21:" java)
+                      (shell {:extra-env {"JAVA_HOME" java}} "java" "-version")
+                      (shell {:extra-env {"JAVA_HOME" java}} "clj" "-T:build" "uber" ":out" uber-filename))}
   uber       {:doc  "Create an uberjar for production"
               :task (do
                       (println "***** Creating uberjar" uber-filename)
+                      (shell "java" "-version")
                       (shell "clj" "-T:build" "uber" ":out" uber-filename))}
 
   upload     {:doc  "Upload production artefact"
