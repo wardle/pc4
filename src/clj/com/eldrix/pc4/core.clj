@@ -28,10 +28,16 @@
         options-summary
         ""
         "Commands:"
+        "  nrepl   : run nrepl server"
         "  serve   : run pc4 server"
         "  migrate : run any pending database migrations"
         "  status  : report pc4 configuration status"]
        (str/join \newline)))
+
+(defn nrepl [{:keys [profile]}]
+  (when-not profile (exit 1 "Missing profile"))
+  (log/info "starting pc4 nrepl server" {:profile profile})
+  (pc4/init profile [:repl/server]))
 
 (defn serve [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
@@ -73,9 +79,7 @@
     :expected      {:uk.nhs.ord/name "CARDIFF & VALE UNIVERSITY LHB"}}])
 
 (def title-fmt
-  (str "%-"
-       (apply max (map count (map :title status-checks)))
-       "s"))
+  (str "%-" (apply max (map count (map :title status-checks))) "s"))
 
 (defn service-status [system {:keys [title test expected] :pathom/keys [entity eql] :as data}]
   (let [pathom (:pathom/boundary-interface system)
@@ -114,7 +118,7 @@
       {:exit-message (usage summary)}
       errors
       {:error true, :exit-message (error-msg errors)}
-      (#{"serve" "migrate" "status"} command)
+      (#{"nrepl" "serve" "migrate" "status"} command)
       {:command command :options options}
       :else
       {:error true, :exit-message (usage summary)})))
@@ -125,6 +129,7 @@
     (if exit-message
       (exit (if error 1 0) exit-message)
       (case command
+        "nrepl" (nrepl {:profile profile})
         "serve" (serve {:profile profile})
         "migrate" (migrate {:profile profile})
         "status" (status {:profile profile})))))
