@@ -123,7 +123,8 @@
     (comp/fragment
      (patients/ui-patient-banner banner)
      (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
-          (div :.col-span-1.p-2
+          (div :.col-span-1.p-2.space-y-2
+               (ui/ui-menu-button {:onClick #(.back js/history)} "Back")
                (when (and date_time encounter_template)
                  (div :.shadow.bg-gray-50
                       (div :.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
