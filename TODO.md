@@ -21,6 +21,7 @@ Tasks that are currently my priority for this development cycle:
 
 * [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
+* [ ] Pass through permissions and encounter locked status to forms so they are shown in read-only mode if required
 * [ ] Edit 'notes' in encounter
 * [ ] Messaging between users
 * [ ] Encounter wizard, including clinic codes
@@ -32,7 +33,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Improve MS event ordering errors to show a warning against any individual items
 * [ ] Use 'close patient record' functionality to clear out any cached data
 * [x] Display 'encounter locked' / 'locking in...' on encounter page
-* [ ] Add 'lemtrada dmt extract' as first example of new customisable download job
+* [ ] Add 'lemtrada dmt extract' as first example of new customisable download job - need to have configurable output directory and zip individual files
 
 ## Other work - not critical to either deployment at the moment
 
