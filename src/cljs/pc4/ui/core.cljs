@@ -306,13 +306,14 @@
   (comp/factory UISelectPopupButton))
 
 (defsc UIRadioButton
-  [this {:keys [name value options id-key display-key onChange] :or {display-key identity, id-key identity}}]
+  [this {:keys [name value options disabled id-key display-key onChange] :or {display-key identity, id-key identity}}]
   (for [{:keys [id label] :as option} options
         :let [id' (or id (id-key option))]]
     (div :.flex.items-center.divide-y.divide-dotted
          (dom/input {:class   "text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500"
                      :type    "radio"
                      :id      id'
+                     :disabled disabled
                      :name    name
                      :checked (= id' (id-key value))
                      :onChange #(when onChange (onChange id'))})
