@@ -74,7 +74,7 @@
                            (dom/span :.text-base.font-bold.text-gray-800 s)
                            (dom/span :.ms-4.text-sm.text-gray-600.italic d)))) {} edss-scores*))
 
-(defsc EditFormEdss [this {:form_edss/keys [edss_score]}]
+(defsc EditFormEdss [this {:form_edss/keys [edss_score]} {:keys [can-edit]}]
   {:ident       :form/id
    :query       [:form/id :form_edss/edss_score
                  fs/form-config-join]
@@ -84,6 +84,7 @@
     {:title "EDSS (short-form)"})
    (ui/ui-radio-button
     {:name        "edss"
+     :disabled    (not can-edit)
      :value       edss_score
      :options     edss-scores
      :display-key edss-score-display
@@ -114,7 +115,7 @@
          (when (and weight_kilogram height_metres)
            (str (.round (.div ^Big weight_kilogram (.pow height_metres 2)) 1) " kg/m²"))))))
 
-(def ui-edit-form-weight-height (comp/factory EditFormWeightHeight))
+(def ui-edit-form-weight-height (comp/computed-factory EditFormWeightHeight))
 
 (defsc Layout [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
@@ -196,7 +197,7 @@
 
 (defsc EditEncounter
   [this {encounter-id :t_encounter/id
-         :t_encounter/keys [patient notes is_locked completed_forms available_form_types] :as encounter
+         :t_encounter/keys [patient notes is_locked completed_forms available_form_types duplicated_form_types] :as encounter
          :ui/keys [editing-form]}]
   {:ident         :t_encounter/id
    :route-segment ["encounter" :t_encounter/id]
@@ -213,8 +214,10 @@
                      {:t_encounter/available_form_types (comp/get-query FormType)}
                      {:t_encounter/mandatory_form_types (comp/get-query FormType)}  ;; TODO: show mandatory form types as inline forms?
                      {:t_encounter/optional_form_types (comp/get-query FormType)}   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
+                     {:t_encounter/duplicated_form_types (comp/get-query Form)}
                      {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
                      {:t_encounter/patient [:t_patient/patient_identifier
+                                            :t_patient/permissions
                                             {:>/banner (comp/get-query patients/PatientBanner)}]}
                      {:ui/editing-form ['*]}])
    :will-enter    (fn [app {:t_encounter/keys [id] :as route-params}]
@@ -226,66 +229,79 @@
                                         {:target               [:ui/current-encounter]
                                          :post-mutation        `dr/target-ready
                                          :post-mutation-params {:target [:t_encounter/id encounter-id]}})))))}
-  (ui-layout
-   {:banner    (-> encounter :t_encounter/patient :>/banner)
-    :encounter encounter
-    :menu      []}
-   (when editing-form
-     (let [form-name (get-in editing-form [:form/form_type :form_type/nm])
-           class (form-class-by-name form-name)
-           view (form-view-by-name form-name)]
-       (if view
-         (ui/ui-modal
-          {:actions [{:id ::save :title "Save" :role :primary
-                      :onClick #(do (println "Save" editing-form)
-                                    (comp/transact! this [(list 'pc4.rsdb/save-form {:patient-identifier (:t_patient/patient_identifier patient)
-                                                                                     :form editing-form
-                                                                                     :class class})])) :disabled? false}
-                     {:id ::cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
-           :onClose ::cancel}
-         ;; TODO: add a little patient banner and encounter date/time at top of modal dialog 
-          (view editing-form))
-         (ui/ui-modal
-          {:actions [{:id ::close :title "Close" :role :primary
-                      :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
-           :onClose ::close}
-          (ui/box-error-message {:title "Not implemented" :message "It is not yet possible to view or edit this form using this application."})))))
-   (ui/ui-panel
-    {}
-    (ui/ui-table
-     {}
-     (ui/ui-table-head
+  (let [permissions (:t_patient/permissions patient)
+        can-edit-patient? (permissions :PATIENT_EDIT)   ;; TODO: also take into account lock date time client side in order to autolock if time elapses
+        can-edit-encounter? (and can-edit-patient? (not is_locked))]  ;; TODO: or, keep checking server - e.g. another user may lock - or better handle of concurrent access through ws
+    (println "can-edit-encounter:" can-edit-encounter?)
+    (ui-layout
+     {:banner    (-> encounter :t_encounter/patient :>/banner)
+      :encounter encounter
+      :menu      []}
+     (when editing-form
+       (let [form-name (get-in editing-form [:form/form_type :form_type/nm])
+             class (form-class-by-name form-name)
+             view (form-view-by-name form-name)]
+         (if view
+           (ui/ui-modal
+            {:actions [(when can-edit-encounter? {:id ::save
+                                                  :title "Save"
+                                                  :role :primary
+                                                  :onClick #(do (println "Save" editing-form)
+                                                                (comp/transact! this [(list 'pc4.rsdb/save-form {:patient-identifier (:t_patient/patient_identifier patient)
+                                                                                                                 :form editing-form
+                                                                                                                 :class class})])) :disabled? false})
+                       {:id ::cancel
+                        :title (if can-edit-encounter? "Cancel" "Close")
+                        :role (when-not can-edit-encounter? :primary)
+                        :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
+             :onClose ::cancel}
+              ;; TODO: add a little patient banner and encounter date/time at top of modal dialog 
+            (view (comp/computed editing-form {:can-edit can-edit-encounter?})))
+           (ui/ui-modal
+            {:actions [{:id ::close :title "Close" :role :primary
+                        :onClick #(comp/transact! this [(cancel-edit-form {:encounter-id encounter-id :form editing-form})])}]
+             :onClose ::close}
+            (ui/box-error-message {:title "Not implemented" :message "It is not yet possible to view or edit this form using this application."})))))
+     (ui/ui-panel
       {}
-      (ui/ui-table-row
+      (when (seq duplicated_form_types)
+        (ui/box-error-message
+         {:title "Warning: Duplicated forms"
+          :message "There are duplicate forms within this encounter. Please delete any incorrect duplicates."}))
+      (ui/ui-table
        {}
-       (ui/ui-table-heading {} "Form")
-       (ui/ui-table-heading {} "Result")
-       (ui/ui-table-heading {} "User")))
-     (ui/ui-table-body
-      {}
-      (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
-            :let [form-type-name (:form_type/nm form_type)
-                  form-class (form-class-by-name form-type-name)
-                  title (:form_type/title form_type)]]
+       (ui/ui-table-head
+        {}
         (ui/ui-table-row
-         {:onClick #(comp/transact! this [(edit-form {:encounter-id encounter-id :class form-class :form form})])
-          :classes (if form-class ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
-         (ui/ui-table-cell {} (dom/span {:classes (when form-class ["text-blue-500" "underline"])} title))
-         (ui/ui-table-cell {} summary_result)
-         (ui/ui-table-cell
-          {}
-          (dom/span :.hidden.lg:block (:t_user/full_name user))
-          (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
-      (when-not is_locked
-        (for [{:form_type/keys [id title] :as form-type} available_form_types]
+         {}
+         (ui/ui-table-heading {} "Form")
+         (ui/ui-table-heading {} "Result")
+         (ui/ui-table-heading {} "User")))
+       (ui/ui-table-body
+        {}
+        (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
+              :let [form-type-name (:form_type/nm form_type)
+                    form-class (form-class-by-name form-type-name)
+                    title (:form_type/title form_type)]]
           (ui/ui-table-row
-           {:onClick #(println "add form " form-type)
-            :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
-           (ui/ui-table-cell {} (dom/span title))
-           (ui/ui-table-cell {} (dom/span "Pending"))
-           (ui/ui-table-cell {} "")))))))
-   (ui/ui-active-panel
-    {:title "Notes"}
-    (div :.shadow-inner.p-4.text-sm
-         (dom/span {:dangerouslySetInnerHTML {:__html notes}})))))
+           {:onClick #(comp/transact! this [(edit-form {:encounter-id encounter-id :class form-class :form form})])
+            :classes (if form-class ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
+           (ui/ui-table-cell {} (dom/span {:classes (when form-class ["text-blue-500" "underline"])} title))
+           (ui/ui-table-cell {} summary_result)
+           (ui/ui-table-cell
+            {}
+            (dom/span :.hidden.lg:block (:t_user/full_name user))
+            (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
+        (when-not is_locked
+          (for [{:form_type/keys [id title] :as form-type} available_form_types]
+            (ui/ui-table-row
+             {:onClick #(println "add form " form-type)
+              :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
+             (ui/ui-table-cell {} (dom/span title))
+             (ui/ui-table-cell {} (dom/span "Pending"))
+             (ui/ui-table-cell {} "")))))))
+     (ui/ui-active-panel
+      {:title "Notes"}
+      (div :.shadow-inner.p-4.text-sm
+           (dom/span {:dangerouslySetInnerHTML {:__html notes}}))))))
 
