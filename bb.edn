@@ -47,7 +47,7 @@
                       (println "***** Creating uberjar with Java 21:" java)
                       (shell {:extra-env {"JAVA_HOME" java}} "java" "-version")
                       (shell {:extra-env {"JAVA_HOME" java}} "clj" "-T:build" "uber" ":out" uber-filename))}
-  uber       {:doc  "Create an uberjar for production"
+  uber       {:doc  "Create an uberjar for production using current JDK"
               :task (do
                       (println "***** Creating uberjar" uber-filename)
                       (shell "java" "-version")
