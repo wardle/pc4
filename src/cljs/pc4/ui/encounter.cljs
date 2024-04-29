@@ -137,10 +137,11 @@
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
                       "Warning: this encounter has been deleted"))
-               (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
-                    (if is_locked
-                      "This encounter has been locked against editing"
-                      (str "This encounter will lock at " (ui/format-date-time lock_date_time))))
+               (when (or is_locked lock_date_time)
+                 (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
+                      (cond
+                        is_locked "This encounter has been locked against editing"
+                        lock_date_time (str "This encounter will lock at " (ui/format-date-time lock_date_time)))))
 
                menu)
           (div :.col-span-1.lg:col-span-5.pt-2
