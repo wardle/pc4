@@ -188,61 +188,61 @@
    :anti-platelet
    {:description "Anti-platelets"
     :class       :other
-    :codelist    {:atc "B01AC"
+    :codelist    {:atc "B01AC*"
                   :ecl "<<7947003"}}
 
    :anti-coagulant
    {:description "Anticoagulants"
     :class       :other
-    :codelist    {:atc ["B01AA" "B01AF" "B01AE" "B01AD" "B01AX04" "B01AX05"]}}
+    :codelist    {:atc ["B01AA*" "B01AF*" "B01AE*" "B01AD*" "B01AX04" "B01AX05"]}}
 
    :proton-pump-inhibitor
    {:description "Proton pump inhibitors"
     :class       :other
-    :codelist    {:atc "A02BC"}}
+    :codelist    {:atc "A02BC*"}}
 
    :immunosuppressant                                       ;; NB: need to double check the list for LEM-PASS vs LEM-DUS and see if match
    {:description "Immunosuppressants"
     :class       :other
-    :codelist    {:atc ["L04AA" "L04AB" "L04AC" "L04AD" "L04AX"]
+    :codelist    {:atc ["L04AA*" "L04AB*" "L04AC*" "L04AD*" "L04AX*"]
                   :not {:atc ["L04AA23" "L04AA27" "L04AA31" "L04AA34" "L04AA36" "L04AA40" "L04AX07"]}}}
 
    :anti-retroviral
    {:description "Antiretrovirals"
     :class       :other
-    :codelist    {:atc ["J05AE" "J05AF" "J05AG" "J05AR" "J05AX"]
+    :codelist    {:atc ["J05AE*" "J05AF*" "J05AG*" "J05AR*" "J05AX*"]
                   :not {:atc ["J05AE11" "J05AE12" "J05AE13" "J05AF07" "J05AF08" "J05AF10" "J05AX15" "J05AX65"]}}}
 
    :anti-infectious
    {:description "Anti-infectious medications"
     :class       :other
-    :codelist    {:atc ["J01" "J02" "J03" "J04" "J05"]
-                  :not {:atc ["J05A"]}}}
+    :codelist    {:atc ["J01*" "J02*" "J03*" "J04*" "J05*"]
+                  :not {:atc ["J05A*"]}}}
 
    :antidepressant
    {:description "Anti-depressants"
     :class       :other
-    :codelist    {:atc "N06A"}}
+    :codelist    {:atc "N06A*"}}
 
    :benzodiazepine
    {:description "Benzodiazepines"
     :class       :other
-    :codelist    {:atc ["N03AE" "N05BA"]}}
+    :codelist    {:atc ["N03AE*" "N05BA*"]}}
 
    :antiepileptic
    {:description "Anti-epileptics"
     :class       :other
-    :codelist    {:atc "N03A"}}
+    :codelist    {:atc "N03A*"}}
 
    :antidiabetic
    {:description "Anti-diabetic"
     :class       :other
-    :codelist    {:atc "A10"}}
+    :codelist    {:atc "A10*"}}
 
    :nutritional
    {:description "Nutritional supplements and vitamins"
     :class       :other
-    :codelist    {:atc ["A11" "B02B" "B03C"] :ecl "<<9552901000001103"}}})
+    :codelist    {:atc ["A11*" "B02B*" "B03C*"] :ecl "<<9552901000001103"}}})
 
 (def flattened-study-medications
   "A flattened sequence of study medications for convenience."
@@ -260,72 +260,72 @@
 
    :cardiovascular
    {:description "Cardiovascular disorders"
-    :codelist    {:icd10 ["I"]}}
+    :codelist    {:icd10 "I*"}}
 
    :cancer
    {:description "Cancer, except skin cancers"
-    :codelist    {:icd10 "C"
-                  :not {:icd10 "C44"}}}
+    :codelist    {:icd10 ["C*"]
+                  :not {:icd10 "C44.*"}}}
 
    :connective_tissue
    {:description "Connective tissue disorders"
-    :codelist    {:icd10 ["M45." "M33." "M35.3" "M35.0" "M32." "M34."
+    :codelist    {:icd10 ["M45.*" "M33.*" "M35.3" "M35.0" "M32.*" "M34.*"
                           "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3"
                           "M30.0" "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3"
-                          "M06.1" "E85.0" "D86."]}}
+                          "M06.1" "E85.0" "D86.*"]}}
    :endocrine
-   {:codelist {:icd10 ["E27.1" "E27.2" "E27.4" "E10." "E06.3" "E05.0"]}}
+   {:codelist {:icd10 ["E27.1" "E27.2" "E27.4" "E10.*" "E06.3" "E05.0"]}}
 
    :gastrointestinal
-   {:codelist {:icd10 ["K75.4" "K90.0" "K50." "K51." "K74.3"]}}
+   {:codelist {:icd10 ["K75.4" "K90.0" "K50.*" "K51.*" "K74.3"]}}
 
    :severe_infection                                        ;; note: also significance based on whether admitted for problem
-   {:codelist {:icd10 ["A" "B" "U07.1" "U07.2" "U08." "U09." "U10."]}}
+   {:codelist {:icd10 ["A*" "B*" "U07.1" "U07.2" "U08.*" "U09.*" "U10.*"]}}
 
    :arterial_dissection
    {:codelist {:icd10 ["I67.0" "I72.5"]}}
 
    :stroke
-   {:codelist {:icd10 ["I6"]}}
+   {:codelist {:icd10 ["I6*"]}}
 
    :angina_or_myocardial_infarction
-   {:codelist {:icd10 ["I20" "I21" "I22" "I23" "I24" "I25"]}}
+   {:codelist {:icd10 ["I20*" "I21*" "I22*" "I23*" "I24*" "I25*"]}}
 
    :coagulopathy
-   {:codelist {:icd10 ["D65" "D66" "D67" "D68" "D69" "Y44.2" "Y44.3" "Y44.4" "Y44.5"]}}
+   {:codelist {:icd10 ["D65*" "D66*" "D67*" "D68*" "D69*" "Y44.2" "Y44.3" "Y44.4" "Y44.5"]}}
 
    :respiratory
-   {:codelist {:icd10 ["J0" "J1" "J20" "J21" "J22"]}}
+   {:codelist {:icd10 ["J0*" "J1*" "J20*" "J21*" "J22*"]}}
 
    :hiv
-   {:codelist {:icd10 ["B20.", "B21.", "B22.", "B24.", "F02.4" "O98.7" "Z21", "R75"]}}
+   {:codelist {:icd10 ["B20.*", "B21.*", "B22.*", "B24.*", "F02.4" "O98.7" "Z21*", "R75*"]}}
 
    :autoimmune_disease
-   {:codelist {:icd10 ["M45." "M33." "M35.3" "M05." "M35.0" "M32." "M34." "M31.3" "M30.1" "L95." "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
-                       "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86." "E27.1" "E27.2" "E27.4" "E10." "E06.3" "E05.0" "K75.4" "K90.0"
-                       "K50." "K51." "K74.3" "L63." "L10.9" "L40." "L80." "G61.0" "D51.0" "D59.1" "D69.3" "D68." "N02.8" "M31.0" "D76.1"
-                       "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "I01." "G70.0" "G73.1"]}}
+   {:codelist {:icd10 ["M45.*" "M33.*" "M35.3" "M05.*" "M35.0" "M32.*" "M34.*" "M31.3" "M30.1" "L95.*" "D89.1" "D69.0" "M31.7" "M30.3" "M30.0"
+                       "M31.6" "I73.0" "M31.4" "M35.2" "M94.1" "M02.3" "M06.1" "E85.0" "D86.*" "E27.1" "E27.2" "E27.4" "E10.*" "E06.3" "E05.0" "K75.4" "K90.0"
+                       "K50.*" "K51.*" "K74.3" "L63.*" "L10.9" "L40.*" "L80.*" "G61.0" "D51.0" "D59.1" "D69.3" "D68.*" "N02.8" "M31.0" "D76.1"
+                       "I01.2" "I40.8" "I40.9" "I09.0" "G04.0" "E31.0" "I01.*" "G70.0" "G73.1"]}}
 
    :uncontrolled_hypertension                               ;; I have used a different definition to the protocol as R03.0 is wrong
    {:codelist {:ecl "<<706882009"}}                         ;; this means 'hypertensive emergency'
 
    :urinary_tract
-   {:codelist {:icd10 ["N10." "N11." "N12." "N13." "N14." "N15." "N16."]}}
+   {:codelist {:icd10 ["N10.*" "N11.*" "N12.*" "N13.*" "N14.*" "N15.*" "N16.*"]}}
 
    :hair_and_skin
-   {:codelist {:icd10 ["L63." "L10.9" "L40." "L80.0"]}}
+   {:codelist {:icd10 ["L63.*" "L10.9" "L40.*" "L80.0"]}}
 
    :mental_behavioural
-   {:codelist {:icd10 ["F"]}}
+   {:codelist {:icd10 ["F*"]}}
 
    :epilepsy
-   {:codelist {:icd10 ["G40"]}}
+   {:codelist {:icd10 ["G40*"]}}
 
    :other
-   {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68."
+   {:codelist {:icd10 ["G61.0" "D51.0" "D59.1" "D69.3" "D68.*"
                        "N02.8" "M31.0" "D76.1"
                        "M05.3" "I01.2" "I40.8" "I40.9" "I09.0" "G04.0"
-                       "E31.0" "D69.3" "I01." "G70.0" "G73.1"]}}})
+                       "E31.0" "D69.3" "I01.*" "G70.0" "G73.1"]}}})
 
 (def flattened-study-diagnoses
   "A flattened sequence of study diagnoses for convenience."
@@ -340,7 +340,7 @@
   "Create a function that can check whether a sequence of concept ids match
   the given codelist."
   [{:com.eldrix/keys [hermes] :as system} codelist]
-  (let [codes (hermes/with-historical hermes (cl/realize-concepts system codelist))]
+  (let [codes (cl/realize-concepts system codelist)]
     (fn [concept-ids] (boolean (some #(contains? codes %) concept-ids)))))
 
 (defn make-codelist-fns
@@ -353,7 +353,8 @@
   [system categories]
   (let [cats' (make-codelist-fns system categories)]
     (fn [concept-ids]
-      (reduce-kv (fn [acc k {:keys [check-codelist-fn]}] (assoc acc k (check-codelist-fn concept-ids)))
+      (reduce-kv (fn [acc k {:keys [check-codelist-fn]}]
+                   (assoc acc k (check-codelist-fn concept-ids)))
                  {}
                  cats'))))
 
@@ -369,7 +370,12 @@
   (ps 9631008)
   (def diag-cats (make-codelist-category-fn system study-diagnosis-categories))
   (diag-cats [9631008 12295008 46635009 34000006 9014002 40956001])
-  (diag-cats [6204001])
+  (diag-cats [111566002])
+  (def f (make-codelist-fn system (:codelist (:cardiovascular study-diagnosis-categories))))
+  (f [111566002])
+  (contains? (cl/realize-concepts system {:icd10 "I*"}) 111566002)
+  (cl/realize-concepts system {:icd10 "C*"})
+  (map ps (cl/realize-concepts system (:codelist (:cancer study-diagnosis-categories))))
   (map ps (cl/realize-concepts system (:codelist (:anti-platelet study-medications))))
   (map ps (cl/realize-concepts system (:codelist (:immunosuppressant study-medications))))
   (map ps (cl/realize-concepts system {:atc "J01"}))
