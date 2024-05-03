@@ -178,12 +178,12 @@
    :statin
    {:description "Statins"
     :class       :other
-    :codelist    {:atc "C10AA"}}
+    :codelist    {:atc "C10AA*"}}
 
    :anti-hypertensive
    {:description "Anti-hypertensive"
     :class       :other
-    :codelist    {:atc "C02"}}
+    :codelist    {:atc "C02*"}}
 
    :anti-platelet
    {:description "Anti-platelets"
