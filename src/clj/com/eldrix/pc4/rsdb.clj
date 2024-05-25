@@ -1029,9 +1029,11 @@
                                                      :t_smoking_history/status]}]}
   {:t_encounter/form_smoking_history (forms/encounter->form_smoking_history conn encounter-id)})
 
-(defn form-assoc-user
-  [{:form/keys [user_fk] :as form}]
-  (assoc form :form/user {:t_user/id user_fk}))
+(defn form-assoc-context
+  [{:form/keys [encounter_fk user_fk] :as form}]
+  (assoc form
+         :form/encounter {:t_encounter/id encounter_fk}
+         :form/user {:t_user/id user_fk}))
 
 (pco/defresolver encounter->forms
   [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
@@ -1044,22 +1046,26 @@
     {:t_encounter/completed_forms
      [:form/id
       :form/user_fk
+      :form/encounter_fk
       :form/summary_result
-      {:form/user [:t_user/id]}]}
+      {:form/user [:t_user/id]}
+      {:form/encounter [:t_encounter/id]}]}
     {:t_encounter/deleted_forms
      [:form/id
       :form/user_fk
+      :form/encounter_fk
       :form/summary_result
-      {:form/user [:t_user/id]}]}]}
+      {:form/user [:t_user/id]}
+      {:form/encounter [:t_encounter/id]}]}]}
   (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms duplicated-form-types deleted-forms]}
         (forms/forms-and-form-types-in-encounter conn encounter-id)]
     {:t_encounter/available_form_types  available-form-types
      :t_encounter/optional_form_types   optional-form-types
      :t_encounter/mandatory_form_types  mandatory-form-types
      :t_encounter/existing_form_types   existing-form-types
-     :t_encounter/completed_forms       (map form-assoc-user completed-forms)
+     :t_encounter/completed_forms       (map form-assoc-context completed-forms)
      :t_encounter/duplicated_form_types duplicated-form-types
-     :t_encounter/deleted_forms         (map form-assoc-user deleted-forms)}))
+     :t_encounter/deleted_forms         (map form-assoc-context deleted-forms)}))
 
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
