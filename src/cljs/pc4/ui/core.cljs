@@ -273,7 +273,7 @@
                  {:name      name
                   :size      size
                   :disabled  disabled?
-                  :classes   (when disabled? ["bg-gray-100" "text-gray-600"])
+                  :classes   (if disabled? ["bg-gray-100" "text-gray-600"] ["text-gray-800"])
                   :value     (str (id-key forced-value))
                   :onKeyDown #(when (and onEnterKey (evt/enter-key? %)) (onEnterKey))
                   :onChange  #(when onChange
@@ -667,12 +667,13 @@
 
 (def ui-menu-button (comp/factory MenuButton))
 
-(defsc Checkbox [this {:keys [name label description checked onChange]}]
+(defsc Checkbox [this {:keys [name label description checked disabled onChange]}]
   (div :.relative.flex.items-start
        (div :.flex.items-center.h-5
             (dom/input :.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300.rounded
                        {:name     name
                         :type     "checkbox"
+                        :disabled disabled
                         :checked  checked
                         :onChange (when onChange #(onChange (-> % .-target .-checked)))}))
        (div :.ml-3.text-sm
