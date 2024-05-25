@@ -37,7 +37,7 @@ Tasks that are currently my priority for this development cycle:
 
 ## Other work - not critical to either deployment at the moment
 
-* [ ] Add resolver for a form by id, as when the front-end 'edit-form' is called, it performs a load which currently mainly fails but satisfied locally as already loaded. 
+* [x] Add resolver for a form by id, as when the front-end 'edit-form' is called, it performs a load which currently mainly fails but satisfied locally as already loaded. 
 * [ ] Add default project configuration into top-level application configuration, and override (by merge) on per-project basis?
 * [ ] Add network connectivity error bar when offline
 * [x] Add current project identifier into URL to better support HTML routing (back and forward). Otherwise, one can go 

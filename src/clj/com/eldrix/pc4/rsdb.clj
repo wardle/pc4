@@ -1067,6 +1067,24 @@
      :t_encounter/duplicated_form_types duplicated-form-types
      :t_encounter/deleted_forms         (map form-assoc-context deleted-forms)}))
 
+(pco/defresolver form-by-id
+  [{:com.eldrix.rsdb/keys [conn] :as env} {form-id :form/id}]
+  {::pco/output [:form/id
+                 :form/user_fk
+                 :form/encounter_fk
+                 :form/summary_result
+                 {:form/user [:t_user/id]}
+                 {:form/encounter [:t_encounter/id]}]}
+  (if-let [encounter-id (get-in env [:query-params :encounter-id])]
+    (let [forms (forms/forms-for-encounter conn encounter-id {:include-deleted true})
+          by-id (reduce (fn [acc {:form/keys [id] :as form}] (assoc acc id form)) {} forms)
+          form (get by-id form-id)]
+      (log/debug "form by id:" {:encounter-id encounter-id :form-id form-id :result form})
+      (form-assoc-context form))
+    (do
+      (log/error "Missing hint on parameters" (:query-params env))
+      (throw (ex-info "Missing hint on parameters for form. Specify :encounter-id in load parameters" (:query-params env))))))
+
 (pco/defresolver encounter->forms_generic_procedures
   [{:com.eldrix.rsdb/keys [conn]} encounters]
   {::pco/input  [:t_encounter/id]
@@ -1892,6 +1910,7 @@
    encounters->form_weight_height
    encounter->form_smoking
    encounter->forms
+   form-by-id
    patient->results
    user-by-username
    user-by-id
