@@ -1631,6 +1631,13 @@
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (patients/delete-encounter! conn encounter-id))))
 
+(pco/defmutation create-form!
+  "Create a new form within an encounter for a patient of the specified type"
+  [{conn :com.eldrix.rsdb/conn, :as env} {:keys [patient-identifier encounter-id form-type-id]}]
+  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+  (jdbc/with-transaction [txn conn]
+    (forms/create-form! txn encounter-id form-type-id)))
+
 (pco/defmutation save-form!
   "Save a form. Parameters are a map with
   - patient-identifier : the patient identifier
@@ -1955,6 +1962,7 @@
    save-encounter!
    delete-encounter!
    ;; forms
+   create-form!
    save-form!
    delete-form!
    undelete-form!
