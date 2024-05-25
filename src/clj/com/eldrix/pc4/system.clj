@@ -26,6 +26,7 @@
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [com.wsscode.pathom3.plugin :as p.plugin]
             [com.wsscode.pathom3.connect.runner :as pcr]
+            [edn-query-language.core :as eql]
             [integrant.core :as ig]
             [next.jdbc.connection :as connection])
   (:import (com.zaxxer.hikari HikariDataSource)
@@ -162,13 +163,15 @@
              :com.wsscode.pathom3.format.eql/map-select-include #{:tempids}) ;; always include request for tempids
       (pci/register ops)
       (p.plugin/register
-       {::p.plugin/id 'err
+       {::p.plugin/id `handle-resolver-err
         ::pcr/wrap-resolver-error
         (fn [_]
           (fn [env node error]
             (when (instance? Throwable error)
               (.printStackTrace ^Throwable error))
-            (log/error "pathom resolver error" {:node node :error error})))
+            (log/error "pathom resolver error" {:node node :error error})))})
+      (p.plugin/register
+       {::p.plugin/id `handle-mutation-err
         ::pcr/wrap-mutate
         (fn [mutate]
           (fn [env params]
@@ -176,7 +179,22 @@
               (mutate env params)
               (catch Throwable err
                 (.printStackTrace err)
-                {::pcr/mutation-error (ex-message err)}))))})))
+                {::pcr/mutation-error (ex-message err)}))))})
+      (p.plugin/register
+       {::p.plugin/id `query-params->env
+        ::p.eql/wrap-process-ast
+        (fn [process]
+          (fn [env ast]
+            (let [children     (:children ast)
+                  query-params (reduce
+                                (fn [qps {:keys [type params] :as x}]
+                                  (cond-> qps
+                                    (and (not= :call type) (seq params)) (merge params)))
+                                {}
+                                children)
+                  env          (assoc env :query-params query-params)]
+              (println "plugin: query params:" query-params)
+              (process env ast))))})))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
   (when (:connect-viz config)
