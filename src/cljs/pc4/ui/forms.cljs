@@ -286,31 +286,45 @@
 (def ui-edit-form-ms-relapse (comp/computed-factory EditFormMsRelapse))
 
 (defsc EditFormWeightHeight
-  [this {:form_weight_height/keys [weight_kilogram height_metres]}]
+  [this {:form_weight_height/keys [weight_kilogram height_metres]
+         :form/keys [encounter] :>/keys [can-edit layout] :as params}]
   {:ident         :form/id
-   :route-segment ["form_weight_height" :form/id]
+   :route-segment ["encounter" :encounter-id "form_weight_height" :form/id]
    :query         [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
+                   :form_weight_height/encounter_fk :form_weight_height/user_fk
+                   {:form/encounter [:t_encounter/date_time]}
+                   {:>/can-edit (comp/get-query CanEditForm)}
+                   {:>/layout (comp/get-query Layout)}
                    fs/form-config-join]
    :form-fields   #{:form_weight_height/weight_kilogram :form_weight_height/height_metres}
-   :will-enter    (fn [app {:form/keys [id] :as route-params}]
-                    (comp/transact! app [(load-all-ms-disease-courses {})])
-                    (dr/route-immediate [:form/id (js/parseInt id)]))}
-  (comp/fragment
-   (ui/ui-simple-form-item
-    {:label "Weight (kilograms)"}
-    (ui/ui-textfield {:value    (str weight_kilogram)
-                      :type     :number
-                      :onChange #(m/set-value! this :form_weight_height/weight_kilogram (when-not (str/blank? %) (Big. %)))}))
-   (ui/ui-simple-form-item
-    {:label "Height (metres)"}
-    (ui/ui-textfield {:value    (str height_metres)
-                      :type     :number
-                      :onChange #(m/set-value! this :form_weight_height/height_metres (when-not (str/blank? %) (Big. %)))}))
-   (ui/ui-simple-form-item                                   ;; TODO: should only show this for adults
-    {:label "Body mass index"}
-    (div :.mt-2.text-gray-600.italic
-         (when (and weight_kilogram height_metres)
-           (str (.round (.div ^Big weight_kilogram (.pow height_metres 2)) 1) " kg/m²"))))))
+   :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
+                    (let [form-id (js/parseInt id), encounter-id (js/parseInt encounter-id)]
+                      (dr/route-deferred
+                       [:form/id form-id]
+                       (fn []
+                         (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormWeightHeight})])))))}
+  (let [can-edit? (can-edit-form? can-edit)]
+    (ui-layout
+     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
+                                                                          :form_weight_height/encounter_fk :form_weight_height/user_fk])}}
+     (comp/fragment
+      (ui/ui-simple-form-item
+       {:label "Weight (kilograms)"}
+       (ui/ui-textfield {:value    (str weight_kilogram)
+                         :disabled (not can-edit?)
+                         :type     :number
+                         :onChange #(m/set-value! this :form_weight_height/weight_kilogram (when-not (str/blank? %) (Big. %)))}))
+      (ui/ui-simple-form-item
+       {:label "Height (metres)"}
+       (ui/ui-textfield {:value    (str height_metres)
+                         :disabled (not can-edit?)
+                         :type     :number
+                         :onChange #(m/set-value! this :form_weight_height/height_metres (when-not (str/blank? %) (Big. %)))}))
+      (ui/ui-simple-form-item                                   ;; TODO: should only show this for adults
+       {:label "Body mass index"}
+       (div :.mt-2.text-gray-600.italic
+            (when (and weight_kilogram height_metres)
+              (str (.round (.div ^Big weight_kilogram (.pow height_metres 2)) 1) " kg/m²"))))))))
 
 (def ui-edit-form-weight-height (comp/computed-factory EditFormWeightHeight))
 
