@@ -20,7 +20,8 @@
                            [:patient-identifier "/ninflamm"]             ::patient-neuroinflammatory
                            [:patient-identifier "/results"]              ::patient-results
                            [:patient-identifier "/admissions"]           ::patient-admissions}
-        "encounter/"      {[:encounter-id]                               ::encounter}
+        "encounter/"      {[:encounter-id]                               ::encounter
+                           [:encounter-id "/" :form-type-name "/" :form/id] ::form}
         "user/"           {[:user-id]                                    ::user-profile}
         "change-password"                                                ::change-password}])
 
@@ -61,6 +62,8 @@
     (dr/change-route! @SPA ["change-password"])
     ::encounter
     (dr/change-route! @SPA ["encounter" (:encounter-id route-params)])
+    ::form
+    (dr/change-route @SPA ["encounter" (:encounter-id route-params) (:form-type-name route-params) (:form/id route-params)])
     ;; otherwise, fallback to the home
     (do (log/info "No match for route" matched-route)
         (dr/change-route! @SPA ["home"]))))

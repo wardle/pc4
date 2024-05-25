@@ -93,21 +93,25 @@
                       (assoc-in [:t_patient/patient_identifier patient_identifier :ui/editing-medication] {}))))))
 
 (defmutation save-form
-  [{:keys [patient-identifier form class] :as params}]
+  [{:keys [form on-success-tx] :as params}]
   (action
    [{:keys [state]}]
-   (swap! state fs/entity->pristine* [:form/id (:form/id form)]))
+   (println "saving form" (:form params))
+   (swap! state (fn [s]
+                  (-> s
+                      (fs/entity->pristine* [:form/id (:form/id form)]))))
+   (swap! state fs/entity->pristine* [:form/id (:form/id form)]))  ;; mark form as pristine as we are committing to server
   (remote
-   [env]
-   (-> env
-       (m/with-params (-> params
-                          (dissoc :class)
-                          (update :form dissoc ::fs/config)))
-       (m/returning class)))
+   [env] true
+   #_(-> env
+         (m/with-params (-> params
+                            (dissoc :class :encounter-id)
+                            (update :form dissoc ::fs/config)))
+         (m/returning class {:query-params {:encounter-id encounter-id}})))
   (ok-action
-   [{:keys [component ref state]}]
-   (df/refresh! component)                                  ;; refresh encounters list page with updated results from server
-   (swap! state assoc-in (conj ref :ui/editing-form) nil))) ;; close editing modal dialog
+   [{:keys [app component ref state]}]
+   (println "save-form : ok action")
+   (when on-success-tx (comp/transact! app on-success-tx))))
 
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]

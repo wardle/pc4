@@ -17,6 +17,7 @@
    [pc4.ui.diagnoses]
    [pc4.ui.encounter]
    [pc4.ui.encounters]
+   [pc4.ui.forms]
    [pc4.ui.medications]
    [pc4.ui.ninflamm]
    [pc4.ui.patients]
@@ -80,38 +81,41 @@
 (def ui-home-page (comp/factory HomePage))
 
 (defrouter MainRouter [this props]
-  {:router-targets [HomePage
-                    pc4.ui.patients/PatientDemographics
-                    pc4.ui.diagnoses/PatientDiagnoses
-                    pc4.ui.medications/PatientMedications
-                    pc4.ui.encounters/PatientEncounters
-                    pc4.ui.encounter/EditEncounter
-                    pc4.ui.admissions/PatientAdmissions
-                    pc4.ui.ninflamm/PatientNeuroInflammatory
-                    pc4.ui.results/PatientResults
-                    pc4.ui.projects/ProjectHome
-                    pc4.ui.projects/RegisterByNnn
-                    pc4.ui.projects/FindPseudonymous
-                    pc4.ui.projects/RegisterPseudonymous
-                    pc4.ui.projects/ProjectTeam
-                    pc4.ui.projects/ProjectDownloads
-                    pc4.ui.users/UserProfile
-                    pc4.ui.users/ChangePassword]})
+  {:router-targets
+   [HomePage
+    pc4.ui.patients/PatientDemographics
+    pc4.ui.diagnoses/PatientDiagnoses
+    pc4.ui.medications/PatientMedications
+    pc4.ui.encounters/PatientEncounters
+    pc4.ui.encounter/EditEncounter
+    pc4.ui.admissions/PatientAdmissions
+    pc4.ui.ninflamm/PatientNeuroInflammatory
+    pc4.ui.results/PatientResults
+    pc4.ui.projects/ProjectHome
+    pc4.ui.projects/RegisterByNnn
+    pc4.ui.projects/FindPseudonymous
+    pc4.ui.projects/RegisterPseudonymous
+    pc4.ui.projects/ProjectTeam
+    pc4.ui.projects/ProjectDownloads
+    pc4.ui.users/UserProfile
+    pc4.ui.users/ChangePassword
+    pc4.ui.forms/EditFormEdss
+    pc4.ui.forms/EditFormMsRelapse
+    pc4.ui.forms/EditFormWeightHeight]})
 
 (def ui-main-router (comp/factory MainRouter))
 
-(defsc Root [this {authenticated-user :session/authenticated-user
-                   router             :ui/main-router
-                   login              :ui/login}]
+(defsc Root
+  [this {authenticated-user :session/authenticated-user
+         router             :ui/main-router
+         login              :ui/login}]
   {:query         [{:session/authenticated-user (comp/get-query users/NavBar)}
                    {:ui/main-router (comp/get-query MainRouter)}
-                   {:ui/login (comp/get-query users/Login)}
-                   {:ui/all-reasons-for-stopping-medication (comp/get-query pc4.ui.medications/MedicationReasonForStopping)}]
+                   {:ui/login (comp/get-query users/Login)}]
 
    :initial-state {:session/authenticated-user             {}
                    :ui/main-router                         {}
-                   :ui/login                               {}
-                   :ui/all-reasons-for-stopping-medication []}}
+                   :ui/login                               {}}}
 
   (div
    (if-not (seq authenticated-user)

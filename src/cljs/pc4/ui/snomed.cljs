@@ -1,13 +1,13 @@
 (ns pc4.ui.snomed
   (:require
-    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-    [com.fulcrologic.fulcro.dom :as dom]
-    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
-    [com.fulcrologic.fulcro.data-fetch :as df]
-    [clojure.string :as str]
-    [goog.functions :as gf]
-    [com.fulcrologic.fulcro.dom.events :as evt]
-    [pc4.ui.core :as ui]))
+   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+   [com.fulcrologic.fulcro.dom :as dom]
+   [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+   [com.fulcrologic.fulcro.data-fetch :as df]
+   [clojure.string :as str]
+   [goog.functions :as gf]
+   [com.fulcrologic.fulcro.dom.events :as evt]
+   [pc4.ui.core :as ui]))
 
 (defn autocomplete-ident
   "Returns the ident for an autocomplete control. Can be passed a map of props, or a raw ID."
@@ -34,10 +34,10 @@
    :initial-state (fn [{:keys [id]}] {:db/id id :autocomplete/selected nil :autocomplete/options []})}
   (let [options' (conj (set options) selected)]
     (dom/div :.w-full
-      (dom/select
-        {:value    selected
-         :onChange #(when onSelect (onSelect (evt/target-value %)))}
-        (map ui-select-option options')))))
+             (dom/select
+              {:value    selected
+               :onChange #(when onSelect (onSelect (evt/target-value %)))}
+              (map ui-select-option options')))))
 
 (def ui-select (comp/computed-factory Select))
 
@@ -46,16 +46,16 @@
    {:keys [onValueSelect onDoubleClick]}]
   (let [values# (reduce (fn [acc v] (assoc acc (str (idKey v)) v)) {} values)] ;; generate a lookup map
     (dom/select
-      {:className     (when (> size 1) "bg-none")
-       :value         (if value (str (idKey value)) "")
-       :size          size
-       :onChange      #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))
-       :onKeyDown     #(when (and onDoubleClick (or (evt/enter-key? %) (evt/is-key? 32 %)) (onDoubleClick)))
-       :onDoubleClick #(when onDoubleClick (onDoubleClick))}
-      (for [v values]
-        (dom/option {:key   (str (idKey v))
-                     :value (str (idKey v))}
-                    (displayPropertyKey v))))))
+     {:className     (when (> size 1) "bg-none")
+      :value         (if value (str (idKey value)) "")
+      :size          size
+      :onChange      #(when onValueSelect (onValueSelect (get values# (evt/target-value %))))
+      :onKeyDown     #(when (and onDoubleClick (or (evt/enter-key? %) (evt/is-key? 32 %))) (onDoubleClick))
+      :onDoubleClick #(when onDoubleClick (onDoubleClick))}
+     (for [v values]
+       (dom/option {:key   (str (idKey v))
+                    :value (str (idKey v))}
+                   (displayPropertyKey v))))))
 
 (def ui-completion-list (comp/computed-factory CompletionList))
 
@@ -65,9 +65,9 @@
                   {:info.snomed.Concept/preferredDescription [:info.snomed.Description/id :info.snomed.Description/term]}
                   {(list :info.snomed.Concept/synonyms {:accept-language "en-GB"}) [:info.snomed.Description/id :info.snomed.Description/term]}])}
   (dom/div :.text-gray-600.text-sm.italic.pl-4
-    (dom/ul
-      (map (fn [{:info.snomed.Description/keys [id term]}]
-             (dom/li {:key id} term)) (sort-by :info.snomed.Description/term synonyms)))))
+           (dom/ul
+            (map (fn [{:info.snomed.Description/keys [id term]}]
+                   (dom/li {:key id} term)) (sort-by :info.snomed.Description/term synonyms)))))
 
 (def ui-synonyms (comp/factory Synonyms))
 
@@ -106,7 +106,6 @@
             (swap! state assoc-in (conj autocomplete-path :autocomplete/suggestions) [])
             (swap! state assoc-in (conj autocomplete-path :autocomplete/loaded-suggestions) []))))
 
-
 (def default-search-params
   {:accept-language "en-GB" :max-hits 500 :remove-duplicates? true :fuzzy 0 :fallback-fuzzy 2})
 
@@ -121,8 +120,6 @@
                        :post-mutation-params {:id id}
                        :target               (conj (autocomplete-ident id) :autocomplete/loaded-suggestions)}))]
     (gf/debounce load-suggestions 400)))
-
-
 
 (defsc Autocomplete
   [this {id :db/id :autocomplete/keys [suggestions stringValue selected selected-synonyms] :as props}
@@ -145,44 +142,44 @@
                     (when onSelect (onSelect v)))
         _ (tap> {:autocomplete suggestions})]
     (comp/fragment
-      (dom/div
-        (when label (dom/label {:htmlFor field-id} label))
-        (dom/input :.w-full.p-1.block.border.rounded-md.border-gray-300.shadow-sm
-          {:id          field-id
-           :placeholder placeholder
-           :value       stringValue
-           :autoFocus   autoFocus
-           :onKeyDown   (fn [evt] (when (and selected onSave (evt/enter-key? evt))
-                                    (onSave selected)))
-           :onChange    (fn [evt]
-                          (let [new-value (evt/target-value evt)]
-                            (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
-                              (get-suggestions this id {:s new-value :constraint constraint})
-                              (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
-                            (comp/transact! this [(clear-selected {:id id})])
-                            (m/set-value! this :autocomplete/selected nil) ;clear selection
-                            (m/set-value! this :autocomplete/selected-synonyms [])
-                            (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
-      (dom/div :.pt-1.grid.grid-cols-1
-        (ui-completion-list {:value              selected
-                             :values             suggestions
-                             :idKey              :info.snomed.Description/id
-                             :displayPropertyKey (fn [result]
-                                                   (let [term (:info.snomed.Description/term result)
-                                                         preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-                                                     (if (= term preferred) term (str term " (" preferred ")"))))}
-                            {:onValueSelect onSelect'
-                             :onDoubleClick #(when (and selected onSave) (onSave selected))})
-        (when selected
-          (dom/div :.p-4.border-2.shadow-inner
-            (let [term (:info.snomed.Description/term selected)
-                  preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
-              (comp/fragment
-                (when selected-synonyms
-                  (dom/span :.font-bold preferred
-                            (ui-synonyms selected-synonyms)))
-                (dom/div :.grid.grid-cols-1.mt-4
-                  (pc4.ui.core/ui-button {:onClick #(when onSave (onSave selected))} "Save"))))))))))
+     (dom/div
+      (when label (dom/label {:htmlFor field-id} label))
+      (dom/input :.w-full.p-1.block.border.rounded-md.border-gray-300.shadow-sm
+                 {:id          field-id
+                  :placeholder placeholder
+                  :value       stringValue
+                  :autoFocus   autoFocus
+                  :onKeyDown   (fn [evt] (when (and selected onSave (evt/enter-key? evt))
+                                           (onSave selected)))
+                  :onChange    (fn [evt]
+                                 (let [new-value (evt/target-value evt)]
+                                   (if (>= (.-length new-value) 2) ; avoid autocompletion until they've typed a couple of letters
+                                     (get-suggestions this id {:s new-value :constraint constraint})
+                                     (m/set-value! this :autocomplete/suggestions [])) ; if they shrink the value too much, clear suggestions
+                                   (comp/transact! this [(clear-selected {:id id})])
+                                   (m/set-value! this :autocomplete/selected nil) ;clear selection
+                                   (m/set-value! this :autocomplete/selected-synonyms [])
+                                   (m/set-string! this :autocomplete/stringValue :value new-value)))})) ; always update the input itself (controlled)
+     (dom/div :.pt-1.grid.grid-cols-1
+              (ui-completion-list {:value              selected
+                                   :values             suggestions
+                                   :idKey              :info.snomed.Description/id
+                                   :displayPropertyKey (fn [result]
+                                                         (let [term (:info.snomed.Description/term result)
+                                                               preferred (get-in result [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+                                                           (if (= term preferred) term (str term " (" preferred ")"))))}
+                                  {:onValueSelect onSelect'
+                                   :onDoubleClick #(when (and selected onSave) (onSave selected))})
+              (when selected
+                (dom/div :.p-4.border-2.shadow-inner
+                         (let [term (:info.snomed.Description/term selected)
+                               preferred (get-in selected [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])]
+                           (comp/fragment
+                            (when selected-synonyms
+                              (dom/span :.font-bold preferred
+                                        (ui-synonyms selected-synonyms)))
+                            (dom/div :.grid.grid-cols-1.mt-4
+                                     (pc4.ui.core/ui-button {:onClick #(when onSave (onSave selected))} "Save"))))))))))
 
 (def ui-autocomplete (comp/computed-factory Autocomplete))
 
@@ -190,5 +187,5 @@
   {:initial-state (fn [p] {:airport-input (comp/get-initial-state Autocomplete {:id :airports})})
    :query         [{:airport-input (comp/get-query Autocomplete)}]}
   (dom/div
-    (dom/h4 "Airport Autocomplete")
-    (ui-autocomplete airport-input)))
+   (dom/h4 "Airport Autocomplete")
+   (ui-autocomplete airport-input)))
