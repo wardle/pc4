@@ -134,8 +134,8 @@
 
 (defsc UILoadingScreen
   [this {:keys [dim?] :or {dim? true}}]
-  (div :.flex.justify-center.items-center.h-screen.fixed.top-0.left-0.right-0.bottom-0.w-full.z-50.overflow-hidden
-       {:className (when dim? "bg-gray-100 opacity-75")}
+  (div :.flex.justify-center.items-center.h-screen.fixed.top-0.left-0.right-0.bottom-0.z-50.w-full.overflow-hidden
+       {:className (if dim? "bg-gray-100 opacity-75" "pointer-events-none")}
        (ui-loading {})))
 
 (def ui-loading-screen (comp/factory UILoadingScreen))
