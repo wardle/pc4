@@ -1,21 +1,21 @@
 (ns pc4.client
   (:require
-    [com.fulcrologic.fulcro.application :as app]
-    [com.fulcrologic.fulcro.networking.http-remote :as net]
-    [com.fulcrologic.fulcro.data-fetch :as df]
-    [com.fulcrologic.fulcro.components :as comp]
-    [com.fulcrologic.fulcro.algorithms.merge :as merge]
-    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-    [com.fulcrologic.fulcro.inspect.inspect-client :as inspect]
-    [edn-query-language.core :as eql]
-    [taoensso.timbre :as log]
-    [pc4.app :refer [SPA]]
-    [pc4.route :as route]
-    [pc4.rsdb]
-    [pc4.ui.root :as root]
-    [pc4.ui.users]
-    ["big.js" :as Big]
-    [com.fulcrologic.fulcro.algorithms.transit :as transit])
+   [com.fulcrologic.fulcro.application :as app]
+   [com.fulcrologic.fulcro.networking.http-remote :as net]
+   [com.fulcrologic.fulcro.data-fetch :as df]
+   [com.fulcrologic.fulcro.components :as comp]
+   [com.fulcrologic.fulcro.algorithms.merge :as merge]
+   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+   [com.fulcrologic.fulcro.inspect.inspect-client :as inspect]
+   [edn-query-language.core :as eql]
+   [taoensso.timbre :as log]
+   [pc4.app :refer [SPA]]
+   [pc4.route :as route]
+   [pc4.rsdb]
+   [pc4.ui.root :as root]
+   [pc4.ui.users]
+   ["big.js" :as Big]
+   [com.fulcrologic.fulcro.algorithms.transit :as transit])
   (:import [goog.date Date DateTime]))
 
 (defn ^:export refresh []
@@ -37,21 +37,21 @@
   so that they can be inspected e.g. in `:remote-error?`"
   [ast]
   (cond-> (app/default-global-eql-transform ast)
-          (-> ast :type #{:root})
-          (update :children conj (eql/expr->ast :com.wsscode.pathom.core/errors))))
+    (-> ast :type #{:root})
+    (update :children conj (eql/expr->ast :com.wsscode.pathom.core/errors))))
 
 (transit/install-type-handler!
-  (transit/type-handler goog.date.Date "LocalDate"
-                        (fn [^goog.date.Date d] (.toIsoString d true))
-                        #(Date/fromIsoString %)))
+ (transit/type-handler goog.date.Date "LocalDate"
+                       (fn [^goog.date.Date d] (.toIsoString d true))
+                       #(Date/fromIsoString %)))
 (transit/install-type-handler!
-  (transit/type-handler goog.date.DateTime "LocalDateTime"
-                        (fn [^goog.date.DateTime dt] (.toIsoString dt true))
-                        #(DateTime/fromIsoString %)))
+ (transit/type-handler goog.date.DateTime "LocalDateTime"
+                       (fn [^goog.date.DateTime dt] (.toIsoString dt true))
+                       #(DateTime/fromIsoString %)))
 (transit/install-type-handler!
-  (transit/type-handler Big "f"
-                        (fn [^Big x] (.toString x))
-                        #(Big. %)))
+ (transit/type-handler Big "f"
+                       (fn [^Big x] (.toString x))
+                       #(Big. %)))
 
 (def secured-request-middleware
   (-> (net/wrap-csrf-token (or js/pc4_network_csrf_token "TOKEN_NOT_IN_HTML"))
@@ -59,17 +59,17 @@
 
 (defn make-SPA []
   (app/fulcro-app
-    {;:global-eql-transform global-eql-transform
+   {;:global-eql-transform global-eql-transform
      ;:render-middleware (when goog.DEBUG js/holyjak.fulcro_troubleshooting.troubleshooting_render_middleware)
-     :remotes
-     {:remote (net/fulcro-http-remote
-                {:url                "/api"
-                 :request-middleware secured-request-middleware})
-      :login  (net/fulcro-http-remote
-                {:url                "/login"
-                 :request-middleware secured-request-middleware})}
-     :remote-error?       remote-error?
-     :global-error-action global-error-action}))
+    :remotes
+    {:remote (net/fulcro-http-remote
+              {:url                "/api"
+               :request-middleware secured-request-middleware})
+     :login  (net/fulcro-http-remote
+              {:url                "/login"
+               :request-middleware secured-request-middleware})}
+    :remote-error?       remote-error?
+    :global-error-action global-error-action}))
 
 (defn ^:export init []
   (log/info "Application starting.")
