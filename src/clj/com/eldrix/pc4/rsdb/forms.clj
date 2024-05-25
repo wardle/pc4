@@ -812,6 +812,10 @@
                   :set {:is_deleted "false"}
                   :where [:= :id form-id]
                   :returning :*})}))
+
+(defn create-form!
+  [conn encounter-id form-type-id])
+
 (defn save-form!
   "Saves a form to the database. Matches the form to its form-type using the 
   namespace and handles either 'insert' or 'update' appropriately depending
