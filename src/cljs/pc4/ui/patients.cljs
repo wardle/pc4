@@ -273,7 +273,7 @@
            {:>/menu (comp/get-query PatientMenu)}
            {:>/break-glass (comp/get-query PatientBreakGlass)}
            [df/marker-table :patient]]}
-  (if (and id patient_identifier)
+  (when (and id patient_identifier)
     (comp/fragment
      (ui-patient-banner banner {}                          ;; always show the banner
                         (when is-break-glass
@@ -283,14 +283,12 @@
             (div :.col-span-1.p-2
                  (ui-patient-menu menu {:selected-id selected-id :sub-menu sub-menu}))
             (div :.col-span-1.md:col-span-5.pt-2
+                 (comp/children this)
                  (let [marker (get props [df/marker-table :patient])]
-                   (cond (df/loading? marker)
-                         (ui/ui-loading-screen {:dim? false})
-                         (df/failed? marker)
-                         "Loading failed. Please retry"))
-                 (comp/children this)))
-       (ui-patient-break-glass break-glass)))
-    (div :.p-2 (ui/box-error-message :message "Patient not found"))))
+                   (cond
+                     (df/loading? marker) (ui/ui-loading-screen {:dim? false})
+                     (df/failed? marker)  "Loading failed. Please retry"))))
+       (ui-patient-break-glass break-glass)))))
 
 (def ui-layout (comp/computed-factory Layout))
 
