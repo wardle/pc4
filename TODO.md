@@ -10,6 +10,8 @@ Tasks that are currently my priority for this development cycle:
 * [x] Add search by patient identifier from project home page
 * [x] Convert current 'edit' encounter page into a view encounter page as per legacy system
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
+* [ ] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
+* [ ] Need 'add encounter' functionality, which will need server side involvement to initialise forms and data in context
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
 * [x] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
