@@ -812,7 +812,10 @@
 
 (def encounter-properties
   [:t_encounter/id
+   :t_encounter/patient_fk
    :t_encounter/date_time
+   :t_encounter/lock_date_time
+   :t_encounter/is_locked
    :t_encounter/active
    :t_encounter/is_deleted
    :t_encounter/hospital_fk
@@ -820,7 +823,13 @@
    :t_encounter/episode_fk
    :t_encounter/consultant_user_fk
    :t_encounter/encounter_template_fk
-   :t_encounter/notes])
+   :t_encounter/notes
+   :t_encounter/ward
+   :t_encounter/duration_minutes])
+
+(defn encounter-locked?
+  [{:t_encounter/keys [lock_date_time]}]
+  (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))
 
 (pco/defresolver patient->encounters
   [{:com.eldrix.rsdb/keys [conn]} {patient-id :t_patient/id}]
@@ -829,7 +838,9 @@
                                                              :from     [:t_encounter]
                                                              :where    [:= :patient_fk patient-id]
                                                              :order-by [[:date_time :desc]]}))
-                              (mapv #(assoc % :t_encounter/active (not (:t_encounter/is_deleted %)))))})
+                              (mapv #(assoc %
+                                            :t_encounter/active (not (:t_encounter/is_deleted %))
+                                            :t_encounter/is_locked (encounter-locked? %))))})
 
 (pco/defresolver patient->paged-encounters
   "A resolver for pages of encounters."
@@ -857,27 +868,12 @@
 
 (pco/defresolver encounter-by-id
   [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
-  {::pco/output
-   [:t_encounter/id
-    :t_encounter/patient_fk
-    :t_encounter/date_time
-    :t_encounter/lock_date_time
-    :t_encounter/is_locked
-    :t_encounter/active
-    :t_encounter/is_deleted
-    :t_encounter/hospital_fk
-    :t_encounter/ward
-    :t_encounter/episode_fk
-    :t_encounter/consultant_user_fk
-    :t_encounter/encounter_template_fk
-    :t_encounter/notes
-    :t_encounter/ward
-    :t_encounter/duration_minutes]}
-  (let [{:t_encounter/keys [is_deleted lock_date_time] :as encounter}
+  {::pco/output encounter-properties}
+  (let [{:t_encounter/keys [is_deleted] :as encounter}
         (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]}))]
     (assoc encounter
            :t_encounter/active (not is_deleted)
-           :t_encounter/is_locked (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))))
+           :t_encounter/is_locked (encounter-locked? encounter))))
 
 (pco/defresolver encounter->patient
   [{:t_encounter/keys [patient_fk]}]
