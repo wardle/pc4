@@ -217,14 +217,14 @@
               {}
               (dom/span :.hidden.lg:block (:t_user/full_name user))
               (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
-          #_(when-not is_locked
-              (for [{:form_type/keys [id title] :as form-type} available_form_types]
-                (ui/ui-table-row
-                 {:onClick #(println "add form " form-type)
-                  :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
-                 (ui/ui-table-cell {} (dom/span title))
-                 (ui/ui-table-cell {} (dom/span "Pending"))
-                 (ui/ui-table-cell {} "")))))))
+          (when-not is_locked
+            (for [{:form_type/keys [id title] :as form-type} available_form_types]
+              (ui/ui-table-row
+               {:onClick #(println "add form " form-type)
+                :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
+               (ui/ui-table-cell {} (dom/span title))
+               (ui/ui-table-cell {} (dom/span "Pending"))
+               (ui/ui-table-cell {} "")))))))
        (ui/ui-active-panel
         {:title "Notes"}
         (div :.shadow-inner.p-4.text-sm
