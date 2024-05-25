@@ -559,9 +559,9 @@
            encounter-key (keyword nm "encounter_fk")]
        (cond-> (merge % form)
          (contains? form :form/id) (assoc id-key id)
-         (some? is_deleted) (assoc is-deleted-key is_deleted)
-         user_fk (assoc user-key user_fk)
-         encounter_fk (assoc encounter-key encounter_fk)))
+         (some? is_deleted)        (assoc is-deleted-key is_deleted)
+         user_fk                   (assoc user-key user_fk)
+         encounter_fk              (assoc encounter-key encounter_fk)))
     (gen-form))))
 
 (comment
