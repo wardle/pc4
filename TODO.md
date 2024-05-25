@@ -16,6 +16,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Always open patient record in context of a project, but allow easy switching when needed?
 * [x] Change password page
 * [x] Force change password page for newly created accounts
+* [ ] Improve 'loading' component so doesn't prevent user interaction when not dimming
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
