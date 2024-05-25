@@ -1639,7 +1639,8 @@
   {::pco/op-name 'pc4.rsdb/save-form}
   (log/info "save form" params)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (forms/save-form! conn form))
+  (jdbc/with-transaction [txn conn]
+    (forms/save-form! txn form)))
 
 (pco/defmutation delete-form!
   [{conn :com.eldrix.rsdb/conn :as env}
