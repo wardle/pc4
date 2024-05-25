@@ -309,15 +309,18 @@
   [this {:keys [name value options disabled id-key display-key onChange] :or {display-key identity, id-key identity}}]
   (for [{:keys [id label] :as option} options
         :let [id' (or id (id-key option))]]
-    (div :.flex.items-center.divide-y.divide-dotted
-         (dom/input {:class   "text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500"
-                     :type    "radio"
-                     :id      id'
-                     :disabled disabled
-                     :name    name
-                     :checked (= id' (id-key value))
-                     :onChange #(when onChange (onChange id'))})
-         (dom/label {:class "ms-2 text-sm font-medium text-gray-900" :for id} (or label (display-key option))))))
+    (div :.flex.items-center.divide-y.divide-dotted {:key id'}
+         (dom/input {:className "text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500"
+                     :type      "radio"
+                     :id        id'
+                     :disabled  disabled
+                     :name      name
+                     :checked   (= id' (id-key value))
+                     :onChange  (when onChange #(onChange id'))})
+         (dom/label {:className "ms-2 text-sm font-medium text-gray-900"
+                     :htmlFor   id
+                     :onClick   (when onChange #(onChange id'))}
+                    (or label (display-key option))))))
 
 (def ui-radio-button (comp/factory UIRadioButton))
 
