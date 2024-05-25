@@ -8,12 +8,12 @@ Tasks that are currently my priority for this development cycle:
 * [x] Add additional permission in order to select which users can change registration information for pseudonymously-registered patients (or just add to power user list?)
 * [x] Edit and save death certificate information
 * [x] Add search by patient identifier from project home page
-* [ ] Convert current 'edit' encounter page into a view encounter page as per legacy system
+* [x] Convert current 'edit' encounter page into a view encounter page as per legacy system
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Fix patient sub menus
 * [x] Fix navigation to patient record on patient register to use new routing. Needs current project to be represented in URL.
-* [ ] Always open patient record in context of a project, but allow easy switching when needed?
+* [x] Always open patient record in context of a project, but allow easy switching when needed?
 * [x] Change password page
 * [x] Force change password page for newly created accounts
 * [x] Improve 'loading' component so doesn't prevent user interaction when not dimming
