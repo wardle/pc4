@@ -512,7 +512,7 @@
   (if-let [nspace (form->name form)]
     (if-let [{:keys [spec unparse] :as form-type} (form-type-by-name nspace)]
       (if (and spec (not (s/valid? spec form))) ;; if there is a spec, and it is invalid, throw
-        (throw (ex-info "invalid form" (s/explain-data spec form)))
+        (throw (ex-info (str "invalid form" (s/explain-str spec form)) (s/explain-data spec form)))
         {:form-type form-type
          :data (reduce-kv
                 (fn [acc k v]
