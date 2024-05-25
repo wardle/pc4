@@ -5,8 +5,8 @@
 *.log
 .lsp
 .calva
+/.clj-kondo/
 /data/
-/.clj-kondo/.cache
 .DS_Store
 pc4-server/.portal/intellij.edn
 /resources/public/js/compiled
