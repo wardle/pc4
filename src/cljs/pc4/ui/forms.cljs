@@ -99,7 +99,7 @@
 (def ui-encounter-banner (comp/factory EncounterBanner))
 
 (defsc Layout
-  [this {:form/keys [encounter] :as form} {:keys [can-edit save-params]}]
+  [this {:form/keys [id encounter] :as form} {:keys [can-edit save-params]}]
   {:ident :form/id
    :query [:form/id
            {:form/user (comp/get-query FormUser)}
@@ -108,7 +108,7 @@
         {:t_patient/keys [patient_identifier]} patient
         cancel-fn #(comp/transact! this [(cancel-edit-form form)])
         save-fn #(comp/transact! this [(pc4.rsdb/save-form (assoc save-params :patient-identifier patient_identifier
-                                                                  :on-success-tx [(cancel-edit-form form)]))])]
+                                                                  :on-success-tx [(cancel-edit-form {:form/id id})]))])]
     (comp/fragment
      (patients/ui-patient-banner (:>/banner patient))
      (ui-encounter-banner
