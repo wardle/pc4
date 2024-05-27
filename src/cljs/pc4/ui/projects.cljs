@@ -148,41 +148,39 @@
    {:project props :selected-id :register-patient}
    (let [do-register (fn [] (println "Attempting to register" props)
                        (comp/transact! this [(pc4.rsdb/register-patient {:project-id project-id, :nhs-number nhs-number})]))]
-     (comp/fragment
+     (div
+      :.space-y-6
       (div
-       :.space-y-6
+       :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
        (div
-        :.bg-white.shadow.px-4.py-5.sm:rounded-lg.sm:p-6
+        :.md:grid.md:grid-cols-3.md:gap-6
         (div
-         :.md:grid.md:grid-cols-3.md:gap-6
+         :.md:col-span-1.pr-6
+         (dom/h3
+          :.text-lg.font-medium.leading-6.text-gray-900 "Find or register a patient")
          (div
-          :.md:col-span-1.pr-6
-          (dom/h3
-           :.text-lg.font-medium.leading-6.text-gray-900 "Find or register a patient")
-          (div
-           :.mt-1.mr-12.text-sm.text-gray-500)
-          (p "Please enter patient details.")
-          (p :.mt-4 "This is safe to use even if patient already registered."))
-         (div
-          :.mt-5.md:mt-0.md:col-span-2.space-y-4
-          (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
-          (ui/ui-textfield {:id          "nnn"
-                            :value       nhs-number
-                            :label       "NHS Number:"
-                            :placeholder "Enter NHS number"
-                            :auto-focus  true
-                            :onChange    (fn [nnn]
-                                           (when (= 10 (count (nnn/normalise nnn)))
-                                             (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
-                                           (m/set-string!! this :ui/nhs-number :value nnn))
-                            :onBlur      #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
-                            :onEnterKey  do-register})
-          (when (fs/invalid-spec? props :ui/nhs-number)
-            (ui/box-error-message {:message "Invalid NHS number"}))
-          (when error
-            (div (ui/box-error-message {:message error}))))))
-
-       (div :.flex.justify-end.mr-8
+          :.mt-1.mr-12.text-sm.text-gray-500)
+         (p "Please enter patient details.")
+         (p :.mt-4 "This is safe to use even if patient already registered."))
+        (div
+         :.mt-5.md:mt-0.md:col-span-2.space-y-4
+         (dom/form {:onSubmit #(do (evt/prevent-default! %) (do-register))})
+         (ui/ui-textfield {:id          "nnn"
+                           :value       nhs-number
+                           :label       "NHS Number:"
+                           :placeholder "Enter NHS number"
+                           :auto-focus  true
+                           :onChange    (fn [nnn]
+                                          (when (= 10 (count (nnn/normalise nnn)))
+                                            (comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})]))
+                                          (m/set-string!! this :ui/nhs-number :value nnn))
+                           :onBlur      #(comp/transact! this [(fs/mark-complete! {:field :ui/nhs-number})])
+                           :onEnterKey  do-register})
+         (when (fs/invalid-spec? props :ui/nhs-number)
+           (ui/box-error-message {:message "Invalid NHS number"}))
+         (when error
+           (div (ui/box-error-message {:message error})))))
+       (div :.flex.justify-end.mr-8.mt-4
             (ui/ui-submit-button {:label   "Search or register patient »" :disabled? (not (fs/valid-spec? props))
                                   :onClick do-register})))
       (ui-find-by-patientcare-identifier f-by-id)))))
