@@ -18,9 +18,8 @@
             [integrant.core :as ig]
             [ring.middleware.session.cookie]
             [rum.core :as rum])
-  (:import (clojure.lang ExceptionInfo)
-           (com.fulcrologic.fulcro.algorithms.tempid TempId)
-           (java.time LocalDate LocalDateTime ZonedDateTime)
+  (:import (com.fulcrologic.fulcro.algorithms.tempid TempId)
+           (java.time LocalDate LocalDateTime Period ZonedDateTime)
            (java.time.format DateTimeFormatter)))
 
 
@@ -257,16 +256,16 @@
 
 (def transit-read-handlers
   {"LocalDateTime"
-   (transit/read-handler (fn [^String s]
-                           (LocalDateTime/parse s)))
+   (transit/read-handler (fn [^String s] (LocalDateTime/parse s)))
 
    "ZonedDateTime"
-   (transit/read-handler (fn [^String s]
-                           (ZonedDateTime/parse s)))
+   (transit/read-handler (fn [^String s] (ZonedDateTime/parse s)))
 
    "LocalDate"
-   (transit/read-handler (fn [^String s]
-                           (LocalDate/parse s)))
+   (transit/read-handler (fn [^String s] (LocalDate/parse s)))
+
+   "Period"
+   (transit/read-handler (fn [^String s] (Period/parse s)))
 
    com.fulcrologic.fulcro.algorithms.tempid/tag
    (transit/read-handler (fn [uuid] (tempid/tempid uuid)))})
@@ -287,8 +286,14 @@
                           (fn [^LocalDate date]
                             (.format date DateTimeFormatter/ISO_LOCAL_DATE)))
 
+   Period
+   (transit/write-handler (constantly "Period")
+                          (fn [^Period period]   ;; write a period in ISO-8601 format
+                            (.toString period)))
+
    Throwable
    (transit/write-handler "java.lang.Exception" Throwable->map)
+
    TempId
    (transit/write-handler tempid/tag #(.-id ^TempId %))})
 
