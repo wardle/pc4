@@ -16,7 +16,7 @@
    [pc4.ui.users]
    ["big.js" :as Big]
    [com.fulcrologic.fulcro.algorithms.transit :as transit])
-  (:import [goog.date Date DateTime]))
+  (:import [goog.date Date DateTime Interval]))
 
 (defn ^:export refresh []
   (log/info "Hot code Remount")
@@ -48,6 +48,10 @@
  (transit/type-handler goog.date.DateTime "LocalDateTime"
                        (fn [^goog.date.DateTime dt] (.toIsoString dt true))
                        #(DateTime/fromIsoString %)))
+(transit/install-type-handler!
+ (transit/type-handler goog.date.Interval "Period"
+                       (fn [^goog.date.Interval i] (.toIsoString i true))
+                       (fn [s] (Interval/fromIsoString s))))
 (transit/install-type-handler!
  (transit/type-handler Big "f"
                        (fn [^Big x] (.toString x))
