@@ -22,7 +22,7 @@
 
 
 (defn calculate-age
-  "Calculate the age based on the parameters specified."
+  "Returns a `java.time.Period` representing the age based on the parameters specified."
   ^Period [^LocalDate date-birth & {:keys [^LocalDate date-death is-deceased? ^LocalDate on-date]}]
   (when date-birth
     (let [on-date' ^LocalDate (or on-date (LocalDate/now))
