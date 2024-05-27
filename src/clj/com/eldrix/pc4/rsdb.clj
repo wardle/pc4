@@ -879,6 +879,16 @@
   [{:t_encounter/keys [patient_fk]}]
   {:t_encounter/patient {:t_patient/id patient_fk}})
 
+(pco/defresolver encounter->patient-age
+  [{:t_encounter/keys [date_time patient]}]
+  {::pco/input [:t_encounter/date_time
+                {:t_encounter/patient [:t_patient/date_birth
+                                       :t_patient/date_death]}]}
+  {:t_encounter/patient_age
+   (dates/calculate-age (:t_patient/date_birth patient)
+                        :date-death (:t_patient/date_death patient)
+                        :on-date    (.toLocalDate date_time))})
+
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
@@ -1906,6 +1916,7 @@
    patient->encounters
    encounter-by-id
    encounter->patient
+   encounter->patient-age
    encounter->users
    encounters->encounter_template
    encounter->hospital
