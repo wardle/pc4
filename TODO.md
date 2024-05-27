@@ -5,6 +5,7 @@ Tasks that are currently my priority for this development cycle:
 ## Tasks prior to deployment to patientcare.app:
 
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
+* [ ] Need to show and choose responsible user for each form
 * [ ] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
 * [ ] Need 'add encounter' functionality, which will need server side involvement to initialise forms and data in context
 * [x] Add LSOA name when possible to pseudonymous patient data
@@ -27,6 +28,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
 * [x] Pass through permissions and encounter locked status to forms so they are shown in read-only mode if required
+* [ ] Add rich text editor
 * [ ] Edit 'notes' in encounter
 * [ ] Messaging between users
 * [ ] Encounter wizard, including clinic codes
@@ -44,7 +46,7 @@ Tasks that are currently my priority for this development cycle:
 ## Other work - not critical to either deployment at the moment
 
 * [x] Add resolver for a form by id, as when the front-end 'edit-form' is called, it performs a load which currently mainly fails but satisfied locally as already loaded. 
-* [ ] Don't calculate body mass index when age < 18
+* [x] Don't show body mass index when age < 18
 * [ ] Add default project configuration into top-level application configuration, and override (by merge) on per-project basis?
 * [ ] Add network connectivity error bar when offline
 * [x] Add current project identifier into URL to better support HTML routing (back and forward). Otherwise, one can go 
