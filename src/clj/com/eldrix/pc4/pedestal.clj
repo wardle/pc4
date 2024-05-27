@@ -22,7 +22,6 @@
            (java.time LocalDate LocalDateTime Period ZonedDateTime)
            (java.time.format DateTimeFormatter)))
 
-
 (set! *warn-on-reflection* true)
 
 (defn inject
@@ -40,18 +39,17 @@
 
 (def service-error-handler
   (intc.error/error-dispatch
-    [ctx ex]
-    [{:interceptor ::login}]
-    (assoc ctx :response {:status 400 :body (ex-message ex)})
-    [{:interceptor ::add-authorization-manager}]
-    (assoc ctx :response {:status 401 :body "Unauthenticated."})
-    [{:interceptor :io.pedestal.http.impl.servlet-interceptor/ring-response}]
-    (assoc ctx :response {:status 400 :body {:error (Throwable->map ex)}})
-    :else                                                   ;; this should not happen
-    (do (log/error "service error" (ex-message ex))
-        (log/trace "pedestal service error" (Throwable->map ex))
-        (assoc ctx :response {:status 200 :body {:error (Throwable->map ex)}}))))
-
+   [ctx ex]
+   [{:interceptor ::login}]
+   (assoc ctx :response {:status 400 :body (ex-message ex)})
+   [{:interceptor ::add-authorization-manager}]
+   (assoc ctx :response {:status 401 :body "Unauthenticated."})
+   [{:interceptor :io.pedestal.http.impl.servlet-interceptor/ring-response}]
+   (assoc ctx :response {:status 400 :body {:error (Throwable->map ex)}})
+   :else                                                   ;; this should not happen
+   (do (log/error "service error" (ex-message ex))
+       (log/trace "pedestal service error" (Throwable->map ex))
+       (assoc ctx :response {:status 200 :body {:error (Throwable->map ex)}}))))
 
 (defn execute-pathom
   "Executes a pathom query from the body of the request.
@@ -104,10 +102,10 @@
     (if-not app
       (log/error (str "Missing front-end app. Found modules: " (keys (:com.eldrix.pc4/cljs-modules ctx))) {})
       (assoc ctx :response
-                 {:status 200 :headers {"Content-Type" "text/html"}
-                  :body   (str "<!DOCTYPE html>\n"
-                               (rum/render-html
-                                 (landing-page app {:csrf-token csrf-token :use-tailwind-cdn use-tailwind-cdn})))}))))
+             {:status 200 :headers {"Content-Type" "text/html"}
+              :body   (str "<!DOCTYPE html>\n"
+                           (rum/render-html
+                            (landing-page app {:csrf-token csrf-token :use-tailwind-cdn use-tailwind-cdn})))}))))
 
 (def landing
   "Interceptor to return the pc4 front-end application."
@@ -152,7 +150,6 @@
    :enter (fn [ctx]
             (let [{:keys [uuid] :as params} (get-in ctx [:request :transit-params])]
               (execute-pathom ctx nil [{(list 'pc4.users/ping {:uuid uuid}) [:uuid :date-time]}])))})
-
 
 (def authorization-manager
   "Add an authorization manager into the context."
@@ -246,13 +243,12 @@
          :else
          (update-in ctx [:response :session] assoc :idle-timeout (+ (current-time) 10)))))})
 
-
 (def routes
   (route/expand-routes
-    #{["/" :get [landing]]
-      ["/login" :post [login]]
-      ["/api" :post [authorization-manager api]]
-      ["/users/:system/:value/photo" :get [authorization-manager get-user-photo]]}))
+   #{["/" :get [landing]]
+     ["/login" :post [login]]
+     ["/api" :post [authorization-manager api]]
+     ["/users/:system/:value/photo" :get [authorization-manager get-user-photo]]}))
 
 (def transit-read-handlers
   {"LocalDateTime"
@@ -309,7 +305,7 @@
    ::http/secure-headers        {:content-security-policy-settings {:object-src "none"}}
    ::http/host                  (or host "127.0.0.1")
    ::http/enable-session        {:store        (ring.middleware.session.cookie/cookie-store
-                                                 (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
+                                                (when session-key {:key (buddy.core.codecs/hex->bytes session-key)}))
                                  :cookie-name  "pc4-session"
                                  :cookie-attrs {:same-site :strict}}
    ::http/not-found-interceptor not-found})
