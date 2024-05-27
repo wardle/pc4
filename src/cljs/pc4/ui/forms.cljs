@@ -285,6 +285,10 @@
 
 (def ui-edit-form-ms-relapse (comp/computed-factory EditFormMsRelapse))
 
+(defsc FormWeightHeightEncounter [this params]
+  {:ident :t_encounter/id
+   :query [:t_encounter/id :t_encounter/patient_age]})
+
 (defsc EditFormWeightHeight
   [this {:form_weight_height/keys [weight_kilogram height_metres]
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
@@ -292,7 +296,7 @@
    :route-segment ["encounter" :encounter-id "form_weight_height" :form/id]
    :query         [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
                    :form_weight_height/encounter_fk :form_weight_height/user_fk
-                   {:form/encounter [:t_encounter/date_time]}
+                   {:form/encounter (comp/get-query FormWeightHeightEncounter)}
                    {:>/can-edit (comp/get-query CanEditForm)}
                    {:>/layout (comp/get-query Layout)}
                    fs/form-config-join]
@@ -303,7 +307,8 @@
                        [:form/id form-id]
                        (fn []
                          (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormWeightHeight})])))))}
-  (let [can-edit? (can-edit-form? can-edit)]
+  (let [patient-age (:t_encounter/patient_age encounter)
+        can-edit? (can-edit-form? can-edit)]
     (ui-layout
      layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
                                                                           :form_weight_height/encounter_fk :form_weight_height/user_fk])}}
@@ -320,11 +325,12 @@
                          :disabled (not can-edit?)
                          :type     :number
                          :onChange #(m/set-value! this :form_weight_height/height_metres (when-not (str/blank? %) (Big. %)))}))
-      (ui/ui-simple-form-item                                   ;; TODO: should only show this for adults
-       {:label "Body mass index"}
-       (div :.mt-2.text-gray-600.italic
-            (when (and weight_kilogram height_metres)
-              (str (.round (.div ^Big weight_kilogram (.pow height_metres 2)) 1) " kg/m²"))))))))
+      (when (and patient-age (>= (.-years ^goog.date.Period patient-age) 18))  ;; only show BMI for adults
+        (ui/ui-simple-form-item
+         {:label "Body mass index (adult) "}
+         (div :.mt-2.text-gray-600.italic
+              (when (and weight_kilogram height_metres)
+                (str (.round (.div ^Big weight_kilogram (.pow height_metres 2)) 1) " kg/m²")))))))))
 
 (def ui-edit-form-weight-height (comp/computed-factory EditFormWeightHeight))
 
