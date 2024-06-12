@@ -287,7 +287,7 @@
 
 (defsc FormWeightHeightEncounter [this params]
   {:ident :t_encounter/id
-   :query [:t_encounter/id :t_encounter/patient_age]})
+   :query [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]})
 
 (defsc EditFormWeightHeight
   [this {:form_weight_height/keys [weight_kilogram height_metres]
@@ -307,7 +307,7 @@
                        [:form/id form-id]
                        (fn []
                          (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormWeightHeight})])))))}
-  (let [patient-age (:t_encounter/patient_age encounter)
+  (let [patient-age (when-let [period (:t_encounter/patient_age encounter)] (.-years ^goog.date.Period period))
         can-edit? (can-edit-form? can-edit)]
     (ui-layout
      layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
@@ -325,7 +325,7 @@
                          :disabled (not can-edit?)
                          :type     :number
                          :onChange #(m/set-value! this :form_weight_height/height_metres (when-not (str/blank? %) (Big. %)))}))
-      (when (and patient-age (>= (.-years ^goog.date.Period patient-age) 18))  ;; only show BMI for adults
+      (when (and patient-age (>= patient-age 18))  ;; only show BMI for adults
         (ui/ui-simple-form-item
          {:label "Body mass index (adult) "}
          (div :.mt-2.text-gray-600.italic
