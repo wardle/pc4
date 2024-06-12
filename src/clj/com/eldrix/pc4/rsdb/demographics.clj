@@ -10,16 +10,16 @@
   will be updated, as that depends on the patient's authoritative demographic
   configuration, local system configuration and network connectivity."
   (:require
-    [clojure.set :as set]
-    [clojure.spec.alpha :as s]
-    [clojure.string :as str]
-    [com.eldrix.pc4.fhir :as fhir]
-    [com.eldrix.nhspd.postcode :as postcode]
-    [com.eldrix.pc4.rsdb.db :as db]
-    [honey.sql :as sql]
-    [next.jdbc :as jdbc])
+   [clojure.set :as set]
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]
+   [com.eldrix.pc4.fhir :as fhir]
+   [com.eldrix.nhspd.postcode :as postcode]
+   [com.eldrix.pc4.rsdb.db :as db]
+   [honey.sql :as sql]
+   [next.jdbc :as jdbc])
   (:import
-    (java.time LocalDate LocalDateTime)))
+   (java.time LocalDate LocalDateTime)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Private
@@ -107,10 +107,10 @@
   (let [combos
         (when (and (seq given) family)
           (distinct
-            (concat
-              (map #(vector % family) given)                ;; each first name with the family name
-              (for [ss (reductions #(str %1 " " %2) given), s [family]] ;; first name(s) plus family name
-                [ss s]))))]
+           (concat
+            (map #(vector % family) given)                ;; each first name with the family name
+            (for [ss (reductions #(str %1 " " %2) given), s [family]] ;; first name(s) plus family name
+              [ss s]))))]
     (case (count combos)
       0 nil
       1 (let [[first-names last-name] (first combos)]
@@ -207,9 +207,9 @@
                                          (:t_patient_hospital/patient_identifier %)))
                        patient-hospitals)
         updated (into #{} (comp
-                            (filter #(supported-identifiers (:org.hl7.fhir.Identifier/system %)))
-                            (map #(vector (identifier-system->legacy-hospital (:org.hl7.fhir.Identifier/system %))
-                                          (:org.hl7.fhir.Identifier/value %)))) identifiers)
+                           (filter #(supported-identifiers (:org.hl7.fhir.Identifier/system %)))
+                           (map #(vector (identifier-system->legacy-hospital (:org.hl7.fhir.Identifier/system %))
+                                         (:org.hl7.fhir.Identifier/value %)))) identifiers)
         to-insert (set/difference updated existing)]
     (when (seq to-insert)
       [{:insert-into :t_patient_hospital
@@ -391,7 +391,6 @@
     (conj {:update :t_patient :where [:= :id patient-pk]
            :set    {:authoritative_last_updated (LocalDateTime/now)}})))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defmulti demographic-authority
@@ -447,10 +446,9 @@
 (defn ^:private fetch-patient-for-update
   [txn patient-pk]
   (assoc (db/execute-one! txn (sql/format {:select :* :from :t_patient :where [:= :id patient-pk]}))
-    :t_patient/addresses (db/execute! txn (sql/format {:select :* :from :t_address :where [:= :patient_fk patient-pk]}))
-    :t_patient/telephones (db/execute! txn (sql/format {:select :* :from :t_patient_telephone :where [:= :patient_fk patient-pk]}))
-    :t_patient/patient_hospitals (db/execute! txn (sql/format {:select :* :from :t_patient_hospital :where [:= :patient_fk patient-pk]}))))
-
+         :t_patient/addresses (db/execute! txn (sql/format {:select :* :from :t_address :where [:= :patient_fk patient-pk]}))
+         :t_patient/telephones (db/execute! txn (sql/format {:select :* :from :t_patient_telephone :where [:= :patient_fk patient-pk]}))
+         :t_patient/patient_hospitals (db/execute! txn (sql/format {:select :* :from :t_patient_hospital :where [:= :patient_fk patient-pk]}))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public API
@@ -481,8 +479,7 @@
       - :match   : check that at least one identifier matches, default true"
   ([conn demographic-service patient]
    (update-patient conn demographic-service patient {}))
-  ([conn demographic-service {patient-pk :t_patient/id, :as patient}
-    {:keys [refetch] :or {refetch false} :as opts}]
+  ([conn demographic-service {patient-pk :t_patient/id, :as patient} {:keys [refetch] :or {refetch false} :as opts}]
    (let [patient'
          (cond
            ;; refresh patient data before updating if requested
@@ -497,35 +494,34 @@
      (when-let [fhir-patient (fetch-from-authority demographic-service patient')]
        (update-patient-from-external-sql* patient' fhir-patient opts)))))
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
 
   (update-patient
-    nil
-    (fn [auth identifier]
-      {:org.hl7.fhir.Patient/gender              "female"
-       :org.hl7.fhir.Patient/address             []
-       :org.hl7.fhir.Patient/telecom             [{:org.hl7.fhir.ContactPoint/system "phone"
-                                                   :org.hl7.fhir.ContactPoint/value  "02920747747"
-                                                   :org.hl7.fhir.ContactPoint/use    "work"}]
-       :org.hl7.fhir.Patient/generalPractitioner []
-       :org.hl7.fhir.Patient/name                [{:org.hl7.fhir.HumanName/family "Smith"
-                                                   :org.hl7.fhir.HumanName/given  ["Mark"]
-                                                   :org.hl7.fhir.HumanName/prefix ["Dr"]
-                                                   :org.hl7.fhir.HumanName/use    "usual"}]
-       :org.hl7.fhir.Patient/active              true
-       :org.hl7.fhir.Patient/birthDate           (LocalDate/of 1990 1 1)
-       :org.hl7.fhir.Patient/identifier          [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-                                                   :org.hl7.fhir.Identifier/value  "1111111111"}]})
-    {:t_patient/id                         1
-     :t_patient/nhs_number                 "1111111111"
-     :t_patient/authoritative_demographics :EMPI
-     :t_patient/patient_hospitals          []
-     :t_patient/addresses                  []
-     :t_patient/telephones                 []})
+   nil
+   (fn [auth identifier]
+     {:org.hl7.fhir.Patient/gender              "female"
+      :org.hl7.fhir.Patient/address             []
+      :org.hl7.fhir.Patient/telecom             [{:org.hl7.fhir.ContactPoint/system "phone"
+                                                  :org.hl7.fhir.ContactPoint/value  "02920747747"
+                                                  :org.hl7.fhir.ContactPoint/use    "work"}]
+      :org.hl7.fhir.Patient/generalPractitioner []
+      :org.hl7.fhir.Patient/name                [{:org.hl7.fhir.HumanName/family "Smith"
+                                                  :org.hl7.fhir.HumanName/given  ["Mark"]
+                                                  :org.hl7.fhir.HumanName/prefix ["Dr"]
+                                                  :org.hl7.fhir.HumanName/use    "usual"}]
+      :org.hl7.fhir.Patient/active              true
+      :org.hl7.fhir.Patient/birthDate           (LocalDate/of 1990 1 1)
+      :org.hl7.fhir.Patient/identifier          [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+                                                  :org.hl7.fhir.Identifier/value  "1111111111"}]})
+   {:t_patient/id                         1
+    :t_patient/nhs_number                 "1111111111"
+    :t_patient/authoritative_demographics :EMPI
+    :t_patient/patient_hospitals          []
+    :t_patient/addresses                  []
+    :t_patient/telephones                 []})
 
   (fetch-patient-for-update conn 1001)
   (require '[com.eldrix.concierge.wales.empi :as empi])
@@ -534,42 +530,42 @@
   (require '[com.eldrix.pc4.fhir])
 
   (update-patient-sql
-    {:t_patient/id 1} (assoc (first pts) :org.hl7.fhir.Patient/deceased true))
+   {:t_patient/id 1} (assoc (first pts) :org.hl7.fhir.Patient/deceased true))
   (update-patient-identifiers-sql
-    {:t_patient/id 1}
-    [{:t_patient_hospital/hospital_identifier "RWMBV"
-      :t_patient_hospital/patient_identifier  "A999998"}]
-    [{:org.hl7.fhir.Identifier/system "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
-      :org.hl7.fhir.Identifier/value  "A123456"}
-     {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-      :org.hl7.fhir.Identifier/value  "A999998"}])
+   {:t_patient/id 1}
+   [{:t_patient_hospital/hospital_identifier "RWMBV"
+     :t_patient_hospital/patient_identifier  "A999998"}]
+   [{:org.hl7.fhir.Identifier/system "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+     :org.hl7.fhir.Identifier/value  "A123456"}
+    {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+     :org.hl7.fhir.Identifier/value  "A999998"}])
   (update-patient-telephones-sql
-    {:t_patient/id 1} [{:t_patient_telephone/telephone "0121 433 4383" :t_patient_telephone/description "Home"}
-                       {:t_patient_telephone/telephone "Job's Well Road" :t_patient_telephone/description "Work"}
-                       {:t_patient_telephone/telephone "0206 123 4567" :t_patient_telephone/description "Work"}] (first pts))
+   {:t_patient/id 1} [{:t_patient_telephone/telephone "0121 433 4383" :t_patient_telephone/description "Home"}
+                      {:t_patient_telephone/telephone "Job's Well Road" :t_patient_telephone/description "Work"}
+                      {:t_patient_telephone/telephone "0206 123 4567" :t_patient_telephone/description "Work"}] (first pts))
 
   (update-patient-addresses-sql
-    {:t_patient/id 1} [{:t_address/id       123 :t_address/address1 "Pembrokeshire & Derwen Nhs , Cwm Seren" :t_address/address2 "Job's Well Road"
-                        :t_address/address3 "Carmarthen, Carmarthenshire" :t_address/address4 "" :t_address/postcode_raw "SA31 3BB" :t_address/date_from nil :t_address/date_to nil}
-                       {:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
-                        :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from nil :t_address/date_to nil}] (first pts))
+   {:t_patient/id 1} [{:t_address/id       123 :t_address/address1 "Pembrokeshire & Derwen Nhs , Cwm Seren" :t_address/address2 "Job's Well Road"
+                       :t_address/address3 "Carmarthen, Carmarthenshire" :t_address/address4 "" :t_address/postcode_raw "SA31 3BB" :t_address/date_from nil :t_address/date_to nil}
+                      {:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
+                       :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from nil :t_address/date_to nil}] (first pts))
   (update-patient-addresses-sql
-    {:t_patient/id 1} [{:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
-                        :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from nil :t_address/date_to nil}]
-    (assoc (first pts) :org.hl7.fhir.Patient/address
-                       [{:org.hl7.fhir.Address/line   ["10 Station Road"] :org.hl7.fhir.Address/postalCode "CF14 4XW"
-                         :org.hl7.fhir.Address/city   "" :org.hl7.fhir.Address/district "" :org.hl7.fhir.Address/country ""
-                         :org.hl7.fhir.Address/period {:org.hl7.fhir.Period/start (LocalDate/of 2020 1 1)
-                                                       :org.hl7.fhir.Period/end   (LocalDate/of 2021 1 1)}}]))
+   {:t_patient/id 1} [{:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
+                       :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from nil :t_address/date_to nil}]
+   (assoc (first pts) :org.hl7.fhir.Patient/address
+          [{:org.hl7.fhir.Address/line   ["10 Station Road"] :org.hl7.fhir.Address/postalCode "CF14 4XW"
+            :org.hl7.fhir.Address/city   "" :org.hl7.fhir.Address/district "" :org.hl7.fhir.Address/country ""
+            :org.hl7.fhir.Address/period {:org.hl7.fhir.Period/start (LocalDate/of 2020 1 1)
+                                          :org.hl7.fhir.Period/end   (LocalDate/of 2021 1 1)}}]))
   (update-patient-addresses-sql
-    {:t_patient/id 1} [{:t_address/id       64 :t_address/address1 "11 Station Road" :t_address/address2 ""
-                        :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from (LocalDate/of 2019 6 1) :t_address/date_to (LocalDate/of 2021 1 1)}
-                       {:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
-                        :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from (LocalDate/of 2018 6 1) :t_address/date_to (LocalDate/of 2021 1 1)}]
-    (assoc (first pts) :org.hl7.fhir.Patient/address
-                       [{:org.hl7.fhir.Address/line   ["10 Station Road"] :org.hl7.fhir.Address/postalCode "CF14 4XW"
-                         :org.hl7.fhir.Address/city   "" :org.hl7.fhir.Address/district "Cardiff" :org.hl7.fhir.Address/country ""
-                         :org.hl7.fhir.Address/period {:org.hl7.fhir.Period/start (LocalDate/of 2019 6 1)
-                                                       :org.hl7.fhir.Period/end   (LocalDate/of 2021 1 1)}}])))
+   {:t_patient/id 1} [{:t_address/id       64 :t_address/address1 "11 Station Road" :t_address/address2 ""
+                       :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from (LocalDate/of 2019 6 1) :t_address/date_to (LocalDate/of 2021 1 1)}
+                      {:t_address/id       57 :t_address/address1 "10 Station Road" :t_address/address2 ""
+                       :t_address/address3 "Cardiff" :t_address/address4 "" :t_address/postcode_raw "CF14 4XW" :t_address/date_from (LocalDate/of 2018 6 1) :t_address/date_to (LocalDate/of 2021 1 1)}]
+   (assoc (first pts) :org.hl7.fhir.Patient/address
+          [{:org.hl7.fhir.Address/line   ["10 Station Road"] :org.hl7.fhir.Address/postalCode "CF14 4XW"
+            :org.hl7.fhir.Address/city   "" :org.hl7.fhir.Address/district "Cardiff" :org.hl7.fhir.Address/country ""
+            :org.hl7.fhir.Address/period {:org.hl7.fhir.Period/start (LocalDate/of 2019 6 1)
+                                          :org.hl7.fhir.Period/end   (LocalDate/of 2021 1 1)}}])))
 
 
