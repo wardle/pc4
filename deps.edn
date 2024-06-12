@@ -2,7 +2,7 @@
  ["src/clj" "src/cljs" "resources"]
 
  :deps
- {org.clojure/clojure                  {:mvn/version "1.12.0-alpha9"}
+ {org.clojure/clojure                  {:mvn/version "1.12.0-alpha12"}
   org.clojure/core.async               {:mvn/version "1.6.681"}
   org.clojure/data.csv                 {:mvn/version "1.1.0"}
   org.clojure/data.xml                 {:mvn/version "0.2.0-alpha9"}
@@ -22,7 +22,7 @@
   com.eldrix/concierge                 {:mvn/version "1.0.189"}
   com.eldrix/deprivare                 {:mvn/version "2.0.76"}
   com.eldrix/dmd                       {:mvn/version "1.0.202"}
-  com.eldrix/hermes                    {:mvn/version "1.4.1368"}
+  com.eldrix/hermes                    {:mvn/version "1.4.1400"}
   com.eldrix/zipf                      {:mvn/version "0.1.8"}
 
   aero/aero                            {:mvn/version "1.1.6"}
@@ -30,26 +30,26 @@
   buddy/buddy-sign                     {:mvn/version "3.5.351"}
   com.draines/postal                   {:mvn/version "2.0.5"}
   com.github.seancorfield/honeysql     {:mvn/version "2.6.1126"}
-  com.github.seancorfield/next.jdbc    {:mvn/version "1.3.925"}
+  com.github.seancorfield/next.jdbc    {:mvn/version "1.3.939"}
   ;com.wsscode/pathom3                  {:mvn/version "2023.08.22-alpha"}
   com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
                                         :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}
   com.zaxxer/HikariCP                  {:mvn/version "5.1.0"}
-  io.pedestal/pedestal.service         {:mvn/version "0.6.3"}
-  io.pedestal/pedestal.jetty           {:mvn/version "0.6.3"}
+  io.pedestal/pedestal.service         {:mvn/version "0.6.4"}
+  io.pedestal/pedestal.jetty           {:mvn/version "0.6.4"}
 
-  com.fulcrologic/fulcro               {:mvn/version "3.7.3"}
-  com.fulcrologic/guardrails           {:mvn/version "1.2.5"}
+  com.fulcrologic/fulcro               {:mvn/version "3.7.5"}
+  com.fulcrologic/guardrails           {:mvn/version "1.2.9"}
 
   expound/expound                      {:mvn/version "0.9.0"}
-  integrant/integrant                  {:mvn/version "0.8.1"}
+  integrant/integrant                  {:mvn/version "0.10.0"}
   lambdaisland/uri                     {:mvn/version "1.19.155"}
   migratus/migratus                    {:mvn/version "1.5.6"}
   org.jsoup/jsoup                      {:mvn/version "1.17.2"}
   org.postgresql/postgresql            {:mvn/version "42.7.3"}
   rum/rum                              {:mvn/version "0.12.11"}
-  software.amazon.awssdk/s3            {:mvn/version "2.25.18"}
-  software.amazon.awssdk/apache-client {:mvn/version "2.25.18"}
+  software.amazon.awssdk/s3            {:mvn/version "2.25.70"}
+  software.amazon.awssdk/apache-client {:mvn/version "2.25.70"}
   com.taoensso/timbre                  {:mvn/version "6.5.0"}}
 
  :mvn/repos
@@ -57,23 +57,23 @@
   "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
  :aliases
- {:build         {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.0" :git/sha "3a2c484"}
+ {:build         {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.4" :git/sha "31388ff"}
                                slipset/deps-deploy           {:mvn/version "RELEASE"}}
                   :ns-default build}
 
-  :run           {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
+  :run           {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.6"}}
                   :main-opts  ["-m" "com.eldrix.pc4.core"]}
 
   :server        {:exec-fn    com.eldrix.pc4.core/run
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.6"}}
                   :jvm-opts   ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
 
-  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
+  :migrate       {:extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.6"}}
                   :exec-fn    com.eldrix.pc4.core/migrate}
 
   :repl-server   {:exec-fn    clojure.core.server/start-server
-                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.3"}}
+                  :extra-deps {ch.qos.logback/logback-classic {:mvn/version "1.5.6"}}
                   :exec-args  {:name          "repl-server"
                                :port          5555
                                :accept        clojure.core.server/repl
@@ -83,22 +83,22 @@
                   :extra-deps  {org.clojure/clojurescript                {:mvn/version "1.11.132"}
                                 bidi/bidi                                {:mvn/version "2.1.6"}
                                 binaryage/devtools                       {:mvn/version "1.0.7"}
-                                ch.qos.logback/logback-classic           {:mvn/version "1.5.3"}
+                                ch.qos.logback/logback-classic           {:mvn/version "1.5.6"}
                                 clj-commons/pushy                        {:mvn/version "0.3.10"}
                                 com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
+                                com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.2"}
                                 fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                                 integrant/repl                           {:mvn/version "0.3.3"}
                                 org.clojure/test.check                   {:mvn/version "1.1.1"}
-                                thheller/shadow-cljs                     {:mvn/version "2.28.2"}}
+                                thheller/shadow-cljs                     {:mvn/version "2.28.9"}}
                   :jvm-opts    ["--add-opens" "java.base/java.nio=ALL-UNNAMED"
                                 "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"]}
-  :nrepl         {:extra-deps {nrepl/nrepl       {:mvn/version "1.1.1"}
-                               cider/cider-nrepl {:mvn/version "0.47.1"}}
+  :nrepl         {:extra-deps {nrepl/nrepl       {:mvn/version "1.2.0"}
+                               cider/cider-nrepl {:mvn/version "0.49.0"}}
                   :main-opts  ["--main" "nrepl.cmdline"
                                "--middleware" "[cider.nrepl/cider-middleware]"
                                "--interactive"]}
-  :portal        {:extra-deps {djblue/portal {:mvn/version "0.53.0"}}}
+  :portal        {:extra-deps {djblue/portal {:mvn/version "0.56.0"}}}
 
   :morse         {:extra-deps {io.github.nubank/morse {:git/tag "v2023.10.06.02" :git/sha "88b5ff7"}}}
 
@@ -117,7 +117,7 @@
 
   :check         {:extra-deps {athos/clj-check
                                {:git/url "https://github.com/athos/clj-check.git"
-                                :sha     "518d5a1cbfcd7c952f548e6dbfcb9a4a5faf9062"}}
+                                :sha     "d997df866b2a04b7ce7b17533093ee0a2e2cb729"}}
                   :main-opts  ["-m" "clj-check.check" "src"]}
 
   :lint/kondo    {:extra-deps {clj-kondo/clj-kondo {:mvn/version "RELEASE"}}
