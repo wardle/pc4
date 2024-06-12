@@ -292,7 +292,7 @@
                   {:org.hl7.fhir.Patient/name [:org.hl7.fhir.HumanName/family
                                                :org.hl7.fhir.HumanName/given
                                                :org.hl7.fhir.HumanName/prefix]}
-                  :org.hl7.fhir.Patient/dateBirth
+                  :org.hl7.fhir.Patient/birthDate
                   {:org.hl7.fhir.Patient/deceased [:deceasedBoolean :deceasedDateTime]}
                   :org.hl7.fhir.Patient/gender
                   {:org.hl7.fhir.Patient/telecom [:org.hl7.fhir.ContactPoint/system
