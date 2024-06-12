@@ -174,14 +174,14 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn ^:private matching-patients-by-identifiers
+(defn exact-match-by-identifier
   "Returns a set of patient primary keys for patients that match the given
   patient `fhir-patient`."
   [conn fhir-patient]
   (when-let [sql (match-patient-identifiers-sql fhir-patient)]
     (into #{} (map :id) (jdbc/plan conn (sql/format sql)))))
 
-(defn ^:private exact-match-on-demography
+(defn exact-match-on-demography
   "Returns a set of patient primary keys for patients that match the names, date
   of birth and address of the given patient `fhir-patient`."
   [conn fhir-patient]
