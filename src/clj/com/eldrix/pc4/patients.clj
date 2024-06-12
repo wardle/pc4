@@ -1,14 +1,14 @@
 (ns com.eldrix.pc4.patients
   (:require
-    [clojure.tools.logging.readable :as log]
-    [com.eldrix.concierge.wales.cav-pms :as cavpms]
-    [com.eldrix.concierge.wales.empi :as empi]
-    [com.eldrix.nhsnumber :as nnn]
-    [com.eldrix.pc4.dates :as dates]
-    [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
-    [com.wsscode.pathom3.connect.operation :as pco]
-    [com.wsscode.pathom3.connect.indexes :as pci]
-    [clojure.string :as str])
+   [clojure.tools.logging.readable :as log]
+   [com.eldrix.concierge.wales.cav-pms :as cavpms]
+   [com.eldrix.concierge.wales.empi :as empi]
+   [com.eldrix.nhsnumber :as nnn]
+   [com.eldrix.pc4.dates :as dates]
+   [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
+   [com.wsscode.pathom3.connect.operation :as pco]
+   [com.wsscode.pathom3.connect.indexes :as pci]
+   [clojure.string :as str])
   (:import (java.time LocalDate)))
 
 (defn date-in-range?
@@ -61,7 +61,7 @@
 
 (defn add-namespace-cav-patient [pt]
   (when pt (assoc (record->map "wales.nhs.cavuhb.Patient" pt)
-             :wales.nhs.cavuhb.Patient/ADDRESSES (map #(record->map "wales.nhs.cavuhb.Address" %) (:ADDRESSES pt)))))
+                  :wales.nhs.cavuhb.Patient/ADDRESSES (map #(record->map "wales.nhs.cavuhb.Address" %) (:ADDRESSES pt)))))
 
 (pco/defmutation fetch-cav-patient
   "Fetch patient details from the Cardiff and Vale PAS.
@@ -132,7 +132,6 @@
           (mapv #(hash-map :wales.nhs.cavuhb.Admission/DATE_FROM (:DATE_ADM %)
                            :wales.nhs.cavuhb.Admission/DATE_TO (:DATE_DISCH %))))}))
 
-
 (pco/defresolver resolve-cav-patient-first-names
   [{:wales.nhs.cavuhb.Patient/keys [FIRST_FORENAME SECOND_FORENAME OTHER_FORENAMES]}]
   {::pco/input  [:wales.nhs.cavuhb.Patient/FIRST_FORENAME
@@ -150,9 +149,9 @@
   {:org.hl7.fhir.Patient/identifier
    (cond-> [{:org.hl7.fhir.Identifier/system :wales.nhs.cavuhb.id/pas-identifier
              :org.hl7.fhir.Identifier/value  HOSPITAL_ID}]
-           (not (str/blank? NHS_NUMBER))
-           (conj {:org.hl7.fhir.Identifier/system :uk.nhs.id/nhs-number
-                  :org.hl7.fhir.Identifier/value  NHS_NUMBER}))})
+     (not (str/blank? NHS_NUMBER))
+     (conj {:org.hl7.fhir.Identifier/system :uk.nhs.id/nhs-number
+            :org.hl7.fhir.Identifier/value  NHS_NUMBER}))})
 
 (pco/defresolver cav->fhir-names
   [{:wales.nhs.cavuhb.Patient/keys [TITLE FIRST_NAMES LAST_NAME]}]
@@ -169,8 +168,8 @@
   {::pco/output [:org.hl7.fhir.Patient/gender]}
   {:org.hl7.fhir.Patient/gender
    (case SEX "M" :org.hl7.fhir.administrative-gender/male
-             "F" :org.hl7.fhir.administrative-gender/female
-             :org.hl7.fhir.administrative-gender/unknown)})
+         "F" :org.hl7.fhir.administrative-gender/female
+         :org.hl7.fhir.administrative-gender/unknown)})
 
 (pco/defresolver cav->fhir-deceased
   [{DATE_DEATH :wales.nhs.cavuhb.Patient/DATE_DEATH}]
@@ -280,7 +279,6 @@
         FIRST_NAMES
         (when-not (str/blank? TITLE) (str " (" TITLE ")")))})
 
-
 (pco/defmutation fetch-empi-patients
   "Fetch patient details from the NHS Wales' enterprise master patient index.
   As the concierge service provides eMPI data as a FHIR representation natively,
@@ -348,7 +346,7 @@
 
   (require '[com.wsscode.pathom3.interface.eql :as p.eql])
   (p.eql/process env [{'(wales.nhs.cavuhb/fetch-patient
-                          {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
+                         {:system "http://fhir.cavuhb.nhs.wales/Id/pas-identifier" :value "A999998"})
                        [:wales.nhs.cavuhb.Patient/LAST_NAME
                         :wales.nhs.cavuhb.Patient/ADDRESSES
                         :wales.nhs.cavuhb.Patient/HOSPITAL_ID
