@@ -313,7 +313,6 @@
     (jdbc/with-transaction [txn conn {:rollback-only rollback}]
       (doseq [{:keys [nhs_no diagnosis] :as row} rows]
         (if-let [patient-pk (sb->single-exact-matched-patient conn row)]
-          (let [diagnoses (patients/dia)])
           (println "Unable to update diagnosis for patient" nhs_no ": no exact match found"))))))
 
 (comment
