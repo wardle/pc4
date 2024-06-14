@@ -27,11 +27,10 @@
            (java.time.format DateTimeFormatter)
            (org.apache.commons.codec.digest DigestUtils)))
 
-
 (s/def ::date-birth
   (s/with-gen #(instance? LocalDate %)
-              #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
-                         (s/gen (s/int-in 0 (* 365 100))))))
+    #(gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
+               (s/gen (s/int-in 0 (* 365 100))))))
 
 (s/def ::nhs-number #(nhs-number/valid? (nhs-number/normalise %)))
 (s/def ::salt string?)
@@ -43,7 +42,6 @@
 (s/def ::pseudonym string?)
 (s/def ::group-by #{:none :user})
 (s/def ::active? boolean?)
-
 
 (defn role-active?
   "Determine the status of the role as of now, or on the specified date."
@@ -60,14 +58,14 @@
   being listed more than once if they have more than one 'role'."
   [conn project-id]
   (db/execute! conn (sql/format
-                      {:select    [:t_user/id :role :date_from :date_to :title
-                                   :first_names :last_name :email :username
-                                   :t_job_title/name :custom_job_title]
-                       :from      [:t_project_user]
-                       :left-join [:t_user [:= :user_fk :t_user/id]
-                                   :t_job_title [:= :job_title_fk :t_job_title/id]]
-                       :where     [:= :project_fk project-id]
-                       :order-by  [:last_name :first_names]})))
+                     {:select    [:t_user/id :role :date_from :date_to :title
+                                  :first_names :last_name :email :username
+                                  :t_job_title/name :custom_job_title]
+                      :from      [:t_project_user]
+                      :left-join [:t_user [:= :user_fk :t_user/id]
+                                  :t_job_title [:= :job_title_fk :t_job_title/id]]
+                      :where     [:= :project_fk project-id]
+                      :order-by  [:last_name :first_names]})))
 
 (s/fdef fetch-users
   :args (s/cat :conn ::db/conn :project-id ::project-id :params (s/? (s/keys :opt-un [::group-by ::active?]))))
@@ -101,12 +99,11 @@
                                                     (update :t_user/active? #(or % ractive)) ;; a user is active if any of their roles for this project are active
                                                     (dissoc :t_project_user/date_from :t_project_user/date_to :t_project_user/role :t_project_user/active?)
                                                     (assoc :t_user/roles roles))))) {} users))
-                (true? active) (filter :t_user/active?)
-                (false? active) (remove :t_user/active?))
+         (true? active) (filter :t_user/active?)
+         (false? active) (remove :t_user/active?))
        (cond->> users
-                (true? active) (filter :t_project_user/active?)
-                (false? active) (remove :t_project_user/active?))))))
-
+         (true? active) (filter :t_project_user/active?)
+         (false? active) (remove :t_project_user/active?))))))
 
 (def consented-patients-sql
   "SQL returning patient identifiers for those who have consented using the
@@ -137,7 +134,6 @@
   (into #{} (map :t_patient/patient_identifier)
         (jdbc/plan conn (sql/format consented-patients-sql {:params {:consent-form-ids consent-form-ids
                                                                      :response         response}}))))
-
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
@@ -218,7 +214,6 @@
 (defn project-with-name [conn nm]
   (db/execute-one! conn (sql/format {:select :* :from :t_project
                                      :where  [:= :t_project/name nm]})))
-
 
 (defn count-registered-patients
   ([conn project-ids] (count-registered-patients conn project-ids (LocalDate/now)))
@@ -310,7 +305,6 @@
   [& identifiers]
   (DigestUtils/sha256Hex ^String (apply str identifiers)))
 
-
 (s/fdef calculate-project-pseudonym
   :args (s/cat :project-name string? :identifier string? :date-birth ::date-birth))
 (defn ^:deprecated calculate-project-pseudonym
@@ -367,15 +361,15 @@
   [conn project-id pseudonym]
   (when (>= (count pseudonym) 3)
     (let [results (jdbc/execute!
-                    conn
-                    (sql/format {:select    (into fetch-pseudonym-patient-properties [:t_episode/stored_pseudonym :t_episode/project_fk])
-                                 :from      :t_episode
-                                 :left-join [:t_project [:= :project_fk :t_project/id]
-                                             :t_patient [:= :patient_fk :t_patient/id]]
-                                 :where     [:and
-                                             [:= :t_project/id project-id]
-                                             [:like :stored_pseudonym (str pseudonym "%")]]
-                                 :limit     2}))]
+                   conn
+                   (sql/format {:select    (into fetch-pseudonym-patient-properties [:t_episode/stored_pseudonym :t_episode/project_fk])
+                                :from      :t_episode
+                                :left-join [:t_project [:= :project_fk :t_project/id]
+                                            :t_patient [:= :patient_fk :t_patient/id]]
+                                :where     [:and
+                                            [:= :t_project/id project-id]
+                                            [:like :stored_pseudonym (str pseudonym "%")]]
+                                :limit     2}))]
       (when (= 1 (count results))
         (db/parse-entity (first results))))))
 
@@ -412,7 +406,6 @@
                  :else
                  (throw (ex-info "missing :t_patient/id and :t_patient/patient_identifier" patient)))))
 
-
 (defn ^:deprecated legacy-pseudonyms
   "Returns legacy pseudonyms for a given patient
   - salt          : global salt
@@ -437,7 +430,6 @@
       (when-let [by-nnn (fetch-by-nhs-number conn nhs-number)]
         (throw (ex-info "NHS number match but other details do not"
                         {:params params, :existing by-nnn})))))
-
 
 (s/fdef find-legacy-pseudonymous-patient
   :args (s/cat :conn ::db/conn
@@ -542,9 +534,9 @@
   (let [{patient-id :nextval} (jdbc/execute-one! txn ["select nextval('t_patient_seq')"])
         {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
         patient' (assoc patient
-                   :t_patient/id patient-id
-                   :t_patient/patient_identifier patient-id
-                   :t_patient/family_fk family-id)]
+                        :t_patient/id patient-id
+                        :t_patient/patient_identifier patient-id
+                        :t_patient/family_fk family-id)]
     (jdbc/execute-one! txn (sql/format {:insert-into [:t_family]
                                         :values      [{:t_family/family_identifier (str family-id)
                                                        :t_family/id                family-id}]}))
@@ -580,6 +572,11 @@
       existing
       (create-episode! txn episode'))))
 
+(defn update-episode!
+  [conn {:t_episode/keys [id] :as episode}]
+  (jdbc/execute! conn (sql/format {:update :t_episode
+                                   :set    episode
+                                   :where  [:= :id id]})))
 
 (s/fdef register-patient-project!
   :args (s/cat :txn ::db/repeatable-read-txn
@@ -704,8 +701,8 @@
         (let [episode (register-patient-project! txn project-id user-id patient :pseudonym (:project-pseudonym existing))]
           (log/info "created episode for patient" episode))
         (assoc patient
-          :t_episode/project_fk project-id
-          :t_episode/stored_pseudonym (:project-pseudonym existing))))))
+               :t_episode/project_fk project-id
+               :t_episode/stored_pseudonym (:project-pseudonym existing))))))
 
 (s/fdef update-legacy-pseudonymous-patient!
   :args (s/cat :txn ::db/repeatable-read-txn, :salt ::salt, :patient-pk int?
@@ -735,7 +732,6 @@
                                  {:stored_pseudonym (:project-pseudonym updated)}
                                  {:patient_fk patient-pk
                                   :project_fk project-id}))))))
-
 
 (defn make-slug
   [s]
@@ -799,17 +795,16 @@
   (register-patient-project! conn 18 2 {:t_patient/id 14031})
   (register-episode! conn 1 {:t_episode/id 46538})
 
-
   (jdbc/execute!
-    conn
-    (sql/format
-      {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
-                   :t_job_title/name :custom_job_title]
-       :from      [:t_project_user]
-       :left-join [:t_user [:= :user_fk :t_user/id]
-                   :t_job_title [:= :job_title_fk :t_job_title/id]]
-       :where     [:= :project_fk 1]
-       :order-by  [:last_name :first_names]}))
+   conn
+   (sql/format
+    {:select    [:t_user/id :role :date_from :date_to :title :first_names :last_name :email :username
+                 :t_job_title/name :custom_job_title]
+     :from      [:t_project_user]
+     :left-join [:t_user [:= :user_fk :t_user/id]
+                 :t_job_title [:= :job_title_fk :t_job_title/id]]
+     :where     [:= :project_fk 1]
+     :order-by  [:last_name :first_names]}))
 
   (fetch-project-sql 1)
   (jdbc/execute! conn (fetch-project-sql 2)))
