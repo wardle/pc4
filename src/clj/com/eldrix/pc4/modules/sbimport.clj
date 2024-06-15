@@ -23,6 +23,7 @@
    [com.eldrix.concierge.wales.empi :as empi]
    [com.eldrix.pc4.rsdb.demographics :as demog]
    [com.eldrix.pc4.rsdb.projects :as projects]
+   [honey.sql :as sql]
    [next.jdbc :as jdbc]
    [next.jdbc.sql]
    [com.eldrix.pc4.rsdb.patients :as patients]
@@ -196,15 +197,16 @@
                                                  :title        ""
                                                  :date_created (LocalDateTime/now)
                                                  :authoritative_demographics "EMPI"})
-          patient' (demog/update-patient txn empi-svc patient)]
-      (when-not patient'
-        (throw (ex-info "Unable to create new patient!" row)))
-      (assoc row
-             :created_patient-pk  (:t_patient/id patient')
-             :created_patient_id  (:t_patient/patient_identifier patient')
-             :created_last_name   (:t_patient/last_name patient')
-             :created_first_names (:t_patient/first_names patient')
-             :created_dob         (:t_patient/date_birth patient')))
+          update-patient-sql (or (demog/update-patient txn empi-svc patient) (throw (ex-info "Unable to create new patient!" row)))]
+      (doseq [stmt update-patient-sql]
+        (jdbc/execute! txn stmt))
+      (let [patient' (patients/fetch-patient txn {:t_patient/id (:t_patient/id patient)})]
+        (assoc row
+               :created_patient-pk  (:t_patient/id patient')
+               :created_patient_id  (:t_patient/patient_identifier patient')
+               :created_last_name   (:t_patient/last_name patient')
+               :created_first_names (:t_patient/first_names patient')
+               :created_dob         (:t_patient/date_birth patient'))))
     row))
 
 (comment
@@ -276,6 +278,24 @@
       0 nil
       1 patient-pk
       (throw (ex-info (str "multiple matches for patient" nhs_no) fhir-patient)))))
+
+(defn update-patients
+  [{:keys [profile f empi] :as params}]
+  (check-usage (s/keys :req-un [::profile ::f ::empi])
+               params
+               "Usage: clj -X:dev com.eldrix.pc4.modules/update-project-patients params")
+  (let [{conn :com.eldrix.rsdb/conn} (pc4/init profile [:com.eldrix.rsdb/conn])
+        rows (read-csv f)
+        empi-patients-by-nnn (edn/read-string {:default default-edn-tag-reader} (slurp empi))
+        empi-svc (fn [_authority {:org.hl7.fhir.Identifier/keys [value]}] (get empi-patients-by-nnn value))]
+    (doseq [{:keys [nhs_no] :as row} rows]
+      (try
+        (let [patient-pk (sb->single-exact-matched-patient conn row)
+              stmts (demog/update-patient conn empi-svc {:t_patient/id patient-pk})]
+          (doseq [stmt stmts]
+            (jdbc/with-transaction [txn conn]
+              (jdbc/execute! txn (sql/format stmt)))))
+        (catch Exception e (println "Failed to process " nhs_no (ex-message e)))))))
 
 ;;;
 ;;;
