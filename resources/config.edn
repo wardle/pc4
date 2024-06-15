@@ -108,7 +108,8 @@
  ;; service providing access to the NHS Wales enterprise master patient index (eMPI)
  :wales.nhs/empi
  #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
-                     :processing-id "P"}
+                     :processing-id "P"
+                     :timeout       5000}
            :default nil}
 
  ;; Aneurin Bevan's patient administration system (PAS)
@@ -152,7 +153,6 @@
                                [:user/email :extract-started]  "94f360c3-8c6b-43fc-abf9-9b57dc857b91"
                                [:user/email :extract-finished] "dbeb7930-42d8-4eb5-af09-46d2b19433cb"
                                [:user/sms :message/received]   "765ef309-74d0-43d8-80ea-1dbd9e92a3e8"}}
-
 
  :com.eldrix.pc4/fake-login-provider
  {:username "ma090906'"
