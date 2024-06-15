@@ -357,20 +357,37 @@
     (assoc row :diagnosis-concept-id concept-id)
     row))
 
+(defn has-diagnosis? [env patient-pk diagnosis-concept-id]
+  (boolean (seq (patients/diagnoses env patient-pk {:ecl (str "<<" diagnosis-concept-id)}))))
+
 (defn add-diagnoses
   [{:keys [profile f rollback] :or {rollback true} :as params}]
   (check-usage (s/keys :req-un [::profile ::f] :opt-un [::rollback]) params
                "Usage: clj -X:dev com.eldrix.pc4.modules/add-diagnoses :profile cvx :f '\"my-file.csv\"'")
   (println "Adding diagnoses for patients in" f "; rollback:" rollback)
-  (let [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes} (pc4/init profile [:com.eldrix.rsdb/conn :com.eldrix/hermes])
+  (let [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes :as system} (pc4/init profile [:com.eldrix.rsdb/conn :com.eldrix/hermes])
         rows (read-csv f)]
     (jdbc/with-transaction [txn conn {:rollback-only rollback}]
-      (doseq [{:keys [nhs_no diagnosis] :as row} rows]
+      (doseq [{:keys [nhs_no diagnosis date_of_diagnosis] :as row} rows]
         (if-let [patient-pk (sb->single-exact-matched-patient conn row)]
+          (when-let [diagnosis-concept-id (get sb-diagnoses diagnosis)]
+            (when-not (has-diagnosis? system patient-pk diagnosis-concept-id)
+              (println (patients/create-diagnosis! conn
+                                                   {:t_patient/id patient-pk}
+                                                   {:t_diagnosis/concept_fk diagnosis-concept-id
+                                                    :t_diagnosis/date_diagnosis (parse-sb-date date_of_diagnosis)
+                                                    :t_diagnosis/status :ACTIVE
+                                                    :t_diagnosis/full_description (str "Imported from legacy SBUHB data:" diagnosis)}))))
           (println "Unable to update diagnosis for patient" nhs_no ": no exact match found"))))))
 
 (comment
   (require '[integrant.repl.state :as state])
+  (def system (pc4/init :dev [:com.eldrix/hermes :com.eldrix.rsdb/conn]))
+  (keys system)
+  (patients/diagnoses system 14032)
+  (patients/diagnoses system 14032 {:ecl "<<24700007"})
+  (patients/diagnoses system 14032 {:ecl "<<31384009"})
+  (has-diagnosis? system 14032 1384009)
   (def system integrant.repl.state/system)
   (def empi-config (:wales.nhs/empi system))
   clojure.core/default-data-readers
@@ -382,7 +399,7 @@
   #_(edn/read)
 
   (keys system)
-  (def data (read-csv "/Users/mark/Desktop/swansea-ms.csv"))
+  (def data (read-csv "/Users/mark/Desktop/sbuhb/swansea-ms-data.csv"))
 
   (def fhir-data (map sb->fhir-patient data))
   (take 5 fhir-data)
@@ -390,6 +407,7 @@
 
   (sort (keys (first data)))
   (take 20 (map :nhs_no data))
+  (keys (first data))
   (take 3 data)
-
+  (take 50 (remove nil? (map :date_of_diagnosis data)))
   (into #{} (map :ms_register data)))
