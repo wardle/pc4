@@ -369,8 +369,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def ^:private patient-to-update-spec
-  (s/keys :req [:t_patient/id :t_patient/authoritative_demographics
-                :t_patient/nhs_number :t_patient/patient_hospitals]))
+  (s/keys :req [:t_patient/id :t_patient/authoritative_demographics :t_patient/nhs_number]
+          :opt [:t_patient/patient_hospitals]))
 
 (defn ^:private update-patient-from-external-sql*
   "Return a sequence of SQL statements (as Clojure data) to update patient data
