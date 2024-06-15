@@ -309,7 +309,18 @@
    "ADEM"    83942000
    "NMO"     25044007
    "MS"      24700007
-   "NOT MS"  nil})
+   "NOT MS"  nil
+   "NMO - antibody negative" 25044007
+   "MOGAD" 1237194006
+   "NMO - antibody negitive" 25044007
+   "MS " 24700007
+   "Radiologically isolated syndrome" 16415361000119105
+   "CNS angitis" 427020007
+   "ms" 24700007
+   "Radiologically Isolated Syndrome" 16415361000119105
+   "Neurosarcoid" 230193008
+   "NMO - aquaporin 4 positive" 25044007
+   "Myelopathy" 48522003})
 
 (defn parse-ms-register-id
   "Return an MS Register id."
@@ -372,7 +383,7 @@
         (if-let [patient-pk (sb->single-exact-matched-patient conn row)]
           (when-let [diagnosis-concept-id (get sb-diagnoses diagnosis)]
             (when-not (has-diagnosis? system patient-pk diagnosis-concept-id)
-              (println (patients/create-diagnosis! conn
+              (println (patients/create-diagnosis! txn
                                                    {:t_patient/id patient-pk}
                                                    {:t_diagnosis/concept_fk diagnosis-concept-id
                                                     :t_diagnosis/date_diagnosis (parse-sb-date date_of_diagnosis)
@@ -409,5 +420,6 @@
   (take 20 (map :nhs_no data))
   (keys (first data))
   (take 3 data)
+
   (take 50 (remove nil? (map :date_of_diagnosis data)))
   (into #{} (map :ms_register data)))
