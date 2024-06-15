@@ -26,9 +26,11 @@
    [next.jdbc :as jdbc]
    [next.jdbc.sql]
    [com.eldrix.pc4.rsdb.patients :as patients]
-   [com.eldrix.pc4.system :as pc4])
+   [com.eldrix.pc4.system :as pc4]
+   [clojure.spec.test.alpha :as stest])
   (:import
-   (java.time LocalDate LocalDateTime)))
+   (java.time LocalDate LocalDateTime)
+   (java.time.format DateTimeParseException)))
 
 (def sbuhb-neuroinflamm-project-id 88)
 (def sbuhb-ms-register-project-id 121)
@@ -74,7 +76,7 @@
           (first results))))))
 
 (defn check-usage [spec params & ss]
-  (when-not (s/valid? spec params)
+  (when-not (s/valid? spec (or params {}))
     (println
      (str/join \newline
                (into ["ERROR: invalid parameters"
@@ -119,7 +121,10 @@
 
 (defn parse-sb-date [s]
   (when-not (str/blank? s)
-    (LocalDate/parse s (java.time.format.DateTimeFormatter/ofPattern "dd/MM/yyyy"))))
+    (try
+      (LocalDate/parse s (java.time.format.DateTimeFormatter/ofPattern "dd/MM/yyyy"))
+      (catch DateTimeParseException e
+        (println "WARNING: failed to parse date " s)))))
 
 (defn sb->fhir-patient
   [{family :name, :keys [nhs_no gender first_name dob email_address]}]
@@ -202,6 +207,28 @@
              :created_dob         (:t_patient/date_birth patient')))
     row))
 
+(comment
+  (def  conn (jdbc/get-connection "jdbc:postgresql:rsdb"))
+  (clojure.spec.test.alpha/instrument)
+  (def empi-patients-by-nnn (clojure.edn/read-string {:default default-edn-tag-reader} (slurp "/Users/mark/Desktop/sbuhb/registry.edn")))
+  (def empi-svc (fn [_authority {:org.hl7.fhir.Identifier/keys [value]}] (get empi-patients-by-nnn value)))
+  (def pt (projects/create-patient! conn {:nhs_number  "7244486596"
+                                          :first_names  ""
+                                          :last_name    ""
+                                          :title        ""
+                                          :authoritative_demographics "EMPI"
+                                          :date_created (LocalDateTime/now)}))
+
+  (empi-svc nil "7244486596")
+  (demog/update-patient conn empi-svc pt))
+
+(defn default-edn-tag-reader
+  [tag [clazz _ object-string]]
+  (case clazz
+    java.time.LocalDateTime (LocalDateTime/parse object-string)
+    java.time.LocalDate     (LocalDate/parse object-string)
+    (throw (ex-info (str "Unsupported edn tag " clazz) {:tag tag :class clazz :value object-string}))))
+
 ;;
 ;;
 ;;
@@ -215,18 +242,25 @@
   [{:keys [profile f out empi execute rollback] :or {execute false, rollback true} :as params}]
   (check-usage (s/keys :req-un [::profile ::f ::out ::empi] :opt-un [::execute ::rollback])
                params
-               "Usage: clj -X:dev com.eldrix.pc4.modules/create-patients :profile cvx :f '\"my-file.csv\"' :empi '\"registry.edn\"' :out '\"output.csv\"'")
+               "Usage: clj -X:dev com.eldrix.pc4.modules/create-patients :profile cvx :f '\"my-file.csv\"' :empi '\"registry.edn\"' :out '\"output.csv\"'"
+               ""
+               "Parameters:"
+               "- :profile  : keyword for pc4 profile, e.g. :dev e.g. :cvx"
+               "- :f        : string - path to SB csv"
+               "- :empi     : string - path to empi registry edn file"
+               "- :execute  : boolean - whether to execute SQL, default false"
+               "- :rollback : boolean - whether to rollback execution, default true")
   (let [{conn :com.eldrix.rsdb/conn} (pc4/init profile [:com.eldrix.rsdb/conn])
         rows (read-csv f)
-        empi-patients-by-nnn (clojure.edn/read-string (slurp empi))
-        empi-svc (fn [_system value] (get empi-patients-by-nnn value))
+        empi-patients-by-nnn (clojure.edn/read-string {:default default-edn-tag-reader} (slurp empi))
+        empi-svc (fn [_authority {:org.hl7.fhir.Identifier/keys [value]}] (get empi-patients-by-nnn value))
         results (map #(create-patient* conn empi-patients-by-nnn %) rows)]
     (if-not execute
       (do (println "Writing file " out)
           (write-csv out columns (map :row results)))
       (do (println "Registering patients; rollback: " rollback)
           (jdbc/with-transaction [txn conn {:rollback-only rollback}]
-            (write-csv out columns (map #(create-patient* txn empi-svc %) (map :row results))))))))
+            (write-csv out columns (map #(create-patient! txn empi-svc %) (map :row results))))))))
 
 ;;;;;
 ;;;;;
@@ -319,13 +353,17 @@
   (require '[integrant.repl.state :as state])
   (def system integrant.repl.state/system)
   (def empi-config (:wales.nhs/empi system))
+  clojure.core/default-data-readers
+  (def fake-fhir-patient (empi/resolve-fake "https://fhir.nhs.uk/Id/nhs-number" "1234567890"))
+  (with-open [w (io/writer "flibble.edn")]
+    (binding [*out* w]
+      (pr fake-fhir-patient)))
+  (= fake-fhir-patient (edn/read-string {:default default-edn-tag-reader} (slurp "flibble.edn")))
+  #_(edn/read)
+
   (keys system)
   (def data (read-csv "/Users/mark/Desktop/swansea-ms.csv"))
-  (def data2 (->> data
-                  (map #(process-row {:conn conn :empi-config nil} %))
-                  (filter :existing-pt)
-                  (map :row)))
-  (take 4 data2)
+
   (def fhir-data (map sb->fhir-patient data))
   (take 5 fhir-data)
   (def conn (jdbc/get-connection "jdbc:postgresql:rsdb"))
@@ -334,5 +372,4 @@
   (take 20 (map :nhs_no data))
   (take 3 data)
 
-  (into #{} (map :ms_register data))
-  (take 5 (map #(process-row {:conn conn} %) data)))
+  (into #{} (map :ms_register data)))
