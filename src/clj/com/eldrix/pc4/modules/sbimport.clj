@@ -382,12 +382,14 @@
       (if-let [patient-pk (sb->single-exact-matched-patient conn row)]
         (when-let [diagnosis-concept-id (get sb-diagnoses diagnosis)]
           (when-not (has-diagnosis? system patient-pk diagnosis-concept-id)
-            (println (patients/create-diagnosis! conn
-                                                 {:t_patient/id patient-pk}
-                                                 {:t_diagnosis/concept_fk diagnosis-concept-id
-                                                  :t_diagnosis/date_diagnosis (parse-sb-date date_of_diagnosis)
-                                                  :t_diagnosis/status :ACTIVE
-                                                  :t_diagnosis/full_description (str "Imported from legacy SBUHB data:" diagnosis)}))))
+            (try
+              (println (patients/create-diagnosis! conn
+                                                   {:t_patient/id patient-pk}
+                                                   {:t_diagnosis/concept_fk diagnosis-concept-id
+                                                    :t_diagnosis/date_diagnosis (parse-sb-date date_of_diagnosis)
+                                                    :t_diagnosis/status :ACTIVE
+                                                    :t_diagnosis/full_description (str "Imported from legacy SBUHB data:" diagnosis)}))
+              (catch Exception e (println "Failed to add diagnosis" (ex-message e))))))
         (println "Unable to update diagnosis for patient" nhs_no ": no exact match found")))))
 
 (comment
