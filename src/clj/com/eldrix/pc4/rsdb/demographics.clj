@@ -256,7 +256,7 @@
         nhs-number (:org.hl7.fhir.Identifier/value (first (filter #(= "https://fhir.nhs.uk/Id/nhs-number" (:org.hl7.fhir.Identifier/system %)) (:org.hl7.fhir.Patient/identifier fhir-patient))))
         email (:org.hl7.fhir.ContactPoint/value (first (filter #(= "email" (:org.hl7.fhir.ContactPoint/system %)) (:org.hl7.fhir.Patient/telecom fhir-patient))))
         surgery-id (first (fhir/gp-surgery-identifiers fhir-patient))
-        gp-id (first (fhir/general-practitioner-identifiers fhir-patient))
+        gp-id nil ;(first (fhir/general-practitioner-identifiers fhir-patient))
         set-map (cond-> {:sex                 (fhir-gender->rsdb-sex (:org.hl7.fhir.Patient/gender fhir-patient))
                          :date_birth          birth-date
                          :date_death          date-death
