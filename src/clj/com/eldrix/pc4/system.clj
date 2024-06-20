@@ -193,7 +193,6 @@
                                 {}
                                 children)
                   env          (assoc env :query-params query-params)]
-              (println "plugin: query params:" query-params)
               (process env ast))))})))
 
 (defmethod ig/init-key :pathom/boundary-interface [_ {:keys [env config]}]
