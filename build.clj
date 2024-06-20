@@ -11,6 +11,10 @@
 (def uber-basis (b/create-basis {:project "deps.edn" :aliases [:run]}))
 (def uber-file (format "target/%s-%s.jar" (name lib) version))
 
+(defn error [s]
+  (println "ERROR:" s)
+  (System/exit 1))
+
 (defn clean [_]
   (b/delete {:path "target"}))
 
@@ -42,26 +46,8 @@
               :version   version
               :jar-file  jar-file}))
 
-(defn cljs [{:keys [verbose] :or {verbose true}}]
-  (when verbose (println "Compiling cljs for production"))
-  (b/process {:command-args ["yarn" "shadow-cljs" "release" "main"]})
-  (let [manifest (edn/read-string (slurp "resources/public/js/compiled/manifest.edn"))
-        modules (map :output-name manifest)]
-    (b/copy-file {:src    (str "resources/public/js/compiled/manifest.edn")
-                  :target (str class-dir "/public/js/compiled/manifest.edn")})
-    (doseq [module modules]
-      (println "** Copying module" module)
-      (b/copy-file {:src    (str "resources/public/js/compiled/" module)
-                    :target (str class-dir "/public/js/compiled/" module)}))))
-
-(defn css [{:keys [verbose] :or {verbose true}}]
-  (when verbose (println "Generating CSS for production"))
-  (b/process {:command-args ["yarn" "tailwindcss" "-o" (str class-dir "/public/css/output.css") "--minify"]}))
-
 (defn uber [{:keys [out] :or {out uber-file}}]
-  (println "****************************************\n** Building uberjar: " out)
   (clean nil)
-  (println "****************************************\n** 1/4 Compiling clj")
   (b/compile-clj {:basis        uber-basis
                   :src-dirs     ["src/clj"]
                   :ns-compile   ['com.eldrix.pc4.core]
@@ -73,18 +59,26 @@
                 :target (str class-dir "/config.edn")})
   (b/copy-file {:src    (str "resources/logback.xml")
                 :target (str class-dir "/logback.xml")})
+  (b/copy-file {:src    (str "resources/public/css/output.css")
+                :target (str class-dir "/public/css/output.css")})
+  (b/copy-file {:src    (str "resources/public/js/compiled/manifest.edn")
+                :target (str class-dir "/public/js/compiled/manifest.edn")})
+  (let [manifest (edn/read-string (slurp "resources/public/js/compiled/manifest.edn"))
+        output-names (map :output-name manifest)] ;; get a list of all shadow cljs outputs
+    (if (pos-int? (count output-names))
+      (doseq [output-name output-names]
+        (b/copy-file {:src (str "resources/public/js/compiled/" output-name)
+                      :target (str class-dir "/public/js/compiled/" output-name)}))
+      (error "no shadow cljs outputs found")))
   (b/copy-dir {:src-dirs   ["resources/migrations"]
                :target-dir (str class-dir "/migrations")})
   (b/copy-dir {:src-dirs   ["src/clj"]
                :target-dir class-dir})
-  (println "****************************************\n** 2/4 Building CSS for production")
-  (css {:verbose false})
-  (println "****************************************\n** 3/4 Compiling cljs for production")
-  (cljs {:verbose false})
-  (println "****************************************\n** 4/4: Building uberjar")
   (b/uber {:class-dir class-dir
            :uber-file (str out)
            :basis     uber-basis
            :main      'com.eldrix.pc4.core
            :exclude   [#"(?i)^META-INF/license/.*"
                        #"^license/.*"]}))
+
+
