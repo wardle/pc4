@@ -25,10 +25,12 @@ Tasks that are currently my priority for this development cycle:
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
 * [ ] Allow users to add any form not already completed or available in the user interface
+* [ ] Allow patient search from top-level and simply open in context of intersection between user's default project and patient's projects
+* [ ] Allow quick switch between projects in top-level - e.g. setting user default and then when open a record either choose to register or choose to switch project context
 * [ ] Develop 'composite form' user interface when multiple forms are linked to an encounter and can be edited 'as one'.
 * [ ] Minimal form support for at least one clinical service 
 * [x] Pass through permissions and encounter locked status to forms so they are shown in read-only mode if required
-* [ ] Add rich text editor
+* [ ] Add rich text editor 
 * [ ] Edit 'notes' in encounter
 * [ ] Messaging between users
 * [ ] Encounter wizard, including clinic codes
