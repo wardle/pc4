@@ -37,6 +37,7 @@
   forms flattened within an encounter. For the few forms that permit multiple
   forms per encounter, they would be represented as a to-many property."
   (:require
+   [clojure.math :as math]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as str]
@@ -46,22 +47,29 @@
    [honey.sql :as sql]
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]
-   [clojure.math :as math])
+   [com.fulcrologic.fulcro.algorithms.tempid :as tempid])
   (:import
    (java.time LocalDateTime)))
 
-(s/def ::conn any?)
-(s/def ::form-type-id (s/nilable int?))
-(s/def ::table string?)
-(s/def ::nm string?)
-(s/def ::nspace keyword?)
-(s/def ::parse fn?)
-(s/def ::unparse fn?)
-(s/def ::summary fn?)
-(s/def ::spec some?)
-(s/def ::normalized-form-type
-  (s/keys :req-un [::form-type-id ::table ::nm ::nspace ::parse ::unparse ::summary]
-          :opt-un [::spec]))
+(comment
+  (ns-unmap *ns* 'summary)
+  (ns-unmap *ns* 'init-form-in-encounter))
+
+(defmulti summary
+  "Generate summary for the form."
+  (fn [{:form/keys [form_type]}]
+    (:form_type/nspace form_type)))
+
+(defmulti db->form
+  "Parse form data from the normalised raw values in the database"
+  (fn [{:form/keys [form_type]}] (:form_type/nspace form_type)))
+
+(defmulti form->db
+  "Unparse form data to raw values for the database."
+  (fn [{:form/keys [form_type]}] (:form_type/nspace form_type)))
+
+(defmulti init-form-in-encounter
+  (fn [_conn {:form/keys [form_type]}] (:form_type/nspace form_type)))
 
 (def edss-score->score
   {"SCORE0_0"          "0.0"
@@ -86,13 +94,92 @@
    "SCORE10_0"         "10.0"
    "SCORE_LESS_THAN_4" "<4"})
 
+(defmethod summary :form_edss
+  [{:form_edss/keys [score]}] score)
+
+(defmethod summary :form_ms_relapse
+  [{:form_ms_relapse/keys [in_relapse]}]
+  (if in_relapse "In relapse" "Not in relapse"))
+
+(defmethod summary :form_weight_height
+  [{:form_weight_height/keys [weight_kilogram height_metres]}]
+  (str/join
+   ", "
+   (remove nil?
+           [(when weight_kilogram (str (format "%.1f" weight_kilogram) "kg"))
+            (when height_metres (str (format "%.1f" height_metres) "m"))
+            (when (and weight_kilogram height_metres)
+              (str "BMI: "
+                   (format "%.1f" (/ weight_kilogram (math/pow height_metres 2)))
+                   "kg/m²"))])))
+
+(defmethod summary :default
+  [_]
+  "")
+
+(defmethod db->form :form_edss
+  [{:form_edss/keys [edss_score] :as form}]
+  (assoc form :form_edss/score (edss-score->score edss_score)))
+
+(defmethod form->db :form_edss
+  [form]
+  (dissoc form :form_edss/score))
+
+(defmethod db->form :form_ms_relapse
+  [form]
+  (-> form
+      (update :form_ms_relapse/in_relapse parse-boolean)
+      (update :form_ms_relapse/strict_validation parse-boolean)))
+
+(defmethod db->form :default
+  [form] form)
+
+(defmethod form->db :default
+  [form] form)
+
+(defmethod init-form-in-encounter :default
+  [_conn form] form)
+
+;;;
+;;;
+;;;
+;;;
+;;;
+
+(s/def ::conn any?)
+(s/def ::form-type-id (s/nilable int?))
+(s/def ::table string?)
+(s/def ::nm string?)
+(s/def ::nspace keyword?)
+(s/def ::spec some?)
+(s/def ::normalized-form-type
+  (s/keys :req-un [::form-type-id ::table ::nm ::nspace] :opt-un [::spec]))
+
 (s/def :form_edss/encounter_fk pos-int?)
 (s/def :form_edss/id (s/nilable pos-int?))
 (s/def :form_edss/edss_score (set (keys edss-score->score)))
 (s/def :form_edss/user_fk pos-int?)
 (s/def :form_edss/is_deleted boolean?)
-(s/def ::form_edss (s/keys :req [:form_edss/id :form_edss/encounter_fk
-                                 :form_edss/user_fk :form_edss/is_deleted :form_edss/edss_score]))
+(s/def ::form_edss
+  (s/keys :req [:form_edss/id
+                :form_edss/encounter_fk
+                :form_edss/user_fk
+                :form_edss/is_deleted
+                :form_edss/edss_score]))
+
+(s/def :form_weight_height/id (s/nilable pos-int?))
+(s/def :form_weight_height/encounter_fk pos-int?)
+(s/def :form_weight_height/user_fk pos-int?)
+(s/def :form_weight_height/is_deleted boolean?)
+(s/def :form_weight_height/height_metres (s/double-in :min 0.5 :max 2.8))
+(s/def :form_weight_height/weight_kilogram (s/double-in :min 5 :max 635))
+(s/def ::form_weight_height
+  (s/keys :req [:form_weight_height/id
+                :form_weight_height/encounter_fk
+                :form_weight_height/user_fk
+                :form_weight_height/is_deleted
+                :form_weight_height/weight_kilogram
+                :form_weight_height/height_metres]))
 
 (comment
   (ns-unalias *ns* 'gen)
@@ -110,10 +197,6 @@
     :title        "EDSS (short form)"
     :key          nil
     :entity-name  "FormEdss"
-    :parse        (fn [{:form_edss/keys [edss_score] :as form}]
-                    (assoc form :form_edss/score (edss-score->score edss_score)))
-    :unparse      (fn [form] (dissoc form :form_edss/score))
-    :summary      (fn [{:form_edss/keys [score]}] score)
     :spec         ::form_edss}
    {:form-type-id 3
     :table        "t_form_edss_full"
@@ -149,12 +232,7 @@
     :table        "t_form_ms_relapse"
     :title        "MS relapse / disease course"
     :key          nil
-    :entity-name  "FormMSRelapse"
-    :parse        (fn [form]
-                    (-> form
-                        (update :form_ms_relapse/in_relapse parse-boolean)
-                        (update :form_ms_relapse/strict_validation parse-boolean)))
-    :summary      (fn [{:form_ms_relapse/keys [in_relapse]}] (if in_relapse "In relapse" "Not in relapse"))}
+    :entity-name  "FormMSRelapse"}
    {:form-type-id 10
     :table        "t_form_nine_hole_peg"
     :title        "Nine-hole peg"
@@ -220,14 +298,7 @@
     :title        "Weight and height"
     :key          nil
     :entity-name  "FormWeightHeight"
-    :summary      (fn [{:form_weight_height/keys [weight_kilogram height_metres]}]
-                    (str/join ", "
-                              (remove nil? [(when weight_kilogram (str (format "%.1f" weight_kilogram) "kg"))
-                                            (when height_metres (str (format "%.1f" height_metres) "m"))
-                                            (when (and weight_kilogram height_metres)
-                                              (str "BMI: "
-                                                   (format "%.1f" (/ weight_kilogram (math/pow height_metres 2)))
-                                                   "kg/m²"))])))}
+    :spec         ::form_weight_height}
    {:form-type-id 30
     :table        "t_form_ishihara"
     :title        "Ishihara"
@@ -442,9 +513,8 @@
 (s/fdef normalize-form-type
   :args (s/cat :form-type (s/keys :req-un [::form-type-id ::table] :opt-un [::nm ::parse ::summary])))
 (defn ^:private normalize-form-type
-  "Normalizes a form type by ensuring it provides a name as well as default 
-  no-op parse, unparse and summary functions if not explicitly provided."
-  [{:keys [nm table parse unparse summary] :as form-type}]
+  "Normalizes a form type by ensuring it provides a name."
+  [{:keys [nm table] :as form-type}]
   (let [nm (or nm         ;; use explicit name, or determine from the database table name if provided
                (if (str/starts-with? table "t_form")
                  (subs table 2)
@@ -452,10 +522,7 @@
     (assoc form-type
            :nm       nm
            :nspace   (keyword nm)
-           :table-kw (when table (keyword table))
-           :summary  (or summary (constantly nil))
-           :parse    (or parse identity)
-           :unparse  (or unparse identity))))
+           :table-kw (when table (keyword table)))))
 
 (def ^:private forms
   "A sequence of all known 'forms', each with a defined name and default no-op
@@ -475,28 +542,29 @@
             (assoc acc form-type-id form-type)) {} forms))
 
 (s/fdef parse-form
-  :args (s/cat :form-type ::normalized-form-type :form any?))
+  :args (s/cat :form-type ::normalized-form-type, :form any?))
 (defn ^:private parse-form
   "Parse form data from the database - annotating with type information,
   generating a summary and converting properties when appropriate."
-  [{:keys [form-type-id nm table nspace title allow-multiple? summary parse]} form]
-  (let [form-id (:id form)
-        is-deleted (let [v (:is_deleted form)] (if (string? v) (parse-boolean v) v))
-        namespaced-form (update-keys form (fn [k] (keyword nm (name k))))
-        parsed-form (parse namespaced-form)]  ;; call the form specific 'parse' with a namespaced entity
-    (assoc parsed-form
-           :form/id                  form-id
-           (keyword nm "is_deleted") is-deleted
-           :form/is_deleted          is-deleted
-           :form/summary_result      (summary parsed-form)   ;; care to generate summary using parsed form and not raw form fetch result
-           :form/user_fk             (:user_fk form)
-           :form/encounter_fk        (:encounter_fk form)
-           :form/form_type           {:form_type/id                form-type-id
-                                      :form_type/nm                nm
-                                      :form_type/table             table
-                                      :form_type/nspace            nspace
-                                      :form_type/title             title
-                                      :form_type/one_per_encounter (not allow-multiple?)})))
+  [{:keys [form-type-id nm table nspace title allow-multiple?]} form]
+  (let [form-id         (:id form)
+        is-deleted      (let [v (:is_deleted form)] (if (string? v) (parse-boolean v) v))
+        form# (-> form ;; standardise form, and then pass to db->form for any form specific transform
+                  (update-keys (fn [k] (keyword nm (name k)))) ;; add namespaces
+                  (assoc
+                   (keyword nm "is_deleted") is-deleted
+                   :form/id                  form-id            ;; add core generic form properties
+                   :form/is_deleted          is-deleted
+                   :form/user_fk             (:user_fk form)
+                   :form/encounter_fk        (:encounter_fk form)
+                   :form/form_type           {:form_type/id                form-type-id
+                                              :form_type/nm                nm
+                                              :form_type/table             table
+                                              :form_type/nspace            nspace
+                                              :form_type/title             title
+                                              :form_type/one_per_encounter (not allow-multiple?)})
+                  db->form)]
+    (assoc form# :form/summary_result (summary form#))))
 
 (defn form->name [form]
   (some #(let [nspace (namespace %)] (case nspace "form" nil nil nil nspace)) (keys form)))
@@ -510,7 +578,7 @@
   returned as a map of keys without namespaces."
   [form]
   (if-let [nspace (form->name form)]
-    (if-let [{:keys [spec unparse] :as form-type} (form-type-by-name nspace)]
+    (if-let [{:keys [spec] :as form-type} (form-type-by-name nspace)]
       (if (and spec (not (s/valid? spec form))) ;; if there is a spec, and it is invalid, throw
         (throw (ex-info (str "invalid form" (s/explain-str spec form)) (s/explain-data spec form)))
         {:form-type form-type
@@ -531,7 +599,7 @@
                       :else
                       (throw (ex-info (str "all keys in a form must be in same namespace; expected:'" nspace "', got:" nspace') form)))))
                 {}
-                (unparse form))})
+                (form->db form))})
       (throw (ex-info "unable to determine form type for form" form)))
     (throw (ex-info "keys in a form must have a namespace" form))))
 
@@ -566,10 +634,11 @@
 
 (comment
   (gen/sample (gen-form-by-name "form_edss"))
+  (gen/sample (gen-form-by-name "form_weight_height"))
   (gen/sample (gen-form {:form/id nil :form/user_fk 100 :form/encounter_fk 1001}))
-  (def s (:summary (form-type-by-name "form_weight_height")))
-  (s {:form_weight_height/weight_kilogram 79.9
-      :form_weight_height/height_metres 1.812})
+  (summary {:form/form_type (form-type-by-name "form_weight_height")
+            :form_weight_height/weight_kilogram 79.9
+            :form_weight_height/height_metres 1.812})
   (format "%.1f" 3.45))
 
 (s/fdef form-for-encounter-sql
@@ -814,7 +883,18 @@
                   :returning :*})}))
 
 (defn create-form!
-  [conn encounter-id form-type-id])
+  [conn {:keys [encounter-id user-id form-type-id form-type]}]
+  (if-let [form-type# (or form-type (form-type-by-id form-type-id))]
+    (let [form (parse-form form-type#
+                           {:id           (tempid/tempid)
+                            :is_deleted   false
+                            :encounter_fk encounter-id
+                            :user_fk      user-id})]
+      (init-form-in-encounter conn form)) ;; this allows certain forms to pre-populate based on previous results
+    (throw (ex-info (str "unknown form type:" form-type-id) {}))))
+
+(comment
+  (create-form! nil {:encounter-id 1 :user-id 1 :form-type-id 2}))
 
 (defn save-form!
   "Saves a form to the database. Matches the form to its form-type using the 
