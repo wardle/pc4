@@ -217,22 +217,25 @@
                                   :opt [:t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
                                         :t_diagnosis/date_diagnosis :t_diagnosis/date_diagnosis_accuracy
                                         :t_diagnosis/date_to :t_diagnosis/date_to_accuracy])))
-
+(s/fdef create-diagnosis-sql
+  :args (s/cat :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier)])
+               :diagnosis (s/keys :req [:t_diagnosis/concept_fk :t_diagnosis/status])))
 (defn create-diagnosis-sql
   [{patient-pk :t_patient/id, patient-identifier :t_patient/patient_identifier}
    {:t_diagnosis/keys  [concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]}]
-  (sql/format {:insert-into [:t_diagnosis]
-               :values      [{:date_onset              date_onset
-                              :date_onset_accuracy     date_onset_accuracy
-                              :date_diagnosis          date_diagnosis
-                              :date_diagnosis_accuracy date_diagnosis_accuracy
-                              :date_to                 date_to
-                              :date_to_accuracy        date_to_accuracy
-                              :status                  (name status)
-                              :concept_fk              concept_fk
-                              :patient_fk              (or patient-pk {:select :t_patient/id
-                                                                       :from   [:t_patient]
-                                                                       :where  [:= :t_patient/patient_identifier patient-identifier]})}]}))
+  (sql/format
+   {:insert-into [:t_diagnosis]
+    :values      [{:date_onset              date_onset
+                   :date_onset_accuracy     date_onset_accuracy
+                   :date_diagnosis          date_diagnosis
+                   :date_diagnosis_accuracy date_diagnosis_accuracy
+                   :date_to                 date_to
+                   :date_to_accuracy        date_to_accuracy
+                   :status                  (name status)
+                   :concept_fk              concept_fk
+                   :patient_fk              (or patient-pk {:select :t_patient/id
+                                                            :from   [:t_patient]
+                                                            :where  [:= :t_patient/patient_identifier patient-identifier]})}]}))
 
 (comment
   (create-diagnosis-sql
