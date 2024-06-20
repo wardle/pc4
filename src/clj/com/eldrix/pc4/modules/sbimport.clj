@@ -10,8 +10,7 @@
      patient if they don't exist 
   3. register-projects - takes the CSV file and registers every patient to
      the SBUHB MS service and optionally the SB subcohort for MS Register
-  4. diagnoses - takes the CSV file and updates data as necessary, 
-     including diagnosis, MS registry project registration, and EDSS."
+  4. add-diagnoses - takes the CSV file and adds diagnoses"
   (:require
    [clojure.edn :as edn]
    [clojure.java.io :as io]
