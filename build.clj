@@ -6,9 +6,9 @@
 (def lib 'com.eldrix/pc4)
 (def version (format "1.1.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
-(def basis (b/create-basis {:project "deps.edn"}))
+(def basis (delay (b/create-basis {:project "deps.edn"})))
 (def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
-(def uber-basis (b/create-basis {:project "deps.edn" :aliases [:run]}))
+(def uber-basis (delay (b/create-basis {:project "deps.edn" :aliases [:run]})))
 (def uber-file (format "target/%s-%s.jar" (name lib) version))
 
 (defn error [s]
@@ -24,7 +24,7 @@
   (b/write-pom {:class-dir class-dir
                 :lib       lib
                 :version   version
-                :basis     basis
+                :basis     @basis
                 :src-dirs  ["src"]
                 :scm       {:url                 "https://github.com/wardle/pc4"
                             :tag                 (str "v" version)
@@ -40,7 +40,7 @@
   [_]
   (jar nil)
   (println "** Installing :" lib version)
-  (b/install {:basis     basis
+  (b/install {:basis     @basis
               :lib       lib
               :class-dir class-dir
               :version   version
@@ -48,7 +48,7 @@
 
 (defn uber [{:keys [out] :or {out uber-file}}]
   (clean nil)
-  (b/compile-clj {:basis        uber-basis
+  (b/compile-clj {:basis        @uber-basis
                   :src-dirs     ["src/clj"]
                   :ns-compile   ['com.eldrix.pc4.core]
                   :compile-opts {:elide-meta [:doc :added]}
@@ -67,6 +67,7 @@
         output-names (map :output-name manifest)] ;; get a list of all shadow cljs outputs
     (if (pos-int? (count output-names))
       (doseq [output-name output-names]
+        (println "Installing cljs frontend module:" output-name)
         (b/copy-file {:src (str "resources/public/js/compiled/" output-name)
                       :target (str class-dir "/public/js/compiled/" output-name)}))
       (error "no shadow cljs outputs found")))
@@ -76,7 +77,7 @@
                :target-dir class-dir})
   (b/uber {:class-dir class-dir
            :uber-file (str out)
-           :basis     uber-basis
+           :basis     @uber-basis
            :main      'com.eldrix.pc4.core
            :exclude   [#"(?i)^META-INF/license/.*"
                        #"^license/.*"]}))
