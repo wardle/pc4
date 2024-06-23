@@ -12,9 +12,7 @@
                  :dev               {:compiler-options
                                      {:external-config {:guardrails {}}}}
 
-                 :devtools          {:http-port  8022
-                                     :http-root  "resources/public"
-                                     :after-load pc4.client/refresh
+                 :devtools          {:after-load pc4.client/refresh
                                      :preloads   [com.fulcrologic.fulcro.inspect.preload
                                                   com.fulcrologic.fulcro.inspect.dom-picker-preload]}
                  :release           {}}}}
