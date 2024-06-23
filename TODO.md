@@ -7,7 +7,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [ ] Need to show and choose responsible user for each form
 * [x] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
-* [ ] Add 'delete form' functionality to front-end
+* [x] Add 'delete form' functionality to front-end
 * [ ] Need 'add encounter' functionality, which will need server side involvement to initialise forms and data in context
 * [x] Add LSOA name when possible to pseudonymous patient data
 * [x] Add 'change registration data' option for pseudonymous patients in case team(s) made a mistake originally

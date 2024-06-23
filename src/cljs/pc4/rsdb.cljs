@@ -134,6 +134,20 @@
                                                     :form-type-name form-type-name
                                                     :form/id (forms/form-id->str id)}})]))))
 
+(defmutation delete-form
+  [{:keys [form patient-identifier on-success-tx]}]
+  (action
+   [{:keys [state]}]
+   (let [{form-id :form/id, encounter-id :form/encounter_fk} form]
+     (swap! state (fn [s]
+                    (cond-> (update s :form/id dissoc form-id) ;; remove form, and if encounter-id, remove from encounter
+                      encounter-id (merge/remove-ident* [:form/id form-id] [:t_encounter/id encounter-id :t_encounter/completed_forms]))))))
+  (remote [_] true)
+  (ok-action
+   [{:keys [app]}]
+   (when on-success-tx
+     (comp/transact! app on-success-tx))))
+
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]
   (action

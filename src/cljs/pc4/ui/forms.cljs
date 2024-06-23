@@ -123,6 +123,9 @@
   (let [{:t_encounter/keys [date_time patient encounter_template]} encounter
         {:t_patient/keys [patient_identifier]} patient
         cancel-fn #(comp/transact! this [(cancel-edit-form form)])
+        delete-fn #(comp/transact! this [(list 'pc4.rsdb/delete-form (assoc save-params
+                                                                            :patient-identifier patient_identifier
+                                                                            :on-success-tx [(cancel-edit-form {:form/id id})]))])
         save-fn #(comp/transact! this [(list 'pc4.rsdb/save-form (assoc save-params :patient-identifier patient_identifier
                                                                         :on-success-tx [(cancel-edit-form {:form/id id})]))])]
     (comp/fragment
@@ -139,6 +142,7 @@
                     (if can-edit
                       (div :.flex
                            (ui/ui-button {:onClick cancel-fn} "Cancel")
+                           (when-not (tempid/tempid? id) (ui/ui-button {:onClick delete-fn} "Delete"))
                            (when save-params (ui/ui-button {:onClick save-fn :role :primary} "Save")))
                       (ui/ui-button {:onClick cancel-fn} "Close"))))))))
 
@@ -328,10 +332,8 @@
   (let [patient-age (when-let [period (:t_encounter/patient_age encounter)] (.-years ^goog.date.Period period))
         can-edit? (can-edit-form? can-edit)]
     (ui-layout
-     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id
-                                                                          :form_weight_height/id
+     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_weight_height/id :form_weight_height/is_deleted
                                                                           :form_weight_height/weight_kilogram :form_weight_height/height_metres
-                                                                          :form_weight_height/is_deleted
                                                                           :form_weight_height/encounter_fk :form_weight_height/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item
