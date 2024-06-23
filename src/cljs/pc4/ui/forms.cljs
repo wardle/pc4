@@ -8,7 +8,6 @@
    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
    [com.fulcrologic.fulcro.raw.components :as rc]
    ["big.js" :as Big]
-   [pc4.rsdb]
    [pc4.ui.core :as ui]
    [pc4.ui.patients :as patients]
    [com.fulcrologic.fulcro.algorithms.form-state :as fs]
@@ -29,17 +28,24 @@
   (action
    [{:keys [app state]}]
    (println "loading form" params)
-   (df/load! app [:form/id form-id] class
-             {:params               {:encounter-id encounter-id}
-              :post-mutation        `edit-form
-              :post-mutation-params {:form-id form-id :class class}})))
+   ;; if the form-id is a number, then it is one that is already saved from the server
+   (if (number? form-id)
+     (df/load! app [:form/id form-id] class
+               {:params               {:encounter-id encounter-id}
+                :post-mutation        `edit-form
+                :post-mutation-params {:form-id form-id :class class}})
+     ;; otherwise, the form is a newly created form with a tempid
+     (comp/transact! app [(edit-form {:form-id form-id :class class})]))))
 
 (defmutation cancel-edit-form
   [{:form/keys [id]}]
   (action
-   [{:keys [app state]}]
+   [{:keys [state]}]
    (println "cancel edit form")
-   (swap! state (fn [s] (fs/pristine->entity* s [:form/id id])))  ;; return form to pristine state, removing any edits
+   (swap! state (fn [s]
+                  (if (tempid/tempid? id)
+                    (update s :form/id dissoc id)
+                    (fs/pristine->entity* s  [:form/id id]))))  ;; return form to pristine state, removing any edits
    (.back js/history)))
 
 (defsc MsDiseaseCourse [this {:t_ms_disease_course/keys [id name]}]
@@ -54,6 +60,16 @@
      (println "loading MS disease courses")
      (df/load! app :com.eldrix.rsdb/all-ms-disease-courses MsDiseaseCourse
                {:target [:ui/all-ms-disease-courses]}))))
+
+(defn parse-form-id [s]
+  (println "parsing form id" s "type:" (type s))
+  (or (parse-long s)
+      (tempid/tempid (uuid s))))
+
+(defn form-id->str [form-id]
+  (str (if (tempid/tempid? form-id)
+         (.-id form-id)
+         form-id)))
 
 (defsc FormUser [_ _]
   {:ident :t_user/id
@@ -107,8 +123,8 @@
   (let [{:t_encounter/keys [date_time patient encounter_template]} encounter
         {:t_patient/keys [patient_identifier]} patient
         cancel-fn #(comp/transact! this [(cancel-edit-form form)])
-        save-fn #(comp/transact! this [(pc4.rsdb/save-form (assoc save-params :patient-identifier patient_identifier
-                                                                  :on-success-tx [(cancel-edit-form {:form/id id})]))])]
+        save-fn #(comp/transact! this [(list 'pc4.rsdb/save-form (assoc save-params :patient-identifier patient_identifier
+                                                                        :on-success-tx [(cancel-edit-form {:form/id id})]))])]
     (comp/fragment
      (patients/ui-patient-banner (:>/banner patient))
      (ui-encounter-banner
@@ -191,7 +207,7 @@
                    fs/form-config-join]
    :form-fields   #{:form_edss/edss_score}
    :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
-                    (let [form-id (js/parseInt id), encounter-id (js/parseInt encounter-id)]
+                    (let [form-id (parse-form-id id), encounter-id (js/parseInt encounter-id)]
                       (dr/route-deferred
                        [:form/id form-id]
                        (fn []
@@ -233,7 +249,7 @@
    :form-fields   #{:form_ms_relapse/in_relapse  :form_ms_relapse/ms_disease_course_fk
                     :form_ms_relapse/activity :form_ms_relapse/progression :form_ms_relapse/is_deleted :form_ms_relapse/user_fk :form_ms_relapse/encounter_fk}
    :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
-                    (let [form-id (js/parseInt id), encounter-id (js/parseInt encounter-id)]
+                    (let [form-id (parse-form-id id), encounter-id (js/parseInt encounter-id)]
                       (dr/route-deferred
                        [:form/id form-id] ;; load the form but...
                        (fn []             ;; we also need to lazily load the ms disease courses for the drop-down, unless already one
@@ -294,7 +310,9 @@
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
   {:ident         :form/id
    :route-segment ["encounter" :encounter-id "form_weight_height" :form/id]
-   :query         [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
+   :query         [:form/id :form_weight_height/id
+                   :form_weight_height/weight_kilogram :form_weight_height/height_metres
+                   :form_weight_height/is_deleted
                    :form_weight_height/encounter_fk :form_weight_height/user_fk
                    {:form/encounter (comp/get-query FormWeightHeightEncounter)}
                    {:>/can-edit (comp/get-query CanEditForm)}
@@ -302,7 +320,7 @@
                    fs/form-config-join]
    :form-fields   #{:form_weight_height/weight_kilogram :form_weight_height/height_metres}
    :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
-                    (let [form-id (js/parseInt id), encounter-id (js/parseInt encounter-id)]
+                    (let [form-id (parse-form-id id), encounter-id (js/parseInt encounter-id)]
                       (dr/route-deferred
                        [:form/id form-id]
                        (fn []
@@ -310,7 +328,10 @@
   (let [patient-age (when-let [period (:t_encounter/patient_age encounter)] (.-years ^goog.date.Period period))
         can-edit? (can-edit-form? can-edit)]
     (ui-layout
-     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_weight_height/weight_kilogram :form_weight_height/height_metres
+     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id
+                                                                          :form_weight_height/id
+                                                                          :form_weight_height/weight_kilogram :form_weight_height/height_metres
+                                                                          :form_weight_height/is_deleted
                                                                           :form_weight_height/encounter_fk :form_weight_height/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item

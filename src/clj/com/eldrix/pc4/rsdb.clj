@@ -146,7 +146,7 @@
          (update ::pco/resolve                              ;; wrap resolver to check permissions
                  (fn [resolve]                              ;; old resolver
                    (fn [env {:t_patient/keys [permissions] :as params}]
-                     (if (permissions permission)
+                     (if (and permissions (permissions permission))
                        (resolve env params)                 ;; new resolver calls old resolver if permitted
                        {:t_patient/authorization permissions}))))))))
 
@@ -1663,7 +1663,10 @@
   (log/info "save form" params)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (jdbc/with-transaction [txn conn]
-    (forms/save-form! txn form)))
+    (if (tempid/tempid? (:form/id form)) ;; if we have a temporary id, provide a mapping from it to new identifier
+      (let [form' (forms/save-form! txn form)]
+        (assoc form' :tempids {(:form/id form) (:form/id form')}))
+      (forms/save-form! txn form))))
 
 (pco/defmutation delete-form!
   [{conn :com.eldrix.rsdb/conn :as env}

@@ -3,14 +3,16 @@
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.algorithms.merge :as merge]
-            [com.fulcrologic.fulcro.components :as comp]
+            [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
             [com.fulcrologic.fulcro.data-fetch :as df]
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
             [com.fulcrologic.fulcro.mutations :as m :refer [defmutation returning]]
+            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [pc4.route :as route]
             [pc4.ui.ninflamm]
             [pc4.ui.encounters]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [pc4.ui.forms :as forms]))
 
 (defmutation search-patient-by-pseudonym
   [{:keys [project-id pseudonym]}]
@@ -112,6 +114,25 @@
    [{:keys [app component ref state]}]
    (println "save-form : ok action")
    (when on-success-tx (comp/transact! app on-success-tx))))
+
+(defmutation create-form
+  [{:keys [encounter-id form-type-name component-class on-success-tx] :as params}]
+  (action
+   [env]
+   (println "creating form " params))
+  (remote [env]
+          (-> env
+              (m/with-params (dissoc params :component-class))
+              (m/returning component-class)
+              #_(m/with-target (targeting/append-to [:t_encounter/id encounter-id :t_encounter/completed_forms]))))
+  (ok-action
+   [{:keys [app mutation-return-value]}]
+   (let [{:form/keys [id]} mutation-return-value]
+     (println "create-form : ok action" mutation-return-value)
+     (comp/transact! app [(route/route-to {:handler  ::route/form
+                                           :params {:encounter-id encounter-id
+                                                    :form-type-name form-type-name
+                                                    :form/id (forms/form-id->str id)}})]))))
 
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]

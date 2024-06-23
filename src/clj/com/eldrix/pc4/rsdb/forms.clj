@@ -35,7 +35,11 @@
   At some point, we'll just have relatively flat lists of namespaced properties.
   In order to make it easier to migrate, it would be ideal to represent most
   forms flattened within an encounter. For the few forms that permit multiple
-  forms per encounter, they would be represented as a to-many property."
+  forms per encounter, they would be represented as a to-many property.
+
+  This namespace conflates two separate concerns: the business logic regarding
+  forms and the database persistence. The next iteration will need to separate
+  those concerns."
   (:require
    [clojure.math :as math]
    [clojure.spec.alpha :as s]
@@ -146,6 +150,27 @@
 ;;;
 ;;;
 
+(defn gen-bigdec
+  "A generator for BigDecimal numbers. Uses same options as [[clojure.spec.gen.alpha/double*]]:"
+  [opts]
+  (gen/fmap bigdec (gen/double* (merge {:NaN? false :infinite? false} opts))))
+
+(defn decimal-in-range?
+  [start end val]
+  (and (decimal? val) (nat-int? (.compareTo val start)) (pos-int? (.compareTo end val))))
+
+(defmacro decimal-in
+  "A spec for a decimal in the range specified."
+  [{:keys [min max]}]
+  `(s/spec (and decimal? #(decimal-in-range? ~min ~max %))
+           :gen #(gen-bigdec {:min ~min :max (dec ~max)})))
+
+(comment
+  (decimal? (bigdec 5.6))
+  (gen/sample (gen-bigdec {:min 0.1 :max 10}))
+  (gen/sample (s/gen (decimal-in {:min 5M :max 10M}))))
+
+(s/def ::form-id (s/nilable pos-int?))
 (s/def ::conn any?)
 (s/def ::form-type-id (s/nilable int?))
 (s/def ::table string?)
@@ -156,7 +181,7 @@
   (s/keys :req-un [::form-type-id ::table ::nm ::nspace] :opt-un [::spec]))
 
 (s/def :form_edss/encounter_fk pos-int?)
-(s/def :form_edss/id (s/nilable pos-int?))
+(s/def :form_edss/id ::form-id)
 (s/def :form_edss/edss_score (set (keys edss-score->score)))
 (s/def :form_edss/user_fk pos-int?)
 (s/def :form_edss/is_deleted boolean?)
@@ -171,8 +196,9 @@
 (s/def :form_weight_height/encounter_fk pos-int?)
 (s/def :form_weight_height/user_fk pos-int?)
 (s/def :form_weight_height/is_deleted boolean?)
-(s/def :form_weight_height/height_metres (s/double-in :min 0.5 :max 2.8))
-(s/def :form_weight_height/weight_kilogram (s/double-in :min 5 :max 635))
+(s/def :form_weight_height/height_metres (s/nilable (decimal-in {:min 0.3M :max 2.8M})))
+(s/def :form_weight_height/weight_kilogram (decimal-in {:min 5M :max 635M}))
+
 (s/def ::form_weight_height
   (s/keys :req [:form_weight_height/id
                 :form_weight_height/encounter_fk
@@ -183,7 +209,8 @@
 
 (comment
   (ns-unalias *ns* 'gen)
-  (gen/generate (s/gen ::form_edss)))
+  (gen/generate (s/gen ::form_edss))
+  (gen/sample (s/gen ::form_weight_height)))
 
 (def ^:private forms*
   "Support for legacy forms. Here each form is represented by a database table and a form type."
@@ -569,6 +596,31 @@
 (defn form->name [form]
   (some #(let [nspace (namespace %)] (case nspace "form" nil nil nil nspace)) (keys form)))
 
+(defn ^:private unparse-form-ids
+  "Return a tuple of form-name and data with form ids normalised ready for 
+  writing to the database."
+  [form]
+  (let [form-name (form->name form)
+        id-key (keyword form-name "id")
+        id-1 (:form/id form)
+        id-2 (get form id-key)]
+    (cond
+      ;; if we cannot determine form name, throw
+      (nil? form-name)
+      (throw (ex-info "keys in a form must have a namespace" form))
+      ;; if the two ids are not the same, throw
+      (not= id-1 id-2)
+      (throw (ex-info (str "form must have identical identifiers; :form/id=" id-1 " " id-key "=" id-2) form))
+      ;; if the ids are primary keys - ie positive ints, then proceed
+      (pos-int? id-1)
+      [form-name form]
+      ;; if not, they are likely to be temporary ids (maps or objects), so nil => create new form
+      :else
+      [form-name (assoc form :form/id nil id-key nil)])))
+
+(comment
+  (unparse-form-ids {:form/id 1 :form_edss/id 1 :form_edss/edss_score "1.2"}))
+
 (defn ^:private unparse-form
   "Prepare a form to be written to the database. Returns a map containing:
   - form-type : the form type for this form
@@ -577,10 +629,10 @@
   any custom form-type 'unparse' function called, and then form data is 
   returned as a map of keys without namespaces."
   [form]
-  (if-let [nspace (form->name form)]
+  (let [[nspace form'] (unparse-form-ids form)]
     (if-let [{:keys [spec] :as form-type} (form-type-by-name nspace)]
-      (if (and spec (not (s/valid? spec form))) ;; if there is a spec, and it is invalid, throw
-        (throw (ex-info (str "invalid form" (s/explain-str spec form)) (s/explain-data spec form)))
+      (if (and spec (not (s/valid? spec form'))) ;; if there is a spec, and it is invalid, throw
+        (throw (ex-info (str "invalid form" (s/explain-str spec form')) (s/explain-data spec form')))
         {:form-type form-type
          :data (reduce-kv
                 (fn [acc k v]
@@ -597,11 +649,10 @@
                       acc
                        ;; otherwise, it is a key we do not recognise, so throw an exception
                       :else
-                      (throw (ex-info (str "all keys in a form must be in same namespace; expected:'" nspace "', got:" nspace') form)))))
+                      (throw (ex-info (str "all keys in a form must be in same namespace; expected:'" nspace "', got:" nspace') form')))))
                 {}
-                (form->db form))})
-      (throw (ex-info "unable to determine form type for form" form)))
-    (throw (ex-info "keys in a form must have a namespace" form))))
+                (form->db form'))})
+      (throw (ex-info "unable to determine form type for form" form')))))
 
 (defn ^:private gen-form*
   "Create a test.check generator for the given form type."
@@ -634,12 +685,12 @@
 
 (comment
   (gen/sample (gen-form-by-name "form_edss"))
-  (gen/sample (gen-form-by-name "form_weight_height"))
+  (map summary (gen/sample (gen-form-by-name "form_weight_height")))
   (gen/sample (gen-form {:form/id nil :form/user_fk 100 :form/encounter_fk 1001}))
   (summary {:form/form_type (form-type-by-name "form_weight_height")
-            :form_weight_height/weight_kilogram 79.9
-            :form_weight_height/height_metres 1.812})
-  (format "%.1f" 3.45))
+            :form_weight_height/weight_kilogram 79.9M
+            :form_weight_height/height_metres 1.812M})
+  (format "%.1f" 3.45M))
 
 (s/fdef form-for-encounter-sql
   :args (s/cat :encounter-id int? :table keyword? :options (s/keys :opt-un [::include-deleted])))
@@ -662,7 +713,7 @@
   Normalizes each result, annotating with form type information as well as a result
   summary. To include deleted forms, set `include-deleted` to be `true`."
   ([conn encounter-id]
-   (forms-for-encounter conn encounter-id nil))
+   (forms-for-encounter conn encounter-id {}))
   ([conn encounter-id {:keys [include-deleted] :or {include-deleted false}}]
    (reduce
     (fn [acc {:keys [table-kw] :as form-type}]

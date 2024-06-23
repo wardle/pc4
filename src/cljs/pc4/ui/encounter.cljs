@@ -7,6 +7,7 @@
             [com.fulcrologic.fulcro.routing.dynamic-routing :as dr :refer [defrouter]]
             ["big.js" :as Big]
             [pc4.ui.core :as ui]
+            [pc4.ui.forms :as forms]
             [pc4.ui.patients :as patients]
             [com.fulcrologic.fulcro.algorithms.form-state :as fs]
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
@@ -138,6 +139,13 @@
               (assoc acc nm (cond-> v
                               (nil? view) (assoc :view (comp/computed-factory class))))) {} form-types))
 
+(def form-types
+  {"form_edss" forms/EditFormEdss
+   "form_ms_relapse" forms/EditFormMsRelapse
+   "form_weight_height" forms/EditFormWeightHeight})
+
+(def supported-form-types (set (keys form-types)))
+
 (defsc EncounterPatient [_ _]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier
@@ -165,7 +173,8 @@
                      {:t_encounter/optional_form_types (comp/get-query FormType)}   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
                      {:t_encounter/duplicated_form_types (comp/get-query Form)}
                      {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
-                     {:t_encounter/patient (comp/get-query EncounterPatient)}])
+                     {:t_encounter/patient (comp/get-query EncounterPatient)}
+                     [df/marker-table :encounter]])
    :will-enter    (fn [app {:t_encounter/keys [id]}]
                     (when-let [encounter-id (some-> id (js/parseInt))]
                       (df/load! app [:t_encounter/id encounter-id] EditEncounter
@@ -179,10 +188,12 @@
                                      {:target               [:ui/current-encounter]
                                       :post-mutation        `dr/target-ready
                                       :post-mutation-params {:target [:t_encounter/id encounter-id]}})))))}
-  (let [permissions (:t_patient/permissions patient)
+  (let [loading-marker (get encounter [df/marker-table :encounter])
+        patient-identifier (:t_patient/patient_identifier patient)
+        permissions (:t_patient/permissions patient)
         can-edit-patient? (when permissions (permissions :PATIENT_EDIT))   ;; TODO: also take into account lock date time client side in order to autolock if time elapses
         can-edit-encounter? (and can-edit-patient? (not is_locked))]  ;; TODO: or, keep checking server - e.g. another user may lock - or better handle of concurrent access through ws
-    (when encounter
+    (if-not (= :loading (:status loading-marker))
       (ui-layout
        {:banner    (-> encounter :t_encounter/patient :>/banner)
         :encounter encounter
@@ -206,21 +217,31 @@
           {}
           (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
                 :let [form-type-name (:form_type/nm form_type)
+                      supported (supported-form-types form-type-name)  ;; do we support viewing/editing this form yet?
                       title (:form_type/title form_type)]]
             (ui/ui-table-row
              {:key id
-              :onClick #(route/route-to! ::route/form {:encounter-id encounter-id :form-type-name form-type-name :form/id id})
-              :classes ["cursor-pointer" "hover:bg-gray-200"]}
+              :onClick (when supported #(comp/transact! this [(route/route-to {:handler ::route/form
+                                                                               :params {:encounter-id encounter-id
+                                                                                        :form-type-name form-type-name
+                                                                                        :form/id (forms/form-id->str id)}})]))
+              :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
              (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
              (ui/ui-table-cell {} summary_result)
              (ui/ui-table-cell
               {}
               (dom/span :.hidden.lg:block (:t_user/full_name user))
               (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
-          (when-not is_locked
-            (for [{:form_type/keys [id title] :as form-type} available_form_types]
+          (when can-edit-encounter?      ;; TODO: also offer to show other available forms?
+            (for [{:form_type/keys [id nm title] :as form-type} available_form_types]
               (ui/ui-table-row
-               {:onClick #(println "add form " form-type)
+               {:onClick #(do (println "add form " form-type)
+                              (comp/transact! this [(list 'pc4.rsdb/create-form {:patient-identifier patient-identifier
+                                                                                 :encounter-id       encounter-id
+                                                                                 :form-type-name     nm
+                                                                                 :component-class    (get form-types nm)
+                                                                                 :form-type-id       id
+                                                                                 :on-success-tx      []})]))
                 :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
                (ui/ui-table-cell {} (dom/span title))
                (ui/ui-table-cell {} (dom/span "Pending"))
@@ -228,5 +249,6 @@
        (ui/ui-active-panel
         {:title "Notes"}
         (div :.shadow-inner.p-4.text-sm
-             (dom/span {:dangerouslySetInnerHTML {:__html notes}})))))))
+             (dom/span {:dangerouslySetInnerHTML {:__html notes}}))))
+      (ui/ui-loading-screen {:dim false}))))
 
