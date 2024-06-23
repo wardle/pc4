@@ -144,6 +144,12 @@
 (defmethod init-form-in-encounter :default
   [_conn form] form)
 
+(defmethod init-form-in-encounter :form_weight_height
+  [conn form]
+  (assoc form   ;; TODO: lookup last form with a valid height and autopopulate this 
+         :form_weight_height/weight_kilogram nil
+         :form_weight_height/height_metres nil))
+
 ;;;
 ;;;
 ;;;
@@ -204,8 +210,8 @@
                 :form_weight_height/encounter_fk
                 :form_weight_height/user_fk
                 :form_weight_height/is_deleted
-                :form_weight_height/weight_kilogram
-                :form_weight_height/height_metres]))
+                :form_weight_height/weight_kilogram]
+          :opt [:form_weight_height/height_metres]))
 
 (comment
   (ns-unalias *ns* 'gen)
@@ -945,7 +951,7 @@
     (throw (ex-info (str "unknown form type:" form-type-id) {}))))
 
 (comment
-  (create-form! nil {:encounter-id 1 :user-id 1 :form-type-id 2}))
+  (create-form! nil {:encounter-id 1 :user-id 1 :form-type-id 29}))
 
 (defn save-form!
   "Saves a form to the database. Matches the form to its form-type using the 
