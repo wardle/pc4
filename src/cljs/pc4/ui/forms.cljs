@@ -148,6 +148,10 @@
 
 (def ui-layout (comp/computed-factory Layout))
 
+(defsc FormEncounter [this params]
+  {:ident :t_encounter/id
+   :query [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]})
+
 (defsc CanEditPatient [_ _]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/permissions]})
@@ -245,7 +249,7 @@
    :query         [:form/id :form_ms_relapse/id :form_ms_relapse/in_relapse :form_ms_relapse/ms_disease_course_fk
                    :form_ms_relapse/activity :form_ms_relapse/progression
                    :form_ms_relapse/is_deleted :form_ms_relapse/user_fk :form_ms_relapse/encounter_fk
-                   {:form/encounter [:t_encounter/date_time]}
+                   {:form/encounter (comp/get-query FormEncounter)}
                    {[:ui/all-ms-disease-courses '_] (comp/get-query MsDiseaseCourse)}
                    {:>/can-edit (comp/get-query CanEditForm)}
                    {:>/layout (comp/get-query Layout)}
@@ -305,10 +309,6 @@
 
 (def ui-edit-form-ms-relapse (comp/computed-factory EditFormMsRelapse))
 
-(defsc FormWeightHeightEncounter [this params]
-  {:ident :t_encounter/id
-   :query [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]})
-
 (defsc EditFormWeightHeight
   [this {:form_weight_height/keys [weight_kilogram height_metres]
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
@@ -318,7 +318,7 @@
                    :form_weight_height/weight_kilogram :form_weight_height/height_metres
                    :form_weight_height/is_deleted
                    :form_weight_height/encounter_fk :form_weight_height/user_fk
-                   {:form/encounter (comp/get-query FormWeightHeightEncounter)}
+                   {:form/encounter (comp/get-query FormEncounter)}
                    {:>/can-edit (comp/get-query CanEditForm)}
                    {:>/layout (comp/get-query Layout)}
                    fs/form-config-join]

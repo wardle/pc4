@@ -55,6 +55,14 @@
   (:import
    (java.time LocalDateTime)))
 
+(defn safe-parse-boolean
+  ([x]
+   (safe-parse-boolean x false))
+  ([x default]
+   (if-not (str/blank? x)
+     (parse-boolean x)
+     default)))
+
 (comment
   (ns-unmap *ns* 'summary)
   (ns-unmap *ns* 'init-form-in-encounter))
@@ -72,8 +80,9 @@
   "Unparse form data to raw values for the database."
   (fn [{:form/keys [form_type]}] (:form_type/nspace form_type)))
 
-(defmulti init-form-in-encounter
-  (fn [_conn {:form/keys [form_type]}] (:form_type/nspace form_type)))
+(defmulti init-form-data
+  (fn [_conn _encounter-id form-type _data]
+    (:form_type/nspace form-type)))
 
 (def edss-score->score
   {"SCORE0_0"          "0.0"
@@ -132,8 +141,8 @@
 (defmethod db->form :form_ms_relapse
   [form]
   (-> form
-      (update :form_ms_relapse/in_relapse parse-boolean)
-      (update :form_ms_relapse/strict_validation parse-boolean)))
+      (update :form_ms_relapse/in_relapse safe-parse-boolean)
+      (update :form_ms_relapse/strict_validation safe-parse-boolean)))
 
 (defmethod db->form :default
   [form] form)
@@ -141,14 +150,14 @@
 (defmethod form->db :default
   [form] form)
 
-(defmethod init-form-in-encounter :default
-  [_conn form] form)
+(defmethod init-form-data :default
+  [_conn _encounter-id _form-type data] data)
 
-(defmethod init-form-in-encounter :form_weight_height
-  [conn form]
-  (assoc form   ;; TODO: lookup last form with a valid height and autopopulate this 
-         :form_weight_height/weight_kilogram nil
-         :form_weight_height/height_metres nil))
+(defmethod init-form-data :form_weight_height
+  [_conn _encounter-id _form-type data]
+  (assoc data;; TODO: lookup last form with a valid height and autopopulate this 
+         :weight_kilogram nil
+         :height_metres nil))
 
 ;;;
 ;;;
@@ -940,14 +949,16 @@
                   :returning :*})}))
 
 (defn create-form!
+  "Create a form of the specified type."
   [conn {:keys [encounter-id user-id form-type-id form-type]}]
   (if-let [form-type# (or form-type (form-type-by-id form-type-id))]
-    (let [form (parse-form form-type#
-                           {:id           (tempid/tempid)
-                            :is_deleted   false
-                            :encounter_fk encounter-id
-                            :user_fk      user-id})]
-      (init-form-in-encounter conn form)) ;; this allows certain forms to pre-populate based on previous results
+    (parse-form
+     form-type#
+     (init-form-data conn encounter-id form-type#
+                     {:id           (tempid/tempid)
+                      :is_deleted   false
+                      :encounter_fk encounter-id
+                      :user_fk      user-id})) ;; this allows certain forms to pre-populate based on previous results
     (throw (ex-info (str "unknown form type:" form-type-id) {}))))
 
 (comment
@@ -1014,7 +1025,8 @@
                               :form_edss/edss_score "SCORE1_0"
                               :form_edss/user_fk 1}))
   (def form' (save-form! conn form))
-  (= form form'))
+  (= form form')
+  (create-form! nil {:encounter-id 1 :user-id 1 :form-type-id 9}))
 
 ;; ***************************************************************************
 ;; Deprecated (and soon to be deleted) form functions supporting
