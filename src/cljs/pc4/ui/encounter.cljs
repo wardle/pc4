@@ -15,39 +15,6 @@
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [pc4.route :as route]))
 
-#_(defn edit-form*
-    [state encounter-id form-ident class]
-    (cond-> state
-      true (assoc-in [:t_encounter/id encounter-id :ui/editing-form] form-ident)
-      class (fs/add-form-config* class form-ident {:destructive? true})))
-
-#_(defmutation edit-form
-    [{:keys [encounter-id class form]}]
-    (action
-     [{:keys [app state]}]
-     (if-let [form-id (:form/id form)]
-       (let [ident [:form/id form-id]]
-         #_(df/load! app ident class)
-         (swap! state merge/merge-component class form)
-         (swap! state edit-form* encounter-id ident class))
-       (throw (ex-info "Missing form id" form)))))
-
-#_(defn cancel-edit-form*
-    [state encounter-id form-id]
-    (cond->
-     (-> state
-         (fs/pristine->entity* [:form/id form-id])
-         (update-in [:t_encounter/id encounter-id] dissoc :ui/editing-form))
-    ;; if this is a temporary (newly created) form, delete it
-      (tempid/tempid? form-id)
-      (update :form/id dissoc form-id)))
-
-#_(defmutation cancel-edit-form
-    [{:keys [encounter-id form]}]
-    (action
-     [{:keys [state]}]
-     (swap! state cancel-edit-form* encounter-id (:form/id form))))
-
 (defsc Layout [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
         {:t_encounter_template/keys [title project]} encounter_template
