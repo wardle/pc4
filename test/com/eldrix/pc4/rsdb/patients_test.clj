@@ -199,7 +199,7 @@
             (is (= updated-edss undeleted-edss))
 
             duplicate-edss; ;; add a duplicate form
-            (forms/save-form! *conn* (-> updated-edss (assoc :form_edss/id nil :form_edss/edss_score "SCORE7_0")) {:replace-singular false})
+            (forms/save-form! *conn* (-> updated-edss (assoc :form_edss/id nil :form/id nil :form_edss/edss_score "SCORE7_0")) {:replace-singular false})
 
             {:keys [completed-forms duplicated-form-types]}
             (forms/forms-and-form-types-in-encounter *conn* encounter-id)
