@@ -120,7 +120,7 @@
    :query [:form/id
            {:form/user (comp/get-query FormUser)}
            {:form/encounter (comp/get-query LayoutEncounter)}]}
-  (let [{:t_encounter/keys [date_time patient encounter_template]} encounter
+  (let [{:t_encounter/keys [date_time patient encounter_template is_locked]} encounter
         {:t_patient/keys [patient_identifier]} patient
         cancel-fn #(comp/transact! this [(cancel-edit-form form)])
         delete-fn #(comp/transact! this [(list 'pc4.rsdb/delete-form (assoc save-params
@@ -138,13 +138,16 @@
           (div :.px-4.py-5.sm:p-6
                (div :.mt-2.text-gray-500
                     (comp/children this))
-               (div :.sm:flex.sm:justify-end.mt-5.sm:border.shadow-md.py-2.sm:px-2.sm:bg-gray-100
+               (div :.sm:flex.flex-row.sm:justify-end.mt-5.sm:border.shadow-md.py-2.sm:px-2.sm:bg-gray-100
                     (if can-edit
-                      (div :.flex
-                           (ui/ui-button {:onClick cancel-fn} "Cancel")
+                      (div (ui/ui-button {:onClick cancel-fn} "Cancel")
                            (when-not (tempid/tempid? id) (ui/ui-button {:onClick delete-fn} "Delete"))
                            (when save-params (ui/ui-button {:onClick save-fn :role :primary} "Save")))
-                      (ui/ui-button {:onClick cancel-fn} "Close"))))))))
+                      (div (dom/span :.text-sm.pt-3.italic.text-gray-500
+                                     (if is_locked
+                                       "You cannot edit this form as the encounter is locked"
+                                       "You do not have permission to edit this form"))
+                           (ui/ui-button {:onClick cancel-fn} "Close")))))))))
 
 (def ui-layout (comp/computed-factory Layout))
 
