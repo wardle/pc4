@@ -360,4 +360,40 @@
 
 (def ui-edit-form-weight-height (comp/computed-factory EditFormWeightHeight))
 
+(defsc EditFormSmoking
+  [this {:form_smoking/keys [status current_cigarettes_per_day duration_years previous_cigarettes_per_day previous_duration_years year_gave_up]
+         :form/keys [encounter] :>/keys [can-edit layout] :as params}]
+  {:ident         :form/id
+   :route-segment ["encounter" :encounter-id "form_smoking" :form/id]
+   :query         [:form/id :form_smoking/id
+                   :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
+                   :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
 
+                   :form_smoking/is_deleted
+                   :form_smoking/encounter_fk :form_smoking/user_fk
+                   {:form/encounter (comp/get-query FormEncounter)}
+                   {:>/can-edit (comp/get-query CanEditForm)}
+                   {:>/layout (comp/get-query Layout)}
+                   fs/form-config-join]
+   :form-fields   #{:form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
+                    :form_smoking/previous_cigarettes_per_day :form_smoking/previous_duration_years :form_smoking/year_gave_up}
+   :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
+                    (let [form-id (parse-form-id id), encounter-id (js/parseInt encounter-id)]
+                      (dr/route-deferred
+                       [:form/id form-id]
+                       (fn []
+                         (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormSmoking})])))))}
+  (let [ can-edit? (can-edit-form? can-edit)]
+    (ui-layout
+      layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_smoking/id :form_smoking/is_deleted
+                                                                           :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
+                                                                           :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
+                                                                           :form_smoking/encounter_fk :form_smoking/user_fk])}}
+     (comp/fragment
+      (ui/ui-simple-form-item
+       {:label "Smoking status"}
+       )
+      (ui/ui-simple-form-item
+       {:label "Height (metres)"}
+       )
+      ))))

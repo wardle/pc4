@@ -107,9 +107,10 @@
                               (nil? view) (assoc :view (comp/computed-factory class))))) {} form-types))
 
 (def form-types
-  {"form_edss" forms/EditFormEdss
-   "form_ms_relapse" forms/EditFormMsRelapse
-   "form_weight_height" forms/EditFormWeightHeight})
+  {"form_edss"          forms/EditFormEdss
+   "form_ms_relapse"    forms/EditFormMsRelapse
+   "form_weight_height" forms/EditFormWeightHeight
+   "form_smoking"       forms/EditFormSmoking})
 
 (def supported-form-types (set (keys form-types)))
 
