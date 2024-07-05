@@ -1,0 +1,4 @@
+{:paths ["src" "resources"]
+ :deps {com.eldrix/concierge                 {:mvn/version "1.0.200"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

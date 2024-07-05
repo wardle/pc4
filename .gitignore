@@ -5,13 +5,13 @@
 *.log
 .lsp
 .calva
-/.clj-kondo/
+.clj-kondo/
 /data/
 .DS_Store
 pc4-server/.portal/intellij.edn
-/resources/public/js/compiled
-/node_modules
-/.shadow-cljs/
+/bases/frontend/resources/public/js/compiled
+node_modules
+.shadow-cljs/
 *.zip
 resources/public/css/output.css
 /target/

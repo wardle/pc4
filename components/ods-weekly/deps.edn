@@ -1,0 +1,4 @@
+{:paths ["src" "resources"]
+ :deps {com.eldrix/ods-weekly {:mvn/version "1.0.54"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

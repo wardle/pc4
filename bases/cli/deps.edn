@@ -1,0 +1,8 @@
+{:paths   ["src" "resources"]
+ :deps    {}
+ :aliases {:run
+           {:main-opts ["-m" "pc4.cli.core"]}
+
+           :test
+           {:extra-paths ["test"]
+            :extra-deps  {}}}}

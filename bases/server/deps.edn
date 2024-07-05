@@ -1,0 +1,7 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/tools.cli {:mvn/version "1.1.230"}
+        io.pedestal/pedestal.service         {:mvn/version "0.7.0"}
+        io.pedestal/pedestal.jetty           {:mvn/version "0.7.0"}
+        rum/rum                              {:mvn/version "0.12.11"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}
