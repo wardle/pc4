@@ -350,7 +350,7 @@
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (let [cljs-modules (find-cljs-modules cljs-manifest)]
     (if (empty? cljs-modules)
-      (log/error "no cljs modules found; this server is designed to serve cljs application(s) but none found")
+      (log/error "no cljs modules found; this server is designed to serve cljs application(s) but none found" {:path cljs-manifest})
       (-> (make-service-map config)
           (http/default-interceptors)
           (http/dev-interceptors)
