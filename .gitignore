@@ -9,7 +9,7 @@
 /data/
 .DS_Store
 pc4-server/.portal/intellij.edn
-/bases/frontend/resources/public/js/compiled
+/components/frontend/resources/public/js/compiled
 node_modules
 .shadow-cljs/
 *.zip
