@@ -63,7 +63,7 @@
   (when-not profile (exit 1 "Missing profile"))
   (log/info "Running database migrations with profile" {:profile profile})
   (let [conf (config/config profile)]
-    (ig/init conf [:pc4.rsdb.interface/run-migrations])))
+    (ig/init conf [:pc4.rsdb.interface/migrate])))
 
 (def status-checks
   [{:title         "SNOMED CT (using Hermes)"
