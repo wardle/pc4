@@ -8,6 +8,6 @@
                 :release "v[0-9]*"}
  :projects {"development"  {:alias "dev"}
             "pc4-server"   {:alias "srv"
-                            :necessary ["emailer" "fulcro-server" "graph"]}
+                            :necessary ["emailer" "frontend" "fulcro-server" "graph"]}
             "pc4-frontend" {:alias "fro"}
             "pc4-cli"      {:alias "cli"}}}
