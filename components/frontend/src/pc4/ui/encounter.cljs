@@ -15,10 +15,12 @@
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [pc4.route :as route]))
 
-(defsc Layout [this {:keys [banner encounter menu]}]
-  (let [{:t_encounter/keys [date_time is_deleted is_locked lock_date_time encounter_template]} encounter
+(defsc Layout
+  [this {:keys [banner encounter menu]}]
+  (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time encounter_template]} encounter
         {:t_encounter_template/keys [title project]} encounter_template
-        {project-title :t_project/title} project]
+        {project-title :t_project/title} project
+        {:t_patient/keys [permissions]} patient]
     (comp/fragment
      (patients/ui-patient-banner banner)
      (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
@@ -38,7 +40,8 @@
                (when (or is_locked lock_date_time)
                  (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
                       (cond
-                        is_locked "This encounter has been locked against editing"
+                        is_locked (div :.grid.grid-cols-1 "This encounter has been locked against editing"
+                                       (ui/ui-button {:onClick #(println "unlock encounter" id)} "Unlock"))
                         lock_date_time (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))))
 
                menu)
