@@ -2,6 +2,7 @@
  :deps {com.fulcrologic/fulcro               {:mvn/version "3.7.5"}
         com.wsscode/pathom3                  {:git/url "https://github.com/wilkerlucio/pathom3.git"
                                               :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}
-        org.jsoup/jsoup                      {:mvn/version "1.17.2"}}
+        org.jsoup/jsoup                      {:mvn/version "1.17.2"}
+        com.taoensso/timbre                  {:mvn/version "6.5.0"}}     ;; we override timbre as otherwise fulcro pulls in an older version
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}
