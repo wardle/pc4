@@ -6,6 +6,7 @@
         poly/deprivare     {:local/root "../../components/deprivare"}
         poly/dmd           {:local/root "../../components/dmd"}
         poly/emailer       {:local/root "../../components/emailer"}
+        poly/frontend      {:local/root "../../components/frontend"}
         poly/fhir          {:local/root "../../components/fhir"}
         poly/fulcro-server {:local/root "../../components/fulcro-server"}
         poly/graph         {:local/root "../../components/graph"}
@@ -21,7 +22,7 @@
         poly/wales-empi    {:local/root "../../components/wales-empi"}
         poly/wales-nadex   {:local/root "../../components/wales-nadex"}
 
-        ;; base component
+        ;; base components
         poly/server        {:local/root "../../bases/server"}
 
         ;; other external dependencies
