@@ -1,26 +1,28 @@
 (ns pc4.fulcro-server.interface
-  (:require [buddy.core.codecs]
-            [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.spec.alpha :as s]
-            [clojure.string :as str]
-            [cognitect.transit :as transit]
-            [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
-            [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
-            [io.pedestal.http :as http]
-            [io.pedestal.http.body-params :as body-params]
-            [io.pedestal.http.csrf :as csrf]
-            [io.pedestal.http.route :as route]
-            [io.pedestal.interceptor.error :as intc.error]
-            [io.pedestal.interceptor :as intc]
-            [integrant.core :as ig]
-            [pc4.log.interface :as log]
-            [pc4.rsdb.interface :as rsdb]      ;; TODO: switch to non-rsdb impl
-            [ring.middleware.session.cookie]
-            [rum.core :as rum])
-  (:import (com.fulcrologic.fulcro.algorithms.tempid TempId)
-           (java.time LocalDate LocalDateTime Period ZonedDateTime)
-           (java.time.format DateTimeFormatter)))
+  (:require
+   [buddy.core.codecs]
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]
+   [cognitect.transit :as transit]
+   [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
+   [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
+   [io.pedestal.http :as http]
+   [io.pedestal.http.body-params :as body-params]
+   [io.pedestal.http.csrf :as csrf]
+   [io.pedestal.http.route :as route]
+   [io.pedestal.interceptor.error :as intc.error]
+   [io.pedestal.interceptor :as intc]
+   [integrant.core :as ig]
+   [pc4.log.interface :as log]
+   [pc4.rsdb.interface :as rsdb]      ;; TODO: switch to non-rsdb impl for business logic
+   [ring.middleware.session.cookie]
+   [rum.core :as rum])
+  (:import
+   (com.fulcrologic.fulcro.algorithms.tempid TempId)
+   (java.time LocalDate LocalDateTime Period ZonedDateTime)
+   (java.time.format DateTimeFormatter)))
 
 (set! *warn-on-reflection* true)
 
@@ -157,17 +159,19 @@
   {:name ::add-authorization-manager
    :enter
    (fn [ctx]
-     (log/trace "api request: " (get-in ctx [:request :transit-params]))
+     (log/trace "authorization-manager; api request: " (get-in ctx [:request :transit-params]))
      (if-let [user (get-in ctx [:request :session :authenticated-user])]
        (assoc ctx :authorization-manager (rsdb/authorization-manager user))
-       (throw (ex-info "Unauthenticated" {}))))})
+       (do
+         (log/info "Unauthenticated request" (:request ctx))
+         (throw (ex-info "Unauthenticated" {})))))})
 
 (def api
   {:name ::api
    :enter
    (fn [ctx]
      (tap> {:api ctx})
-     (log/trace "api request: " (get-in ctx [:request :transit-params]))
+     (log/debug "api request: " (get-in ctx [:request :transit-params]))
      (let [params (get-in ctx [:request :transit-params])
            authorization-manager (:authorization-manager ctx)
            session (get-in ctx [:request :session])
