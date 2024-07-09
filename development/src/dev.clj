@@ -1,16 +1,17 @@
-(ns com.eldrix.pc4.dev
+(ns dev
   (:require
-   [clojure.repl :as repl :refer [doc]]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.spec.test.alpha :as stest]
    [cognitect.transit :as transit]
-   [com.eldrix.pc4.pedestal]
    [integrant.core :as ig]
    [integrant.repl :as ig.repl]
    [integrant.repl.state]
-   [next.jdbc :as jdbc]
    [pc4.config.interface :as config]
+   [pc4.deprivare.interface :as deprivare]
+   [pc4.dmd.interface :as dmd]
+   [pc4.fulcro-server.interface]
+   [pc4.nhspd.interface :as nhspd]
    [pc4.ods.interface :as clods]
    [pc4.rsdb.interface :as rsdb]
    [pc4.snomedct.interface :as hermes]
@@ -18,18 +19,20 @@
 
 (stest/instrument)                                          ;; turn on instrumentation for development
 
-(ig/load-namespaces (config/config :dev) [:com.eldrix.pc4.pedestal/server])
+(ig/load-namespaces (config/config :dev) [:pc4.fulcro-server.interface/server])
 
 (defn prep-dev-system []
-  (ig/load-namespaces (config/config :dev)))
+  (let [conf (config/config :dev)]
+    (ig/load-namespaces conf)
+    conf))
 
 (ig.repl/set-prep! prep-dev-system)
 
 (defn reset-system []
   (ig.repl/halt)
   (ig.repl/prep)
-  (ig/load-namespaces (config/config :dev) [:com.eldrix.pc4.pedestal/server])
-  (ig.repl/init [:com.eldrix.pc4.pedestal/server]))
+  (ig/load-namespaces (config/config :dev) [:pc4.fulcro-server.interface/server])
+  (ig.repl/init [:pc4.fulcro-server.interface/server]))
 
 (defn inspect-system []
   (tap> #'integrant.repl.state/system))
@@ -40,11 +43,11 @@
   (portal/open {:launcher :intellij})
   (portal/open)
   (add-tap #'portal/submit)
-  (ig/load-namespaces (config/config :dev) [:com.eldrix.pc4.pedestal/server])
+  (ig/load-namespaces (config/config :dev) [:pc4.fulcro-server.interface/server])
   (tap> (config/config :dev))
   (tap> integrant.repl.state/system)
 
-  (ig.repl/go [:com.eldrix.pc4.pedestal/server])
+  (ig.repl/go [:pc4.fulcro-server.interface/server])
 
   (ig/halt! (system))
   (ig.repl/halt)
@@ -54,41 +57,41 @@
   (reset-system)
 
   (def system integrant.repl.state/system)
-  (def pathom (:pathom/boundary-interface integrant.repl.state/system))
+  (def pathom (:pc4.graph.interface/boundary-interface integrant.repl.state/system))
 
   (:com.eldrix.deprivare/ops (config/config :dev))
   ;; start a system without a server  (REPL usage only)
-  (def system (ig/init (config/config :dev) [:pathom/env]))
-  (def system (ig/init (config/config :dev) [:pathom/boundary-interface]))
+  (def system (ig/init (config/config :dev) [:pc4.graph.interface/env]))
+  (def system (ig/init (config/config :dev) [:pc4.graph.interface/boundary-interface]))
   (tap> system)
   (ig/halt! system)
   (do
     (ig/halt! system)
-    (def system (pc4/init :dev [:pathom/env :wales.nhs.cavuhb/pms])))
+    (def system (ig/init (config/config :dev) [:pc4.graph.interface/boundary-interface])))
 
   ;; start a server using pedestal/jetty
-  (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
-  (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server]))
+  (ig/load-namespaces (config/config :dev) [:pc4.fulcro-server.interface/server])
+  (def system (ig/init (config/config :dev) [:pc4.fulcro-server.interface/server]))
   (ig/halt! system)
   (do (ig/halt! system)
-      (pc4/load-namespaces :dev [:com.eldrix.pc4.pedestal/server])
-      (def system (pc4/init :dev [:com.eldrix.pc4.pedestal/server])))
+      (ig/load-namespaces (config/config :dev) [:pc4.fulcro-server.interface/server])
+      (def system (ig/init (config/config :dev) [:pc4.fulcro-server.interface/server])))
 
   ;; exercise some of the components...
   (keys system)
-  (com.eldrix.clods.core/fetch-org (:com.eldrix/clods system) nil "7a4")
-  (pc4.snomedct.interface/search (:com.eldrix/hermes system) {:s "amlodipine" :max-hits 1 :constraint "<10363601000001109"})
-  (com.eldrix.hermes.core/get-extended-concept (:com.eldrix/hermes system) 108537001)
-  (com.eldrix.dmd.core/fetch-release-date (:com.eldrix/dmd system))
-  (com.eldrix.dmd.core/fetch-product (:com.eldrix/dmd system) 108537001)
-  (com.eldrix.nhspd.core/fetch-postcode (:com.eldrix/nhspd system) "cf144xw")
-  (com.eldrix.deprivare.core/fetch-installed (:com.eldrix/deprivare system))
-  (com.eldrix.deprivare.core/fetch-lsoa (:com.eldrix/deprivare system) "W01001770")
+  (clods/fetch-org (:com.eldrix/clods system) nil "7a4")
+  (hermes/search (:com.eldrix/hermes system) {:s "amlodipine" :max-hits 1 :constraint "<10363601000001109"})
+  (hermes/get-extended-concept (:com.eldrix/hermes system) 108537001)
+  (dmd/fetch-release-date (:com.eldrix/dmd system))
+  (dmd/fetch-product (:com.eldrix/dmd system) 108537001)
+  (nhspd/fetch-postcode (:com.eldrix/nhspd system) "cf144xw")
+  (deprivare/fetch-installed (:com.eldrix/deprivare system))
+  (deprivare/fetch-lsoa (:com.eldrix/deprivare system) "W01001770")
 
   (require '[com.eldrix.pc4.rsdb.patients :as patients])
   (com.eldrix.pc4.rsdb.patients/fetch-patient (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
-  (patients/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
-  (patients/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
+  (rsdb/fetch-death-certificate (:com.eldrix.rsdb/conn system) {:t_patient/id 27204})
+  (rsdb/fetch-patient-addresses (:com.eldrix.rsdb/conn system) {:t_patient/id 8})
 
   (:pathom/ops system)
   ;; for experimentation, we can create an authenticated environment in which we have a valid user:
