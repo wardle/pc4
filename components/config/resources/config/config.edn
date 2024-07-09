@@ -74,6 +74,9 @@
  :pc4.rsdb.interface/config      ;; TODO: change to a service and include db conn there
  {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
+ :pc4.rsdb.interface/migrate
+ {:conn #ig/ref :pc4.rsdb.interface/conn}
+
  :pc4.snomedct.interface/svc
  {:root           #ref [:pc4/root]
   :f              "hermes-v1.4-2023.10.04.db"
