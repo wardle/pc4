@@ -80,10 +80,10 @@
   (when-not (s/valid? ::boundary-service-config config)
     (throw (ex-info "invalid boundary service configuration" (s/explain-data ::boundary-service-config config))))
   (when connect-viz
-    (log/info "connecting pathom-viz" config)
     (try
       (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
-        (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config)))
+        (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config))
+        (log/info "connecting pathom-viz"))
       (catch Exception _ (log/warn "unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))
 
