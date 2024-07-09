@@ -367,7 +367,7 @@
    :route-segment ["encounter" :encounter-id "form_smoking" :form/id]
    :query         [:form/id :form_smoking/id
                    :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                   :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
+                   :form_smoking/previous_duration_years :form_smoking/previous_cigarettes_per_day :form_smoking/year_gave_up
 
                    :form_smoking/is_deleted
                    :form_smoking/encounter_fk :form_smoking/user_fk
@@ -383,17 +383,14 @@
                        [:form/id form-id]
                        (fn []
                          (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormSmoking})])))))}
-  (let [ can-edit? (can-edit-form? can-edit)]
+  (let [can-edit? (can-edit-form? can-edit)]
     (ui-layout
-      layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_smoking/id :form_smoking/is_deleted
-                                                                           :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                                                                           :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
-                                                                           :form_smoking/encounter_fk :form_smoking/user_fk])}}
+     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_smoking/id :form_smoking/is_deleted
+                                                                          :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
+                                                                          :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
+                                                                          :form_smoking/encounter_fk :form_smoking/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item
-       {:label "Smoking status"}
-       )
+       {:label "Smoking status"})
       (ui/ui-simple-form-item
-       {:label "Height (metres)"}
-       )
-      ))))
+       {:label "Height (metres)"})))))
