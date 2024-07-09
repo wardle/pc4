@@ -17,7 +17,12 @@
 (defmethod ig/init-key ::conn
   [_ params]
   (log/info "opening PatientCare EPR [rsdb] database connection" (dissoc params :password))
-  (connection/->pool HikariDataSource params))
+  (let [conn (connection/->pool HikariDataSource params)]
+    ;; throw an exception if there are pending migrations
+    (when-let [ms (seq (migrations/pending-list conn))]
+      (throw (ex-info "pending migrations exist: aborting startup" {:pending ms})))
+    (log/debug "no pending migrations")
+    conn))
 
 (defmethod ig/halt-key! ::conn
   [_ conn]
@@ -30,20 +35,12 @@
 
 ;;
 
-(defn pending-migrations [conn]
-  (migrations/pending-list conn))
-
 (defn migrate! [conn]
   (migrations/migrate conn))
 
-(defmethod ig/init-key ::check-migrations
-  [_ {:keys [conn]}]
-  (when-let [ms (seq (pending-migrations conn))]
-    (throw (ex-info "pending migrations exist: aborting startup" {:pending ms}))))
-
 (defmethod ig/init-key ::migrate
   [_ {:keys [conn]}]
-  (if-let [ms (seq (pending-migrations conn))]
+  (if-let [ms (seq (migrations/pending-list conn))]
     (do (log/info "performing database migrations..." {:pending ms})
         (migrate! conn))
     (log/info "no pending migrations required")))
@@ -61,6 +58,18 @@
 (defn graph-resolvers []
   (requiring-resolve 'com.eldrix.pc4.rsdb/all-resolvers))
 
+;;
+;;
+;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; TODO: clean up rsdb API, remove redundancy, adopt more standard patterns, and simplify 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;
+;;
+;;
+
 ;; authorisation / permissions 
 
 (def all-permissions auth/all-permissions)
@@ -68,7 +77,8 @@
 (def expand-permission-sets auth/expand-permission-sets)
 (def authorized? auth/authorized?)
 (def authorized-any? auth/authorized-any?)
-(def authorization-manager authorization-manager)
+(def authorization-manager users/authorization-manager2)
+
 ;; users
 
 (def user-by-username users/fetch-user)
@@ -140,6 +150,8 @@
 (def encounter-ids->form-ms-relapse patients/encounter-ids->form-ms-relapse)
 (def encounter-ids->form-weight-height patients/encounter-ids->form-weight-height)
 (def ^:deprecated encounter-id->form-smoking-history forms/encounter->form_smoking_history)
+
+;; value sets
 
 (def all-multiple-sclerosis-diagnoses patients/all-multiple-sclerosis-diagnoses)
 (def all-ms-event-types patients/all-ms-event-types)
