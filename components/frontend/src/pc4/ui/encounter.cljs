@@ -201,32 +201,34 @@
                 :let [form-type-name (:form_type/nm form_type)
                       supported (supported-form-types form-type-name)  ;; do we support viewing/editing this form yet?
                       title (:form_type/title form_type)]]
-            (ui/ui-table-row
-             {:key id
-              :onClick (when supported #(comp/transact! this [(route/route-to {:handler ::route/form
-                                                                               :params {:encounter-id encounter-id
-                                                                                        :form-type-name form-type-name
-                                                                                        :form/id (forms/form-id->str id)}})]))
-              :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
-             (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
-             (ui/ui-table-cell {} summary_result)
-             (ui/ui-table-cell
-              {}
-              (dom/span :.hidden.lg:block (:t_user/full_name user))
-              (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
+            (do (println "form" {:id id :form_type form_type :supported? supported})
+                (ui/ui-table-row
+                 {:key id
+                  :onClick (when supported #(comp/transact! this [(route/route-to {:handler ::route/form
+                                                                                   :params {:encounter-id encounter-id
+                                                                                            :form-type-name form-type-name
+                                                                                            :form/id (forms/form-id->str id)}})]))
+                  :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
+                 (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
+                 (ui/ui-table-cell {} (if-not supported "Not yet supported" summary_result))
+                 (ui/ui-table-cell
+                  {}
+                  (dom/span :.hidden.lg:block (:t_user/full_name user))
+                  (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user))))))
           (when can-edit-encounter?      ;; TODO: also offer to show other available forms?
-            (for [{:form_type/keys [id nm title] :as form-type} available_form_types]
+            (for [{:form_type/keys [id nm title] :as form-type} available_form_types
+                  :let [supported (supported-form-types nm)]]
               (ui/ui-table-row
-               {:onClick #(do (println "add form " form-type)
-                              (comp/transact! this [(list 'pc4.rsdb/create-form {:patient-identifier patient-identifier
-                                                                                 :encounter-id       encounter-id
-                                                                                 :form-type-name     nm
-                                                                                 :component-class    (get form-types nm)
-                                                                                 :form-type-id       id
-                                                                                 :on-success-tx      []})]))
-                :classes ["italic" "cursor-pointer" "hover:bg-gray-200"]}
+               {:onClick (when supported #(do (println "add form " form-type)
+                                              (comp/transact! this [(list 'pc4.rsdb/create-form {:patient-identifier patient-identifier
+                                                                                                 :encounter-id       encounter-id
+                                                                                                 :form-type-name     nm
+                                                                                                 :component-class    (get form-types nm)
+                                                                                                 :form-type-id       id
+                                                                                                 :on-success-tx      []})])))
+                :classes (cond-> ["italic"] supported (conj "cursor-pointer" "hover:bg-gray-200"))}
                (ui/ui-table-cell {} (dom/span title))
-               (ui/ui-table-cell {} (dom/span "Pending"))
+               (ui/ui-table-cell {} (dom/span (if supported "Pending" "Not yet supported")))
                (ui/ui-table-cell {} "")))))))
        (ui/ui-active-panel
         {:title "Notes"}

@@ -1576,6 +1576,7 @@
         (rsdb/delete-encounter! conn encounter-id))))
 
 (s/def ::unlock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+
 (pco/defmutation unlock-encounter!
   [{conn    :com.eldrix.rsdb/conn
     user    :session/authenticated-user, :as env}
@@ -1590,6 +1591,7 @@
         (rsdb/unlock-encounter! conn encounter-id))))
 
 (s/def ::lock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+
 (pco/defmutation lock-encounter!
   [{conn    :com.eldrix.rsdb/conn
     user    :session/authenticated-user, :as env}
