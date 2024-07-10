@@ -337,7 +337,7 @@
     (let [permissions-by-project (update-vals (:t_user/active_roles user) auth/expand-permission-sets)] ;; a map of project-id to a set of permissions
       (reify auth/AuthorizationManager                      ;; non-system users defined by project roles
         (authorized? [_ project-ids permission]
-          (log/info "checking auth:" {:project-ids project-ids :permission permission :permissions permissions-by-project})
+          (log/trace "checking auth:" {:project-ids project-ids :permission permission :permissions permissions-by-project})
           (some #(contains? (permissions-by-project %) permission) project-ids))
         (authorized-any? [_ permission]
           (some #(permissions-by-project %) permission) permissions-by-project)))))
