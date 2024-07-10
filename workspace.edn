@@ -1,0 +1,13 @@
+{:top-namespace "pc4"
+ :interface-ns "interface"
+ :default-profile-name "default"
+ :compact-views #{}
+ :vcs {:name "git"
+       :auto-add false}
+ :tag-patterns {:stable "stable-*"
+                :release "v[0-9]*"}
+ :projects {"development"  {:alias "dev"}
+            "pc4-server"   {:alias "srv"
+                            :necessary ["emailer" "frontend" "fulcro-server" "graph"]}
+            "pc4-frontend" {:alias "fro"}
+            "pc4-cli"      {:alias "cli"}}}

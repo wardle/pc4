@@ -1,0 +1,13 @@
+{:deps {org.clojure/clojure {:mvn/version "1.12.0-beta1"}
+
+        ;; components
+        poly/hermes {:local/root "../../components/hermes"}
+        poly/log    {:local/root "../../components/log"}
+        ;; base component
+        poly/cli {:local/root "../../bases/cli"}}
+
+ :aliases {:run
+           {:main-opts ["-m" "pc4.cli.core"]}
+
+           :test {:extra-paths []
+                  :extra-deps  {}}}}

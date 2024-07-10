@@ -1,7 +1,6 @@
 (ns build
   (:require [clojure.edn :as edn]
-            [clojure.tools.build.api :as b]
-            [deps-deploy.deps-deploy :as dd]))
+            [clojure.tools.build.api :as b]))
 
 (def lib 'com.eldrix/pc4)
 (def version (format "1.1.%s" (b/git-count-revs nil)))

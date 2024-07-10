@@ -1,0 +1,4 @@
+{:paths ["src" "resources"]
+ :deps {com.draines/postal         {:mvn/version "2.0.5"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

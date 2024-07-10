@@ -1,0 +1,4 @@
+{:paths ["src" "resources"]
+ :deps {com.eldrix/deprivare       {:mvn/version "2.0.76"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}

@@ -1,7 +1,7 @@
-{:deps   {:aliases [:dev]}
+{:deps   {:aliases [:dev :shadow]}
  :nrepl  {:port 9000}
  :builds {:main {:target            :browser
-                 :output-dir        "resources/public/js/compiled"
+                 :output-dir        "components/frontend/resources/public/js/compiled"
                  :asset-path        "/js/main"
                  :compiler-options  {:warnings {:fn-deprecated false}}
 

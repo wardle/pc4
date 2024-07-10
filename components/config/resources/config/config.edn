@@ -1,0 +1,140 @@
+;;
+;; PatientCare v4 configuration file
+;;
+;; There are three main profiles currently:
+;; - :dev      : this profile is used during development
+;; - :cvx      : this profile is active when deployed in a live NHS clinical environment (on server cvx-neuro02)
+;; - :pc4      : this profile is active when deployed on AWS infrastructure
+;;
+;; There is an additional development profile:
+;; - :pc4-dev  : this profile is for use in development but connects to the remote live AWS infrastructure
+
+{:secrets
+ #include #join [#env HOME "/.secrets.edn"]
+
+ ;; all data files are referenced relative to this root directory
+ :pc4/root
+ #profile {:default "/Users/mark/Dev/pc4/data/"
+           :cvx     "/opt/Local/var/db/pc4/"
+           :pc4     "/var/pc4/"}
+
+ :pc4.codelists.interface/svc
+ {:hermes #ig/ref :pc4.snomed.interface/svc
+  :dmd    #ig/ref :pc4.dmd.interface/svc}
+
+ :pc4.deprivare.interface/svc
+ {:root #ref [:pc4/root]
+  :f    "depriv-v2.0-2024.02.15.db"}
+
+ :pc4.deprivare.interface/ops
+ #ig/ref :pc4.deprivare.interface/svc
+
+ :pc4.dmd.interface/svc
+ {:root #ref [:pc4/root]
+  :f    "dmd-2024-01-29.db"}
+
+ :pc4.lemtrada.interface/env
+ {:hermes    #ig/ref :pc4.snomedct.interface/svc
+  :cavpms    #ig/ref :pc4.wales-cav-pms.interface/svc
+  :conn      #ig/ref :pc4.rsdb.interface/conn
+  :clods     #ig/ref :pc4.ods.interface/conn
+  :dmd       #ig/ref :pc4.dmd.interface/svc
+  :deprivare #ig/ref :pc4.deprivare.interface/svc
+  :pathom    #ig/ref :pc4.graph.interface/boundary-interface}
+
+ :pc4.nhspd.interface/svc
+ {:root #ref [:pc4/root]
+  :f    "nhspd-2022-11-10.db"}
+
+ :pc4.ods.interface/svc
+ {:root  #ref [:pc4/root]
+  :f     "ods-2022-01-24.db"
+  :nhspd #ig/ref :pc4.nhspd.interface/svc}
+
+ :pc4.ods-weekly.interface/svc
+ {:root #ref [:pc4/root]
+  :f    "ods-weekly-2024-02-15.db"}
+
+ :pc4-aws-db-conn
+ {:dbtype          "postgresql"
+  :host            #ref [:secrets :pc4 :db :host]
+  :username        #ref [:secrets :pc4 :db :username]
+  :password        #ref [:secrets :pc4 :db :password]
+  :dbname          "rsdb"
+  :maximumPoolSize 10}
+
+ ;; rsdb conn - configuration for rsdb database
+ :pc4.rsdb.interface/conn
+ #profile {:default {:dbtype          "postgresql"
+                     :dbname          "rsdb"
+                     :maximumPoolSize 10}
+           :pc4     #ref [:pc4-aws-db-conn]
+           :pc4-dev #ref [:pc4-aws-db-conn]}
+
+ :pc4.rsdb.interface/config      ;; TODO: change to a service and include db conn there
+ {:legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
+
+ :pc4.rsdb.interface/migrate
+ {:conn #ig/ref :pc4.rsdb.interface/conn}
+
+ :pc4.snomedct.interface/svc
+ {:root           #ref [:pc4/root]
+  :f              "hermes-v1.4-2023.10.04.db"
+  :default-locale "en-GB"}
+
+ :pc4.wales-cav-pms.interface/svc
+ #profile {:cvx     {:username    #ref [:secrets :wales :cav :pms :username]
+                     :password    #ref [:secrets :wales :cav :pms :password]
+                     :database    "vpmslive.world"
+                     :user-string "patientcare-v4"}
+           :default nil}
+
+ :pc4.wales-empi.interface/svc
+ #profile {:cvx     {:url           "https://mpilivequeries.cymru.nhs.uk/PatientDemographicsQueryWS.asmx"
+                     :processing-id "P"
+                     :timeout       5000}
+           :default nil}
+
+ ;; operations / resolvers for pathom graph
+ ;; defined either statically (via #clj/var) or dynamically (via #ig/ref).
+ :pc4.graph.interface/ops
+ [#clj/var com.eldrix.clods.graph/all-resolvers
+  #clj/var com.eldrix.odsweekly.graph/all-resolvers
+  #ig/ref :pc4.deprivare.interface/ops                         ;; operations for deprivare are determined dynamically at runtime
+  #clj/var com.eldrix.dmd.graph/all-resolvers
+  #clj/var pc4.graph.rsdb/all-resolvers
+  #clj/var com.eldrix.hermes.graph/all-resolvers
+  #clj/var pc4.graph.users/all-resolvers
+  #clj/var pc4.graph.patients/all-resolvers
+  #clj/var pc4.msbase.core/all-resolvers]
+
+ ;; pathom graph environment available to all resolvers
+ :pc4.graph.interface/env
+ {:ops                            #ig/ref :pc4.graph.interface/ops
+  :com.eldrix.clods.graph/svc     #ig/ref :pc4.ods.interface/svc
+  :com.eldrix.odsweekly.graph/svc #ig/ref :pc4.ods-weekly.interface/svc
+  :com.eldrix.dmd.graph/store     #ig/ref :pc4.dmd.interface/svc
+  :com.eldrix.deprivare.graph/svc #ig/ref :pc4.deprivare.interface/svc
+  :com.eldrix/hermes              #ig/ref :pc4.snomedct.interface/svc
+  :com.eldrix/nhspd               #ig/ref :pc4.nhspd.interface/svc
+  :com.eldrix.rsdb/conn           #ig/ref :pc4.rsdb.interface/conn
+  :com.eldrix.rsdb/config         #ig/ref :pc4.rsdb.interface/config
+  :wales.nhs.cavuhb/pms           #ig/ref :pc4.wales-cav-pms.interface/svc
+  :wales.nhs/empi                 #ig/ref :pc4.wales-empi.interface/svc}
+
+ ;; pathom boundary interface - a single fn providing graph resolution
+ :pc4.graph.interface/boundary-interface
+ {:connect-viz #profile {:default false, :dev true}
+  :env         #ig/ref :pc4.graph.interface/env}
+
+;; HTTP server
+ :pc4.fulcro-server.interface/server
+ {:port            #long #or [#env PORT 8080]
+  :allowed-origins "*"
+  :host            "0.0.0.0"
+  :join?           #profile {:default false, :cvx false, :pc4 false}
+  :session-key     #ref [:secrets :pc4 :session-key]
+  :cljs-manifest   "public/js/compiled/manifest.edn"
+  :env             {:use-tailwind-cdn #profile {:default false, :dev true}
+                    :pathom           #ig/ref :pc4.graph.interface/boundary-interface
+                    :conn             #ig/ref :pc4.rsdb.interface/conn}}}
