@@ -1575,6 +1575,34 @@
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
         (rsdb/delete-encounter! conn encounter-id))))
 
+(s/def ::unlock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+(pco/defmutation unlock-encounter!
+  [{conn    :com.eldrix.rsdb/conn
+    user    :session/authenticated-user, :as env}
+   {encounter-id :t_encounter/id
+    patient-identifier :t_patient/patient_identifier, :as params}]
+  {::pco/op-name 'pc4.rsdb/unlock-encounter}
+  (log/info "unlock encounter:" encounter-id)
+  (if-not (s/valid? ::unlock-encounter params)
+    (do (log/error "invalid unlock encounter" (s/explain-data ::unlock-encounter params))
+        (throw (ex-info "invalid 'unlock encounter' data" (s/explain-data ::unlock-encounter params))))
+    (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+        (rsdb/unlock-encounter! conn encounter-id))))
+
+(s/def ::lock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
+(pco/defmutation lock-encounter!
+  [{conn    :com.eldrix.rsdb/conn
+    user    :session/authenticated-user, :as env}
+   {encounter-id :t_encounter/id
+    patient-identifier :t_patient/patient_identifier, :as params}]
+  {::pco/op-name 'pc4.rsdb/lock-encounter}
+  (log/info "lock encounter:" encounter-id)
+  (if-not (s/valid? ::lock-encounter params)
+    (do (log/error "invalid lock encounter" (s/explain-data ::lock-encounter params))
+        (throw (ex-info "invalid 'lock encounter' data" (s/explain-data ::lock-encounter params))))
+    (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+        (rsdb/lock-encounter! conn encounter-id))))
+
 (pco/defmutation create-form!
   "Create a new form within an encounter for a patient of the specified type"
   [{conn :com.eldrix.rsdb/conn, {user-id :t_user/id} :session/authenticated-user, :as env}
@@ -1898,6 +1926,8 @@
    ;; encounters
    save-encounter!
    delete-encounter!
+   unlock-encounter!
+   lock-encounter!
    ;; forms
    create-form!
    save-form!

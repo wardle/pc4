@@ -843,6 +843,20 @@
                                      :set    {:t_encounter/is_deleted "true"}})
                    {:return-keys true}))
 
+(defn unlock-encounter!
+  [conn encounter-id]
+  (db/execute-one! conn (sql/format {:update [:t_encounter]
+                                     :where  [:= :id encounter-id]
+                                     :set    {:t_encounter/lock_date_time (.plusHours (java.time.LocalDateTime/now) 12)}})
+                   {:return-keys true}))
+
+(defn lock-encounter!
+  [conn encounter-id]
+  (db/execute-one! conn (sql/format {:update [:t_encounter]
+                                     :where [:= :id encounter-id]
+                                     :set {:t_encounter/lock_date_time (java.time.LocalDateTime/now)}})
+                   {:return-keys true}))
+
 (s/fdef set-date-death
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier) :t_patient/date_death])))
 

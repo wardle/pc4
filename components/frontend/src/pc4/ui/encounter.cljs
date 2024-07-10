@@ -20,7 +20,7 @@
   (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time encounter_template]} encounter
         {:t_encounter_template/keys [title project]} encounter_template
         {project-title :t_project/title} project
-        {:t_patient/keys [permissions]} patient]
+        {:t_patient/keys [patient_identifier permissions]} patient]
     (comp/fragment
      (patients/ui-patient-banner banner)
      (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
@@ -37,12 +37,23 @@
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
                       "Warning: this encounter has been deleted"))
-               (when (or is_locked lock_date_time)
+               (when (or is_locked lock_date_time (and (not is_locked) (permissions :PATIENT_EDIT)))
                  (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
                       (cond
-                        is_locked (div :.grid.grid-cols-1 "This encounter has been locked against editing"
-                                       (ui/ui-button {:onClick #(println "unlock encounter" id)} "Unlock"))
-                        lock_date_time (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))))
+                        is_locked
+                        (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
+                             (when (permissions :PATIENT_EDIT)
+                               (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
+                                                                                    {:t_encounter/id id
+                                                                                     :t_patient/patient_identifier patient_identifier})])}
+                                             "Unlock")))
+                        (and (not is_locked) (permissions :PATIENT_EDIT))
+                        (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
+                                                                             {:t_encounter/id id
+                                                                              :t_patient/patient_identifier patient_identifier})])}
+                                      "Lock encounter now")
+                        lock_date_time
+                        (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))))
 
                menu)
           (div :.col-span-1.lg:col-span-5.pt-2

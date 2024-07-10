@@ -211,6 +211,8 @@
 (def ^:deprecated save-encounter-and-forms! forms/save-encounter-and-forms!)
 (def delete-episode! projects/delete-episode!)
 (def delete-encounter! patients/delete-encounter!)
+(def unlock-encounter! patients/unlock-encounter!)
+(def lock-encounter! patients/lock-encounter!)
 (def create-form! forms/create-form!)
 (def save-form! forms/save-form!)
 (def delete-form! forms/delete-form!)

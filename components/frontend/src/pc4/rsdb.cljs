@@ -148,6 +148,30 @@
    (when on-success-tx
      (comp/transact! app on-success-tx))))
 
+(defmutation unlock-encounter
+  [{:t_encounter/keys [id] :t_patient/keys [patient-identifier]}]
+  (action
+   [{:keys [state]}]
+   (println "unlocking encounter" id "for patient" patient-identifier))
+  (remote
+   [env]
+   (m/returning env 'pc4.ui.encounter/EditEncounter))
+  (ok-action
+   [{:keys [app]}]
+   (println "unlock encounter ok")))
+
+(defmutation lock-encounter
+  [{:t_encounter/keys [id] :t_patient/keys [patient-identifier]}]
+  (action
+   [{:keys [state]}]
+   (println "locking encounter" id "for patient" patient-identifier))
+  (remote
+   [env]
+   (m/returning env 'pc4.ui.encounter/EditEncounter))
+  (ok-action
+   [{:keys [app]}]
+   (println "lock encounter ok")))
+
 (defmutation create-admission
   [{:t_episode/keys [id] :as episode}]
   (action
