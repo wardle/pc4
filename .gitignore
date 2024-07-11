@@ -14,7 +14,7 @@ node_modules
 .shadow-cljs/
 *.zip
 output.css
-/target/
+/projects/pc4-server/target/
 *.jar
 *.csv
 /problems.json
