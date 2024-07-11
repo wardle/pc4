@@ -360,6 +360,11 @@
 
 (def ui-edit-form-weight-height (comp/computed-factory EditFormWeightHeight))
 
+(def smoking-status-options
+  #{"NEVER_SMOKED"
+    "EX_SMOKER"
+    "CURRENT_SMOKER"})
+
 (defsc EditFormSmoking
   [this {:form_smoking/keys [status current_cigarettes_per_day duration_years previous_cigarettes_per_day previous_duration_years year_gave_up]
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
@@ -368,7 +373,6 @@
    :query         [:form/id :form_smoking/id
                    :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
                    :form_smoking/previous_duration_years :form_smoking/previous_cigarettes_per_day :form_smoking/year_gave_up
-
                    :form_smoking/is_deleted
                    :form_smoking/encounter_fk :form_smoking/user_fk
                    {:form/encounter (comp/get-query FormEncounter)}
@@ -391,14 +395,38 @@
                                                                           :form_smoking/encounter_fk :form_smoking/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item
-       {:label "Smoking status"})
-      (ui/ui-simple-form-item
-       {:label "Current cigarettes per day"})
-      (ui/ui-simple-form-item
-       {:label "Duration in years"})
-      (ui/ui-simple-form-item
-       {:label "Previous cigarettes per day"})
-      (ui/ui-simple-form-item
-       {:label "Duration in years"})
-      (ui/ui-simple-form-item
-       {:label "Year gave up smoking cigarettes"})))))
+       {:label "Smoking status"}
+       (ui/ui-select-popup-button
+        {:value status
+         :options smoking-status-options
+         :onChange #(m/set-value! this :form_smoking/status %)}))
+      (cond
+        (= "CURRENT_SMOKER" status)
+        (div
+         (ui/ui-simple-form-item
+          {:label "Current cigarettes per day"}
+          (ui/ui-textfield
+           {:type :number
+            :value current_cigarettes_per_day}))
+         (ui/ui-simple-form-item
+          {:label "Duration in years"}
+          (ui/ui-textfield
+           {:type :number
+            :value duration_years})))
+        (= "EX_SMOKER" status)
+        (div
+         (ui/ui-simple-form-item
+          {:label "Previous cigarettes per day"}
+          (ui/ui-textfield
+           {:type :number
+            :value previous_cigarettes_per_day}))
+         (ui/ui-simple-form-item
+          {:label "Duration in years"}
+          (ui/ui-textfield
+           {:type :number
+            :value previous_duration_years}))
+         (ui/ui-simple-form-item
+          {:label "Year gave up smoking cigarettes"}
+          (ui/ui-textfield
+           {:type :number
+            :value year_gave_up}))))))))
