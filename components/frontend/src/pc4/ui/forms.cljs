@@ -364,7 +364,7 @@
   [this {:form_smoking/keys [status current_cigarettes_per_day duration_years previous_cigarettes_per_day previous_duration_years year_gave_up]
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
   {:ident         :form/id
-   :route-segment ["encounter" :encounter-id "form_smoking" :form/id]
+   :route-segment ["encounter" :encounter-id "form_smoking_history" :form/id]
    :query         [:form/id :form_smoking/id
                    :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
                    :form_smoking/previous_duration_years :form_smoking/previous_cigarettes_per_day :form_smoking/year_gave_up
@@ -387,10 +387,18 @@
     (ui-layout
      layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_smoking/id :form_smoking/is_deleted
                                                                           :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                                                                          :form_smoking/previous_duration_years :form_smoking/previous_duration_years :form_smoking/year_gave_up
+                                                                          :form_smoking/previous_cigarettes_per_day :form_smoking/previous_duration_years :form_smoking/year_gave_up
                                                                           :form_smoking/encounter_fk :form_smoking/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item
        {:label "Smoking status"})
       (ui/ui-simple-form-item
-       {:label "Height (metres)"})))))
+       {:label "Current cigarettes per day"})
+      (ui/ui-simple-form-item
+       {:label "Duration in years"})
+      (ui/ui-simple-form-item
+       {:label "Previous cigarettes per day"})
+      (ui/ui-simple-form-item
+       {:label "Duration in years"})
+      (ui/ui-simple-form-item
+       {:label "Year gave up smoking cigarettes"})))))

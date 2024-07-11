@@ -101,7 +101,8 @@
     pc4.ui.users/ChangePassword
     pc4.ui.forms/EditFormEdss
     pc4.ui.forms/EditFormMsRelapse
-    pc4.ui.forms/EditFormWeightHeight]})
+    pc4.ui.forms/EditFormWeightHeight
+    pc4.ui.forms/EditFormSmoking]})
 
 (def ui-main-router (comp/factory MainRouter))
 
