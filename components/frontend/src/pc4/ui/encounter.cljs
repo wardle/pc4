@@ -39,21 +39,21 @@
                       "Warning: this encounter has been deleted"))
                (when (or is_locked lock_date_time (and (not is_locked) (permissions :PATIENT_EDIT)))
                  (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
-                      (cond
-                        is_locked
+                      (if is_locked
                         (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
                              (when (permissions :PATIENT_EDIT)
                                (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
                                                                                     {:t_encounter/id id
                                                                                      :t_patient/patient_identifier patient_identifier})])}
                                              "Unlock")))
-                        (and (not is_locked) (permissions :PATIENT_EDIT))
-                        (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
-                                                                             {:t_encounter/id id
-                                                                              :t_patient/patient_identifier patient_identifier})])}
-                                      "Lock encounter now")
-                        lock_date_time
-                        (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))))
+                        (div :.grid.grid-cols-1.gap-2
+                             (when lock_date_time
+                               (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))
+                             (when (permissions :PATIENT_EDIT)
+                               (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
+                                                                                    {:t_encounter/id id
+                                                                                     :t_patient/patient_identifier patient_identifier})])}
+                                             "Lock encounter now"))))))
 
                menu)
           (div :.col-span-1.lg:col-span-5.pt-2
@@ -99,32 +99,11 @@
              {:form/user (comp/get-query User)}
              {:form/encounter (comp/get-query Encounter)}])})
 
-;; 
-;; It is possible that a better approach would be to use dynamic routing here and work at the form
-;; level. However. at the moment, this mainly works at the encounter level, with form data pulled
-;; in for an encounter - so we can simply switch components ourselves. This does mean that forms
-;; cannot load additional data such as lookups. 
-#_(def form-types
-    [{:nm     "form_edss"
-      :class  EditFormEdss
-      :view   ui-edit-form-edss}
-     {:nm     "form_ms_relapse"
-      :class  EditFormMsRelapse
-      :view   ui-edit-form-ms-relapse}
-     {:nm     "form_weight_height"
-      :class  EditFormWeightHeight
-      :view   ui-edit-form-weight-height}])
-
-#_(def form-type-by-name
-    (reduce (fn [acc {:keys [nm view class] :as v}]
-              (assoc acc nm (cond-> v
-                              (nil? view) (assoc :view (comp/computed-factory class))))) {} form-types))
-
 (def form-types
-  {"form_edss"          forms/EditFormEdss
-   "form_ms_relapse"    forms/EditFormMsRelapse
-   "form_weight_height" forms/EditFormWeightHeight
-   "form_smoking"       forms/EditFormSmoking})
+  {"form_edss"            forms/EditFormEdss
+   "form_ms_relapse"      forms/EditFormMsRelapse
+   "form_weight_height"   forms/EditFormWeightHeight
+   "form_smoking_history" forms/EditFormSmoking})
 
 (def supported-form-types (set (keys form-types)))
 
@@ -210,7 +189,7 @@
                                                                                             :form/id (forms/form-id->str id)}})]))
                   :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
                  (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
-                 (ui/ui-table-cell {} (if-not supported "Not yet supported" summary_result))
+                 (ui/ui-table-cell {} summary_result)
                  (ui/ui-table-cell
                   {}
                   (dom/span :.hidden.lg:block (:t_user/full_name user))
@@ -226,9 +205,9 @@
                                                                                                  :component-class    (get form-types nm)
                                                                                                  :form-type-id       id
                                                                                                  :on-success-tx      []})])))
-                :classes (cond-> ["italic"] supported (conj "cursor-pointer" "hover:bg-gray-200"))}
+                :classes (if supported ["italic" "cursor-pointer" "hover:bg-gray-200"] ["italic" "cursor-not-allowed"])}
                (ui/ui-table-cell {} (dom/span title))
-               (ui/ui-table-cell {} (dom/span (if supported "Pending" "Not yet supported")))
+               (ui/ui-table-cell {} (dom/span "Pending"))
                (ui/ui-table-cell {} "")))))))
        (ui/ui-active-panel
         {:title "Notes"}
