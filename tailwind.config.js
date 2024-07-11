@@ -1,6 +1,6 @@
 module.exports = {
   content: [
-    './resources/public/**/*.html',
+    'components/frontend/src/**/*.cljs',
     './resources/public/**/*.js'],
   theme: {
     extend: {},
