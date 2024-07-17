@@ -662,7 +662,7 @@
               {:type     "button"
                :classes  [(case role :primary "border-transparent text-white bg-red-600" "bg-gray-100") (if disabled? "opacity-50" "cursor-pointer hover:bg-gray-200")]
                :disabled disabled?
-               :onClick  #(when (not disabled?) (onClick))}
+               :onClick  #(when (and onClick (not disabled?)) (onClick))}
               (comp/children this)))
 
 (def ui-menu-button (comp/factory MenuButton))
