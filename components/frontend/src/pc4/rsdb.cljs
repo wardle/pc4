@@ -239,13 +239,19 @@
     :t_result_type/id :t_result_type/name :t_result_type/result_entity_name})
 
 (defmutation save-result
-  [{:keys [patient-identifier result]}]
+  [{:keys [patient-identifier result] :as params}]
   (action
    [{:keys [state]}]
    (swap! state fs/entity->pristine* [:t_result/id (:t_result/id result)]))
   (remote
    [{:keys [component] :as env}]
-   (m/returning env (comp/get-class component)))
+   (-> env
+       (m/with-params (update params :result dissoc
+                              :com.fulcrologic.fulcro.algorithms.form-state/fields
+                              :com.fulcrologic.fulcro.algorithms.form-state/pristine-state
+                              :com.fulcrologic.fulcro.algorithsm.form-state/subforms
+                              :fulcro.client.primitives/computed))
+       (m/returning (comp/get-class component))))
 
   (ok-action
    [{:keys [state result component mutation-return-value] :as env}]
