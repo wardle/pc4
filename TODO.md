@@ -5,7 +5,6 @@ Tasks that are currently my priority for this development cycle:
 ## Tasks prior to deployment to patientcare.app:
 
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
-* [ ] Need to show and choose responsible user for each form
 * [x] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
 * [x] Add 'delete form' functionality to front-end
 * [ ] Need 'add encounter' functionality, which will need server side involvement to initialise forms and data in context
@@ -25,6 +24,7 @@ Tasks that are currently my priority for this development cycle:
 
 ## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
 
+* [ ] Need to show and choose responsible user for each form
 * [ ] Allow users to add any form not already completed or available in the user interface - e.g. 'add form...' button to open search dialog
 * [ ] Allow patient search from top-level and simply open in context of intersection between user's default project and patient's projects
 * [ ] Allow quick switch between projects in top-level - e.g. setting user default and then when open a record either choose to register or choose to switch project context
@@ -42,13 +42,17 @@ Tasks that are currently my priority for this development cycle:
 * [x] Return to using HTML5 routing for pages within patient record. 
 * [ ] Improve MS event ordering errors to show a warning against any individual items
 * [ ] Use 'close patient record' functionality to clear out any cached data
+* [ ] Add more detail for each investigation result as per legacy app, rather than simply a date and notes field
+* [ ] Add missing result forms e.g. neutralising interferon antibodies
+* [ ] Add thyroid antibodies to the thyroid result page
 * [x] Display 'encounter locked' / 'locking in...' on encounter page
 * [ ] Add 'lemtrada dmt extract' as first example of new customisable download job - need to have configurable output directory and zip individual files
 * [ ] EDSS graph generation -> basically a Clojure port of existing logic for server side rendering or evaluate front-end graph rendering of EDSS
 
 ## Other work - not critical to either deployment at the moment
 
-* [ ] Migrate to polylith workspace
+* [x] Migrate to polylith workspace
+* [ ] Validate admission dates so date of admission equal to or before date of discharge
 * [x] Add resolver for a form by id, as when the front-end 'edit-form' is called, it performs a load which currently mainly fails but satisfied locally as already loaded. 
 * [x] Don't show body mass index when age < 18
 * [ ] Allow entry of weight and height in other units in form_weight_height
@@ -58,7 +62,7 @@ Tasks that are currently my priority for this development cycle:
 'back' and not view a patient in context of the same project that they originally used.
 * [ ] Session timeout logic
 * [ ] Replace /login endpoint with one using /api that, in absence of session, permits *some* queries such as login, as well as resolving session/authenticated-user, 
-so that front-end can resume a live session from the same browser.
+so that front-end can resume a live session from the same browser. This also means we will be able to create some pages that work without a logged in user.
 * [x] Switch ods-weekly to a SQLite backend and use to derive lists of GPs for a given surgery
 * [x] Upgrade codelists to use new versions of hermes and dmd
 * [x] Check that hades uses latest hermes
@@ -66,4 +70,7 @@ so that front-end can resume a live session from the same browser.
 * [ ] Remove passwords in favour of non-password based authentication for non NHS Wales users
 * [ ] Add status page in which connections to external systems are checked and status reported
 * [ ] Add slide-out panel in encounter view to make it simple to see encounter list view?
+* [ ] Add top-level 'project' context in top bar - and allow configuration of default between 'sticky' ie whatever was set last and by day of week, but allow very rapid project switching.
+* [ ] Add patient search by identifier as per legacy app, using either top-level project context or the 'best' intersection between the user's projects and the patient's projects
+* [ ] If there are errors in relapse ordering, 
 
