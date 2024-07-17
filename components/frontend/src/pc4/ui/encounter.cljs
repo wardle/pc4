@@ -33,7 +33,9 @@
                       (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
                            project-title)
                       (div :.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
-                           title)))
+                           title)
+                      (when-not is_locked
+                        (ui/ui-menu-button {} "Edit"))))
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
                       "Warning: this encounter has been deleted"))
@@ -42,18 +44,18 @@
                       (if is_locked
                         (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
                              (when (permissions :PATIENT_EDIT)
-                               (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
-                                                                                    {:t_encounter/id id
-                                                                                     :t_patient/patient_identifier patient_identifier})])}
-                                             "Unlock")))
+                               (ui/ui-menu-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
+                                                                                         {:t_encounter/id id
+                                                                                          :t_patient/patient_identifier patient_identifier})])}
+                                                  "Unlock")))
                         (div :.grid.grid-cols-1.gap-2
                              (when lock_date_time
                                (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))
                              (when (permissions :PATIENT_EDIT)
-                               (ui/ui-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
-                                                                                    {:t_encounter/id id
-                                                                                     :t_patient/patient_identifier patient_identifier})])}
-                                             "Lock encounter now"))))))
+                               (ui/ui-menu-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
+                                                                                         {:t_encounter/id id
+                                                                                          :t_patient/patient_identifier patient_identifier})])}
+                                                  "Lock encounter now"))))))
 
                menu)
           (div :.col-span-1.lg:col-span-5.pt-2
