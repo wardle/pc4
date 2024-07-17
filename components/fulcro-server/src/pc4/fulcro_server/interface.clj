@@ -61,7 +61,7 @@
   session data).
   See [[com.fulcrologic.fulcro.server.api-middleware/apply-response-augmentations]]"
   [{:keys [pathom] :as ctx} env params]
-  (log/debug "executing pathom" params)
+  (log/trace "executing pathom" params)
   (let [result (pathom env params)
         errors (remove nil? (map :com.wsscode.pathom3.connect.runner/mutation-error (vals result)))]
     (log/trace "pathom result" result)
@@ -171,14 +171,14 @@
    :enter
    (fn [ctx]
      (tap> {:api ctx})
-     (log/debug "api request: " (get-in ctx [:request :transit-params]))
-     (let [params (get-in ctx [:request :transit-params])
+     (log/trace "api request: "  (get-in ctx [:request :transit-params]))
+     (let [params                (get-in ctx [:request :transit-params])
            authorization-manager (:authorization-manager ctx)
-           session (get-in ctx [:request :session])
-           authenticated-user (:authenticated-user session)
-           env {:session                       session
-                :session/authorization-manager authorization-manager
-                :session/authenticated-user    authenticated-user}]
+           session               (get-in ctx [:request :session])
+           authenticated-user    (:authenticated-user session)
+           env                   {:session                       session
+                                  :session/authorization-manager authorization-manager
+                                  :session/authenticated-user    authenticated-user}]
        (execute-pathom ctx env params)))})
 
 (def get-user-photo
