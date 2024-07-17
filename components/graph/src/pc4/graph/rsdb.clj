@@ -57,8 +57,6 @@
   (if-let [id (id-key params)]
     (if (tempid/tempid? id)
       (let [result (save-fn (dissoc params id-key))]
-        (println "result " {:result result :id-key id-key})
-        (println "tempids" {id (id-key result)})
         (assoc result :tempids {id (id-key result)}))
       (save-fn params))
     (throw (ex-info "missing id" {:id-key id-key :params params}))))
