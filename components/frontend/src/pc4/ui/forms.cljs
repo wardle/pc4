@@ -15,6 +15,14 @@
    [com.fulcrologic.fulcro.algorithms.merge :as merge]
    [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]))
 
+(defn set-integer!
+  "Like [[com.fulcrologic.fulcro.mutations/set-integer!]] but if string
+   is blank, sets field to nil, rather than zero."
+  [component field value]
+  (if (str/blank? value)
+    (m/set-value! component field nil)
+    (m/set-integer! component field :value value)))
+
 (defmutation edit-form
   [{:keys [form-id class] :as params}]
   (action
@@ -366,21 +374,27 @@
     "CURRENT_SMOKER"})
 
 (defsc EditFormSmoking
-  [this {:form_smoking/keys [status current_cigarettes_per_day duration_years previous_cigarettes_per_day previous_duration_years year_gave_up]
+  [this {:form_smoking_history/keys [status current_cigarettes_per_day duration_years previous_cigarettes_per_day previous_duration_years year_gave_up]
          :form/keys [encounter] :>/keys [can-edit layout] :as params}]
   {:ident         :form/id
    :route-segment ["encounter" :encounter-id "form_smoking_history" :form/id]
-   :query         [:form/id :form_smoking/id
-                   :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                   :form_smoking/previous_duration_years :form_smoking/previous_cigarettes_per_day :form_smoking/year_gave_up
-                   :form_smoking/is_deleted
-                   :form_smoking/encounter_fk :form_smoking/user_fk
+   :query         [:form/id :form_smoking_history/id
+                   :form_smoking_history/status
+                   :form_smoking_history/current_cigarettes_per_day :form_smoking_history/duration_years
+                   :form_smoking_history/previous_cigarettes_per_day :form_smoking_history/previous_duration_years
+                   :form_smoking_history/year_gave_up
+                   :form_smoking_history/is_deleted
+                   :form_smoking_history/encounter_fk :form_smoking_history/user_fk
                    {:form/encounter (comp/get-query FormEncounter)}
                    {:>/can-edit (comp/get-query CanEditForm)}
                    {:>/layout (comp/get-query Layout)}
                    fs/form-config-join]
-   :form-fields   #{:form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                    :form_smoking/previous_cigarettes_per_day :form_smoking/previous_duration_years :form_smoking/year_gave_up}
+   :form-fields   #{:form_smoking_history/status
+                    :form_smoking_history/current_cigarettes_per_day
+                    :form_smoking_history/duration_years
+                    :form_smoking_history/previous_cigarettes_per_day
+                    :form_smoking_history/previous_duration_years
+                    :form_smoking_history/year_gave_up}
    :will-enter    (fn [app {:keys [encounter-id] :form/keys [id] :as route-params}]
                     (let [form-id (parse-form-id id), encounter-id (js/parseInt encounter-id)]
                       (dr/route-deferred
@@ -389,44 +403,78 @@
                          (comp/transact! app [(load-form {:form-id form-id :encounter-id encounter-id :class EditFormSmoking})])))))}
   (let [can-edit? (can-edit-form? can-edit)]
     (ui-layout
-     layout {:can-edit can-edit? :save-params {:form (select-keys params [:form/id :form_smoking/id :form_smoking/is_deleted
-                                                                          :form_smoking/status :form_smoking/current_cigarettes_per_day :form_smoking/duration_years
-                                                                          :form_smoking/previous_cigarettes_per_day :form_smoking/previous_duration_years :form_smoking/year_gave_up
-                                                                          :form_smoking/encounter_fk :form_smoking/user_fk])}}
+     layout {:can-edit can-edit?
+             :save-params {:form (select-keys params [:form/id :form_smoking_history/id
+                                                      :form_smoking_history/is_deleted
+                                                      :form_smoking_history/status
+                                                      :form_smoking_history/current_cigarettes_per_day
+                                                      :form_smoking_history/duration_years
+                                                      :form_smoking_history/previous_cigarettes_per_day
+                                                      :form_smoking_history/previous_duration_years
+                                                      :form_smoking_history/year_gave_up
+                                                      :form_smoking_history/encounter_fk
+                                                      :form_smoking_history/user_fk])}}
      (comp/fragment
       (ui/ui-simple-form-item
        {:label "Smoking status"}
        (ui/ui-select-popup-button
         {:value status
+         :disabled? (not can-edit?)
          :options smoking-status-options
-         :onChange #(m/set-value! this :form_smoking/status %)}))
-      (cond
-        (= "CURRENT_SMOKER" status)
+         :onChange #(do
+                      (println "setting status " %)
+                      (m/set-value! this :form_smoking_history/status %)
+                      (case %
+                        "EX_SMOKER"
+                        (m/set-value! this :form_smoking_history/current_cigarettes_per_day 0)
+                        "NEVER_SMOKED"
+                        (do
+                          (m/set-value! this :form_smoking_history/current_cigarettes_per_day 0)
+                          (m/set-value! this :form_smoking_history/previous_cigarettes_per_day nil)
+                          (m/set-value! this :form_smoking_history/duration_years 0)
+                          (m/set-value! this :form_smoking_history/previous_duration_years nil)
+                          (m/set-value! this :form_smoking_history/year_gave_up nil))
+                        "CURRENT_SMOKER"
+                        (m/set-value! this :form_smoking_history/year_gave_up nil)))}))
+      (case status
+        "NEVER_SMOKED"
+        nil
+        "CURRENT_SMOKER"
         (div
          (ui/ui-simple-form-item
           {:label "Current cigarettes per day"}
           (ui/ui-textfield
            {:type :number
-            :value current_cigarettes_per_day}))
+            :disabled (not can-edit?)
+            :value (str current_cigarettes_per_day)
+            :onChange #(set-integer! this :form_smoking_history/current_cigarettes_per_day %)}))
          (ui/ui-simple-form-item
           {:label "Duration in years"}
           (ui/ui-textfield
            {:type :number
-            :value duration_years})))
-        (= "EX_SMOKER" status)
+            :disabled (not can-edit?)
+            :value (str duration_years)
+            :onChange #(set-integer! this :form_smoking_history/duration_years %)})))
+        "EX_SMOKER"
         (div
          (ui/ui-simple-form-item
-          {:label "Previous cigarettes per day"}
+          {:label "Previous number of cigarettes per day"}
           (ui/ui-textfield
            {:type :number
-            :value previous_cigarettes_per_day}))
+            :disabled (not can-edit?)
+            :value (str previous_cigarettes_per_day)
+            :onChange #(set-integer! this :form_smoking_history/previous_cigarettes_per_day %)}))
          (ui/ui-simple-form-item
           {:label "Duration in years"}
           (ui/ui-textfield
            {:type :number
-            :value previous_duration_years}))
+            :disabled (not can-edit?)
+            :value (str previous_duration_years)
+            :onChange #(set-integer! this :form_smoking_history/duration_years %)}))
          (ui/ui-simple-form-item
           {:label "Year gave up smoking cigarettes"}
           (ui/ui-textfield
            {:type :number
-            :value year_gave_up}))))))))
+            :disabled (not can-edit?)
+            :value (str year_gave_up)
+            :onChange #(set-integer! this :form_smoking_history/year_gave_up %)}))))))))
