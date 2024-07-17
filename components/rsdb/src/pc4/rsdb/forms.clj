@@ -126,6 +126,23 @@
                    (format "%.1f" (/ weight_kilogram (math/pow height_metres 2)))
                    "kg/m²"))])))
 
+(defmethod summary :form_smoking_history
+  [{:form_smoking_history/keys [status current_cigarettes_per_day duration_years]}]
+  (case status
+    "NEVER_SMOKED"
+    "Never smoked"
+
+    "EX_SMOKER"
+    "Ex-smoker"
+
+    "CURRENT_SMOKER"
+    (cond
+      (and current_cigarettes_per_day duration_years (pos-int? duration_years))
+      (str "Smoker " (int (/ (* current_cigarettes_per_day duration_years) 20)) " pack years")
+      current_cigarettes_per_day
+      (str "Smoker " current_cigarettes_per_day "/day")
+      :else    "Current smoker")))
+
 (defmethod summary :default
   [_]
   "")
