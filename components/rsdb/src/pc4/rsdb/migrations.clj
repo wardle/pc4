@@ -26,12 +26,10 @@
   (migrate* (assoc-in default-config [:db :datasource] conn)))
 
 (comment
-  (require '[next.jdbc.connection])
-  (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
-                                                                             :dbname          "rsdb"
-                                                                             :maximumPoolSize 10}))
-  (jdbc/execute! conn ["SELECT * from t_patient LIMIT 1"])
-  (def conf (assoc-in default-config [:db :datasource] conn))
+  (def ds (jdbc/get-datasource {:dbtype "postgresql" :dbname "rsdb"}))
+
+  (jdbc/execute! ds ["SELECT * from t_patient LIMIT 1"])
+  (def conf (assoc-in default-config [:db :datasource] ds))
   (migratus/pending-list conf)
   (migratus/migrate conf)
   (migratus/rollback conf)
