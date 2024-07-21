@@ -1001,12 +1001,12 @@
       {:form/encounter [:t_encounter/id]}]}]}
   (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms duplicated-form-types deleted-forms]}
         (rsdb/encounter-id->forms-and-form-types conn encounter-id)]
-    {:t_encounter/available_form_types  available-form-types
-     :t_encounter/optional_form_types   optional-form-types
-     :t_encounter/mandatory_form_types  mandatory-form-types
-     :t_encounter/existing_form_types   existing-form-types
+    {:t_encounter/available_form_types  (or available-form-types [])
+     :t_encounter/optional_form_types   (or optional-form-types [])
+     :t_encounter/mandatory_form_types  (or mandatory-form-types [])
+     :t_encounter/existing_form_types   (or existing-form-types [])
      :t_encounter/completed_forms       (map form-assoc-context completed-forms)
-     :t_encounter/duplicated_form_types duplicated-form-types
+     :t_encounter/duplicated_form_types (or duplicated-form-types [])
      :t_encounter/deleted_forms         (map form-assoc-context deleted-forms)}))
 
 (pco/defresolver form-by-id
