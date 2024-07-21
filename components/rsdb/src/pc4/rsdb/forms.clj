@@ -141,7 +141,8 @@
       (str "Smoker " (int (/ (* current_cigarettes_per_day duration_years) 20)) " pack years")
       current_cigarettes_per_day
       (str "Smoker " current_cigarettes_per_day "/day")
-      :else    "Current smoker")))
+      :else    "Current smoker")
+    ""))
 
 (defmethod summary :default
   [_]
