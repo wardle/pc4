@@ -8,7 +8,7 @@
    [com.fulcrologic.fulcro.dom.events :as evt]
    [goog.string :as gstr]
    [taoensso.timbre :as log])
-  (:import [goog.date Date]))
+  (:import [goog.date Date DateTime]))
 
 (def months-en
   {0  "Jan"
@@ -225,8 +225,14 @@
 (defn unparse-local-date [^Date d]
   (when d (.toIsoString d true)))
 
+(defn unparse-local-date-time [^DateTime dt]
+  (when dt (.toIsoString dt true)))
+
 (defn parse-local-date [s]
   (when s (Date/fromIsoString s)))
+
+(defn parse-local-date-time [s]
+  (when s (DateTime/fromIsoString s)))
 
 (def ui-local-date-input
   "A goog.Date input. Can be used like `dom/input` but onChange and onBlur handlers will be passed a Date instead
@@ -234,6 +240,10 @@
   All other attributes passed in props are passed through to the contained `dom/input`."
   (comp/computed-factory (com.fulcrologic.fulcro.dom.inputs/StringBufferedInput ::DateInput {:model->string #(or (unparse-local-date %) "")
                                                                                              :string->model parse-local-date})))
+
+(def ui-local-date-time-input
+  (comp/computed-factory (com.fulcrologic.fulcro.dom.inputs/StringBufferedInput ::DateTimeInput {:model->string #(or (unparse-local-date-time %) "")
+                                                                                                 :string->model parse-local-date-time})))
 
 (defsc UILocalDate
   [this {:keys [id label disabled value min-date max-date onBlur onChange onEnterKey]}]
@@ -254,6 +264,24 @@
   "A UI control to edit a date.
   Properties: id, label value min-date max-date onBlur onChange onEnterKey"
   (comp/factory UILocalDate))
+
+(defsc UILocalDateTime
+  [this {:keys [id label disabled value min-date max-date onBlur onChange onEnterKey]}]
+  (div :.pt-2
+       (when label (ui-label {:for id :label label}))
+       (div
+        (ui-local-date-time-input
+         (cond-> {:type "datetime-local" :value value}
+           id (assoc :name id)
+           disabled (assoc :disabled "true")
+           min-date (assoc :min (unparse-local-date-time min-date))
+           max-date (assoc :max (unparse-local-date-time max-date))
+           onBlur (assoc :onBlur onBlur)
+           onEnterKey (assoc :onKeyDown #(when (evt/enter-key? %) (onEnterKey)))
+           onChange (assoc :onChange onChange))))))
+
+(def ui-local-date-time
+  (comp/factory UILocalDateTime))
 
 (defsc UISelectPopupButton
   [this {:keys [name label value options size id-key display-key default-value no-selection-string disabled? sort? update-options?
@@ -500,13 +528,19 @@
   - :onClose - fn if modal closed, or the id of the action"
   (comp/factory UIModal))
 
-(defsc UISimpleFormTitle [this {:keys [title]}]
+(defsc UISimpleFormTitle [this {:keys [title subtitle]}]
   (div :.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
        (div :.mt-1.sm:mt-0.sm:col-span-2
-            (div :.w-full.rounded-md.shadow-sm.space-y-2
+            (div :.w-full.rounded-md.shadow-sm
+                 (when subtitle
+                   (dom/h4 :.text-xs.italic.font-light.text-gray-600 subtitle))
                  (dom/h3 :.text-lg.font-medium.leading-6.text-gray-900 title)))))
 
-(def ui-simple-form-title (comp/factory UISimpleFormTitle))
+(def ui-simple-form-title
+  "A styled form title, with parameters:
+  - title    : main title
+  - subtitle : subtitle, "
+  (comp/factory UISimpleFormTitle))
 
 (defsc UISimpleFormItem [this {:keys [htmlFor label sub-label]}]
   (div :.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-2

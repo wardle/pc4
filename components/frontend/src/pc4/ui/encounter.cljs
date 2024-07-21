@@ -15,6 +15,36 @@
             [com.fulcrologic.fulcro.algorithms.data-targeting :as targeting]
             [pc4.route :as route]))
 
+(declare EditEncounter)
+
+(defn edit-core-encounter*
+  [state encounter-id]
+  (println "editing encounter" encounter-id)
+  (-> state
+      (assoc-in [:t_encounter/id encounter-id :ui/editing-core?] true)
+      (fs/add-form-config* EditEncounter [:t_encounter/id encounter-id])))
+
+(defmutation edit-core-encounter
+  [{:keys [encounter-id] :as params}]
+  (action
+   [{:keys [state]}]
+   (println "edit encounter " params)
+   (swap! state edit-core-encounter* encounter-id)))
+
+(defn cancel-edit-core-encounter*
+  [state encounter-id]
+  (println "cancelling editing encounter" encounter-id)
+  (-> state
+      (assoc-in [:t_encounter/id encounter-id :ui/editing-core?] false)
+      (fs/pristine->entity*  [:t_encounter/id encounter-id])))
+
+(defmutation cancel-edit-core-encounter
+  [{:keys [encounter-id] :as params}]
+  (action
+   [{:keys [state]}]
+   (println "edit encounter " params)
+   (swap! state cancel-edit-core-encounter* encounter-id)))
+
 (defsc Layout
   [this {:keys [banner encounter menu]}]
   (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time encounter_template]} encounter
@@ -26,6 +56,7 @@
      (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
           (div :.col-span-1.p-2.space-y-2
                (ui/ui-menu-button {:onClick #(.back js/history)} "Back")
+
                (when (and date_time encounter_template)
                  (div :.shadow.bg-gray-50
                       (div :.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
@@ -33,17 +64,18 @@
                       (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
                            project-title)
                       (div :.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
-                           title)
-                      (when-not is_locked
-                        (ui/ui-menu-button {} "Edit"))))
+                           title)))
                (when is_deleted
                  (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
                       "Warning: this encounter has been deleted"))
-               (when (or is_locked lock_date_time (and (not is_locked) (permissions :PATIENT_EDIT)))
+               (when (and (not is_deleted) (not is_locked) (permissions :PATIENT_EDIT))
+                 (ui/ui-menu-button {:onClick #(do (println "edit encounter")
+                                                   (comp/transact! this [(edit-core-encounter {:encounter-id id})]))} "Edit"))
+               (when (or is_locked lock_date_time (and is_locked (permissions :PATIENT_EDIT)))
                  (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
                       (if is_locked
                         (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
-                             (when (permissions :PATIENT_EDIT)
+                             (when (and (not is_deleted) (permissions :PATIENT_EDIT))
                                (ui/ui-menu-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
                                                                                          {:t_encounter/id id
                                                                                           :t_patient/patient_identifier patient_identifier})])}
@@ -115,10 +147,31 @@
            :t_patient/permissions
            {:>/banner (comp/get-query patients/PatientBanner)}]})
 
+(defsc EditEncounter*
+  [this {encounter-id :t_encounter/id
+         :t_encounter/keys [date_time is_deleted notes encounter_template] :as encounter}
+   {:keys [onChange]}]
+  (println date_time)
+  (ui/ui-simple-form
+   {}
+   (ui/ui-simple-form-title
+    {:subtitle (get-in encounter [:t_encounter/encounter_template :t_encounter_template/project :t_project/title])
+     :title (:t_encounter_template/title encounter_template)})
+   (ui/ui-simple-form-item
+    {:label "Date / time"}
+    (ui/ui-local-date-time {:value date_time
+                            :onChange #(onChange :t_encounter/date_time %)}))
+   (ui/ui-simple-form-item
+    {:label "Notes"}
+    (ui/ui-textarea {:value notes
+                     :onChange #(onChange :t_encounter/notes %)}))))
+
+(def ui-edit-encounter* (comp/computed-factory EditEncounter*))
+
 (defsc EditEncounter
   [this {encounter-id :t_encounter/id
          :t_encounter/keys [patient notes is_locked completed_forms available_form_types duplicated_form_types] :as encounter
-         :ui/keys [editing-form]}]
+         :ui/keys [editing-core?]}]
   {:ident         :t_encounter/id
    :route-segment ["encounter" :t_encounter/id]
    :query         (fn []
@@ -137,7 +190,10 @@
                      {:t_encounter/duplicated_form_types (comp/get-query Form)}
                      {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
                      {:t_encounter/patient (comp/get-query EncounterPatient)}
-                     [df/marker-table :encounter]])
+                     :ui/editing-core?
+                     [df/marker-table :encounter]
+                     fs/form-config-join])
+   :form-fields #{:t_encounter/date_time :t_encounter/notes}
    :will-enter    (fn [app {:t_encounter/keys [id]}]
                     (when-let [encounter-id (some-> id (js/parseInt))]
                       (df/load! app [:t_encounter/id encounter-id] EditEncounter
@@ -156,7 +212,18 @@
         permissions (:t_patient/permissions patient)
         can-edit-patient? (when permissions (permissions :PATIENT_EDIT))   ;; TODO: also take into account lock date time client side in order to autolock if time elapses
         can-edit-encounter? (and can-edit-patient? (not is_locked))]  ;; TODO: or, keep checking server - e.g. another user may lock - or better handle of concurrent access through ws
-    (if-not (= :loading (:status loading-marker))
+    (cond
+      (= :loading (:status loading-marker))
+      (ui/ui-loading-screen {:dim false})
+      editing-core?
+      (ui/ui-modal
+       {:title "" #_(get-in encounter [:t_encounter/encounter_template :t_encounter_template/project :t_project/title])
+        :actions [{:id :cancel :title "Cancel" :onClick #(comp/transact! this [(cancel-edit-core-encounter {:encounter-id encounter-id})])}]
+        :onClose :cancel}
+       (ui-edit-encounter*  ;; show 'core' encounter editing form
+        encounter
+        {:onChange (fn [k v] (m/set-value! this k v))}))
+      :else
       (ui-layout
        {:banner    (-> encounter :t_encounter/patient :>/banner)
         :encounter encounter
@@ -214,6 +281,5 @@
        (ui/ui-active-panel
         {:title "Notes"}
         (div :.shadow-inner.p-4.text-sm
-             (dom/span {:dangerouslySetInnerHTML {:__html notes}}))))
-      (ui/ui-loading-screen {:dim false}))))
+             (dom/span {:dangerouslySetInnerHTML {:__html notes}})))))))
 

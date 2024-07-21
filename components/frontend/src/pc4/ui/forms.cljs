@@ -419,6 +419,7 @@
        {:label "Smoking status"}
        (ui/ui-select-popup-button
         {:value status
+         :default-value "NEVER_SMOKED"
          :disabled? (not can-edit?)
          :options smoking-status-options
          :onChange #(do
@@ -477,4 +478,5 @@
            {:type :number
             :disabled (not can-edit?)
             :value (str year_gave_up)
-            :onChange #(set-integer! this :form_smoking_history/year_gave_up %)}))))))))
+            :onChange #(set-integer! this :form_smoking_history/year_gave_up %)})))
+        nil)))))
