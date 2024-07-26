@@ -1,0 +1,154 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <style type="text/css">
+        @page {
+            size: A4;
+            margin: {% firstof page.margin "1.5cm" %};
+            margin-top: {% firstof page.margin-top page.margin "2.5cm" %};
+            margin-bottom: {% firstof page.margin-bottom page.margin "4cm" %};
+            @top-center {
+    	        content: element(pageHeader);
+  	    }
+        }
+
+        @page :first {
+            margin-top: {% firstof page.first.margin-top page.first.margin page.margin-top page.margin "6cm" %};
+            @top-center {
+	        content: none;
+	    }
+        }
+
+        body {
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+
+        h1 {
+            font-size: 14px;
+        }
+
+        h2 {
+            font-size:12px;
+        }
+	#pageHeader {
+  	    position: running(pageHeader);
+	}
+
+
+    </style>
+    <title>{{title}}</title>
+
+</head>
+
+<body>
+    <!-- A page header that will be shown from page 2 onwards -->
+    <div id="pageHeader" style="text-align:center;font-size:10px">
+        RE: <strong>{{patient.name}}</strong> (dob: {{patient.date-birth|default:"Not recorded"}})
+        CRN: <strong>{{patient.crn|default:"Unknown"}}</strong> NNN: <strong>{{patient.nhs-number|format-nhs-number|default:"Unknown"}}</strong>
+        Ref: {{patient.patient-identifier}}/{{report.id}} {{report.date-time}}
+</div>
+
+<p align="right">
+<small>
+    Ref: {{patient.patient-identifier}}/{{report.id}} 
+</small>
+</p>
+
+<!-- addressee -->
+{% if report.to %}
+<table style="width: 100%;">
+<tr valign="top">
+<td align="left">
+    {% if report.to.name %}{{report.to.name}}<br/>{% endif %}
+    {% for line in report.to.address %}
+    {{line}}<br/>
+    {% endfor %}
+</td>
+<td align="right">
+</td>
+</tr>
+</table>
+{% endif %}
+
+<p align="right">
+{{report.date-time|date:"dd MMMM yyyy"}}
+</p>
+{% if report.to.name %}
+<p>
+Dear {{report.to.name}},
+</p>
+{% endif %}
+
+<!-- Patient banner -->
+<table width="100%">
+<tr>
+<th>RE:</th>
+<td>{{patient.name}}</td>
+<th>CRN</th>
+<td>{{patient.crn|default:"Unknown"}}</td>
+</tr>
+<tr>
+<th>Date of birth:</th>
+<td>{{patient.date-birth|date:"dd MMM yyyy"|default:"Not recorded"}}</td>
+<th>NHS Number</th>
+<td>{{patient.nhs-number|format-nhs-number|default:"Unknown"}}</td>
+</tr>
+<tr>
+<th valign="top">Address:</th>
+<td valign="top" colspan="3"><small>{% if patient.address %}{{patient.address|join:", "}}{% else %}Unknown{% endif %}</small></td>
+</tr>
+</table>
+
+<!-- encounter information -->
+<h1>
+    {% if report.title %}
+    {{report.title}}
+    {% else %}
+    {{encounter.encounter-template.title}} 
+    {% endif %}
+    ({{encounter.date-time|date:"dd MMMM yyyy"}})
+</h1>
+
+
+<img src="{{test-image-url}}"/>
+
+
+<p>Hi there. This is a test report.
+</p>
+<!-- <div style="page-break-after:always"></div> -->
+
+
+<!-- signature / attribution - keep altogether on one page -->
+<div style="page-break-inside: avoid;">
+{% if report.signed.user.name %}
+<p>
+{{report.signed.sign-off|default:"Yours sincerely,"}}
+</p>
+{% if report.signed.user.signature-url %}
+<img height="1.5cm" src="{{report.signed.user.signature-url}}"/>
+{% endif %}
+<br/>
+{{report.signed.user.name}} {{report.signed.user.postnomial}}
+{% if report.signed-user.job-title %}<br/> {{report.signed.user.job-title}}{% endif %}
+<br/>
+{% endif %}
+
+<!-- show a list of users involved in the encounter -->
+{% if encounter.users|not-empty %}
+<emph><small>on behalf of:</small></emph><br/>
+{% for user in encounter.users|sort-by:name %}
+{{user.name}}{% if user.job-title %} ({{user.job-title}}){% endif %}{% if not forloop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+</div>
+
+
+
+
+
+</body>
+</html>

@@ -25,6 +25,7 @@
                 poly/nhspd          {:local/root "components/nhspd"}
                 poly/ods            {:local/root "components/ods"}
                 poly/ods-weekly     {:local/root "components/ods-weekly"}
+                poly/report         {:local/root "components/report"}
                 poly/rsdb           {:local/root "components/rsdb"}
                 poly/snomedct       {:local/root "components/snomedct"}
                 poly/wales-cav-pms  {:local/root "components/wales-cav-pms"}
