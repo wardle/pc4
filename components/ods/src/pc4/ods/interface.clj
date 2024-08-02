@@ -32,6 +32,27 @@
 
 (def related? clods/related?)
 
+(defn make-related?-fn
+  "Returns a function that can check whether two organisations are related.  
+ 
+  This is optimised for the use-case in which one needs to make repeated
+  checks from a single target organisation to many others. As each check 
+  requires a lookup of the organisation and its relationships, this will 
+  memoize that call to prevent duplicate lookups.
+
+  Example:
+    ((make-related?-fn ods-svc \"7A4\") \"RWMBV\")  
+  => true
+  
+  This is because RWMBV is the old code for UHW, which was replaced by 7A4BV, which is
+  part of Cardiff and Vale University Health Board (7A4)."
+  [ods-svc org-code]
+  (let [fetch-fn (memoize clods/fetch-org)
+        org (fetch-fn ods-svc nil org-code)]
+    (fn [other-org-code]
+      (let [other-org (fetch-fn ods-svc nil other-org-code)]
+        (boolean (clods/related? ods-svc other-org org))))))
+
 (defn graph-resolvers
   "Dynamically return the graph resolvers for 'ods'."
   []
