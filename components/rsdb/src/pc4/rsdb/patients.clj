@@ -8,6 +8,7 @@
    [next.jdbc.sql]
    [pc4.rsdb.db :as db]
    [pc4.rsdb.projects :as projects]
+   [pc4.rsdb.users :as users]
    [pc4.ods.interface :as clods]
    [pc4.snomedct.interface :as hermes])
   (:import (java.time LocalDate LocalDateTime)
@@ -15,6 +16,29 @@
            (java.time.temporal Temporal)))
 
 (s/def ::clods some?)
+
+(comment
+  (require '[integrant.repl.state])
+  (def ods-svc (:pc4.ods.interface/svc integrant.repl.state/system))
+  (def f (clods/make-related?-fn ods-svc "RWM"))
+  (f "7A4"))
+
+(defn xf-patient-hospital-by-org-id
+  "Returns a transducer that can filter a sequence of t_patient_hospital to 
+  return only those linked to the organisation specified."
+  [ods-svc org-code]
+  (let [related? (clods/make-related?-fn ods-svc org-code)]
+    (filter (fn [{:t_patient_hospital/keys [hospital_identifier hospital_fk]}]
+              (related? (or hospital_identifier hospital_fk))))))
+
+(defn patient-hospitals-for-org-id
+  [ods-svc org-code patient-hospitals]
+  (let [xf (xf-patient-hospital-by-org-id ods-svc org-code)]
+    (into [] xf patient-hospitals)))
+
+(comment
+  (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
+  (patient-pk->hospitals conn 14031))
 
 (s/fdef set-cav-authoritative-demographics!
   :args (s/cat :clods ::clods, :txn ::db/txn
@@ -221,13 +245,27 @@
   (:t_patient/id
    (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
 
-(defn encounter-by-id [conn encounter-id]
-  (db/execute-one! conn (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]})))
+(defn encounter-by-id
+  [conn encounter-id]
+  (db/execute-one!
+   conn
+   (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]})))
 
-(defn encounter->users [conn encounter-id]
+(defn ^:deprecated encounter->users
+  "DEPRECATED. Use [[encounter->users#]] instead.
+  Returns a sequence of maps :t_encounter_user/userid for each user in the
+  encounter. "
+  [conn encounter-id]
   (jdbc/execute! conn (sql/format {:select [:userid]
                                    :from   [:t_encounter_user]
                                    :where  [:= :encounterid encounter-id]})))
+
+(defn encounter->users#
+  [conn encounter-id]
+  (jdbc/execute! conn (sql/format (assoc pc4.rsdb.users/fetch-user-query
+                                         :where [:in :t_user/id {:select-distinct :userid
+                                                                 :from :t_encounter_user
+                                                                 :where [:= :encounterid encounter-id]}]))))
 
 (defn patient->encounters
   [conn patient-pk]
