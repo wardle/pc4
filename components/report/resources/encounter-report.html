@@ -12,14 +12,14 @@
             margin-bottom: {% firstof page.margin-bottom page.margin "4cm" %};
             @top-center {
     	        content: element(pageHeader);
-  	    }
+  	        }
         }
 
         @page :first {
             margin-top: {% firstof page.first.margin-top page.first.margin page.margin-top page.margin "6cm" %};
             @top-center {
 	        content: none;
-	    }
+	        }
         }
 
         body {
@@ -34,10 +34,13 @@
         h2 {
             font-size:12px;
         }
-	#pageHeader {
-  	    position: running(pageHeader);
-	}
 
+	    #pageHeader {
+  	        position: running(pageHeader);
+	    }
+        
+        <!-- if there is any custom CSS, include it here -->
+        {{ page.css|safe }}
 
     </style>
     <title>{{title}}</title>
