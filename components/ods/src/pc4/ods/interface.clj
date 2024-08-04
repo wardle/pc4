@@ -49,9 +49,11 @@
   [ods-svc org-code]
   (let [fetch-fn (memoize clods/fetch-org)
         org (fetch-fn ods-svc nil org-code)]
-    (fn [other-org-code]
-      (let [other-org (fetch-fn ods-svc nil other-org-code)]
-        (boolean (clods/related? ods-svc other-org org))))))
+    (if org
+      (fn [other-org-code]
+        (when-let [other-org (fetch-fn ods-svc nil other-org-code)]
+          (boolean (clods/related? ods-svc other-org org))))
+      (constantly false))))
 
 (defn graph-resolvers
   "Dynamically return the graph resolvers for 'ods'."
