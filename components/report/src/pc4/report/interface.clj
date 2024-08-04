@@ -5,8 +5,13 @@
    [pc4.report.impl.woc :as woc]))
 
 (defn make-data-url
-  [x mime-type]
-  (woc/make-data-url x mime-type))
+  "Create a data URL for the file specified by 'in'. 'in' should be anything
+  coercible using [[clojure.java.io/input-source]] such as a java.io.File, a
+  string representing a URL or filename, or a URL.
+  - in : anything coercible to an input-stream using [[clojure.java.io/input-stream]] 
+  - mime-type : mime-type of the file e.g. \"image/jpeg\""
+  [in mime-type]
+  (woc/make-data-url in mime-type))
 
 (s/def ::encounter-report ::woc/encounter-report)
 
