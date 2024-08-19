@@ -114,6 +114,7 @@
 (def find-legacy-pseudonymous-patient projects/find-legacy-pseudonymous-patient)
 (def patient->active-project-identifiers patients/active-project-identifiers)
 (def patient-pk->hospitals patients/patient-pk->hospitals)
+(def patient-pk->crn-for-org patients/patient-pk->crn-for-org)
 (def patient->death-certificate patients/fetch-death-certificate)
 (def patient->diagnoses patients/diagnoses)
 (def diagnosis-active? patients/diagnosis-active?)

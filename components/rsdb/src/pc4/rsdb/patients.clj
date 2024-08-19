@@ -5,6 +5,7 @@
    [clojure.tools.logging.readable :as log]
    [honey.sql :as sql]
    [next.jdbc :as jdbc]
+   [next.jdbc.plan :as plan]
    [next.jdbc.sql]
    [pc4.rsdb.db :as db]
    [pc4.rsdb.projects :as projects]
@@ -12,8 +13,7 @@
    [pc4.ods.interface :as clods]
    [pc4.snomedct.interface :as hermes])
   (:import (java.time LocalDate LocalDateTime)
-           (java.time.format DateTimeFormatter)
-           (java.time.temporal Temporal)))
+           (java.time.format DateTimeFormatter)))
 
 (s/def ::clods some?)
 
@@ -30,15 +30,6 @@
   (let [related? (clods/make-related?-fn ods-svc org-code)]
     (filter (fn [{:t_patient_hospital/keys [hospital_identifier hospital_fk]}]
               (related? (or hospital_identifier hospital_fk))))))
-
-(defn patient-hospitals-for-org-id
-  [ods-svc org-code patient-hospitals]
-  (let [xf (xf-patient-hospital-by-org-id ods-svc org-code)]
-    (into [] xf patient-hospitals)))
-
-(comment
-  (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
-  (patient-pk->hospitals conn 14031))
 
 (s/fdef set-cav-authoritative-demographics!
   :args (s/cat :clods ::clods, :txn ::db/txn
@@ -98,6 +89,35 @@
   (db/execute! conn (sql/format {:select [:*]
                                  :from   [:t_patient_hospital]
                                  :where  [:= :patient_fk patient-pk]})))
+
+(defn patient-pk->hospitals-for-org
+  [conn patient-pk ods-svc org-code]
+  (let [xf (xf-patient-hospital-by-org-id ods-svc org-code)]
+    (into [] xf (patient-pk->hospitals conn patient-pk))))
+
+(defn patient-pk->crn-for-org
+  "Returns a CRN for the organisation specified. Preferentially uses any 
+  identifiers marked as authoritative, but otherwise will return the most
+  recently recorded CRN.
+  Parameters:
+  - conn       : database connection
+  - patient-pk : patient primary key
+  - ods-svc    : clods ODS service handle
+  - org-code   : string representing UK organisation code, e.g. \"7A4\"."
+  [conn patient-pk ods-svc org-code]
+  (let [patient-hospitals (patient-pk->hospitals-for-org conn patient-pk ods-svc org-code)
+        authoritative (filter :t_patient_hospital/authoritative patient-hospitals)]
+    (:t_patient_hospital/patient_identifier
+     (or (first authoritative) (last (sort-by :t_patient_hospital/id patient-hospitals))))))
+
+(comment
+  (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
+  (patient-pk->crn-for-org conn 14031 ods-svc "rwm")
+  (->> (patient-pk->hospitals-for-org
+        conn
+        14031
+        ods-svc "7A4BV")
+       (sort-by :t_patient_hospital/authoritative)))
 
 (s/fdef fetch-patient-addresses
   :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id])))
@@ -236,14 +256,14 @@
   "Turn a single patient primary key into a patient identifier."
   [conn pk]
   (:t_patient/patient_identifier
-   (next.jdbc.plan/select-one! conn [:t_patient/patient_identifier]
-                               (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
+   (plan/select-one! conn [:t_patient/patient_identifier]
+                     (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
 
 (defn patient-identifier->pk
   "Turn a single patient identifier into the primary key."
   [conn patient-identifier]
   (:t_patient/id
-   (next.jdbc.plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
+   (plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
 
 (defn encounter-by-id
   [conn encounter-id]

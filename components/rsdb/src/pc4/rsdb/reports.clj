@@ -134,7 +134,7 @@
                                                  :t_encounter_type [:= :t_encounter_type/id :encounter_type_fk]]})))
 (defn ^:private -make-encounter-data
   "Given an encounter id, generate data that can be used to generate a report."
-  [conn encounter-id]
+  [conn ods-svc encounter-id]
   (let [encounter (extended-encounter-by-id conn encounter-id)
         addresses (patients/fetch-patient-addresses conn encounter)
         users (patients/encounter->users# conn encounter-id)
@@ -147,7 +147,8 @@
                :patient-identifier (:t_patient/patient_identifier encounter)
                :date-birth (:t_patient/date_birth encounter)
                :nhs-number (:t_patient/nhs_number encounter)
-               :crn nil ;; TODO: derive CRN from identifiers / matching NHS org for encounter 
+               :crn (when-let [org-code (:t_encounter/hospital_fk encounter)]
+                      (patients/patient-pk->crn-for-org conn (:t_patient/id encounter) ods-svc org-code))
                :address (remove str/blank? [(:t_address/address1 current-address)
                                             (:t_address/address2 current-address)
                                             (:t_address/address3 current-address)
@@ -161,12 +162,14 @@
                                          :job-title (users/job-title %)) users)}}))
 
 (comment
-  (require '[pc4.ods.interface :as ods])
-  (def conn (jdbc/get-connection "jdbc:postgresql:rsdb"))
-  (def clods (pc4.ods.interface/related?))
+  (require '[integrant.repl.state])
+  integrant.repl.state/system
+  (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
+  (def ods-svc (:pc4.ods.interface/svc integrant.repl.state/system))
+  (patients/patient-pk->crn-for-org conn 14031 ods-svc "RWM")
   (patients/encounter->users# conn 154621)
   (s/valid? ::report/encounter-report
-            (assoc (-make-encounter-data conn 154621)
+            (assoc (-make-encounter-data conn ods-svc 14032 #_154621)
                    :report {:id 1
                             :date-time (java.time.LocalDateTime/now)
                             :signed {:user {:name "Dr Mark Wardle"

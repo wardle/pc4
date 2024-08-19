@@ -843,6 +843,8 @@
   {:t_encounter/patient {:t_patient/id patient_fk}})
 
 (pco/defresolver encounter->patient-age
+  "Resolve :t_encounter/patient_age which will be the calculated age of the
+  patient on the date of the encounter."
   [{:t_encounter/keys [date_time patient]}]
   {::pco/input [:t_encounter/date_time
                 {:t_encounter/patient [:t_patient/date_birth
@@ -851,6 +853,11 @@
    (dates/calculate-age (:t_patient/date_birth patient)
                         :date-death (:t_patient/date_death patient)
                         :on-date    (.toLocalDate date_time))})
+
+(pco/defresolver encounter->best-hospital-crn
+  [{conn :com.eldrix.rsdb/conn, ods-svc :com.eldrix.clods.graph/svc}
+   {:t_encounter/keys [hospital_fk patient_fk]}]
+  {:t_encounter/hospital_crn (rsdb/patient-pk->crn-for-org conn patient_fk ods-svc hospital_fk)})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
@@ -1871,6 +1878,7 @@
    encounter-by-id
    encounter->patient
    encounter->patient-age
+   encounter->best-hospital-crn
    encounter->users
    encounters->encounter_template
    encounter->hospital
