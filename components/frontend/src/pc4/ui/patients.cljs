@@ -110,11 +110,12 @@
   {:ident :t_episode/id
    :query [:t_episode/id :t_episode/project_fk :t_episode/stored_pseudonym]})
 
-(defsc PatientBanner [this {:t_patient/keys [patient_identifier status nhs_number date_birth current_age sex date_death
-                                             title first_names last_name address episodes]
-                            w-lsoa-name     :wales-imd-2019-ranks/lsoa_name e-lsoa-name :england-imd-2019-ranks/lsoa_name
-                            current-project :ui/current-project}
-                      {:keys [onClose] :as computed-props}]
+(defsc PatientBanner
+  [this {:t_patient/keys [patient_identifier status nhs_number date_birth current_age sex date_death
+                          title first_names last_name address episodes]
+         w-lsoa-name     :wales-imd-2019-ranks/lsoa_name e-lsoa-name :england-imd-2019-ranks/lsoa_name
+         current-project :ui/current-project}
+   {:keys [onClose hospital-identifier] :as computed-props}]
   {:ident         :t_patient/patient_identifier
    :query         [:t_patient/patient_identifier :t_patient/status :t_patient/nhs_number :t_patient/sex :t_patient/current_age
                    :t_patient/title :t_patient/first_names :t_patient/last_name :t_patient/date_birth :t_patient/date_death
@@ -138,6 +139,7 @@
         (ui-patient-banner* {:name       (str (str/join ", " [(when last_name (str/upper-case last_name)) first_names]) (when title (str " (" title ")")))
                              :born       (str (ui/format-date date_birth) (when current_age (str " (" current_age ")")))
                              :nhs-number nhs_number
+                             :hospital-identifier hospital-identifier
                              :address    (str/join ", " (remove str/blank? [address1 address2 address3 address4 address5 postcode]))
                              :deceased   date_death} computed-props
                             (comp/children this))))))

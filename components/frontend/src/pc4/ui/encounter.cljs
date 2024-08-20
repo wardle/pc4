@@ -47,12 +47,12 @@
 
 (defsc Layout
   [this {:keys [banner encounter menu]}]
-  (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time encounter_template]} encounter
+  (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time hospital_crn encounter_template]} encounter
         {:t_encounter_template/keys [title project]} encounter_template
         {project-title :t_project/title} project
         {:t_patient/keys [patient_identifier permissions]} patient]
     (comp/fragment
-     (patients/ui-patient-banner banner)
+     (patients/ui-patient-banner banner {:hospital-identifier hospital_crn})
      (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
           (div :.col-span-1.p-2.space-y-2
                (ui/ui-menu-button {:onClick #(.back js/history)} "Back")
@@ -178,6 +178,7 @@
                     [:t_encounter/id
                      :t_encounter/date_time
                      :t_encounter/is_deleted
+                     :t_encounter/hospital_crn
                      :t_encounter/lock_date_time
                      :t_encounter/is_locked
                      :t_encounter/notes
