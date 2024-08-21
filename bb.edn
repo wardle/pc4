@@ -27,7 +27,7 @@
 
   nrepl      {:doc  "Run a nREPL with cider middleware "
               :task (do (println "\n\n***** Running nREPL with cider middleware")
-                        (shell "clj -M:dev:test:portal:nrepl"))}
+                        (shell "clj -M:dev:shadow:test:portal:nrepl"))}
 
   serve      {:doc  "Run a development server. Note: it is usually to directly run from a REPL."
               :task (do (println "\n\n***** Running development server")
