@@ -1,4 +1,4 @@
-{:deps {org.clojure/clojure {:mvn/version "1.12.0-beta1"}
+{:deps {org.clojure/clojure {:mvn/version "1.12.0-rc1"}
 
         ;; components
         poly/config        {:local/root "../../components/config"}

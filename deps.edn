@@ -37,7 +37,7 @@
                 poly/server      {:local/root "bases/server"}
 
                 ;; external dependencies:
-                org.clojure/clojure {:mvn/version "1.12.0-beta1"}
+                org.clojure/clojure {:mvn/version "1.12.0-rc1"}
                 integrant/integrant {:mvn/version "0.10.0"}
                 integrant/repl      {:mvn/version "0.3.3"}
                 com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"

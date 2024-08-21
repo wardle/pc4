@@ -1,6 +1,6 @@
 {:paths ["src" "resources"]
- :deps {buddy/buddy-core              {:mvn/version "1.11.423"}
-        buddy/buddy-sign              {:mvn/version "3.5.351"}
+ :deps {buddy/buddy-core              {:mvn/version "1.12.0-430"}
+        buddy/buddy-sign              {:mvn/version "3.6.1-359"}
         io.pedestal/pedestal.error    {:mvn/version "0.7.0"}
         io.pedestal/pedestal.service  {:mvn/version "0.7.0"}
         io.pedestal/pedestal.jetty    {:mvn/version "0.7.0"}
