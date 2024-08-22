@@ -280,7 +280,10 @@
                (ui/ui-table-cell {} (dom/span "Pending"))
                (ui/ui-table-cell {} "")))))))
        (ui/ui-active-panel
-        {:title "Notes"}
+        {:title (if can-edit-encounter? (dom/a {:onClick #(comp/transact! this [(edit-core-encounter {:encounter-id encounter-id})])
+                                                :classes ["cursor-pointer" "text-blue-500" "underline"]}
+                                               "Notes")
+                    "Notes")}
         (div :.shadow-inner.p-4.text-sm
              (dom/span {:dangerouslySetInnerHTML {:__html notes}})))))))
 
