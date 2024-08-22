@@ -1,7 +1,8 @@
 (ns pc4.config.core
   (:require [aero.core :as aero]
             [clojure.java.io :as io]
-            [integrant.core :as ig]))
+            [integrant.core :as ig]
+            [clojure.edn :as edn]))
 
 (defmethod aero/reader 'ig/ref
   [_ _ x]
@@ -9,7 +10,9 @@
 
 (defmethod aero/reader 'clj/var
   [_ _ x]
-  (var-get (requiring-resolve x)))
+  (if-let [var (requiring-resolve x)]
+    (var-get var)
+    (throw (ex-info (str "unable to resolve: '" x "'; is var missing or does namespace fail to compile?") {:var x}))))
 
 (defn ^:private config*
   "Reads configuration from the resources directory using the profile specified."
@@ -28,5 +31,6 @@
   (remove-non-namespaced-keys (config* profile)))
 
 (comment
+  (clojure.edn/read-string (slurp (io/resource "config/config.edn")))
   (keys (config :dev))
   (:pc4.snomedct.interface/svc (config :dev)))
