@@ -6,7 +6,4 @@
   [profile]
   (config/config profile))
 
-(comment
-  (require '[com.stuartsierra.component :as component])
-  (require '[pc4.rsdb.interface :as rsdb])
-  (require '[pc4.hermes.interface :as hermes]))
+(comment)
