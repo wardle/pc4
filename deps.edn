@@ -94,4 +94,4 @@
 
   :poly
   {:main-opts ["-m" "polylith.clj.core.poly-cli.core"]
-   :extra-deps {polylith/clj-poly {:mvn/version "0.2.19"}}}}}
+   :extra-deps {polylith/clj-poly {:mvn/version "0.2.21"}}}}}
