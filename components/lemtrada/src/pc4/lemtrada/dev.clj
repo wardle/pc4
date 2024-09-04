@@ -37,9 +37,10 @@
 
   (def project-id 126) ;; Cambridge
   (def project-id 127) ;; Plymouth
+  (def conn (:pc4.rsdb.interface/conn system))
   (map (fn [{:t_user/keys [username] :as user}]
-         (let [user (rsdb/create-user! (:com.eldrix.rsdb/conn system) user)]
-           (rsdb/register-user-to-project! (:com.eldrix.rsdb/conn system) {:username username :project-id project-id})
+         (let [user (rsdb/create-user! conn user)]
+           (rsdb/register-user-to-project! conn {:username username :project-id project-id})
            user)) users)
   (def conn (:com.eldrix.rsdb/conn system))
   (:t_user/id (rsdb/user-by-username conn "xxx"))
