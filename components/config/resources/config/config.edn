@@ -95,6 +95,18 @@
                      :timeout       5000}
            :default nil}
 
+ :pc4.wales-nadex.interface/svc
+ #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
+                                               "7A4BVSRVDOM0002.cymru.nhs.uk"
+                                               "7A4BVSRVDOM0003.cymru.nhs.uk"]
+                     :port                    636
+                     :pool-size               5
+                     :trust-all-certificates? true
+                     :follow-referrals?       true
+                     :default-bind-username   #ref [:secrets :nadex-bind-username]
+                     :default-bind-password   #ref [:secrets :nadex-bind-password]}
+           :default {}}
+
  ;; operations / resolvers for pathom graph
  ;; defined either statically (via #clj/var) or dynamically (via #ig/ref).
  :pc4.graph.interface/ops
