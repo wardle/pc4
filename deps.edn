@@ -37,39 +37,39 @@
                 poly/server      {:local/root "bases/server"}
 
                 ;; external dependencies:
-                org.clojure/clojure {:mvn/version "1.12.0-rc1"}
-                integrant/integrant {:mvn/version "0.10.0"}
+                org.clojure/clojure {:mvn/version "1.12.0-rc2"}
+                integrant/integrant {:mvn/version "0.11.0"}
                 integrant/repl      {:mvn/version "0.3.3"}
                 com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
                                      :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}}
 
   :nrepl
-  {:extra-deps {nrepl/nrepl       {:mvn/version "1.2.0"}
-                cider/cider-nrepl {:mvn/version "0.49.0"}}
+  {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.0"}
+                cider/cider-nrepl {:mvn/version "0.50.2"}}
    :main-opts  ["--main" "nrepl.cmdline"
                 "--middleware" "[cider.nrepl/cider-middleware]"
                 "--interactive"]}
 
   :shadow
   {:extra-paths ["components/frontend/src"]
-   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.7.5"}
+   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.7.9"}
                  com.fulcrologic/guardrails               {:mvn/version "1.2.9"}
                  expound/expound                          {:mvn/version "0.9.0"}
                  lambdaisland/uri                         {:mvn/version "1.19.155"}
                  org.clojure/clojurescript                {:mvn/version "1.11.132"}
                  bidi/bidi                                {:mvn/version "2.1.6"}
                  binaryage/devtools                       {:mvn/version "1.0.7"}
-                 ch.qos.logback/logback-classic           {:mvn/version "1.5.6"}
+                 ch.qos.logback/logback-classic           {:mvn/version "1.5.7"}
                  clj-commons/pushy                        {:mvn/version "0.3.10"}
                  com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
                  com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.2"}
                  fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                  integrant/repl                           {:mvn/version "0.3.3"}
                  org.clojure/test.check                   {:mvn/version "1.1.1"}
-                 thheller/shadow-cljs                     {:mvn/version "2.28.10"}}}
+                 thheller/shadow-cljs                     {:mvn/version "2.28.14"}}}
 
   :portal
-  {:extra-deps {djblue/portal {:mvn/version "0.56.0"}}}
+  {:extra-deps {djblue/portal {:mvn/version "0.57.3"}}}
 
   :test
   {:extra-paths ["components/rsdb/test"
