@@ -51,7 +51,7 @@
   - LOCAL: an outdated SHA encoded password dating from rsdb's first version
   - LOCAL17: a slightly more modern password encoding from 2017
   - NADEX : use of NHS Wales' active directory"
-  [{:wales.nhs/keys [nadex]} {:t_user/keys [username credential authentication_method] :as user} password]
+  [wales-nadex {:t_user/keys [username credential authentication_method] :as user} password]
   (cond
     (or (str/blank? username) (str/blank? password))
     false
@@ -65,8 +65,8 @@
     (and credential (= authentication_method :LOCAL17))                      ;; TODO: upgrade to more modern hash here and in rsdb codebase
     (BCrypt/checkpw password credential)
 
-    (and nadex (= authentication_method :NADEX))
-    (nadex/can-authenticate? nadex username password)
+    (and wales-nadex (= authentication_method :NADEX))
+    (nadex/can-authenticate? wales-nadex username password)
 
     (and credential (= authentication_method :NADEX))                        ;; TODO: remove this fallback
     (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
@@ -417,21 +417,34 @@
                                    :t_user/job_title_fk]
                              :opt [:t_user/email
                                    :t_user/custom_job_title]))
-(defn create-user [conn {:t_user/keys [username custom_job_title email
-                                       job_title_fk
-                                       title first_names
-                                       last_name] :as params}]
-  (when-not (s/valid? ::create-user params)
-    (throw (ex-info "Invalid parameters" (s/explain-data ::create-user params))))
+
+(defn create-user-sql
+  "Returns a map containing: 
+  - :sql      : the SQL to create the given user
+  - :password : the new password."
+  [user]
+  (when-not (s/valid? ::create-user user)
+    (throw (ex-info "Invalid parameters" (s/explain-data ::create-user user))))
   (let [[new-password credential] (random-password {})]
-    (-> (next.jdbc/execute-one! conn (sql/format {:insert-into [:t_user]
-                                                  :values      [(merge {:credential            credential
-                                                                        :must_change_password  true
-                                                                        :role_fk               4
-                                                                        :authentication_method "LOCAL17"}
-                                                                       params)]})
-                                {:return-keys true})
-        (assoc :t_user/new_password new-password))))
+    {:sql {:insert-into :t_user
+           :values      [(merge {:t_user/credential            credential
+                                 :t_user/must_change_password  true
+                                 :t_user/role_fk               4
+                                 :t_user/authentication_method "LOCAL17"}
+                                user)]}
+     :password new-password}))
+
+(comment
+  (create-user-sql {:t_user/username "ma090906"
+                    :t_user/title "Mr"
+                    :t_user/last_name "Wardle"
+                    :t_user/first_names "Mark"
+                    :t_user/job_title_fk 8}))
+
+(defn create-user [conn user]
+  (let [{:keys [sql password]} (create-user-sql user)]
+    (-> (next.jdbc/execute-one! conn sql {:return-keys true})
+        (assoc :t_user/new_password password))))
 
 (defn reset-password!
   "Reset password for a user. Returns the new randomly-generated password."
@@ -505,9 +518,9 @@
 (defn perform-login!                                        ;; TODO: use single SQL to fetch user data and active roles
   "Returns a user with the given username iff the password is correct, including
   a sequence of active roles under key :t_user/active_roles."
-  [{conn :com.eldrix.rsdb/conn, nadex :wales.nhs/nadex :as env} username password]
+  [conn wales-nadex username password]
   (when-let [user (fetch-user conn username {:with-credentials true})]
-    (when (authenticate env user password)
+    (when (authenticate wales-nadex user password)
       (record-login! conn username)
       (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical])
           (assoc :t_user/active_roles (active-roles-by-project-id conn username))))))

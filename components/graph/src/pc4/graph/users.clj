@@ -23,10 +23,10 @@
    :date-time (LocalDateTime/now)})
 
 (pco/defmutation perform-login
-  [{session :session :as env}
+  [{session :session, rsdb :com.eldrix/rsdb}
    {:keys [system value password]}]
   {::pco/op-name 'pc4.users/perform-login}
-  (when-let [user (rsdb/perform-login! env value password)]
+  (when-let [user (rsdb/perform-login! rsdb value password)]
     (log/trace "performing login" {:username value})
     (api-middleware/augment-response user
                                      (fn [response]

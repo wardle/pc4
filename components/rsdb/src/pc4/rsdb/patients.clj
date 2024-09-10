@@ -73,16 +73,14 @@
                                             :set    {:authoritative false}
                                             :where  [:and [:<> :id ph-id] [:= :patient_fk patient-pk]]}))))))
 
-(defn patient-by-identifier [conn patient-identifier]
-  (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :patient_identifier patient-identifier]})))
-
-(defn patient-by-pk [conn patient-pk]
-  (db/execute-one! conn (sql/format {:select [:*] :from [:t_patient] :where [:= :id patient-pk]})))
-
-(defn fetch-patient [conn {patient-pk :t_patient/id}]
-  (db/execute-one! conn (sql/format {:select :*
-                                     :from   :t_patient
-                                     :where  [:= :id patient-pk]})))
+(defn fetch-patient
+  [conn {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
+  (db/execute-one!
+    conn
+    (sql/format {:select :*
+                 :from   :t_patient
+                 :where  (if patient-pk [:= :id patient-pk]
+                                        [:= :patient_identifier patient-identifier])})))
 
 (defn patient-pk->hospitals
   [conn patient-pk]
@@ -144,21 +142,26 @@
         first)))
 
 (defn patient->episodes
-  [conn patient-pk project-id-or-ids]
-  (jdbc/execute! conn (sql/format {:select   [:*]
-                                   :from     [:t_episode]
-                                   :where    (if project-id-or-ids
-                                               [:and
-                                                [:= :patient_fk patient-pk]
-                                                (if (coll? project-id-or-ids)
-                                                  [:in :project_fk project-id-or-ids]
-                                                  [:= :project_fk project-id-or-ids])]
-                                               [:= :patient_fk patient-pk])
-                                   :order-by [[:t_episode/date_registration :asc]
-                                              [:t_episode/date_referral :asc]
-                                              [:t_episode/date_discharge :asc]]})))
+  ([conn patient-pk]
+   (patient->episodes conn patient-pk nil))
+  ([conn patient-pk project-id-or-ids]
+   (jdbc/execute!
+     conn
+     (sql/format {:select   [:*]
+                  :from     [:t_episode]
+                  :where    (if project-id-or-ids
+                              [:and
+                               [:= :patient_fk patient-pk]
+                               (if (coll? project-id-or-ids)
+                                 [:in :project_fk project-id-or-ids]
+                                 [:= :project_fk project-id-or-ids])]
+                              [:= :patient_fk patient-pk])
+                  :order-by [[:t_episode/date_registration :asc]
+                             [:t_episode/date_referral :asc]
+                             [:t_episode/date_discharge :asc]]}))))
 
-(defn episode-by-id [conn episode-id]
+(defn episode-by-id
+  [conn episode-id]
   (jdbc/execute-one! conn (sql/format {:select :* :from :t_episode :where  [:= :id episode-id]})))
 
 (defn fetch-episodes
@@ -431,7 +434,7 @@
                                          [:= :t_diagnosis/id id]]})
                    {:return-keys true}))
 
-(defn diagnoses*
+(defn diagnoses
   [conn patient-pk]
   (db/execute!
    conn
@@ -439,22 +442,6 @@
                 :from   [:t_diagnosis]
                 :where  [:and
                          [:= :patient_fk patient-pk] [:!= :status "INACTIVE_IN_ERROR"]]})))
-
-(defn filtered-diagnoses
-  "Returns a sequence of diagnoses for the patient filtered by 
-  the SNOMED ECL expression specified."
-  ([hermes diagnoses ecl]
-   (let [concept-ids (hermes/intersect-ecl hermes (map :t_diagnosis/concept_fk diagnoses) ecl)]
-     (filter #(concept-ids (:t_diagnosis/concept_fk %)) diagnoses))))
-
-(defn diagnoses
-  ([env patient-pk]
-   (diagnoses env patient-pk {}))
-  ([{hermes :com.eldrix/hermes conn :com.eldrix.rsdb/conn} patient-pk {:keys [ecl]}]
-   (let [diagnoses (diagnoses* conn patient-pk)]
-     (if-not ecl
-       diagnoses
-       (filtered-diagnoses hermes diagnoses ecl)))))
 
 (s/fdef fetch-medications
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
@@ -547,11 +534,13 @@
              (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
              []))))
 
+
+
 (defn medication-by-id
   [conn medication-id]
   (db/execute-one! conn (sql/format {:select [:t_medication/*] :from :t_medication :where [:= :id medication-id]})))
 
-(s/fdef delete-medication!
+(s/fdef delete-medication!   ;; TODO: should be in a transaction so if one step fails, all fail
   :args (s/cat :conn ::db/conn :medication (s/keys :req [:t_medication/id])))
 (defn delete-medication!
   [conn {:t_medication/keys [id]}]
@@ -764,12 +753,13 @@
   (db/execute-one! conn (sql/format {:delete-from [:t_ms_event]
                                      :where       [:= :t_ms_event/id ms-event-id]})))
 
-(s/fdef save-ms-diagnosis!
+(s/fdef save-ms-diagnosis*!
   :args (s/cat :txn ::db/repeatable-read-txn :ms-diagnosis (s/keys :req [:t_ms_diagnosis/id :t_patient/patient_identifier :t_user/id])))
-(defn save-ms-diagnosis! [txn {ms-diagnosis-id    :t_ms_diagnosis/id
-                               patient-identifier :t_patient/patient_identifier
-                               user-id            :t_user/id
-                               :as                params}]
+(defn save-ms-diagnosis*!
+  [txn {ms-diagnosis-id    :t_ms_diagnosis/id
+        patient-identifier :t_patient/patient_identifier
+        user-id            :t_user/id
+        :as                params}]
   (if-let [sms (fetch-summary-multiple-sclerosis txn patient-identifier)]
     (next.jdbc.sql/update! txn :t_summary_multiple_sclerosis
                            {:ms_diagnosis_fk ms-diagnosis-id
@@ -790,6 +780,18 @@
                                                                                                :from   [:t_patient]
                                                                                                :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
                        {:return-keys true})))
+
+(defn save-ms-diagnosis!
+  "Save an MS diagnosis and return an updated Summary Multiple Sclerosis with
+  required denormalised data as per [[fetch-summary-multiple-sclerosis]]."
+  [conn {patient-identifier :t_patient/patient_identifier :as params}]
+  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+    (try
+      (save-ms-diagnosis*! txn params)
+      (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e))))
+    (assoc (fetch-summary-multiple-sclerosis txn patient-identifier)
+      :t_patient/patient_identifier patient-identifier)))
+
 (def default-ms-event
   {:t_ms_event/site_arm_motor    false
    :t_ms_event/site_ataxia       false

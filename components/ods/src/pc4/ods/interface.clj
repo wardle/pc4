@@ -26,6 +26,11 @@
   (log/info "closing ODS index (clods)")
   (.close clods))
 
+
+(defn valid-service?
+  [svc]
+  (satisfies? clods/ODS svc))
+
 (def fetch-org clods/fetch-org)
 (def fetch-postcode clods/fetch-postcode)
 (def parse-org-id clods/parse-org-id)

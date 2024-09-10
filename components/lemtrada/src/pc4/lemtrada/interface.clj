@@ -3,22 +3,15 @@
    [clojure.spec.alpha :as s]
    [integrant.core :as ig]
    [pc4.lemtrada.core :as lemtrada]
+   [pc4.lemtrada.spec :as lspec]
    [pc4.log.interface :as log]))
-
-(s/def ::codelists some?)
-(s/def ::hermes some?)
-(s/def ::clods some?)
-(s/def ::deprivare some?)
-(s/def ::dmd some?)
-(s/def ::pathom fn?)
-(s/def ::cavpms some?)
-(s/def ::env (s/keys :req-un [::cavpms ::codelists ::hermes ::clods ::deprivare ::dmd ::pathom]))
 
 (defmethod ig/init-key ::env
   [_ {:keys [hermes clods deprivare pathom dmd] :as env}]
-  (when-not (s/valid? env ::env)
-    (throw (ex-info "invalid lemtrada environment" (s/explain-data ::env env))))
-  (log/info "initialising lemtrada research project configuration" (keys env))
+  (when-not (s/valid? ::lspec/env env)
+    (log/error "invalid lemtrada environment" (s/explain ::lspec/env env))
+    (throw (ex-info "invalid lemtrada environment" (s/explain-data ::lspec/env env))))
+  (log/info "initialised lemtrada research project configuration" (keys env))
   env)
 
 (defn export

@@ -16,14 +16,13 @@
    [com.wsscode.pathom3.interface.eql :as p.eql]
    [honey.sql :as sql]
    [integrant.core :as ig]
-   [next.jdbc :as jdbc]
-   [next.jdbc.plan :as plan]
    [pc4.ods.interface :as clods]
    [pc4.codelists.interface :as cl]
    [pc4.config.interface :as config]
    [pc4.deprivare.interface :as deprivare]
    [pc4.dmd.interface :as dmd]
    [pc4.log.interface :as log]
+   [pc4.lemtrada.spec :as lspec]
    [pc4.rsdb.interface :as rsdb]
    [pc4.snomedct.interface :as hermes])
 
@@ -34,9 +33,6 @@
            (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)))
 
-(alias 'db 'pc4.rsdb.interface)
-
-(s/def ::env (s/keys :req-un [::codelists ::dmd ::deprivare ::hermes ::conn]))
 
 (def study-master-date
   (LocalDate/of 2014 05 01))
@@ -458,21 +454,22 @@
   (set (apply concat (map :codes (filter #(= :he-dmt (:class %)) (all-ms-dmts env))))))
 
 (defn fetch-most-recent-encounter-date-time
-  [{conn :conn}]
-  (rsdb/execute-one! conn (sql/format {:select [[:%max.date_time :most_recent_encounter_date_time]]
+  [{rsdb :rsdb}]
+  (rsdb/execute-one! rsdb (sql/format {:select [[:%max.date_time :most_recent_encounter_date_time]]
                                        :from   :t_encounter})))
 
-(defn fetch-patients [{conn :conn} patient-ids]
-  (rsdb/execute! conn (sql/format {:select    [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
+(defn fetch-patients
+  [{rsdb :rsdb} patient-ids]
+  (rsdb/execute! rsdb (sql/format {:select    [:patient_identifier :sex :date_birth :date_death :part1a :part1b :part1c :part2]
                                    :from      :t_patient
                                    :left-join [:t_death_certificate [:= :patient_fk :t_patient/id]]
                                    :where     [:in :t_patient/patient_identifier patient-ids]})))
 
 (defn addresses-for-patients
   "Returns a map of patient identifiers to a collection of sorted addresses."
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (group-by :t_patient/patient_identifier
-            (rsdb/execute! conn (sql/format {:select   [:t_patient/patient_identifier :t_address/address1 :t_address/date_from :t_address/date_to :t_address/postcode_raw]
+            (rsdb/execute! rsdb (sql/format {:select   [:t_patient/patient_identifier :t_address/address1 :t_address/date_from :t_address/date_to :t_address/postcode_raw]
                                              :from     [:t_address]
                                              :order-by [[:t_patient/patient_identifier :asc] [:date_to :desc] [:date_from :desc]]
                                              :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
@@ -480,9 +477,9 @@
 (defn active-encounters-for-patients
   "Returns a map of patient identifiers to a collection of sorted, active encounters.
   Encounters are sorted in descending date order."
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (group-by :t_patient/patient_identifier
-            (rsdb/execute! conn (sql/format {:select   [:t_patient/patient_identifier
+            (rsdb/execute! rsdb (sql/format {:select   [:t_patient/patient_identifier
                                                         :t_encounter/id
                                                         :t_encounter/date_time]
                                              :from     [:t_encounter]
@@ -494,22 +491,23 @@
 
 (defn ms-events-for-patients
   "Returns MS events (e.g. relapses) grouped by patient identifier, sorted in descending date order."
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
+  (if (seq patient-ids)
+    (group-by :t_patient/patient_identifier
+              (->> (rsdb/execute! rsdb (sql/format
+                                        {:select    [:t_patient/patient_identifier
+                                                     :date :source :impact :abbreviation :name]
+                                         :from      [:t_ms_event]
+                                         :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
+                                                     :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
+                                         :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
+                                         :order-by  [[:t_ms_event/date :desc]]
+                                         :where     [:in :t_patient/patient_identifier patient-ids]}))
+                   (map #(assoc % :t_ms_event/is_relapse (rsdb/ms-event-is-relapse? %)))))
+    (throw (ex-info "no patient ids for ms-events-for-patients" {}))))
 
-  (group-by :t_patient/patient_identifier
-            (->> (rsdb/execute! conn (sql/format
-                                      {:select    [:t_patient/patient_identifier
-                                                   :date :source :impact :abbreviation :name]
-                                       :from      [:t_ms_event]
-                                       :join      [:t_summary_multiple_sclerosis [:= :t_ms_event/summary_multiple_sclerosis_fk :t_summary_multiple_sclerosis/id]
-                                                   :t_patient [:= :t_patient/id :t_summary_multiple_sclerosis/patient_fk]]
-                                       :left-join [:t_ms_event_type [:= :t_ms_event_type/id :t_ms_event/ms_event_type_fk]]
-                                       :order-by  [[:t_ms_event/date :desc]]
-                                       :where     [:in :t_patient/patient_identifier patient-ids]}))
-                 (map #(assoc % :t_ms_event/is_relapse (rsdb/ms-event-is-relapse? %))))))
-
-(defn jc-virus-for-patients [{conn :conn} patient-ids]
-  (->> (rsdb/execute! conn (sql/format
+(defn jc-virus-for-patients [{rsdb :rsdb} patient-ids]
+  (->> (rsdb/execute! rsdb (sql/format
                             {:select [:t_patient/patient_identifier
                                       :date :jc_virus :titre]
                              :from   [:t_result_jc_virus]
@@ -519,17 +517,17 @@
                                       [:in :t_patient/patient_identifier patient-ids]]}))
        (map #(update % :t_result_jc_virus/date to-local-date))))
 
-(defn mri-brains-for-patients [{conn :conn} patient-ids]
-  (->> (mapcat #(rsdb/mri-brains-for-patient conn %) patient-ids)))
+(defn mri-brains-for-patients [{rsdb :rsdb} patient-ids]
+  (->> (mapcat #(rsdb/mri-brains-for-patient rsdb %) patient-ids)))
 
 (defn multiple-sclerosis-onset
   "Derive dates of onset based on recorded date of onset, first MS event or date
   of diagnosis."
-  [{conn :conn hermes :hermes :as env} patient-ids]
+  [{rsdb :rsdb, hermes :hermes, :as env} patient-ids]
   (let [ms-diagnoses (set (map :conceptId (hermes/expand-ecl-historic hermes "<<24700007")))
         first-ms-events (update-vals (ms-events-for-patients env patient-ids) #(:t_ms_event/date (last %)))
         pt-diagnoses (group-by :t_patient/patient_identifier
-                               (rsdb/execute! conn (sql/format {:select [:t_patient/patient_identifier
+                               (rsdb/execute! rsdb (sql/format {:select [:t_patient/patient_identifier
                                                                          :t_diagnosis/concept_fk
                                                                          :t_diagnosis/date_diagnosis
                                                                          :t_diagnosis/date_onset
@@ -552,8 +550,8 @@
                                          :calculated-onset (or first-event (:t_diagnosis/date_onset diag))))))))
 
 (defn fetch-patient-diagnoses
-  [{conn :conn} patient-ids]
-  (rsdb/execute! conn (sql/format {:select [:t_patient/patient_identifier
+  [{rsdb :rsdb} patient-ids]
+  (rsdb/execute! rsdb (sql/format {:select [:t_patient/patient_identifier
                                             :t_diagnosis/concept_fk
                                             :t_diagnosis/date_diagnosis
                                             :t_diagnosis/date_onset
@@ -565,8 +563,8 @@
                                             [:in :t_patient/patient_identifier patient-ids]]})))
 
 (defn fetch-patient-admissions
-  [{conn :conn} project-name patient-ids]
-  (rsdb/execute! conn (sql/format {:select [:t_patient/patient_identifier :t_episode/date_registration :t_episode/date_discharge]
+  [{rsdb :rsdb} project-name patient-ids]
+  (rsdb/execute! rsdb (sql/format {:select [:t_patient/patient_identifier :t_episode/date_registration :t_episode/date_discharge]
                                    :from   [:t_episode]
                                    :join   [:t_patient [:= :t_episode/patient_fk :t_patient/id]
                                             :t_project [:= :t_episode/project_fk :t_project/id]]
@@ -575,36 +573,36 @@
                                             [:in :t_patient/patient_identifier patient-ids]]})))
 
 (defn fetch-smoking-status
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (-> (group-by :t_patient/patient_identifier
-                (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier
-                                                          :t_encounter/date_time
-                                                          :t_smoking_history/status]
-                                               :from     [:t_smoking_history]
-                                               :join     [:t_encounter [:= :t_encounter/id :t_smoking_history/encounter_fk]
-                                                          :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
-                                               :order-by [[:t_encounter/date_time :desc]]
-                                               :where    [:and
-                                                          [:<> :t_smoking_history/is_deleted "true"]
-                                                          [:<> :t_encounter/is_deleted "true"]
-                                                          [:in :t_patient/patient_identifier patient-ids]]})))
+                (rsdb/execute! rsdb (sql/format {:select   [:t_patient/patient_identifier
+                                                            :t_encounter/date_time
+                                                            :t_smoking_history/status]
+                                                 :from     [:t_smoking_history]
+                                                 :join     [:t_encounter [:= :t_encounter/id :t_smoking_history/encounter_fk]
+                                                            :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
+                                                 :order-by [[:t_encounter/date_time :desc]]
+                                                 :where    [:and
+                                                            [:<> :t_smoking_history/is_deleted "true"]
+                                                            [:<> :t_encounter/is_deleted "true"]
+                                                            [:in :t_patient/patient_identifier patient-ids]]})))
       (update-vals first)))
 
 (defn fetch-weight-height
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (let [results (-> (group-by :t_patient/patient_identifier
-                              (db/execute! conn (sql/format {:select   [:t_patient/patient_identifier
-                                                                        :t_encounter/date_time
-                                                                        :t_form_weight_height/weight_kilogram
-                                                                        :t_form_weight_height/height_metres]
-                                                             :from     [:t_form_weight_height]
-                                                             :join     [:t_encounter [:= :t_encounter/id :t_form_weight_height/encounter_fk]
-                                                                        :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
-                                                             :order-by [[:t_encounter/date_time :desc]]
-                                                             :where    [:and
-                                                                        [:<> :t_form_weight_height/is_deleted "true"]
-                                                                        [:<> :t_encounter/is_deleted "true"]
-                                                                        [:in :t_patient/patient_identifier patient-ids]]}))))]
+                              (rsdb/execute! rsdb (sql/format {:select   [:t_patient/patient_identifier
+                                                                          :t_encounter/date_time
+                                                                          :t_form_weight_height/weight_kilogram
+                                                                          :t_form_weight_height/height_metres]
+                                                               :from     [:t_form_weight_height]
+                                                               :join     [:t_encounter [:= :t_encounter/id :t_form_weight_height/encounter_fk]
+                                                                          :t_patient [:= :t_patient/id :t_encounter/patient_fk]]
+                                                               :order-by [[:t_encounter/date_time :desc]]
+                                                               :where    [:and
+                                                                          [:<> :t_form_weight_height/is_deleted "true"]
+                                                                          [:<> :t_encounter/is_deleted "true"]
+                                                                          [:in :t_patient/patient_identifier patient-ids]]}))))]
     (update-vals results (fn [forms]
                            (let [default-ht (first (map :t_form_weight_height/height_metres forms))]
                              (map #(let [wt (:t_form_weight_height/weight_kilogram %)
@@ -614,23 +612,23 @@
 
 (defn fetch-form-ms-relapse
   "Get a longitudinal record of MS disease activity, results keyed by patient identifier."
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (group-by :t_patient/patient_identifier
-            (db/execute! conn (sql/format
-                               {:select    [:t_patient/patient_identifier
-                                            :t_encounter/date_time
-                                            :t_form_ms_relapse/in_relapse
-                                            :t_ms_disease_course/name
-                                            :t_form_ms_relapse/activity
-                                            :t_form_ms_relapse/progression]
-                                :from      [:t_form_ms_relapse]
-                                :join      [:t_encounter [:= :t_encounter/id :t_form_ms_relapse/encounter_fk]
-                                            :t_patient [:= :t_encounter/patient_fk :t_patient/id]]
-                                :left-join [:t_ms_disease_course [:= :t_ms_disease_course/id :t_form_ms_relapse/ms_disease_course_fk]]
-                                :where     [:and
-                                            [:<> :t_encounter/is_deleted "true"]
-                                            [:<> :t_form_ms_relapse/is_deleted "true"]
-                                            [:in :t_patient/patient_identifier patient-ids]]}))))
+            (rsdb/execute! rsdb (sql/format
+                                 {:select    [:t_patient/patient_identifier
+                                              :t_encounter/date_time
+                                              :t_form_ms_relapse/in_relapse
+                                              :t_ms_disease_course/name
+                                              :t_form_ms_relapse/activity
+                                              :t_form_ms_relapse/progression]
+                                  :from      [:t_form_ms_relapse]
+                                  :join      [:t_encounter [:= :t_encounter/id :t_form_ms_relapse/encounter_fk]
+                                              :t_patient [:= :t_encounter/patient_fk :t_patient/id]]
+                                  :left-join [:t_ms_disease_course [:= :t_ms_disease_course/id :t_form_ms_relapse/ms_disease_course_fk]]
+                                  :where     [:and
+                                              [:<> :t_encounter/is_deleted "true"]
+                                              [:<> :t_form_ms_relapse/is_deleted "true"]
+                                              [:in :t_patient/patient_identifier patient-ids]]}))))
 
 (def convert-edss-score
   {"SCORE10_0"         10.0
@@ -679,33 +677,33 @@
 
 (defn edss-scores
   "EDSS scores for the patients specified, grouped by patient identifier and ordered by date ascending."
-  [{conn :conn :as env} patient-ids]
+  [{rsdb :rsdb :as env} patient-ids]
   (let [form-relapses (fetch-form-ms-relapse env patient-ids)]
-    (->> (db/execute! conn (sql/format {:union-all
-                                        [{:select [:t_patient/patient_identifier
-                                                   :t_encounter/date_time
-                                                   :t_form_edss/edss_score
-                                                   :t_encounter/id]
-                                          :from   [:t_encounter]
-                                          :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
-                                                   :t_form_edss [:= :t_form_edss/encounter_fk :t_encounter/id]]
-                                          :where  [:and
-                                                   [:<> :t_form_edss/edss_score nil]
-                                                   [:<> :t_encounter/is_deleted "true"]
-                                                   [:<> :t_form_edss/is_deleted "true"]
-                                                   [:in :t_patient/patient_identifier patient-ids]]}
-                                         {:select [:t_patient/patient_identifier
-                                                   :t_encounter/date_time
-                                                   :t_form_edss_fs/edss_score
-                                                   :t_encounter/id]
-                                          :from   [:t_encounter]
-                                          :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
-                                                   :t_form_edss_fs [:= :t_form_edss_fs/encounter_fk :t_encounter/id]]
-                                          :where  [:and
-                                                   [:<> :t_form_edss_fs/edss_score nil]
-                                                   [:<> :t_encounter/is_deleted "true"]
-                                                   [:<> :t_form_edss_fs/is_deleted "true"]
-                                                   [:in :t_patient/patient_identifier patient-ids]]}]}))
+    (->> (rsdb/execute! rsdb (sql/format {:union-all
+                                          [{:select [:t_patient/patient_identifier
+                                                     :t_encounter/date_time
+                                                     :t_form_edss/edss_score
+                                                     :t_encounter/id]
+                                            :from   [:t_encounter]
+                                            :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
+                                                     :t_form_edss [:= :t_form_edss/encounter_fk :t_encounter/id]]
+                                            :where  [:and
+                                                     [:<> :t_form_edss/edss_score nil]
+                                                     [:<> :t_encounter/is_deleted "true"]
+                                                     [:<> :t_form_edss/is_deleted "true"]
+                                                     [:in :t_patient/patient_identifier patient-ids]]}
+                                           {:select [:t_patient/patient_identifier
+                                                     :t_encounter/date_time
+                                                     :t_form_edss_fs/edss_score
+                                                     :t_encounter/id]
+                                            :from   [:t_encounter]
+                                            :join   [:t_patient [:= :t_patient/id :t_encounter/patient_fk]
+                                                     :t_form_edss_fs [:= :t_form_edss_fs/encounter_fk :t_encounter/id]]
+                                            :where  [:and
+                                                     [:<> :t_form_edss_fs/edss_score nil]
+                                                     [:<> :t_encounter/is_deleted "true"]
+                                                     [:<> :t_form_edss_fs/is_deleted "true"]
+                                                     [:in :t_patient/patient_identifier patient-ids]]}]}))
          (map #(update-keys % {:patient_identifier :t_patient/patient_identifier
                                :date_time          :t_encounter/date_time
                                :edss_score         :t_form_edss/edss_score
@@ -790,11 +788,11 @@
                           (rsdb/address-for-date % date)) ;; address-for-date will use 'now' if date nil, so wrap
                         (deprivation-quartile-for-address env))))))
 
-(defn all-recorded-medications [{conn :conn}]
+(defn all-recorded-medications [{rsdb :rsdb}]
   (into #{} (map :t_medication/medication_concept_fk)
-        (next.jdbc/plan conn
-                        (sql/format {:select-distinct :t_medication/medication_concept_fk
-                                     :from            :t_medication}))))
+        (rsdb/plan! rsdb
+                    (sql/format {:select-distinct :t_medication/medication_concept_fk
+                                 :from            :t_medication}))))
 
 (defn convert-product-pack
   "Convert a medication that is a type of product pack to the corresponding VMP."
@@ -809,8 +807,8 @@
     medication))
 
 (defn medications-for-patients
-  [{conn :conn :as env} patient-ids]
-  (->> (db/execute! conn
+  [{rsdb :rsdb :as env} patient-ids]
+  (->> (rsdb/execute! rsdb
                     (sql/format {:select [:t_patient/patient_identifier
                                           :t_medication/id
                                           :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to
@@ -837,13 +835,13 @@
   "Return basic information about a drug.
   Most products are in the UK dm+d, but not all, so we supplement with data
   from SNOMED when possible."
-  [{:com.eldrix/keys [hermes dmd] :as system} concept-id]
+  [{:keys [hermes dmd] :as env} concept-id]
   (if-let [product (dmd/fetch-product dmd concept-id)]
     (let [atc (or (dmd/atc-for-product dmd concept-id)
-                  (infer-atc-for-non-dmd system concept-id))]
+                  (infer-atc-for-non-dmd env concept-id))]
       (cond-> {:nm (or (:VTM/NM product) (:VMP/NM product) (:AMP/NM product) (:VMPP/NM product) (:AMPP/NM product))}
         atc (assoc :atc atc)))
-    (let [atc (infer-atc-for-non-dmd system concept-id)
+    (let [atc (infer-atc-for-non-dmd env concept-id)
           term (:term (hermes/preferred-synonym hermes concept-id "en-GB"))]
       (cond-> {:nm term}
         atc (assoc :atc atc)))))
@@ -891,7 +889,7 @@
                     :first_use (= 0 (count-dmts-before medications (:t_medication/date_from %) (:dmt_class %) (:dmt %)))))))
 
 (defn patient-raw-dmt-medications
-  [{conn :conn :as env} patient-ids]
+  [{rsdb :rsdb :as env} patient-ids]
   (let [dmt-lookup (make-dmt-lookup env)]
     (->> (medications-for-patients env patient-ids)
          ; (filter #(let [start-date (:t_medication/date_from %)] (or (nil? start-date) (.isAfter (:t_medication/date_from %) study-master-date))))
@@ -910,7 +908,7 @@
   dose on another date, this will show the date from and to as those two dates.
   If the medication date-to is nil, then the last active contact of the patient
   is used."
-  [{conn :conn :as env} patient-ids]
+  [{rsdb :rsdb :as env} patient-ids]
   (let [active-encounters (active-encounters-for-patients env patient-ids)
         last-contact-dates (update-vals active-encounters #(:t_encounter/date_time (first %)))]
     (update-vals
@@ -1032,7 +1030,7 @@
                       (drug-fn [(:t_medication/medication_concept_fk %)]))))))
 
 (s/fdef write-table
-  :args (s/cat :env ::env
+  :args (s/cat :env ::lspec/env
                :table (s/keys :req-un [::filename ::data-fn] :opt-un [::columns ::title-fn])
                :centre ::centre
                :patient-ids (s/coll-of pos-int?)))
@@ -1076,21 +1074,21 @@
 (defn fetch-project-patient-identifiers
   "Returns patient identifiers for those registered to one of the projects
   specified. Discharged patients are *not* included."
-  [{conn :conn} project-names]
-  (let [project-ids (set (map #(:t_project/id (rsdb/project-by-name conn %)) project-names))
-        child-project-ids (set (mapcat #(rsdb/project->all-children-ids conn %) project-ids))
+  [{rsdb :rsdb} project-names]
+  (let [project-ids (set (map #(:t_project/id (rsdb/project-by-name rsdb %)) project-names))
+        child-project-ids (set (mapcat #(rsdb/project->all-children-ids rsdb %) project-ids))
         all-project-ids (set/union project-ids child-project-ids)]
-    (rsdb/project-ids->patient-ids conn all-project-ids)))
+    (rsdb/project-ids->patient-ids rsdb all-project-ids)))
 
 (s/fdef fetch-study-patient-identifiers
   :args (s/cat :system any? :centre ::centre))
 (defn fetch-study-patient-identifiers
   "Returns a collection of patient identifiers for the DMT study."
-  [{conn :conn :as env} centre]
+  [{rsdb :rsdb :as env} centre]
   (let [all-dmts (all-he-dmt-identifiers env)
         ids-by-project (fetch-project-patient-identifiers env (get-in study-centres [centre :projects]))
         consent-form-ids (get-in study-centres [centre :consent-form-ids])
-        ids-by-consent (when consent-form-ids (rsdb/consented-patients conn consent-form-ids {}))
+        ids-by-consent (when consent-form-ids (rsdb/consented-patients rsdb consent-form-ids {}))
         patient-ids (if-not consent-form-ids ids-by-project (set/intersection ids-by-project ids-by-consent))
         only-dmt-patients (get-in study-centres [centre :only-dmt-patients])]
     (if-not only-dmt-patients
@@ -1101,12 +1099,12 @@
             (medications-for-patients env patient-ids)))))
 
 (defn patients-with-more-than-one-death-certificate
-  [{conn :conn}]
-  (when-let [patient-fks (seq (plan/select! conn :patient_fk (sql/format {:select   [:patient_fk]
+  [{rsdb :rsdb}]
+  (when-let [patient-fks (seq (rsdb/select! rsdb :patient_fk (sql/format {:select   [:patient_fk]
                                                                           :from     [:t_death_certificate]
                                                                           :group-by [:patient_fk]
                                                                           :having   [:> :%count.patient_fk 1]})))]
-    (rsdb/patient-pks->patient-identifiers conn patient-fks)))
+    (rsdb/patient-pks->patient-identifiers rsdb patient-fks)))
 
 (defn dmts-recorded-as-product-packs
   "Return a sequence of medications in which a DMT has been recorded as a
@@ -1119,14 +1117,14 @@
          (filter #(all-dmts (:t_medication/medication_concept_fk %))))))
 
 (defn patients-with-local-demographics
-  [{conn :conn} patient-ids]
+  [{rsdb :rsdb} patient-ids]
   (map :patient_identifier
-       (next.jdbc.plan/select! conn [:patient_identifier]
-                               (sql/format {:select :patient_identifier
-                                            :from   :t_patient
-                                            :where  [:and
-                                                     [:in :patient_identifier patient-ids]
-                                                     [:= :authoritative_demographics "LOCAL"]]}))))
+       (rsdb/select! rsdb [:patient_identifier]
+                          (sql/format {:select :patient_identifier
+                                       :from   :t_patient
+                                       :where  [:and
+                                                [:in :patient_identifier patient-ids]
+                                                [:= :authoritative_demographics "LOCAL"]]}))))
 
 (defn make-metadata
   "Create metadata for the given environment. Dependencies are pulled from deps.edn, which should
@@ -1254,8 +1252,8 @@
               :switch?                "switch"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn make-patient-identifiers-table [{:keys [conn]} patient-ids]
-  (db/execute! conn
+(defn make-patient-identifiers-table [{:keys [rsdb]} patient-ids]
+  (rsdb/execute! rsdb
                (sql/format {:select   [:patient_identifier :stored_pseudonym :t_project/name] :from [:t_episode :t_patient :t_project]
                             :where    [:and [:= :patient_fk :t_patient/id]
                                        [:= :project_fk :t_project/id]
@@ -1449,11 +1447,13 @@
    :title-fn {:t_ms_disease_course/type "disease_status"}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defn fetch-results-for-patient [{:keys [conn]} patient-identifier]
-  (->> (rsdb/patient->results conn patient-identifier)
+(defn fetch-results-for-patient
+  [{:keys [rsdb]} patient-identifier]
+  (->> (rsdb/patient->results rsdb patient-identifier)
        (map #(assoc % :t_patient/patient_identifier patient-identifier))))
 
-(defn make-results-table [env patient-ids]
+(defn make-results-table
+  [env patient-ids]
   (->> (mapcat #(fetch-results-for-patient env %) patient-ids)
        (map #(select-keys % [:t_patient/patient_identifier :t_result/date :t_result_type/name]))))
 
@@ -1472,9 +1472,9 @@
 
 (defn observation-missing?
   "Returns whether the patient specified has observations missing."
-  [{:keys [conn]} patient-id]
+  [{:keys [rsdb]} patient-id]
   (let [pseudonyms (set (map :t_episode/stored_pseudonym
-                             (db/execute! conn
+                             (rsdb/execute! rsdb
                                           (sql/format {:select :stored_pseudonym
                                                        :from   [:t_episode :t_patient]
                                                        :where  [:and
@@ -1580,9 +1580,11 @@
    observations-table])
 
 (s/fdef write-data
-  :args (s/cat :env ::env :centre ::centre))
+  :args (s/cat :env ::lspec/env :centre ::centre))
 (defn write-data [{:keys [hermes] :as env} centre]
   (let [patient-ids (fetch-study-patient-identifiers env centre)]
+    (when-not (seq patient-ids)
+      (throw (ex-info "no patients found for centre" centre)))
     (doseq [table export-tables]
       (log/info "writing table:" (:filename table))
       (write-table env table centre patient-ids))
@@ -1670,12 +1672,12 @@
   * :cambridge"
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
-    (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts)))
-    (let [config (config/config profile)]
-      (ig/load-namespaces config)
-      (let [{env :pc4.lemtrada.interface/env :as system} (ig/init config [:pc4.lemtrada.interface/env])]
-        (write-data env centre)
-        (ig/halt! system)))))
+    (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
+  (let [config (config/config profile)]
+    (ig/load-namespaces config)
+    (let [{env :pc4.lemtrada.interface/env :as system} (ig/init config [:pc4.lemtrada.interface/env])]
+      (write-data env centre)
+      (ig/halt! system))))
 
 (defn make-demography-check [env profile patient-ids]
   (->> patient-ids
@@ -1722,14 +1724,14 @@
   (when-not (s/valid? ::export-options opts)
     (throw (ex-info "Invalid options:" (s/explain-data ::export-options opts))))
   (let [{:pc4.lemtrada.interface/keys [env] :as system} (ig/init (config/config profile) [:pc4.lemtrada.interface/env])
-        {:keys [conn clods]} env
+        {:keys [rsdb]} env
         patient-ids (fetch-study-patient-identifiers env centre)
         patients (->> patient-ids
                       (patients-with-local-demographics system)
                       (map #(check-patient-demographics system % :sleep-millis (get {:cvx 500} profile)))
                       (filter #(get-in % [:potential-authoritative-demographics :demographic-match])))]
     (doseq [patient patients]
-      (rsdb/set-cav-authoritative-demographics! clods conn patient (:potential-authoritative-demographics patient)))
+      (rsdb/set-cav-authoritative-demographics! rsdb patient (:potential-authoritative-demographics patient)))
 
     (ig/halt! system)))
 
@@ -1759,15 +1761,15 @@
   ```"
   [{:keys [profile centre]}]
   (let [{:pc4.lemtrada.interface/keys [env] :as system} (ig/init (config/config profile) [:pc4.lemtrada.interface/env])
-        {:keys [conn]} env
-        project (rsdb/project-by-name conn "ADMISSION")
+        {:keys [rsdb]} env
+        project (rsdb/project-by-name rsdb "ADMISSION")
         project-id (:t_project/id project)]
     (dorun
      (->> (fetch-study-patient-identifiers env centre)
           (mapcat #(admissions-for-patient env %))
           (remove nil?)
           (map #(assoc % :t_episode/project_fk project-id))
-          (map #(rsdb/register-completed-episode! conn %))))
+          (map #(rsdb/register-completed-episode! rsdb %))))
     (ig/halt! system)))
 
 (defn matching-filenames
@@ -1832,8 +1834,8 @@
   (time (def a (fetch-project-patient-identifiers env (get-in study-centres [:cardiff :projects]))))
   (def patient-ids (fetch-study-patient-identifiers env :cardiff))
   (get-in study-centres [:cardiff :projects])
-  (rsdb/project-by-name (:conn env) "NINFLAMMCARDIFF")
-  (time (def b (rsdb/project-ids->patient-ids (:conn env) #{5} :patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})))
+  (rsdb/project-by-name (:rsdb env) "NINFLAMMCARDIFF")
+  (time (def b (rsdb/project-ids->patient-ids (:rsdb env) #{5} :patient-status #{:FULL :PSEUDONYMOUS :STUB :FAKE :DELETED :MERGED})))
   (count b)
   (set/difference a b)
   (def patient-ids (fetch-study-patient-identifiers env :cardiff))
@@ -1860,16 +1862,10 @@
                    [{:t_patient/demographics_authority
                      [:wales.nhs.cavuhb.Patient/ADMISSIONS]}]}])
 
-  (let [project (projects/project-with-name (:pc4.rsdb.interface/conn system) "ADMISSION")
-        project-id (:t_project/id project)]
-    (doseq [episode (remove nil? (mapcat #(admissions-for-patient system %) [93718]))]
-      (projects/register-completed-episode! (:pc4.rsdb.interface/conn system)
-                                            (assoc episode :t_episode/project_fk project-id))))
   (mapcat #(admissions-for-patient system %) (take 3 (fetch-study-patient-identifiers system :cardiff)))
   (take 5 (fetch-study-patient-identifiers system :cardiff))
   (admissions-for-patient system 94967)
-  (projects/register-completed-episode! (:pc4.rsdb.interface/conn system)
-                                        (first (admissions-for-patient system 93718)))
+
   (p.eql/process (:pc4.graph.interface/env system)
                  [{[:t_patient/patient_identifier 94967]
                    [{:t_patient/demographics_authority
@@ -1905,23 +1901,10 @@
   (require '[portal.api :as p])
   (p/open)
   (add-tap #'p/submit)
-  (pc4/prep :dev)
   (def system (pc4/init :dev [:pc4.graph.interface/boundary-interface]))
   (integrant.core/halt! system)
   (tap> system)
   (keys system)
-
-  ;; get the denominator patient population here....
-  (def rsdb-conn (:pc4.rsdb.interface/conn system))
-  (def roles (users/roles-for-user rsdb-conn "ma090906"))
-  (def manager (#'users/make-authorization-manager' roles))
-  (def user-projects (set (map :t_project/id (users/projects-with-permission roles :DATA_DOWNLOAD))))
-  (def requested-projects #{5})
-  (def patient-ids (patients/patients-in-projects
-                    rsdb-conn
-                    (clojure.set/intersection user-projects requested-projects)))
-  (count patient-ids)
-  (take 4 patient-ids)
 
   (def pathom (:pc4.graph.interface/boundary-interface system))
   (:pc4.graph.interface/env system)

@@ -17,14 +17,17 @@
 (comment
   ;; just connect to remote database
   (stest/unstrument) ;; optionally, uninstrument for production workflows
-  (def system (ig/init (config/config :pc4-dev) [:pc4.rsdb.interface/conn :pc4.rsdb.interface/config]))
+  (def system (ig/init (config/config :pc4-dev) [:pc4.rsdb.interface/svc]))
   (ig/load-namespaces (config/config :dev))
   (def system (ig/init (config/config :pc4-dev) [:pc4.graph.interface/boundary-interface]))
   (def system (ig/init (config/config :pc4-dev) [:pc4.fulcro-server.interface/server]))
+  (def system (ig/init (config/config :pc4-dev) [:pc4.lemtrada.interface/env]))
   (ig/halt! system)
-  (rsdb/user-by-id (:pc4.rsdb.interface/conn system) 1)
-  (dmt/write-data system :plymouth)
-  (dmt/write-data system :cambridge)
+  (def env (:pc4.lemtrada.interface/env system))
+  (keys env)
+  (rsdb/user-by-id (:rsdb env) 1)
+  (dmt/write-data env :plymouth)
+  (dmt/write-data env :cambridge)
   (dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
   (def users

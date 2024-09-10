@@ -1002,6 +1002,8 @@
        (parse-form form-type (jdbc/execute-one! conn (sql/format sql) {:return-keys true :builder-fn rs/as-unqualified-maps}))
        (throw (ex-info "cannot save form; no SQL generated" form))))))
 
+
+
 (defn delete-form!
   "'Deletes' a form. Forms are never actually deleted, but merely marked as 
   deleted. Returns the updated 'deleted' form. Throws an exception if the form does
@@ -1176,9 +1178,9 @@
                 :t_encounter/encounter_template_fk]
           :opt [:t_encounter/id :t_encounter/notes]))
 
-(s/fdef save-encounter-and-forms!
+(s/fdef save-encounter-and-forms*!
   :args (s/cat :txn ::db/txn :encounter ::save-encounter-and-forms))
-(defn ^:deprecated save-encounter-and-forms!
+(defn ^:deprecated save-encounter-and-forms*!
   "Saves the given encounter, which can include form data."
   [txn encounter]
   (log/info "saving encounter and forms" encounter)
@@ -1188,3 +1190,9 @@
       (db/execute! txn (sql/format stmt)))
     encounter'))                                            ;; take care to return updated encounter entity.
 
+(defn save-encounter-and-forms!
+  "Like [[save-encounter-and-forms*!]] but performs within a database
+  transaction."
+  [conn encounter]
+  (jdbc/with-transaction [txn conn]
+    (save-encounter-and-forms! txn encounter)))

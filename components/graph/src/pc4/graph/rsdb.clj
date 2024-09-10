@@ -15,8 +15,6 @@
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql]
-            [honey.sql :as sql]
-            [next.jdbc :as jdbc]
             [pc4.dates.interface :as dates]
             [pc4.nhspd.interface :as nhspd]
             [pc4.nhs-number.interface :as nnn]
@@ -86,7 +84,7 @@
 
 (pco/defresolver patient->permissions
   "Return authorization permissions for current user to access given patient."
-  [{authenticated-user :session/authenticated-user, conn :com.eldrix.rsdb/conn}
+  [{authenticated-user :session/authenticated-user, rsdb :com.eldrix/rsdb}
    {:t_patient/keys [patient_identifier break_glass]}]
   {:t_patient/permissions
    (cond
@@ -98,14 +96,14 @@
      (:NORMAL_USER rsdb/permission-sets)
      ;; otherwise, generate permissions based on intersection of patient and user
      :else
-     (let [patient-active-project-ids (rsdb/patient->active-project-identifiers conn patient_identifier)
+     (let [patient-active-project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)
            roles-by-project-id (:t_user/active_roles authenticated-user) ; a map of project-id to PermissionSets for that project
            roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
        (rsdb/expand-permission-sets roles)))})
 
 (pco/defresolver project->permissions
   "Return authorization permissions for current user to access given project."
-  [{authenticated-user :session/authenticated-user, conn :com.eldrix.rsdb/conn}
+  [{authenticated-user :session/authenticated-user}
    {project-id :t_project/id}]
   {:t_project/permissions
    (if (:t_role/is_system authenticated-user)
@@ -161,38 +159,38 @@
    :t_patient/occupation_concept_fk])
 
 (pco/defresolver patient-by-identifier
-  [{:com.eldrix.rsdb/keys [conn]} {patient_identifier :t_patient/patient_identifier}]
+  [{rsdb :com.eldrix/rsdb} {patient_identifier :t_patient/patient_identifier :as params}]
   {::pco/input     [:t_patient/patient_identifier]
    ::pco/transform wrap-tap-resolver
    ::pco/output    patient-properties}
   (when patient_identifier
-    (rsdb/patient-by-identifier conn patient_identifier)))
+    (rsdb/fetch-patient rsdb params)))
 
 (pco/defresolver patient-by-pk
-  [{:com.eldrix.rsdb/keys [conn]} {patient-pk :t_patient/id}]
+  [{rsdb :com.eldrix/rsdb} {patient-pk :t_patient/id :as params}]
   {::pco/output patient-properties}
   (when patient-pk
-    (rsdb/patient-by-pk conn patient-pk)))
+    (rsdb/fetch-patient rsdb params)))
 
 (pco/defresolver patient-by-pseudonym
   "Resolves patient identifier by a tuple of project id and pseudonym."
-  [{conn :com.eldrix.rsdb/conn} {project-pseudonym :t_patient/project_pseudonym}]
+  [{rsdb :com.eldrix/rsdb} {project-pseudonym :t_patient/project_pseudonym}]
   {::pco/output [:t_patient/patient_identifier]}
   (when-let [[project-id pseudonym] project-pseudonym]
-    (rsdb/patient-by-project-pseudonym conn project-id pseudonym)))
+    (rsdb/patient-by-project-pseudonym rsdb project-id pseudonym)))
 
 (pco/defresolver patient->current-age
   [{:t_patient/keys [date_birth date_death]}]
   {:t_patient/current_age (when-not date_death (dates/age-display date_birth (LocalDate/now)))})
 
 (pco/defresolver patient->hospitals
-  [{conn :com.eldrix.rsdb/conn} {patient-pk :t_patient/id}]
+  [{rsdb :com.eldrix/rsdb} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/hospitals [:t_patient_hospital/hospital_fk
                                         :t_patient_hospital/patient_fk
                                         :t_patient_hospital/hospital_identifier
                                         :t_patient_hospital/patient_identifier
                                         :t_patient_hospital/authoritative]}]}
-  {:t_patient/hospitals (vec (rsdb/patient-pk->hospitals conn patient-pk))})
+  {:t_patient/hospitals (vec (rsdb/patient-pk->hospitals rsdb patient-pk))})
 
 (pco/defresolver patient-hospital->flat-hospital
   [{hospital_fk :t_patient_hospital/hospital_fk}]
@@ -289,7 +287,7 @@
   {:t_patient/surgery (when surgery-fk {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id surgery-fk})})
 
 (pco/defresolver patient->death_certificate
-  [{conn :com.eldrix.rsdb/conn} patient]
+  [{rsdb :com.eldrix/rsdb} patient]
   {::pco/transform (make-wrap-patient-authorize)
    ::pco/input     [:t_patient/id]
    ::pco/output    [:t_death_certificate/part1a             ;; flatten properties into top-level as this is a to-one relationship
@@ -300,13 +298,13 @@
                                                    :t_death_certificate/part1b
                                                    :t_death_certificate/part1c
                                                    :t_death_certificate/part2]}]}
-  (let [certificate (rsdb/patient->death-certificate conn patient)]
+  (let [certificate (rsdb/patient->death-certificate rsdb patient)]
     (assoc certificate :t_patient/death_certificate certificate)))
 
 (pco/defresolver patient->diagnoses
   "Returns diagnoses for a patient. Optionally takes a parameter:
   - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
-  [{hermes :com.eldrix/hermes, conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
+  [{hermes :com.eldrix/hermes, rsdb :com.eldrix/rsdb :as env} {patient-pk :t_patient/id}]
   {::pco/transform (make-wrap-patient-authorize)
    ::pco/output    [{:t_patient/diagnoses [:t_diagnosis/concept_fk
                                            {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
@@ -318,7 +316,7 @@
                                            :t_diagnosis/date_to_accuracy
                                            :t_diagnosis/status
                                            :t_diagnosis/full_description]}]}
-  (let [diagnoses (rsdb/patient->diagnoses env patient-pk)
+  (let [diagnoses (rsdb/patient->diagnoses rsdb patient-pk)
 
         ecl (:ecl (pco/params env))
         diagnoses' (if (str/blank? ecl)
@@ -350,7 +348,7 @@
        (boolean (seq (hermes/intersect-ecl hermes concept-ids ecl))))}))
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
-  [{conn :com.eldrix.rsdb/conn} {patient-identifier :t_patient/patient_identifier}]
+  [{rsdb :com.eldrix/rsdb} {patient-identifier :t_patient/patient_identifier}]
   {::pco/transform (make-wrap-patient-authorize)
    ::pco/output    [{:t_patient/summary_multiple_sclerosis
                      [:t_summary_multiple_sclerosis/id
@@ -359,7 +357,7 @@
                       {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
                       :t_ms_diagnosis/id                    ; we flatten this to-one attribute
                       :t_ms_diagnosis/name]}]}
-  (let [sms (rsdb/patient->summary-multiple-sclerosis conn patient-identifier)
+  (let [sms (rsdb/patient->summary-multiple-sclerosis rsdb patient-identifier)
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
@@ -367,7 +365,7 @@
                                                                               :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
 (pco/defresolver summary-multiple-sclerosis->events
-  [{conn :com.eldrix.rsdb/conn} {sms-id :t_summary_multiple_sclerosis/id}]
+  [{rsdb :com.eldrix/rsdb} {sms-id :t_summary_multiple_sclerosis/id}]
   {::pco/output [{:t_summary_multiple_sclerosis/events
                   [:t_ms_event/id
                    :t_ms_event/date :t_ms_event/impact
@@ -386,7 +384,7 @@
                    :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we also flatten this
                    :t_ms_event_type/name
                    :t_ms_event_type/abbreviation]}]}
-  (let [events (rsdb/patient->ms-events conn sms-id)]
+  (let [events (rsdb/patient->ms-events rsdb sms-id)]
     {:t_summary_multiple_sclerosis/events events}))
 
 (pco/defresolver ms-events->ordering-errors
@@ -420,34 +418,25 @@
    {:t_medication_event/event_concept [:info.snomed.Concept/id]}])
 
 (pco/defresolver patient->medications
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes, :as env} patient]
+  [{rsdb :com.eldrix/rsdb, hermes :com.eldrix/hermes, :as env} patient]
   {::pco/transform (make-wrap-patient-authorize)
    ::pco/input     [:t_patient/id]
    ::pco/output    [{:t_patient/medications
                      (into medication-properties
                            [{:t_medication/events medication-event-properties}])}]}
   {:t_patient/medications
-   (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-     (let [medication (rsdb/patient->medications-and-events txn patient)
-           ecl (:ecl (pco/params env))
-           medication (if (str/blank? ecl)                  ;; if we have ecl, filter results by that expression
-                        medication
-                        (let [medication-concept-ids (map :t_medication/medication_concept_fk medication)
-                              concept-ids (hermes/intersect-ecl hermes medication-concept-ids ecl)]
-                          (filter #(concept-ids (:t_medication/medication_concept_fk %)) medication)))]
-       ;; and now just add additional properties to permit walking to SNOMED CT
-       (mapv #(-> %
-                  (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
-                  (update :t_medication/events
-                          (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                             (assoc evt :t_medication_event/event_concept
-                                                    (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
-             medication)))})
+   (mapv #(-> %
+              (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
+              (update :t_medication/events
+                      (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+                                         (assoc evt :t_medication_event/event_concept
+                                                  (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+         (rsdb/patient->medications-and-events rsdb patient {:ecl (:ecl (pco/params env))}))})
 
 (pco/defresolver medication-by-id
-  [{conn :com.eldrix.rsdb/conn, :as env} {:t_medication/keys [id]}]
+  [{rsdb :com.eldrix/rsdb, :as env} {:t_medication/keys [id]}]
   {::pco/output medication-properties}
-  (when-let [med (rsdb/medication-by-id conn id)]
+  (when-let [med (rsdb/medication-by-id rsdb id)]
     (assoc med :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk med)})))
 
 (pco/defresolver medication->patient
@@ -455,10 +444,10 @@
   {:t_medication/patient {:t_patient/id patient-pk}})
 
 (pco/defresolver medication->events
-  [{:com.eldrix.rsdb/keys [conn]} {:t_medication/keys [id]}]
+  [{rsdb :com.eldrix/rsdb} {:t_medication/keys [id]}]
   {::pco/output [{:t_medication/events medication-event-properties}]}
   {:t_medication/events
-   (get (rsdb/medications->events conn [id]) 0)})
+   (get (rsdb/medications->events rsdb [id]) 0)})
 
 (def address-properties [:t_address/address1
                          :t_address/address2
@@ -475,10 +464,10 @@
   {:t_medication_event/event_concept {:info.snomed.Concept/id event_concept_fk}})
 
 (pco/defresolver patient->addresses
-  [{:com.eldrix.rsdb/keys [conn]} patient]
+  [{rsdb :com.eldrix/rsdb} patient]
   {::pco/input  [:t_patient/id]
    ::pco/output [{:t_patient/addresses address-properties}]}
-  {:t_patient/addresses (rsdb/patient->addresses conn patient)})
+  {:t_patient/addresses (rsdb/patient->addresses rsdb patient)})
 
 (pco/defresolver patient->address
   "Returns the current address, or the address for the specified date.
@@ -488,7 +477,7 @@
   Parameters:
   - :date - a ISO LOCAL DATE string e.g \"2020-01-01\" or an instance of
             java.time.LocalDate."
-  [{conn :com.eldrix.rsdb/conn :as env} {addresses :t_patient/addresses :as patient}]
+  [{rsdb :com.eldrix/rsdb :as env} {addresses :t_patient/addresses :as patient}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
    ::pco/output [{:t_patient/address address-properties}]}
@@ -496,18 +485,18 @@
         date' (cond (nil? date) nil
                     (string? date) (LocalDate/parse date)
                     :else date)
-        addresses' (or addresses (rsdb/patient->addresses conn patient))]
+        addresses' (or addresses (rsdb/patient->addresses rsdb patient))]
     {:t_patient/address (rsdb/address-for-date addresses' date')}))
 
 (def lsoa-re #"^[a-zA-Z]\d{8}$")
 
 (pco/defresolver patient->lsoa11
   "Returns a patient's LSOA as a top-level property"
-  [{conn :com.eldrix.rsdb/conn, nhspd :com.eldrix/nhspd} {addresses :t_patient/addresses :as patient}]
+  [{rsdb :com.eldrix/rsdb, nhspd :com.eldrix/nhspd} {addresses :t_patient/addresses :as patient}]
   {::pco/input  [:t_patient/id
                  (pco/? :t_patient/addresses)]
    ::pco/output [:t_patient/lsoa11]}
-  (let [addresses' (or addresses (rsdb/patient->addresses conn patient))
+  (let [addresses' (or addresses (rsdb/patient->addresses rsdb patient))
         current-address (rsdb/address-for-date addresses')
         address1 (:t_address/address1 current-address)
         postcode (:t_address/postcode current-address)]
@@ -554,11 +543,11 @@
    :t_episode/external_identifier])
 
 (pco/defresolver patient->episodes
-  [{conn :com.eldrix.rsdb/conn, :as env} {patient-pk :t_patient/id}]
+  [{rsdb :com.eldrix/rsdb, :as env} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/episodes episode-properties}]}
   {:t_patient/episodes
    (let [project-id-or-ids (:t_project/id (pco/params env))]
-     (->> (rsdb/patient->episodes conn patient-pk project-id-or-ids)
+     (->> (rsdb/patient->episodes rsdb patient-pk project-id-or-ids)
           (mapv #(assoc % :t_episode/status (rsdb/episode-status %)
                         :t_episode/project {:t_project/id (:t_episode/project_fk %)}
                         :t_episode/patient {:t_patient/id patient-pk}))))})
@@ -583,12 +572,12 @@
   could make suggestions based on current diagnoses and treatments, and project
   configurations. Such additional functionality will be made available via
   parameters."
-  [{conn :com.eldrix.rsdb/conn, user :session/authenticated-user, :as env}
+  [{rsdb :com.eldrix/rsdb, user :session/authenticated-user, :as env}
    {:t_patient/keys [patient_identifier]}]
   {::pco/output [{:t_patient/suggested_registrations [:t_project/id]}]}
   {:t_patient/suggested_registrations
-   (let [roles (rsdb/user->roles conn (:t_user/username user))
-         project-ids (rsdb/patient->active-project-identifiers conn patient_identifier)]
+   (let [roles (rsdb/user->roles rsdb (:t_user/username user))
+         project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)]
      (->> (rsdb/projects-with-permission roles :PATIENT_REGISTER)
           (filter :t_project/active?)                       ;; only return currently active projects
           (remove #(project-ids (:t_project/id %)))         ;; remove any projects to which patient already registered
@@ -596,15 +585,15 @@
 
 (pco/defresolver patient->administrators
   "Return administrators linked to the projects to which this patient is linked."
-  [{conn :com.eldrix.rsdb/conn} {:t_patient/keys [patient_identifier]}]
+  [{rsdb :com.eldrix/rsdb} {:t_patient/keys [patient_identifier]}]
   {::pco/output [{:t_patient/administrators [:t_user/id :t_user/username :t_user/first_names :t_user/last_name]}]}
   ;; TODO: patient->active-project-ids should be its own resolver to avoid duplication
-  {:t_patient/administrators (rsdb/projects->administrator-users conn (rsdb/patient->active-project-identifiers conn patient_identifier))})
+  {:t_patient/administrators (rsdb/projects->administrator-users rsdb (rsdb/patient->active-project-identifiers rsdb patient_identifier))})
 
 (pco/defresolver episode-by-id
-  [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
+  [{rsdb :com.eldrix/rsdb} {:t_episode/keys [id]}]
   {::pco/output episode-properties}
-  (let [result (rsdb/episode-by-id conn id)]
+  (let [result (rsdb/episode-by-id rsdb id)]
     (assoc result :t_episode/status (rsdb/episode-status result)
            :t_episode/project {:t_project/id (:t_episode/project_fk result)}
            :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
@@ -623,19 +612,19 @@
    :t_project/is_private])
 
 (pco/defresolver episode->project
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_episode/project_fk}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_episode/project_fk}]
   {::pco/output [{:t_episode/project project-properties}]}
-  {:t_episode/project (rsdb/project-by-id conn project-id)})
+  {:t_episode/project (rsdb/project-by-id rsdb project-id)})
 (pco/defresolver episode->patient
   [{patient-pk :t_episode/patient_fk}]
   {:t_episode/patient {:t_patient/id patient-pk}})
 
 (pco/defresolver episode->encounters
-  [{conn :com.eldrix.rsdb/conn} {:t_episode/keys [id]}]
-  {:t_episode/encounters (rsdb/episode-id->encounters conn id)})
+  [{rsdb :com.eldrix/rsdb} {:t_episode/keys [id]}]
+  {:t_episode/encounters (rsdb/episode-id->encounters rsdb id)})
 
 (pco/defresolver project-by-identifier
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [:t_project/id :t_project/name
                  :t_project/title :t_project/long_description
                  :t_project/type
@@ -653,7 +642,7 @@
                  :t_project/advertise_to_all
                  :t_project/care_plan_information
                  :t_project/is_private]}
-  (when-let [p (rsdb/project-by-id conn project-id)]
+  (when-let [p (rsdb/project-by-id rsdb project-id)]
     (-> p
         (assoc :t_project/administrator_user
                (when-let [admin-user-id (:t_project/administrator_user_fk p)] {:t_user/id admin-user-id}))
@@ -662,19 +651,19 @@
                  {:t_project/id parent-project-id})))))
 
 (pco/defresolver project->count_registered_patients         ;; TODO: should include child projects?
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [:t_project/count_registered_patients]}
-  {:t_project/count_registered_patients (rsdb/projects->count-registered-patients conn [project-id])})
+  {:t_project/count_registered_patients (rsdb/projects->count-registered-patients rsdb [project-id])})
 
 (pco/defresolver project->count_pending_referrals           ;; TODO: should include child projects?
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [:t_project/count_pending_referrals]}
-  {:t_project/count_pending_referrals (rsdb/projects->count-pending-referrals conn [project-id])})
+  {:t_project/count_pending_referrals (rsdb/projects->count-pending-referrals rsdb [project-id])})
 
 (pco/defresolver project->count_discharged_episodes         ;; TODO: should include child projects?
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [:t_project/count_discharged_episodes]}
-  {:t_project/count_discharged_episodes (rsdb/projects->count-discharged-episodes conn [project-id])})
+  {:t_project/count_discharged_episodes (rsdb/projects->count-discharged-episodes rsdb [project-id])})
 
 (pco/defresolver project->slug
   [{title :t_project/title}]
@@ -701,7 +690,7 @@
   {:t_project/long_description_text (html->text desc)})
 
 (pco/defresolver project->encounter_templates
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [{:t_project/encounter_templates [:t_encounter_template/id
                                                   :t_encounter_template/encounter_type_fk
                                                   :t_encounter_template/is_deleted
@@ -709,7 +698,7 @@
                                                   :t_encounter_type/id
                                                   {:t_encounter_template/encounter_type [:t_encounter_type/id]}]}]}
   {:t_project/encounter_templates
-   (->> (rsdb/project->encounter-templates conn project-id)
+   (->> (rsdb/project->encounter-templates rsdb project-id)
         (map #(let [encounter-type-id (:t_encounter_template/encounter_type_fk %)]
                 (assoc % :t_encounter_type/id encounter-type-id
                        :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
@@ -720,14 +709,14 @@
   {:t_project/parent {:t_project/id parent-id}})
 
 (pco/defresolver project->all-parents
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [{:t_project/all-parents [:t_project/id]}]}
-  {:t_project/all-parents (rsdb/project->all-parents conn project-id)})
+  {:t_project/all-parents (rsdb/project->all-parents rsdb project-id)})
 
 (pco/defresolver project->all-children
-  [{conn :com.eldrix.rsdb/conn} {project-id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
   {::pco/output [{:t_project/all-children [:t_project/id]}]}
-  {:t_project/all-parents (rsdb/project->all-children conn project-id)})
+  {:t_project/all-parents (rsdb/project->all-children rsdb project-id)})
 
 (pco/defresolver project->specialty
   [{specialty-concept-fk :t_project/specialty_concept_fk}]
@@ -737,11 +726,11 @@
 (pco/defresolver project->common-concepts
   "Resolve common concepts for the project, optionally filtering by a SNOMED
   expression (ECL)."
-  [{conn :com.eldrix.rsdb/conn hermes :com.eldrix/hermes :as env} {:t_project/keys [id]}]
+  [{rsdb :com.eldrix/rsdb hermes :com.eldrix/hermes :as env} {:t_project/keys [id]}]
   {::pco/input  [:t_project/id]
    ::pco/output [{:t_project/common_concepts [:info.snomed.Concept/id]}]}
   {:t_project/common_concepts
-   (let [concept-ids (rsdb/project->common-concepts conn id)
+   (let [concept-ids (rsdb/project->common-concepts rsdb id)
          ecl (:ecl (pco/params env))]
      (when (seq concept-ids)
        (if (str/blank? ecl)
@@ -765,7 +754,7 @@
   ```
   This will group results by user, returning only users that are not currently
   active."
-  [{conn :com.eldrix.rsdb/conn, :as env} {id :t_project/id}]
+  [{rsdb :com.eldrix/rsdb, :as env} {id :t_project/id}]
   {::pco/output [{:t_project/users [:t_user/id
                                     {:t_user/roles [:t_project_user/role
                                                     :t_project_user/date_from
@@ -774,7 +763,7 @@
                                     :t_project_user/date_from
                                     :t_project_user/date_to
                                     :t_project_user/active?]}]}
-  {:t_project/users (rsdb/project->users conn id (pco/params env))})
+  {:t_project/users (rsdb/project->users rsdb id (pco/params env))})
 
 (def encounter-properties
   [:t_encounter/id
@@ -798,21 +787,21 @@
   (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))
 
 (pco/defresolver patient->encounters
-  [{:com.eldrix.rsdb/keys [conn]} {patient-pk :t_patient/id}]
+  [{rsdb :com.eldrix/rsdb} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/encounters encounter-properties}]}
-  {:t_patient/encounters (->> (rsdb/patient->encounters conn patient-pk)
+  {:t_patient/encounters (->> (rsdb/patient->encounters rsdb patient-pk)
                               (mapv #(assoc %
                                             :t_encounter/active (not (:t_encounter/is_deleted %))
                                             :t_encounter/is_locked (encounter-locked? %))))})
 
 (pco/defresolver patient->paged-encounters
   "A resolver for pages of encounters."
-  [{:com.eldrix.rsdb/keys [conn] :as env} {patient-id :t_patient/id}]
+  [{rsdb :com.eldrix/rsdb :as env} {patient-id :t_patient/id}]
   {::pco/output [{:t_patient/paged_encounters [{:paging [:cursor :results]}]}]}
   (let [{:keys [cursor page-size]} (pco/params env)]))
 
 (pco/defresolver patient->results
-  [{:com.eldrix.rsdb/keys [conn]} {patient-identifier :t_patient/patient_identifier}]
+  [{rsdb :com.eldrix/rsdb} {patient-identifier :t_patient/patient_identifier}]
   {::pco/output
    [{:t_patient/results
      [:t_result_mri_brain/date
@@ -827,13 +816,13 @@
       :t_result_liver_function/date :t_result_liver_function/notes]}]}
   {:t_patient/results
    (when patient-identifier
-     (vec (rsdb/patient->results conn patient-identifier)))})
+     (vec (rsdb/patient->results rsdb patient-identifier)))})
 
 (pco/defresolver encounter-by-id
-  [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
+  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
   {::pco/output encounter-properties}
   (let [{:t_encounter/keys [is_deleted] :as encounter}
-        (rsdb/encounter-by-id conn encounter-id)]
+        (rsdb/encounter-by-id rsdb encounter-id)]
     (assoc encounter
            :t_encounter/active (not is_deleted)
            :t_encounter/is_locked (encounter-locked? encounter))))
@@ -855,17 +844,17 @@
                         :on-date    (.toLocalDate date_time))})
 
 (pco/defresolver encounter->best-hospital-crn
-  [{conn :com.eldrix.rsdb/conn, ods-svc :com.eldrix.clods.graph/svc}
+  [{rsdb :com.eldrix/rsdb, ods-svc :com.eldrix.clods.graph/svc}
    {:t_encounter/keys [hospital_fk patient_fk]}]
-  {:t_encounter/hospital_crn (rsdb/patient-pk->crn-for-org conn patient_fk ods-svc hospital_fk)})
+  {:t_encounter/hospital_crn (rsdb/patient-pk->crn-for-org rsdb patient_fk hospital_fk)})
 
 (pco/defresolver encounter->users
   "Return the users for the encounter.
   We flatten the relationship here, avoiding the join table."
-  [{conn :com.eldrix.rsdb/conn} {encounter-id :t_encounter/id}]
+  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
   {::pco/output [{:t_encounter/users [:t_user/id]}]}
   {:t_encounter/users
-   (->> (rsdb/encounter->users conn encounter-id)
+   (->> (rsdb/encounter->users rsdb encounter-id)
         (map :t_encounter_user/userid)
         (mapv #(hash-map :t_user/id %)))})
 
@@ -875,7 +864,7 @@
   {:t_encounter/hospital (when hospital-id {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id hospital-id})})
 
 (pco/defresolver encounters->encounter_template
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/encounter_template_fk]
    ::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
                                                    :t_encounter_template/project_fk
@@ -883,24 +872,24 @@
    ::pco/batch? true}
   (let [encounter-template-ids (map :t_encounter/encounter_template_fk encounters)
         encounter-templates (group-by :t_encounter_template/id
-                                      (rsdb/encounter-templates-by-ids conn encounter-template-ids))]
+                                      (rsdb/encounter-templates-by-ids rsdb encounter-template-ids))]
     (into []
           (map (fn [id] {:t_encounter/encounter_template (first (get encounter-templates id))}))
           encounter-template-ids)))
 
 (pco/defresolver encounter_template->encounter_type
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-type-id :t_encounter_template/encounter_type_fk}]
+  [{rsdb :com.eldrix/rsdb} {encounter-type-id :t_encounter_template/encounter_type_fk}]
   {::pco/output [{:t_encounter_template/encounter_type [:t_encounter_type/id
                                                         :t_encounter_type/name
                                                         :t_encounter_type/seen_in_person]}]}
-  {:t_encounter_template/encounter_type (rsdb/encounter-type-by-id conn encounter-type-id)})
+  {:t_encounter_template/encounter_type (rsdb/encounter-type-by-id rsdb encounter-type-id)})
 
 (pco/defresolver encounter_template->project
   [{:t_encounter_template/keys [project_fk]}]
   {:t_encounter_template/project {:t_project/id project_fk}})
 
 (pco/defresolver encounters->form_edss
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_edss
                   [:t_form_edss/id
@@ -910,8 +899,8 @@
                    :t_form_edss_fs/edss_score]}]
    ::pco/batch? true}
   (let [encounter-ids (map :t_encounter/id encounters)
-        edss (group-by :t_form_edss/encounter_fk (rsdb/encounter-ids->form-edss conn encounter-ids))
-        edss-fs (group-by :t_form_edss_fs/encounter_fk (rsdb/encounter-ids->form-edss-fs conn encounter-ids))]
+        edss (group-by :t_form_edss/encounter_fk (rsdb/encounter-ids->form-edss rsdb encounter-ids))
+        edss-fs (group-by :t_form_edss_fs/encounter_fk (rsdb/encounter-ids->form-edss-fs rsdb encounter-ids))]
     (into []
           (map (fn [encounter-id]
                  {:t_encounter/form_edss (merge (first (get edss encounter-id))
@@ -931,7 +920,7 @@
   {:t_form_edss_fs/score (rsdb/edss-score->score edss_score)})
 
 (pco/defresolver encounters->form_ms_relapse
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_ms_relapse
                   [:t_form_ms_relapse/id
@@ -944,7 +933,7 @@
                      :t_form_ms_disease_course/name]}]}]
    ::pco/batch? true}
   (let [encounter-ids (map :t_encounter/id encounters)
-        forms (group-by :t_form_ms_relapse/encounter_fk (rsdb/encounter-ids->form-ms-relapse conn encounter-ids))]
+        forms (group-by :t_form_ms_relapse/encounter_fk (rsdb/encounter-ids->form-ms-relapse rsdb encounter-ids))]
     (into []
           (map (fn [encounter-id]
                  (let [{:t_form_ms_relapse/keys [ms_disease_course_fk] :as form} (first (get forms encounter-id))]
@@ -957,26 +946,26 @@
           encounter-ids)))
 
 (pco/defresolver encounters->form_weight_height
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_weight_height [:t_form_weight_height/id
                                                    :t_form_weight_height/weight_kilogram
                                                    :t_form_weight_height/height_metres]}]
    ::pco/batch? true}
   (let [encounter-ids (map :t_encounter/id encounters)
-        forms (group-by :t_form_weight_height/encounter_fk (rsdb/encounter-ids->form-weight-height conn encounter-ids))]
+        forms (group-by :t_form_weight_height/encounter_fk (rsdb/encounter-ids->form-weight-height rsdb encounter-ids))]
     (into []
           (map (fn [encounter-id]
                  {:t_encounter/form_weight_height (first (get forms encounter-id))}))
           encounter-ids)))
 
 (pco/defresolver encounter->form_smoking
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/form_smoking_history [:t_smoking_history/id
                                                      :t_smoking_history/current_cigarettes_per_day
                                                      :t_smoking_history/status]}]}
-  {:t_encounter/form_smoking_history (rsdb/encounter-id->form-smoking-history conn encounter-id)})
+  {:t_encounter/form_smoking_history (rsdb/encounter-id->form-smoking-history rsdb encounter-id)})
 
 (defn form-assoc-context
   [{:form/keys [encounter_fk user_fk] :as form}]
@@ -985,7 +974,7 @@
          :form/user {:t_user/id user_fk}))
 
 (pco/defresolver encounter->forms
-  [{:com.eldrix.rsdb/keys [conn]} {encounter-id :t_encounter/id}]
+  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
   {::pco/output
    [:t_encounter/available_form_types
     :t_encounter/optional_form_types
@@ -1007,7 +996,7 @@
       {:form/user [:t_user/id]}
       {:form/encounter [:t_encounter/id]}]}]}
   (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms duplicated-form-types deleted-forms]}
-        (rsdb/encounter-id->forms-and-form-types conn encounter-id)]
+        (rsdb/encounter-id->forms-and-form-types rsdb encounter-id)]
     {:t_encounter/available_form_types  (or available-form-types [])
      :t_encounter/optional_form_types   (or optional-form-types [])
      :t_encounter/mandatory_form_types  (or mandatory-form-types [])
@@ -1017,7 +1006,7 @@
      :t_encounter/deleted_forms         (map form-assoc-context deleted-forms)}))
 
 (pco/defresolver form-by-id
-  [{:com.eldrix.rsdb/keys [conn] :as env} {form-id :form/id}]
+  [{rsdb :com.eldrix/rsdb :as env} {form-id :form/id}]
   {::pco/output [:form/id
                  :form/user_fk
                  :form/encounter_fk
@@ -1025,7 +1014,7 @@
                  {:form/user [:t_user/id]}
                  {:form/encounter [:t_encounter/id]}]}
   (if-let [encounter-id (get-in env [:query-params :encounter-id])]
-    (let [forms (rsdb/encounter-id->forms conn encounter-id {:include-deleted true})
+    (let [forms (rsdb/encounter-id->forms rsdb encounter-id {:include-deleted true})
           by-id (reduce (fn [acc {:form/keys [id] :as form}] (assoc acc id form)) {} forms)
           form (get by-id form-id)]
       (log/debug "form by id:" {:encounter-id encounter-id :form-id form-id :result form})
@@ -1035,7 +1024,7 @@
       (throw (ex-info "Missing hint on parameters for form. Specify :encounter-id in load parameters" (:query-params env))))))
 
 (pco/defresolver encounter->forms_generic_procedures
-  [{:com.eldrix.rsdb/keys [conn]} encounters]
+  [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/id]
    ::pco/output [{:t_encounter/forms_generic_procedure [:t_form_procedure_generic/id
                                                         :t_form_procedure_generic/procedure_concept_fk
@@ -1062,14 +1051,14 @@
    :t_professional_registration_authority/name])
 
 (pco/defresolver user-by-username
-  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
   {::pco/output user-properties}
-  (rsdb/user-by-username conn username))
+  (rsdb/user-by-username rsdb username))
 
 (pco/defresolver user-by-id
-  [{conn :com.eldrix.rsdb/conn} {id :t_user/id}]
+  [{rsdb :com.eldrix/rsdb} {id :t_user/id}]
   {::pco/output user-properties}
-  (rsdb/user-by-id conn id))
+  (rsdb/user-by-id rsdb id))
 
 (pco/defresolver user->link-to-regulator
   [{reg :t_user/professional_registration, authority :t_professional_registration_authority/abbreviation}]
@@ -1085,18 +1074,18 @@
 (pco/defresolver user-by-nadex
   "Resolves rsdb user properties from a NADEX username if that user is
    registered with rsdb with NADEX authentication."
-  [{conn :com.eldrix.rsdb/conn} {username :wales.nhs.nadex/sAMAccountName}]
+  [{rsdb :com.eldrix/rsdb} {username :wales.nhs.nadex/sAMAccountName}]
   {::pco/output user-properties}
-  (when-let [user (rsdb/user-by-username conn username)]
+  (when-let [user (rsdb/user-by-username rsdb username)]
     (when (= (:t_user/authentication_method user) "NADEX")
       user)))
 
 (pco/defresolver user->photo
   "Returns the user photo as binary data."
-  [{conn :com.eldrix.rsdb/conn} {:t_user/keys [username]}]
+  [{rsdb :com.eldrix/rsdb} {:t_user/keys [username]}]
   {::pco/output [{:t_user/photo [:t_photo/data
                                  :t_photo/mime_type]}]}
-  (let [photo (rsdb/fetch-user-photo conn username)]
+  (let [photo (rsdb/fetch-user-photo rsdb username)]
     {:t_user/photo (when photo {:t_photo/data      (:erattachmentdata/data photo)
                                 :t_photo/mime_type (:erattachment/mimetype photo)})}))
 
@@ -1159,12 +1148,12 @@
                                      :org.hl7.fhir.HumanName/use    :org.hl7.fhir.name-use/usual}]})
 
 (pco/defresolver user->active-projects
-  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
-  {:t_user/active_projects (filterv rsdb/project->active? (rsdb/user->projects conn username))})
+  {:t_user/active_projects (filterv rsdb/project->active? (rsdb/user->projects rsdb username))})
 
 (pco/defresolver user->roles
-  [{conn :com.eldrix.rsdb/conn, :as env} {username :t_user/username}]
+  [{rsdb :com.eldrix/rsdb, :as env} {username :t_user/username}]
   {::pco/output [{:t_user/roles [:t_project_user/date_from
                                  :t_project_user/date_to
                                  :t_project_user/active?
@@ -1173,7 +1162,7 @@
                                  :t_project/active?]}]}
   (let [{:keys [project-id active-roles active-projects]} (pco/params env)]
     {:t_user/roles
-     (cond->> (rsdb/user->roles conn username {:t_project/id project-id})
+     (cond->> (rsdb/user->roles rsdb username {:t_project/id project-id})
        active-roles (filter :t_project_user/active?)
        active-projects (filter :t_project/active?))}))
 
@@ -1181,13 +1170,13 @@
   "Resolve common concepts for the user, based on project membership, optionally
   filtering by a SNOMED expression (ECL). Language preferences can be specified
   using parameter `:accept-language` with a comma-separated list of preferences."
-  [{conn :com.eldrix.rsdb/conn, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
+  [{rsdb :com.eldrix/rsdb, hermes :com.eldrix/hermes, :as env} {user-id :t_user/id}]
   {::pco/output [{:t_user/common_concepts
                   [:info.snomed.Concept/id
                    {:info.snomed.Concept/preferredDescription
                     [:info.snomed.Description/id
                      :info.snomed.Description/term]}]}]}
-  (let [concept-ids (rsdb/user->common-concepts conn user-id)
+  (let [concept-ids (rsdb/user->common-concepts rsdb user-id)
         ecl (:ecl (pco/params env))
         lang (or (:accept-language (pco/params env)) (.toLanguageTag (Locale/getDefault)))
         concept-ids' (if (str/blank? ecl) concept-ids (hermes/intersect-ecl hermes concept-ids ecl))] ;; constrain concepts by ECL if present
@@ -1199,12 +1188,12 @@
                                                                      :info.snomed.Description/term (:term %)}) results)))}))
 
 (pco/defresolver user->latest-news
-  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
   {::pco/output [{:t_user/latest_news [:t_news/id
                                        :t_news/title
                                        :t_news/body
                                        {:t_news/author [:t_user/id]}]}]}
-  {:t_user/latest_news (->> (rsdb/user->latest-news conn username)
+  {:t_user/latest_news (->> (rsdb/user->latest-news rsdb username)
                             (mapv #(assoc % :t_news/author (select-keys % [:t_user/id :t_user/first_names :t_user/last_name]))))})
 
 (pco/defresolver user->job-title
@@ -1214,12 +1203,12 @@
   {:t_user/job_title (rsdb/user->job-title user)})
 
 (pco/defresolver user->count-unread-messages
-  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
-  {:t_user/count_unread_messages (rsdb/user->count-unread-messages conn username)})
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
+  {:t_user/count_unread_messages (rsdb/user->count-unread-messages rsdb username)})
 
 (pco/defresolver user->count-incomplete-messages
-  [{conn :com.eldrix.rsdb/conn} {username :t_user/username}]
-  {:t_user/count_incomplete_messages (rsdb/user->count-incomplete-messages conn username)})
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
+  {:t_user/count_incomplete_messages (rsdb/user->count-incomplete-messages rsdb username)})
 
 (def sex->fhir-patient
   {"MALE"    :org.hl7.fhir.administrative-gender/male
@@ -1238,7 +1227,7 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user}
    {:keys [project-id nhs-number] :as params}]
@@ -1250,8 +1239,7 @@
     (throw (ex-info "Not authorized" {}))
     (let [user-id (:t_user/id user)]
       (if (s/valid? ::register-patient params)
-        (jdbc/with-transaction [txn conn {:isolation :serializable}]
-          (rsdb/register-patient! txn project-id user-id params))
+        (rsdb/register-patient! rsdb project-id user-id params)
         (do (log/error "invalid call" (s/explain-data ::register-patient params))
             (throw (ex-info "invalid NHS number" {:nnn nhs-number})))))))
 
@@ -1270,8 +1258,7 @@
   future.
   TODO: switch to more pluggable and routine coercion of data, rather than
   managing by hand."
-  [{conn    :com.eldrix.rsdb/conn
-    config  :com.eldrix.rsdb/config
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user}
    {:keys [project-id nhs-number date-birth] :as params}]
@@ -1282,46 +1269,40 @@
   (log/info "register patient by pseudonym: " {:user user :params params})
   (if-not (and manager (rsdb/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {}))
-    (if-let [global-salt (:legacy-global-pseudonym-salt config)]
-      (let [params' (assoc params :user-id (:t_user/id user)
-                           :salt global-salt
-                           :nhs-number (nnn/normalise nhs-number)
-                           :date-birth (cond
-                                         (instance? LocalDate date-birth) date-birth
-                                         (string? date-birth) (LocalDate/parse date-birth)
-                                         :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
-        (if (s/valid? ::register-patient-by-pseudonym params')
-          (jdbc/with-transaction [txn conn {:isolation :serializable}]
-            (rsdb/register-legacy-pseudonymous-patient! txn params'))
-          (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))
-      (log/error "unable to register patient by pseudonym; missing global salt: check configuration"
-                 {:expected [:com.eldrix.rsdb/config :legacy-global-pseudonym-salt]
-                  :config   config}))))
+    (let [params' (assoc params :user-id (:t_user/id user)
+                                :nhs-number (nnn/normalise nhs-number)
+                                :date-birth (cond
+                                              (instance? LocalDate date-birth) date-birth
+                                              (string? date-birth) (LocalDate/parse date-birth)
+                                              :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
+      (if (s/valid? ::register-patient-by-pseudonym params')
+        (rsdb/register-legacy-pseudonymous-patient! rsdb params')
+        (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))))
 
 (pco/defmutation search-patient-by-pseudonym
   "Search for a patient using a pseudonymous project-specific identifier.
   This uses the legacy approach, which *will* be deprecated."
-  [{conn :com.eldrix.rsdb/conn} {:keys [project-id pseudonym] :as params}]
+  [{rsdb :com.eldrix/rsdb} {:keys [project-id pseudonym] :as params}]
   {::pco/op-name 'pc4.rsdb/search-patient-by-pseudonym
    ::pco/output  [:t_patient/id
                   :t_patient/patient_identifier
                   :t_episode/stored_pseudonym
                   :t_episode/project_fk]}
   (log/debug "search-patient-by-pseudonym" params)
-  (rsdb/patient-by-project-pseudonym conn project-id pseudonym))
+  (rsdb/patient-by-project-pseudonym rsdb project-id pseudonym))
 
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
-  [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} patient-identifier permission]
+  [{rsdb :com.eldrix/rsdb manager :session/authorization-manager :as env} patient-identifier permission]
   (when-not manager
     (throw (ex-info "missing authorization manager" {:expected :session/authorization-manager, :found env})))
   (when-not patient-identifier
     (throw (ex-info "invalid request: missing patient-identifier" {})))
-  (let [project-ids (rsdb/patient->active-project-identifiers conn patient-identifier)]
+  (let [project-ids (rsdb/patient->active-project-identifiers rsdb patient-identifier)]
     (when-not (rsdb/authorized? manager project-ids permission)
       (throw (ex-info "You are not authorised to perform this operation" {:patient-identifier patient-identifier
                                                                           :permission         permission})))))
 (defn guard-can-for-project?                                ;; TODO: turn into a macro for defmutation?
-  [{conn :com.eldrix.rsdb/conn manager :session/authorization-manager :as env} project-id permission]
+  [{rsdb :com.eldrix/rsdb manager :session/authorization-manager :as env} project-id permission]
   (when-not manager
     (throw (ex-info "missing authorization manager" {:expected :session/authorization-manager, :found env})))
   (let [project-ids #{project-id}]
@@ -1330,16 +1311,12 @@
                                                                           :permission permission})))))
 
 (pco/defmutation register-patient-to-project!
-  [{conn :com.eldrix.rsdb/conn, user :session/authenticated-user :as env} {:keys [patient project-id] :as params}]
+  [{rsdb :com.eldrix/rsdb, user :session/authenticated-user :as env} {:keys [patient project-id] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient-to-project}
   (when (or (not (s/valid? (s/keys :req [:t_patient/id :t_patient/patient_identifier]) patient)) (not (int? project-id)))
     (throw (ex-info "invalid call" params)))
   (guard-can-for-project? env project-id :PATIENT_REGISTER)
-  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-    (try
-      (let [episode (rsdb/register-patient-project! txn project-id (:t_user/id user) patient)]
-        (log/info "registered patient to project" {:request params :result episode}))
-      (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e))))))
+  (rsdb/register-patient-project! rsdb project-id (:t_user/id user) patient))
 
 (pco/defmutation break-glass!
   "Break glass operation - registers the given patient to the break-glass.
@@ -1371,7 +1348,7 @@
    ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     manager              :session/authorization-manager
     {user-id :t_user/id} :session/authenticated-user
     :as                  env} params]
@@ -1385,8 +1362,8 @@
       (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
           (let [diagnosis-id (:t_diagnosis/id params')
                 diag (if (or (nil? diagnosis-id) (com.fulcrologic.fulcro.algorithms.tempid/tempid? diagnosis-id))
-                       (rsdb/create-diagnosis! conn (dissoc params' :t_diagnosis/id))
-                       (rsdb/update-diagnosis! conn params'))]
+                       (rsdb/create-diagnosis! rsdb (dissoc params' :t_diagnosis/id))
+                       (rsdb/update-diagnosis! rsdb params'))]
             (cond-> (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag))
               (tempid/tempid? diagnosis-id)
               (assoc :tempids {diagnosis-id (:t_diagnosis/id diag)})))))))
@@ -1400,7 +1377,7 @@
                 :t_medication/reason_for_stopping
                 :t_medication/events]))
 (pco/defmutation save-medication!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :authorization-manager
     user    :session/authenticated-user, :as env}
    {patient-id :t_patient/patient_identifier, medication-id :t_medication/id, patient-pk :t_medication/patient_fk, :as params}]
@@ -1413,14 +1390,16 @@
                                                                          (mapv #(hash-map :t_medication_event/type (:t_medication_event/type %)
                                                                                           :t_medication_event/event_concept_fk (get-in % [:t_medication_event/event_concept :info.snomed.Concept/id])))))))
                   create? (dissoc :t_medication/id))]
+    (guard-can-for-patient? env (or patient-id (rsdb/patient-pk->patient-identifier rsdb patient-pk)) :PATIENT_EDIT)
     (if-not (s/valid? ::save-medication params')
       (log/error "invalid call" (s/explain-data ::save-medication params'))
-      (jdbc/with-transaction [txn conn {:isolation :serializable}]
-        (guard-can-for-patient? env (or patient-id (rsdb/patient-pk->patient-identifier conn patient-pk)) :PATIENT_EDIT)
-        (log/info "Upsert medication " {:txn txn :params params})
-        (let [med (rsdb/upsert-medication! txn params')]
-          (cond-> (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med))
-            create? (assoc :tempids {medication-id (:t_medication/id med)})))))))
+      (let [med (rsdb/upsert-medication! rsdb params')]
+        ;; add properties to make graph navigation possible from this medication
+        (cond-> (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med))
+          create? (assoc :tempids {medication-id (:t_medication/id med)}))))))
+
+
+
 
 (s/def ::delete-medication
   (s/keys :req [:t_medication/id (or :t_patient/patient_identifier :t_medication/patient_fk)]))
@@ -1429,14 +1408,14 @@
     :t_medication/id : (mandatory) - the identifier for the medication
     :t_medication/patient_fk
     :t_patient/patient_identifier "
-  [{conn :com.eldrix.rsdb/conn, manager :authorization-manager :as env}
+  [{rsdb :com.eldrix/rsdb, manager :authorization-manager :as env}
    {patient-id :t_patient/patient_identifier, patient-pk :t_medication/patient_fk, :as params}]
   {::pco/op-name 'pc4.rsdb/delete-medication}
   (log/info "delete medication request" params)
   (if-not (s/valid? ::delete-medication params)
     (log/error "invalid call" (s/explain-data ::delete-medication params))
-    (do (guard-can-for-patient? env (or patient-id (rsdb/patient-pk->patient-identifier conn patient-pk)) :PATIENT_EDIT)
-        (rsdb/delete-medication! conn params))))
+    (do (guard-can-for-patient? env (or patient-id (rsdb/patient-pk->patient-identifier rsdb patient-pk)) :PATIENT_EDIT)
+        (rsdb/delete-medication! rsdb params))))
 
 (s/def ::save-ms-diagnosis
   (s/keys :req [:t_user/id
@@ -1444,29 +1423,25 @@
                 :t_patient/patient_identifier]))
 
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     {user-id :t_user/id} :session/authenticated-user
-    :as                  env} {patient-identifier :t_patient/patient_identifier :as params}]
+    :as                  env}
+   {patient-identifier :t_patient/patient_identifier :as params}]
   {::pco/op-name 'pc4.rsdb/save-ms-diagnosis}
   (log/info "save ms diagnosis:" params " user:" user-id)
   (let [params' (assoc params :t_user/id user-id)]
-    (if-not (s/valid? ::save-ms-diagnosis params')
-      (do (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
-          (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
-      (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-          (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-            (try
-              (rsdb/save-ms-diagnosis! txn params')
-              (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e)))))
-          (assoc (patient->summary-multiple-sclerosis env params)
-                 :t_patient/patient_identifier patient-identifier)))))
+    (when-not (s/valid? ::save-ms-diagnosis params')
+      (log/error "invalid call" (s/explain-data ::save-ms-diagnosis params'))
+      (throw (ex-info "Invalid data" (s/explain-data ::save-ms-diagnosis params'))))
+    (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
+    (rsdb/save-ms-diagnosis! rsdb params')))
 
 (s/def ::save-pseudonymous-postal-code
   (s/keys :req [:t_patient/patient_identifier
                 :uk.gov.ons.nhspd/PCD2]))
 
 (pco/defmutation save-pseudonymous-patient-postal-code!
-  [{conn :com.eldrix.rsdb/conn
+  [{rsdb :com.eldrix/rsdb
     ods  :com.eldrix.clods.graph/svc
     user :session/authenticated-user}
    {patient-identifier :t_patient/patient_identifier
@@ -1475,13 +1450,7 @@
   (log/info "saving pseudonymous postal code" {:params params :ods ods})
   (if-not (s/valid? ::save-pseudonymous-postal-code params)
     (throw (ex-info "invalid request" (s/explain-data ::save-pseudonymous-postal-code params)))
-    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
-      (if (str/blank? postcode)
-        (rsdb/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
-                                                   :uk.gov.ons.nhspd/LSOA11      ""})
-        (let [pc (nhspd/fetch-postcode ods postcode)]
-          (rsdb/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
-                                                     :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")}))))))
+    (rsdb/save-pseudonymous-patient-lsoa! rsdb patient-identifier postcode)))
 
 (s/def ::save-ms-event
   (s/keys :req [:t_ms_event/date
@@ -1491,7 +1460,7 @@
           :opt [:t_ms_event/notes]))
 
 (pco/defmutation save-ms-event!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user
     :as     env}
@@ -1502,11 +1471,11 @@
     (do (log/error "invalid call" (s/explain-data ::save-ms-event params))
         (throw (ex-info "Invalid data" (s/explain-data ::save-ms-event params))))
     (let [patient-identifier (or (:t_patient/patient_identifier params)
-                                 (rsdb/ms-event->patient-identifier conn params))]
+                                 (rsdb/ms-event->patient-identifier rsdb params))]
       (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
       (create-or-save-entity
        {:id-key  :t_ms_event/id
-        :save-fn #(rsdb/save-ms-event! conn %)
+        :save-fn #(rsdb/save-ms-event! rsdb %)
         :params  (-> params
                      (dissoc :t_patient/patient_identifier
                              :t_ms_event/type
@@ -1524,7 +1493,7 @@
                 :t_ms_event/id]))
 
 (pco/defmutation delete-ms-event!
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     {user-id :t_user/id} :session/authenticated-user, :as env}
    {ms-event-id :t_ms_event/id :as params}]
   {::pco/op-name 'pc4.rsdb/delete-ms-event}
@@ -1533,9 +1502,9 @@
     (if-not (s/valid? ::delete-ms-event params')
       (do (log/error "invalid call" (s/explain-data ::delete-ms-event params'))
           (throw (ex-info "Invalid data" (s/explain-data ::delete-ms-event params'))))
-      (when-let [patient-identifier (rsdb/ms-event->patient-identifier conn params')]
+      (when-let [patient-identifier (rsdb/ms-event->patient-identifier rsdb params')]
         (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-        (rsdb/delete-ms-event! conn params')))))
+        (rsdb/delete-ms-event! rsdb params')))))
 
 (s/def ::save-encounter
   (s/keys :req [:t_patient/patient_identifier
@@ -1546,7 +1515,7 @@
                 :t_encounter/episode_fk]))
 
 (pco/defmutation save-encounter!
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     {user-id :t_user/id} :session/authenticated-user, :as env}
    params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
@@ -1560,13 +1529,12 @@
       (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
     (try
       (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-      (jdbc/with-transaction [txn conn]
-        (rsdb/save-encounter-and-forms! txn params'))
+      (rsdb/save-encounter-and-forms! rsdb params')
       (catch Exception e (.printStackTrace e)))))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user
     :as     env}
@@ -1578,12 +1546,12 @@
     (do (log/error "invalid delete encounter" (s/explain-data ::delete-encounter params))
         (throw (ex-info "Invalid 'delete encounter' data:" (s/explain-data ::delete-encounter params))))
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-        (rsdb/delete-encounter! conn encounter-id))))
+        (rsdb/delete-encounter! rsdb encounter-id))))
 
 (s/def ::unlock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation unlock-encounter!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     user    :session/authenticated-user, :as env}
    {encounter-id :t_encounter/id
     patient-identifier :t_patient/patient_identifier, :as params}]
@@ -1593,12 +1561,12 @@
     (do (log/error "invalid unlock encounter" (s/explain-data ::unlock-encounter params))
         (throw (ex-info "invalid 'unlock encounter' data" (s/explain-data ::unlock-encounter params))))
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-        (rsdb/unlock-encounter! conn encounter-id))))
+        (rsdb/unlock-encounter! rsdb encounter-id))))
 
 (s/def ::lock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation lock-encounter!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     user    :session/authenticated-user, :as env}
    {encounter-id :t_encounter/id
     patient-identifier :t_patient/patient_identifier, :as params}]
@@ -1608,52 +1576,56 @@
     (do (log/error "invalid lock encounter" (s/explain-data ::lock-encounter params))
         (throw (ex-info "invalid 'lock encounter' data" (s/explain-data ::lock-encounter params))))
     (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-        (rsdb/lock-encounter! conn encounter-id))))
+        (rsdb/lock-encounter! rsdb encounter-id))))
 
 (pco/defmutation create-form!
   "Create a new form within an encounter for a patient of the specified type"
-  [{conn :com.eldrix.rsdb/conn, {user-id :t_user/id} :session/authenticated-user, :as env}
+  [{rsdb                 :com.eldrix/rsdb
+    {user-id :t_user/id} :session/authenticated-user
+    :as env}
    {:keys [patient-identifier encounter-id form-type-id]}]
   {::pco/op-name 'pc4.rsdb/create-form}
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (jdbc/with-transaction [txn conn]
-    (assoc (rsdb/create-form! txn {:encounter-id encounter-id
-                                   :user-id      user-id
-                                   :form-type-id form-type-id})
-           :form/encounter {:t_encounter/id encounter-id}
-           :form/user {:t_user/id user-id})))
+  (assoc (rsdb/create-form! rsdb {:encounter-id encounter-id
+                                  :user-id      user-id
+                                  :form-type-id form-type-id})
+    :form/encounter {:t_encounter/id encounter-id}
+    :form/user {:t_user/id user-id}))
+
+
 
 (pco/defmutation save-form!
   "Save a form. Parameters are a map with
   - patient-identifier : the patient identifier
   - form               : the form to save"
-  [{conn :com.eldrix.rsdb/conn :as env} {:keys [patient-identifier form] :as params}]
+  [{rsdb :com.eldrix/rsdb :as env} {:keys [patient-identifier form] :as params}]
   {::pco/op-name 'pc4.rsdb/save-form}
   (log/info "save form" params)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (jdbc/with-transaction [txn conn]
-    (if (tempid/tempid? (:form/id form)) ;; if we have a temporary id, provide a mapping from it to new identifier
-      (let [form' (rsdb/save-form! txn form)]
-        (assoc form' :tempids {(:form/id form) (:form/id form')}))
-      (rsdb/save-form! txn form))))
+  (if (tempid/tempid? (:form/id form)) ;; if we have a temporary id, provide a mapping from it to new identifier
+    (let [form' (rsdb/save-form! rsdb form)]
+      (assoc form' :tempids {(:form/id form) (:form/id form')}))
+    (rsdb/save-form! rsdb form)))
+
+
 
 (pco/defmutation delete-form!
-  [{conn :com.eldrix.rsdb/conn :as env}
+  [{rsdb :com.eldrix/rsdb :as env}
    {:keys [patient-identifier form] :as params}]
   {::pco/op-name 'pc4.rsdb/delete-form}
   (log/info "delete form" params) (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (rsdb/delete-form! conn form))
+  (rsdb/delete-form! rsdb form))
 
 (pco/defmutation undelete-form!
-  [{conn :com.eldrix.rsdb/conn :as env}
+  [{rsdb :com.eldrix/rsdb :as env}
    {:keys [patient-identifier form] :as params}]
   {::pco/op-name 'pc4.rsdb/undelete-form!}
   (log/info "undelete form" params)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (rsdb/undelete-form! conn form))
+  (rsdb/undelete-form! rsdb form))
 
 (pco/defmutation save-result!
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     manager              :session/authorization-manager
     {user-id :t_user/id} :session/authenticated-user
     :as                  env}
@@ -1662,19 +1634,18 @@
   (log/info "save result request: " params "user: " user-id)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (try
-    (jdbc/with-transaction [txn conn]
-      (if-let [result-type (rsdb/result-type-by-entity-name (:t_result_type/result_entity_name result))]
-        (let [table-name (name (:table result-type))
-              id-key (keyword table-name "id")
-              user-key (keyword table-name "user_fk")]
-          (create-or-save-entity {:id-key  id-key
-                                  :params  (assoc result user-key user-id)
-                                  :save-fn #(rsdb/save-result! txn %)}))
-        (throw (ex-info "missing entity name" params))))
+    (if-let [result-type (rsdb/result-type-by-entity-name (:t_result_type/result_entity_name result))]
+      (let [table-name (name (:table result-type))
+            id-key (keyword table-name "id")
+            user-key (keyword table-name "user_fk")]
+        (create-or-save-entity {:id-key  id-key
+                                :params  (assoc result user-key user-id)
+                                :save-fn #(rsdb/save-result! rsdb %)}))
+      (throw (ex-info "missing entity name" result)))
     (catch Exception e (.printStackTrace e))))
 
 (pco/defmutation delete-result!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user
     :as     env}
@@ -1682,7 +1653,7 @@
   {::pco/op-name 'pc4.rsdb/delete-result}
   (log/info "delete result request: " result "user: " user)
   (do (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-      (rsdb/delete-result! conn result)))
+      (rsdb/delete-result! rsdb result)))
 
 (s/def ::notify-death (s/keys :req [:t_patient/patient_identifier
                                     :t_patient/date_death]
@@ -1691,7 +1662,7 @@
                                     :t_death_certificate/part1c
                                     :t_death_certificate/part2]))
 (pco/defmutation notify-death!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user
     :as     env}
@@ -1701,34 +1672,33 @@
   (when-not (s/valid? ::notify-death params)
     (throw (ex-info "Invalid notify-death request" (s/explain-data ::notify-death params))))
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (jdbc/with-transaction [txn conn {:isolation :serializable}]
-    (rsdb/notify-death! txn params)))
+  (rsdb/notify-death! rsdb params))
 
 (pco/defmutation set-date-death!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user :as env}
    {patient-identifier :t_patient/patient_identifier :as params}]
   {::pco/op-name 'pc4.rsdb/set-date-death}
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (rsdb/set-date-death! conn params))
+  (rsdb/set-date-death! rsdb params))
 
 (pco/defmutation change-pseudonymous-registration
-  [{conn :com.eldrix.rsdb/conn, config :com.eldrix.rsdb/config, :as env}
+  [{rsdb :com.eldrix/rsdb, :as env}
    {patient-pk :t_patient/id :t_patient/keys [patient_identifier nhs_number sex date_birth] :as params}]
   {::pco/op-name 'pc4.rsdb/change-pseudonymous-registration}
   (guard-can-for-patient? env patient_identifier :PATIENT_CHANGE_PSEUDONYMOUS_DATA)
   ;; check that we are not changing the existing NHS number
-  (let [{old-nhs-number :t_patient/nhs_number :as existing-patient} (rsdb/fetch-patient conn params)]
+  (let [{old-nhs-number :t_patient/nhs_number :as existing-patient} (rsdb/fetch-patient rsdb params)]
     (when (not= old-nhs-number nhs_number)
       (throw (ex-info "You are currently not permitted to change NHS number" {:existing  existing-patient
-                                                                              :requested params}))))
-  (if-let [global-salt (:legacy-global-pseudonym-salt config)]
-    (jdbc/with-transaction [txn conn {:isolation :serializable}]
-      (rsdb/update-legacy-pseudonymous-patient! txn global-salt patient-pk {:nhs-number nhs_number
-                                                                            :date-birth date_birth
-                                                                            :sex        sex}))
-    (throw (ex-info "missing global salt in configuration" config))))
+                                                                              :requested params})))
+    (rsdb/update-legacy-pseudonymous-patient!
+      rsdb
+      patient-pk
+      {:nhs-number nhs_number
+       :date-birth date_birth
+       :sex        sex})))
 
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
@@ -1738,7 +1708,7 @@
                                  :opt [:t_user/password]))
 
 (pco/defmutation change-password!
-  [{conn               :com.eldrix.rsdb/conn
+  [{rsdb         :com.eldrix/rsdb
     authenticated-user :session/authenticated-user, :as env}
    {username     :t_user/username
     password     :t_user/password
@@ -1749,16 +1719,16 @@
   (when-not (= username (:t_user/username authenticated-user))
     (throw (ex-info "You cannot change password of a different user" {:requested-user username, :authenticated-user authenticated-user})))
   (log/info "changing password for user" username)
-  (let [user (rsdb/user-by-username conn username {:with-credentials true})]
+  (let [user (rsdb/user-by-username rsdb username {:with-credentials true})]
     (if (rsdb/authenticate env user password)
-      (rsdb/save-password! conn user new-password)
+      (rsdb/save-password! rsdb user new-password)
       (throw (ex-info "Cannot change password: incorrect old password." {})))))
 
 (s/def ::save-admission (s/keys :req [:t_episode/patient_fk
                                       :t_episode/date_registration
                                       :t_episode/date_discharge]))
 (pco/defmutation save-admission!
-  [{conn                 :com.eldrix.rsdb/conn
+  [{rsdb                 :com.eldrix/rsdb
     {user-id :t_user/id} :session/authenticated-user
     :as                  env} params]
   {::pco/op-name 'pc4.rsdb/save-admission}
@@ -1766,11 +1736,11 @@
   (when-not (s/valid? ::save-admission (dissoc params :t_episode/id))
     (log/error "invalid save result request" (s/explain-data ::save-admission params))
     (throw (ex-info "Invalid save result request" (s/explain-data ::save-admission params))))
-  (guard-can-for-patient? env (rsdb/patient-pk->patient-identifier conn (:t_episode/patient_fk params)) :PATIENT_EDIT)
-  (rsdb/save-admission! conn))
+  (guard-can-for-patient? env (rsdb/patient-pk->patient-identifier rsdb (:t_episode/patient_fk params)) :PATIENT_EDIT)
+  (rsdb/save-admission! rsdb user-id params))
 
 (pco/defmutation delete-admission!
-  [{conn    :com.eldrix.rsdb/conn
+  [{rsdb    :com.eldrix/rsdb
     manager :session/authorization-manager
     user    :session/authenticated-user
     :as     env}
@@ -1779,29 +1749,30 @@
     :as        params}]
   {::pco/op-name 'pc4.rsdb/delete-admission}
   (if (and episode-id patient-fk)
-    (let [patient-identifier (rsdb/patient-pk->patient-identifier conn patient-fk)]
+    (let [patient-identifier (rsdb/patient-pk->patient-identifier rsdb patient-fk)]
       (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-      (rsdb/delete-episode! conn episode-id))
+      (rsdb/delete-episode! rsdb episode-id))
     (throw (ex-info "Invalid parameters:" params))))
 
 (pco/defresolver multiple-sclerosis-diagnoses
-  [{conn :com.eldrix.rsdb/conn} _]
+  [{rsdb :com.eldrix/rsdb} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/id
                                                      :t_ms_diagnosis/name]}]}
-  {:com.eldrix.rsdb/all-ms-diagnoses (rsdb/all-multiple-sclerosis-diagnoses conn)})
+  {:com.eldrix.rsdb/all-ms-diagnoses (rsdb/all-multiple-sclerosis-diagnoses rsdb)})
 
 (pco/defresolver all-ms-event-types
-  [{conn :com.eldrix.rsdb/conn} _]
+  [{rsdb :com.eldrix/rsdb} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-event-types [:t_ms_event_type/id
                                                        :t_ms_event_type/abbreviation
                                                        :t_ms_event_type/name]}]}
-  {:com.eldrix.rsdb/all-ms-event-types (rsdb/all-ms-event-types conn)})
+  {:com.eldrix.rsdb/all-ms-event-types (rsdb/all-ms-event-types rsdb)})
 
 (pco/defresolver all-ms-disease-courses
-  [{conn :com.eldrix.rsdb/conn} _]
+  [{rsdb :com.eldrix/rsdb} _]
   {::pco/output [{:com.eldrix.rsdb/all-ms-disease-courses [:t_ms_disease_course/id
                                                            :t_ms_disease_course/name]}]}
-  {:com.eldrix.rsdb/all-ms-disease-courses (rsdb/all-ms-disease-courses conn)})
+  {:com.eldrix.rsdb/all-ms-disease-courses (rsdb/all-ms-disease-courses rsdb)})
+
 (pco/defresolver medication->reasons-for-stopping
   [_]
   {::pco/output [{:com.eldrix.rsdb/all-medication-reasons-for-stopping
@@ -1951,106 +1922,5 @@
    set-date-death!
    change-pseudonymous-registration])
 
-(comment
-  (require '[next.jdbc.connection])
-  (def conn (next.jdbc.connection/->pool HikariDataSource {:dbtype          "postgresql"
-                                                           :dbname          "rsdb"
-                                                           :maximumPoolSize 1}))
 
-  (project->encounter_templates {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
-
-  (jdbc/execute! conn ["select id from t_encounter where patient_fk=?" 1726])
-  (jdbc/execute! conn
-                 ["select t_form_edss.*,t_encounter.date_time,t_encounter.is_deleted from t_form_edss,t_encounter where t_form_edss.encounter_fk=t_encounter.id and encounter_fk in (select id from t_encounter where patient_fk=?);" 1726])
-
-  (jdbc/execute! conn (sql/format {:select [:*]
-                                   :from   [:t_patient]
-                                   :where  [:= :id 14232]}))
-
-  (def env (-> (pci/register all-resolvers)
-               (assoc :com.eldrix.rsdb/conn conn)))
-  (p.eql/process env [{[:t_patient/patient_identifier 6175]
-                       [:t_patient/summary_multiple_sclerosis]}])
-  (p.eql/process env [{:com.eldrix.rsdb/all-ms-diagnoses [:t_ms_diagnosis/name :t_ms_diagnosis/id]}])
-  (p.eql/process env [{}])
-  (patient-by-identifier {:com.eldrix.rsdb/conn conn} {:t_patient/patient_identifier 12999})
-  (p.eql/process env [{[:t_patient/patient_identifier 17371] [:t_patient/id
-                                                              :t_patient/email
-                                                              :t_patient/first_names
-                                                              :t_patient/last_name
-                                                              :t_patient/status
-                                                              :t_patient/surgery
-                                                              :t_patient/alerts
-                                                              `(:t_patient/address {:date ~"2010-06-01"})]}])
-
-  (p.eql/process env
-                 [{[:t_patient/patient_identifier 17371]
-                   [:t_patient/id
-                    :t_patient/first_names
-                    :t_patient/last_name
-                    :t_patient/status
-                    :t_patient/surgery
-                    {:t_patient/address [:uk.gov.ons.nhspd/PCDS]}
-                    {:t_patient/episodes [:t_episode/date_registration
-                                          :t_episode/date_discharge
-                                          :t_episode/project_fk
-                                          {:t_episode/project [:t_project/title]}]}]}])
-
-  (time (p.eql/process env
-                       [{[:t_patient/patient_identifier 12182]
-                         [:t_patient/id
-                          :t_patient/first_names
-                          :t_patient/last_name
-                          :t_patient/status
-                          :t_patient/surgery
-                          {:t_patient/encounters [:t_encounter/date_time
-                                                  :t_encounter/is_deleted
-                                                  :t_encounter/hospital
-                                                  {:t_encounter/users [:t_user/id
-                                                                       :t_user/initials
-                                                                       :t_user/full_name]}]}]}]))
-
-  (p.eql/process env
-                 [{[:t_patient/patient_identifier 12182]
-                   [:t_patient/id
-                    :t_patient/first_names
-                    :t_patient/last_name
-                    :t_patient/status
-                    :t_patient/surgery
-                    {:t_patient/hospitals [:t_patient_hospital/patient_identifier
-                                           :t_patient_hospital/hospital]}]}])
-
-  (db/parse-entity (jdbc/execute-one! conn (sql/format {:select [:*] :from [:t_encounter_template]
-                                                        :where  [:= :id 15]})))
-  (sql/format {:select [[:postcode_raw :postcode]] :from [:t_address]})
-
-  (def ^LocalDate date (LocalDate/now))
-  (rsdb/patient->addresses conn 119032)
-  (rsdb/address-for-date (rsdb/patient->addresses conn 7382))
-
-  (rsdb/patient->addresses conn 119032)
-  (episode->project {:com.eldrix.rsdb/conn conn} {:t_episode/project_fk 34})
-
-  (def user (jdbc/execute-one! conn (sql/format {:select [:*]
-                                                 :from   [:t_user]
-                                                 :where  [:= :username "system"]})))
-  (rsdb/user-by-username conn "ma090906")
-  user
-
-  (time (map #(assoc % :t_project/slug (rsdb/project-title->slug (:t_project/title %)))
-             (jdbc/execute! conn (honeysql.core/format {:select [:t_project/id :t_project/title :t_project/name]
-                                                        :from   [:t_project]}))))
-
-  (user-by-id {:com.eldrix.rsdb/conn conn} {:t_user/id 12})
-  (project->all-parents {:com.eldrix.rsdb/conn conn} {:t_project/id 5})
-
-  (require '[com.eldrix.pc4.rsdb.patients])
-  (def project-ids (com.eldrix.pc4.rsdb.patients/active-project-identifiers conn 14032))
-  (def manager (rsdb/authorization-manager conn "ma090906"))
-  (def sys-manager (rsdb/authorization-manager conn "system"))
-  (def unk-manager (rsdb/authorization-manager conn "unknown"))
-  (rsdb/authorized? manager project-ids :PATIENT_VIEW)
-  (rsdb/authorized? sys-manager project-ids :PATIENT_VIEW)
-  (rsdb/authorized? unk-manager project-ids :PATIENT_VIEW)
-  (rsdb/authorized? manager project-ids :BIOBANK_CREATE_LOCATION))
 
