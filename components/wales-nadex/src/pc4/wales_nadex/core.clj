@@ -271,6 +271,9 @@
           :mock (make-mock-service data)
           (throw (ex-info (str "unsupported NADEX service mode" mode) config')))))))
 
+(defn valid-service? [svc]
+  (satisfies? LdapService svc))
+
 (defn close
   [^Closeable svc]
   (.close svc))

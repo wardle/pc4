@@ -20,6 +20,11 @@
   [_ svc]
   (close svc))
 
+(defn valid-service?
+  "Is 'svc' a valid NADEX service?"
+  [svc]
+  (core/valid-service? svc))
+
 (defn can-authenticate?
   "Can the user authenticate with these credentials. Returns a boolean."
   [svc username password]
@@ -80,7 +85,8 @@
      :org.hl7.fhir.Identifier/value code}))
 
 (s/fdef user->fhir-r4
-  :args (s/cat :user ::core/LdapUser))
+  :args (s/cat :user ::core/LdapUser)
+  :ret :org.hl7.fhir/Practitioner)
 (defn user->fhir-r4
   [{:keys [sAMAccountName sn givenName personalTitle mail telephoneNumber wwwHomePage
            mobile professionalRegistration thumbnailPhoto
@@ -116,6 +122,7 @@
    :org.hl7.fhir.Practitioner/address
    [{:org.hl7.fhir.Address/use "work"
      :org.hl7.fhir.Address/type "physical"
+     :org.hl7.fhir.Address/text (str/join "\n" (remove str/blank? [physicalDeliveryOfficeName streetAddress l postalCode]))
      :org.hl7.fhir.Address/line [physicalDeliveryOfficeName streetAddress]
      :org.hl7.fhir.Address/district ""
      :org.hl7.fhir.Address/state ""
@@ -126,11 +133,12 @@
    :org.hl7.fhir.Practitioner/photo
    (cond-> []
      thumbnailPhoto   ; TODO: check mimetype? 
-     (conj {:org.hl7.fhir.Attachment/data thumbnailPhoto
+     (conj {:org.hl7.fhir.Attachment/data (.encodeToString (java.util.Base64/getEncoder) thumbnailPhoto)
             :org.hl7.fhir.Attachment/contentType "image/jpeg"}))
 
    :org.hl7.fhir.Practitioner/name
    [{:org.hl7.fhir.HumanName/use "official"
+     :org.hl7.fhir.HumanName/text (str/join " " (remove str/blank? [personalTitle givenName sn]))
      :org.hl7.fhir.HumanName/family sn
      :org.hl7.fhir.HumanName/given (str/split givenName #"\s")
      :org.hl7.fhir.HumanName/prefix personalTitle}]})
@@ -144,6 +152,7 @@
   (gen/generate (gen-user))
   (def user (gen/generate (gen-user)))
   (def user' (user->fhir-r4 user))
+  (s/valid? (:ret (s/get-spec `user->fhir-r4)) user')
   (s/explain :org.hl7.fhir/Practitioner user'))
 
 
