@@ -187,12 +187,12 @@
   TODO: fallback to active directory photograph."
   {:name ::get-user-photo
    :enter
-   (fn [{:keys [conn] :as ctx}]
+   (fn [{:keys [rsdb] :as ctx}]
      (let [system (get-in ctx [:request :path-params :system])
            value (get-in ctx [:request :path-params :value])]
        (log/debug "user photo request" {:system system :value value})
        (if (or (= "patientcare.app" system) (= "cymru.nhs.uk" system))
-         (if-let [photo (rsdb/fetch-user-photo conn value)]
+         (if-let [photo (rsdb/fetch-user-photo rsdb value)]
            (assoc ctx :response {:status  200
                                  :headers {"Content-Type" (:erattachment/mimetype photo)}
                                  :body    (:erattachmentdata/data photo)})
@@ -335,8 +335,8 @@
 ;;;;;
 
 (s/def ::pathom fn?)
-(s/def ::conn some?)
-(s/def ::env (s/keys :req-un [::conn ::pathom]))
+(s/def ::rsdb rsdb/valid-service?)
+(s/def ::env (s/keys :req-un [::rsdb ::pathom]))
 (s/def ::cljs-manifest string?)
 (s/def ::port int?)
 (s/def ::host string?)

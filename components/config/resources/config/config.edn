@@ -146,4 +146,4 @@
   :cljs-manifest   "public/js/compiled/manifest.edn"
   :env             {:use-tailwind-cdn #profile {:default false, :dev true}
                     :pathom           #ig/ref :pc4.graph.interface/boundary-interface
-                    :conn             #ig/ref :pc4.rsdb.interface/conn}}}
+                    :rsdb             #ig/ref :pc4.rsdb.interface/svc}}}
