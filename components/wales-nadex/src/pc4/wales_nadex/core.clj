@@ -4,18 +4,19 @@
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as str]
    [com.eldrix.concierge.wales.nadex :as nadex]
-   [integrant.core :as ig]
    [pc4.log.interface :as log])
   (:import (java.io Closeable)))
 
 (s/def ::non-blank-string (s/and string? (complement str/blank?)))
 
-(def gen-char-numeric
-  "Generate a numeric character."
+(defn gen-char-numeric
+  "Return a generator for a numeric character."
+  []
   (gen/fmap char (gen/choose 48 57)))
 
-(def gen-char-lowercase-alphabetical
-  "Generate a lowercase alphabetical character"
+(defn gen-char-lowercase-alphabetical
+  "Return a generator for a lowercase alphabetical character"
+  []
   (gen/fmap char (gen/choose 97 122)))
 
 (defn gen-string-with-length
@@ -25,33 +26,35 @@
    (gen/fmap str/join (gen/vector gen min-chars max-chars))))
 
 (defn gen-non-blank-lowercase-string
-  ([] (gen/such-that (complement str/blank?) (gen/fmap str/join (gen/vector gen-char-lowercase-alphabetical))))
-  ([length] (gen/fmap str/join (gen/vector gen-char-lowercase-alphabetical length)))
-  ([min-chars max-chars] (gen/fmap str/join (gen/vector gen-char-lowercase-alphabetical min-chars max-chars))))
+  ([] (gen/such-that (complement str/blank?) (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical)))))
+  ([length] (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical) length)))
+  ([min-chars max-chars] (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical) min-chars max-chars))))
 
-(def gen-nadex-username
+(defn gen-nadex-username
   "Generate NADEX type usernames with a two character lowercase prefix and
   six numeric digits e.g. \"ul564587\"."
+  []
   (gen/fmap
    (fn [[s1 s2]] (str s1 s2))
    (gen/tuple
-    (gen-string-with-length gen-char-lowercase-alphabetical 2)
-    (gen-string-with-length gen-char-numeric 6))))
+    (gen-string-with-length (gen-char-lowercase-alphabetical) 2)
+    (gen-string-with-length (gen-char-numeric) 6))))
 
-(def gen-wales-email
+(defn gen-wales-email
   "Generate NHS Wales style email addresses."
+  []
   (gen/fmap (fn [[s1 s2]]
               (str s1 "." s2 "@wales.nhs.uk"))
             (gen/tuple (gen-non-blank-lowercase-string 1 12) (gen-non-blank-lowercase-string 1 18))))
 
 (comment
   (gen/sample (gen-non-blank-lowercase-string 5 15))
-  (gen/generate (gen/vector gen-char-lowercase-alphabetical 6))
-  (gen/generate gen-nadex-username)
-  (gen/generate gen-wales-email))
+  (gen/generate (gen/vector (gen-char-lowercase-alphabetical) 6))
+  (gen/generate (gen-nadex-username))
+  (gen/generate (gen-wales-email)))
 
-(s/def ::sAMAccountName (s/with-gen ::non-blank-string (fn [] gen-nadex-username)))
-(s/def ::mail (s/with-gen #(re-matches #".+@.+\..+" %) (fn [] gen-wales-email)))
+(s/def ::sAMAccountName (s/with-gen ::non-blank-string gen-nadex-username))
+(s/def ::mail (s/with-gen #(re-matches #".+@.+\..+" %) gen-wales-email))
 (s/def ::streetAddress string?)
 (s/def ::department string?)
 (s/def ::wwwHomePage string?)
