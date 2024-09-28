@@ -390,6 +390,24 @@
   [{:keys [conn]} encounter-id]
   (forms/encounter->form_smoking_history conn encounter-id))
 
+;; MSSS
+
+(defn msss-lookup
+  "Return MSSS lookup data of the specified type, or Roxburgh, by default."
+  ([_]
+   (msss/msss-lookup {:type :roxburgh}))
+  ([{:keys [conn hermes]} {msss-type :type :as params}]
+   (if (= :db msss-type)
+     (msss/msss-lookup (assoc params :conn conn :ms-concept-ids (msss/multiple-sclerosis-concept-ids hermes)))
+     (msss/msss-lookup params))))
+
+(defn msss-for-duration-and-edss
+  [msss-lookup disease-duration edss]
+  (msss/msss-for-duration-and-edss msss-lookup disease-duration edss))
+
+(defn derived-edss-over-time [msss-lookup params]
+  (msss/derived-edss-over-time msss-lookup params))
+
 ;; value sets
 
 (defn all-multiple-sclerosis-diagnoses
