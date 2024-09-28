@@ -10,6 +10,7 @@
 (def administrative-gender #{"male" "female" "other" "unknown"})
 (def contact-point-system #{"phone" "fax" "email" "pager" "url" "sms" "other"})
 (def contact-point-use #{"home" "work" "temp" "old" "mobile"})
+(def human-name-use #{"anonymous" "maiden" "nickname" "official" "old" "temp" "usual"})
 
 (s/def :org.hl7.fhir.Attachment/contentType string?)
 (s/def :org.hl7.fhir.Attachment/data string?)
@@ -43,6 +44,9 @@
 
 (s/def :org.hl7.fhir.HumanName/family string?)
 (s/def :org.hl7.fhir.HumanName/given (s/coll-of string?))
+(s/def :org.hl7.fhir.HumanName/prefix (s/coll-of string?))
+(s/def :org.hl7.fhir.HumanName/suffix (s/coll-of string?))
+(s/def :org.hl7.fhir.HumanName/use (s/nilable human-name-use))
 (s/def :org.hl7.fhir/HumanName
   (s/keys :req [:org.hl7.fhir.HumanName/use
                 :org.hl7.fhir.HumanName/family
