@@ -4,128 +4,9 @@
    [clojure.spec.gen.alpha :as gen]
    [clojure.string :as str]
    [com.eldrix.concierge.wales.nadex :as nadex]
-   [pc4.log.interface :as log])
+   [pc4.log.interface :as log]
+   [pc4.wales-nadex.spec :as nspec])
   (:import (java.io Closeable)))
-
-(s/def ::non-blank-string (s/and string? (complement str/blank?)))
-
-(defn gen-char-numeric
-  "Return a generator for a numeric character."
-  []
-  (gen/fmap char (gen/choose 48 57)))
-
-(defn gen-char-lowercase-alphabetical
-  "Return a generator for a lowercase alphabetical character"
-  []
-  (gen/fmap char (gen/choose 97 122)))
-
-(defn gen-string-with-length
-  ([gen length]
-   (gen/fmap str/join (gen/vector gen length)))
-  ([gen min-chars max-chars]
-   (gen/fmap str/join (gen/vector gen min-chars max-chars))))
-
-(defn gen-non-blank-lowercase-string
-  ([] (gen/such-that (complement str/blank?) (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical)))))
-  ([length] (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical) length)))
-  ([min-chars max-chars] (gen/fmap str/join (gen/vector (gen-char-lowercase-alphabetical) min-chars max-chars))))
-
-(defn gen-nadex-username
-  "Generate NADEX type usernames with a two character lowercase prefix and
-  six numeric digits e.g. \"ul564587\"."
-  []
-  (gen/fmap
-   (fn [[s1 s2]] (str s1 s2))
-   (gen/tuple
-    (gen-string-with-length (gen-char-lowercase-alphabetical) 2)
-    (gen-string-with-length (gen-char-numeric) 6))))
-
-(defn gen-wales-email
-  "Generate NHS Wales style email addresses."
-  []
-  (gen/fmap (fn [[s1 s2]]
-              (str s1 "." s2 "@wales.nhs.uk"))
-            (gen/tuple (gen-non-blank-lowercase-string 1 12) (gen-non-blank-lowercase-string 1 18))))
-
-(comment
-  (gen/sample (gen-non-blank-lowercase-string 5 15))
-  (gen/generate (gen/vector (gen-char-lowercase-alphabetical) 6))
-  (gen/generate (gen-nadex-username))
-  (gen/generate (gen-wales-email)))
-
-(s/def ::sAMAccountName (s/with-gen ::non-blank-string gen-nadex-username))
-(s/def ::mail (s/with-gen #(re-matches #".+@.+\..+" %) gen-wales-email))
-(s/def ::streetAddress string?)
-(s/def ::department string?)
-(s/def ::wwwHomePage string?)
-(s/def ::l string?)
-(s/def ::title string?)
-(s/def ::personalTitle string?)
-(s/def ::mobile string?)
-(s/def ::telephoneNumber string?)
-(s/def ::postOfficeBox string?)
-(s/def ::postalCode string?)
-(s/def ::givenName string?)
-(s/def ::sn string?)
-(s/def ::company string?)
-(s/def ::physicalDeliveryOfficeName string?)
-(s/def ::thumbnailPhoto bytes?)
-(s/def ::regulator #{"GMC" "HCPC" "NMC"})
-(s/def ::code string?)
-(s/def ::professionalRegistration (s/keys :req-un [::regulator ::code]))
-(s/def ::LdapUser
-  (s/keys :req-un [::sAMAccountName ::mail
-                   ::streetAddress  ::l
-                   ::postalCode
-                   ::department
-                   ::wwwHomePage
-                   ::title
-                   ::telephoneNumber
-                   ::postOfficeBox
-                   ::givenName
-                   ::sn
-                   ::company
-                   ::physicalDeliveryOfficeName]
-          :opt-un [::personalTitle
-                   ::mobile
-                   ::thumbnailPhoto
-                   ::professionalRegistration]))
-
-(defn gen-ldap-user
-  "Returns a generator for synthetic LDAP user data. Requires clojure test check
-  on the classpath at runtime."
-  ([]
-   (s/gen ::LdapUser))
-  ([m]
-   (gen/fmap
-    (fn [user] (merge user m))
-    (s/gen ::LdapUser))))
-
-(comment
-  (gen/sample (gen-ldap-user))
-  (gen/sample (gen-ldap-user {:company "SBUHB"}))
-  (gen/sample (s/gen ::non-blank-string))
-  (gen/sample (s/gen ::LdapUser))
-  (gen/generate (s/gen ::LdapUser)))
-
-(comment
-  (def example-result
-    {:department     "Neurosciences"
-     :wwwHomePage    "www.wardle.org"
-     :sAMAccountName "ma090906"
-     :mail           "mark.wardle@wales.nhs.uk"
-     :streetAddress  "University Hospital Wales,\r\nHeath Park, \r\nCardiff,"
-     :l              "Cardiff"
-     :title          "Consultant Neurologist"
-     :telephoneNumber "74 5274"
-     :postOfficeBox  "GMC:4624000"
-     :postalCode     "CF14 4XW"
-     :givenName      "Mark"
-     :sn             "Wardle"
-     :professionalRegistration {:regulator "GMC" :code "4624000"}
-     :company        "Cardiff and Vale UHB"
-     :physicalDeliveryOfficeName "Ward C4 C4 corridor"})
-  (s/valid? ::LdapUser example-result))
 
 (defprotocol LdapService
   "A LDAP service that provides user authentication and lookup."
@@ -210,7 +91,7 @@
         (.close pool)))))
 
 (defn make-nop-service [_]
-  (log/debug "Creating no-op LDAP service in absence of any configured live services")
+  (log/debug "creating no-op LDAP service in absence of any configured live services")
   (reify
     LdapService
     (can-authenticate? [_ _ _] false)
@@ -231,13 +112,17 @@
 
 (defn make-mock-service
   "The mock service takes an explicit list of users and generates synthetic data. 
+  The data provided manually is supplemented with synthetic data, but this occurs
+  at service set-up, rather than on each search/fetch, and so a fetch will be 
+  referentially transparent.
+  
   Parameters:
   - :users - a sequence of mock users"
   [{:keys [users]}]
   (log/debug "creating 'mock' LDAP service with " (count users) "mock users")
   (let [users# ;; generate any missing properties with synthetic data, and ensure sAMAccountName is explicitly defined username 
         (map (fn [{:keys [username data] :as user}]
-               (assoc user :data (gen/generate (gen-ldap-user (assoc data :sAMAccountName username))))) users)
+               (assoc user :data (gen/generate (nspec/gen-ldap-user (assoc data :sAMAccountName username))))) users)
         user-by-username ;; generate a user directory with synthetic data
         (reduce (fn [acc {:keys [username] :as user}]
                   (assoc acc username user)) {} users#)]
@@ -250,8 +135,10 @@
         (list (:data (user-by-username username))))
       (search-by-username [_ _ username]
         (list (:data (user-by-username username))))
-      (search-by-name [_ s] (filter (match-name? s) (map :data users#)))
-      (search-by-name [_ _ s] (filter (match-name? s) (map :data users#)))
+      (search-by-name [_ s]
+        (filter (match-name? s) (map :data users#)))
+      (search-by-name [_ _ s]
+        (filter (match-name? s) (map :data users#)))
       Closeable
       (close [_]))))
 
@@ -287,6 +174,7 @@
                                    :data {:mail "mark.wardle@wales.nhs.uk" :sn "Wardle"}}
                                   {:username "ja004216", :password "password"
                                    :data {:sn "Smith"}}]}))
+  (valid-service? svc)
   (can-authenticate? svc "ma090906" "password")
   (search-by-username svc "ja004216")
   (search-by-username svc "ma090906")
