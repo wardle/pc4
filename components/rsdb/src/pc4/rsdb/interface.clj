@@ -1,25 +1,26 @@
 (ns pc4.rsdb.interface
   (:require
-    [clojure.spec.alpha :as s]
-    [clojure.string :as str]
-    [integrant.core :as ig]
-    [next.jdbc :as jdbc]
-    [next.jdbc.plan :as plan]
-    [pc4.log.interface :as log]
-    [pc4.ods.interface :as ods]
-    [pc4.rsdb.auth :as auth]
-    [pc4.rsdb.db :as db]
-    [pc4.rsdb.migrations :as migrations]
-    [pc4.rsdb.forms :as forms]
-    [pc4.rsdb.demographics :as demog]
-    [pc4.rsdb.patients :as patients]
-    [pc4.rsdb.projects :as projects]
-    [pc4.rsdb.results :as results]
-    [pc4.snomedct.interface :as hermes]
-    [pc4.rsdb.users :as users]
-    [pc4.wales-nadex.interface :as nadex]
-    [next.jdbc.connection :as connection]
-    [next.jdbc.specs])
+   [clojure.spec.alpha :as s]
+   [clojure.string :as str]
+   [integrant.core :as ig]
+   [next.jdbc :as jdbc]
+   [next.jdbc.plan :as plan]
+   [pc4.log.interface :as log]
+   [pc4.ods.interface :as ods]
+   [pc4.rsdb.auth :as auth]
+   [pc4.rsdb.db :as db]
+   [pc4.rsdb.migrations :as migrations]
+   [pc4.rsdb.forms :as forms]
+   [pc4.rsdb.demographics :as demog]
+   [pc4.rsdb.msss :as msss]
+   [pc4.rsdb.patients :as patients]
+   [pc4.rsdb.projects :as projects]
+   [pc4.rsdb.results :as results]
+   [pc4.snomedct.interface :as hermes]
+   [pc4.rsdb.users :as users]
+   [pc4.wales-nadex.interface :as nadex]
+   [next.jdbc.connection :as connection]
+   [next.jdbc.specs])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (s/def ::conn :next.jdbc.specs/proto-connectable)
@@ -68,11 +69,11 @@
   [{:keys [conn]} sql]
   (db/execute! conn sql))
 
-(defn plan!
+(defn plan!                 ;;; TODO: remove
   [{:keys [conn]} sql]
   (jdbc/plan conn sql))
 
-(defn select!
+(defn select!               ;;; TODO: remove
   [{:keys [conn]} cols sql]
   (plan/select! conn cols sql))
 
@@ -269,8 +270,6 @@
   (require '[pc4.config.interface])
   (def rsdb (ig/init (pc4.config.interface/config :dev) [:pc4.rsdb.interface/svc])))
 
-
-
 (def diagnosis-active? patients/diagnosis-active?)
 
 (defn patient->summary-multiple-sclerosis
@@ -293,7 +292,7 @@
      (let [medications (patient->medications-and-events rsdb patient)
            medication-concept-ids (map :t_medication/medication_concept_fk medications)
            concept-ids (hermes/intersect-ecl hermes medication-concept-ids ecl)]
-         (filter #(concept-ids (:t_medication/medication_concept_fk %)) medications)))))
+       (filter #(concept-ids (:t_medication/medication_concept_fk %)) medications)))))
 
 (defn medication-by-id [{:keys [conn]} medication-id]
   (patients/medication-by-id conn medication-id))
@@ -354,8 +353,6 @@
    (demog/update-patient conn demographic-service patient))
   ([{:keys [conn]} demographic-service patient opts]
    (demog/update-patient conn demographic-service patient opts)))
-
-
 
 (defn patient->results [{:keys [conn]} patient-identifier]
   (results/results-for-patient conn patient-identifier))
@@ -513,7 +510,8 @@
   [{:keys [conn]} project-id-or-ids]
   (projects/common-concepts conn project-id-or-ids))
 
-(defn project->users [{:keys [conn]} project-id opts]
+(defn project->users
+  [{:keys [conn]} project-id opts]
   (projects/fetch-users conn project-id opts))
 
 (defn register-completed-episode!
@@ -528,8 +526,8 @@
   ([{:keys [conn]} project-ids]
    (patients/patient-ids-in-projects conn project-ids)))
 
-
-(defn consented-patients [{:keys [conn]} consent-form-ids opts]
+(defn consented-patients
+  [{:keys [conn]} consent-form-ids opts]
   (projects/consented-patients conn consent-form-ids opts))
 
 ;; mutations
@@ -563,7 +561,6 @@
       (let [pc (ods/fetch-postcode ods postcode)]
         (patients/save-pseudonymous-patient-lsoa! txn {:t_patient/patient_identifier patient-identifier
                                                        :uk.gov.ons.nhspd/LSOA11      (get pc "LSOA11")})))))
-
 
 (defn save-ms-event!
   [{:keys [conn]} ms-event]
