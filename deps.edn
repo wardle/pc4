@@ -7,6 +7,7 @@
   {:extra-paths ["development/src"]
    :extra-deps {;; components:
 
+                poly/chart          {:local/root "components/chart"}
                 poly/codelists      {:local/root "components/codelists"}
                 poly/config         {:local/root "components/config"}
                 poly/dates          {:local/root "components/dates"}
@@ -37,7 +38,7 @@
                 poly/server      {:local/root "bases/server"}
 
                 ;; external dependencies:
-                org.clojure/clojure {:mvn/version "1.12.0-rc2"}
+                org.clojure/clojure {:mvn/version "1.12.0"}
                 integrant/integrant {:mvn/version "0.11.0"}
                 integrant/repl      {:mvn/version "0.3.3"}
                 com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
@@ -59,10 +60,10 @@
                  org.clojure/clojurescript                {:mvn/version "1.11.132"}
                  bidi/bidi                                {:mvn/version "2.1.6"}
                  binaryage/devtools                       {:mvn/version "1.0.7"}
-                 ch.qos.logback/logback-classic           {:mvn/version "1.5.7"}
+                 ch.qos.logback/logback-classic           {:mvn/version "1.5.8"}
                  clj-commons/pushy                        {:mvn/version "0.3.10"}
                  com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.2"}
+                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.3.0"}
                  fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                  integrant/repl                           {:mvn/version "0.3.3"}
                  org.clojure/test.check                   {:mvn/version "1.1.1"}
@@ -72,18 +73,19 @@
   {:extra-deps {djblue/portal {:mvn/version "0.57.3"}}}
 
   :test
-  {:extra-paths ["components/rsdb/test"
+  {:extra-paths ["components/lemtrada/test"
+                 "components/rsdb/test"
                  "components/graph/test"
                  "components/deprivare/test"
                  "bases/server/test"]
    :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
   :outdated
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1221"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1227"}}
    :main-opts  ["-m" "antq.core"]}
 
   :upgrade
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1221"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1227"}}
    :main-opts  ["-m" "antq.core" "--upgrade"]}
 
   :check
