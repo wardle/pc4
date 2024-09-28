@@ -21,15 +21,16 @@
             [clojure.tools.logging.readable :as log]
             [buddy.core.codecs]
             [buddy.core.nonce]
+            [honey.sql :as sql]
             [next.jdbc :as jdbc]
             [next.jdbc.plan :as jdbc.plan]
             [next.jdbc.sql :as jdbc.sql]
-            [honey.sql :as sql]
-            [pc4.wales-nadex.interface :as nadex]
             [pc4.rsdb.auth :as auth]
             [pc4.rsdb.db :as db]
             [pc4.rsdb.projects :as projects]
-            [pc4.rsdb.queue :as queue])
+            [pc4.rsdb.queue :as queue]
+            [pc4.wales-nadex.interface :as nadex]
+            [pc4.wales-nadex.interface :as wales-nadex])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)
@@ -107,8 +108,8 @@
         false))))
 
 (defn is-rsdb-user?
-  [conn namespace username]
-  (when (and conn (= "cymru.nhs.uk" namespace))
+  [conn nspace username]
+  (when (and conn (= "cymru.nhs.uk" nspace))
     (jdbc/execute-one!
      conn (sql/format {:select :id :from :t_user
                        :where  [:= :username (.toLowerCase username)]}))))
@@ -433,6 +434,12 @@
                                  :t_user/authentication_method "LOCAL17"}
                                 user)]}
      :password new-password}))
+
+(comment
+  (require '[clojure.spec.gen.alpha :as gen])
+  (nadex/user->fhir-r4 (gen/generate (nadex/gen-user)))
+
+  (gen/generate (s/gen :org.hl7.fhir/Practitioner)))
 
 (comment
   (create-user-sql {:t_user/username "ma090906"
