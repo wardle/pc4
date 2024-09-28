@@ -430,7 +430,7 @@
               (update :t_medication/events
                       (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
                                          (assoc evt :t_medication_event/event_concept
-                                                  (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+                                                (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
          (rsdb/patient->medications-and-events rsdb patient {:ecl (:ecl (pco/params env))}))})
 
 (pco/defresolver medication-by-id
@@ -1270,11 +1270,11 @@
   (if-not (and manager (rsdb/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {}))
     (let [params' (assoc params :user-id (:t_user/id user)
-                                :nhs-number (nnn/normalise nhs-number)
-                                :date-birth (cond
-                                              (instance? LocalDate date-birth) date-birth
-                                              (string? date-birth) (LocalDate/parse date-birth)
-                                              :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
+                         :nhs-number (nnn/normalise nhs-number)
+                         :date-birth (cond
+                                       (instance? LocalDate date-birth) date-birth
+                                       (string? date-birth) (LocalDate/parse date-birth)
+                                       :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
       (if (s/valid? ::register-patient-by-pseudonym params')
         (rsdb/register-legacy-pseudonymous-patient! rsdb params')
         (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))))
@@ -1338,7 +1338,8 @@
    (s/keys :req [:t_patient/patient_identifier
                  :t_diagnosis/diagnosis
                  :t_diagnosis/status]
-           :opt [:t_diagnosis/date_onset
+           :opt [:t_diagnosis/id
+                 :t_diagnosis/date_onset
                  :t_diagnosis/date_diagnosis
                  :t_diagnosis/date_onset_accuracy
                  :t_diagnosis/date_diagnosis_accuracy
@@ -1351,7 +1352,8 @@
   [{rsdb                 :com.eldrix/rsdb
     manager              :session/authorization-manager
     {user-id :t_user/id} :session/authenticated-user
-    :as                  env} params]
+    :as                  env}
+   {:t_patient/keys [patient_identifier], diagnosis-id :t_diagnosis/id, :as params}]
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
   (log/info "save diagnosis request: " params "user: " user-id)
   (let [params' (assoc params :t_diagnosis/user_fk (:t_user/id user-id)
@@ -1359,10 +1361,9 @@
     (if-not (s/valid? ::save-diagnosis (dissoc params' :t_diagnosis/id))
       (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-diagnosis params'))))
-      (do (guard-can-for-patient? env (:t_patient/patient_identifier params) :PATIENT_EDIT)
-          (let [diagnosis-id (:t_diagnosis/id params')
-                diag (if (or (nil? diagnosis-id) (com.fulcrologic.fulcro.algorithms.tempid/tempid? diagnosis-id))
-                       (rsdb/create-diagnosis! rsdb (dissoc params' :t_diagnosis/id))
+      (do (guard-can-for-patient? env patient_identifier :PATIENT_EDIT)
+          (let [diag (if (or (nil? diagnosis-id) (com.fulcrologic.fulcro.algorithms.tempid/tempid? diagnosis-id))
+                       (rsdb/create-diagnosis! rsdb {:t_patient/patient_identifier patient_identifier} (dissoc params' :t_diagnosis/id))
                        (rsdb/update-diagnosis! rsdb params'))]
             (cond-> (assoc-in diag [:t_diagnosis/diagnosis :info.snomed.Concept/id] (:t_diagnosis/concept_fk diag))
               (tempid/tempid? diagnosis-id)
@@ -1397,9 +1398,6 @@
         ;; add properties to make graph navigation possible from this medication
         (cond-> (assoc-in med [:t_medication/medication :info.snomed.Concept/id] (:t_medication/medication_concept_fk med))
           create? (assoc :tempids {medication-id (:t_medication/id med)}))))))
-
-
-
 
 (s/def ::delete-medication
   (s/keys :req [:t_medication/id (or :t_patient/patient_identifier :t_medication/patient_fk)]))
@@ -1589,10 +1587,8 @@
   (assoc (rsdb/create-form! rsdb {:encounter-id encounter-id
                                   :user-id      user-id
                                   :form-type-id form-type-id})
-    :form/encounter {:t_encounter/id encounter-id}
-    :form/user {:t_user/id user-id}))
-
-
+         :form/encounter {:t_encounter/id encounter-id}
+         :form/user {:t_user/id user-id}))
 
 (pco/defmutation save-form!
   "Save a form. Parameters are a map with
@@ -1606,8 +1602,6 @@
     (let [form' (rsdb/save-form! rsdb form)]
       (assoc form' :tempids {(:form/id form) (:form/id form')}))
     (rsdb/save-form! rsdb form)))
-
-
 
 (pco/defmutation delete-form!
   [{rsdb :com.eldrix/rsdb :as env}
@@ -1694,11 +1688,11 @@
       (throw (ex-info "You are currently not permitted to change NHS number" {:existing  existing-patient
                                                                               :requested params})))
     (rsdb/update-legacy-pseudonymous-patient!
-      rsdb
-      patient-pk
-      {:nhs-number nhs_number
-       :date-birth date_birth
-       :sex        sex})))
+     rsdb
+     patient-pk
+     {:nhs-number nhs_number
+      :date-birth date_birth
+      :sex        sex})))
 
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
