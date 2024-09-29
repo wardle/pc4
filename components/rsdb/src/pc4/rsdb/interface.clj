@@ -180,6 +180,11 @@
   ([{:keys [conn]} username opts]
    (users/roles-for-user conn username opts)))
 
+(defn user->authorization-manager
+  "Create an authorization manager for the given user."
+  [{:keys [conn]} username]
+  (users/make-authorization-manager conn username))
+
 (def projects-with-permission users/projects-with-permission)
 
 (defn user->projects [{:keys [conn]} username]

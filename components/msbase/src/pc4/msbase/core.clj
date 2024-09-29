@@ -5,8 +5,11 @@
             [clojure.java.process :as proc]
             [clojure.string :as str]
             [com.wsscode.pathom3.connect.operation :as pco]
+            [pc4.config.interface :as config]
+            [pc4.lemtrada.interface :as lemtrada]
             [pc4.log.interface :as log]
-            [pc4.snomedct.interface :as hermes])
+            [pc4.snomedct.interface :as hermes]
+            [pc4.rsdb.interface :as rsdb])
   (:import (java.time Instant)
            (java.time.format DateTimeFormatter)
            (java.time.temporal TemporalAccessor)))
@@ -568,35 +571,39 @@
 (comment
   (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
-  (require '[com.eldrix.pc4.system :as pc4])
-  (pc4/load-namespaces :dev)
-  (def system (pc4/init :dev/dell))
-  (pc4/halt! system)
-  (def pathom (:pathom/boundary-interface system))
-  (morse/inspect (:pathom/env system))
-  (do (pc4/halt! system) (def system (pc4/init :dev/dell)) (def pathom (:pathom/boundary-interface system)))
+  (require '[integrant.core :as ig])
+  (ig/load-namespaces (config/config :dev))
+  (def system (ig/init (config/config :dev) [:pc4.lemtrada.interface/env :pc4.graph.interface/boundary-interface]))
+  (ig/halt! system)
+  (def pathom (:pc4.graph.interface/boundary-interface system))
   (keys system)
 
   (morse/inspect (pathom [{[:t_patient/patient_identifier 84686] msbase-query}]))
   (morse/inspect (json/write-str (fetch-patient pathom 84686)))
-  (-> (com.eldrix.pc4.rsdb.results/fetch-mri-brain-results (:com.eldrix.rsdb/conn system) nil {:t_patient/patient_identifier 84686})
-      (com.eldrix.pc4.rsdb.results/all-t2-counts))
 
-;;; pc4 - live
-  (pc4/load-namespaces :pc4-dev)
-  (def system (pc4/init :pc4-dev [:pathom/boundary-interface]))
-  (next.jdbc/execute! (:com.eldrix.rsdb/conn system) ["select * from t_user"])
-  (require '[com.eldrix.pc4.modules.dmt :as dmt])
-  (def patient-ids (dmt/fetch-study-patient-identifiers system :cambridge))
+  ;;; pc4 - live
+  (require '[integrant.core :as ig])
+  (ig/load-namespaces (config/config :pc4-dev))
+  (def system (ig/init (config/config :pc4-dev) [:pc4.lemtrada.interface/env :pc4.graph.interface/boundary-interface]))
+  (def lemtrada-env (:pc4.lemtrada.interface/env system))
+
+  (def pathom (:pc4.graph.interface/boundary-interface system))
+  (require '[pc4.rsdb.interface :as rsdb])
+  (def rsdb (:pc4.rsdb.interface/svc system))
+
+  ;; create a fake pathom env with required authentication... this needs to be cleaned up
+  ;; TODO: clean up creation of pathom environment so it is standardised, and can be built
+  ;; on the fly from data in a real session, or created ad-hoc for programmatic / REPL usage 
+  ;; like this
+  (def pathom-env {:session/authenticated-user
+                   (assoc (rsdb/user-by-username rsdb "system")
+                          :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
+                   :session/authorization-manager (rsdb/user->authorization-manager rsdb "system")})
+  (def pathom (partial (:pc4.graph.interface/boundary-interface system) pathom-env))
+  (def patient-ids (lemtrada/patient-identifiers lemtrada-env :cambridge))
+
   (count patient-ids)
-  (doseq [patient-id (take 10 (sort patient-ids))]
-    (spit (str "msbase/cambridge-" patient-id ".json") (json/write-str (fetch-patient (:pathom/boundary-interface system) patient-id))))
+  (doseq [patient-id (take 100 (sort patient-ids))]
+    (spit (str "msbase/cambridge-" patient-id ".json") (json/write-str (fetch-patient pathom patient-id))))
 
-  (morse/inspect (fetch-patient (:pathom/boundary-interface system) 124027))
-
-  (morse/inspect (pathom [{[:t_patient/patient_identifier 120980]
-                           [{:t_patient/encounters [:t_encounter/date_time
-                                                    :t_encounter/form_ms_relapse
-                                                    {:t_encounter/form_edss [:t_form_edss/score :t_form_edss_fs/score]}]}]}]))
-  (require '[com.eldrix.pc4.modules.dmt :as dmt])
-  (hermes/intersect-ecl (:com.eldrix/hermes system) [321958004] (str/join " OR " dmts)))
+  (morse/inspect (fetch-patient pathom 124027)))

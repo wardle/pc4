@@ -14,6 +14,13 @@
   (log/info "initialised lemtrada research project configuration" (keys env))
   env)
 
+;;
+;; Command-line API
+;; These do not reference the lemtrada env, as they startup an integrant 
+;; system themselves based on the options specified.
+;; They are therefore only used as part of the CLI interface. 
+;;
+
 (defn export
   "Export research data.
   Run as:
@@ -66,3 +73,12 @@
   ```"
   [{:keys [profile centre] :as opts}]
   (lemtrada/update-cav-admissions opts))
+
+;;
+;; Programmatic (public) API
+;; 
+
+(defn patient-identifiers
+  [env centre]
+  (lemtrada/fetch-study-patient-identifiers env centre))
+
