@@ -8,7 +8,7 @@
                       allowing an end-user to dynamically choose a cohort
                       based on same sex, age range for disease onset.
  - :roxburgh        : See https://www.neurology.org/doi/10.1212/01.WNL.0000156155.19270.F8
- - :manouchehrinia  : Age-adjusted MSSS
+ - :manouchehrinia  : Age-adjusted MSSS; this uses age not disease duration
  - :santoro         : Paediatric MSSS.
  
  The external datasets are from https://pypi.org/project/mssev/#files"
@@ -128,7 +128,7 @@
   ```."
   (fn [{msss-type :type :as params}]
     (if (s/valid? ::params params)
-      (or msss-type :db)
+      (or msss-type :roxburgh)
       (throw (ex-info "invalid MSSS parameters" (s/explain-data ::params params))))))
 
 (defmethod msss-lookup :db
@@ -151,17 +151,35 @@
   [_]
   (local-msss-data "rsdb/msss/santoro.edn"))
 
-(def edss-scores [0.0 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5])
+;; generate pre-built MSSS datasets at the REPL... converting tsv -> csv files
 
-(defn ^:private parse-row
-  [[duration & scores]]
-  (hash-map (parse-long duration) (into (sorted-map) (zipmap edss-scores (map parse-double scores)))))
+(comment
+  (def edss-scores [0.0 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5])
 
-(defn ^:private parse-msss-datafile
-  [f]
-  (with-open [f (io/reader f)]
-    (let [[header & rows] (csv/read-csv f :separator \tab)]
-      (into (sorted-map) (apply merge (map parse-row rows))))))
+  (defn ^:private parse-row
+    [[duration & scores]]
+    (hash-map (parse-long duration) (into (sorted-map) (zipmap edss-scores (map parse-double scores)))))
+
+  (defn ^:private parse-msss-datafile
+    [f]
+    (with-open [f (io/reader f)]
+      (let [[_header & rows] (csv/read-csv f :separator \tab)]
+        (into (sorted-map) (apply merge (map parse-row rows))))))
+
+  (def data-dir "/Users/mark/Downloads/mssev-0.5.2/mssev/data/msss")
+  (def lookup (parse-msss-datafile (io/file data-dir "roxburgh.tsv")))
+  (spit (io/file "roxburgh.edn") lookup)
+  (def lookup (parse-msss-datafile (io/file data-dir "santoro.tsv")))
+  (spit (io/file "santoro.edn") lookup)
+  (def lookup (parse-msss-datafile (io/file data-dir "manouchehrinia.tsv")))
+  (spit (io/file "manouchehrinia.edn") lookup)
+  (s/valid? ::lookup (msss-lookup {:type :roxburgh})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Functions that use the lookup data
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (s/fdef msss-for-duration-and-edss
   :args (s/cat :lookup ::lookup :duration-years ::disease-duration :edss ::edss))
@@ -186,9 +204,9 @@
   
   For example,
   ```
-  (edss-for-duration-and-msss (msss-lookup conn {}) 5 5.0)
+  (edss-for-duration-and-msss (msss-lookup {}) 5 5.0)
   => 
-  4.0
+  2.5
   ```
   "
   [lookup duration-years msss]
@@ -216,7 +234,7 @@
   
   For example,
   ```
-  (get (derived-edss-over-time (msss-lookup conn {}) {:min-duration 0 :max-duration 30}) 0.5)
+  (get (derived-edss-over-time (msss-lookup {}) {:min-duration 0 :max-duration 30}) 0.5)
   ```
   will return a map of disease duration from 0 to 30 to EDSS for the 50% 
   centile based on data from the whole cohort of patients."
@@ -229,17 +247,6 @@
          msss (or percentiles [0.5 2.5 5.0 7.5 9.5])]
      [duration-years msss])))
 
-;; generate pre-built MSSS datasets at the REPL... converting tsv -> csv files
-(comment
-  (def data-dir "/Users/mark/Downloads/mssev-0.5.2/mssev/data/msss")
-  (def lookup (parse-msss-datafile (io/file data-dir "roxburgh.tsv")))
-  (spit (io/file "roxburgh.edn") lookup)
-  (def lookup (parse-msss-datafile (io/file data-dir "santoro.tsv")))
-  (spit (io/file "santoro.edn") lookup)
-  (def lookup (parse-msss-datafile (io/file data-dir "manouchehrinia.tsv")))
-  (spit (io/file "manouchehrinia.edn") lookup)
-  (s/valid? ::lookup (msss-lookup {:type :roxburgh})))
-
 (comment
   (require '[clojure.spec.test.alpha :as stest])
   (stest/instrument)
@@ -251,6 +258,14 @@
   (msss-lookup {:type :roxburgh})
   (msss-lookup {:type :santoro})
   (msss-lookup {:type :manouchehrinia})
+  (msss-lookup {})
+
+  ;;
+  ;;
+
+  (get-in (msss-lookup {}) [5 2.5])
+  (edss-for-duration-and-msss (msss-lookup {:type :db :conn conn}) 5 5.0)
+  (into (sorted-map) (get (derived-edss-over-time (msss-lookup {}) {:min-duration 0 :max-duration 30}) 5.0))
 
   ;; 
   ;;
