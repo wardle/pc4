@@ -136,7 +136,8 @@
                    (fn [env {:t_patient/keys [permissions] :as params}]
                      (if (and permissions (permissions permission))
                        (resolve env params)                 ;; new resolver calls old resolver if permitted
-                       {:t_patient/authorization permissions}))))))))
+                       (do (log/debug "unauthorized call to resolver" params)
+                           {:t_patient/authorization permissions})))))))))
 
 (def patient-properties
   [:t_patient/id
