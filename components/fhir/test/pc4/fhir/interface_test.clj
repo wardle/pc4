@@ -57,9 +57,36 @@
   (is  (nil? (fhir/best-identifier "A" coll)))
   (is (= "A123456" (:org.hl7.fhir.Identifier/value (fhir/best-identifier "A" (LocalDate/of 2020 1 1) coll)))))
 
+(def ids
+  [{:org.hl7.fhir.Identifier/system "A"
+    :org.hl7.fhir.Identifier/value "A123456"
+    :org.hl7.fhir.Identifier/use "official"}
+   {:org.hl7.fhir.Identifier/system "A"
+    :org.hl7.fhir.Identifier/value "A987654"
+    :org.hl7.fhir.Identifier/use "secondary"}])
 
+(deftest test-identifier-priority-by-use
+  (is (= "A123456"
+         (:org.hl7.fhir.Identifier/value (fhir/best-identifier "A" ids))
+         (:org.hl7.fhir.Identifier/value (fhir/best-identifier "A" (reverse ids))))))
 
+(def names
+  [{:org.hl7.fhir.HumanName/use "official"
+    :org.hl7.fhir.HumanName/family "A"
+    :org.hl7.fhir.HumanName/period {:org.hl7.fhir.Period/end (LocalDate/of 2022 1 1)}}
+   {:org.hl7.fhir.HumanName/use "official"
+    :org.hl7.fhir.HumanName/family "B"
+    :org.hl7.fhir.HumanName/period {:org.hl7.fhir.Period/start (LocalDate/of 2022 1 1)}}
+   {:org.hl7.fhir.HumanName/use "maiden"
+    :org.hl7.fhir.HumanName/family "C"}])
 
+(deftest test-human-names
+  (is (= [false true true] (mapv (fhir/valid-by-period? :org.hl7.fhir.HumanName/period (LocalDate/of 2024 1 1)) names)))
+  (is (= [true false true] (mapv (fhir/valid-by-period? :org.hl7.fhir.HumanName/period (LocalDate/of 2021 1 1)) names)))
+  (is (= "B" (:org.hl7.fhir.HumanName/family (fhir/best-human-name names))))
+  (is (= "A" (:org.hl7.fhir.HumanName/family (fhir/best-human-name (LocalDate/of 2021 12 31) names))))
+  (is (= "B" (:org.hl7.fhir.HumanName/family (fhir/best-human-name (LocalDate/of 2022 1 1) names))))
+  (is (= "C" (:org.hl7.fhir.HumanName/family (fhir/best-human-name (LocalDate/now) "maiden" names)))))
 
 
 

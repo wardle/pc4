@@ -5,7 +5,8 @@
   implementation. As such, these specifications tighten the more broad 
   general purpose specifications for use within pc4."
   (:require [clojure.spec.alpha :as s]
-            [clojure.core :as c])
+            [clojure.core :as c]
+            [pc4.fhir.interface :as fhir])
   (:import (java.time LocalDate LocalDateTime)))
 
 (def administrative-gender #{"male" "female" "other" "unknown"})
@@ -235,65 +236,25 @@
     (valid-identifiers system on-date identifiers))))
 
 (defn best-human-name
-  [human-names]
-  (->> human-names
-       (filter (valid-by-period? :org.hl7.fhir.HumanName/period (LocalDate/now)))  ;; limit to valid names
-       (sort (by-periods :org.hl7.fhir.HumanName/period))                                              ;; sort by validity (period) 
-       (best-match                                                ;; now look to find 'best' match using these ordered predicates
-        [(match-human-name :use "official")
-         (match-human-name :use "usual")
-         (match-human-name :use "old")
-         (match-human-name :use "maiden")])))
+  "Returns the 'best' human name from a collection. They are filtered to remove
+  invalid/outdated names."
+  ([human-names]
+   (best-human-name (LocalDate/now) human-names))
+  ([on-date human-names]
+   (->> human-names
+        (filter (valid-by-period? :org.hl7.fhir.HumanName/period on-date))  ;; limit to valid names
+        (sort (by-periods :org.hl7.fhir.HumanName/period))                                              ;; sort by validity (period) 
+        (best-match                                                ;; now look to find 'best' match using these ordered predicates
+         [(match-human-name :use "official")
+          (match-human-name :use "usual")
+          (match-human-name :use "old")
+          (match-human-name :use "maiden")])))
+  ([on-date name-use human-names]
+   (->> human-names
+        (filter (valid-by-period? :org.hl7.fhir.HumanName/period on-date))
+        (sort (by-periods :org.hl7.fhir.HumanName/period))
+        (best-match [(match-human-name :use name-use)]))))
 
-(comment
-  (def periods
-    [{:id :a
-      :org.hl7.fhir.Period/end (LocalDate/of 2017 1 1)}
-     {:id :b
-      :org.hl7.fhir.Period/start (LocalDate/of 2018 1 1)
-      :org.hl7.fhir.Period/end (LocalDate/of 2020 1 1)}
-     {:id :c
-      :org.hl7.fhir.Period/start (LocalDate/of 2017 1 1)
-      :org.hl7.fhir.Period/end (LocalDate/of 2020 1 1)}
-     {:id :d
-      :org.hl7.fhir.Period/end (LocalDate/of 2018 1 1)}
-     {:id :e
-      :org.hl7.fhir.Period/start (LocalDate/of 2020 1 1)}])
-  (= (sort by-period periods)
-     (sort by-period (shuffle periods))
-     (sort by-period (reverse periods)))
-  (= (mapv :id (sort by-period periods)) [:e :b :c :d :a])
 
-  (def coll
-    [{:org.hl7.fhir.Identifier/system "D"
-      :org.hl7.fhir.Identifier/value "X123456"
-      :org.hl7.fhir.Identifier/period {:org.hl7.fhir.Period/end (LocalDate/of 2022 1 1)}}
-     {:org.hl7.fhir.Identifier/system "D"
-      :org.hl7.fhir.Identifier/value "D123456"}
-     {:org.hl7.fhir.Identifier/system "D"
-      :org.hl7.fhir.Identifier/value "D987654"
-      :org.hl7.fhir.Identifier/period {:org.hl7.fhir.Period/end (LocalDate/of 2024 1 1)}}
 
-     {:org.hl7.fhir.Identifier/system "A"
-      :org.hl7.fhir.Identifier/value "A123456"
-      :org.hl7.fhir.Identifier/period {:org.hl7.fhir.Period/end (LocalDate/of 2022 1 2)}}
-     {:org.hl7.fhir.Identifier/system "B"
-      :org.hl7.fhir.Identifier/value "B123456"
-      :org.hl7.fhir.Identifier/period {:org.hl7.fhir.Period/end (LocalDate/of 2021 1 1)}}
-     {:org.hl7.fhir.Identifier/system "C"
-      :org.hl7.fhir.Identifier/value "C123456"
-      :org.hl7.fhir.Identifier/period {:org.hl7.fhir.Period/end (LocalDate/of 2023 1 1)}}])
-  (sort (by-periods :org.hl7.fhir.Identifier/period) coll)
-  (= (mapv :org.hl7.fhir.Identifier/value (sort (by-periods :org.hl7.fhir.Identifier/period) coll))
-     ["D123456" "D987654" "C123456" "A123456" "X123456" "B123456"])
-  (= (mapv :org.hl7.fhir.Identifier/value (filter (valid-by-period? :org.hl7.fhir.Identifier/period) coll))
-     ["D123456"])
-  (= (mapv :org.hl7.fhir.Identifier/value (sort (by-periods :org.hl7.fhir.Identifier/period)
-                                                (filter (valid-by-period? :org.hl7.fhir.Identifier/period (LocalDate/of 2022 7 1))
-                                                        coll)))
-     ["D123456" "D987654" "C123456"])
-
-  (= "D123456" (:org.hl7.fhir.Identifier/value (best-identifier "D" coll)))
-  (nil? (best-identifier "A" coll))
-  (= "A123456" (:org.hl7.fhir.Identifier/value (best-identifier "A" (LocalDate/of 2020 1 1) coll))))
 
