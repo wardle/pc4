@@ -29,7 +29,8 @@
 
    :org.hl7.fhir.Practitioner/identifier
    (cond-> [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.wales/Id/nadex-identifier"
-             :org.hl7.fhir.Identifier/value sAMAccountName}]
+             :org.hl7.fhir.Identifier/value sAMAccountName
+             :org.hl7.fhir.Identifier/use "official"}]
      professionalRegistration
      (conj (make-fhir-r4-regulator-identifier professionalRegistration)))
 
