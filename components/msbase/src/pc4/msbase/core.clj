@@ -6,7 +6,6 @@
             [clojure.string :as str]
             [com.wsscode.pathom3.connect.operation :as pco]
             [pc4.config.interface :as config]
-            [pc4.lemtrada.interface :as lemtrada]
             [pc4.log.interface :as log]
             [pc4.snomedct.interface :as hermes]
             [pc4.rsdb.interface :as rsdb])
@@ -569,6 +568,7 @@
                       :nonPharmaTrts     []}}))
 
 (comment
+  (require '[pc4.lemtrada.interface :as lemtrada])
   (require '[dev.nu.morse :as morse])
   (morse/launch-in-proc)
   (require '[integrant.core :as ig])
