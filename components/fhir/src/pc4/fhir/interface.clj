@@ -255,6 +255,36 @@
         (sort (by-periods :org.hl7.fhir.HumanName/period))
         (best-match [(match-human-name :use name-use)]))))
 
+(defn by-contact-point-rank-and-period
+  [{rank1 :org.hl7.fhir.ContactPoint/rank
+    period1 :org.hl7.fhir.ContactPoint/period}
+   {rank2 :org.hl7.fhir.ContactPoint/rank
+    period2 :org.hl7.fhir.ContactPoint/period}]
+  (compare [rank1
+            (or (:org.hl7.fhir.Period/end period2) LocalDate/MAX)
+            (or (:org.hl7.fhir.Period/start period2) LocalDate/MIN)]
+           [rank2
+            (or  (:org.hl7.fhir.Period/end period1) LocalDate/MAX)
+            (or (:org.hl7.fhir.Period/start period1) LocalDate/MIN)]))
 
+(defn valid-contact-points
+  "Returns an ordered sequence of FHIR ContactPoints based on nested FHIR Period
+  data structures and the ContactPoint rank."
+  ([contact-points]
+   (valid-contact-points (LocalDate/now) contact-points))
+  ([on-date contact-points]
+   (->> contact-points
+        (filter (valid-by-period? :org.hl7.fhir.ContactPoint/period on-date))
+        (sort by-contact-point-rank-and-period))))
+
+(defn best-contact-point
+  ([system contact-points]
+   (best-contact-point system (LocalDate/now) contact-points))
+  ([system on-date contact-points]
+   (->> contact-points
+        (filter #(= system (:org.hl7.fhir.ContactPoint/system %)))
+        (filter (valid-by-period? :org.hl7.fhir.ContactPoint/period on-date))
+        (sort by-contact-point-rank-and-period)
+        first)))
 
 
