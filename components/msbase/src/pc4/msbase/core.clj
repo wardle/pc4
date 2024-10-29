@@ -322,7 +322,7 @@
    :PLANNING_PREGNANCY          "pregplan"
    :RECORDED_IN_ERROR           :error
    :ALLERGIC_REACTION           "allergic"
-   :ANTI_JCV_POSITIVE__PML_RISK "adverse"
+   :ANTI_JCV_POSITIVE__PML_RISK "antijcv"
    :LACK_OF_TOLERANCE           "tolerance"
    :NON_ADHERENCE               "adherence"
    :OTHER                       nil
