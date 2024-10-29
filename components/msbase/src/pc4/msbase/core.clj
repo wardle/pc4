@@ -231,13 +231,41 @@
   {:org.msbase/relapses
    (filterv :t_ms_event/is_relapse (:t_summary_multiple_sclerosis/events sms))})
 
-(pco/defresolver relapse
+(defn relapse-site->fs
   [{:t_ms_event/keys [id date notes
                       site_arm_motor site_ataxia site_bulbar site_cognitive
                       site_diplopia site_face_motor site_face_sensory
                       site_leg_motor site_limb_sensory site_optic_nerve
                       site_other site_psychiatric site_sexual site_sphincter site_unknown
                       site_vestibular]}]
+  (cond-> []
+    (or site_cognitive site_psychiatric)
+    (conj "neu")
+
+    site_optic_nerve
+    (conj "vis")
+
+    site_ataxia
+    (conj "cer")
+
+    (or site_bulbar site_diplopia site_face_motor site_vestibular)
+    (conj "bra")
+
+    (or site_arm_motor site_leg_motor)
+    (conj "pyr")
+
+    (or site_limb_sensory site_face_sensory)
+    (conj "sen")
+
+    (or site_sexual site_sphincter)
+    (conj "bow")))
+
+(comment
+  (relapse-site->fs {:t_ms_event/site_arm_motor true})
+  (relapse-site->fs {:t_ms_event/site_face_sensory true :t_ms_event/site_face_motor true}))
+
+(pco/defresolver relapse
+  [{:t_ms_event/keys [id date notes] :as event}]
   {::pco/input  [:t_ms_event/id :t_ms_event/date :t_ms_event_type/id :t_ms_event_type/abbreviation :t_ms_event/notes
                  :t_ms_event/site_arm_motor :t_ms_event/site_ataxia :t_ms_event/site_bulbar :t_ms_event/site_cognitive
                  :t_ms_event/site_diplopia :t_ms_event/site_face_motor :t_ms_event/site_face_sensory
@@ -255,19 +283,7 @@
    :org.msbase.relapse/duration    nil
    :org.msbase.relapse/impactADL   "unk"
    :org.msbase.relapse/severity    "unk"
-   :org.msbase.relapse/fsAffected  (cond-> []
-                                     (or site_cognitive site_psychiatric)
-                                     (conj "neu")
-                                     site_optic_nerve
-                                     (conj "vis")
-                                     site_ataxia
-                                     (conj "cer")
-                                     (or site_bulbar site_diplopia site_face_motor site_face_sensory site_vestibular)
-                                     (conj "bra")
-                                     (or site_arm_motor site_leg_motor site_limb_sensory)
-                                     (conj "pyr")
-                                     (or site_sexual site_sphincter)
-                                     (conj "bow"))
+   :org.msbase.relapse/fsAffected  (relapse-site->fs event)
    :org.msbase.relapse/fsOther     nil
    :org.msbase.relapse/notes       notes})
 
