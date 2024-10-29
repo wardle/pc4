@@ -556,6 +556,7 @@
                       :appSource    (:>/appSource result)}
      :medicalRecords {:profile           {:identification (:>/patientIdentification result)
                                           :demographics   (:>/demographics result)
+                                          :medicalHistory (:>/medicalHistory result)
                                           :msDiagnosis    (:>/msDiagnosis result)}
                       :visits            (:org.msbase/visits result)
                       :relapses          (:org.msbase/relapses result)
