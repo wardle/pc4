@@ -1,4 +1,4 @@
 {:paths ["src" "resources"]
- :deps {com.eldrix/hermes {:mvn/version "1.4.1400"}}
+ :deps {com.eldrix/hermes {:mvn/version "1.4.1420"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}
