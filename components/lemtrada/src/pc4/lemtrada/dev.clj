@@ -17,9 +17,7 @@
 (comment
   ;; just connect to remote database
   (stest/unstrument) ;; optionally, uninstrument for production workflows
-  (def system (ig/init (config/config :pc4-dev) [:pc4.rsdb.interface/svc]))
   (ig/load-namespaces (config/config :dev))
-  (def system (ig/init (config/config :pc4-dev) [:pc4.graph.interface/boundary-interface]))
   (def system (ig/init (config/config :pc4-dev) [:pc4.fulcro-server.interface/server]))
   (def system (ig/init (config/config :pc4-dev) [:pc4.lemtrada.interface/env]))
   (ig/halt! system)
