@@ -33,7 +33,6 @@
 (defn graph-resolvers []
   (requiring-resolve 'com.eldrix.hermes.graph/all-resolvers))
 
-
 (def ^:private open hermes/open)
 
 ;;
@@ -51,6 +50,13 @@
 (def release-information hermes/release-information)
 (defn search [svc params]
   (hermes/search svc params))
+
+(defn ranked-search [svc params]
+  (hermes/ranked-search svc params))
+
+(defn all-parents-ids
+  [svc concept-id-or-ids]
+  (hermes/all-parents svc concept-id-or-ids))
 
 (defn all-children-ids
   [svc concept-id]
