@@ -1,14 +1,30 @@
 (ns pc4.lemtrada.dev
   (:require
+   [clojure.data.csv :as csv]
+   [clojure.java.io :as io]
    [clojure.spec.alpha :as s]
    [clojure.spec.gen.alpha :as gen]
    [clojure.spec.test.alpha :as stest]
+   [honey.sql :as sql]
    [integrant.core :as ig]
-   [next.jdbc]
+   [next.jdbc :as jdbc]
    [next.jdbc.sql]
    [pc4.config.interface :as config]
    [pc4.lemtrada.core :as dmt]
    [pc4.rsdb.interface :as rsdb]))
+
+(defn write-nhs-numbers
+  "For a given centre (e.g. :cambridge) write out CSV file of patient identifiers and NHS number"
+  [{:keys [rsdb] :as env} centre out]
+  (let [data (rsdb/execute! rsdb
+                            (sql/format
+                             {:select [:patient_identifier :nhs_number] :from :t_patient
+                              :where [:in :patient_identifier
+                                      (dmt/fetch-study-patient-identifiers env centre)]}))]
+    (with-open [writer (io/writer out)]
+      (csv/write-csv writer
+                     (into [["patient_identifier" "nhs_number"]]
+                           (map (fn [{:t_patient/keys [patient_identifier nhs_number]}] (vector patient_identifier nhs_number)) data))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;   THIS COMMENT BLOCK IS FOR INTERACTIVE USE WITH THE REMOTE SERVER PC4   ;;;
@@ -27,6 +43,7 @@
   (rsdb/user-by-id (:rsdb env) 1)
   (dmt/write-data env :plymouth)
   (dmt/write-data env :cambridge)
+  (write-nhs-numbers env :cambridge "2024-10-22-cb-patient-ids-nnn.csv")
   (dmt/merge-matching-data "/Users/mark/lemtrada/centres" "/Users/mark/lemtrada/combined")
 
   (def users
