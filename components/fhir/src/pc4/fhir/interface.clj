@@ -34,6 +34,18 @@
                 :org.hl7.fhir.Attachment/width
                 :org.hl7.fhir.Attachment/height]))
 
+(s/def :org.hl7.fhir.Coding/system string?)
+(s/def :org.hl7.fhir.Coding/value string?)
+(s/def :org.hl7.fhir.Coding/display string?)
+(s/def :org.hl7.fhir.Coding/version string?)
+(s/def :org.hl7.fhir.Coding/userSelected string?)
+(s/def :org.hl7.fhir/Coding
+  (s/keys :req [:org.hl7.fhir.Coding/system
+                :org.hl7.fhir.Coding/value]
+          :opt [:org.hl7.fhir.Coding/version
+                :org.hl7.fhir.Coding/display
+                :org.hl7.fhir.Coding/userSelected]))
+
 (s/def :org.hl7.fhir.Period/start (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir.Period/end (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir/Period
