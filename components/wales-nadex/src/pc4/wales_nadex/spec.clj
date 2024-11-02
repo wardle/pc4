@@ -37,6 +37,23 @@
     (gen-string-with-length (gen-char-lowercase-alphabetical) 2)
     (gen-string-with-length (gen-char-numeric) 6))))
 
+(defn gen-job-title
+  "Generate random job titles"
+  []
+  (gen/frequency [[2 (gen/elements ["Administrator"
+                                    "Consultant" "Physician" "Consultant Neurologist"
+                                    "Consultant renal physician" "Consultant nephrologist"
+                                    "Nurse" "Specialist nurse" "ANP"
+                                    "Physiotherapist" "Occupational therapist"
+                                    "Specialist registrar" "Speciality registrar"
+                                    "Clinical fellow" "Research fellow"])]
+
+                  [2 (gen/return nil)]
+                  [1 (gen/string)]]))
+
+(comment
+  (gen/sample (gen-job-title) 100))
+
 (defn gen-wales-email
   "Generate NHS Wales style synthetic email addresses."
   []
@@ -56,7 +73,7 @@
 (s/def ::department string?)
 (s/def ::wwwHomePage string?)
 (s/def ::l string?)
-(s/def ::title string?)
+(s/def ::title (s/with-gen string? gen-job-title))
 (s/def ::personalTitle string?)
 (s/def ::mobile string?)
 (s/def ::telephoneNumber string?)

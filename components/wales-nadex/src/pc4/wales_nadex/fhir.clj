@@ -3,7 +3,8 @@
    [clojure.spec.alpha :as s]
    [clojure.string :as str]
    [pc4.fhir.interface]
-   [pc4.wales-nadex.spec :as nspec]))
+   [pc4.wales-nadex.spec :as nspec]
+   [pc4.snomedct.interface :as hermes]))
 
 (def regulator->fhir-systems
   {"GMC" "https://fhir.hl7.org.uk/Id/gmc-number"
@@ -77,4 +78,49 @@
      :org.hl7.fhir.HumanName/given (str/split givenName #"\s")
      :org.hl7.fhir.HumanName/prefix (if (str/blank? personalTitle) [] [personalTitle])}]})
 
+(def known-fhir-practitioner-roles
+  "See https://hl7.org/fhir/r4/valueset-practitioner-role.html - "
+  [{:ecl "<158965000" :role "doctor"     :display "Doctor"}
+   {:ecl "<769038007" :role "researcher" :display "Researcher"}
+   {:ecl "<265937000" :role "nurse"      :display "Nurse"}
+   {:ecl "<307972006" :role "teacher"    :display "Teacher"}
+   {:ecl "<46255001"  :role "pharmacist" :display "Pharmacist"}])
 
+(defn concept-id->roles
+  [hermes concept-id]
+  (->> known-fhir-practitioner-roles
+       (filter (fn [{:keys [ecl]}]
+                 (seq (hermes/intersect-ecl hermes #{concept-id} ecl))))
+       (map (fn [{:keys [role display]}]
+              (hash-map
+               :org.hl7.fhir.CodeableConcept/coding [{:org.hl7.fhir.Coding/system  "http://terminology.hl7.org/CodeSystem/practitioner-role"
+                                                      :org.hl7.fhir.Coding/code    (str role)
+                                                      :org.hl7.fhir.Coding/display display}]
+               :org.hl7.fhir.CodeableConcept/text display)))))
+
+(defn user->fhir-r4-practitioner-role
+  [hermes {:keys [title]}]
+  (when-not (str/blank? title)
+    (when-let [{:keys [conceptId preferredTerm]} (first (hermes/ranked-search hermes {:s title :constraint "<14679004" :max-hits 1}))]
+      {;:org.hl7.fhir.PractitionerRole/identifier nil
+       :org.hl7.fhir.PractitionerRole/active true
+     ;:org.hl7.fhir.PractitionerRole/period nil
+     ;:org.hl7.fhir.PractitionerRole/specialty nil   ;; unfortunately, we cannot easily derive speciality from occupation
+       :org.hl7.fhir.PractitionerRole/code
+       (into [{:org.hl7.fhir.CodeableConcept/coding [{:org.hl7.fhir.Coding/system  "http://snomed.info/sct"
+                                                      :org.hl7.fhir.Coding/code    (str conceptId)
+                                                      :org.hl7.fhir.Coding/display preferredTerm}]
+               :org.hl7.fhir.CodeableConcept/text title}]
+             (concept-id->roles hermes conceptId))})))
+
+(comment
+  (def hermes (#'hermes/open "/Users/mark/Dev/hermes/snomed.db"))
+  (time (hermes/intersect-ecl hermes (into #{} (map :id) known-fhir-practitioner-roles) ">>56397003"))
+  (time (hermes/intersect-ecl hermes #{56397003} "<158965000"))
+  (hermes/ranked-search hermes {:s "physiotherapist" :constraint "<223366009|Healthcare professional|" :max-hits 1})
+  (hermes/ranked-search hermes {:s "consultant neurologist" :constraint "<394658006"})
+  (concept-id->roles hermes 56397003)
+  (concept-id->roles hermes 36682004)
+  (hermes/all-parents-ids hermes 36682004)
+
+  (user->fhir-r4-practitioner-role hermes {:title "Consultant Neurologist"}))
