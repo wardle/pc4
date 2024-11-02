@@ -1703,7 +1703,7 @@
 (defn check-demographics
   "Check demographics report. Run as:
   ```
-  clj -X com.eldrix.pc4.modules.dmt/check-demographics :profile :cvx :centre :cardiff
+  clj -X pc4.lemtrada.core/check-demographics :profile :cvx :centre :cardiff
   ```"
   [{:keys [profile centre] :as opts}]
   (when-not (s/valid? ::export-options opts)
