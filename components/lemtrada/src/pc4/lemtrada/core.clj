@@ -1612,7 +1612,7 @@
   (let [SEX' (get {"M" :MALE "F" :FEMALE} SEX)]
     (boolean (and cavpt HOSPITAL_ID LAST_NAME DATE_BIRTH
                   (or (nil? NHS_NO) (nil? nhs_number)
-                      (and (.equalsIgnoreCase nhs_number NHS_NO)))
+                      (.equalsIgnoreCase nhs_number NHS_NO))
                   (= DATE_BIRTH date_birth)
                   (= SEX' sex)
                   (.equalsIgnoreCase LAST_NAME last_name)))))
