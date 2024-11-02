@@ -137,6 +137,17 @@
                 :org.hl7.fhir.Practitioner/gender
                 :org.hl7.fhir.Practitioner/photo]))
 
+(s/def :org.hl7.fhir.PractitionerRole/active boolean?)
+(s/def :org.hl7.fhir.PractitionerRole/identifier (s/coll-of :org.hl7.fhir/Identifier))
+(s/def :org.hl7.fhir.PractitionerRole/code (s/coll-of :org.hl7.fhir/CodeableConcept))
+(s/def :org.hl7.fhir.PractitionerRole/specialty (s/coll-of :org.hl7.fhir/CodeableCoding))
+(s/def :org.hl7.fhir/PractitionerRole
+  (s/keys :req [:org.hl7.fhir.PractitionerRole/code]
+          :opt [:org.hl7.fhir.PractitionerRole/identifier
+                :org.hl7.fhir.PractitionerRole/period
+                :org.hl7.fhir.PractitionerRole/active
+                :org.hl7.fhir.PractitionerRole/specialty]))
+
 (defn gp-surgery-identifiers
   "Given a FHIR patient, return identifiers for the GP surgeries."
   [pt]
