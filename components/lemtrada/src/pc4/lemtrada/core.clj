@@ -809,15 +809,16 @@
 (defn medications-for-patients
   [{rsdb :rsdb :as env} patient-ids]
   (->> (rsdb/execute! rsdb
-                    (sql/format {:select [:t_patient/patient_identifier
-                                          :t_medication/id
-                                          :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to
-                                          :t_medication/reason_for_stopping]
-                                 :from   [:t_medication :t_patient]
-                                 :where  [:and
-                                          [:= :t_medication/patient_fk :t_patient/id]
-                                          [:in :t_patient/patient_identifier patient-ids]
-                                          [:<> :t_medication/reason_for_stopping "RECORDED_IN_ERROR"]]}))
+                      (sql/format {:select [:t_patient/patient_identifier
+                                            :t_medication/id
+                                            :t_medication/medication_concept_fk :t_medication/date_from :t_medication/date_to
+                                            :t_medication/more_information
+                                            :t_medication/reason_for_stopping]
+                                   :from   [:t_medication :t_patient]
+                                   :where  [:and
+                                            [:= :t_medication/patient_fk :t_patient/id]
+                                            [:in :t_patient/patient_identifier patient-ids]
+                                            [:<> :t_medication/reason_for_stopping "RECORDED_IN_ERROR"]]}))
        (sort-by (juxt :t_patient/patient_identifier :t_medication/date_from))
        (map #(convert-product-pack env %))))
 
@@ -1282,7 +1283,7 @@
               :t_medication/medication_concept_fk
               :atc :dmt :dmt_class
               :t_medication/date_from :t_medication/date_to
-              :t_medication/reason_for_stopping]})
+              :t_medication/reason_for_stopping :t_medication/more_information]})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-dmt-regimens-table
