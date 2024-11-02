@@ -35,13 +35,13 @@
                 :org.hl7.fhir.Attachment/height]))
 
 (s/def :org.hl7.fhir.Coding/system string?)
-(s/def :org.hl7.fhir.Coding/value string?)
+(s/def :org.hl7.fhir.Coding/code string?)
 (s/def :org.hl7.fhir.Coding/display string?)
 (s/def :org.hl7.fhir.Coding/version string?)
 (s/def :org.hl7.fhir.Coding/userSelected string?)
 (s/def :org.hl7.fhir/Coding
   (s/keys :req [:org.hl7.fhir.Coding/system
-                :org.hl7.fhir.Coding/value]
+                :org.hl7.fhir.Coding/code]
           :opt [:org.hl7.fhir.Coding/version
                 :org.hl7.fhir.Coding/display
                 :org.hl7.fhir.Coding/userSelected]))
