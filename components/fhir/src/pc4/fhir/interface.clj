@@ -46,6 +46,12 @@
                 :org.hl7.fhir.Coding/display
                 :org.hl7.fhir.Coding/userSelected]))
 
+(s/def :org.hl7.fhir.CodeableConcept/coding (s/coll-of :org.hl7.fhir/Coding))
+(s/def :org.hl7.fhir.CodeableConcept/text string?)
+(s/def :org.hl7.fhir/CodeableConcept
+  (s/keys :req [:org.hl7.fhir.CodeableConcept/coding]
+          :opt [:org.hl7.fhir.CodeableConcept/text]))
+
 (s/def :org.hl7.fhir.Period/start (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir.Period/end (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir/Period
