@@ -33,7 +33,6 @@
            (java.nio.file Files)
            (java.nio.file.attribute FileAttribute)))
 
-
 (def study-master-date
   (LocalDate/of 2014 05 01))
 
@@ -1121,11 +1120,11 @@
   [{rsdb :rsdb} patient-ids]
   (map :patient_identifier
        (rsdb/select! rsdb [:patient_identifier]
-                          (sql/format {:select :patient_identifier
-                                       :from   :t_patient
-                                       :where  [:and
-                                                [:in :patient_identifier patient-ids]
-                                                [:= :authoritative_demographics "LOCAL"]]}))))
+                     (sql/format {:select :patient_identifier
+                                  :from   :t_patient
+                                  :where  [:and
+                                           [:in :patient_identifier patient-ids]
+                                           [:= :authoritative_demographics "LOCAL"]]}))))
 
 (defn make-metadata
   "Create metadata for the given environment. Dependencies are pulled from deps.edn, which should
@@ -1255,11 +1254,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defn make-patient-identifiers-table [{:keys [rsdb]} patient-ids]
   (rsdb/execute! rsdb
-               (sql/format {:select   [:patient_identifier :stored_pseudonym :t_project/name] :from [:t_episode :t_patient :t_project]
-                            :where    [:and [:= :patient_fk :t_patient/id]
-                                       [:= :project_fk :t_project/id]
-                                       [:in :t_patient/patient_identifier patient-ids]]
-                            :order-by [[:t_patient/id :asc]]})))
+                 (sql/format {:select   [:patient_identifier :stored_pseudonym :t_project/name] :from [:t_episode :t_patient :t_project]
+                              :where    [:and [:= :patient_fk :t_patient/id]
+                                         [:= :project_fk :t_project/id]
+                                         [:in :t_patient/patient_identifier patient-ids]]
+                              :order-by [[:t_patient/id :asc]]})))
 
 (def patient-identifiers-table
   {:filename "patient-identifiers.csv"
@@ -1476,11 +1475,11 @@
   [{:keys [rsdb]} patient-id]
   (let [pseudonyms (set (map :t_episode/stored_pseudonym
                              (rsdb/execute! rsdb
-                                          (sql/format {:select :stored_pseudonym
-                                                       :from   [:t_episode :t_patient]
-                                                       :where  [:and
-                                                                [:= :t_episode/patient_fk :t_patient/id]
-                                                                [:= :patient_identifier patient-id]]}))))]
+                                            (sql/format {:select :stored_pseudonym
+                                                         :from   [:t_episode :t_patient]
+                                                         :where  [:and
+                                                                  [:= :t_episode/patient_fk :t_patient/id]
+                                                                  [:= :patient_identifier patient-id]]}))))]
     (seq (set/intersection observations-missing pseudonyms))))
 
 (def observations-table
