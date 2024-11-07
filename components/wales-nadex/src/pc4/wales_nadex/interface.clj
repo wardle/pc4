@@ -93,6 +93,8 @@
   :args (s/cat :svc ::svc :user ::nspec/LdapUser)
   :ret :org.hl7.fhir/Practitioner)
 (defn user->fhir-r4
+  "Generate a FHIR R4 Practitioner from LDAP user data.
+  Also see [[user->fhir-r4-practitioner-role]]."
   [_ user]
   (fhir/user->fhir-r4 user))
 
@@ -100,6 +102,8 @@
   :args (s/cat :svc ::svc :user ::nspec/LdapUser)
   :ret  :org.hl7.fhir/PractitionerRole)
 (defn  user->fhir-r4-practitioner-role
+  "Given LDAP user data, generate a FHIR R4 PractitionerRole structure, or
+  nil if not possible. Also see [[user->fhir-r4]]."
   [{:keys [hermes]} user]
   (fhir/user->fhir-r4-practitioner-role hermes user))
 
