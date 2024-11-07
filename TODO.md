@@ -2,7 +2,7 @@
 
 Tasks that are currently my priority for this development cycle:
 
-## Tasks prior to deployment to patientcare.app:
+## Tasks prior to deployment to https://patientcare.app:
 
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
@@ -22,7 +22,7 @@ Tasks that are currently my priority for this development cycle:
 * [x] Improve 'loading' component so doesn't prevent user interaction when not dimming
 * [x] Fix radio buttons so can click on text and select 
 
-## Tasks prior to staged / parallel deployment to patientcare.wales.nhs.uk:
+## Tasks prior to staged / parallel deployment to https://patientcare.wales.nhs.uk:
 
 * [ ] Need to show and choose responsible user for each form
 * [ ] Allow users to add any form not already completed or available in the user interface - e.g. 'add form...' button to open search dialog
@@ -72,5 +72,5 @@ so that front-end can resume a live session from the same browser. This also mea
 * [ ] Add slide-out panel in encounter view to make it simple to see encounter list view?
 * [ ] Add top-level 'project' context in top bar - and allow configuration of default between 'sticky' ie whatever was set last and by day of week, but allow very rapid project switching.
 * [ ] Add patient search by identifier as per legacy app, using either top-level project context or the 'best' intersection between the user's projects and the patient's projects
-* [ ] If there are errors in relapse ordering, 
+* [ ] If there are errors in relapse ordering, highlight the individual problem records rather than only listing the errors 
 
