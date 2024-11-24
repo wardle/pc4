@@ -392,14 +392,17 @@
   {:org.msbase/magneticResonanceImaging
    (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
 
-(defn parse-lesions
-  [s]
-  (when-not (str/blank? s)
-    (if-let [n (parse-long s)]
-      n
-      ())))
+(defn format-boolean
+  [x]
+  (case x
+    nil "unk"
+    true "yes"
+    false "no"))
 
-(comment)
+(comment
+  (format-boolean true)
+  (format-boolean nil)
+  (format-boolean false))
 
 (pco/defresolver magnetic-resonance-imaging
   [{id          :t_result/id, date :t_result/date
@@ -428,12 +431,12 @@
    :org.msbase.mri/isT1Gd      (:t_result_mri_brain/with_gadolinium result)
    :org.msbase.mri/t1GdStatus  nil
    :org.msbase.mri/nbT1GdLes   (some-> (:t_result_mri_brain/total_gad_enhancing_lesions result) parse-long)
-   :org.msbase.mri/t1GdLes     (:t_result_mri_brain/has_gad_enhancing_lesions result)
+   :org.msbase.mri/t1GdLes     (format-boolean (:t_result_mri_brain/has_gad_enhancing_lesions result))
    :org.msbase.mri/isT2        nil
    :org.msbase.mri/t2Status    nil
    :org.msbase.mri/nbT2Les     (some-> (:t_result_mri_brain/total_t2_hyperintense result) parse-long)
    :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)
-   :org.msbase.mri/newEnlarg   (boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))})
+   :org.msbase.mri/newEnlarg   (format-boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))})
 
 (pco/defresolver cerebrospinal-fluid-results
   [{results :t_patient/results}]
