@@ -589,7 +589,7 @@
                                           :demographics   (:>/demographics result)
                                           :medicalHistory (:>/medicalHistory result)
                                           :msDiagnosis    (:>/msDiagnosis result)}
-                      :visits            (:org.msbase/visits result)
+                      :visits            (filter :org.msbase.visit/basicMS (:org.msbase/visits result))
                       :relapses          (:org.msbase/relapses result)
                       :malignancies      []
                       :medicalConditions (:org.msbase/medicalConditions result)
