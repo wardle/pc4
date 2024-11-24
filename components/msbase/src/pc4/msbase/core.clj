@@ -199,7 +199,9 @@
   [{encounters :t_patient/encounters}]
   {::pco/input  [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
    ::pco/output [{:org.msbase/visits [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
-  {:org.msbase/visits (filterv :t_encounter/active encounters)})
+  {:org.msbase/visits
+   (->> encounters
+        (filterv :t_encounter/active))})
 
 (pco/defresolver visit
   [{:t_encounter/keys [id date_time]}]
@@ -390,6 +392,15 @@
   {:org.msbase/magneticResonanceImaging
    (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
 
+(defn parse-lesions
+  [s]
+  (when-not (str/blank? s)
+    (if-let [n (parse-long s)]
+      n
+      ())))
+
+(comment)
+
 (pco/defresolver magnetic-resonance-imaging
   [{id          :t_result/id, date :t_result/date
     entity-name :t_result_type/result_entity_name
@@ -417,10 +428,12 @@
    :org.msbase.mri/isT1Gd      (:t_result_mri_brain/with_gadolinium result)
    :org.msbase.mri/t1GdStatus  nil
    :org.msbase.mri/nbT1GdLes   (some-> (:t_result_mri_brain/total_gad_enhancing_lesions result) parse-long)
+   :org.msbase.mri/t1GdLes     (:t_result_mri_brain/has_gad_enhancing_lesions result)
    :org.msbase.mri/isT2        nil
    :org.msbase.mri/t2Status    nil
    :org.msbase.mri/nbT2Les     (some-> (:t_result_mri_brain/total_t2_hyperintense result) parse-long)
-   :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)})
+   :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)
+   :org.msbase.mri/newEnlarg   (boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))})
 
 (pco/defresolver cerebrospinal-fluid-results
   [{results :t_patient/results}]
@@ -554,10 +567,12 @@
      :org.msbase.mri/isT1Gd
      :org.msbase.mri/t1GdStatus
      :org.msbase.mri/nbT1GdLes
+     :org.msbase.mri/t1GdLes
      :org.msbase.mri/isT2
      :org.msbase.mri/t2Status
      :org.msbase.mri/nbT2Les
-     :org.msbase.mri/nbNewEnlarg]}])
+     :org.msbase.mri/nbNewEnlarg
+     :org.msbase.mri/newEnlarg]}])
 
 (defn fetch-patient
   "Generates a single patient record in a format matching the Unified MSBase JSON model.

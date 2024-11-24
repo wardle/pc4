@@ -83,6 +83,26 @@
   (let [x (parse-count-lesions* s)]
     (when (s/valid? ::lesion-count x) x)))
 
+(defn has-lesions?
+  "Is the lesion count a positive number?"
+  [s]
+  (when-let [{t :type, n :n, from :from} (parse-count-lesions s)]
+    (case t
+      :exact        (pos-int? n)
+      :approximate  (pos-int? n)
+      :more-than    (nat-int? n)
+      :approx-range (pos-int? from)
+      :range        (pos-int? from))))
+
+(comment
+  (has-lesions? "5")
+  (has-lesions? ">0")
+  (has-lesions? "")
+  (has-lesions? "0")
+  (has-lesions? "1-2")
+  (has-lesions? "0-2")
+  (has-lesions? "2+/-1"))
+
 (defn gaussian-from-range
   "Generate a random number from the range specified."
   [[from to]]
@@ -100,6 +120,14 @@
   (let [m (re-matcher re-change-lesions (or s ""))]
     (when (.matches m)
       (parse-long (or (.group m "change") "")))))
+
+(defn has-change-lesions? [s]
+  (when-let [change (parse-change-lesions s)]
+    (pos-int? change)))
+
+(comment
+  (has-change-lesions? "+0")
+  (has-change-lesions? "+2"))
 
 (s/fdef -insert-result!
   :args (s/cat :conn ::db/conn :table keyword? :entity-name string? :result-data map?))
@@ -336,18 +364,21 @@
   "Normalises an MRI brain scan record, flattening and renaming any annotations."
   [result]
   (let [has-ms-annotation? (:t_annotation_mri_brain_multiple_sclerosis_new/id result)]
-    (reduce-kv (fn [m k v]
-                 (cond
-                   (= "t_result_mri_brain" (namespace k))
-                   (assoc m k v)
-                   (= "t_result_type" (namespace k))
-                   (assoc m k v)
-                   (and (= :t_annotation_mri_brain_multiple_sclerosis_new/id k) v)
-                   (assoc m :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id v)
-                   (and has-ms-annotation? (= "t_annotation_mri_brain_multiple_sclerosis_new" (namespace k)))
-                   (assoc m (keyword "t_result_mri_brain" (name k)) v)
-                   :else m))
-               {} result)))
+    (cond->
+     (reduce-kv (fn [m k v]
+                  (cond
+                    (= "t_result_mri_brain" (namespace k))
+                    (assoc m k v)
+                    (= "t_result_type" (namespace k))
+                    (assoc m k v)
+                    (and (= :t_annotation_mri_brain_multiple_sclerosis_new/id k) v)
+                    (assoc m :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id v)
+                    (and has-ms-annotation? (= "t_annotation_mri_brain_multiple_sclerosis_new" (namespace k)))
+                    (assoc m (keyword "t_result_mri_brain" (name k)) v)
+                    :else m))
+                {} result)
+      has-ms-annotation?
+      (assoc :t_result_mri_brain/has_gad_enhancing_lesions (has-lesions? (:t_annotation_mri_brain_multiple_sclerosis_new/total_gad_enhancing_lesions result))))))
 
 (defn ^:private t2-counts
   "Calculates T2 counts by using data in the scan and the prior scan.
