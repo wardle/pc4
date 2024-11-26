@@ -3,6 +3,7 @@
   (:require [clojure.core.match :as m]
             [clojure.data.json :as json]
             [clojure.java.process :as proc]
+            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.wsscode.pathom3.connect.operation :as pco]
             [pc4.config.interface :as config]
@@ -60,7 +61,7 @@
   "Resolves MSBase 'identification' data. See https://msbasecloud.prosynergie.ch/docs/demographics"
   [{:t_patient/keys [patient_identifier sex] :as patient}]
   {::pco/input [:t_patient/patient_identifier :t_patient/sex]}
-  {:org.msbase.identification/localId  (str "com.eldrix.pc4/" patient_identifier)
+  {:org.msbase.identification/localId  (str "com.eldrix.pc4.patient/" patient_identifier)
    :org.msbase.identification/isActive true                 ;; should this be based upon when patient last had encounter
    :org.msbase.identification/gender   (case sex :MALE "M" :FEMALE "F" "")})
 
@@ -197,10 +198,14 @@
 
 (pco/defresolver visits
   [{encounters :t_patient/encounters}]
-  {::pco/input  [{:t_patient/encounters [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]
-   ::pco/output [{:org.msbase/visits [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
+  {::pco/input  [{:t_patient/encounters
+                  [:t_encounter/id :t_encounter/active :t_encounter/date_time
+                   :t_encounter/encounter_template_fk]}]
+   ::pco/output [{:org.msbase/visits
+                  [:t_encounter/id :t_encounter/active :t_encounter/date_time]}]}
   {:org.msbase/visits
    (->> encounters
+        (remove #(contains? #{480 481 482} (:t_encounter/encounter_template_fk %)))
         (filterv :t_encounter/active))})
 
 (pco/defresolver visit
@@ -210,7 +215,7 @@
                  :org.msbase.visit/currDisease
                  :org.msbase.visit/visitDate
                  :org.msbase.visit/status]}
-  {:org.msbase.visit/localId     id
+  {:org.msbase.visit/localId     (str "com.eldrix.pc4.encounter/" id)
    :org.msbase.visit/visitDate   (format-iso-date date_time)
    :org.msbase.visit/currDisease nil
    :org.msbase.visit/status      nil})
@@ -404,6 +409,10 @@
   (format-boolean nil)
   (format-boolean false))
 
+(def entity-name->id
+  {"ResultMriBrain" "com.eldrix.pc4.result_mri_brain"
+   "ResultMriSpine" "com.eldrix.pc4.result_mri_spine"})
+
 (pco/defresolver magnetic-resonance-imaging
   [{id          :t_result/id, date :t_result/date
     entity-name :t_result_type/result_entity_name
@@ -414,7 +423,7 @@
                 (pco/? :t_result_mri_brain/total_t2_hyperintense)
                 (pco/? :t_result_mri_brain/calc_change_t2)
                 (pco/? :t_result_mri_spine/type)]}
-  {:org.msbase.mri/localId     (str "com.eldrix.pc4.t_result_mri_brain/" id)
+  {:org.msbase.mri/localId     (str (get entity-name->id entity-name "com.eldrix.pc4.result") "/" id)
    :org.msbase.mri/currDisease nil
    :org.msbase.mri/examDate    (format-iso-date date)
    :org.msbase.mri/cnsRegion   (m/match [entity-name spine-type]
@@ -448,7 +457,7 @@
 (pco/defresolver csf
   [{id :t_result/id, date :t_result/date, ocb :t_result_csf_ocb/result}]
   {::pco/input [:t_result/id :t_result/date :t_result_csf_ocb/result]}
-  {:org.msbase.csf/localId     (str "com.eldrix.pc4.t_result_csf_ocb/" id)
+  {:org.msbase.csf/localId     (str "com.eldrix.pc4.result_csf_ocb/" id)
    :org.msbase.csf/currDisease nil
    :org.msbase.csf/examDate    (format-iso-date date)
    :org.msbase.csf/csf         nil
@@ -592,7 +601,7 @@
                                           :demographics   (:>/demographics result)
                                           :medicalHistory (:>/medicalHistory result)
                                           :msDiagnosis    (:>/msDiagnosis result)}
-                      :visits            (filter :org.msbase.visit/basicMS (:org.msbase/visits result))
+                      :visits            (:org.msbase/visits result)
                       :relapses          (:org.msbase/relapses result)
                       :malignancies      []
                       :medicalConditions (:org.msbase/medicalConditions result)
