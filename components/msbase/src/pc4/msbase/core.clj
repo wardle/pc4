@@ -3,7 +3,6 @@
   (:require [clojure.core.match :as m]
             [clojure.data.json :as json]
             [clojure.java.process :as proc]
-            [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.wsscode.pathom3.connect.operation :as pco]
             [pc4.config.interface :as config]
@@ -397,17 +396,35 @@
   {:org.msbase/magneticResonanceImaging
    (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
 
-(defn format-boolean
-  [x]
-  (case x
-    nil "unk"
-    true "yes"
-    false "no"))
+(defn format-boolean [x]
+  (case x nil "unk", true "yes", false "no"))
+
+(defn parse-nb-les
+  "Parse number of lesions into a number - essentially the same as [[clojure.core/parse-long]] 
+  except also supports strings beginning with '~' and parses as if only a number. 
+  ```
+  (parse-nb-les \"5\")
+  =>
+  5
+
+  (parse-nb-les \"~2\")
+  =>
+  2
+  ```"
+  [s]
+  (when-not (str/blank? s)
+    (let [[_ n] (re-matches #"^~?(\d+)$" s)]
+      (when n (parse-long n)))))
 
 (comment
   (format-boolean true)
   (format-boolean nil)
-  (format-boolean false))
+  (format-boolean false)
+  (parse-nb-les "51")
+  (parse-nb-les nil)
+  (parse-nb-les "")
+  (parse-nb-les "~2")
+  (parse-nb-les "~101"))
 
 (def entity-name->id
   {"ResultMriBrain" "com.eldrix.pc4.result_mri_brain"
@@ -439,11 +456,11 @@
    :org.msbase.mri/nbT1Les     nil
    :org.msbase.mri/isT1Gd      (:t_result_mri_brain/with_gadolinium result)
    :org.msbase.mri/t1GdStatus  nil
-   :org.msbase.mri/nbT1GdLes   (some-> (:t_result_mri_brain/total_gad_enhancing_lesions result) parse-long)
+   :org.msbase.mri/nbT1GdLes   (parse-nb-les (:t_result_mri_brain/total_gad_enhancing_lesions result))
    :org.msbase.mri/t1GdLes     (format-boolean (:t_result_mri_brain/has_gad_enhancing_lesions result))
    :org.msbase.mri/isT2        nil
    :org.msbase.mri/t2Status    nil
-   :org.msbase.mri/nbT2Les     (some-> (:t_result_mri_brain/total_t2_hyperintense result) parse-long)
+   :org.msbase.mri/nbT2Les     (parse-nb-les (:t_result_mri_brain/total_t2_hyperintense result))
    :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)
    :org.msbase.mri/newEnlarg   (format-boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))})
 
@@ -639,6 +656,7 @@
   ;; TODO: clean up creation of pathom environment so it is standardised, and can be built
   ;; on the fly from data in a real session, or created ad-hoc for programmatic / REPL usage 
   ;; like this
+  ;; TODO: don't use private fn in pc4.rsdb.users 
   (def pathom-env {:session/authenticated-user
                    (assoc (rsdb/user-by-username rsdb "system")
                           :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
