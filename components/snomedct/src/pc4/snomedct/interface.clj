@@ -39,10 +39,10 @@
 ;; API
 ;; 
 ;;
-
 (def expand-ecl-historic hermes/expand-ecl-historic)
 
 (def intersect-ecl hermes/intersect-ecl)
+(def intersect-ecl-fn hermes/intersect-ecl-fn)
 (def child-relationships-of-type hermes/child-relationships-of-type)
 (def parent-relationships-of-type hermes/parent-relationships-of-type)
 (def fully-specified-name hermes/fully-specified-name)
