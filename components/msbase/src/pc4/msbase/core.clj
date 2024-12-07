@@ -389,12 +389,23 @@
    :org.msbase.pharmaTrts/stopCause   (get stop-causes reason_for_stopping)
    :org.msbase.pharmaTrts/notes       (:t_medication/notes medication)})
 
+(defn cns-imaging-result?
+  [{entity-name :t_result_type/result_entity_name
+    spine-type :t_result_mri_spine/type}]
+  (or
+   (= entity-name "ResultMriBrain")
+   (and (= entity-name "ResultMriSpine")
+        (or (= spine-type "CERVICAL_AND_THORACIC")
+            (= spine-type "CERVICAL")
+            (= spine-type "WHOLE_SPINE")
+            (= spine-type "THORACIC")))))
+
 (pco/defresolver magnetic-resonance-imaging-results
   [{results :t_patient/results}]
   {::pco/input  [:t_patient/results]
    ::pco/output [:org.msbase/magneticResonanceImaging]}
   {:org.msbase/magneticResonanceImaging
-   (filterv #(#{"ResultMriBrain" "ResultMriSpine"} (:t_result_type/result_entity_name %)) results)})
+   (filterv cns-imaging-result? results)})
 
 (defn format-boolean [x]
   (case x nil "unk", true "yes", false "no"))
@@ -449,8 +460,7 @@
                                  ["ResultMriSpine" "CERVICAL"] "cerv"
                                  ["ResultMriSpine" "WHOLE_SPINE"] "spin"
                                  ["ResultMriSpine" "THORACIC"] "thor"
-                                 ["ResultMriSpine" nil] "spin"
-                                 :else nil)
+                                 :else (throw (ex-info "unable to map cns region" {:entity-name entity-name :spine-type spine-type})))
    :org.msbase.mri/isT1        nil
    :org.msbase.mri/t1Status    nil
    :org.msbase.mri/nbT1Les     nil
