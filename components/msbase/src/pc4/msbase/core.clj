@@ -294,35 +294,44 @@
    :org.msbase.relapse/notes       notes})
 
 (def dmts
-  ["(<<24056811000001108|Dimethyl fumarate|) OR (<<12086301000001102|Tecfidera|) OR
-                  (<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
-   "<<108754007|Glatiramer| OR <<9246601000001104|Copaxone| OR <<13083901000001102|Brabio| OR <<8261511000001102 OR <<29821211000001101
-                  OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
-   "(<<9218501000001109|Avonex| OR <<9322401000001109|Rebif| OR
-                            (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|))"
-   "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|) OR
-                  (<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
+  ["(<<24056811000001108|Dimethyl fumarate|)"
+   "(<<12086301000001102|Tecfidera|)"
+   "(<10363601000001109|UK Product| :10362801000001104|Has specific active ingredient| =<<724035008|Dimethyl fumarate|)"
+   "<<108754007|Glatiramer|"
+   "<<9246601000001104|Copaxone|"
+   "<<13083901000001102|Brabio|"
+   "<<8261511000001102 OR <<29821211000001101 OR (<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<108755008|Glatiramer acetate|)"
+   "<<9218501000001109|Avonex| OR <<9322401000001109|Rebif|"
+   "(<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386902004|Interferon beta-1a|)"
+   "(<<9222901000001105|Betaferon|) OR (<<10105201000001101|Extavia|)"
+   "(<10363601000001109|UK Product|:127489000|Has specific active ingredient|=<<386903009|Interferon beta-1b|)"
    "<<12222201000001108|Plegridy|"
    "<<703786007|Teriflunomide| OR <<12089801000001100|Aubagio| "
-   (str/join " OR "
-             ["(<<108809004|Rituximab product|)"
-              "(<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
-              "(<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
-              "(<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"])
+   "(<<108809004|Rituximab product|)"
+   "(<10363601000001109|UK Product|:10362801000001104|Has specific active ingredient|=<<386919002|Rituximab|)"
+   "(<<9468801000001107|Mabthera|) OR (<<13058501000001107|Rixathon|)"
+   "(<<226781000001109|Ruxience|)  OR (<<13033101000001108|Truxima|)"
    "(<<35058611000001103|Ocrelizumab|) OR (<<13096001000001106|Ocrevus|)"
+   "<<776972000|Ofatumumab| OR 93581000001109|Kesimpta|"
+   "<<787020007|Siponimod| OR <<116091000001102|Mayzent|"
    "<<108800000|Cladribine| OR <<13083101000001100|Mavenclad|"
    "<<108791001|Mitoxantrone| OR <<9482901000001102|Novantrone|"
+   "<<40487911000001103|Diroximel fumarate| OR <<94671000001105|Vumerity|"
+   "<<871801009|Ozanimod| OR << 232281000001102|Zeposia|"
+   "<<775435008|Daclizumab| OR <<12887001000001103|Zinbryta|"
    "<<715640009|Fingolimod| OR <<10975301000001100|Gilenya|"
    "<<414804006|Natalizumab| OR <<9375201000001103|Tysabri|"
    "(<<391632007|Alemtuzumab|) OR (<<12091201000001101|Lemtrada|)"])
 
 (def all-dmts (str/join " OR " dmts))
 
-(defn medication-type
-  "Returns medication type. At the moment, this returns nil unless the
-  medication is a disease-modifying therapy (DMT)."
-  [hermes {concept-id :t_medication/medication_concept_fk, :as medication}]
-  (when (seq (hermes/intersect-ecl hermes [concept-id] all-dmts)) "dmt"))
+(defn medication-type-fn
+  "Returns a function that can determine a medication type. 
+  At the moment, this returns nil unless the medication is a disease-modifying therapy (DMT)."
+  [hermes]
+  (let [intersect-fn (hermes/intersect-ecl-fn hermes all-dmts)]
+    (fn [{concept-id :t_medication/medication_concept_fk, :as _medication}]
+      (when (seq (intersect-fn [concept-id])) "dmt"))))
 
 (pco/defresolver treatments
   "Resolve treatments. We strip out all treatments that are not DMTs."
@@ -330,10 +339,11 @@
   {::pco/input  [:t_patient/medications]
    ::pco/output [:org.msbase/treatments]}
   {:org.msbase/treatments
-   (->> meds
-        (remove #(= :RECORDED_IN_ERROR (:t_medication/reason_for_stopping %)))
-        (map #(assoc % :org.msbase.pharmaTrts/type (medication-type hermes %)))
-        (filter #(= "dmt" (:org.msbase.pharmaTrts/type %))))})
+   (let [medication-type (medication-type-fn hermes)]
+     (->> meds
+          (remove #(= :RECORDED_IN_ERROR (:t_medication/reason_for_stopping %)))
+          (map #(assoc % :org.msbase.pharmaTrts/type (medication-type %)))
+          (filter #(= "dmt" (:org.msbase.pharmaTrts/type %)))))})
 
 (def stop-causes
   {:CHANGE_OF_DOSE              "scheduled"
