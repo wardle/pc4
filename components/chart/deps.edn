@@ -1,0 +1,4 @@
+{:paths   ["src" "resources"]
+ :deps    {incanter/incanter-charts {:mvn/version "1.9.3"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps {}}}}
