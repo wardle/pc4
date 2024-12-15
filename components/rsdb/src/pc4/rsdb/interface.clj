@@ -91,25 +91,26 @@
 (s/def ::job-title-id string?)
 (s/def ::user-manager #{:NADEX})
 (s/def ::project-ids (s/coll-of pos-int?))
-(s/def ::CreateLocalUserRequest
+
+(s/def ::create-local-user-request
   (s/keys :req-un [::username ::email ::title ::first-names ::last-name
                    ::custom-job-title ::job-title-id]
           :opt-un [::project-ids]))
 
-(s/def ::CreateManagedUserRequest
+(s/def ::create-managed-user-request
   (s/keys :req-un [::username ::user-manager]
           :opt-un [::project-ids]))
 
-(s/def ::CreateUserRequest
-  (s/or :local ::CreateLocalUserRequest
-        :managed ::CreateManagedUserRequest))
+(s/def ::create-user-request
+  (s/or :local ::create-local-user-request
+        :managed ::create-managed-user-request))
 
 (defn create-new-user
   "Create a new user."
   [{:keys [conn wales-nadex]} req]
-  (let [req' (s/conform ::CreateUserRequest req)]
+  (let [req' (s/conform ::create-user-request req)]
     (if (= req' ::s/invalid)
-      (throw (ex-info "invalid request" (s/explain-data ::CreateUserRequest req)))
+      (throw (ex-info "invalid request" (s/explain-data ::create-user-request req)))
       (let [[mode {:keys [username email title first-names last-name custom-job-title job-title-id project-ids] :as data}] req'
             user (case mode
                    :local
@@ -121,12 +122,13 @@
                                             :t_user/job_title_fk     job-title-id
                                             :t_user/custom_job_title custom-job-title})
                    :managed
-                   {:managed data})]
+                   (throw (ex-info "managed user creation not yet implemented" {:managed data})))]
         (doseq [project-id project-ids]
           (users/register-user-to-project conn {:username username, :project-id project-id}))
         user))))
 
 (comment
+  (s/conform ::create-user-request {:username "ma090906" :user-manager :NADEX})
   (create-new-user conn {:username "wardle" :user-manager :NADEX})
   (s/conform ::CreateUserRequest {:username "ma090907" :user-manager :NADEX}))
 ;;
@@ -135,6 +137,8 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; TODO: clean up rsdb API, remove redundancy, adopt more standard patterns, and simplify 
+;; TODO: use request / response pattern as per HTTP type approach; this will be scalable
+;; and independent of any particular implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;
@@ -180,10 +184,15 @@
   ([{:keys [conn]} username opts]
    (users/roles-for-user conn username opts)))
 
-(defn user->authorization-manager
+(defn username->authorization-manager
   "Create an authorization manager for the given user."
   [{:keys [conn]} username]
   (users/make-authorization-manager conn username))
+
+
+(defn user->authorization-manager
+  [user]
+  (users/authorization-manager2 user))
 
 (def projects-with-permission users/projects-with-permission)
 

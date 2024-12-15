@@ -25,12 +25,12 @@
             [next.jdbc :as jdbc]
             [next.jdbc.plan :as jdbc.plan]
             [next.jdbc.sql :as jdbc.sql]
+            [pc4.fhir.interface :as fhir]
             [pc4.rsdb.auth :as auth]
             [pc4.rsdb.db :as db]
             [pc4.rsdb.projects :as projects]
             [pc4.rsdb.queue :as queue]
-            [pc4.wales-nadex.interface :as nadex]
-            [pc4.wales-nadex.interface :as wales-nadex])
+            [pc4.wales-nadex.interface :as nadex])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
            (org.apache.commons.codec.binary Base64)
@@ -411,13 +411,17 @@
                      (throw (ex-info (str "Unsupported password hash type:" hash-type) params)))]
     [new-password credential]))
 
-(s/def ::create-user (s/keys :req [:t_user/username
-                                   :t_user/title
-                                   :t_user/first_names
-                                   :t_user/last_name
-                                   :t_user/job_title_fk]
-                             :opt [:t_user/email
-                                   :t_user/custom_job_title]))
+(comment
+  (def conn ()))
+
+(s/def ::create-user
+  (s/keys :req [:t_user/username
+                :t_user/title
+                :t_user/first_names
+                :t_user/last_name
+                :t_user/job_title_fk]
+          :opt [:t_user/email
+                :t_user/custom_job_title]))
 
 (defn create-user-sql
   "Returns a map containing: 
@@ -430,15 +434,69 @@
     {:sql {:insert-into :t_user
            :values      [(merge {:t_user/credential            credential
                                  :t_user/must_change_password  true
-                                 :t_user/role_fk               4
+                                 :t_user/role_fk               4                       ;; normal user
+                                 :t_user/job_title_fk 14                                        ;; "other" 
                                  :t_user/authentication_method "LOCAL17"}
                                 user)]}
      :password new-password}))
 
+(def known-job-titles
+  "This is a hardcoded list of records from t_job_title from the legacy
+  rsdb database. This simply maps an id and name to a SNOMED concept
+  identifier. TODO: this should simply be in the database but this 
+  approach to job titles will eventually be deprecated in favour of 
+  using SNOMED CT directly as part of a FHIR PractitionerRole equivalent."
+  [{:id 2, :name "Consultant", :concept-id 768839008}
+   {:id 3, :name "Specialist registrar", :concept-id 302211009}
+   {:id 4, :name "Speciality registrar", :concept-id 224531000}
+   {:id 5, :name "Clinical research fellow", :concept-id 309397006}
+   {:id 6, :name "Senior house officer", :concept-id 224532007}
+   {:id 7, :name "Pre-registration house officer", :concept-id 158972004}
+   {:id 9, :name "Specialist nurse", :concept-id 310179005}
+   {:id 10, :name "Physiotherapist", :concept-id 36682004}
+   {:id 11, :name "Occupational therapist", :concept-id 80546007}
+   {:id 12, :name "Psychologist", :concept-id 59944000}
+   {:id 13, :name "Continence nurse", :concept-id 310180008}
+   {:id 15, :name "Medical student", :concept-id 398130009}
+   {:id 16, :name "Physiotherapy student", :concept-id 65853000}
+   {:id 17, :name "OT student", :concept-id 65853000}
+   {:id 18, :name "Psychology student", :concept-id 65853000}
+   {:id 19, :name "Nursing student", :concept-id 65853000}
+   {:id 20, :name "Speech and language therapist", :concept-id 159026005}
+   {:id 22, :name "Dietician", :concept-id 159033005}
+   {:id 23, :name "Associate specialist", :concept-id 309396002}])
+
+(defn sct->job-title
+  "Returns a function that can convert a concept id into a legacy rsdb
+  job title"
+  [hermes]
+  (let [match-fns
+        (reduce (fn [{:keys [concept-id] :as jt}])
+                known-job-titles)]
+    (fn [concept-id])))
+
+(defn create-managed-user-sql
+  [{identifiers :org.hl7.fhir.Practitioner/identifier
+    names :org.hl7.fhir.Practitioner/name
+    telecom :org.hl7.fhir.Practitioner/telecom}]
+  (let [id (fhir/best-identifier "https://fhir.nhs.wales/Id/nadex-identifier" identifiers)
+        nm (fhir/best-human-name names)
+        email (:org.hl7.fhir.ContactPoint/value (fhir/best-contact-point "email" telecom))]
+    (when (and id nm)
+      (create-user-sql {:t_user/username (:org.hl7.fhir.Identifier/value id)
+                        :t_user/title (str/join " " (:org.hl7.fhir.HumanName/prefix nm))
+                        :t_user/first_names (str/join " " (:org.hl7.fhir.HumanName/given nm))
+                        :t_user/last_name (:org.hl7.fhir.HumanName/family nm)
+                        :t_user/email email
+                        :t_user/job_title_fk 14                                        ;; "other" ;; TODO: map from FHIR (SNOMED) job titles 
+                        :t_user/role_fk 4
+                        :t_user/must_change_password false
+                        :t_user/authentication_method "NADEX"}))))
+
 (comment
   (require '[clojure.spec.gen.alpha :as gen])
-  (nadex/user->fhir-r4 (gen/generate (nadex/gen-user)))
-
+  (->> (:org.hl7.fhir.Practitioner/identifier (nadex/user->fhir-r4 (gen/generate (nadex/gen-user))))
+       (fhir/best-match [(fhir/match-identifier :system "https://fhir.nhs.wales/Id/nadex-identifier")]))
   (gen/generate (s/gen :org.hl7.fhir/Practitioner)))
 
 (comment
@@ -487,7 +545,7 @@
   (jdbc/execute-one!
    conn
    (sql/format
-    {:select [:username :data :originalfilename :mimetype :size]
+    {:select [:username :data :originalfilename :mimetype :size :creationdate]
      :from   [:erattachmentdata :erattachment :t_user]
      :where  [:and
               [:= :erattachment/attachmentdataid :erattachmentdata/id]
@@ -578,6 +636,13 @@
   (def conn (next.jdbc.connection/->pool com.zaxxer.hikari.HikariDataSource {:dbtype          "postgresql"
                                                                              :dbname          "rsdb"
                                                                              :maximumPoolSize 10}))
+  (require '[com.eldrix.hermes.core :as hermes])
+  (def hermes (com.eldrix.hermes.core/open "/Users/mark/Dev/hermes/snomed.db"))
+  (let [known-job-titles
+        (jdbc/execute! conn (sql/format {:select :* :from :t_job_title}))]
+    (mapv (fn [{:t_job_title/keys [id name]}]
+            (let [concept (first (hermes/ranked-search hermes {:s name :max-hits 1 :constraint "<14679004" :boost-length? true}))]
+              {:id id :name name :concept-id (:conceptId concept) :concept concept})) known-job-titles))
   (count-incomplete-messages conn "ma090906")
   (count-unread-messages conn "ma090906")
   (queue/dequeue-job conn :user/email)
