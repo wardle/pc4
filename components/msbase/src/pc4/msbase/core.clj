@@ -680,7 +680,7 @@
   (def pathom-env {:session/authenticated-user
                    (assoc (rsdb/user-by-username rsdb "system")
                           :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
-                   :session/authorization-manager (rsdb/user->authorization-manager rsdb "system")})
+                   :session/authorization-manager (rsdb/username->authorization-manager rsdb "system")})
   (def pathom (partial (:pc4.graph.interface/boundary-interface system) pathom-env))
   (def patient-ids (lemtrada/patient-identifiers lemtrada-env :cambridge))
 
