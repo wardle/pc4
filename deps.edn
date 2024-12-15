@@ -19,6 +19,7 @@
                 poly/frontend       {:local/root "components/frontend"}
                 poly/fulcro-server  {:local/root "components/fulcro-server"}
                 poly/graph          {:local/root "components/graph"}
+                poly/http-server    {:local/root "components/http-server"}
                 poly/lemtrada       {:local/root "components/lemtrada"}
                 poly/log            {:local/root "components/log"}
                 poly/msbase         {:local/root "components/msbase"}
@@ -41,6 +42,7 @@
                 org.clojure/clojure {:mvn/version "1.12.0"}
                 integrant/integrant {:mvn/version "0.11.0"}
                 integrant/repl      {:mvn/version "0.3.3"}
+                io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}
                 com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
                                      :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}}
 
