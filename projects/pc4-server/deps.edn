@@ -11,6 +11,7 @@
         poly/fhir          {:local/root "../../components/fhir"}
         poly/fulcro-server {:local/root "../../components/fulcro-server"}
         poly/graph         {:local/root "../../components/graph"}
+        poly/http-server   {:local/root "../../components/http-server"}
         poly/log           {:local/root "../../components/log"}
         poly/msbase        {:local/root "../../components/msbase"}
         poly/nhs-number    {:local/root "../../components/nhs-number"}
