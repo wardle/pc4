@@ -1,6 +1,7 @@
 (ns pc4.http-server.interface
   (:require
    [buddy.core.codecs :as codecs]
+   [clojure.java.io :as io]
    [clojure.spec.alpha :as s]
    [io.pedestal.http :as http]
    [io.pedestal.http.route :as route]
@@ -11,15 +12,18 @@
    [pc4.http-server.html :as html]
    [pc4.log.interface :as log]
    [ring.middleware.session.cookie :as cookie]
+   [selmer.parser :as selmer]
    [io.pedestal.interceptor :as intc]
    [pc4.rsdb.interface :as rsdb]))
 
+(selmer/set-resource-path! (clojure.java.io/resource "templates"))
+
 (def routes
-  #{["/"       :get [login/authenticated home/home]]
+  #{["/"       :get  [login/authenticated home/home] :route-name :home]
     ["/login"  :get  login/view-login]
     ["/login"  :post login/perform-login]
     ["/logout" :post login/logout]
-    ["/user/:system/:value/photo" :get user/get-user-photo]})
+    ["/user/:system/:value/photo" :get [login/authenticated user/get-user-photo]]})
 
 (defn rsdb
   [env]
@@ -86,6 +90,15 @@
   (http/stop srv)
   (def system (ig/init (config/config :dev) [::server]))
   (keys system)
+
+  (selmer/render " hi there {{name}} " {:name "Mark"})
+  (selmer/set-resource-path! (io/resource "templates"))
+  (selmer/render-file "navbar.html" {:name "Mark"})
+  (selmer.parser/cache-off!)
+  (println (selmer/render-file "home-page.html" {:user {:fullname "Mark Wardle" :initials "MW"}}))
   (do
     (when system (ig/halt! system))
     (def system (ig/init (config/config :dev) [::server]))))
+
+
+

@@ -587,7 +587,9 @@
   (when-let [user (fetch-user conn username {:with-credentials true})]
     (when (authenticate wales-nadex user password)
       (record-login! conn username)
-      (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical])
+      (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical
+                             :t_user/title :t_user/first_names :t_user/last_name
+                             :t_user/custom_initials])
           (assoc :t_user/active_roles (active-roles-by-project-id conn username))))))
 
 (defn is-nhs-wales-email? [email]

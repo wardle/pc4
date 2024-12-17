@@ -21,4 +21,8 @@
            [:script {:src "https://cdn.tailwindcss.com"}]]
           [:body content]]))})
 
-
+(defn ok
+  [content]
+  {:status 200
+   :headers {"Content-Type" "text/html"}
+   :body content})

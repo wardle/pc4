@@ -44,7 +44,8 @@
                 integrant/repl      {:mvn/version "0.3.3"}
                 io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}
                 com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
-                                     :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}}
+                                     :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}
+   :jvm-opts ["-Dio.pedestal.dev-mode=true"]}
 
   :nrepl
   {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.0"}
