@@ -1,0 +1,48 @@
+<div class="overflow-hidden bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:px-6 {{tint-class|default:bg-gray-100}}">
+        <h3 class="text-base font-semibold leading-6 text-gray-900">
+        {{title}}
+        </h3>
+        {% if any subtitle subtitle-html %}
+        <p class="mt-1 max-w-2xl text-sm text-gray-500">
+            {% if subtitle %}
+                {{subtitle}}
+            {% elif subtitle-html %}
+                {{subtitle-html|safe}}
+            {% endif %}
+        </p>
+        {% endif %}
+    </div>
+    <div class="border-t border-gray-200px-4 py-5 sm:px-6">
+        <dl class="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
+            {% if items|not-empty %}
+            {% for item in items %}
+            <div class="sm:col-span-1">
+                <dt class="text-sm font-medium text-gray-500">
+                    {{item.title}}
+                </dt>
+                <dd class="mt-1 text-sm text-gray-900">
+                    {{item.body}}
+                    {{item.content|safe}}
+                </dd>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if long-items|not-empty %}
+            {% for item in long-items %}
+            <div class="col-span-2">
+                <dt class="text-sm font-medium text-gray-500">{{item.title}}</dt>
+                <dd class="text-sm font-sm text-gray-900">
+                    {% if item.body %}
+                        {{item.body}}
+                    {% elif item.content %}
+                        {{item.content|safe}}
+                    {% endif %}
+                </dd>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </dl>
+    </div>
+</div>

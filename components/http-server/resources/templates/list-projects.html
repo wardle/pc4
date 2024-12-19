@@ -1,0 +1,46 @@
+<div class="border-solid border-gray-800 bg-gray-50 border rounded shadow-lg">
+    <div class="bg-gray-800 text-white px-2 py-2 border-solid border-gray-800">
+        My projects / services
+    </div>
+    {% if projects.clinical|not-empty %}
+    <div>
+        <div>
+            <span class="mt-2 text-xs inline-block py-1 px-2 uppercase bg-yellow-200 last:mr-0 mr-1">Clinical</span>
+        </div>
+        {% for project in projects.clinical %}
+        <a href="{{project.url}}" class="cursor-default">
+            <div class="px-3 py-1 text-sm bg-yellow-50 hover:bg-yellow-100 border">
+                {{project.title}}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if all projects.clinical|not-empty projects.research|not-empty %}
+    <hr/>
+    {% endif %}
+
+    {% if projects.research|not-empty %}
+    <div>
+        <div>
+            <span class="mt-2 text-xs inline-block py-1 px-2 uppercase bg-pink-200 last:mr-0 mr-1">Research</span>
+        </div>
+        {% for project in projects.research %}
+        <a href="{{project.url}}" class="cursor-default">
+            <div class="px-3 py-1 text-sm bg-pink-50 hover:bg-pink-100 border">
+                {{project.title}}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if all projects.clinical|empty? projects.research|empty? %}
+    <div class="mt-2 italic text-xs inline-block py-1 px-2 bg-gray-100">
+        Warning: You do not have any active clinical or research projects.
+        You need to be specifically registered to one or more projects in order
+        to use PatientCare. Please speak to an administrator.
+    </div>
+    {% endif %}
+</div>

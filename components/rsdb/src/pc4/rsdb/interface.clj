@@ -165,6 +165,18 @@
 (defn user-by-id [{:keys [conn]} user-id]
   (users/fetch-user-by-id conn user-id))
 
+(defn user->display-names
+  "Add display names (`:t_user/full_name`, `:t_user/initials`) to the user when
+  possible."
+  [{:t_user/keys [custom_initials title last_name first_names] :as user}]
+  (cond-> user
+    (or last_name first_names)
+    (assoc :t_user/full_name (str/join " " (remove str/blank? [title first_names last_name])))
+    (not (str/blank? custom_initials))
+    (assoc :t_user/initials custom_initials)
+    (and (str/blank? custom_initials) (not (or (str/blank? first_names) (str/blank? last_name))))
+    (assoc :t_user/initials (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))))
+
 (defn fetch-user-photo [{:keys [conn]} username]
   (users/fetch-user-photo conn username))
 

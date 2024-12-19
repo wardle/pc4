@@ -1,0 +1,28 @@
+<div class="mb-4 bg-white shadow-lg overflow-hidden sm:rounded-md">
+    <ul class="divide-y divide-gray-200" role="list">
+        {% for article in news %}
+        <li>
+            <div class="px-4 py-4 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <p class="text-lg font-medium text-indigo-600 truncate">
+                        {{article.title}}
+                    </p>
+                    <div class="ml-2 flex-shrink-0 flex">
+                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-green-800">
+                            {{article.date-time|date:shortDateTime}}
+                        </p>
+                    </div>
+                </div>
+                <div class="sm:flex sm:justify-between">
+                    <div class="mb-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <p>By {{article.author}}</p>
+                    </div>
+                </div>
+                <article class="prose lg:prose-xl pb-4">
+                    {{article.body|safe}}
+                </article>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>

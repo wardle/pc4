@@ -1,29 +1,32 @@
 (ns pc4.http-server.interface
   (:require
-   [buddy.core.codecs :as codecs]
-   [clojure.java.io :as io]
-   [clojure.spec.alpha :as s]
-   [io.pedestal.http :as http]
-   [io.pedestal.http.route :as route]
-   [integrant.core :as ig]
-   [pc4.http-server.controllers.home :as home]
-   [pc4.http-server.controllers.login :as login]
-   [pc4.http-server.controllers.user :as user]
-   [pc4.http-server.html :as html]
-   [pc4.log.interface :as log]
-   [ring.middleware.session.cookie :as cookie]
-   [selmer.parser :as selmer]
-   [io.pedestal.interceptor :as intc]
-   [pc4.rsdb.interface :as rsdb]))
+    [buddy.core.codecs :as codecs]
+    [clojure.java.io :as io]
+    [clojure.spec.alpha :as s]
+    [io.pedestal.http :as http]
+    [io.pedestal.http.csrf :as csrf]
+    [io.pedestal.http.route :as route]
+    [integrant.core :as ig]
+    [pc4.http-server.controllers.home :as home]
+    [pc4.http-server.controllers.login :as login]
+    [pc4.http-server.controllers.project :as project]
+    [pc4.http-server.controllers.user :as user]
+    [pc4.http-server.html :as html]
+    [pc4.log.interface :as log]
+    [ring.middleware.session.cookie :as cookie]
+    [selmer.parser :as selmer]
+    [io.pedestal.interceptor :as intc]
+    [pc4.rsdb.interface :as rsdb]))
 
 (selmer/set-resource-path! (clojure.java.io/resource "templates"))
 
 (def routes
-  #{["/"       :get  [login/authenticated home/home] :route-name :home]
-    ["/login"  :get  login/view-login]
-    ["/login"  :post login/perform-login]
+  #{["/" :get [login/authenticated home/home-page] :route-name :home]
+    ["/login" :get login/view-login]
+    ["/login" :post login/perform-login]
     ["/logout" :post login/logout]
-    ["/user/:system/:value/photo" :get [login/authenticated user/get-user-photo]]})
+    ["/user/:system/:value/photo" :get [login/authenticated user/get-user-photo]]
+    ["/project/:project-id" :get [login/authenticated project/home] :route-name :project/home]})
 
 (defn rsdb
   [env]
@@ -40,6 +43,12 @@
           conj (intc/interceptor {:name  ::inject
                                   :enter (fn [context] (assoc-in context [:request :env] env))})))
 
+(defn csrf-error-handler
+  [ctx]
+  (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
+  (assoc ctx :response {:status 301
+                        :headers {"Location" "/"}}))
+
 (defn start
   [{:keys [env session-key host port join?]}]
   (-> {::http/host           host
@@ -51,7 +60,7 @@
        ::http/enable-session {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
                               :cookie-name  "pc4-session"
                               :cookie-attrs {:same-site :strict}}
-       ::http/enable-csrf    {}
+       ::http/enable-csrf    {:error-handler csrf-error-handler}
        ::http/secure-headers {:content-security-policy-settings {:object-src "none"}}}
       http/default-interceptors
       http/dev-interceptors
