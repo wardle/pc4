@@ -177,8 +177,11 @@
     (and (str/blank? custom_initials) (not (or (str/blank? first_names) (str/blank? last_name))))
     (assoc :t_user/initials (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))))
 
-(defn fetch-user-photo [{:keys [conn]} username]
+(defn ^:deprecated fetch-user-photo [{:keys [conn]} username]
   (users/fetch-user-photo conn username))
+
+(defn user-id->photo [{:keys [conn]} user-id]
+  (users/user-id->photo conn user-id))
 
 (defn authenticate [{:keys [wales-nadex]} user password]
   (users/authenticate wales-nadex user password))

@@ -4,13 +4,13 @@
         {{title}}
         </h3>
         {% if any subtitle subtitle-html %}
-        <p class="mt-1 max-w-2xl text-sm text-gray-500">
+        <div class="mt-1 max-w-2xl font-light text-sm text-gray-400">
             {% if subtitle %}
                 {{subtitle}}
             {% elif subtitle-html %}
                 {{subtitle-html|safe}}
             {% endif %}
-        </p>
+        </div>
         {% endif %}
     </div>
     <div class="border-t border-gray-200px-4 py-5 sm:px-6">

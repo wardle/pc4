@@ -2,9 +2,11 @@
   (:require
     [clojure.string :as str]
     [com.eldrix.hermes.core :as hermes]
+    [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [pc4.http-server.controllers.user :as user]
     [pc4.http-server.html :as html]
+    [pc4.http-server.ui :as ui]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb]
     [rum.core :as rum]
@@ -19,14 +21,24 @@
      :items    [{:id   :home
                  :url  (route/url-for :project/home :path-params {:project-id project-id})
                  :text "Home"}
-                {:id   :find-pt
+                {:id   :find-patient
+                 :url  (route/url-for :project/find-patient :path-params {:project-id project-id})
                  :text "Find patient"}
+                {:id   :register-patient
+                 :url  (route/url-for :project/register-patient :path-params {:project-id project-id})
+                 :text "Register patient"}
+                {:id   :today
+                 :url  (route/url-for :project/today :path-params {:project-id project-id})
+                 :text "Today"}
+                {:id   :patients
+                 :url  (route/url-for :project/patients :path-params {:project-id project-id})
+                 :text "Patients"}
                 {:id   :team
                  :url  (route/url-for :project/team :path-params {:project-id project-id})
                  :text "Team"}]
      :submenu  (case selected
                  :home
-                 {:items [{:text "Wibble"}]}
+                 {:items [{:text "Edit project"}]}
                  :team
                  {:items [{:content (selmer/render-file "ui/select-button.html"
                                                         {:id        "user-filter"
@@ -39,12 +51,64 @@
                                                                      {:id "all" :text "All users"}]})}]}
                  nil)}))
 
+
+(defn find-patient
+  [request]
+  (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
+    (let [rsdb (get-in request [:env :rsdb])
+          patient-identifier (some-> (get-in request [:params "patient-identifier"]) parse-long)
+          found-patient (when patient-identifier (rsdb/fetch-patient rsdb {:t_patient/patient_identifier patient-identifier}))
+          project (rsdb/project-by-id rsdb project-id)
+          pseudonymous? (:t_project/pseudonymous project)]
+      (println "search for patient" {:patient-identifier patient-identifier})
+
+      (cond
+        found-patient
+        {:status  303
+         :headers {"Location" (route/url-for :patient/home :params {:patient-identifier patient-identifier})}}
+        :else
+        (html/ok
+          (selmer/render-file
+            "project/find-patient-page.html"
+            (assoc (user/session-env request)
+              :menu (project-menu-env {:project project :selected :find-patient})
+              :title "Find patient"
+              :content (rum/render-static-markup
+                         [:div
+                          (ui/active-panel {:title    "Search by patient identifier"
+                                            :subtitle "For pseudonymous projects, this functionality is only available to system administrators"
+                                            :content  [:form {:method "post" :action (route/url-for :project/do-find-patient {:params {:project-id project-id}})}
+                                                       [:input {:type "hidden" :name "__anti-forgery-token" :value (csrf/existing-token request)}]
+                                                       [:div.space-y-2
+                                                        (ui/ui-textfield {:id "patient-identifier" :placeholder "Enter patient identifier"})
+                                                        (ui/ui-submit-button {:label "Search »"})]]})])
+              :patient {:name         "Mr SMITH, John"
+                        :date-birth   (java.time.LocalDate/now)
+                        :age          41
+                        :deceased     true
+                        :date-death   (java.time.LocalDate/of 1990 1 1)
+                        :pseudonymous true
+                        :address      "1 Station Rd, Heath, Cardiff CF14 4XW"})))))))
+
+
+(comment
+  (rum/render-static-markup (ui/active-panel {:title "hi there" :class "wibble woobble"})))
+(defn register-patient
+  [request])
+
+(defn today-wizard [request])
+
+(defn patients [request])
+
 (defn user->team-item [{:t_user/keys [id username photo_fk roles] :as user}]
   (let [user' (rsdb/user->display-names user)]
     {:title     (:t_user/full_name user')
-     :badges    (into #{} (map (comp str/upper-case name :t_project_user/role)) roles)
+     :url       (route/url-for :user/profile {:params {:user-id id}})
+     :badges    (into #{} (comp
+                            (filter :t_project_user/active?)
+                            (map (comp str/upper-case name :t_project_user/role))) roles)
      :subtitle  (rsdb/user->job-title user)
-     :image-url (when photo_fk (route/url-for :user/photo {:params {:system "patientcare.app" :value username}}))}))
+     :image-url (when photo_fk (route/url-for :user/photo {:params {:user-id id}}))}))
 
 (defn team
   [request]
@@ -53,20 +117,21 @@
           target (get-in request [:headers "hx-target"])
           filter (str/lower-case (get-in request [:params :user-filter] "active"))
           project (rsdb/project-by-id rsdb project-id)
-          users (rsdb/project->users rsdb project-id {:active (case filter "active" true "inactive" false "all" nil true), :group-by :user})]
-      (clojure.pprint/pprint (get-in request [:params]))
+          users (->> (rsdb/project->users rsdb project-id {:active (case filter "active" true "inactive" false "all" nil true), :group-by :user})
+                     (sort-by (juxt :t_user/last_name :t_user/first_names))
+                     (map user->team-item))]
       (case target
         ;; if we are only updating team list, just render that fragment
         "team-list"
         (html/ok
-          (selmer/render-file "project/team-list.html" {:team {:items (map user->team-item users)}}))
+          (selmer/render-file "project/team-list.html" {:team {:items users}}))
         ;; otherwise, render whole page...
         (html/ok
           (selmer/render-file
-            "project/team.html"
+            "project/team-page.html"
             (assoc (user/session-env request)
               :menu (project-menu-env {:project project :selected :team})
-              :team {:items (map user->team-item users)})))))))
+              :team {:items users})))))))
 
 (defn ^:private project->display-type
   [{:t_project/keys [type pseudonymous]}]
@@ -94,7 +159,7 @@
       (log/debug :project/home {:project-id project-id :type (:t_project/type project)})
       (html/ok
         (selmer/render-file
-          "project/home.html"
+          "project/home-page.html"
           (assoc (user/session-env request)
             :menu (project-menu-env {:project project :selected :home})
             :project {:title       title

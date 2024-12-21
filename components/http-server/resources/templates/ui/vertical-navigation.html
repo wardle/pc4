@@ -1,9 +1,14 @@
 <nav aria-label="sidebar">
-    <div class="space-y-1">
+    <div class="space-y-1 border border-gray-100 bg-white shadow">
+        {% if menu.title %}
+        <div class="text-center sm:text-left p-2 mb-4 w-full border border-gray-100 italic text-sm bg-gray-50 shadow rounded-md">
+            {{menu.title}}
+        </div>
+        {% endif %}
         {% for item in menu.items %}
         {% if item.id %}
         {% ifequal item.id menu.selected %}
-        <a class="bg-gray-300 text-gray-900 group flex items-center rounded-md px-3 py-2 text-sm font-medium" aria-current "page">
+        <a class="bg-gray-300 text-gray-900 group flex items-center rounded-md px-3 py-2 text-sm font-medium" aria-current="page">
             <span class="pr-2"> {{ item.icon }} {{item.text }} {{ item.content|safe }}</span>
         </a>
         {% else %}
@@ -16,15 +21,21 @@
         {% endfor %}
     </div>
     {% if menu.submenu %}
-    <div class="mt-8">
+    <div class="mt-8 p-2">
         <h3 class="px-3 text-sm font-medium text-gray-500">{{ menu.submenu.title }}</h3>
-        <div class="mt-1 space-y-1">
+        <div class="mt-1 p-2 space-y-2">
             {% for item in menu.submenu.items %}
             {% if item.text %}
-            <a class="group flex items-center rounded-md px-3 my-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-               href="{{ item.url }}">
-                {{item.text}}
-            </a>
+                {% if item.url %}
+                <a class="group flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600"
+                    href="{{ item.url }}">
+                    {{item.text}}
+                </a>
+                {% else %}
+                <span class="group flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 opacity-50">
+                {{ item.text }}
+                </span>
+                {% endif %}
             {% endif %}
             {% if item.content %}
             {{ item.content|safe}}

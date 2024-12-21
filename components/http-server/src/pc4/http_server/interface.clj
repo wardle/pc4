@@ -9,7 +9,9 @@
     [integrant.core :as ig]
     [pc4.http-server.controllers.home :as home]
     [pc4.http-server.controllers.login :as login]
+    [pc4.http-server.controllers.patient :as patient]
     [pc4.http-server.controllers.project :as project]
+    [pc4.http-server.controllers.snomed :as snomed]
     [pc4.http-server.controllers.user :as user]
     [pc4.http-server.html :as html]
     [pc4.log.interface :as log]
@@ -22,20 +24,40 @@
 
 (def routes
   #{["/" :get [login/authenticated home/home-page] :route-name :home]
-    ["/login" :get login/view-login]
-    ["/login" :post login/perform-login]
-    ["/logout" :post login/logout]
-    ["/user/:system/:value/photo" :get [login/authenticated user/get-user-photo]]
+    ["/login" :get login/login :route-name :user/login]
+    ["/login" :post login/do-login :route-name :user/login!]
+    ["/logout" :post login/logout :route-name :user/logout!]
+    ["/user/:user-id/photo" :get user/user-photo :route-name :user/photo]
+    ["/user/:user-id/profile" :get [login/authenticated user/profile] :route-name :user/profile]
+    ["/user/:user-id/messages" :get [login/authenticated user/messages] :route-name :user/messages]
+    ["/user/:user-id/send-message" :get [login/authenticated user/send-message] :route-name :user/send-message]
+    ["/user/:user-id/send-message" :post [login/authenticated user/send-message] :route-name :user/send-message!]
+    ["/user/:user-id/downloads" :get [login/authenticated user/downloads] :route-name :user/downloads]
     ["/project/:project-id/home" :get [login/authenticated project/home] :route-name :project/home]
-    ["/project/:project-id/team" :get [login/authenticated project/team] :route-name :project/team]})
-
-(defn rsdb
-  [env]
-  (get-in env [:request :env :rsdb]))
-
-(defn hermes
-  [env]
-  (get-in env [:request :env :hermes]))
+    ["/project/:project-id/team" :get [login/authenticated project/team] :route-name :project/team]
+    ["/project/:project-id/find-patient" :get [login/authenticated project/find-patient] :route-name :project/find-patient]
+    ["/project/:project-id/find-patient" :post [login/authenticated project/find-patient] :route-name :project/do-find-patient]
+    ["/project/:project-id/today" :get [login/authenticated project/today-wizard] :route-name :project/today]
+    ["/project/:project-id/register-patient" :get [login/authenticated project/register-patient] :route-name :project/register-patient]
+    ["/project/:project-id/patients" :get [login/authenticated project/patients] :route-name :project/patients]
+    ["/patient/:patient-identifier/home" :get [login/authenticated patient/home] :route-name :patient/home]
+    ["/patient/:patient-identifier/encounters" :get [login/authenticated patient/encounters] :route-name :patient/encounters]
+    ["/patient/:patient-identifier/nhs" :get [login/authenticated patient/nhs] :route-name :patient/nhs]
+    ["/patient/:patient-identifier/projects" :get [login/authenticated patient/projects] :route-name :patient/projects]
+    ["/patient/:patient-identifier/admissions" :get [login/authenticated patient/admissions] :route-name :patient/admissions]
+    ["/patient/:patient-identifier/register" :get [login/authenticated patient/register] :route-name :patient/register]
+    ["/patient/:patient-identifier/diagnoses" :get [login/authenticated patient/diagnoses] :route-name :patient/diagnoses]
+    ["/patient/:patient-identifier/medication" :get [login/authenticated patient/medication] :route-name :patient/medication]
+    ["/patient/:patient-identifier/documents" :get [login/authenticated patient/documents] :route-name :patient/documents]
+    ["/patient/:patient-identifier/results" :get [login/authenticated patient/results] :route-name :patient/results]
+    ["/patient/:patient-identifier/procedures" :get [login/authenticated patient/procedures] :route-name :patient/procedures]
+    ["/patient/:patient-identifier/alerts" :get [login/authenticated patient/alerts] :route-name :patient/alerts]
+    ["/patient/:patient-identifier/family" :get [login/authenticated patient/family] :route-name :patient/family]
+    ["/patient/:patient-identifier/neuroinflammatory" :get [login/authenticated patient/neuroinflammatory] :route-name :patient/neuroinflammatory]
+    ["/patient/:patient-identifier/motorneurone" :get [login/authenticated patient/motorneurone] :route-name :patient/motorneurone]
+    ["/patient/:patient-identifier/epilepsy" :get [login/authenticated patient/epilepsy] :route-name :patient/epilepsy]
+    ["/ui/snomed/autocomplete" :get [login/authenticated snomed/autocomplete] :route-name :snomed/autocomplete]
+    ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]})
 
 (defn env-interceptor
   "Add an interceptor to the service map that will inject the given env into the request."
@@ -47,7 +69,7 @@
 (defn csrf-error-handler
   [ctx]
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
-  (assoc ctx :response {:status 303
+  (assoc ctx :response {:status  303
                         :headers {"Location" "/"}}))
 
 (defn start

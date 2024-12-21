@@ -541,7 +541,8 @@
                                             :where  [:= :username username]
                                             :set    {:must_change_password true}})))
 
-(defn fetch-user-photo [conn username]
+(defn ^:deprecated fetch-user-photo
+  [conn username]
   (jdbc/execute-one!
    conn
    (sql/format
@@ -551,6 +552,19 @@
               [:= :erattachment/attachmentdataid :erattachmentdata/id]
               [:= :erattachment/id :t_user/photo_fk]
               [:= :t_user/username username]]})))
+
+(defn user-id->photo
+  [conn user-id]
+  (jdbc/execute-one!
+    conn
+    (sql/format
+      {:select [:username :data :originalfilename :mimetype :size :creationdate]
+       :from   [:erattachmentdata :erattachment :t_user]
+       :where  [:and
+                [:= :erattachment/attachmentdataid :erattachmentdata/id]
+                [:= :erattachment/id :t_user/photo_fk]
+                [:= :t_user/id user-id]]})))
+
 
 (defn has-photo? [conn username]
   (jdbc.plan/select-one! conn :photo_fk (sql/format {:select :photo_fk :from :t_user

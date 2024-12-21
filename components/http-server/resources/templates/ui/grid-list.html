@@ -4,7 +4,13 @@
         <div class="flex w-full items-center justify-between space-x-6 p-6">
             <div class="flex-1 truncate">
                 <div class="flex items-center space-x-3">
-                    <h3 class="truncate text-sm font-medium text-gray-900">{{ item.title }}</h3>
+                    <h3 class="truncate text-sm font-medium text-gray-900">
+                        {% if item.url %}
+                        <a class="pointer text-blue-600 hover:underline " href="{{ item.url }}">{{ item.title }}</a>
+                        {% else %}
+                        {{ item.title }}
+                        {% endif %}
+                    </h3>
                 </div>
                 <p class="mt-1 truncate text-sm text-gray-500">{{ item.subtitle }}</p>
                 {% if item.badges|not-empty %}

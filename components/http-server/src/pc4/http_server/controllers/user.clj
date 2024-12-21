@@ -12,28 +12,21 @@
   (when dt
     (.format DateTimeFormatter/RFC_1123_DATE_TIME (.atOffset dt ZoneOffset/UTC))))
 
-(def get-user-photo
+(defn user-photo
   "Return a user photograph.
   This endpoint is designed to flexibly handle lookup of a user photograph.
   TODO: fallback to active directory photograph.
   TODO: better handling of caching - including responding to a check for whether can use cached value"
-  {:name :user/photo
-   :enter
-   (fn [ctx]
-     (let [rsdb (get-in ctx [:request :env :rsdb])
-           system (get-in ctx [:request :path-params :system])
-           value (get-in ctx [:request :path-params :value])]
-       (log/debug "user photo request" {:system system :value value})
-       (if (or (= "patientcare.app" system) (= "cymru.nhs.uk" system))
-         (if-let [photo (rsdb/fetch-user-photo rsdb value)]
-           (assoc ctx :response {:status  200
-                                 :headers {"Content-Type" (:erattachment/mimetype photo)
-                                           "Cache-Control" "public, max-age=3600"
-                                           "Last-Modified" (format-rfc1123 (:erattachment/creationdate photo))}
-                                 :body    (:erattachmentdata/data photo)})
-           ctx)
-         ctx)))})
-
+  [request]
+  (let [rsdb (get-in request [:env :rsdb])
+        user-id (some-> (get-in request [:path-params :user-id]) parse-long)]
+    (when user-id
+      (when-let [photo (rsdb/user-id->photo rsdb user-id)]
+        {:status  200
+         :headers {"Content-Type"  (:erattachment/mimetype photo)
+                   "Cache-Control" "public, max-age=3600"
+                   "Last-Modified" (format-rfc1123 (:erattachment/creationdate photo))}
+         :body    (:erattachmentdata/data photo)}))))
 
 (defn session-env
   "Return template environment data for the current session."
@@ -47,6 +40,18 @@
                               {:title "My profile"
                                :href  "/"}
                               {:title "Sign out"
-                               :post  (route/url-for :logout)}]
+                               :post  (route/url-for :user/logout!)}]
                   :photo-url (route/url-for :user/photo
                                             {:params {:system "patientcare.app" :value (:t_user/username authenticated-user)}})}}))
+
+
+(defn profile [request])
+
+(defn messages [request])
+
+(defn send-message [request])
+
+(defn downloads
+  [request])
+
+(defn search [request])
