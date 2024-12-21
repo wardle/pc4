@@ -83,7 +83,12 @@
   We derive the 'date of entry in the clinic' as the first recorded encounter.
   There are several possible alternatives which could be used instead."
   [{:t_patient/keys [encounters]}]
-  {:org.msbase.medicalHistory/entryDate (some->> encounters first :t_encounter/date_time (.format DateTimeFormatter/ISO_LOCAL_DATE))})
+  {:org.msbase.medicalHistory/entryDate
+   (some->> encounters
+            (sort-by :t_encounter/date_time)
+            first
+            :t_encounter/date_time
+            (.format DateTimeFormatter/ISO_LOCAL_DATE))})
 
 (pco/defresolver ms-event-symptoms
   [{:t_ms_event/keys [site_arm_motor site_ataxia site_bulbar site_cognitive
