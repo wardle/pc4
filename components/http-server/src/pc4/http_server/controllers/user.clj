@@ -1,5 +1,7 @@
 (ns pc4.http-server.controllers.user
   (:require
+    [io.pedestal.http.csrf :as csrf]
+    [io.pedestal.http.route :as route]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDateTime ZoneOffset)
@@ -31,3 +33,20 @@
                                  :body    (:erattachmentdata/data photo)})
            ctx)
          ctx)))})
+
+
+(defn session-env
+  "Return template environment data for the current session."
+  [request]
+  (let [authenticated-user (get-in request [:session :authenticated-user])]
+    {:csrf-token (csrf/existing-token request)
+     :user       {:fullname  (:t_user/full_name authenticated-user)
+                  :initials  (:t_user/initials authenticated-user)
+                  :menu      [{:title "Change password"
+                               :href  "/"}
+                              {:title "My profile"
+                               :href  "/"}
+                              {:title "Sign out"
+                               :post  (route/url-for :logout)}]
+                  :photo-url (route/url-for :user/photo
+                                            {:params {:system "patientcare.app" :value (:t_user/username authenticated-user)}})}}))

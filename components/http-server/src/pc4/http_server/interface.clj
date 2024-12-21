@@ -26,7 +26,8 @@
     ["/login" :post login/perform-login]
     ["/logout" :post login/logout]
     ["/user/:system/:value/photo" :get [login/authenticated user/get-user-photo]]
-    ["/project/:project-id" :get [login/authenticated project/home] :route-name :project/home]})
+    ["/project/:project-id/home" :get [login/authenticated project/home] :route-name :project/home]
+    ["/project/:project-id/team" :get [login/authenticated project/team] :route-name :project/team]})
 
 (defn rsdb
   [env]
@@ -46,7 +47,7 @@
 (defn csrf-error-handler
   [ctx]
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
-  (assoc ctx :response {:status 301
+  (assoc ctx :response {:status 303
                         :headers {"Location" "/"}}))
 
 (defn start

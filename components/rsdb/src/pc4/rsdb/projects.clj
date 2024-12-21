@@ -62,7 +62,7 @@
   [conn project-id]
   (db/execute! conn (sql/format
                      {:select    [:t_user/id :role :date_from :date_to :title
-                                  :first_names :last_name :email :username
+                                  :first_names :last_name :email :username :photo_fk
                                   :t_job_title/name :custom_job_title]
                       :from      [:t_project_user]
                       :left-join [:t_user [:= :user_fk :t_user/id]

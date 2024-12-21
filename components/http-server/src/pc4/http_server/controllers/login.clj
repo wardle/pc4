@@ -88,7 +88,7 @@
                                     :hidden (cond-> {:__anti-forgery-token (csrf/existing-token request)}
                                               redirect-url (assoc :redirect-url redirect-url))})))
          (assoc ctx :response ;; correct credentials -> login and redirect
-                    {:status  301
+                    {:status  303
                      :headers {"Location" redirect-url} ;; take care to preserve existing session
                      :session (assoc session :authenticated-user user)}))))})
 
@@ -102,7 +102,7 @@
          (assoc ctx :authorization-manager (rsdb/user->authorization-manager user))
          (let [query-params (when (not= "/" uri) {"redirect-url" uri})]
            (log/info "no authenticated user for uri:" uri)
-           (assoc ctx :response {:status  301
+           (assoc ctx :response {:status  303
                                  :headers {"Location" (route/url-for :login :query-params query-params)}})))))
    :leave       ;; ensure response is not cached 
    (fn [ctx]
