@@ -508,11 +508,11 @@
    :org.msbase.csf/examDate    (format-iso-date date)
    :org.msbase.csf/csf         nil
    :org.msbase.csf/olgBand     (case ocb "POSITIVE" "det"
-                                     "PAIRED" "det"
-                                     "NEGATIVE" "abs" nil)
+                                         "PAIRED" "det"
+                                         "NEGATIVE" "abs" nil)
    :org.msbase.csf/nbOlig      nil
    :org.msbase.csf/matchOCB    (case ocb "POSITIVE" "no"
-                                     "PAIRED" "yes" nil)})
+                                         "PAIRED" "yes" nil)})
 
 (def all-resolvers
   [app-source
