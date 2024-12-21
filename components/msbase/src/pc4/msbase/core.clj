@@ -462,9 +462,11 @@
     spine-type  :t_result_mri_spine/type :as result}]
   {::pco/input [:t_result/id :t_result/date :t_result_type/result_entity_name
                 (pco/? :t_result_mri_brain/with_gadolinium)
+                (pco/? :t_result_mri_brain/report)
                 (pco/? :t_result_mri_brain/total_gad_enhancing_lesions)
                 (pco/? :t_result_mri_brain/total_t2_hyperintense)
                 (pco/? :t_result_mri_brain/calc_change_t2)
+                (pco/? :t_result_mri_spine/report)
                 (pco/? :t_result_mri_spine/type)]}
   {:org.msbase.mri/localId     (str (get entity-name->id entity-name "com.eldrix.pc4.result") "/" id)
    :org.msbase.mri/currDisease nil
@@ -487,7 +489,9 @@
    :org.msbase.mri/t2Status    nil
    :org.msbase.mri/nbT2Les     (parse-nb-les (:t_result_mri_brain/total_t2_hyperintense result))
    :org.msbase.mri/nbNewEnlarg (:t_result_mri_brain/calc_change_t2 result)
-   :org.msbase.mri/newEnlarg   (format-boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))})
+   :org.msbase.mri/newEnlarg   (format-boolean (some-> (:t_result_mri_brain/calc_change_t2 result) pos-int?))
+   :org.msbase.mri/notes       (or (:t_result_mri_brain/report result)
+                                   (:t_result_mri_spine/report result))})
 
 (pco/defresolver cerebrospinal-fluid-results
   [{results :t_patient/results}]
@@ -615,6 +619,7 @@
      :org.msbase.mri/currDisease
      :org.msbase.mri/examDate
      :org.msbase.mri/cnsRegion
+     :org.msbase.mri/notes
      :org.msbase.mri/isT1
      :org.msbase.mri/t1Status
      :org.msbase.mri/nbT1Les
