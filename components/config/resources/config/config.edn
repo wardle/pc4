@@ -155,5 +155,6 @@
  {:port #long #or [#env PORT 8080]
   :host "0.0.0.0"
   :session-key #ref [:secrets :pc4 :session-key]
-  :env {:rsdb #ig/ref :pc4.rsdb.interface/svc
-        :hermes #ig/ref :pc4.snomedct.interface/svc}}}
+  :env {:rsdb   #ig/ref :pc4.rsdb.interface/svc
+        :hermes #ig/ref :pc4.snomedct.interface/svc
+        :ods    #ig/ref :pc4.ods.interface/svc}}}
