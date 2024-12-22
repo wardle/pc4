@@ -35,6 +35,7 @@
     {:csrf-token (csrf/existing-token request)
      :user       {:fullname  (:t_user/full_name authenticated-user)
                   :initials  (:t_user/initials authenticated-user)
+                  :project   (get-in request [:session :project :title])
                   :menu      [{:title "Change password"
                                :href  "/"}
                               {:title "My profile"

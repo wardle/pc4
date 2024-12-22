@@ -142,6 +142,34 @@
        (when pseudonymous
          " (pseudonymous)")))
 
+(def update-session
+  "An interceptor that ensures that our sensibility of 'current project' exists
+  in the session. If used in a route that has no project-id in the path, the
+  'current project' value will be removed from the session."
+  {:enter
+   (fn [ctx]
+     (let [rsdb (get-in ctx [:request :env :rsdb])
+           current-project-id (get-in ctx [:request :session :project :id])
+           path-project-id (some-> (get-in ctx [:request :path-params :project-id]) parse-long)]
+       (if (and (some? path-project-id) (= current-project-id path-project-id))
+         ctx                                                ;; avoid repeated fetches if already current
+         (if path-project-id
+           ;; we have a current project -> so add into session in the request
+           (let [{:t_project/keys [id title]} (rsdb/project-by-id rsdb path-project-id)]
+             (-> ctx
+                 (assoc :updated-current-project? true)       ;; signal to our 'leave' phase to update session
+                 (assoc-in [:request :session :project] {:id id, :title title})))
+           ;; we have no current project -> so remove from the session in the request
+           (-> ctx
+               (assoc ::updated-current-project? true)
+               (update-in [:request :session] dissoc :project))))))
+   :leave
+   (fn [ctx]
+     (if (::updated-current-project? ctx)
+       (let [session (get-in ctx [:request :session])]
+         (assoc-in ctx [:response :session] session))
+       ctx))})
+
 (defn home
   [request]
   (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
