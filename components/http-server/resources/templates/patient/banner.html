@@ -37,7 +37,7 @@
     {% endif %}
     <div class="grid grid-cols-2 lg:grid-cols-5 pt-1">
         {% if patient.name %}
-        {% if patient.name|length > 20 %}
+        {% if patient.name|length > 40 %}
         <div class="font-bold text-sm min-w-min">{{ patient.name }}</div>
         {% else %}
         <div class="font-bold text-lg min-w-min">{{ patient.name }}</div>
