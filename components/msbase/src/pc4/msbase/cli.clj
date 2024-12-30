@@ -7,8 +7,7 @@
    [pc4.config.interface :as config]
    [pc4.lemtrada.interface :as lemtrada]
    [pc4.msbase.core :as msbase]
-   [pc4.rsdb.interface :as rsdb]
-   [pc4.rsdb.users]))
+   [pc4.rsdb.interface :as rsdb] ))
 
 (s/def ::profile #{:cvx :dev :pc4-dev})
 (s/def ::out some?)
@@ -62,7 +61,7 @@
         ;; like this
         pathom-env   {:session/authenticated-user
                       (assoc (rsdb/user-by-username rsdb "system")
-                             :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
+                             :t_user/active_roles (rsdb/active-roles-by-project-id rsdb "system"))
                       :session/authorization-manager (rsdb/username->authorization-manager rsdb "system")}
         pathom       (partial (:pc4.graph.interface/boundary-interface system) pathom-env)]
     (println "exporting" (count pids) "patient records")

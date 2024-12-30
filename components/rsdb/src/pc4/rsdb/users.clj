@@ -594,17 +594,35 @@
   ([conn username ^LocalDateTime date]
    (jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
 
+(defn user->display-names
+  "Add display names (`:t_user/full_name`, `:t_user/initials`) to the user when
+  possible."
+  [{:t_user/keys [custom_initials title last_name first_names] :as user}]
+  (when user
+    (cond-> user
+      (or last_name first_names)
+      (assoc :t_user/full_name (str/join " " (remove str/blank? [title first_names last_name])))
+      (not (str/blank? custom_initials))
+      (assoc :t_user/initials custom_initials)
+      (and (str/blank? custom_initials) (not (or (str/blank? first_names) (str/blank? last_name))))
+      (assoc :t_user/initials (str (apply str (map first (str/split first_names #"\s"))) (first last_name))))))
+
 (defn perform-login!                                        ;; TODO: use single SQL to fetch user data and active roles
   "Returns a user with the given username iff the password is correct, including
   a sequence of active roles under key :t_user/active_roles."
-  [conn wales-nadex username password]
-  (when-let [user (fetch-user conn username {:with-credentials true})]
-    (when (authenticate wales-nadex user password)
-      (record-login! conn username)
-      (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical
-                             :t_user/title :t_user/first_names :t_user/last_name
-                             :t_user/custom_initials])
-          (assoc :t_user/active_roles (active-roles-by-project-id conn username))))))
+  ([conn wales-nadex username password]
+   (perform-login! conn wales-nadex username password {}))
+  ([conn wales-nadex username password {:keys [impersonate]}]
+   (when-let [user (fetch-user conn username {:with-credentials true})]
+     (when (or impersonate (authenticate wales-nadex user password))
+       (when-not impersonate (record-login! conn username))
+       (-> (select-keys user [:t_user/id :t_user/username :t_role/is_system :t_job_title/is_clinical
+                              :t_user/title :t_user/first_names :t_user/last_name
+                              :t_user/custom_initials])
+           (assoc :t_user/active_roles (active-roles-by-project-id conn username))
+           (user->display-names))))))
+
+
 
 (defn is-nhs-wales-email? [email]
   (str/ends-with? (str/lower-case email) "wales.nhs.uk"))

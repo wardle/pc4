@@ -165,17 +165,8 @@
 (defn user-by-id [{:keys [conn]} user-id]
   (users/fetch-user-by-id conn user-id))
 
-(defn user->display-names
-  "Add display names (`:t_user/full_name`, `:t_user/initials`) to the user when
-  possible."
-  [{:t_user/keys [custom_initials title last_name first_names] :as user}]
-  (cond-> user
-    (or last_name first_names)
-    (assoc :t_user/full_name (str/join " " (remove str/blank? [title first_names last_name])))
-    (not (str/blank? custom_initials))
-    (assoc :t_user/initials custom_initials)
-    (and (str/blank? custom_initials) (not (or (str/blank? first_names) (str/blank? last_name))))
-    (assoc :t_user/initials (str (apply str (map first (str/split first_names #"\s"))) (first last_name)))))
+(defn user->display-names [user]
+  (users/user->display-names user))
 
 (defn ^:deprecated fetch-user-photo [{:keys [conn]} username]
   (users/fetch-user-photo conn username))
@@ -190,14 +181,19 @@
   (users/save-password conn user password))
 
 (defn perform-login!
-  [{:keys [conn wales-nadex]} username password]
-  (users/perform-login! conn wales-nadex username password))
+  ([{:keys [conn wales-nadex]} username password]
+   (users/perform-login! conn wales-nadex username password))
+  ([{:keys [conn wales-nadex]} username password opts]
+   (users/perform-login! conn wales-nadex username password opts)))
 
 (defn user->roles
   ([{:keys [conn]} username]
    (users/roles-for-user conn username))
   ([{:keys [conn]} username opts]
    (users/roles-for-user conn username opts)))
+
+(defn user->active-roles-by-project [{:keys [conn]} username]
+  (users/active-roles-by-project-id conn username))
 
 (defn username->authorization-manager
   "Create an authorization manager for the given user."
@@ -347,6 +343,18 @@
   [{:keys [conn]} ms-event]
   (patients/patient-identifier-for-ms-event conn ms-event)) ;; TODO: remove!
 
+(defn suggested-registrations
+  "Given a user, and a patient, return a sequence of projects that could be
+  suitable registrations. This could, in the future, use diagnoses and problems
+  as a potential way to configure the choice."
+  [rsdb {:t_user/keys [username]} {:t_patient/keys [patient_identifier]}]
+  (let [roles (user->roles rsdb username)
+        project-ids (patient->active-project-identifiers rsdb patient_identifier)]
+    (->> (projects-with-permission roles :PATIENT_REGISTER)
+         (filter :t_project/active?)                        ;; only return currently active projects
+         (remove #(project-ids (:t_project/id %)))          ;; remove any projects to which patient already registered
+         (map #(select-keys % [:t_project/id :t_project/title])))))  ;; only return data relating to projects
+
 (defn register-patient!
   [{:keys [conn]} project-id user-id patient]
   (jdbc/with-transaction [txn conn {:isolation :serializable}]
@@ -485,6 +493,7 @@
   (projects/project-with-name conn project-name))
 
 (def project->active? projects/active?)
+
 (def episode-status projects/episode-status)
 
 (defn projects->administrator-users
