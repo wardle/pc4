@@ -8,9 +8,10 @@
    [selmer.parser :as selmer]
    [pc4.nhs-number.interface :as nnn])
   (:import
-   (java.io ByteArrayOutputStream)
-   (java.util Base64)
-   (org.xhtmlrenderer.pdf ITextRenderer)))
+    (java.io ByteArrayOutputStream)
+    (java.time LocalDate LocalDateTime)
+    (java.util Base64)
+    (org.xhtmlrenderer.pdf ITextRenderer)))
 
 (sfilters/add-filter! :format-nhs-number nnn/format-nnn)
 
@@ -29,11 +30,11 @@
   (selmer/render-file "encounter-report.html" ctx))
 
 (defn gen-local-date []
-  (gen/fmap (fn [days] (.minusDays (java.time.LocalDate/now) days))
+  (gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
             (s/gen (s/int-in 1 (* 365 10)))))
 
 (defn gen-local-date-time []
-  (gen/fmap (fn [seconds] (.minusSeconds (java.time.LocalDateTime/now) (long seconds)))
+  (gen/fmap (fn [seconds] (.minusSeconds (LocalDateTime/now) (long seconds)))
             (s/gen (s/int-in 1 (* 365 20 24 60 60)))))
 
 (defn gen-crn []
@@ -41,10 +42,10 @@
             (gen/tuple (gen/char-alpha) (gen/choose 100000 999999))))
 
 (s/def ::local-date
-  (s/with-gen #(instance? java.time.LocalDate %) #(gen-local-date)))
+  (s/with-gen #(instance? LocalDate %) #(gen-local-date)))
 
 (s/def ::local-date-time
-  (s/with-gen #(instance? java.time.LocalDateTime %) #(gen-local-date-time)))
+  (s/with-gen #(instance? LocalDateTime %) #(gen-local-date-time)))
 
 (defn gen-human-name-prefix []
   (gen/elements ["Mr" "Mrs" "Dr" nil "Professor" "Prof"]))
@@ -122,7 +123,7 @@
 
 (defn ^:private file->bytes [in]
   (with-open [xin (io/input-stream in)
-              xout (java.io.ByteArrayOutputStream.)]
+              xout (ByteArrayOutputStream.)]
     (io/copy xin xout)
     (.toByteArray xout)))
 
@@ -146,12 +147,12 @@
   (def ctx {:title "Hi there"
             ;:test-image-url (to-data-url (io/input-stream "http://images.metmuseum.org/CRDImages/ma/web-large/DP241865.jpg") "image/jpg")
             :patient {:name "Mr John Smith"
-                      :date-birth (java.time.LocalDate/of 1960 1 1)
+                      :date-birth (LocalDate/of 1960 1 1)
                       :crn "A123456"
                       :nhs-number "1111111111"
                       :patient-identifier 14032}
             :report {:id 65576
-                     :date-time (java.time.LocalDateTime/of 2023 9 1 14 15)
+                     :date-time (LocalDateTime/of 2023 9 1 14 15)
                      :signed {:sign-off "Yours,"
                               :user {:signature-url (make-data-url "https://www.jsign.com/wp-content/uploads/2022/06/graphic-signature-style.png" "image/png")
                                      :name "Dr Mark Wardle"}}
@@ -162,7 +163,7 @@
                                     "South County"
                                     "CF14 4XW"]}}
             :encounter {:encounter-template {:title "NHS Clinic"}
-                        :date-time (java.time.LocalDateTime/now)
+                        :date-time (LocalDateTime/now)
                         :users [{:name "Ms Dawn French" :job-title "Physiotherapist"}
                                 {:name "Joe Bloggs"
                                  :job-title "Speech and Language Therapist"}]}})
@@ -172,5 +173,5 @@
   *e
   (with-open [out (io/output-stream "final.pdf")]
     (io/copy (-> (encounter-report ctx) ;; generate a PDF report
-                 (stamp/stamp-pdf-text {:centre "DRAFT" :footer (str "Printed on " (java.time.LocalDateTime/now))})  ;; add status information
+                 (stamp/stamp-pdf-text {:centre "DRAFT" :footer (str "Printed on " (LocalDateTime/now))})  ;; add status information
                  #_(stamp/stamp-pdf-template "https://www.maths.ed.ac.uk/~dmarsh/files/printer-testcard-colour.pdf")) out)))  ;; add template header/footer
