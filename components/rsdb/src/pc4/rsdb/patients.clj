@@ -3,10 +3,13 @@
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
     [clojure.tools.logging.readable :as log]
+    [com.eldrix.nhsnumber :as nnn]
     [honey.sql :as sql]
+    [honey.sql.helpers :as h]
     [next.jdbc :as jdbc]
     [next.jdbc.plan :as plan]
     [next.jdbc.sql]
+    [pc4.nhs-number.interface :as nhs-number]
     [pc4.rsdb.db :as db]
     [pc4.rsdb.projects :as projects]
     [pc4.rsdb.users :as users]
@@ -81,6 +84,107 @@
                  :from   :t_patient
                  :where  (if patient-pk [:= :id patient-pk]
                                         [:= :patient_identifier patient-identifier])})))
+
+(defn save-patient!
+  [conn {patient-pk :t_patient/id :as patient}]
+  (next.jdbc.sql/update!
+    conn :t_patient
+    (select-keys patient [:t_patient/country_of_birth_concept_fk
+                          :t_patient/date_birth
+                          :t_patient/date_death
+                          :t_patient/ethnic_origin_concept_fk
+                          :t_patient/first_names
+                          :t_patient/last_name
+                          :t_patient/marital_status_fk
+                          :t_patient/racial_group_concept_fk
+                          :t_patient/title
+                          :t_patient/maiden_name
+                          :t_patient/email
+                          :t_patient/highest_educational_level_concept_fk])
+    {:t_patient/id patient-pk}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Patient search
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ^:private q-token
+  [s]
+  (when-not (str/blank? s)
+    (if-let [id (parse-long s)]
+      [:= :patient_identifier id]
+      (let [s' (str s "%")]
+        [:or
+         [:ilike :first_names (str "%" s "%")]
+         [:ilike :last_name s']
+         [:in :t_patient/id {:select :patient_fk :from :t_patient_hospital
+                             :where  [:ilike :patient_identifier s']}]]))))
+
+(defn ^:private q-tokens
+  [s]
+  (if-let [nhs-number (nhs-number/normalise s :strict)]     ;; handle special case of all input being an NHS number
+    [:= :nhs_number nhs-number]
+    (let [tokens (str/split s #"\s")                        ;; split by whitespace into tokens
+          clauses (remove nil? (mapv q-token tokens))]
+      (when (seq clauses)
+        (into [:and] clauses)))))
+
+(defn ^:private update-patient-query-for-search
+  [query s]
+  (if-let [clauses (q-tokens s)]
+    (h/where query clauses)
+    query))
+
+(defn ^:private update-patient-query-for-project-ids
+  "Add a join and where clauses to limit a patient query to only include
+  patients who are currently registered to the given project-ids. Used in
+  'search for my patients' if you know the user's own project-ids."
+  [query project-ids]
+  (let [now (LocalDate/now)]
+    (-> query
+        (h/left-join :t_episode [:= :t_episode/patient_fk :t_patient/id])
+        (h/where [:in :project_fk project-ids])
+        (h/where [:or [:is :date_discharge nil]
+                  [:> :date_discharge now]])
+        (h/where [:or
+                  [:is :date_registration nil]
+                  [:< :date_registration now]
+                  [:= :date_registration now]]))))
+
+(defn search-query
+  "Returns a query for Google-like search for a patient.
+  Starts by looking to see if the text is an NHS number, but if not, tokenises
+  the input search text and tries to interpret tokens thusly:
+  - as a pc4 patient identifier (numeric digits)
+  - as a CRN
+  - as a combination of names.
+  Search can be limited to patients of the specific project-ids if required."
+  [s & {:keys [select-query project-ids status]}]
+  (-> (or select-query {:select :* :from :t_patient})
+      (update-patient-query-for-search s)
+      (cond->
+        (or (nil? status) (seq status))
+        (h/where [:in :t_patient/status (or status #{"FULL"})])
+        (seq project-ids)
+        (update-patient-query-for-project-ids project-ids))))
+
+(defn search
+  [conn s & {:keys [select-query project-ids status] :as opts}]
+  (jdbc/execute! conn (sql/format (search-query s opts))))
+
+(comment
+  (q-tokens "")
+  (sql/format (search-query " dummy" {:select-query {:select :%count.id :from :t_patient}})
+              {:pretty true :inline true})
+  (sql/format (search-query "donald duck" {:project-ids [5]}) {:pretty true :inline true})
+  (sql/format (search-query "a123456") {:inline true})
+  (sql/format (search-query "111 111 1111" {:select-query {:select :%count.id :from :t_patient}}) {:pretty true :inline true}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn patient-pk->hospitals
   [conn patient-pk]
@@ -538,8 +642,6 @@
                    (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
                    []))))
 
-
-
 (defn medication-by-id
   [conn medication-id]
   (db/execute-one! conn (sql/format {:select [:t_medication/*] :from :t_medication :where [:= :id medication-id]})))
@@ -823,7 +925,7 @@
                            {:return-keys true})
     (next.jdbc.sql/insert! conn :t_ms_event (merge default-ms-event event))))
 
-(s/fdef save-pseudonymous
+(s/fdef save-pseudonymous-patient-lsoa!
   :args (s/cat :txn ::db/repeatable-read-txn
                :patient (s/keys :req [:t_patient/patient_identifier :uk.gov.ons.nhspd/LSOA11])))
 (defn save-pseudonymous-patient-lsoa!
