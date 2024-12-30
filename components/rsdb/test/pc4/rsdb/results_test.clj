@@ -72,7 +72,8 @@
          {:t_result_mri_brain/id                                             5
           :t_result_mri_brain/with_gadolinium                                true
           :t_result_mri_brain/annotation_mri_brain_multiple_sclerosis_new_id 24
-          :t_result_mri_brain/change_t2_hyperintense                         "+2"})))
+          :t_result_mri_brain/change_t2_hyperintense                         "+2"
+          :t_result_mri_brain/has_gad_enhancing_lesions                      nil})))
 
 (deftest save-mri-brain-with-annotations
   (let [conn *conn*
