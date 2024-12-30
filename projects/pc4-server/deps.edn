@@ -2,6 +2,7 @@
 
         ;; components
         poly/chart         {:local/root "../../components/chart"}
+        poly/codelists     {:local/root "../../components/codelists"}
         poly/config        {:local/root "../../components/config"}
         poly/dates         {:local/root "../../components/dates"}
         poly/deprivare     {:local/root "../../components/deprivare"}
@@ -12,6 +13,7 @@
         poly/fulcro-server {:local/root "../../components/fulcro-server"}
         poly/graph         {:local/root "../../components/graph"}
         poly/http-server   {:local/root "../../components/http-server"}
+        poly/lemtrada      {:local/root "../../components/lemtrada"}
         poly/log           {:local/root "../../components/log"}
         poly/msbase        {:local/root "../../components/msbase"}
         poly/nhs-number    {:local/root "../../components/nhs-number"}
