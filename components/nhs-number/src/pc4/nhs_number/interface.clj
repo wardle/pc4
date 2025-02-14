@@ -11,8 +11,11 @@
 (defn format-nnn [s]
   (nnn/format-nnn s))
 
-(defn normalise [s]
-  (nnn/normalise s))
+(defn normalise
+  ([s]
+   (nnn/normalise s))
+  ([s mode]
+   (nnn/normalise s mode)))
 
 (defn gen-nhs-number
   "Return a clojure test.check generator for synthetic NHS numbers."
