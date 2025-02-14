@@ -26,8 +26,8 @@
   (log/info "closing ODS index (clods)")
   (.close clods))
 
-
 (defn valid-service?
+  "Is 'svc' a valid ODS service?"
   [svc]
   (satisfies? clods/ODS svc))
 
@@ -59,6 +59,12 @@
         (when-let [other-org (fetch-fn ods-svc nil other-org-code)]
           (boolean (clods/related? ods-svc other-org org))))
       (constantly false))))
+
+(defn equivalent-and-child-org-ids
+  "Return a set of tuples of roots and extensions for organisations equivalent
+  to, and 'children of' the specified organisation."
+  [ods-svc root extension]
+  (clods/equivalent-and-child-org-ids ods-svc root extension))
 
 (defn graph-resolvers
   "Dynamically return the graph resolvers for 'ods'."

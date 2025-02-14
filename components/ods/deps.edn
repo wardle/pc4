@@ -1,4 +1,4 @@
 {:paths ["src" "resources"]
- :deps {com.eldrix/clods    {:mvn/version "1.1.198"}}
+ :deps {com.eldrix/clods    {:mvn/version "1.2.207"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}
