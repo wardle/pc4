@@ -32,8 +32,7 @@
 
         ;; other external dependencies
         integrant/integrant {:mvn/version "0.10.0"}
-        com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
-                             :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}
+        com.wsscode/pathom3 {:mvn/version "2025.01.16-alpha"}}
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
   "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
