@@ -5,47 +5,47 @@
  :aliases
  {:dev
   {:extra-paths ["development/src"]
-   :extra-deps {;; components:
+   :extra-deps  {;; components:
 
-                poly/chart          {:local/root "components/chart"}
-                poly/codelists      {:local/root "components/codelists"}
-                poly/config         {:local/root "components/config"}
-                poly/dates          {:local/root "components/dates"}
-                poly/deprivare      {:local/root "components/deprivare"}
-                poly/dmd            {:local/root "components/dmd"}
-                poly/emailer        {:local/root "components/emailer"}
-                poly/fhir           {:local/root "components/fhir"}
-                poly/filestorage    {:local/root "components/filestorage"}
-                poly/frontend       {:local/root "components/frontend"}
-                poly/fulcro-server  {:local/root "components/fulcro-server"}
-                poly/graph          {:local/root "components/graph"}
-                poly/http-server    {:local/root "components/http-server"}
-                poly/lemtrada       {:local/root "components/lemtrada"}
-                poly/log            {:local/root "components/log"}
-                poly/msbase         {:local/root "components/msbase"}
-                poly/nhs-number     {:local/root "components/nhs-number"}
-                poly/nhspd          {:local/root "components/nhspd"}
-                poly/ods            {:local/root "components/ods"}
-                poly/ods-weekly     {:local/root "components/ods-weekly"}
-                poly/report         {:local/root "components/report"}
-                poly/rsdb           {:local/root "components/rsdb"}
-                poly/snomedct       {:local/root "components/snomedct"}
-                poly/wales-cav-pms  {:local/root "components/wales-cav-pms"}
-                poly/wales-empi     {:local/root "components/wales-empi"}
-                poly/wales-nadex    {:local/root "components/wales-nadex"}
+                 poly/chart                         {:local/root "components/chart"}
+                 poly/codelists                     {:local/root "components/codelists"}
+                 poly/config                        {:local/root "components/config"}
+                 poly/dates                         {:local/root "components/dates"}
+                 poly/deprivare                     {:local/root "components/deprivare"}
+                 poly/dmd                           {:local/root "components/dmd"}
+                 poly/emailer                       {:local/root "components/emailer"}
+                 poly/fhir                          {:local/root "components/fhir"}
+                 poly/filestorage                   {:local/root "components/filestorage"}
+                 poly/frontend                      {:local/root "components/frontend"}
+                 poly/fulcro-server                 {:local/root "components/fulcro-server"}
+                 poly/graph                         {:local/root "components/graph"}
+                 poly/http-server                   {:local/root "components/http-server"}
+                 poly/lemtrada                      {:local/root "components/lemtrada"}
+                 poly/log                           {:local/root "components/log"}
+                 poly/msbase                        {:local/root "components/msbase"}
+                 poly/nhs-number                    {:local/root "components/nhs-number"}
+                 poly/nhspd                         {:local/root "components/nhspd"}
+                 poly/ods                           {:local/root "components/ods"}
+                 poly/ods-weekly                    {:local/root "components/ods-weekly"}
+                 poly/report                        {:local/root "components/report"}
+                 poly/rsdb                          {:local/root "components/rsdb"}
+                 poly/snomedct                      {:local/root "components/snomedct"}
+                 poly/wales-cav-pms                 {:local/root "components/wales-cav-pms"}
+                 poly/wales-empi                    {:local/root "components/wales-empi"}
+                 poly/wales-nadex                   {:local/root "components/wales-nadex"}
 
-                ;; bases:
-                poly/cli         {:local/root "bases/cli"}
-                poly/server      {:local/root "bases/server"}
+                 ;; bases:
+                 poly/cli                           {:local/root "bases/cli"}
+                 poly/server                        {:local/root "bases/server"}
 
-                ;; external dependencies:
-                org.clojure/clojure {:mvn/version "1.12.0"}
-                integrant/integrant {:mvn/version "0.11.0"}
-                integrant/repl      {:mvn/version "0.3.3"}
-                io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}
-                com.wsscode/pathom3 {:git/url "https://github.com/wilkerlucio/pathom3.git"
-                                     :git/sha "2d9d1cf8ccfeee83566c31e776a5ef105b2a1626"}}
-   :jvm-opts ["-Dio.pedestal.dev-mode=true"]}
+                 ;; external dependencies:
+                 org.clojure/clojure                {:mvn/version "1.12.0"}
+                 integrant/integrant                {:mvn/version "0.11.0"}
+                 integrant/repl                     {:mvn/version "0.3.3"}
+                 io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}
+                 com.wsscode/pathom3                {:mvn/version "2025.01.16-alpha"}
+                 com.wsscode/pathom-viz-connector   {:mvn/version "2022.02.14"}}
+   :jvm-opts    ["-Dio.pedestal.dev-mode=true"]}
 
   :nrepl
   {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.0"}
@@ -81,7 +81,7 @@
                  "components/graph/test"
                  "components/deprivare/test"
                  "bases/server/test"]
-   :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}}}
+   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
   :outdated
   {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1227"}}
@@ -106,5 +106,5 @@
    :main-opts  ["-m" "clj-kondo.main" "--lint" "."]}
 
   :poly
-  {:main-opts ["-m" "polylith.clj.core.poly-cli.core"]
+  {:main-opts  ["-m" "polylith.clj.core.poly-cli.core"]
    :extra-deps {polylith/clj-poly {:mvn/version "0.2.21"}}}}}
