@@ -1584,7 +1584,7 @@
 (defn write-data [{:keys [hermes] :as env} centre]
   (let [patient-ids (fetch-study-patient-identifiers env centre)]
     (when-not (seq patient-ids)
-      (throw (ex-info "no patients found for centre" centre)))
+      (throw (ex-info "no patients found for centre" {:centre centre})))
     (doseq [table export-tables]
       (log/info "writing table:" (:filename table))
       (write-table env table centre patient-ids))
