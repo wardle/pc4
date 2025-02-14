@@ -61,7 +61,7 @@
         ;; like this
         pathom-env   {:session/authenticated-user
                       (assoc (rsdb/user-by-username rsdb "system")
-                             :t_user/active_roles (rsdb/active-roles-by-project-id rsdb "system"))
+                             :t_user/active_roles (rsdb/user->active-roles-by-project rsdb "system"))
                       :session/authorization-manager (rsdb/username->authorization-manager rsdb "system")}
         pathom       (partial (:pc4.graph.interface/boundary-interface system) pathom-env)]
     (println "exporting" (count pids) "patient records")
