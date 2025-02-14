@@ -60,13 +60,13 @@
                 {:t_medication_event/type     :INFUSION_REACTION
                  :t_medication_event/severity :LIFE_THREATENING}]
         med (patients/upsert-medication!
-              *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
-                      :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
-                      :t_medication/as_required           true
-                      :t_medication/date_from             (LocalDate/of 2020 1 1)
-                      :t_medication/date_to               (LocalDate/of 2020 1 1)
-                      :t_medication/reason_for_stopping   :ADVERSE_EVENT
-                      :t_medication/events                events})
+             *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
+                     :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
+                     :t_medication/as_required           true
+                     :t_medication/date_from             (LocalDate/of 2020 1 1)
+                     :t_medication/date_to               (LocalDate/of 2020 1 1)
+                     :t_medication/reason_for_stopping   :ADVERSE_EVENT
+                     :t_medication/events                events})
         meds (patients/fetch-medications-and-events *conn* *patient*)]
     (is (= 2 (count (:t_medication/events (first meds)))))
     (is (= (set (map #(merge {:t_medication_event/severity nil :t_medication_event/event_concept_fk nil} %) events))
@@ -212,8 +212,8 @@
         (is (= (set [duplicate-edss undeleted-edss]) (set completed-forms)))]
 
     #_(clojure.pprint/pprint
-        {:duplicates duplicated-form-types
-         :completed  completed-forms})))
+       {:duplicates duplicated-form-types
+        :completed  completed-forms})))
 
 (deftest test-all-forms
   (let [patient
@@ -255,14 +255,15 @@
         patient-pk (:t_patient/id patient)
         opts {:status #{"PSEUDONYMOUS"}}]
     (patients/save-patient! conn (assoc patient :t_patient/first_names "Donald" :t_patient/last_name "Duck"))
-    (is (= patient-pk (:t_patient/id (first (patients/search conn "donald Duck" opts)))))
-    (is (empty? (patients/search conn "1111111111")))
-    (is (= patient-pk (:t_patient/id (first (patients/search conn (str (:t_patient/patient_identifier patient)) opts)))))
-    (is (= patient-pk (:t_patient/id (first (patients/search conn "9999999999" opts)))))
-    (is (empty? (patients/search conn "duck" (assoc opts :project-ids [2]))))
-    (is (= patient-pk (:t_patient/id (first (patients/search conn "duck" (assoc opts :project-ids [1]))))))
-    (is (= 1 (count (patients/search conn "duck" (assoc opts :project-ids [5] :select-query {:select :%count.* :from :t_patient})))))))
-
+    (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "donald Duck"))))))
+    (is (empty? (patients/search conn {:s "1111111111"})))
+    (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s (str (:t_patient/patient_identifier patient))))))))
+    (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "9999999999"))))))
+    (is (empty? (patients/search conn (assoc opts :s "duck" :project-ids [2]))))
+    (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "duck" :project-ids [1]))))))
+    (is (= 1 (:count (first (patients/search conn (assoc opts :s "duck" :project-ids [1] :query {:select :%count.* :from :t_patient}))))))
+    (is (= 0 (:count (first (patients/search conn (assoc opts :s "duck" :project-ids [5] :query {:select :%count.* :from :t_patient}))))))
+    (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "duck" :address? true))))))))
 
 (comment
   (def encounter-id 1))

@@ -228,6 +228,18 @@
                                  :from   [:t_encounter_template]
                                  :where  [:= :project_fk project-id]})))
 
+;; (into #{} (map :t_patient/patient_identifier)
+;        (jdbc/plan conn (sql/format consented-patients-sql {:params {:consent-form-ids consent-form-ids
+;                                                                     :response         response}})))
+
+(defn project->default-hospital-org-ids
+  "Return a set of hospital orgids representing 'default' hospitals for a
+  project. This will usually inform from where a service might operate from by
+  default."
+  [conn project-id]
+  (into #{} (comp (map :default_hospital_fk) (remove nil?))
+        (jdbc/plan conn ["select distinct(default_hospital_fk) from t_encounter_template where project_fk=?" project-id])))
+
 (defn common-concepts
   "Return a set of common concept ids for the project(s) and its ancestors."
   [conn project-id-or-project-ids]

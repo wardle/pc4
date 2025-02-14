@@ -397,7 +397,7 @@
 (defn administrator-users
   "Returns administrator users for the projects specified."
   [conn project-ids]
-  (log/info "sql" (administrator-users-sql project-ids))
+  (log/debug "sql" (administrator-users-sql project-ids))
   (db/execute! conn (sql/format (administrator-users-sql project-ids))))
 
 (defn random-password

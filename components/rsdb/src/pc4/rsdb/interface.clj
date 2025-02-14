@@ -200,7 +200,6 @@
   [{:keys [conn]} username]
   (users/make-authorization-manager conn username))
 
-
 (defn user->authorization-manager
   [user]
   (users/authorization-manager2 user))
@@ -243,6 +242,11 @@
 ;;
 
 ;; patients
+
+(defn patient-search
+  [{:keys [conn]} params]
+  (patients/search conn params))
+
 (defn fetch-patient
   [{:keys [conn]} patient]
   (patients/fetch-patient conn patient))
@@ -270,6 +274,10 @@
 (defn patient-pk->crn-for-org
   [{:keys [conn ods]} patient-pk org-id]
   (patients/patient-pk->crn-for-org conn patient-pk ods org-id))
+
+(defn make-best-hospital-crn-fn
+  [{:keys [conn ods]} project-id]
+  (patients/best-patient-crn-fn conn ods project-id))
 
 (defn patient->death-certificate [{:keys [conn]} patient]
   (patients/fetch-death-certificate conn patient))
@@ -347,7 +355,9 @@
   "Given a user, and a patient, return a sequence of projects that could be
   suitable registrations. This could, in the future, use diagnoses and problems
   as a potential way to configure the choice."
-  [rsdb {:t_user/keys [username]} {:t_patient/keys [patient_identifier]}]
+  [rsdb {:t_user/keys [username]} {:t_patient/keys [patient_identifier] :as params}]
+  (when (or (nil? username) (nil? patient_identifier))
+    (throw (ex-info "missing username or password" params)))
   (let [roles (user->roles rsdb username)
         project-ids (patient->active-project-identifiers rsdb patient_identifier)]
     (->> (projects-with-permission roles :PATIENT_REGISTER)
@@ -528,6 +538,10 @@
 (defn project->encounter-templates
   [{:keys [conn]} project-id]
   (projects/project->encounter-templates conn project-id))
+
+(defn project->default-hospital-orgs
+  [{:keys [conn]} project-id]
+  (projects/project->default-hospital-org-ids conn project-id))
 
 (defn project->all-parent-ids
   [{:keys [conn]} project-id-or-ids]
