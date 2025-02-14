@@ -1,17 +1,32 @@
-{% extends "page.html" %}
+{% extends "templates/page.html" %}
 
 {% block header %}
-{% include "navbar.html" %}
+{% include "templates/navbar.html" %}
 {% endblock %}
 
 {% block content %}
 <div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4 bg-gray-50">
     <div class="col-span-1 md:mr-2">
-        {% include "ui/vertical-navigation.html" %}
+        {% include "templates/ui/vertical-navigation.html" %}
     </div>
-    <div class="col-span-3">
-        {{ content|safe }}
-        {% comment %} {% include "patient/banner.html" %} {% endcomment %}
+    <div class="col-span-3 space-y-4">
+        {% if find-by-id %}
+            {{ find-by-id|safe }}
+        {% endif %}
+        {% if find-by-pseudonym %}
+            {{ find-by-pseudonym|safe }}
+        {% endif %}
+        {% if find-by-s %}
+            {{ find-by-s|safe }}
+        {% endif %}
+        {% if result %}
+            {% with patient = result %}
+                {% include "templates/patient/banner.html" %}
+            {% endwith %}
+        {% endif %}
+        {% if results %}
+            TODO: multiple search results
+        {% endif %}
     </div>
 </div>
 {% endblock %}

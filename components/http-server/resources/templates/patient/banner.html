@@ -3,17 +3,18 @@
 ## Properties:
 
 - close-url
-- patient.name
-- patient.gender
-- patient.date-birth
-- patient.age
-- patient.deceased
-- patient.date-death
-- patient.pseudonymous
+- banner.name
+- banner.gender
+- banner.date-birth
+- banner.age
+- banner.deceased
+- banner.date-death
+- banner.pseudonymous
 
 {% endcomment %}
 
 <div class="grid grid-cols-1 border-2 shadow-lg p-1 sm:p-4 sm:m-2 border-gray-200 bg-gray-50 relative">
+
     {% if close-url %}
     <div class="absolute top-0.5 sm:-top-2.5 right-0 sm:-right-2.5">
         <button class="rounded bg-white border hover:bg-gray-300 bg-gray-50 p-1"
@@ -24,11 +25,11 @@
         </button>
     </div>
     {% endif %}
-    {% if any patient.deceased patient.date-death %}
+    {% if any banner.deceased banner.date-death %}
     <div class="grid grid-cols-1 pb-2">
         <span class="text-xs text-red-200 bg-red-500 text-center font-semibold inline-block py-1 px-2 uppercase rounded-full ml-1 last:mr-0 mr-1">
-            {% if patient.date-death %}
-            Died: {{patient.date-death|date:"dd-MMM-yyyy" }}
+            {% if banner.date-death %}
+            Died: {{banner.date-death|date:"dd-MMM-yyyy" }}
             {% else %}
             Deceased
             {% endif %}
@@ -36,42 +37,42 @@
     </div>
     {% endif %}
     <div class="grid grid-cols-2 lg:grid-cols-5 pt-1">
-        {% if patient.name %}
-        {% if patient.name|length > 40 %}
-        <div class="font-bold text-sm min-w-min">{{ patient.name }}</div>
+        {% if banner.name %}
+        {% if banner.name|length > 30 %}
+        <div class="font-bold text-sm min-w-min">{{ banner.name }}</div>
         {% else %}
-        <div class="font-bold text-lg min-w-min">{{ patient.name }}</div>
+        <div class="font-bold text-lg min-w-min">{{ banner.name }}</div>
         {% endif %}
         {% endif %}
         {% comment %} Gender for large screens {% endcomment %}
         <div class="hidden lg:block text-right lg:text-center lg:mr-2 min-w-min">
-            {% if patient.gender %}
+            {% if banner.gender %}
             <span>
                 <span class="text-sm font-thin sm:inline">Gender </span>
-                <span class="font-bold">{{ patient.gender }}</span>
+                <span class="font-bold">{{ banner.gender }}</span>
             </span>
             {% endif %}
         </div>
         {% comment %} Date of birth, death and age for large screens {% endcomment %}
         <div class="hidden lg:block text-right lg:text-center lg:mr-2 min-w-min">
-            {% if patient.date-birth %}
+            {% if banner.date-birth %}
             <span class="text-sm font-thin">Born </span>
             <span class="font-bold">
-                {% if patient.pseudonymous %}
-                    {{ patient.date-birth|date:"MMM-yyyy" }}
+                {% if banner.pseudonymous %}
+                    {{ banner.date-birth|date:"MMM-yyyy" }}
                 {% else %}
-                    {{ patient.date-birth|date:"dd-MMM-yyyy"}}
+                    {{ banner.date-birth|date:"dd-MMM-yyyy"}}
                 {% endif %}
             </span>
             {% endif %}
-            {% if patient.age %}
-            {% if not any patient.deceased patient.date-death %}
+            {% if banner.age %}
+            {% if not any banner.deceased banner.date-death %}
             <span class="font-thin">
                 &nbsp;
-                    {% if patient.pseudonymous %}
-                    (~{{ patient.age }})
-                    {% elif patient.age %}
-                    ({{ patient.age }})
+                    {% if banner.pseudonymous %}
+                    (~{{ banner.age }})
+                    {% elif banner.age %}
+                    ({{ banner.age }})
                     {% endif %}
             </span>
             {% endif %}
@@ -79,39 +80,53 @@
         </div>
         {% comment %} Gender, date of birth for small screens {% endcomment %}
         <div class="lg:hidden text-right mr-8 md:mr-0">
-            {{patient.gender}}
-            {% if patient.date-birth %}
+            {{banner.gender}}
+            {% if banner.date-birth %}
             <span class="font-bold">
-                {{ if patient.pseudonymous }}
-                    {{ patient.date-birth:date:"MMM-yyyy" }}
+                {{ if banner.pseudonymous }}
+                    {{ banner.date-birth:date:"MMM-yyyy" }}
                 {{ else }}
-                    {{ patient.date-birth|date:"dd-MMM-yyyy"}}
+                    {{ banner.date-birth|date:"dd-MMM-yyyy"}}
                 {{ endif }}
             </span>
             {% endif %}
         </div>
-        {% if not patient.pseudonymous %}
-        {% if patient.nhs-number %}
+        {% if not banner.pseudonymous %}
+        {% if banner.nhs-number %}
         <div class="lg:text-center lg:ml-2 min-w-min">
             <span class="text-sm font-thin">NHS No </span>
-            <span class="font-bold">{{ patient.nhs-number }}</span>
+            <span class="font-bold">{{ banner.nhs-number }}</span>
         </div>
         {% endif %}
-        {% if patient.crn %}
+        {% if banner.crn %}
         <div class="text-right min-w-min">
             <span class="text-sm font-thin">CRN </span>
-            <span class="font-bold">{{ patient.crn }}</span>
+            <span class="font-bold">{{ banner.crn }}</span>
         </div>
         {% endif %}
         {% endif %}
     </div>
-    <div {% if any patient.deceased patient.date-death %}
+    <div {% if any banner.deceased banner.date-death %}
          class="grid grid-cols-1 bg-red-100"
          {% else %}
          class="grid grid-cols-1 bg-gray-100"
          {% endif %}>
         <div class="font-light text-sm tracking-tighter text-gray-500 truncate">
-            {{ patient.address }}
+            {{ banner.address }}
         </div>
     </div>
+
+    <div class="pt-4">
+        {% if banner.break-glass? %}
+        <div role="alert"
+             class="bg-gray-100 border border-dashed border-gray-400 text-xs rounded italic p-1 text-center">
+            You have temporary access to this patient's record because you have used 'break-glass' functionality.
+            Your access will be removed after logout.
+        </div>
+        {% endif %}
+    </div>
 </div>
+
+
+
+

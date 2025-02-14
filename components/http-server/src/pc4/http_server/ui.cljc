@@ -86,7 +86,7 @@
      [:span.block.sm:inline message]]))
 
 (rum/defc active-panel
-  [{:keys [title subtitle class content]}]
+  [{:keys [title subtitle class ]} & content]
   [:div.bg-white.shadow-lg.sm:rounded-lg.border {:class class}
    [:div.m-4.px-4.py-5:sm:p-6
     [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
@@ -121,3 +121,57 @@
    {:type "submit"
     :class (if disabled ["opacity-50 pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
    label])
+
+(rum/defc ui-select-button                                  ;;; TODO: implement 'disabled'
+  [{:keys [id label disabled hx-get hx-target hx-swap options selected-id selected]}]
+  (let [disabled false]
+    [:div
+     (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
+     [:div.mt-2.grid.grid-cols-1
+      [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+       (cond-> {:name id, :class (if disabled ["bg-gray-300" "text-gray-400"] ["bg-white" "text-gray-800"])}
+         disabled (assoc :disabled "disabled")
+         hx-get (assoc :hx-get hx-get)
+         hx-target (assoc :hx-target hx-target)
+         hx-swap (assoc :hx-swap hx-swap))
+       (for [{:keys [id text] :as option} options]
+         (if (or (and selected-id (= id selected-id)) (and selected (= option selected)))
+           [:option {:value id :selected "selected"} text]
+           [:option {:value id} text]))]
+      [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
+       [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]]))
+
+
+(rum/defc ui-title [{:keys [id title subtitle]}]
+  [:div.sm:flex.sm:items-center.pl-2.pb-4
+   [:div.flex-auto
+    [:h1.text-xl.font-semibold.text-gray-900 title]
+    (when subtitle
+      [:p.mt-2.text-sm.text-gray-700 subtitle])]])
+
+(rum/defc ui-table
+  [& content]
+  [:div.flex.flex-col
+   [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
+    [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8
+     [:div.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
+      [:table.min-w-full.divide-y.divide-gray-200 content]]]]])
+
+(rum/defc ui-table-head [content]
+  [:thead.bg-gray-50 content])
+
+(rum/defc ui-table-heading
+  [opts content]
+  [:th.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider
+   opts content])
+
+(rum/defc ui-table-body [content]
+  [:tbody.bg-white content])
+
+(rum/defc ui-table-row [opts & content]
+  [:tr opts content])
+
+(rum/defc ui-table-cell
+  [opts & content]
+  [:td.px-2.py-3.whitespace-nowrap.text-sm.text-gray-500
+   opts content])

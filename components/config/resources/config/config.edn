@@ -118,7 +118,8 @@
   #clj/var com.eldrix.hermes.graph/all-resolvers
   #clj/var pc4.graph.users/all-resolvers
   #clj/var pc4.graph.patients/all-resolvers
-  #clj/var pc4.msbase.interface/all-resolvers]
+  #clj/var pc4.msbase.interface/all-resolvers
+  #clj/var pc4.http-server.interface/all-resolvers]
 
  ;; pathom graph environment available to all resolvers
  :pc4.graph.interface/env

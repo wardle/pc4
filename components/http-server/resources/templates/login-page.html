@@ -1,0 +1,56 @@
+{% extends "templates/page.html" %}
+
+{% block content %}
+<div class="flex h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 m-auto">
+        <form method="POST" action="{{action}}">
+            <input type="hidden" name="__anti-forgery-token" value="{{csrf-token}}">
+            <input type="hidden" name="redirect-url" value="{{redirect-url}}">
+            <div>
+                <h1 class="mx-auto w-auto text-center text-4xl text-indigo-700 tracking-tighter">
+                    PatientCare
+                    <span class="font-bold">v4</span>
+                </h1>
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div class="mt-8">
+                        <label sr-only for="username" class="text-xs font-light">Username</label>
+                        <input id="username" name="username"
+                               type="text" autocomplete="username"
+                               required="true" placeholder="Username" autofocus="true"
+                               {% if username %} value="{{username}}" {% endif %}
+                               {% if disabled %} disabled {% endif %}
+                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+                    </div>
+                    <div class="mt-2 mb-4">
+                        <label sr-only for="password" class="text-xs font-light">Password</label>
+                        <input id="password" name="password"
+                               type="password" autocomplete="current-password"
+                               required="true" placeholder="Password" autofocus="false"
+                               {% if disabled %} disabled {% endif %}
+                               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm">
+                    </div>
+                </div>
+            </div>
+            {% if error %}
+            {% with title = "" message = error %}
+            {% include "templates/ui/box-error-message.html" %}
+            {% endwith %}
+            {% endif %}
+            <div class="mt-2">
+                <div>
+                    <button {% if disabled %} disabled {% endif %}
+                            type="submit"
+                            class="mt-4 group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-indigo-600 hover:bg-indigo-700">
+                        Sign in
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}
+
+

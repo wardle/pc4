@@ -1,4 +1,4 @@
-<nav id="{{id|default:navbar}}" class="bg-gray-800">
+<nav id="{{ navbar.id|default:navbar }}" class="bg-gray-800">
     <div class="mx-auto px-2 sm:px-6 lg:px-8">
         <div class="relative flex items-center justify-between h-16">
             <div class="flex-1.flex.items-center.justify-center.sm:items-stretch.sm:justify-start">
@@ -8,17 +8,21 @@
 						    PatientCare v4
 					    </span>
                     </a>
-                    {% if user.project %}
+                    {% if navbar.project %}
                     <span class="ml-2 italic text-gray-200 rounded-md text-sm font-medium font-light">
-                            : {{ user.project }}
+                            : {{ navbar.project }}
                     </span>
                     {% endif %}
+
                 </div>
+
+            </div>
+            <div class="hidden sm:block flex-shrink-0 flex items-right">
             </div>
             <div class="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
                 <div class="ml-3 relative">
                     <div>
-                        {% if user.notification %}
+                        {% if navbar.notification %}
                         <svg class="size-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                              stroke="currentColor" aria-hidden="true" data-slot="icon">
                             <path stroke-linecap="round" stroke-linejoin="round"
@@ -32,12 +36,12 @@
                             <span class="text-white">
 								<span class="flex">
 									<span class="hidden sm:block">
-										{{user.fullname|default:"User"}}
+										{{navbar.fullname|default:"User"}}
 									</span>
 									<span class="sm:hidden">
-										{{user.initials|default:"User"}}
+										{{navbar.initials|default:"User"}}
 									</span>
-                                    {% if user.menu %}
+                                    {% if navbar.menu %}
 									<svg class="-mr-1 ml-2 h-5 w-5"
                                          viewBox="0 0 20 20" fill="white"
                                          aria-hidden="true">
@@ -51,21 +55,21 @@
 							</span>
                         </button>
 
-                        {% if user.menu %}
+                        {% if navbar.menu %}
                         <div id="user-menu"
                              class="hidden origin-top-right absolute z-50 right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
                              role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabIndex="-1">
-                            {% for menuitem in user.menu %}
+                            {% for menuitem in navbar.menu %}
                             {% if menuitem.href %}
                             <a class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-700 hover:text-white"
                                role="menuitem" tabIndex="-1"
-                               href="{{menuitem.href}}">{{menuitem.title}}</a>
+                               href="{{ menuitem.href }}">{{menuitem.title}}</a>
                             {% elif menuitem.post %}
                             <form method="post" action="{{menuitem.post}}">
                                 <button class="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-700 hover:text-white"
                                         role="menuitem" tabIndex="-1">{{menuitem.title}}
                                 </button>
-                                <input type="hidden" name="__anti-forgery-token" value="{{csrf-token}}"/>
+                                <input type="hidden" name="__anti-forgery-token" value="{{navbar.csrf-token}}"/>
                             </form>
                             {% else %}
                             <span class="block px-4 py-2 text-sm italic text-gray-600">{{menuitem.title}}</span>

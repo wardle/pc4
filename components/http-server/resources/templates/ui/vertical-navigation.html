@@ -8,14 +8,29 @@
         {% for item in menu.items %}
         {% if item.id %}
         {% ifequal item.id menu.selected %}
-        <a class="bg-gray-300 text-gray-900 group flex items-center rounded-md px-3 py-2 text-sm font-medium" aria-current="page">
-            <span class="pr-2"> {{ item.icon }} {{item.text }} {{ item.content|safe }}</span>
-        </a>
+            {% if item.sub %}
+            <a class="bg-gray-300 text-gray-800 group flex items-center rounded-md px-3 py-2 text-xs italic">
+                <span class="px-2"> {{ item.icon }} {{ item.text }} {{ item.content|safe}}</span>
+            </a>
+            {% else %}
+            <a class="bg-gray-300 text-gray-800 group flex items-center rounded-md px-3 py-2 text-sm font-medium" aria-current="page">
+                <span class="pr-2"> {{ item.icon }} {{item.text }} {{ item.content|safe }}</span>
+            </a>
+            {% endif %}
         {% else %}
-        <a class="text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-2 text-sm font-medium"
-            href="{{ item.url }}">
-            <span class="pr-2"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
-        </a>
+            {% if not item.hidden %}
+                {% if item.sub %}
+                    <a class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-2 text-xs italic"
+                       href="{{ item.url }}">
+                        <span class="px-2"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
+                    </a>
+                {% else %}
+                <a class="text-gray-800 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-2 text-sm font-medium"
+                    href="{{ item.url }}">
+                    <span class="pr-2"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
+                </a>
+                {% endif %}
+            {% endif %}
         {% endifequal %}
         {% endif %}
         {% endfor %}

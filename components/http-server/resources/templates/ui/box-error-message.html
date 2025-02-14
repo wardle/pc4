@@ -1,0 +1,11 @@
+{% if message %}
+<div role="alert"
+     class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative shadow-md">
+    {% if title %}
+    <span class="strong font-bold mr-4">{{ title }}</span>
+    {% endif %}
+    <span class="block sm:inline">
+        {{ message }}
+    </span>
+</div>
+{% endif %}

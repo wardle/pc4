@@ -1,0 +1,110 @@
+{% extends "templates/page.html" %}
+
+{% block header %}
+{% include "templates/navbar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1">
+    <div class="col-span-1">
+        {% include "templates/patient/banner.html" %}
+    </div>
+    <div class="pl-2 pr-2 col-span-1">
+        <!-- notice to user -->
+        <div class="sm:rounded-lg border shadow-lg w-full bg-white">
+            <div class="p-4 sm:p-6 space-y-2 md:space-y-1">
+                <h3 class="font-bold text-lg min-w-min text-red-800">
+                    You do not have permission to view this patient record
+                </h3>
+                <p>
+                    This patient is not registered to any of your registered projects / services.
+                </p>
+                <p>
+                    You may only view patient records if you are registered to one of this patient's projects or you
+                    obtain emergency 'break-glass' access for clinical reasons.
+                </p>
+            </div>
+        </div>
+
+        {% if error %}
+            <div class="p-2">
+                {% with message=error %}
+                {% include "templates/ui/box-error-message.html" with title="Error: " %}
+                {% endwith %}
+            </div>
+        {% endif %}
+
+        <div class="grid grid-cols-1 mt-4 md:gap-4 m-4
+        {% if all suggested-registrations break-glass %} md:grid-cols-2 {% endif %}">
+            {% if suggested-registrations %}
+            <form method="post" action="{{register-url}}">
+                <input type="hidden" name="__anti-forgery-token" value="{{csrf-token}}">
+                <input type="hidden" name="redirect-url" value="{{redirect-url}}">
+                <div class="col-span-1 flex flex-col rounded-lg border shadow-lg w-full bg-white p-4">
+                    <h3 class="font-bold min-w-min text-gray-800">
+                        Register a patient to one of your projects
+                    </h3>
+                    <p class="mt-2 max-w-xl text-sm text-gray-500">
+                        This is most suitable when this patient is under the care of a specific service
+                        or part of a specific project given a relationship between you, the project or service, and
+                        the patient.
+                    </p>
+                    <p class="mt-2 max-w-xl text-sm text-gray-500">
+                    Once you register a patient to a service, you may subsequently
+                        discharge that patient should ongoing registration not be required.
+                    </p>
+                    <p class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 pt-2">
+                            Choose service/project to which this patient should be registered:
+                        </label>
+                        {% with options=suggested-registrations %}
+                        {% include "templates/ui/select-button.html" with id="project-id" %}
+                        {% endwith %}
+                    </p>
+                    <p class="mt-2">
+                        {% include "templates/ui/button.html" with title="Register »" %}
+                    </p>
+                </div>
+            </form>
+            {% endif %}
+            {% if break-glass %}
+            <form method="post" action="{{break-glass.url}}">
+                <input type="hidden" name="__anti-forgery-token" value="{{csrf-token}}">
+                <input type="hidden" name="redirect-url" value="{{redirect-url}}">
+            <div class="col-span-1 flex flex-col rounded-lg border shadow-lg w-full bg-white p-4">
+                <h3 class="font-bold min-w-min text-gray-800">
+                    Get emergency access via 'break-glass'
+                </h3>
+                <p class="mt-2 max-w-xl text-sm text-gray-500">
+                    This is most suitable when you are a clinician and need access in an emergency for
+                    clinical reasons, you have a direct care relationship with the patient, but you only need temporary
+                    access.
+                    Break-glass events are logged and checked, and last only for the session.
+                </p>
+                <p>
+                    {% include "templates/ui/textarea.html" with rows="2" label="Please explain why break-glass access is needed:" id="explanation" name="explanation" %}
+                </p>
+
+                <label class="block text-sm font-medium text-gray-700 mt-2 pt-2">
+                    Choose administrator to be informed of your access:
+                </label>
+                <p>
+                    {% with options=break-glass.administrators %}
+                    {% include "templates/ui/select-button.html" with id="administrator" %}
+                    {% endwith %}
+                </p>
+                <p class="mt-2">
+                    {% include "templates/ui/button.html" with title="Break-glass »" %}
+                </p>
+            </div>
+            </form>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}

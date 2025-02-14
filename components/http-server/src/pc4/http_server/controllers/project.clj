@@ -1,21 +1,88 @@
 (ns pc4.http-server.controllers.project
   (:require
     [clojure.string :as str]
-    [com.eldrix.hermes.core :as hermes]
+    [com.wsscode.pathom3.connect.operation :as pco]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [pc4.http-server.controllers.user :as user]
-    [pc4.http-server.html :as html]
+    [pc4.http-server.pathom :as p]
+    [pc4.http-server.web :as web]
     [pc4.http-server.ui :as ui]
     [pc4.log.interface :as log]
-    [pc4.rsdb.interface :as rsdb]
-    [rum.core :as rum]
-    [selmer.parser :as selmer]))
+    [pc4.rsdb.interface :as rsdb]))
+
+(defn user-filter-select-button []
+  (ui/ui-select-button
+    {:id          "user-filter"
+     :selected-id "active"
+     :hx-get      (route/url-for :project/team)
+     :hx-target   "#team-list"
+     :hx-swap     "outerHTML"
+     :options     [{:id "active" :text "Active"}
+                   {:id "inactive" :text "Inactive"}
+                   {:id "all" :text "All users"}]}))
+
+(pco/defresolver current-project
+  [{:keys [request] :as env} _]
+  {:pco/output [{:ui/current-project [:t_project/id :t_project/title]}]}
+  {:ui/current-project
+   (when-let [project-id (get-in request [:session :project :id])]
+     {:t_project/id    project-id
+      :t_project/title (get-in request [:session :project :title])})}) ;; save a refetch for the title as it is in session
+
+(pco/defresolver project-menu
+  [env {:t_project/keys [id name title pseudonymous active?] :as project}]
+  {::pco/input  [:t_project/id :t_project/title :t_project/pseudonymous :t_project/active?]
+   ::pco/output [:ui/project-menu]}
+  (let [selected (get (pco/params env) :selected :home)]
+    {:ui/project-menu
+     {:title    title
+      :selected selected
+      :items    [{:id   :home
+                  :url  (route/url-for :project/home :path-params {:project-id id})
+                  :text "Home"}
+                 {:id   :find-patient
+                  :url  (route/url-for :project/find-patient :path-params {:project-id id})
+                  :text "Find patient"}
+                 {:id     :register-patient
+                  :url    (route/url-for :project/register-patient :path-params {:project-id id})
+                  :text   "Register patient"
+                  :hidden (not active?)}
+                 {:id     :today
+                  :url    (route/url-for :project/today :path-params {:project-id id})
+                  :text   "Today"
+                  :hidden (not active?)}
+                 {:id   :patients
+                  :url  (route/url-for :project/patients :path-params {:project-id id})
+                  :text "Patients"}
+                 {:id   :encounters
+                  :url  (route/url-for :project/encounters :path-params {:project-id id})
+                  :text "Encounters"}
+                 {:id   :team
+                  :url  (route/url-for :project/team :path-params {:project-id id})
+                  :text "Team"}]
+      :submenu  (case selected
+                  :home
+                  {:items [{:text "Edit project"}]}
+                  :team
+                  {:items [{:content (web/render (user-filter-select-button))}]}
+                  nil)}}))
+
+
+
+(def resolvers [current-project project-menu])
+
+
+;;
+;;
+;;
+
 
 
 (defn project-menu-env
   [{:keys [project selected]}]
-  (let [project-id (:t_project/id project)]
+  (let [{project-id :t_project/id} project
+        active (rsdb/project->active? project)]
     {:selected selected
      :title    (:t_project/title project)
      :items    [{:id   :home
@@ -24,15 +91,20 @@
                 {:id   :find-patient
                  :url  (route/url-for :project/find-patient :path-params {:project-id project-id})
                  :text "Find patient"}
-                {:id   :register-patient
-                 :url  (route/url-for :project/register-patient :path-params {:project-id project-id})
-                 :text "Register patient"}
-                {:id   :today
-                 :url  (route/url-for :project/today :path-params {:project-id project-id})
-                 :text "Today"}
+                {:id     :register-patient
+                 :url    (route/url-for :project/register-patient :path-params {:project-id project-id})
+                 :text   "Register patient"
+                 :hidden (not active)}
+                {:id     :today
+                 :url    (route/url-for :project/today :path-params {:project-id project-id})
+                 :text   "Today"
+                 :hidden (not active)}
                 {:id   :patients
                  :url  (route/url-for :project/patients :path-params {:project-id project-id})
                  :text "Patients"}
+                {:id   :encounters
+                 :url  (route/url-for :project/encounters :path-params {:project-id project-id})
+                 :text "Encounters"}
                 {:id   :team
                  :url  (route/url-for :project/team :path-params {:project-id project-id})
                  :text "Team"}]
@@ -40,65 +112,91 @@
                  :home
                  {:items [{:text "Edit project"}]}
                  :team
-                 {:items [{:content (selmer/render-file "ui/select-button.html"
-                                                        {:id        "user-filter"
-                                                         :selected  "active"
-                                                         :hx-get    (route/url-for :project/team)
-                                                         :hx-target "#team-list"
-                                                         :hx-swap   "outerHTML"
-                                                         :options   [{:id "active" :text "Active"}
-                                                                     {:id "inactive" :text "Inactive"}
-                                                                     {:id "all" :text "All users"}]})}]}
+                 {:items [{:content (web/render (user-filter-select-button))}]}
                  nil)}))
 
+(defn search-by-patient-identifier-panel
+  [{:keys [project user csrf-token]}]
+  (let [{project-id :t_project/id pseudonymous? :t_project/pseudonymous} project
+        {is-system? :t_role/is_system} user
+        disabled (and pseudonymous? (not is-system?))]
+    (log/debug {:project project :user user :disabled disabled})
+    (ui/active-panel
+      {:title    "Search by patient identifier"
+       :subtitle (when disabled "For pseudonymous projects, this functionality is only available to system administrators")}
+      [:form {:method "post" :action (when-not disabled (route/url-for :project/do-find-patient {:params {:project-id project-id}}))}
+       [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
+       [:div.space-y-2
+        (ui/ui-textfield {:id "patient-identifier" :placeholder "Enter patient identifier" :disabled disabled})
+        (ui/ui-submit-button {:label "Search »", :disabled disabled})]])))
 
-(defn find-patient
+(def find-patient
+  (p/handler
+    [:ui/navbar
+     {:ui/current-project [:t_project/id :t_project/pseudonymous (list :ui/project-menu {:selected :find-patient})]}
+     :ui/csrf-token
+     {:ui/authenticated-user [:t_role/is_system]} ]
+    (fn [request {:ui/keys [navbar current-project csrf-token authenticated-user]}]
+      (let [rsdb (get-in request [:env :rsdb])
+            patient-identifier (some-> (get-in request [:params "patient-identifier"]) parse-long)
+            found-patient (when patient-identifier (rsdb/fetch-patient rsdb {:t_patient/patient_identifier patient-identifier}))]
+        (cond
+          found-patient                                     ;; we have a found single patient -> redirect to open patient record
+          (web/redirect-see-other (route/url-for :patient/home :params {:patient-identifier patient-identifier}))
+          :else
+          (web/ok
+            (web/render-file
+              "templates/project/find-patient-page.html"
+              {:title      "Find patient"
+               :navbar     navbar
+               :menu       (:ui/project-menu current-project)
+               :find-by-id (web/render
+                             (search-by-patient-identifier-panel
+                               {:project current-project :csrf-token csrf-token
+                                :user authenticated-user}))})))))))
+
+
+#_(defn find-patient
   [request]
   (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
-    (let [rsdb (get-in request [:env :rsdb])
+    (let [authenticated-user (get-in request [:session :authenticated-user])
+          rsdb (get-in request [:env :rsdb])
           patient-identifier (some-> (get-in request [:params "patient-identifier"]) parse-long)
           found-patient (when patient-identifier (rsdb/fetch-patient rsdb {:t_patient/patient_identifier patient-identifier}))
+          single-result nil
+          multiple-results nil
           project (rsdb/project-by-id rsdb project-id)
-          pseudonymous? (:t_project/pseudonymous project)]
-      (println "search for patient" {:patient-identifier patient-identifier})
-
+          ctx (assoc (user/session-env request)
+                :menu (project-menu-env {:project project :selected :find-patient})
+                :title "Find patient"
+                :find-by-id (web/render
+                              (search-by-patient-identifier-panel
+                                {:project project :csrf-token (csrf/existing-token request), :user authenticated-user}))
+                :result single-result
+                :result multiple-results)]
+      (log/debug :find-patient {:patient-identifier patient-identifier})
       (cond
-        found-patient
-        {:status  303
-         :headers {"Location" (route/url-for :patient/home :params {:patient-identifier patient-identifier})}}
+        found-patient                                       ;; we have a found single patient -> redirect to open patient record
+        (web/redirect-see-other (route/url-for :patient/home :params {:patient-identifier patient-identifier}))
         :else
-        (html/ok
-          (selmer/render-file
-            "project/find-patient-page.html"
-            (assoc (user/session-env request)
-              :menu (project-menu-env {:project project :selected :find-patient})
-              :title "Find patient"
-              :content (rum/render-static-markup
-                         [:div
-                          (ui/active-panel {:title    "Search by patient identifier"
-                                            :subtitle "For pseudonymous projects, this functionality is only available to system administrators"
-                                            :content  [:form {:method "post" :action (route/url-for :project/do-find-patient {:params {:project-id project-id}})}
-                                                       [:input {:type "hidden" :name "__anti-forgery-token" :value (csrf/existing-token request)}]
-                                                       [:div.space-y-2
-                                                        (ui/ui-textfield {:id "patient-identifier" :placeholder "Enter patient identifier"})
-                                                        (ui/ui-submit-button {:label "Search »"})]]})])
-              :patient {:name         "Mr SMITH, John"
-                        :date-birth   (java.time.LocalDate/now)
-                        :age          41
-                        :deceased     true
-                        :date-death   (java.time.LocalDate/of 1990 1 1)
-                        :pseudonymous true
-                        :address      "1 Station Rd, Heath, Cardiff CF14 4XW"})))))))
+        (web/ok
+          (web/render-file
+            "templates/project/find-patient-page.html" ctx))))))
 
 
 (comment
-  (rum/render-static-markup (ui/active-panel {:title "hi there" :class "wibble woobble"})))
+  (web/render (ui/active-panel {:title "hi there" :class "wibble woobble"})))
+
+
+
 (defn register-patient
   [request])
 
 (defn today-wizard [request])
 
 (defn patients [request])
+
+(defn encounters [request])
 
 (defn user->team-item [{:t_user/keys [id username photo_fk roles] :as user}]
   (let [user' (rsdb/user->display-names user)]
@@ -110,37 +208,37 @@
      :subtitle  (rsdb/user->job-title user)
      :image-url (when photo_fk (route/url-for :user/photo {:params {:user-id id}}))}))
 
-(defn team
-  [request]
-  (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
-    (let [rsdb (get-in request [:env :rsdb])
-          target (get-in request [:headers "hx-target"])
-          filter (str/lower-case (get-in request [:params :user-filter] "active"))
-          project (rsdb/project-by-id rsdb project-id)
-          users (->> (rsdb/project->users rsdb project-id {:active (case filter "active" true "inactive" false "all" nil true), :group-by :user})
-                     (sort-by (juxt :t_user/last_name :t_user/first_names))
-                     (map user->team-item))]
-      (case target
-        ;; if we are only updating team list, just render that fragment
-        "team-list"
-        (html/ok
-          (selmer/render-file "project/team-list.html" {:team {:items users}}))
-        ;; otherwise, render whole page...
-        (html/ok
-          (selmer/render-file
-            "project/team-page.html"
-            (assoc (user/session-env request)
-              :menu (project-menu-env {:project project :selected :team})
-              :team {:items users})))))))
 
-(defn ^:private project->display-type
-  [{:t_project/keys [type pseudonymous]}]
-  (str (case type
-         :NHS "Clinical"
-         :RESEARCH "Research"
-         :ALL_PATIENTS "All patients")
-       (when pseudonymous
-         " (pseudonymous)")))
+(def team
+  (p/handler
+    (fn [request]
+      (let [user-filter (str/lower-case (get-in request [:params :user-filter] "active"))]
+        [{:ui/current-project
+          [:t_project/id
+           (list :ui/project-menu {:selected :team})
+           (list :t_project/users {:group-by :user :active (case user-filter "active" true "inactive" false "all" nil true)})]}
+         :ui/navbar]))
+    (fn [request {:ui/keys [navbar current-project]}]
+      (let [target (get-in request [:headers "hx-target"])
+            users (->> (:t_project/users current-project)
+                       (sort-by (juxt :t_user/last_name :t_user/first_names))
+                       (map user->team-item))]
+        (case target
+          ;; if we are only updating team list, just render that fragment
+          "team-list"
+          (web/ok
+            (web/render-file "templates/project/team-list.html" {:team users}))
+          ;; otherwise, render whole page...
+          (web/ok
+            (web/render-file
+              "templates/project/team-page.html"
+              {:navbar navbar
+               :menu   (:ui/project-menu current-project)
+               :title  "Team"
+               :team   users})))))))
+
+
+
 
 (def update-session
   "An interceptor that ensures that our sensibility of 'current project' exists
@@ -157,7 +255,7 @@
            ;; we have a current project -> so add into session in the request
            (let [{:t_project/keys [id title]} (rsdb/project-by-id rsdb path-project-id)]
              (-> ctx
-                 (assoc :updated-current-project? true)       ;; signal to our 'leave' phase to update session
+                 (assoc ::updated-current-project? true)    ;; signal to our 'leave' phase to update session
                  (assoc-in [:request :session :project] {:id id, :title title})))
            ;; we have no current project -> so remove from the session in the request
            (-> ctx
@@ -165,57 +263,73 @@
                (update-in [:request :session] dissoc :project))))))
    :leave
    (fn [ctx]
-     (if (::updated-current-project? ctx)
-       (let [session (get-in ctx [:request :session])]
-         (assoc-in ctx [:response :session] session))
+     (if (::updated-current-project? ctx)                   ;; do we need to update session?
+       (assoc-in ctx [:response :session] (get-in ctx [:request :session]))
        ctx))})
 
-(defn home
-  [request]
-  (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
-    (let [rsdb (get-in request [:env :rsdb])
-          hermes (get-in request [:env :hermes])
-          project-ids #{project-id}
-          {:t_project/keys [title long_description administrator_user_fk date_from date_to specialty_concept_fk parent_project_fk
-                            address1 address2 address3 address4 postcode inclusion_criteria exclusion_criteria] :as project}
-          (rsdb/project-by-id rsdb project-id)
-          parent-project (when parent_project_fk (rsdb/project-by-id rsdb parent_project_fk))
-          admin-user (rsdb/user->display-names (rsdb/user-by-id rsdb administrator_user_fk))
-          n-patients (rsdb/projects->count-registered-patients rsdb project-ids)
-          n-pending (rsdb/projects->count-pending-referrals rsdb project-ids)
-          n-discharged (rsdb/projects->count-discharged-episodes rsdb project-ids)]
-      (log/debug :project/home {:project-id project-id :type (:t_project/type project)})
-      (html/ok
-        (selmer/render-file
-          "project/home-page.html"
-          (assoc (user/session-env request)
-            :menu (project-menu-env {:project project :selected :home})
-            :project {:title       title
-                      :tint-class  (case (:t_project/type project) :NHS "bg-yellow-100" :RESEARCH "bg-pink-100" "bg-gray-100")
-                      :description long_description
-                      :items       [{:title "Date from"
-                                     :body  date_from}
-                                    {:title "Date to"
-                                     :body  date_to}
-                                    {:title "Administrator"
-                                     :body  (:t_user/full_name admin-user)}
-                                    {:title "Registered patients"
-                                     :body  n-patients}
-                                    {:title "Pending referrals"
-                                     :body  n-pending}
-                                    {:title "Discharged (closed) episodes"
-                                     :body  n-discharged}
-                                    {:title "Type"
-                                     :body  (project->display-type project)}
-                                    {:title "Specialty"
-                                     :body  (when specialty_concept_fk (:term (hermes/preferred-synonym hermes specialty_concept_fk)))}
-                                    {:title   "Parent"
-                                     :content (str "<a href=\"" (route/url-for :project/home :path-params {:project-id parent_project_fk}) "\">" (:t_project/title parent-project) "</a>")}]
-                      :long-items  [{:title "Address"
-                                     :body  (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
-                                    {:title   "Inclusion criteria"
-                                     :content inclusion_criteria}
-                                    {:title   "Exclusion criteria"
-                                     :content exclusion_criteria}]}))))))
+
+(defn ^:private project->display-type
+  [{:t_project/keys [type pseudonymous]}]
+  (str (case type
+         :NHS "Clinical"
+         :RESEARCH "Research"
+         :ALL_PATIENTS "All patients"
+         "Unknown")
+       (when pseudonymous
+         " (pseudonymous)")))
+(def home
+  (p/handler
+    [:ui/navbar
+     {:ui/current-project
+      [(list :ui/project-menu {::selected :home})
+       :t_project/type :t_project/pseudonymous
+       :t_project/title :t_project/long_description
+       {:t_project/administrator_user [:t_user/full_name]}
+       :t_project/date_from :t_project/date_to
+       {:t_project/specialty [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}
+       {:t_project/parent [:t_project/id :t_project/title]}
+       :t_project/address1 :t_project/address2 :t_project/address3 :t_project/address4 :t_project/postcode
+       :t_project/inclusion_criteria :t_project/exclusion_criteria
+       :t_project/count_registered_patients :t_project/count_pending_referrals :t_project/count_discharged_episodes]}]
+    (fn [_ {:ui/keys [navbar current-project]}]
+      (let [{:t_project/keys [title long_description administrator_user date_from date_to
+                              specialty parent address1 address2 address3 address4 postcode
+                              inclusion_criteria exclusion_criteria count_registered_patients
+                              count_pending_referrals count_discharged_episodes]} current-project]
+        (web/ok
+          (web/render-file
+            "templates/project/home-page.html"
+            {:navbar  navbar
+             :menu    (:ui/project-menu current-project)
+             :title   title
+             :project {:title       title
+                       :tint-class  (case (:t_project/type current-project) :NHS "bg-yellow-100" :RESEARCH "bg-pink-100" "bg-gray-100")
+                       :description long_description
+                       :items       [{:title "Date from"
+                                      :body  date_from}
+                                     {:title "Date to"
+                                      :body  date_to}
+                                     {:title "Administrator"
+                                      :body  (:t_user/full_name administrator_user)}
+                                     {:title "Registered patients"
+                                      :body  count_registered_patients}
+                                     {:title "Pending referrals"
+                                      :body  count_pending_referrals}
+                                     {:title "Discharged (closed) episodes"
+                                      :body  count_discharged_episodes}
+                                     {:title "Type"
+                                      :body  (project->display-type current-project)}
+                                     {:title "Specialty"
+                                      :body  (get-in specialty [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])}
+                                     {:title   "Parent"
+                                      :content (str "<a href=\"" (route/url-for :project/home :path-params {:project-id (:t_project/id parent)}) "\">" (:t_project/title parent) "</a>")}]
+                       :long-items  [{:title "Address"
+                                      :body  (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))}
+                                     {:title   "Inclusion criteria"
+                                      :content inclusion_criteria}
+                                     {:title   "Exclusion criteria"
+                                      :content exclusion_criteria}]}}))))))
+
+
 
 

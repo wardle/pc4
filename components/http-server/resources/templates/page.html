@@ -6,7 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<script src="/js/htmx-2.0.0.min.js"></script>
 	<script src="https://cdn.tailwindcss.com"></script>
-	<title>pc4:{{title}}</title>
+	<title>pc4 {% if title %} : {{ title }} {% endif %}</title>
 </head>
 
 <body id="body" hx-boost="true">
@@ -14,6 +14,7 @@
 	{% endblock %}
 
 	{% block content %}
+	{{ body }}
 	{% endblock %}
 
 	{% block footer %}
