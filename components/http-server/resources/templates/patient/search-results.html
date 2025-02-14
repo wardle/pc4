@@ -1,0 +1,8 @@
+{% if patients|not-empty %}
+<div class="border-2 shadow-lg p-2 sm:m-2 border-gray-200 bg-gray-50"
+{% with patients=patients %}
+{% include "templates/patient/list.html" %}
+{% endwith %}
+</div>
+{% endif %}
+

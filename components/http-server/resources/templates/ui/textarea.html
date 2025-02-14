@@ -1,0 +1,14 @@
+<div>
+    {% if label %}
+    <label class="block text-sm font-medium text-gray-700 py-2" for="{{id}}">
+        {{ label }}
+    </label>
+    {% endif %}
+
+    <textarea
+            class="p-1 comment shadow-sm focus:ring-indigo-500 border focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-ms"
+            id="{{ id }}"
+            rows="{{ rows|default:2 }}"
+            name="{{ name }}"
+            {% if disabled %} disabled {% endif %}>{{value}}</textarea>
+</div>

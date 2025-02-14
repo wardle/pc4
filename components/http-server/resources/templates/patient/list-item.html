@@ -1,0 +1,31 @@
+<tr class="hover:bg-gray-50 m-2">
+    <td class="whitespace-nowrap py-5 pl-4 pr-3 text-sm sm:pl-0">
+        <div class="flex items-center">
+            {% if {{patient.image-url}} %}
+            <div class="size-11 shrink-0 mr-4">
+                <img class="size-11 rounded-full"
+                     src={{ patient.image-url }}
+                     alt="">
+            </div>
+            {% endif %}
+            <div>
+                <a href="{{patient.url}}">
+                <div class="font-medium text-gray-900">{{patient.last-name|upper}}, {{patient.first-names}} {% if patient.title %}({{patient.title}}) {% endif %}
+                </div>
+                <div class="mt-1 text-gray-500">{{patient.address}}</div>
+                </a>
+            </div>
+        </div>
+    </td>
+
+    <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
+        <div class="text-gray-900">{{patient.date-birth|date:shortDate}}</div>
+    </td>
+    <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
+        <div class="text-gray-900">{{patient.date-death|date:shortDate}}</div>
+    </td>
+    <td class="whitespace-nowrap px-3 py-5 text-sm text-gray-500">
+        <div class="text-gray-900">{{patient.nhs-number}}</div>
+        <div class="mt-1 text-gray-500">{{patient.crn}}</div>
+    </td>
+</tr>
