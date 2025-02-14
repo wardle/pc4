@@ -62,9 +62,9 @@
 
 (defn ordered-diagnostic-dates? [{:t_diagnosis/keys [date_onset date_diagnosis date_to]}]
   (and
-   (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
-   (or (nil? date_onset) (nil? date_to) (.isBefore date_onset date_to) (.equals date_onset date_to))
-   (or (nil? date_diagnosis) (nil? date_to) (.isBefore date_diagnosis date_to) (.equals date_diagnosis date_to))))
+    (or (nil? date_onset) (nil? date_diagnosis) (.isBefore date_onset date_diagnosis) (.equals date_onset date_diagnosis))
+    (or (nil? date_onset) (nil? date_to) (.isBefore date_onset date_to) (.equals date_onset date_to))
+    (or (nil? date_diagnosis) (nil? date_to) (.isBefore date_diagnosis date_to) (.equals date_diagnosis date_to))))
 
 (defn valid-diagnosis-status? [{:t_diagnosis/keys [status date_to]}]
   (case status
@@ -233,7 +233,7 @@
                  :t_patient_hospital/hospital_identifier]
    ::pco/output [:t_patient_hospital/authoritative_demographics]}
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
-                                     (clods/parse-org-id hospital_identifier))
+                                                 (clods/parse-org-id hospital_identifier))
         org (clods/fetch-org clods root extension)]
     {:t_patient_hospital/authoritative_demographics
      (cond
@@ -259,6 +259,7 @@
                  :wales.nhs.cavuhb.Patient/HOSPITAL_ID]}
   {:wales.nhs.abuhb.Patient/CRN         (when (= auth :CAVUHB) crn)
    :wales.nhs.cavub.Patient/HOSPITAL_ID (when (= auth :ABUHB) crn)})
+
 
 (pco/defresolver patient->demographics-authority
   [{authoritative_demographics :t_patient/authoritative_demographics
@@ -383,7 +384,8 @@
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
-                                                                              :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
+                :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
+                                                                                  :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
 (pco/defresolver summary-multiple-sclerosis->events
   [{rsdb :com.eldrix/rsdb} {sms-id :t_summary_multiple_sclerosis/id}]
@@ -451,7 +453,7 @@
               (update :t_medication/events
                       (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
                                          (assoc evt :t_medication_event/event_concept
-                                                (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+                                                    (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
          (rsdb/patient->medications-and-events rsdb patient {:ecl (:ecl (pco/params env))}))})
 
 (pco/defresolver medication-by-id
@@ -524,8 +526,8 @@
     {:t_patient/lsoa11
      (when current-address
        (or
-        (when (and address1 (re-matches lsoa-re address1)) address1)
-        (when postcode (get (nhspd/fetch-postcode nhspd postcode) "LSOA11"))))}))
+         (when (and address1 (re-matches lsoa-re address1)) address1)
+         (when postcode (get (nhspd/fetch-postcode nhspd postcode) "LSOA11"))))}))
 
 (pco/defresolver address->stored-lsoa
   "Returns a stored LSOA for the address specified.
@@ -570,8 +572,8 @@
    (let [project-id-or-ids (:t_project/id (pco/params env))]
      (->> (rsdb/patient->episodes rsdb patient-pk project-id-or-ids)
           (mapv #(assoc % :t_episode/status (rsdb/episode-status %)
-                        :t_episode/project {:t_project/id (:t_episode/project_fk %)}
-                        :t_episode/patient {:t_patient/id patient-pk}))))})
+                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}
+                          :t_episode/patient {:t_patient/id patient-pk}))))})
 
 (pco/defresolver patient->pending-referrals
   "Return pending referrals - either all (`:all`) or only those to which the current user
@@ -611,8 +613,8 @@
   {::pco/output episode-properties}
   (let [result (rsdb/episode-by-id rsdb id)]
     (assoc result :t_episode/status (rsdb/episode-status result)
-           :t_episode/project {:t_project/id (:t_episode/project_fk result)}
-           :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
+                  :t_episode/project {:t_project/id (:t_episode/project_fk result)}
+                  :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
 
 (def project-properties
   [:t_project/id :t_project/name :t_project/title
@@ -717,7 +719,7 @@
    (->> (rsdb/project->encounter-templates rsdb project-id)
         (map #(let [encounter-type-id (:t_encounter_template/encounter_type_fk %)]
                 (assoc % :t_encounter_type/id encounter-type-id
-                       :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
+                         :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
 
 (pco/defresolver project->parent
   [{parent-id :t_project/parent_project_fk}]
@@ -807,8 +809,8 @@
   {::pco/output [{:t_patient/encounters encounter-properties}]}
   {:t_patient/encounters (->> (rsdb/patient->encounters rsdb patient-pk)
                               (mapv #(assoc %
-                                            :t_encounter/active (not (:t_encounter/is_deleted %))
-                                            :t_encounter/is_locked (encounter-locked? %))))})
+                                       :t_encounter/active (not (:t_encounter/is_deleted %))
+                                       :t_encounter/is_locked (encounter-locked? %))))})
 
 (pco/defresolver patient->paged-encounters
   "A resolver for pages of encounters."
@@ -840,8 +842,8 @@
   (let [{:t_encounter/keys [is_deleted] :as encounter}
         (rsdb/encounter-by-id rsdb encounter-id)]
     (assoc encounter
-           :t_encounter/active (not is_deleted)
-           :t_encounter/is_locked (encounter-locked? encounter))))
+      :t_encounter/active (not is_deleted)
+      :t_encounter/is_locked (encounter-locked? encounter))))
 
 (pco/defresolver encounter->patient
   [{:t_encounter/keys [patient_fk]}]
@@ -857,7 +859,7 @@
   {:t_encounter/patient_age
    (dates/calculate-age (:t_patient/date_birth patient)
                         :date-death (:t_patient/date_death patient)
-                        :on-date    (.toLocalDate date_time))})
+                        :on-date (.toLocalDate date_time))})
 
 (pco/defresolver encounter->best-hospital-crn
   [{rsdb :com.eldrix/rsdb, ods-svc :com.eldrix.clods.graph/svc}
@@ -956,8 +958,8 @@
                    {:t_encounter/form_ms_relapse
                     (if ms_disease_course_fk
                       (assoc form :t_form_ms_relapse/ms_disease_course
-                             {:t_ms_disease_course/id   ms_disease_course_fk
-                              :t_ms_disease_course/name (:t_ms_disease_course/name form)})
+                                  {:t_ms_disease_course/id   ms_disease_course_fk
+                                   :t_ms_disease_course/name (:t_ms_disease_course/name form)})
                       form)})))
           encounter-ids)))
 
@@ -986,8 +988,8 @@
 (defn form-assoc-context
   [{:form/keys [encounter_fk user_fk] :as form}]
   (assoc form
-         :form/encounter {:t_encounter/id encounter_fk}
-         :form/user {:t_user/id user_fk}))
+    :form/encounter {:t_encounter/id encounter_fk}
+    :form/user {:t_user/id user_fk}))
 
 (pco/defresolver encounter->forms
   [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
@@ -1179,8 +1181,8 @@
   (let [{:keys [project-id active-roles active-projects]} (pco/params env)]
     {:t_user/roles
      (cond->> (rsdb/user->roles rsdb username {:t_project/id project-id})
-       active-roles (filter :t_project_user/active?)
-       active-projects (filter :t_project/active?))}))
+              active-roles (filter :t_project_user/active?)
+              active-projects (filter :t_project/active?))}))
 
 (pco/defresolver user->common-concepts
   "Resolve common concepts for the user, based on project membership, optionally
@@ -1286,11 +1288,11 @@
   (if-not (and manager (rsdb/authorized? manager #{project-id} :PATIENT_REGISTER))
     (throw (ex-info "Not authorized" {}))
     (let [params' (assoc params :user-id (:t_user/id user)
-                         :nhs-number (nnn/normalise nhs-number)
-                         :date-birth (cond
-                                       (instance? LocalDate date-birth) date-birth
-                                       (string? date-birth) (LocalDate/parse date-birth)
-                                       :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
+                                :nhs-number (nnn/normalise nhs-number)
+                                :date-birth (cond
+                                              (instance? LocalDate date-birth) date-birth
+                                              (string? date-birth) (LocalDate/parse date-birth)
+                                              :else (throw (ex-info "failed to parse date-birth" params))))] ;; TODO: better automated coercion
       (if (s/valid? ::register-patient-by-pseudonym params')
         (rsdb/register-legacy-pseudonymous-patient! rsdb params')
         (log/error "invalid call" (s/explain-data ::register-patient-by-pseudonym params'))))))
@@ -1345,24 +1347,24 @@
   (log/info "break glass" {:patient patient-identifier :user (:t_user/username user)})
   (api-middleware/augment-response {:t_patient/patient_identifier patient-identifier
                                     :t_patient/break_glass        true}
-                                   (fn [response]
-                                     (assoc response :session (assoc session :break-glass patient-identifier)))))
+    (fn [response]
+      (assoc response :session (assoc session :break-glass patient-identifier)))))
 
 (s/def :t_diagnosis/diagnosis (s/keys :req [:info.snomed.Concept/id]))
 (s/def ::save-diagnosis
   (s/and
-   (s/keys :req [:t_patient/patient_identifier
-                 :t_diagnosis/diagnosis
-                 :t_diagnosis/status]
-           :opt [:t_diagnosis/id
-                 :t_diagnosis/date_onset
-                 :t_diagnosis/date_diagnosis
-                 :t_diagnosis/date_onset_accuracy
-                 :t_diagnosis/date_diagnosis_accuracy
-                 :t_diagnosis/date_to
-                 :t_diagnosis/date_to_accuracy])
-   valid-diagnosis-status?
-   ordered-diagnostic-dates?))
+    (s/keys :req [:t_patient/patient_identifier
+                  :t_diagnosis/diagnosis
+                  :t_diagnosis/status]
+            :opt [:t_diagnosis/id
+                  :t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_onset_accuracy
+                  :t_diagnosis/date_diagnosis_accuracy
+                  :t_diagnosis/date_to
+                  :t_diagnosis/date_to_accuracy])
+    valid-diagnosis-status?
+    ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
   [{rsdb                 :com.eldrix/rsdb
@@ -1373,7 +1375,7 @@
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
   (log/info "save diagnosis request: " params "user: " user-id)
   (let [params' (assoc params :t_diagnosis/user_fk (:t_user/id user-id)
-                       :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
+                              :t_diagnosis/concept_fk (get-in params [:t_diagnosis/diagnosis :info.snomed.Concept/id]))]
     (if-not (s/valid? ::save-diagnosis (dissoc params' :t_diagnosis/id))
       (do (log/error "invalid call" (s/explain-data ::save-diagnosis params'))
           (throw (ex-info "Invalid data" (s/explain-data ::save-diagnosis params'))))
@@ -1488,19 +1490,19 @@
                                  (rsdb/ms-event->patient-identifier rsdb params))]
       (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
       (create-or-save-entity
-       {:id-key  :t_ms_event/id
-        :save-fn #(rsdb/save-ms-event! rsdb %)
-        :params  (-> params
-                     (dissoc :t_patient/patient_identifier
-                             :t_ms_event/type
-                             :t_ms_event_type/id
-                             :t_ms_event_type/abbreviation
-                             :t_ms_event_type/name
-                             :t_ms_event/is_relapse
-                             :t_ms_event/is_progressive)
-                     (assoc :t_ms_event/ms_event_type_fk
-                            (or (:t_ms_event_type/id params)
-                                (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
+        {:id-key  :t_ms_event/id
+         :save-fn #(rsdb/save-ms-event! rsdb %)
+         :params  (-> params
+                      (dissoc :t_patient/patient_identifier
+                              :t_ms_event/type
+                              :t_ms_event_type/id
+                              :t_ms_event_type/abbreviation
+                              :t_ms_event_type/name
+                              :t_ms_event/is_relapse
+                              :t_ms_event/is_progressive)
+                      (assoc :t_ms_event/ms_event_type_fk
+                             (or (:t_ms_event_type/id params)
+                                 (get-in params [:t_ms_event/type :t_ms_event_type/id]))))}))))
 
 (s/def ::delete-ms-event
   (s/keys :req [:t_user/id
@@ -1565,9 +1567,9 @@
 (s/def ::unlock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation unlock-encounter!
-  [{rsdb    :com.eldrix/rsdb
-    user    :session/authenticated-user, :as env}
-   {encounter-id :t_encounter/id
+  [{rsdb :com.eldrix/rsdb
+    user :session/authenticated-user, :as env}
+   {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier, :as params}]
   {::pco/op-name 'pc4.rsdb/unlock-encounter}
   (log/info "unlock encounter:" encounter-id)
@@ -1580,9 +1582,9 @@
 (s/def ::lock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation lock-encounter!
-  [{rsdb    :com.eldrix/rsdb
-    user    :session/authenticated-user, :as env}
-   {encounter-id :t_encounter/id
+  [{rsdb :com.eldrix/rsdb
+    user :session/authenticated-user, :as env}
+   {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier, :as params}]
   {::pco/op-name 'pc4.rsdb/lock-encounter}
   (log/info "lock encounter:" encounter-id)
@@ -1596,15 +1598,15 @@
   "Create a new form within an encounter for a patient of the specified type"
   [{rsdb                 :com.eldrix/rsdb
     {user-id :t_user/id} :session/authenticated-user
-    :as env}
+    :as                  env}
    {:keys [patient-identifier encounter-id form-type-id]}]
   {::pco/op-name 'pc4.rsdb/create-form}
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
   (assoc (rsdb/create-form! rsdb {:encounter-id encounter-id
                                   :user-id      user-id
                                   :form-type-id form-type-id})
-         :form/encounter {:t_encounter/id encounter-id}
-         :form/user {:t_user/id user-id}))
+    :form/encounter {:t_encounter/id encounter-id}
+    :form/user {:t_user/id user-id}))
 
 (pco/defmutation save-form!
   "Save a form. Parameters are a map with
@@ -1614,7 +1616,7 @@
   {::pco/op-name 'pc4.rsdb/save-form}
   (log/info "save form" params)
   (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (if (tempid/tempid? (:form/id form)) ;; if we have a temporary id, provide a mapping from it to new identifier
+  (if (tempid/tempid? (:form/id form))                      ;; if we have a temporary id, provide a mapping from it to new identifier
     (let [form' (rsdb/save-form! rsdb form)]
       (assoc form' :tempids {(:form/id form) (:form/id form')}))
     (rsdb/save-form! rsdb form)))
@@ -1704,11 +1706,11 @@
       (throw (ex-info "You are currently not permitted to change NHS number" {:existing  existing-patient
                                                                               :requested params})))
     (rsdb/update-legacy-pseudonymous-patient!
-     rsdb
-     patient-pk
-     {:nhs-number nhs_number
-      :date-birth date_birth
-      :sex        sex})))
+      rsdb
+      patient-pk
+      {:nhs-number nhs_number
+       :date-birth date_birth
+       :sex        sex})))
 
 (s/def :t_user/username string?)
 (s/def :t_user/password string?)
@@ -1718,7 +1720,7 @@
                                  :opt [:t_user/password]))
 
 (pco/defmutation change-password!
-  [{rsdb         :com.eldrix/rsdb
+  [{rsdb               :com.eldrix/rsdb
     authenticated-user :session/authenticated-user, :as env}
    {username     :t_user/username
     password     :t_user/password
