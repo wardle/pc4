@@ -12,7 +12,7 @@
     (dmd/open-store path')))
 
 (defmethod ig/halt-key! ::svc [_ dmd]
-  (.close dmd))
+  (dmd/close dmd))
 
 (defn graph-resolvers
   "Lazily return the graph resolvers for dmd. Expect an environment that 
