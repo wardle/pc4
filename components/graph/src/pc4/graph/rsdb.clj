@@ -135,7 +135,7 @@
          (update ::pco/resolve                              ;; wrap resolver to check permissions
                  (fn [resolve]                              ;; old resolver
                    (fn [env {:t_patient/keys [permissions] :as params}]
-                     (if (and permissions (permissions permission))
+                     (if (or (:disable-auth env) (and permissions (permissions permission)))
                        (resolve env params)                 ;; new resolver calls old resolver if permitted
                        (do (log/debug "unauthorized call to resolver" params)
                            {:t_patient/authorization permissions})))))))))
@@ -383,7 +383,6 @@
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
      (assoc sms :t_summary_multiple_sclerosis/patient {:t_patient/patient_identifier patient-identifier}
-            :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
                                                                               :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
 (pco/defresolver summary-multiple-sclerosis->events
