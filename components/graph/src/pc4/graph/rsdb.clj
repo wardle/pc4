@@ -16,6 +16,7 @@
             [com.wsscode.pathom3.connect.operation :as pco]
             [com.wsscode.pathom3.interface.eql :as p.eql]
             [pc4.dates.interface :as dates]
+            [pc4.nhs-number.interface :as nhs-number]
             [pc4.nhspd.interface :as nhspd]
             [pc4.nhs-number.interface :as nnn]
             [pc4.ods.interface :as clods]
@@ -183,6 +184,26 @@
 (pco/defresolver patient->current-age
   [{:t_patient/keys [date_birth date_death]}]
   {:t_patient/current_age (when-not date_death (dates/age-display date_birth (LocalDate/now)))})
+
+(pco/defresolver address->isb1500-horiz                     ;; TODO: could normalize the raw stored postcode for display here using nhspd library
+  [{:t_address/keys [address1 address2 address3 address4 postcode]}]
+  {:uk.nhs.cfh.isb1500/address-horizontal
+   (str/join ", " (remove str/blank? [address1 address2 address3 address4 postcode]))})
+
+(pco/defresolver patient->isb1504-nhs-number
+  [{:t_patient/keys [nhs_number]}]
+  {:uk.nhs.cfh.isb1504/nhs-number (nhs-number/format-nnn nhs_number)})
+
+(pco/defresolver patient->isb1505-display-age
+  [{:t_patient/keys [date_birth date_death]}]
+  {:uk.nhs.cfh.isb1505/display-age (when-not date_death (dates/age-display date_birth (LocalDate/now)))})
+
+(pco/defresolver patient->isb1506-name
+  [{:t_patient/keys [first_names last_name title]}]
+  {:uk.nhs.cfh.isb1506/patient-name
+   (str (str/upper-case last_name) ", "
+        first_names
+        (when-not (str/blank? title) (str " (" title ")")))})
 
 (pco/defresolver patient->hospitals
   [{rsdb :com.eldrix/rsdb} {patient-pk :t_patient/id}]
@@ -573,21 +594,16 @@
   could make suggestions based on current diagnoses and treatments, and project
   configurations. Such additional functionality will be made available via
   parameters."
-  [{rsdb :com.eldrix/rsdb, user :session/authenticated-user, :as env}
-   {:t_patient/keys [patient_identifier]}]
-  {::pco/output [{:t_patient/suggested_registrations [:t_project/id]}]}
+  [{rsdb :com.eldrix/rsdb, user :session/authenticated-user, :as env} patient]
+  {::pco/input  [:t_patient/patient_identifier]
+   ::pco/output [{:t_patient/suggested_registrations [:t_project/id :t_project/title]}]}
   {:t_patient/suggested_registrations
-   (let [roles (rsdb/user->roles rsdb (:t_user/username user))
-         project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)]
-     (->> (rsdb/projects-with-permission roles :PATIENT_REGISTER)
-          (filter :t_project/active?)                       ;; only return currently active projects
-          (remove #(project-ids (:t_project/id %)))         ;; remove any projects to which patient already registered
-          (map #(select-keys % [:t_project/id :t_project/title]))))}) ;; only return data relating to projects
+   (rsdb/suggested-registrations rsdb user patient)})
 
 (pco/defresolver patient->administrators
   "Return administrators linked to the projects to which this patient is linked."
   [{rsdb :com.eldrix/rsdb} {:t_patient/keys [patient_identifier]}]
-  {::pco/output [{:t_patient/administrators [:t_user/id :t_user/username :t_user/first_names :t_user/last_name]}]}
+  {::pco/output [{:t_patient/administrators [:t_user/id :t_user/username :t_user/title :t_user/first_names :t_user/last_name]}]}
   ;; TODO: patient->active-project-ids should be its own resolver to avoid duplication
   {:t_patient/administrators (rsdb/projects->administrator-users rsdb (rsdb/patient->active-project-identifiers rsdb patient_identifier))})
 
@@ -1786,6 +1802,10 @@
    patient-by-pk
    patient-by-pseudonym
    patient->current-age
+   address->isb1500-horiz
+   patient->isb1504-nhs-number
+   patient->isb1505-display-age
+   patient->isb1506-name
    patient->hospitals
    patient-hospital->flat-hospital
    patient-hospital->nested-hospital
