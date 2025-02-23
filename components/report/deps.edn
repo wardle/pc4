@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
- :deps {org.xhtmlrenderer/flying-saucer-pdf {:mvn/version "9.9.2"}
+ :deps {org.xhtmlrenderer/flying-saucer-pdf {:mvn/version "9.11.4"}
         rum/rum                             {:mvn/version "0.12.11"}
-        selmer/selmer                       {:mvn/version "1.12.61"}}
+        selmer/selmer                       {:mvn/version "1.12.62"}}
 
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}

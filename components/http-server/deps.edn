@@ -1,9 +1,9 @@
 {:paths ["src" "resources"]
  :deps {buddy/buddy-core            {:mvn/version "1.12.0-430"}
         com.wsscode/pathom3                {:mvn/version "2025.01.16-alpha"}
-        io.pedestal/pedestal.jetty  {:mvn/version "0.7.1"}
+        io.pedestal/pedestal.jetty  {:mvn/version "0.7.2"}
         lambdaisland/uri            {:mvn/version "1.19.155"}
         rum/rum                     {:mvn/version "0.12.11"}
-        selmer/selmer               {:mvn/version "1.12.61"}}
+        selmer/selmer               {:mvn/version "1.12.62"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}

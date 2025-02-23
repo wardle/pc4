@@ -1,9 +1,9 @@
 {:paths ["src" "resources"]
  :deps {buddy/buddy-core              {:mvn/version "1.12.0-430"}
         buddy/buddy-sign              {:mvn/version "3.6.1-359"}
-        io.pedestal/pedestal.error    {:mvn/version "0.7.0"}
-        io.pedestal/pedestal.service  {:mvn/version "0.7.0"}
-        io.pedestal/pedestal.jetty    {:mvn/version "0.7.0"}
+        io.pedestal/pedestal.error    {:mvn/version "0.7.2"}
+        io.pedestal/pedestal.service  {:mvn/version "0.7.2"}
+        io.pedestal/pedestal.jetty    {:mvn/version "0.7.2"}
         rum/rum                       {:mvn/version "0.12.11"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}

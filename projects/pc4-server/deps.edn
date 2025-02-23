@@ -31,7 +31,7 @@
         poly/server        {:local/root "../../bases/server"}
 
         ;; other external dependencies
-        integrant/integrant {:mvn/version "0.10.0"}
+        integrant/integrant {:mvn/version "0.13.1"}
         com.wsscode/pathom3 {:mvn/version "2025.01.16-alpha"}}
  :mvn/repos
  {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
