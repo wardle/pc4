@@ -299,6 +299,10 @@
      (let [diagnoses (patients/diagnoses conn patient-pk)]
        (filtered-diagnoses hermes diagnoses ecl)))))
 
+(defn diagnosis-by-id
+  [{:keys [conn]} diagnosis-id]
+  (patients/diagnosis-by-id conn diagnosis-id))
+
 (comment
   (require '[pc4.config.interface])
   (def rsdb (ig/init (pc4.config.interface/config :dev) [:pc4.rsdb.interface/svc])))

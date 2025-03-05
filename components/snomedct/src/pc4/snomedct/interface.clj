@@ -46,8 +46,12 @@
 (def child-relationships-of-type hermes/child-relationships-of-type)
 (def parent-relationships-of-type hermes/parent-relationships-of-type)
 (def fully-specified-name hermes/fully-specified-name)
-(def preferred-synonym hermes/preferred-synonym)
+(def preferred-synonym* hermes/preferred-synonym*)
+(def match-locale hermes/match-locale)
+(def synonyms hermes/synonyms)
+
 (def release-information hermes/release-information)
+
 (defn search [svc params]
   (hermes/search svc params))
 

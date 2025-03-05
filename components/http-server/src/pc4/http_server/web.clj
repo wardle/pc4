@@ -44,7 +44,8 @@
 (defn redirect-found
   "The HTTP 302 Found redirection response status code indicates that the
   requested resource has been temporarily moved to the URL in the Location
-  header."
+  header. The HTTP method will be *unchanged* when the redirected HTTP request
+  is issued. To redirect using HTTP GET, see [[redirect-see-other]]."
   [path]
   {:status  302
    :headers {"Location" path}})
@@ -94,3 +95,14 @@
 (defn no-content
   []
   {:status 204})
+
+
+(defn hx-trigger
+  "Return the id of the triggered element if it exists"
+  [{:keys [headers] :as request}]
+  (get headers "hx-trigger"))
+
+(defn hx-trigger-name
+  "Return the name of the HTMX triggered element if it exists"
+  [{:keys [headers] :as request}]
+  (get headers "hx-trigger-name"))

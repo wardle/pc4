@@ -1,10 +1,13 @@
 (ns pc4.http-server.controllers.patient
   (:require
+    [clojure.spec.alpha :as s]
     [clojure.string :as str]
     [com.eldrix.hermes.core :as hermes]
     [com.eldrix.nhsnumber :as nnn]
     [com.wsscode.pathom3.connect.operation :as pco]
+    [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
+    [pc4.http-server.controllers.snomed :as snomed]
     [pc4.http-server.controllers.user :as user]
     [pc4.http-server.pathom :as p]
     [pc4.http-server.pathom :as pathom]
@@ -12,13 +15,23 @@
     [pc4.http-server.ui :as ui]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb]
-    [pc4.snomedct.interface :as snomedct]))
+    [pc4.snomedct.interface :as snomedct])
+  (:import (java.time LocalDate)))
+
+(defn safe-parse-local-date [s]
+  (when-not (str/blank? s) (LocalDate/parse s)))
 
 (pco/defresolver current-patient
   [{:keys [request]} _]
   {::pco/output [{:ui/current-patient [:t_patient/patient_identifier]}]}
   {:ui/current-patient
    {:t_patient/patient_identifier (some-> (get-in request [:path-params :patient-identifier]) parse-long)}})
+
+(pco/defresolver current-diagnosis
+  [{:keys [request]} _]
+  {::pco/output [{:ui/current-diagnosis [:t_diagnosis/id]}]}
+  {:ui/current-diagnosis
+   {:t_diagnosis/id (some-> (get-in request [:path-params :diagnosis-id]) parse-long)}})
 
 (pco/defresolver patient->best-hospital-crn
   [{rsdb :com.eldrix/rsdb} {current-project :ui/current-project, hospitals :t_patient/hospitals}]
@@ -71,10 +84,12 @@
          (dissoc :nhs-number :gender)))})
 
 (pco/defresolver patient-menu
-  [{:keys [request menu] :com.eldrix/keys [hermes] :as env} {:t_patient/keys [patient_identifier diagnoses] :as patient}]
-  {::pco/input  [:t_patient/patient_identifier :t_patient/diagnoses]
+  [{:keys [request menu] :com.eldrix/keys [hermes] :as env}
+   {:t_patient/keys [patient_identifier diagnoses permissions] :as patient}]
+  {::pco/input  [:t_patient/patient_identifier :t_patient/diagnoses :t_patient/permissions]
    ::pco/output [:ui/patient-menu]}
   (let [selected menu
+        can-edit? (permissions :PATIENT_EDIT)
         diagnosis-ids (set (map :t_diagnosis/concept_fk (filter rsdb/diagnosis-active? diagnoses)))
         ninflamm (snomedct/intersect-ecl hermes diagnosis-ids "<<39367000")
         epilepsy (snomedct/intersect-ecl hermes diagnosis-ids "<<128613002")
@@ -88,9 +103,9 @@
                   :url  (route/url-for :patient/diagnoses :path-params {:patient-identifier patient_identifier})
                   :text "Diagnoses"}
                  (when (seq mnd)
-                   {:id  :mnd
-                    :sub true
-                    :url (route/url-for :patient/motorneurone :path-params {:patient-identifier patient_identifier})
+                   {:id   :mnd
+                    :sub  true
+                    :url  (route/url-for :patient/motorneurone :path-params {:patient-identifier patient_identifier})
                     :text "Motor neurone disease"})
                  (when (seq ninflamm)
                    {:id   :relapses
@@ -101,7 +116,7 @@
                    {:id   :epilepsy
                     :sub  true
                     :url  (route/url-for :patient/epilepsy :path-params {:patient-identifier patient_identifier})
-                    :text "Seizure disorder"})
+                    :text "Epilepsy / seizure disorder"})
                  {:id   :medication
                   :url  (route/url-for :patient/medication :path-params {:patient-identifier patient_identifier})
                   :text "Medication"}
@@ -117,9 +132,17 @@
                   :text "Admissions"}
                  {:id   :research
                   :url  (route/url-for :patient/diagnoses :path-params {:patient-identifier patient_identifier})
-                  :text "Research"}]}}))
+                  :text "Research"}]
+      :submenu
+      (case selected
+        :diagnoses
+        {:items [{:text "Add diagnosis..."
+                  :url  (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient_identifier
+                                                                             :diagnosis-id       "new"})}]}
+        {:items []})}}))
 
 (pco/defresolver patient-page
+  "Return data for a full patient page including main patient menu"
   [{:ui/keys [navbar current-patient]}]
   {::pco/input  [:ui/navbar
                  {:ui/current-patient [:ui/patient-banner
@@ -130,8 +153,84 @@
     :banner (:ui/patient-banner current-patient)
     :menu   (:ui/patient-menu current-patient)}})
 
-(def resolvers [current-patient patient->best-hospital-crn
-                patient-banner patient-menu patient-page])
+(s/def ::ordered-diagnosis-dates
+  (fn [{:t_diagnosis/keys [date_birth date_onset date_diagnosis date_to date_death date_now]}]
+    (->> [date_birth date_onset date_diagnosis date_to date_death date_now]
+         (remove nil?)
+         (partition 2 1)
+         (every? (fn [[a b]] (nat-int? (.compareTo b a)))))))
+
+(s/def ::valid-diagnosis-status
+  (fn [{:t_diagnosis/keys [date_to status]}]
+    (if date_to
+      (#{"INACTIVE_REVISED" "INACTIVE_IN_ERROR" "INACTIVE_RESOLVED"} status)
+      (#{"ACTIVE"} status))))
+
+(s/def ::create-or-save-diagnosis
+  (s/and
+    (s/keys :req [:t_diagnosis/patient_fk
+                  :t_diagnosis/concept_fk
+                  :t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_to
+                  :t_diagnosis/status
+                  :t_diagnosis/full_description]
+            :opt [:t_diagnosis/id])
+    ::ordered-diagnosis-dates
+    ::valid-diagnosis-status))
+
+(pco/defresolver create-or-save-diagnosis-params
+  [{:keys [request]} {:ui/keys [current-patient]}]
+  {::pco/input  [{:ui/current-patient [:t_patient/id :t_patient/date_birth :t_patient/date_death]}]
+   ::pco/output [:params/create-or-save-diagnosis]}
+  (let [form-params (:form-params request)
+        concept-id (some-> form-params :concept-id parse-long)
+        diagnosis-id (some-> form-params :diagnosis-id parse-long)
+        data (cond-> {:t_diagnosis/patient_fk       (or (some-> form-params :patient-pk parse-long) (:t_patient/id current-patient))
+                      :t_diagnosis/concept_fk       concept-id
+                      :t_diagnosis/diagnosis        {:info.snomed.Concept/id                   concept-id
+                                                     :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:existing-term form-params)}}
+                      :t_diagnosis/date_birth       (:t_patient/date_birth current-patient)
+                      :t_diagnosis/date_death       (:t_patient/date_death current-patient)
+                      :t_diagnosis/date_now         (LocalDate/now)
+                      :t_diagnosis/date_onset       (-> form-params :date-onset safe-parse-local-date)
+                      :t_diagnosis/date_diagnosis   (-> form-params :date-diagnosis safe-parse-local-date)
+                      :t_diagnosis/date_to          (-> form-params :date-to safe-parse-local-date)
+                      :t_diagnosis/status           (:status form-params)
+                      :t_diagnosis/full_description (:full-description form-params)}
+               diagnosis-id
+               (assoc :t_diagnosis/id diagnosis-id))
+        valid? (s/valid? ::create-or-save-diagnosis data)]
+    {:params/create-or-save-diagnosis
+     {:data   data
+      :valid? valid?}}))
+
+(s/def ::patient
+  (s/keys :req [:t_patient/id :t_patient/patient_identifier]))
+(s/def ::project-id int?)
+(s/def ::user-id int?)
+(s/def ::redirect-url string?)
+(s/def ::register-to-project
+  (s/keys :req-un [::patient ::project-id ::user-id ::redirect-url]))
+
+(pco/defresolver register-to-project-params
+  [{:keys [request]} {:ui/keys [current-patient authenticated-user]}]
+  {::pco/input [{:ui/current-patient [:t_patient/patient_identifier :t_patient/id]}
+                {:ui/authenticated-user [:t_user/id]}]}
+  {:params/register-to-project
+   (let [data {:patient      current-patient
+               :project-id   (some-> (get-in request [:params "project-id"]) parse-long)
+               :user-id      (:t_user/id authenticated-user)
+               :redirect-url (get-in request [:params "redirect-url"])}]
+     {:data   data
+      :valid? (s/valid? ::register-to-project data)})})
+
+(def resolvers [current-patient current-diagnosis
+                patient->best-hospital-crn
+                patient-banner patient-menu
+                patient-page
+                create-or-save-diagnosis-params
+                register-to-project-params])
 
 (defn patient->result
   [{:t_patient/keys [patient_identifier title first_names last_name date_birth date_death nhs_number]
@@ -251,12 +350,40 @@
 (def home
   (pathom/handler
     {:menu :home}
-    [:ui/patient-page]
-    (fn [_ {:ui/keys [patient-page]}]
-      (web/ok
-        (web/render-file
-          "templates/patient/home-page.html"
-          patient-page)))))
+    [:ui/patient-page
+     {:ui/current-patient
+      [:t_patient/patient_identifier
+       :t_patient/first_names
+       :t_patient/title
+       :t_patient/last_name
+       :uk.nhs.cfh.isb1505/display-age
+       :uk.nhs.cfh.isb1504/nhs-number
+       :t_patient/date_birth
+       :t_patient/date_death
+       {:t_patient/death_certificate [:t_death_certificate/id
+                                      :t_death_certificate/part1a
+                                      :t_death_certificate/part1b
+                                      :t_death_certificate/part1c
+                                      :t_death_certificate/part2]}]}]
+    (fn [_ {:ui/keys [patient-page current-patient]}]
+      (let [{:t_patient/keys          [title first_names last_name date_birth date_death]
+             :uk.nhs.cfh.isb1504/keys [nhs-number]
+             :uk.nhs.cfh.isb1505/keys [display-age]}
+            current-patient]
+        (web/ok
+          (web/render-file
+            "templates/patient/home-page.html"
+            (assoc patient-page
+              :demographics {:title "Demographics"
+                             :items [{:title "First names" :body first_names}
+                                     {:title "Last name" :body last_name}
+                                     {:title "Title" :body title}
+                                     {:title "NHS Number" :body nhs-number}
+                                     {:title "Date of birth" :body (str date_birth)}
+                                     (if date_death {:title "Date of death"
+                                                     :body  (str date_death)}
+                                                    {:title "Current age"
+                                                     :body  display-age})]})))))))
 
 (def break-glass
   (p/handler
@@ -289,15 +416,22 @@
 
 (defn do-break-glass
   [{:keys [session] :as request}]
-  (let [{:strs [explanation administrator redirect-url]} (:params request)
+  (let [authenticated-user (:authenticated-user session)
+        {:strs [explanation administrator redirect-url]} (:params request)
         admin-user-id (some-> administrator parse-long)
         patient-identifier (some-> (get-in request [:path-params :patient-identifier]) parse-long)]
     (log/debug "break-glass" {:patient-identifier patient-identifier :explanation explanation :admin-user-id admin-user-id})
     (if (str/blank? explanation)
       (break-glass (assoc request :flash "You must explain why you are using 'break-glass' to access this patient record."
                                   :params {:redirect-url redirect-url}))
-      (assoc (web/redirect-found redirect-url)
-        :session (assoc session :break-glass patient-identifier)))))
+      (do
+        (log/warn "break glass performed" {:user               (:t_user/username authenticated-user)
+                                           :patient-identifier patient-identifier
+                                           :explanation        explanation
+                                           :admin-user-id      admin-user-id})
+        ;; TODO: push event into our event system -> for logging and for messaging/email etc.
+        (assoc (web/redirect-found redirect-url)
+          :session (assoc session :break-glass patient-identifier))))))
 
 (defn nhs [request])
 
@@ -312,23 +446,24 @@
   is permitted to register patients to the given project and then redirect to
   the original requested URL."
   (p/handler
-    [{:ui/current-patient [:t_patient/id :t_patient/patient_identifier]}
-     :ui/authorization-manager
-     {:ui/authenticated-user [:t_user/id :t_user/username]}]
+    [:ui/authorization-manager :params/register-to-project]
     (fn
-      [{:keys [params] :as request} {:ui/keys [current-patient authenticated-user authorization-manager]}]
+      [request {:ui/keys [authorization-manager] :params/keys [register-to-project]}]
       (let [rsdb (get-in request [:env :rsdb])
-            {:strs [redirect-url project-id]} params
-            patient-identifier (:t_patient/patient_identifier current-patient)
-            user-id (:t_user/id authenticated-user)
-            project-id# (some-> project-id parse-long)
-            authorized? (rsdb/authorized? authorization-manager #{project-id#} :PATIENT_REGISTER)]
-        (log/debug "register-to-project" {:authorized? authorized? :patient patient-identifier :project-id project-id# :user-id user-id})
-        (if authorized?
+            {:keys [valid? data]} register-to-project
+            {:keys [patient project-id user-id redirect-url]} data
+            authorized? (rsdb/authorized? authorization-manager #{project-id} :PATIENT_REGISTER)]
+        (log/debug "register-to-project" {:authorized? authorized? :valid? valid? :patient patient :project-id project-id :user-id user-id})
+        (cond
+          (not valid?)                                      ;; invalid form data
+          (do (log/error "invalid 'register-to-project:" (s/explain-data ::register-to-project data))
+              (web/forbidden "Invalid"))
+          authorized?                                       ;; user authorized for this action
           (do
-            (log/debug "registering patient to project" {:patient patient-identifier :project-id project-id# :user-id user-id})
-            (rsdb/register-patient-project! rsdb project-id# user-id current-patient)
+            (log/debug "registering patient to project" {:patient patient :project-id project-id :user-id user-id})
+            (rsdb/register-patient-project! rsdb project-id user-id patient)
             (web/redirect-found redirect-url))
+          :else                                             ;; user not authorized
           (web/forbidden "You do not have permission"))))))
 
 (defn encounters [request])
@@ -370,7 +505,7 @@
             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
         (web/ok
           (web/render-file
-            "templates/patient/home-page.html"
+            "templates/patient/base.html"
             (assoc patient-page
               :content
               (web/render
@@ -378,7 +513,119 @@
                  [:div (diagnoses-table "Active diagnoses" patient_identifier active-diagnoses)]
                  (when (seq inactive-diagnoses) [:div.pt-4 (diagnoses-table "Inactive diagnoses" patient_identifier inactive-diagnoses)])]))))))))
 
-(defn edit-diagnosis [request])
+
+(defn ui-edit-diagnosis
+  [{:keys [csrf-token can-edit diagnosis common-diagnoses error]}]
+  (let [{:t_diagnosis/keys [id patient_fk concept_fk date_onset date_diagnosis date_to diagnosis status full_description]} diagnosis
+        url (route/url-for :patient/do-edit-diagnosis)
+        term (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
+        now (str (LocalDate/now))]
+    (ui/active-panel
+      {:id    "edit-diagnosis"
+       :title (if id term "Add diagnosis")}
+      [:form {:method "post" :action url :hx-target "#edit-diagnosis"}
+       [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
+       [:input {:type "hidden" :name "diagnosis-id" :value id}]
+       [:input {:type "hidden" :name "existing-term" :value term}]
+       (when id [:input {:type "hidden" :name "concept-id" :value concept_fk}])
+       (ui/ui-simple-form
+         (when error
+           (ui/box-error-message {:title "Invalid" :message "You have entered invalid data."}))
+         (when-not id
+           (ui/ui-simple-form-item {:label "Diagnosis"}
+             (snomed/ui-select-autocomplete {:name             "concept-id"
+                                             :ecl              "<404684003|Clinical finding|"
+                                             :selected-concept diagnosis
+                                             :common-concepts  common-diagnoses})))
+         (ui/ui-simple-form-item {:label "Date of onset"}
+           (ui/ui-local-date {:name "date-onset" :disabled (not can-edit) :max now} date_onset))
+         (ui/ui-simple-form-item {:label "Date of diagnosis"}
+           (ui/ui-local-date {:name "date-diagnosis" :disabled (not can-edit) :max now} date_diagnosis))
+         (ui/ui-simple-form-item {:label "Date to"}
+           (ui/ui-local-date {:name    "date-to" :disabled (not can-edit) :max now :hx-trigger "blur"
+                              :hx-post url :hx-target "#edit-diagnosis" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"} date_to))
+         (ui/ui-simple-form-item {:label "Status"}
+           (ui/ui-select-button {:name        "status"
+                                 :disabled    (not can-edit)
+                                 :selected-id status
+                                 :options     (if date_to [{:id "INACTIVE_REVISED" :text "Inactive - revised"}
+                                                           {:id "INACTIVE_RESOLVED" :text "Inactive - resolved"}
+                                                           {:id "INACTIVE_IN_ERROR" :text "Inactive - recorded in error"}]
+                                                          [{:id "ACTIVE" :text "Active"}])}))
+         (ui/ui-simple-form-item {:label "Notes"}
+           (ui/ui-textarea {:name "full-description" :disabled (not can-edit)} full_description))
+         (when (and id can-edit)
+           [:p.text-sm.font-medium.leading-6.text-gray-600
+            "To delete a diagnosis, record a 'to' date and update the status as appropriate."])
+         (ui/ui-action-bar
+           (ui/ui-submit-button {:label "Save" :disabled (not can-edit)})))])))
+
+(def diagnosis-properties
+  [:t_diagnosis/id :t_diagnosis/patient_fk
+   :t_diagnosis/date_diagnosis :t_diagnosis/date_diagnosis_accuracy
+   :t_diagnosis/date_onset :t_diagnosis/date_onset_accuracy
+   :t_diagnosis/date_to :t_diagnosis/date_to_accuracy
+   :t_diagnosis/status :t_diagnosis/full_description
+   :t_diagnosis/concept_fk
+   {:t_diagnosis/diagnosis
+    [{:info.snomed.Concept/preferredDescription
+      [:info.snomed.Description/term]}]}])
+
+(def do-edit-diagnosis
+  "Fragment to permit editing diagnosis. Designed to be used to replace page
+  fragment for form validation.
+  - on-cancel-url : URL to redirect if cancel
+  - on-save-url   : URL to redirect after save"
+  (pathom/handler
+    [:params/create-or-save-diagnosis
+     {:ui/authenticated-user [(list :t_user/common_concepts {:ecl "<404684003|Clinical finding|" :accept-language "en-GB"})]}]
+    (fn [{:keys [env] :as request} {:params/keys [create-or-save-diagnosis] :ui/keys [authenticated-user]}]
+      (let [{:keys [rsdb]} env
+            {:keys [data valid?]} create-or-save-diagnosis
+            common-diagnoses (:t_user/common_concepts authenticated-user)
+            trigger (web/hx-trigger request)]
+        (when-not valid?
+          (log/debug "invalid diagnosis" (s/explain-data ::create-or-save-diagnosis data)))
+        (cond
+          (and valid? (nil? trigger))                       ;; if there was no trigger, this was a submit!
+          (do
+            (log/info "saving diagnosis" data)
+            (if (:t_diagnosis/id data)
+              (rsdb/update-diagnosis! rsdb data)
+              (rsdb/create-diagnosis! rsdb {:t_patient/id (:t_diagnosis/patient_fk data)} data))
+            (web/hx-redirect (route/url-for :patient/diagnoses)))
+          :else                                             ;; just updating in place
+          (web/ok (web/render (ui-edit-diagnosis {:csrf-token       (csrf/existing-token request)
+                                                  :can-edit         true ;; by definition, we can edit. Permissions will also be checked on submit however
+                                                  :error            (and (nil? trigger) (not valid?))
+                                                  :diagnosis        data
+                                                  :common-diagnoses common-diagnoses}))))))))
+
+(def edit-diagnosis
+  (pathom/handler
+    [:ui/csrf-token
+     :ui/patient-page
+     {:ui/current-patient
+      [:t_patient/patient_identifier :t_patient/id :t_patient/permissions]}
+     {:ui/current-diagnosis diagnosis-properties}
+     {:ui/authenticated-user [(list :t_user/common_concepts {:ecl "<404684003|Clinical finding|" :accept-language "en-GB"})]}]
+    (fn [_ {:ui/keys [authenticated-user csrf-token patient-page current-patient current-diagnosis]}]
+      (log/debug "edit diagnosis" {:patient current-patient :diagnosis current-diagnosis})
+      (let [common-diagnoses (:t_user/common_concepts authenticated-user)
+            diagnosis-id (:t_diagnosis/id current-diagnosis)]
+        (if (or (nil? diagnosis-id) (= (:t_patient/id current-patient) (:t_diagnosis/patient_fk current-diagnosis))) ;; check diagnosis is for same patient
+          (web/ok                                           ;; render a whole page
+            (web/render-file
+              "templates/patient/base.html"
+              (assoc patient-page
+                :content
+                (web/render
+                  (ui-edit-diagnosis
+                    {:csrf-token       csrf-token
+                     :can-edit         (:PATIENT_EDIT (:t_patient/permissions current-patient))
+                     :diagnosis        (assoc current-diagnosis :t_diagnosis/patient_fk (:t_patient/id current-patient))
+                     :common-diagnoses common-diagnoses})))))
+          (web/forbidden "Not authorized"))))))
 
 (defn medication [request])
 

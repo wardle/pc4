@@ -48,6 +48,7 @@
     ["/patient/:patient-identifier/register-to-project" :post [login/authenticated patient/register-to-project] :route-name :patient/do-register-to-project]
     ["/patient/:patient-identifier/diagnoses" :get [login/authenticated patient/authorized patient/diagnoses] :route-name :patient/diagnoses]
     ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :get [login/authenticated patient/authorized patient/edit-diagnosis] :route-name :patient/edit-diagnosis]
+    ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :post [login/authenticated patient/authorized patient/do-edit-diagnosis] :route-name :patient/do-edit-diagnosis]
     ["/patient/:patient-identifier/medication" :get [login/authenticated patient/authorized patient/medication] :route-name :patient/medication]
     ["/patient/:patient-identifier/documents" :get [login/authenticated patient/authorized patient/documents] :route-name :patient/documents]
     ["/patient/:patient-identifier/results" :get [login/authenticated patient/authorized patient/results] :route-name :patient/results]
@@ -58,7 +59,9 @@
     ["/patient/:patient-identifier/motorneurone" :get [login/authenticated patient/authorized patient/motorneurone] :route-name :patient/motorneurone]
     ["/patient/:patient-identifier/epilepsy" :get [login/authenticated patient/authorized patient/epilepsy] :route-name :patient/epilepsy]
     ["/ui/patient/search" :post [login/authenticated patient/search] :route-name :patient/search]
-    ["/ui/snomed/autocomplete" :get [login/authenticated snomed/autocomplete] :route-name :snomed/autocomplete]
+    ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete] :route-name :snomed/autocomplete]
+    ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results] :route-name :snomed/autocomplete-results]
+    ["/ui/snomed/result" :get [login/authenticated snomed/result] :route-name :snomed/result]
     ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]})
 
 (defn env-interceptor
@@ -124,27 +127,31 @@
    pc4.http-server.controllers.user/resolvers
    pc4.http-server.controllers.project/resolvers])
 
+(defn prep-system []
+  (let [get-conf (requiring-resolve 'pc4.config.interface/config)
+        conf (get-conf :dev)]
+    (ig/load-namespaces conf [::server])
+    (ig/expand conf (ig/deprofile :dev))))
+
+(defn system []
+  integrant.repl.state/system)
+
 (comment
-  (require '[pc4.config.interface :as config])
-  (config/config :dev)
+  (require '[integrant.repl :as ig.repl])
+  (ig.repl/set-prep! prep-system)
+  (ig.repl/go [::server])
+
   (route/routes-from routes)
   (def srv (start {}))
   (http/stop srv)
-  (ig/load-namespaces (config/config :dev))
-  (def system (ig/init (config/config :dev) [::server]))
-  (keys system)
 
   (selmer/render " hi there {{name}} " {:name "Mark"})
   (selmer/render-file "navbar.html" {:name "Mark"})
   (selmer.parser/cache-off!)
   (println (selmer/render-file "home-page.html" {:user {:fullname "Mark Wardle" :initials "MW"}}))
-  (do
-    (when system (ig/halt! system))
-    (def system (ig/init (config/config :dev) [::server])))
-
-  system
-  (keys system)
-  (def rsdb (:pc4.rsdb.interface/svc system))
+  (system)
+  (keys (system))
+  (def rsdb (:pc4.rsdb.interface/svc (system)))
   (def conn (:conn rsdb))
   (honey.sql/format (pc4.rsdb.patients/with-current-address {:select :* :from :t_patient
                                                              :where  [:= :patient_identifier 13358]}))

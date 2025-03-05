@@ -1,10 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>$Title$</title>
-</head>
-<body>
-$END$
-</body>
-</html>
+{% extends "templates/page.html" %}
+
+{% block header %}
+{% include "templates/navbar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4">
+    <div class="col-span-1 md:col-span-4">
+        {% include "templates/patient/banner.html" %}
+    </div>
+
+    {% if menu %}
+    <div class="col-span-1 md:mr-2">
+        {% include "templates/ui/vertical-navigation.html" %}
+    </div>
+    <div class="col-span-3">
+    {% block main %}
+        {{ content|safe }}
+    {% endblock %}
+    </div>
+
+    {% else %}
+    <div class="col-span-1 md:col-span-4">
+        {% block main %}
+        {{ content|safe }}
+        {% endblock %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block footer %}
+{% endblock %}

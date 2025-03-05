@@ -137,7 +137,7 @@
                    (fn [env {:t_patient/keys [permissions] :as params}]
                      (if (or (:disable-auth env) (and permissions (permissions permission)))
                        (resolve env params)                 ;; new resolver calls old resolver if permitted
-                       (do (log/debug "unauthorized call to resolver" params)
+                       (do (log/warn "unauthorized call to resolver" params)
                            {:t_patient/authorization permissions})))))))))
 
 (def patient-properties
@@ -324,21 +324,25 @@
   (let [certificate (rsdb/patient->death-certificate rsdb patient)]
     (assoc certificate :t_patient/death_certificate certificate)))
 
+(def diagnosis-properties
+  [:t_diagnosis/concept_fk
+   :t_diagnosis/patient_fk
+   {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
+   :t_diagnosis/date_diagnosis
+   :t_diagnosis/date_diagnosis_accuracy
+   :t_diagnosis/date_onset
+   :t_diagnosis/date_onset_accuracy
+   :t_diagnosis/date_to
+   :t_diagnosis/date_to_accuracy
+   :t_diagnosis/status
+   :t_diagnosis/full_description])
+
 (pco/defresolver patient->diagnoses
   "Returns diagnoses for a patient. Optionally takes a parameter:
   - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
   [{hermes :com.eldrix/hermes, rsdb :com.eldrix/rsdb :as env} {patient-pk :t_patient/id}]
   {::pco/transform (make-wrap-patient-authorize)
-   ::pco/output    [{:t_patient/diagnoses [:t_diagnosis/concept_fk
-                                           {:t_diagnosis/diagnosis [:info.snomed.Concept/id]}
-                                           :t_diagnosis/date_diagnosis
-                                           :t_diagnosis/date_diagnosis_accuracy
-                                           :t_diagnosis/date_onset
-                                           :t_diagnosis/date_onset_accuracy
-                                           :t_diagnosis/date_to
-                                           :t_diagnosis/date_to_accuracy
-                                           :t_diagnosis/status
-                                           :t_diagnosis/full_description]}]}
+   ::pco/output    [{:t_patient/diagnoses diagnosis-properties}]}
   (let [diagnoses (rsdb/patient->diagnoses rsdb patient-pk)
 
         ecl (:ecl (pco/params env))
@@ -348,6 +352,14 @@
                        (filter #(concept-ids (:t_diagnosis/concept_fk %)) diagnoses)))]
     {:t_patient/diagnoses
      (mapv #(assoc % :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk %)}) diagnoses')}))
+
+(pco/defresolver diagnosis-by-id
+  [{rsdb :com.eldrix/rsdb, :as env} {:t_diagnosis/keys [id]}]
+  {::pco/input [:t_diagnosis/id]
+   ::pco/output diagnosis-properties}
+  (when-let [diag (rsdb/diagnosis-by-id rsdb id)]
+    (println "diagnosis:" diag)
+    (assoc diag :t_diagnosis/diagnosis {:info.snomed.Concept/id (:t_diagnosis/concept_fk diag)})))
 
 (pco/defresolver diagnosis->patient
   [{patient-pk :t_diagnosis/patient_fk}]
@@ -1822,6 +1834,7 @@
    patient->diagnoses
    diagnosis->patient
    patient->has-diagnosis
+   diagnosis-by-id
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
    ms-events->ordering-errors

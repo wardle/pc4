@@ -1,23 +1,9 @@
-{% extends "templates/page.html" %}
+{% extends "templates/patient/base.html" %}
 
-{% block header %}
-{% include "templates/navbar.html" %}
+{% block main %}
+{% with title=demographics.title subtitle=demographics.subtitle items=demographics.items %}
+    {% include "templates/ui/two-column-card.html" %}
+{% endwith %}
 {% endblock %}
 
-{% block content %}
-<div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4">
-    <div class="col-span-1 md:col-span-4">
-        {% include "templates/patient/banner.html" %}
-    </div>
 
-    <div class="col-span-1 md:mr-2">
-        {% include "templates/ui/vertical-navigation.html" %}
-    </div>
-    <div class="col-span-3">
-        {{ content|safe }}
-    </div>
-</div>
-{% endblock %}
-
-{% block footer %}
-{% endblock %}

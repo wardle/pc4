@@ -1,22 +1,22 @@
 (ns pc4.rsdb.patients
   (:require
-   [clojure.spec.alpha :as s]
-   [clojure.string :as str]
-   [clojure.tools.logging.readable :as log]
-   [com.eldrix.nhsnumber :as nnn]
-   [honey.sql :as sql]
-   [honey.sql.helpers :as h]
-   [integrant.core :as ig]
-   [medley.core :as m]
-   [next.jdbc :as jdbc]
-   [next.jdbc.plan :as plan]
-   [next.jdbc.sql]
-   [pc4.nhs-number.interface :as nhs-number]
-   [pc4.ods.interface :as ods]
-   [pc4.rsdb.db :as db]
-   [pc4.rsdb.projects :as projects]
-   [pc4.rsdb.users :as users]
-   [pc4.snomedct.interface :as hermes])
+    [clojure.spec.alpha :as s]
+    [clojure.string :as str]
+    [clojure.tools.logging.readable :as log]
+    [com.eldrix.nhsnumber :as nnn]
+    [honey.sql :as sql]
+    [honey.sql.helpers :as h]
+    [integrant.core :as ig]
+    [medley.core :as m]
+    [next.jdbc :as jdbc]
+    [next.jdbc.plan :as plan]
+    [next.jdbc.sql]
+    [pc4.nhs-number.interface :as nhs-number]
+    [pc4.ods.interface :as ods]
+    [pc4.rsdb.db :as db]
+    [pc4.rsdb.projects :as projects]
+    [pc4.rsdb.users :as users]
+    [pc4.snomedct.interface :as hermes])
   (:import (java.time LocalDate LocalDateTime)
            (java.time.format DateTimeFormatter)))
 
@@ -59,7 +59,7 @@
   (when (str/blank? crn)
     (throw (ex-info "Missing hospital number " ph)))
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
-                                     (ods/parse-org-id hospital_identifier))
+                                                 (ods/parse-org-id hospital_identifier))
         org (ods/fetch-org ods root extension)
         cavuhb (ods/fetch-org ods nil "7A4")]
     (if-not (ods/related? ods org cavuhb)
@@ -81,29 +81,29 @@
 (defn fetch-patient
   [conn {patient-pk :t_patient/id patient-identifier :t_patient/patient_identifier}]
   (db/execute-one!
-   conn
-   (sql/format {:select :*
-                :from   :t_patient
-                :where  (if patient-pk [:= :id patient-pk]
-                            [:= :patient_identifier patient-identifier])})))
+    conn
+    (sql/format {:select :*
+                 :from   :t_patient
+                 :where  (if patient-pk [:= :id patient-pk]
+                                        [:= :patient_identifier patient-identifier])})))
 
 (defn save-patient!
   [conn {patient-pk :t_patient/id :as patient}]
   (next.jdbc.sql/update!
-   conn :t_patient
-   (select-keys patient [:t_patient/country_of_birth_concept_fk
-                         :t_patient/date_birth
-                         :t_patient/date_death
-                         :t_patient/ethnic_origin_concept_fk
-                         :t_patient/first_names
-                         :t_patient/last_name
-                         :t_patient/marital_status_fk
-                         :t_patient/racial_group_concept_fk
-                         :t_patient/title
-                         :t_patient/maiden_name
-                         :t_patient/email
-                         :t_patient/highest_educational_level_concept_fk])
-   {:t_patient/id patient-pk}))
+    conn :t_patient
+    (select-keys patient [:t_patient/country_of_birth_concept_fk
+                          :t_patient/date_birth
+                          :t_patient/date_death
+                          :t_patient/ethnic_origin_concept_fk
+                          :t_patient/first_names
+                          :t_patient/last_name
+                          :t_patient/marital_status_fk
+                          :t_patient/racial_group_concept_fk
+                          :t_patient/title
+                          :t_patient/maiden_name
+                          :t_patient/email
+                          :t_patient/highest_educational_level_concept_fk])
+    {:t_patient/id patient-pk}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -188,17 +188,17 @@
    (let [on-date# (or on-date (LocalDate/now))]
      (-> query
          (h/left-join
-          [{:select [:patient_fk :address1 :address2 :address3 :address4 :postcode_raw :date_from :date_to
-                     [[:raw "row_number() over (partition by patient_fk order by date_from desc nulls last, date_to desc nulls last, id asc) AS address_row_number"]]]
-            :from   :t_address
-            :where  [:and
-                     [:or [:= :date_from nil] [:<= :date_from on-date#]]
-                     [:or [:= :date_to nil] [:> :date_to on-date#]]]} :current_address]
-          [:and
-           [:= :address_row_number 1]
-           [:= :t_patient/id :current_address/patient_fk]])
+           [{:select [:patient_fk :address1 :address2 :address3 :address4 :postcode_raw :date_from :date_to
+                      [[:raw "row_number() over (partition by patient_fk order by date_from desc nulls last, date_to desc nulls last, id asc) AS address_row_number"]]]
+             :from   :t_address
+             :where  [:and
+                      [:or [:= :date_from nil] [:<= :date_from on-date#]]
+                      [:or [:= :date_to nil] [:> :date_to on-date#]]]} :current_address]
+           [:and
+            [:= :address_row_number 1]
+            [:= :t_patient/id :current_address/patient_fk]])
          (cond->
-          update-select?                                   ;; only alter select if explicitly requested
+           update-select?                                   ;; only alter select if explicitly requested
            (h/select :address1 :address2 :address3 :address4 :postcode_raw, :date_from :date_to))))))
 
 (defn with-hospital-crns
@@ -211,24 +211,24 @@
        ;; if we have hospital identifiers -> use them 
        (seq hospital-identifiers)
        (h/left-join
-        [(cond-> {:select [:patient_fk
-                           [[:raw " string_agg (patient_identifier, ' ') AS crn"]]]
-                  :from :t_patient_hospital
+         [(cond-> {:select   [:patient_fk
+                              [[:raw " string_agg (patient_identifier, ' ') AS crn"]]]
+                   :from     :t_patient_hospital
 
-                  :group-by :patient_fk}
-           hospital-identifiers
-           (h/where :in :t_patient_hospital/hospital_fk hospital-identifiers))
-         :ph]
-        [:= :t_patient/id :ph/patient_fk])
+                   :group-by :patient_fk}
+            hospital-identifiers
+            (h/where :in :t_patient_hospital/hospital_fk hospital-identifiers))
+          :ph]
+         [:= :t_patient/id :ph/patient_fk])
        ;; handle case where there are no hospital identifiers -> so return an empty CRN
        (empty? hospital-identifiers)
        (h/left-join
-        [{:select [:patient_fk [[:raw "'' as crn"]]] :from :t_patient_hospital :where :false} :ph]
-        [:= :t_patient/id :ph/patient_fk])
+         [{:select [:patient_fk [[:raw "'' as crn"]]] :from :t_patient_hospital :where :false} :ph]
+         [:= :t_patient/id :ph/patient_fk])
        ;; update the select statement if required
        update-select?
        (->
-        (h/select :crn))))))
+         (h/select :crn))))))
 
 (comment
   (def conn (jdbc/get-connection "jdbc:postgresql:rsdb"))
@@ -244,9 +244,9 @@
   (def ods (:pc4.ods.interface/svc system))
   (def s (sql/format (with-hospital-crns {:select [:patient_identifier :crn] :from :t_patient
                                           :where  [:= :patient_identifier 14032]}
-                       {:update-select?      true
-                        :ods                 ods
-                        :hospital-identifier "7A4"})
+                                         {:update-select?      true
+                                          :ods                 ods
+                                          :hospital-identifier "7A4"})
                      {:inline true}))
   (jdbc/execute! conn s))
 
@@ -320,25 +320,25 @@
   (jdbc/execute! conn (sql/format (-> {:select :* :from :t_patient}
                                       (with-search-query {:s "A123456" :ods ods :hospital-identifier "7A4"}))))
   (time (map
-         (juxt :t_patient/last_name :t_patient/first_names :crn)
-         (jdbc/execute! conn
-                        (sql/format (with-search-query
-                                      {:select :* :from :t_patient}
-                                      {:s     "davies" :address? true :order-by [:name :asc]
-                                       :ods ods
-                                       :hospital-identifier "RWMBV"
-                                       :limit 50 :offset 0})
-                                    {:pretty true :inline false}))))
+          (juxt :t_patient/last_name :t_patient/first_names :crn)
+          (jdbc/execute! conn
+                         (sql/format (with-search-query
+                                       {:select :* :from :t_patient}
+                                       {:s                   "davies" :address? true :order-by [:name :asc]
+                                        :ods                 ods
+                                        :hospital-identifier "RWMBV"
+                                        :limit               50 :offset 0})
+                                     {:pretty true :inline false}))))
 
   (only-matching-search {} "donald duck")
   (sql/format (with-search-query nil {:s "donald duck" :project-ids [5] :address? true}) {:pretty true :inline true})
   (sql/format (with-search-query nil {:s "a123456"}) {:inline true})
 
   (time (jdbc/execute!
-         conn
-         (-> {:select [:patient_identifier, :first_names :last_name :address1 :address2 :address3 :postcode_raw] :from :t_patient}
-             (with-search-query {:s "mouse" :address? true :status #{"FULL" "FAKE" "PSEUDONYMOUS"} :order-by [:name :asc]})
-             (sql/format)))))
+          conn
+          (-> {:select [:patient_identifier, :first_names :last_name :address1 :address2 :address3 :postcode_raw] :from :t_patient}
+              (with-search-query {:s "mouse" :address? true :status #{"FULL" "FAKE" "PSEUDONYMOUS"} :order-by [:name :asc]})
+              (sql/format)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -369,7 +369,7 @@
   (let [patient-hospitals (patient-pk->hospitals-for-org conn patient-pk ods-svc org-code)
         authoritative (filter :t_patient_hospital/authoritative patient-hospitals)]
     (:t_patient_hospital/patient_identifier
-     (or (first authoritative) (last (sort-by :t_patient_hospital/id patient-hospitals))))))
+      (or (first authoritative) (last (sort-by :t_patient_hospital/id patient-hospitals))))))
 
 (defn best-patient-crn-fn
   "Returns a function that can 'choose' the best CRN from a sequence of
@@ -391,14 +391,14 @@
               (first authoritative)
               (first patient-hospitals))))))))
 
-  (comment
-    (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
-    (patient-pk->crn-for-org conn 14031 ods-svc "rwm")
-    (->> (patient-pk->hospitals-for-org
-           conn
-           14031
-           ods-svc "7A4BV")
-         (sort-by :t_patient_hospital/authoritative)))
+(comment
+  (def conn (:pc4.rsdb.interface/conn integrant.repl.state/system))
+  (patient-pk->crn-for-org conn 14031 ods-svc "rwm")
+  (->> (patient-pk->hospitals-for-org
+         conn
+         14031
+         ods-svc "7A4BV")
+       (sort-by :t_patient_hospital/authoritative)))
 
 (s/fdef fetch-patient-addresses
   :args (s/cat :conn ::db/conn :patient (s/keys :req [:t_patient/id])))
@@ -411,7 +411,7 @@
                             :from     :t_address
                             :join     [:t_patient [:= :t_patient/id :t_address/patient_fk]]
                             :where    (if patient-pk [:= :patient_fk patient-pk]
-                                          [:= :patient_identifier patient-identifier])
+                                                     [:= :patient_identifier patient-identifier])
                             :order-by [[:date_to :desc] [:date_from :desc]]})))
 
 (s/fdef address-for-date
@@ -433,19 +433,19 @@
    (patient->episodes conn patient-pk nil))
   ([conn patient-pk project-id-or-ids]
    (jdbc/execute!
-    conn
-    (sql/format {:select   [:*]
-                 :from     [:t_episode]
-                 :where    (if project-id-or-ids
-                             [:and
-                              [:= :patient_fk patient-pk]
-                              (if (coll? project-id-or-ids)
-                                [:in :project_fk project-id-or-ids]
-                                [:= :project_fk project-id-or-ids])]
-                             [:= :patient_fk patient-pk])
-                 :order-by [[:t_episode/date_registration :asc]
-                            [:t_episode/date_referral :asc]
-                            [:t_episode/date_discharge :asc]]}))))
+     conn
+     (sql/format {:select   [:*]
+                  :from     [:t_episode]
+                  :where    (if project-id-or-ids
+                              [:and
+                               [:= :patient_fk patient-pk]
+                               (if (coll? project-id-or-ids)
+                                 [:in :project_fk project-id-or-ids]
+                                 [:= :project_fk project-id-or-ids])]
+                              [:= :patient_fk patient-pk])
+                  :order-by [[:t_episode/date_registration :asc]
+                             [:t_episode/date_referral :asc]
+                             [:t_episode/date_discharge :asc]]}))))
 
 (defn episode-by-id
   [conn episode-id]
@@ -455,11 +455,11 @@
   "Return the episodes for the given patient."
   [conn patient-identifier]
   (jdbc/execute!
-   conn
-   (sql/format {:select [:t_episode/*]
-                :from   [:t_episode]
-                :join   [:t_patient [:= :patient_fk :t_patient/id]]
-                :where  [:= :patient_identifier patient-identifier]})))
+    conn
+    (sql/format {:select [:t_episode/*]
+                 :from   [:t_episode]
+                 :join   [:t_patient [:= :patient_fk :t_patient/id]]
+                 :where  [:= :patient_identifier patient-identifier]})))
 
 (defn active-episodes
   ([conn patient-identifier]
@@ -546,20 +546,20 @@
   "Turn a single patient primary key into a patient identifier."
   [conn pk]
   (:t_patient/patient_identifier
-   (plan/select-one! conn [:t_patient/patient_identifier]
-                     (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
+    (plan/select-one! conn [:t_patient/patient_identifier]
+                      (sql/format {:select :patient_identifier :from :t_patient :where [:= :id pk]}))))
 
 (defn patient-identifier->pk
   "Turn a single patient identifier into the primary key."
   [conn patient-identifier]
   (:t_patient/id
-   (plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
+    (plan/select-one! conn [:t_patient/id] (sql/format {:select :id :from :t_patient :where [:= :patient_identifier patient-identifier]}))))
 
 (defn encounter-by-id
   [conn encounter-id]
   (db/execute-one!
-   conn
-   (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]})))
+    conn
+    (sql/format {:select [:*] :from :t_encounter :where [:= :id encounter-id]})))
 
 (defn ^:deprecated encounter->users
   "DEPRECATED. Use [[encounter->users#]] instead.
@@ -573,9 +573,9 @@
 (defn encounter->users#
   [conn encounter-id]
   (jdbc/execute! conn (sql/format (assoc pc4.rsdb.users/fetch-user-query
-                                         :where [:in :t_user/id {:select-distinct :userid
-                                                                 :from            :t_encounter_user
-                                                                 :where           [:= :encounterid encounter-id]}]))))
+                                    :where [:in :t_user/id {:select-distinct :userid
+                                                            :from            :t_encounter_user
+                                                            :where           [:= :encounterid encounter-id]}]))))
 
 (defn patient->encounters
   [conn patient-pk]
@@ -669,29 +669,29 @@
   [{patient-pk :t_patient/id, patient-identifier :t_patient/patient_identifier}
    {:t_diagnosis/keys [concept_fk date_onset date_onset_accuracy date_diagnosis date_diagnosis_accuracy date_to date_to_accuracy status]}]
   (sql/format
-   {:insert-into [:t_diagnosis]
-    :values      [{:date_onset              date_onset
-                   :date_onset_accuracy     date_onset_accuracy
-                   :date_diagnosis          date_diagnosis
-                   :date_diagnosis_accuracy date_diagnosis_accuracy
-                   :date_to                 date_to
-                   :date_to_accuracy        date_to_accuracy
-                   :status                  (name status)
-                   :concept_fk              concept_fk
-                   :patient_fk              (or patient-pk {:select :t_patient/id
-                                                            :from   [:t_patient]
-                                                            :where  [:= :t_patient/patient_identifier patient-identifier]})}]}))
+    {:insert-into [:t_diagnosis]
+     :values      [{:date_onset              date_onset
+                    :date_onset_accuracy     date_onset_accuracy
+                    :date_diagnosis          date_diagnosis
+                    :date_diagnosis_accuracy date_diagnosis_accuracy
+                    :date_to                 date_to
+                    :date_to_accuracy        date_to_accuracy
+                    :status                  (name status)
+                    :concept_fk              concept_fk
+                    :patient_fk              (or patient-pk {:select :t_patient/id
+                                                             :from   [:t_patient]
+                                                             :where  [:= :t_patient/patient_identifier patient-identifier]})}]}))
 
 (comment
   (create-diagnosis-sql
-   {:t_patient/id 14031}
-   {:t_diagnosis/concept_fk 24700007
-    :t_diagnosis/status     :ACTIVE
-    :t_patient/id           14031})
+    {:t_patient/id 14031}
+    {:t_diagnosis/concept_fk 24700007
+     :t_diagnosis/status     :ACTIVE
+     :t_patient/id           14031})
   (create-diagnosis-sql
-   {:t_patient/patient_identifier 14031}
-   {:t_diagnosis/concept_fk 24700007
-    :t_diagnosis/status     :ACTIVE}))
+    {:t_patient/patient_identifier 14031}
+    {:t_diagnosis/concept_fk 24700007
+     :t_diagnosis/status     :ACTIVE}))
 
 (defn create-diagnosis! [conn patient diagnosis]
   (db/execute-one! conn
@@ -724,11 +724,17 @@
 (defn diagnoses
   [conn patient-pk]
   (db/execute!
-   conn
-   (sql/format {:select [:*]
-                :from   [:t_diagnosis]
-                :where  [:and
-                         [:= :patient_fk patient-pk] [:!= :status "INACTIVE_IN_ERROR"]]})))
+    conn
+    (sql/format {:select [:*]
+                 :from   [:t_diagnosis]
+                 :where  [:and
+                          [:= :patient_fk patient-pk] [:!= :status "INACTIVE_IN_ERROR"]]})))
+
+(defn diagnosis-by-id
+  [conn diagnosis-id]
+  (db/execute-one! conn
+               (sql/format {:select :* :from :t_diagnosis
+                            :where  [:= :id diagnosis-id]})))
 
 (s/fdef fetch-medications
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
@@ -737,18 +743,18 @@
   each representing a medication record."
   [conn {patient-identifier :t_patient/patient_identifier, patient-pk :t_patient/id :as req}]
   (db/execute! conn (sql/format
-                     (cond
-                       patient-pk
-                       {:select [:t_medication/*]
-                        :from   [:t_medication]
-                        :where  [:= :patient_fk patient-pk]}
-                       patient-identifier
-                       {:select [:t_medication/*]
-                        :from   [:t_medication]
-                        :join   [:t_patient [:= :patient_fk :t_patient/id]]
-                        :where  [:= :patient-identifier patient-identifier]}
-                       :else
-                       (throw (ex-info "Either t_patient/id or t_patient/patient_identifier must be provided" req))))))
+                      (cond
+                        patient-pk
+                        {:select [:t_medication/*]
+                         :from   [:t_medication]
+                         :where  [:= :patient_fk patient-pk]}
+                        patient-identifier
+                        {:select [:t_medication/*]
+                         :from   [:t_medication]
+                         :join   [:t_patient [:= :patient_fk :t_patient/id]]
+                         :where  [:= :patient-identifier patient-identifier]}
+                        :else
+                        (throw (ex-info "Either t_patient/id or t_patient/patient_identifier must be provided" req))))))
 
 (defn fetch-medication-events
   "Returns medication events for the medication records specified.
@@ -794,8 +800,8 @@
 (s/fdef upsert-medication!
   :args (s/cat :conn ::db/txn
                :medication (s/keys
-                            :req [:t_medication/patient_fk :t_medication/medication_concept_fk]
-                            :opt [:t_medication/id :t_medication/events])))
+                             :req [:t_medication/patient_fk :t_medication/medication_concept_fk]
+                             :opt [:t_medication/id :t_medication/events])))
 (defn upsert-medication!
   "Insert or update a medication record. "
   [txn {:t_medication/keys [reason_for_stopping id events] :as med}]
@@ -806,20 +812,20 @@
                                        :t_medication/temporary_stop :t_medication/more_information :t_medication/as_required])
                reason_for_stopping (update :t_medication/reason_for_stopping name))
         med'' (db/parse-entity
-               (if id
+                (if id
                   ;; delete all related events iff we are updating a record
-                 (do (next.jdbc.sql/delete! txn :t_medication_event {:medication_fk id})
-                     (next.jdbc.sql/update! txn :t_medication med' {:id id} {:return-keys true}))
+                  (do (next.jdbc.sql/delete! txn :t_medication_event {:medication_fk id})
+                      (next.jdbc.sql/update! txn :t_medication med' {:id id} {:return-keys true}))
                   ;; just create a new record
-                 (next.jdbc.sql/insert! txn :t_medication med')))
+                  (next.jdbc.sql/insert! txn :t_medication med')))
         id' (:t_medication/id med'')
         events' (mapv #(unparse-medication-event id' %) events)]
     (log/info "upserted medication" med'')
     (log/info "upserting medication events" events')
     (assoc med'' :t_medication/events
-           (if (seq events')
-             (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
-             []))))
+                 (if (seq events')
+                   (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
+                   []))))
 
 (defn medication-by-id
   [conn medication-id]
@@ -1018,9 +1024,9 @@
                                       :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
                                       :where     [:= :t_ms_event/summary_multiple_sclerosis_fk sms-id]}))
        (map #(assoc % :t_ms_event/is_relapse (ms-event-is-relapse? %)
-                    :t_ms_event/is_progressive (ms-event-is-progressive? %)
-                    :t_ms_event/type (select-keys % [:t_ms_event_type/id :t_ms_event_type/name
-                                                     :t_ms_event_type/abbreviation])))))
+                      :t_ms_event/is_progressive (ms-event-is-progressive? %)
+                      :t_ms_event/type (select-keys % [:t_ms_event_type/id :t_ms_event_type/name
+                                                       :t_ms_event_type/abbreviation])))))
 
 (defn patient-identifier-for-ms-event
   "Returns the patient identifier for a given MS event"
@@ -1053,17 +1059,17 @@
                            {:return-keys true})
 
     (jdbc/execute-one! txn (sql/format
-                            {:insert-into [:t_summary_multiple_sclerosis]
+                             {:insert-into [:t_summary_multiple_sclerosis]
                               ;; note as this table uses legacy WO horizontal inheritance, we use t_summary_seq to generate identifiers manually.
-                             :values      [{:t_summary_multiple_sclerosis/id                  {:select [[[:nextval "t_summary_seq"]]]}
-                                            :t_summary_multiple_sclerosis/written_information ""
-                                            :t_summary_multiple_sclerosis/under_active_review "true"
-                                            :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
-                                            :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
-                                            :t_summary_multiple_sclerosis/user_fk             user-id
-                                            :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
-                                                                                               :from   [:t_patient]
-                                                                                               :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
+                              :values      [{:t_summary_multiple_sclerosis/id                  {:select [[[:nextval "t_summary_seq"]]]}
+                                             :t_summary_multiple_sclerosis/written_information ""
+                                             :t_summary_multiple_sclerosis/under_active_review "true"
+                                             :t_summary_multiple_sclerosis/date_created        (LocalDateTime/now)
+                                             :t_summary_multiple_sclerosis/ms_diagnosis_fk     ms-diagnosis-id
+                                             :t_summary_multiple_sclerosis/user_fk             user-id
+                                             :t_summary_multiple_sclerosis/patient_fk          {:select :t_patient/id
+                                                                                                :from   [:t_patient]
+                                                                                                :where  [:= :t_patient/patient_identifier patient-identifier]}}]})
                        {:return-keys true})))
 
 (defn save-ms-diagnosis!
@@ -1075,7 +1081,7 @@
       (save-ms-diagnosis*! txn params)
       (catch Exception e (log/error "failed to save ms diagnosis" (ex-data e))))
     (assoc (fetch-summary-multiple-sclerosis txn patient-identifier)
-           :t_patient/patient_identifier patient-identifier)))
+      :t_patient/patient_identifier patient-identifier)))
 
 (def default-ms-event
   {:t_ms_event/site_arm_motor    false
@@ -1208,14 +1214,14 @@
 (defn set-date-death
   [conn {patient-pk :t_patient/id, patient-identifier :t_patient/patient_identifier, date_death :t_patient/date_death :as params}]
   (db/execute-one!
-   conn
-   (sql/format {:update [:t_patient]
-                :where  (cond
-                          patient-pk [:= :id patient-pk]
-                          patient-identifier [:= :patient_identifier patient-identifier]
-                          :else (throw (ex-info "missing patient pk or identifier" params)))
-                :set    {:date_death date_death}})
-   {:return-keys true}))
+    conn
+    (sql/format {:update [:t_patient]
+                 :where  (cond
+                           patient-pk [:= :id patient-pk]
+                           patient-identifier [:= :patient_identifier patient-identifier]
+                           :else (throw (ex-info "missing patient pk or identifier" params)))
+                 :set    {:date_death date_death}})
+    {:return-keys true}))
 
 (s/fdef notify-death!
   :args (s/cat :conn ::db/serializable-txn
@@ -1239,24 +1245,24 @@
       (and date_death existing-certificate)
       (do (set-date-death txn patient')
           (assoc patient' :t_patient/death_certificate
-                 (jdbc/execute-one! txn (sql/format {:update [:t_death_certificate]
-                                                     :where  [:= :id (:t_death_certificate/id existing-certificate)]
-                                                     :set    {:t_death_certificate/part1a part1a
-                                                              :t_death_certificate/part1b part1b
-                                                              :t_death_certificate/part1c part1c
-                                                              :t_death_certificate/part2  part2}})
-                                    {:return-keys true})))
+                          (jdbc/execute-one! txn (sql/format {:update [:t_death_certificate]
+                                                              :where  [:= :id (:t_death_certificate/id existing-certificate)]
+                                                              :set    {:t_death_certificate/part1a part1a
+                                                                       :t_death_certificate/part1b part1b
+                                                                       :t_death_certificate/part1c part1c
+                                                                       :t_death_certificate/part2  part2}})
+                                             {:return-keys true})))
       ;; patient has died, but no existing certificate
       date_death
       (do (set-date-death txn patient')
           (assoc patient' :t_patient/death_certificate
-                 (jdbc/execute-one! txn (sql/format {:insert-into :t_death_certificate
-                                                     :values      [{:t_death_certificate/patient_fk patient-pk
-                                                                    :t_death_certificate/part1a     part1a
-                                                                    :t_death_certificate/part1b     part1b
-                                                                    :t_death_certificate/part1c     part1c
-                                                                    :t_death_certificate/part2      part2}]})
-                                    {:return-keys true})))
+                          (jdbc/execute-one! txn (sql/format {:insert-into :t_death_certificate
+                                                              :values      [{:t_death_certificate/patient_fk patient-pk
+                                                                             :t_death_certificate/part1a     part1a
+                                                                             :t_death_certificate/part1b     part1b
+                                                                             :t_death_certificate/part1c     part1c
+                                                                             :t_death_certificate/part2      part2}]})
+                                             {:return-keys true})))
       ;; patient has not died, clear date of death and delete death certificate
       :else
       (do (set-date-death txn patient')

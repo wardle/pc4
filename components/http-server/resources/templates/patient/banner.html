@@ -25,6 +25,7 @@
         </button>
     </div>
     {% endif %}
+
     {% if any banner.deceased banner.date-death %}
     <div class="grid grid-cols-1 pb-2">
         <span class="text-xs text-red-200 bg-red-500 text-center font-semibold inline-block py-1 px-2 uppercase rounded-full ml-1 last:mr-0 mr-1">
@@ -36,7 +37,8 @@
         </span>
     </div>
     {% endif %}
-    <div class="grid grid-cols-2 lg:grid-cols-5 pt-1">
+
+    <div class="grid grid-cols-2 lg:grid-cols-5">
         {% if banner.name %}
         {% if banner.name|length > 30 %}
         <div class="font-bold text-sm min-w-min">{{ banner.name }}</div>
@@ -116,15 +118,15 @@
         </div>
     </div>
 
+    {% if banner.break-glass? %}
     <div class="pt-4">
-        {% if banner.break-glass? %}
         <div role="alert"
              class="bg-gray-100 border border-dashed border-gray-400 text-xs rounded italic p-1 text-center">
             You have temporary read-only access to this patient's record because you have used 'break-glass' functionality.
             Your access will be removed after logout.
         </div>
-        {% endif %}
     </div>
+    {% endif %}
 </div>
 
 

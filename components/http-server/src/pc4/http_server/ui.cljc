@@ -86,12 +86,15 @@
      [:span.block.sm:inline message]]))
 
 (rum/defc active-panel
-  [{:keys [title subtitle class ]} & content]
-  [:div.bg-white.shadow-lg.sm:rounded-lg.border {:class class}
+  [{:keys [id title subtitle class]} & content]
+  [:div.bg-white.shadow-lg.sm:rounded-lg.border
+   (cond-> {}
+     class (assoc :class class)
+     id (assoc :id id))
    [:div.m-4.px-4.py-5:sm:p-6
-    [:h3.text-base.font-semibold.leading-6.text-gray-900 title]
-    [:div.mt-2.max-w-xl.text-sm.text-gray-500
-     [:p subtitle]]
+    (when title [:h3.text-base.font-semibold.leading-6.text-gray-900 title])
+    (when subtitle [:div.mt-2.max-w-xl.text-sm.text-gray-500
+                    [:p subtitle]])
     [:div.mt-5
      content]]])
 
@@ -99,15 +102,17 @@
   [:label.block.text-sm.font-medium.text-gray-600 {:for for} label])
 
 (rum/defc ui-textfield*
-  [{:keys [id placeholder type required auto-focus disabled] :or {type "text"}}]
+  "HTML input control for a textfield."
+  [{:keys [id name placeholder type required auto-focus disabled] :as opts :or {type "text"}}]
   [:input.p-2.shadow.sm-focus.ring-indigo-500.border.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
-   {:name id :type type :placeholder placeholder
-    :required required
-    :class (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-500" "bg-gray-50" "italic"])
-    :disabled disabled
-    :auto-focus auto-focus}])
+   (merge opts
+          {:name        (or name id)
+           :id          (or id name)
+           :class       (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-500" "bg-gray-50" "italic"]) })])
 
-(rum/defc ui-textfield [{:keys [id type label placeholder required auto-focus help-text disabled] :or {type "text"} :as params}]
+(rum/defc ui-textfield
+  "Label and input for a textfield, with optional help-text."
+  [{:keys [id name type label placeholder required auto-focus help-text disabled] :or {type "text"} :as params}]
   [:div
    (when label
      (ui-label {:for id :label label}))
@@ -118,28 +123,28 @@
 (rum/defc ui-submit-button
   [{:keys [label disabled]}]
   [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600
-   {:type "submit"
+   {:type  "submit"
     :class (if disabled ["opacity-50 pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
    label])
 
-(rum/defc ui-select-button                                  ;;; TODO: implement 'disabled'
-  [{:keys [id label disabled hx-get hx-target hx-swap options selected-id selected]}]
-  (let [disabled false]
-    [:div
-     (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
-     [:div.mt-2.grid.grid-cols-1
-      [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
-       (cond-> {:name id, :class (if disabled ["bg-gray-300" "text-gray-400"] ["bg-white" "text-gray-800"])}
-         disabled (assoc :disabled "disabled")
-         hx-get (assoc :hx-get hx-get)
-         hx-target (assoc :hx-target hx-target)
-         hx-swap (assoc :hx-swap hx-swap))
-       (for [{:keys [id text] :as option} options]
-         (if (or (and selected-id (= id selected-id)) (and selected (= option selected)))
-           [:option {:value id :selected "selected"} text]
-           [:option {:value id} text]))]
-      [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
-       [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]]))
+(rum/defc ui-select-button
+  [{:keys [id name label disabled hx-get hx-target hx-swap options selected-id selected]}]
+  [:div
+   (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
+   [:div.mt-2.grid.grid-cols-1
+    [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+     (cond-> {:name  (or name id), :id (or id name)
+              :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
+       disabled (assoc :disabled "disabled")
+       hx-get (assoc :hx-get hx-get)
+       hx-target (assoc :hx-target hx-target)
+       hx-swap (assoc :hx-swap hx-swap))
+     (for [{:keys [id text] :as option} options]
+       (if (or (and selected-id (= id selected-id)) (and selected (= option selected)))
+         [:option {:value id :selected "selected"} text]
+         [:option {:value id} text]))]
+    [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
+     [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]])
 
 
 (rum/defc ui-title [{:keys [id title subtitle]}]
@@ -175,3 +180,64 @@
   [opts & content]
   [:td.px-2.py-3.whitespace-nowrap.text-sm.text-gray-500
    opts content])
+
+(rum/defc ui-simple-form-title [{:keys [title subtitle]}]
+  [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
+   [:div.mt-1.sm:mt-0.sm:col-span-2
+    [:div.w-full.rounded-md.shadow-sm
+     (when subtitle
+       [:h4.text-xs.italic.font-light.text-gray-600 subtitle]
+       [:h3.text-lg.font-medium.leading-6.text-gray-900 title])]]])
+
+(rum/defc ui-simple-form-item
+  [{:keys [for label sublabel]} & content]
+  [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-2
+   (when label
+     [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2
+      (when for {:for for}) label
+      (when sublabel [:span.block.text-xs.font-medium.text-gray-400 sublabel])])
+   [:div.pt-2.sm:pt-0.sm:col-span-2 content]])
+
+(rum/defc ui-simple-form
+  [& content]
+  [:div.space-y-8.divide-y.divide-gray-200
+   [:div.mt-6.sm:mt-5.space-y-6.sm:space-y-5
+    content]])
+
+(rum/defc ui-local-date
+  [{:keys [id name label disabled] :as opts} ^LocalDate local-date]
+  [:div
+   (when label
+     (ui-label {:for (or id name) :label label}))
+   (when (or (not disabled) local-date)
+     [:input (merge opts
+                    {:name  (or name id)
+                     :id    (or id name)
+                     :type  "date"
+                     :value (when local-date (.toString local-date))})])])
+
+(rum/defc ui-textarea
+  [{:keys [id name label disabled rows]} value]
+  [:div
+   (when label
+     (ui-label {:for (or id name) :label label}))
+   [:textarea.p-1.comment.shadow-sm.focus:ring-indigo-500.border.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
+    {:id       (or id name)
+     :name     (or name id)
+     :class    (when disabled ["text-gray-600" "bg-gray-50" "italic"])
+     :rows     (or rows 5)
+     :disabled disabled} value]])
+
+(rum/defc ui-button
+  [{:keys [disabled] :as params} content]
+  [:button.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:ml-3.sm:w-auto.sm:text-sm
+   (merge {:type  "button"
+           :class (if disabled "opacity-50" "cursor-pointer")}
+          params)
+   content])
+
+(rum/defc ui-action-bar
+  [& content]
+  (when (seq content)
+    [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
+     content]))

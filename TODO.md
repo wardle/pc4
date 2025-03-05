@@ -4,6 +4,8 @@ Tasks that are currently my priority for this development cycle:
 
 ## Tasks prior to deployment to https://patientcare.app:
 
+* [ ] Migrate to htmx
+* [ ] Add asynchronous 'job' queue system backed by https://github.com/msolli/proletarian
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
 * [x] Add 'delete form' functionality to front-end

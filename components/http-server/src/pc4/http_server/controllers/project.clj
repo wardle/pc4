@@ -77,44 +77,6 @@
 ;;
 ;;
 
-
-
-(defn project-menu-env
-  [{:keys [project selected]}]
-  (let [{project-id :t_project/id} project
-        active (rsdb/project->active? project)]
-    {:selected selected
-     :title    (:t_project/title project)
-     :items    [{:id   :home
-                 :url  (route/url-for :project/home :path-params {:project-id project-id})
-                 :text "Home"}
-                {:id   :find-patient
-                 :url  (route/url-for :project/find-patient :path-params {:project-id project-id})
-                 :text "Find patient"}
-                {:id     :register-patient
-                 :url    (route/url-for :project/register-patient :path-params {:project-id project-id})
-                 :text   "Register patient"
-                 :hidden (not active)}
-                {:id     :today
-                 :url    (route/url-for :project/today :path-params {:project-id project-id})
-                 :text   "Today"
-                 :hidden (not active)}
-                {:id   :patients
-                 :url  (route/url-for :project/patients :path-params {:project-id project-id})
-                 :text "Patients"}
-                {:id   :encounters
-                 :url  (route/url-for :project/encounters :path-params {:project-id project-id})
-                 :text "Encounters"}
-                {:id   :team
-                 :url  (route/url-for :project/team :path-params {:project-id project-id})
-                 :text "Team"}]
-     :submenu  (case selected
-                 :home
-                 {:items [{:text "Edit project"}]}
-                 :team
-                 {:items [{:content (web/render (user-filter-select-button))}]}
-                 nil)}))
-
 (defn search-by-patient-identifier-panel
   [{:keys [project user csrf-token]}]
   (let [{project-id :t_project/id pseudonymous? :t_project/pseudonymous} project
@@ -154,35 +116,6 @@
                              (search-by-patient-identifier-panel
                                {:project current-project :csrf-token csrf-token
                                 :user authenticated-user}))})))))))
-
-
-#_(defn find-patient
-  [request]
-  (when-let [project-id (some-> (get-in request [:path-params :project-id]) parse-long)]
-    (let [authenticated-user (get-in request [:session :authenticated-user])
-          rsdb (get-in request [:env :rsdb])
-          patient-identifier (some-> (get-in request [:params "patient-identifier"]) parse-long)
-          found-patient (when patient-identifier (rsdb/fetch-patient rsdb {:t_patient/patient_identifier patient-identifier}))
-          single-result nil
-          multiple-results nil
-          project (rsdb/project-by-id rsdb project-id)
-          ctx (assoc (user/session-env request)
-                :menu (project-menu-env {:project project :selected :find-patient})
-                :title "Find patient"
-                :find-by-id (web/render
-                              (search-by-patient-identifier-panel
-                                {:project project :csrf-token (csrf/existing-token request), :user authenticated-user}))
-                :result single-result
-                :result multiple-results)]
-      (log/debug :find-patient {:patient-identifier patient-identifier})
-      (cond
-        found-patient                                       ;; we have a found single patient -> redirect to open patient record
-        (web/redirect-see-other (route/url-for :patient/home :params {:patient-identifier patient-identifier}))
-        :else
-        (web/ok
-          (web/render-file
-            "templates/project/find-patient-page.html" ctx))))))
-
 
 (comment
   (web/render (ui/active-panel {:title "hi there" :class "wibble woobble"})))
