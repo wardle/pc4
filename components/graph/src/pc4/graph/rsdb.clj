@@ -92,9 +92,9 @@
      ;; system user gets all known permissions
      (:t_role/is_system authenticated-user)
      rsdb/all-permissions
-     ;; break-glass provides only "normal user" access
+     ;; break-glass provides only "limited user" access
      break_glass
-     (:NORMAL_USER rsdb/permission-sets)
+     (:LIMITED_USER rsdb/permission-sets)
      ;; otherwise, generate permissions based on intersection of patient and user
      :else
      (let [patient-active-project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)
