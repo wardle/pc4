@@ -1,5 +1,7 @@
 (ns pc4.http-server.web
   (:require
+    [clojure.data.json :as json]
+    [clojure.edn :as edn]
     [pc4.log.interface :as log]
     [rum.core :as rum]
     [selmer.parser :as selmer]))
@@ -106,3 +108,9 @@
   "Return the name of the HTMX triggered element if it exists"
   [{:keys [headers] :as request}]
   (get headers "hx-trigger-name"))
+
+(defn write-hx-vals [k x]
+  (str (json/write-str {k (pr-str x)})))
+
+(defn read-hx-vals [k x]
+  (edn/read-string (get x k)))

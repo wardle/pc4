@@ -59,9 +59,9 @@
     ["/patient/:patient-identifier/motorneurone" :get [login/authenticated patient/authorized patient/motorneurone] :route-name :patient/motorneurone]
     ["/patient/:patient-identifier/epilepsy" :get [login/authenticated patient/authorized patient/epilepsy] :route-name :patient/epilepsy]
     ["/ui/patient/search" :post [login/authenticated patient/search] :route-name :patient/search]
-    ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete] :route-name :snomed/autocomplete]
-    ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results] :route-name :snomed/autocomplete-results]
-    ["/ui/snomed/result" :get [login/authenticated snomed/result] :route-name :snomed/result]
+    ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete-handler] :route-name :snomed/autocomplete]
+    ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results-handler] :route-name :snomed/autocomplete-results]
+    ["/ui/snomed/autocomplete-selected-result" :post [login/authenticated snomed/autocomplete-selected-result-handler] :route-name :snomed/autocomplete-selected-result]
     ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]})
 
 (defn env-interceptor
