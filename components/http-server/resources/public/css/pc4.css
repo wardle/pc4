@@ -1,0 +1,9 @@
+.inline-htmx-indicator{
+    display:none;
+}
+.htmx-request .inline-htmx-indicator{
+    display:inline;
+}
+.htmx-request.inline-htmx-indicator{
+    display:inline;
+}
