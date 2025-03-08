@@ -166,44 +166,9 @@
       (#{"INACTIVE_REVISED" "INACTIVE_IN_ERROR" "INACTIVE_RESOLVED"} status)
       (#{"ACTIVE"} status))))
 
-(s/def ::create-or-save-diagnosis
-  (s/and
-    (s/keys :req [:t_diagnosis/patient_fk
-                  :t_diagnosis/concept_fk
-                  :t_diagnosis/date_onset
-                  :t_diagnosis/date_diagnosis
-                  :t_diagnosis/date_to
-                  :t_diagnosis/status
-                  :t_diagnosis/full_description]
-            :opt [:t_diagnosis/id])
-    ::ordered-diagnosis-dates
-    ::valid-diagnosis-status))
 
-(pco/defresolver create-or-save-diagnosis-params
-  [{:keys [request]} {:ui/keys [current-patient]}]
-  {::pco/input  [{:ui/current-patient [:t_patient/id :t_patient/date_birth :t_patient/date_death]}]
-   ::pco/output [:params/create-or-save-diagnosis]}
-  (let [form-params (:form-params request)
-        concept-id (some-> form-params :concept-id parse-long)
-        diagnosis-id (some-> form-params :diagnosis-id parse-long)
-        data (cond-> {:t_diagnosis/patient_fk       (or (some-> form-params :patient-pk parse-long) (:t_patient/id current-patient))
-                      :t_diagnosis/concept_fk       concept-id
-                      :t_diagnosis/diagnosis        {:info.snomed.Concept/id                   concept-id
-                                                     :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:existing-term form-params)}}
-                      :t_diagnosis/date_birth       (:t_patient/date_birth current-patient)
-                      :t_diagnosis/date_death       (:t_patient/date_death current-patient)
-                      :t_diagnosis/date_now         (LocalDate/now)
-                      :t_diagnosis/date_onset       (-> form-params :date-onset safe-parse-local-date)
-                      :t_diagnosis/date_diagnosis   (-> form-params :date-diagnosis safe-parse-local-date)
-                      :t_diagnosis/date_to          (-> form-params :date-to safe-parse-local-date)
-                      :t_diagnosis/status           (:status form-params)
-                      :t_diagnosis/full_description (:full-description form-params)}
-               diagnosis-id
-               (assoc :t_diagnosis/id diagnosis-id))
-        valid? (s/valid? ::create-or-save-diagnosis data)]
-    {:params/create-or-save-diagnosis
-     {:data   data
-      :valid? valid?}}))
+
+
 
 (s/def ::patient
   (s/keys :req [:t_patient/id :t_patient/patient_identifier]))
@@ -229,7 +194,6 @@
                 patient->best-hospital-crn
                 patient-banner patient-menu
                 patient-page
-                create-or-save-diagnosis-params
                 register-to-project-params])
 
 (defn patient->result
@@ -534,6 +498,7 @@
          (when-not id
            (ui/ui-simple-form-item {:label "Diagnosis"}
              (snomed/ui-select-autocomplete {:name             "concept-id"
+                                             :placeholder      "Enter diagnosis"
                                              :ecl              "<404684003|Clinical finding|"
                                              :selected-concept diagnosis
                                              :common-concepts  common-diagnoses})))
@@ -571,19 +536,51 @@
     [{:info.snomed.Concept/preferredDescription
       [:info.snomed.Description/term]}]}])
 
+(s/def ::create-or-save-diagnosis
+  (s/and
+    (s/keys :req [:t_diagnosis/patient_fk
+                  :t_diagnosis/concept_fk
+                  :t_diagnosis/date_onset
+                  :t_diagnosis/date_diagnosis
+                  :t_diagnosis/date_to
+                  :t_diagnosis/status
+                  :t_diagnosis/full_description]
+            :opt [:t_diagnosis/id])
+    ::ordered-diagnosis-dates
+    ::valid-diagnosis-status))
+
+(defn parse-do-diagnosis-params [request]
+  (let [form-params (:form-params request)
+        concept-id (some-> form-params :concept-id parse-long)
+        diagnosis-id (some-> form-params :diagnosis-id parse-long)]
+    (cond-> {:t_diagnosis/patient_fk       (or (some-> form-params :patient-pk parse-long) (:t_patient/id current-patient))
+             :t_diagnosis/concept_fk       concept-id
+             :t_diagnosis/diagnosis        {:info.snomed.Concept/id                   concept-id
+                                            :info.snomed.Concept/preferredDescription {:info.snomed.Description/term (:existing-term form-params)}}
+             :t_diagnosis/date_birth       (:t_patient/date_birth current-patient)
+             :t_diagnosis/date_death       (:t_patient/date_death current-patient)
+             :t_diagnosis/date_now         (LocalDate/now)
+             :t_diagnosis/date_onset       (-> form-params :date-onset safe-parse-local-date)
+             :t_diagnosis/date_diagnosis   (-> form-params :date-diagnosis safe-parse-local-date)
+             :t_diagnosis/date_to          (-> form-params :date-to safe-parse-local-date)
+             :t_diagnosis/status           (:status form-params)
+             :t_diagnosis/full_description (:full-description form-params)}
+      diagnosis-id
+      (assoc :t_diagnosis/id diagnosis-id))))
+
 (def do-edit-diagnosis
   "Fragment to permit editing diagnosis. Designed to be used to replace page
   fragment for form validation.
   - on-cancel-url : URL to redirect if cancel
   - on-save-url   : URL to redirect after save"
   (pathom/handler
-    [:params/create-or-save-diagnosis
-     {:ui/authenticated-user [(list :t_user/common_concepts {:ecl "<404684003|Clinical finding|" :accept-language "en-GB"})]}]
-    (fn [{:keys [env] :as request} {:params/keys [create-or-save-diagnosis] :ui/keys [authenticated-user]}]
+    [{:ui/authenticated-user [(list :t_user/common_concepts {:ecl "<404684003|Clinical finding|" :accept-language "en-GB"})]}]
+    (fn [{:keys [env] :as request} {:ui/keys [authenticated-user]}]
       (let [{:keys [rsdb]} env
-            {:keys [data valid?]} create-or-save-diagnosis
+            data (parse-do-diagnosis-params request)
             common-diagnoses (:t_user/common_concepts authenticated-user)
-            trigger (web/hx-trigger request)]
+            trigger (web/hx-trigger request)
+            valid? (s/valid? ::create-or-save-diagnosis data)]
         (when-not valid?
           (log/debug "invalid diagnosis" (s/explain-data ::create-or-save-diagnosis data)))
         (cond
