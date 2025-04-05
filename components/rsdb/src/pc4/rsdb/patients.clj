@@ -733,8 +733,8 @@
 (defn diagnosis-by-id
   [conn diagnosis-id]
   (db/execute-one! conn
-               (sql/format {:select :* :from :t_diagnosis
-                            :where  [:= :id diagnosis-id]})))
+                   (sql/format {:select :* :from :t_diagnosis
+                                :where  [:= :id diagnosis-id]})))
 
 (s/fdef fetch-medications
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/patient_identifier :t_patient/id)])))
@@ -792,6 +792,7 @@
 (defn unparse-medication-event
   [medication-id evt]
   (-> (merge default-medication-event evt)
+      (select-keys (keys default-medication-event))         ;;only include specified keys
       (assoc :t_medication_event/medication_fk medication-id)
       (update :t_medication_event/type {:INFUSION_REACTION "INFUSION_REACTION" ;; TODO: fix consistency of type in legacy rsdb
                                         :ADVERSE_EVENT     "AdverseEvent"})
@@ -805,12 +806,14 @@
 (defn upsert-medication!
   "Insert or update a medication record. "
   [txn {:t_medication/keys [reason_for_stopping id events] :as med}]
-  (let [med' (cond-> (select-keys med [:t_medication/id :t_medication/medication_concept_fk
-                                       :t_medication/date_from :t_medication/date_to
-                                       :t_medication/reason_for_stopping :t_medication/patient_fk
-                                       :t_medication/date_from_accuracy :t_medication/date_to_accuracy
-                                       :t_medication/temporary_stop :t_medication/more_information :t_medication/as_required])
-               reason_for_stopping (update :t_medication/reason_for_stopping name))
+  (let [med' (-> (select-keys med [:t_medication/id :t_medication/medication_concept_fk
+                                   :t_medication/date_from :t_medication/date_to
+                                   :t_medication/reason_for_stopping :t_medication/patient_fk
+                                   :t_medication/date_from_accuracy :t_medication/date_to_accuracy
+                                   :t_medication/temporary_stop :t_medication/more_information :t_medication/as_required])
+                 (update :t_medication/reason_for_stopping #(when % (name %)))
+                 (update :t_medication/date_from_accuracy #(when % (name %)))
+                 (update :t_medication/date_to_accuracy #(when % (name %))))
         med'' (db/parse-entity
                 (if id
                   ;; delete all related events iff we are updating a record
