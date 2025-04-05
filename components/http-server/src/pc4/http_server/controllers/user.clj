@@ -69,25 +69,6 @@
                    "Last-Modified" (format-rfc1123 (:erattachment/creationdate photo))}
          :body    (:erattachmentdata/data photo)}))))
 
-(defn session-env
-  "Return template environment data for the current session."
-  [request]
-  (let [authenticated-user (get-in request [:session :authenticated-user])]
-    {:csrf-token (csrf/existing-token request)
-     :search-url (route/url-for :patient/search)
-     :user       {:fullname  (:t_user/full_name authenticated-user)
-                  :initials  (:t_user/initials authenticated-user)
-                  :project   (get-in request [:session :project :title])
-                  :menu      [{:title "Change password"
-                               :href  "/"}
-                              {:title "My profile"
-                               :href  "/"}
-                              {:title "Sign out"
-                               :post  (route/url-for :user/logout!)}]
-                  :photo-url (route/url-for :user/photo
-                                            {:params {:system "patientcare.app" :value (:t_user/username authenticated-user)}})}}))
-
-
 (defn profile [request])
 
 (defn messages [request])
