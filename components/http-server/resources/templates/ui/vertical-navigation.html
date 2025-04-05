@@ -36,24 +36,28 @@
         {% endfor %}
     </div>
     {% if menu.submenu %}
-    <div class="mt-8 p-2">
+    <div class="p-2">
+        {% if menu.submenu.title %}
         <h3 class="px-3 text-sm font-medium text-gray-500">{{ menu.submenu.title }}</h3>
+        {% endif %}
         <div class="mt-1 p-2 space-y-2">
             {% for item in menu.submenu.items %}
-            {% if item.text %}
-                {% if item.url %}
-                <a class="group flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600"
-                    href="{{ item.url }}">
-                    {{item.text}}
-                </a>
-                {% else %}
-                <span class="group flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 opacity-50">
-                {{ item.text }}
-                </span>
+            {% if not item.hidden %}
+                {% if item.text %}
+                    {% if item.url %}
+                    <a class="group flex items-center rounded-full bg-blue-50 border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600"
+                        href="{{ item.url }}">
+                        {{item.text}}
+                    </a>
+                    {% else %}
+                    <span class="group flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 opacity-50">
+                    {{ item.text }}
+                    </span>
+                    {% endif %}
                 {% endif %}
-            {% endif %}
-            {% if item.content %}
-            {{ item.content|safe}}
+                {% if item.content %}
+                    {{ item.content|safe}}
+                {% endif %}
             {% endif %}
             {% endfor %}
         </div>
