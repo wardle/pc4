@@ -1,21 +1,32 @@
 (ns pc4.http-server.interface
   (:require
-   [buddy.core.codecs :as codecs]
-   [clojure.spec.alpha :as s]
-   [io.pedestal.interceptor :as intc]
-   [io.pedestal.http :as http]
-   [io.pedestal.http.route :as route]
-   [integrant.core :as ig]
-   [pc4.ods.interface :as clods]
-   [pc4.http-server.controllers.home :as home]
-   [pc4.http-server.controllers.login :as login]
-   [pc4.http-server.controllers.patient :as patient]
-   [pc4.http-server.controllers.project :as project]
-   [pc4.http-server.controllers.snomed :as snomed]
-   [pc4.http-server.controllers.user :as user]
-   [pc4.log.interface :as log]
-   [ring.middleware.session.cookie :as cookie]
-   [selmer.parser :as selmer]))
+    [buddy.core.codecs :as codecs]
+    [clojure.spec.alpha :as s]
+    [clojure.string :as str]
+    [io.pedestal.http.body-params :as body-params]
+    [io.pedestal.http.csrf :as csrf]
+    [io.pedestal.interceptor :as intc]
+    [io.pedestal.http :as http]
+    [io.pedestal.http.ring-middlewares :as ring]
+    [io.pedestal.http.route :as route]
+    [integrant.core :as ig]
+    [pc4.ods.interface :as clods]
+    [pc4.http-server.controllers.home :as home]
+    [pc4.http-server.controllers.login :as login]
+    [pc4.http-server.controllers.patient :as patient]
+    [pc4.http-server.controllers.patient.diagnoses :as patient-diagnoses]
+    [pc4.http-server.controllers.patient.medications :as patient-medications]
+    [pc4.http-server.controllers.project :as project]
+    [pc4.http-server.controllers.snomed :as snomed]
+    [pc4.http-server.controllers.user :as user]
+    [pc4.log.interface :as log]
+    [ring.middleware.session.cookie :as cookie]
+    [selmer.parser :as selmer]))
+
+(def tap-ctx
+  {:name  ::tap
+   :enter (fn [ctx] (tap> {:on-enter ctx}) ctx)
+   :leave (fn [ctx] (tap> {:on-leave ctx}) ctx)})
 
 (def routes
   #{["/" :get [login/authenticated project/update-session home/home-page] :route-name :home]
@@ -38,6 +49,7 @@
     ["/project/:project-id/patients" :get [login/authenticated project/update-session project/patients] :route-name :project/patients]
     ["/project/:project-id/encounters" :get [login/authenticated project/update-session project/encounters] :route-name :project/encounters]
     ["/patient/:patient-identifier/home" :get [login/authenticated patient/authorized patient/home] :route-name :patient/home]
+    ["/patient/:patient-identifier/banner" :get [login/authenticated patient/authorized patient/expanded-banner] :route-name :patient/banner]
     ["/patient/:patient-identifier/break-glass" :get [login/authenticated patient/break-glass] :route-name :patient/break-glass]
     ["/patient/:patient-identifier/break-glass" :post [login/authenticated patient/do-break-glass] :route-name :patient/do-break-glass]
     ["/patient/:patient-identifier/encounters" :get [login/authenticated patient/authorized patient/encounters] :route-name :patient/encounters]
@@ -46,10 +58,13 @@
     ["/patient/:patient-identifier/admissions" :get [login/authenticated patient/authorized patient/admissions] :route-name :patient/admissions]
     ["/patient/:patient-identifier/register" :get [login/authenticated patient/authorized patient/register] :route-name :patient/register]
     ["/patient/:patient-identifier/register-to-project" :post [login/authenticated patient/register-to-project] :route-name :patient/do-register-to-project]
-    ["/patient/:patient-identifier/diagnoses" :get [login/authenticated patient/authorized patient/diagnoses] :route-name :patient/diagnoses]
-    ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :get [login/authenticated patient/authorized patient/edit-diagnosis] :route-name :patient/edit-diagnosis]
-    ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :post [login/authenticated patient/authorized patient/do-edit-diagnosis] :route-name :patient/do-edit-diagnosis]
-    ["/patient/:patient-identifier/medication" :get [login/authenticated patient/authorized patient/medication] :route-name :patient/medication]
+    ["/patient/:patient-identifier/diagnoses" :get [login/authenticated patient/authorized patient-diagnoses/diagnoses-handler] :route-name :patient/diagnoses]
+    ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :get [login/authenticated patient/authorized patient-diagnoses/edit-diagnosis-handler] :route-name :patient/edit-diagnosis]
+    ["/patient/:patient-identifier/diagnosis/:diagnosis-id" :post [login/authenticated patient/authorized patient-diagnoses/save-diagnosis-handler] :route-name :patient/save-diagnosis]
+    ["/patient/:patient-identifier/medication" :get [login/authenticated patient/authorized patient-medications/medications-handler] :route-name :patient/medications]
+    ["/patient/:patient-identifier/medication/:medication-id" :get [login/authenticated patient/authorized patient-medications/edit-medication-handler] :route-name :patient/edit-medication]
+    ["/patient/:patient-identifier/medication/:medication-id" :post [tap-ctx login/authenticated patient/authorized (ring/nested-params) patient-medications/save-medication-handler] :route-name :patient/save-medication]
+    ["/patient/:patient-identifier/medication/:medication-id" :delete [login/authenticated patient/authorized patient-medications/delete-medication-handler] :route-name :patient/delete-medication]
     ["/patient/:patient-identifier/documents" :get [login/authenticated patient/authorized patient/documents] :route-name :patient/documents]
     ["/patient/:patient-identifier/results" :get [login/authenticated patient/authorized patient/results] :route-name :patient/results]
     ["/patient/:patient-identifier/procedures" :get [login/authenticated patient/authorized patient/procedures] :route-name :patient/procedures]
@@ -65,13 +80,14 @@
     ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]})
 
 (defn env-interceptor
-  "Add an interceptor to the service map that will inject the given env into the request."
-  [service-map env]
-  (update service-map ::http/interceptors
-          conj (intc/interceptor {:name  ::inject
-                                  :enter (fn [context] (assoc-in context [:request :env] env))})))
+  "Return an interceptor to inject the given env into the request."
+  [env]
+  (intc/interceptor
+    {:name  ::inject
+     :enter (fn [context] (assoc-in context [:request :env] env))}))
 
 (defn csrf-error-handler
+  "Log CSRF errors and redirect to home."
   [ctx]
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
   (assoc ctx :response {:status  303
@@ -88,11 +104,13 @@
        ::http/enable-session {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
                               :cookie-name  "pc4-session"
                               :cookie-attrs {:same-site :strict}}
-       ::http/enable-csrf    {:error-handler csrf-error-handler}
        ::http/secure-headers {:content-security-policy-settings {:object-src "none"}}}
       http/default-interceptors
       http/dev-interceptors
-      (env-interceptor env)
+      (update ::http/interceptors conj
+              (body-params/body-params)
+              (csrf/anti-forgery {:error-handler csrf-error-handler})
+              (env-interceptor env))
       http/create-server
       http/start))
 
@@ -134,13 +152,21 @@
     (ig/expand conf (ig/deprofile :dev))))
 
 (defn system []
-  integrant.repl.state/system)
+  (requiring-resolve 'integrant.repl.state/system))
 
 (comment
   (require '[integrant.repl :as ig.repl])
   (ig.repl/set-prep! prep-system)
   (ig.repl/go [::server])
 
+
+
+  (require '[edn-query-language.core :as eql])
+
+  (require '[portal.api :as portal])
+  (portal/open {:launcher :intellij})
+  (portal/open)
+  (add-tap #'portal/submit)
   (route/routes-from routes)
   (def srv (start {}))
   (http/stop srv)
