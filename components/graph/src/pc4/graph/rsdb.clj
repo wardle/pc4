@@ -452,6 +452,11 @@
    :t_medication_event/event_concept_fk
    {:t_medication_event/event_concept [:info.snomed.Concept/id]}])
 
+(defn medication-event->event-concept
+  [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
+  (assoc evt :t_medication_event/event_concept
+             (when evt-concept-id {:info.snomed.Concept/id evt-concept-id})))
+
 (pco/defresolver patient->medications
   [{rsdb :com.eldrix/rsdb, hermes :com.eldrix/hermes, :as env} patient]
   {::pco/transform (make-wrap-patient-authorize)
@@ -462,10 +467,7 @@
   {:t_patient/medications
    (mapv #(-> %
               (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})
-              (update :t_medication/events
-                      (fn [evts] (mapv (fn [{evt-concept-id :t_medication_event/event_concept_fk :as evt}]
-                                         (assoc evt :t_medication_event/event_concept
-                                                    (when evt-concept-id {:info.snomed.Concept/id evt-concept-id}))) evts))))
+              (update :t_medication/events (fn [evts] (mapv medication-event->event-concept evts))))
          (rsdb/patient->medications-and-events rsdb patient {:ecl (:ecl (pco/params env))}))})
 
 (pco/defresolver medication-by-id
@@ -482,7 +484,8 @@
   [{rsdb :com.eldrix/rsdb} {:t_medication/keys [id]}]
   {::pco/output [{:t_medication/events medication-event-properties}]}
   {:t_medication/events
-   (get (rsdb/medications->events rsdb [id]) 0)})
+   (->> (get (rsdb/medications->events rsdb [id]) 0)
+        (mapv medication-event->event-concept))})
 
 (def address-properties [:t_address/address1
                          :t_address/address2
