@@ -117,10 +117,9 @@
                     :sub  true
                     :url  (route/url-for :patient/epilepsy :path-params {:patient-identifier patient_identifier})
                     :text "Epilepsy / seizure disorder"})
-                 {:id   :medication
-                  :url  (route/url-for :patient/medication :path-params {:patient-identifier patient_identifier})
+                 {:id   :medications
+                  :url  (route/url-for :patient/medications :path-params {:patient-identifier patient_identifier})
                   :text "Medication"}
-
                  {:id   :encounters
                   :url  (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
                   :text "Encounters"}
@@ -624,7 +623,54 @@
                      :common-diagnoses common-diagnoses})))))
           (web/forbidden "Not authorized"))))))
 
-(defn medication [request])
+
+(defn medications-table
+  [title patient-identifier medications]
+  [:div
+   (ui/ui-title {:title title})
+   (ui/ui-table
+     (ui/ui-table-head
+       (ui/ui-table-row
+         {}
+         (map #(ui/ui-table-heading {} %) ["Medication" "Date from" "Date to"])))
+     (ui/ui-table-body
+       (->> medications
+            (sort-by #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
+            (map #(ui/ui-table-row
+                    {:class "hover:bg-gray-50"}
+                    (ui/ui-table-cell {}
+                                      [:a {:href "" #_(route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})}
+                                       (get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])])
+                    (ui/ui-table-cell {} (str (:t_medication/date_from %)))
+                    (ui/ui-table-cell {} (str (:t_diagnosis/date_to %))))))))])
+
+(def medications
+  (pathom/handler
+    {:menu :medications}
+    [:ui/patient-page
+     {:ui/current-patient
+      [:t_patient/patient_identifier
+       {:t_patient/medications
+        [:t_medication/id
+         {:t_medication/medication [{:info.snomed.Concept/preferredDescription
+                                     [:info.snomed.Description/term]}]}
+         :t_medication/date_from :t_medication/date_to]}]}]
+    (fn [_ {:ui/keys [patient-page current-patient]}]
+      (let [{:t_patient/keys [patient_identifier medications]} current-patient
+            active-medications (filter #(nil? (:t_medication/date_to %)) medications)
+            inactive-medications (filter #(some? (:t_medication/date_to %)) medications)] ;; TODO: fix 'active' derivation
+        (web/ok
+          (web/render-file
+            "templates/patient/base.html"
+            (assoc patient-page
+              :content
+              (web/render
+                [:div
+                 [:div (medications-table "Active medications" patient_identifier active-medications)]
+                 (when (seq inactive-medications)
+                   [:div.pt-4
+                    [:div (medications-table "Inactive medications" patient_identifier inactive-medications)]])]))))))))
+
 
 (defn documents [request])
 
