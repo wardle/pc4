@@ -12,6 +12,13 @@
 - banner.pseudonymous
 
 {% endcomment %}
+<div
+        {% if banner.expand-url %}  {% comment %} allow banner to expand if there is a URL. {% endcomment %}
+        class="cursor-pointer"
+        hx-on:click="htmx.toggleClass('#banner-expanded', 'hidden');
+                  htmx.ajax('GET', '{{banner.expand-url}}', '#banner-expanded')"
+        {% endif %}
+>
 
 <div class="grid grid-cols-1 border-2 shadow-lg p-1 sm:p-4 sm:m-2 border-gray-200 bg-gray-50 relative">
 
@@ -40,12 +47,13 @@
 
     <div class="grid grid-cols-2 lg:grid-cols-5">
         {% if banner.name %}
-        {% if banner.name|length > 30 %}
-        <div class="font-bold text-sm min-w-min">{{ banner.name }}</div>
-        {% else %}
-        <div class="font-bold text-lg min-w-min">{{ banner.name }}</div>
+            {% if banner.name|length > 30 %}
+                <div class="font-bold text-sm min-w-min">{{ banner.name }}</div>
+            {% else %}
+                <div class="font-bold text-lg min-w-min">{{ banner.name }}</div>
+            {% endif %}
         {% endif %}
-        {% endif %}
+
         {% comment %} Gender for large screens {% endcomment %}
         <div class="hidden lg:block text-right lg:text-center lg:mr-2 min-w-min">
             {% if banner.gender %}
@@ -55,6 +63,7 @@
             </span>
             {% endif %}
         </div>
+
         {% comment %} Date of birth, death and age for large screens {% endcomment %}
         <div class="hidden lg:block text-right lg:text-center lg:mr-2 min-w-min">
             {% if banner.date-birth %}
@@ -68,16 +77,16 @@
             </span>
             {% endif %}
             {% if banner.age %}
-            {% if not any banner.deceased banner.date-death %}
-            <span class="font-thin">
-                &nbsp;
-                    {% if banner.pseudonymous %}
-                    (~{{ banner.age }})
-                    {% elif banner.age %}
-                    ({{ banner.age }})
-                    {% endif %}
-            </span>
-            {% endif %}
+                {% if not any banner.deceased banner.date-death %}
+                <span class="font-thin">
+                    &nbsp;
+                        {% if banner.pseudonymous %}
+                        (~{{ banner.age }})
+                        {% elif banner.age %}
+                        ({{ banner.age }})
+                        {% endif %}
+                </span>
+                {% endif %}
             {% endif %}
         </div>
         {% comment %} Gender, date of birth for small screens {% endcomment %}
@@ -94,18 +103,18 @@
             {% endif %}
         </div>
         {% if not banner.pseudonymous %}
-        {% if banner.nhs-number %}
-        <div class="lg:text-center lg:ml-2 min-w-min">
-            <span class="text-sm font-thin">NHS No </span>
-            <span class="font-bold">{{ banner.nhs-number }}</span>
-        </div>
-        {% endif %}
-        {% if banner.crn %}
-        <div class="text-right min-w-min">
-            <span class="text-sm font-thin">CRN </span>
-            <span class="font-bold">{{ banner.crn }}</span>
-        </div>
-        {% endif %}
+            {% if banner.nhs-number %}
+            <div class="lg:text-center lg:ml-2 min-w-min">
+                <span class="text-sm font-thin">NHS No </span>
+                <span class="font-bold">{{ banner.nhs-number }}</span>
+            </div>
+            {% endif %}
+            {% if banner.crn %}
+            <div class="text-right min-w-min">
+                <span class="text-sm font-thin">CRN </span>
+                <span class="font-bold">{{ banner.crn }}</span>
+            </div>
+            {% endif %}
         {% endif %}
     </div>
     <div {% if any banner.deceased banner.date-death %}
@@ -129,6 +138,9 @@
     {% endif %}
 </div>
 
+<div id="banner-expanded" class="hidden">
+</div>
 
+</div>
 
 
