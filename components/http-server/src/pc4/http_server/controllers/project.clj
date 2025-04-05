@@ -90,7 +90,7 @@
        [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
        [:div.space-y-2
         (ui/ui-textfield {:id "patient-identifier" :placeholder "Enter patient identifier" :disabled disabled})
-        (ui/ui-submit-button {:label "Search »", :disabled disabled})]])))
+        (ui/ui-submit-button {:disabled disabled} "Search »")]])))
 
 (def find-patient
   (p/handler
