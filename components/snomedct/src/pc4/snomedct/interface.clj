@@ -47,6 +47,7 @@
 (def parent-relationships-of-type hermes/parent-relationships-of-type)
 (def fully-specified-name hermes/fully-specified-name)
 (def preferred-synonym* hermes/preferred-synonym*)
+(def preferred-synonym hermes/preferred-synonym)
 (def match-locale hermes/match-locale)
 (def synonyms hermes/synonyms)
 
