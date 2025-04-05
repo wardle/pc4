@@ -26,6 +26,16 @@
      :max-hits         (or max-hits 512)
      :size             size}))
 
+(defn make-id+term
+  [concept-id term]
+  (if (and concept-id term)
+    (str concept-id "|" term)
+    (throw (ex-info "invalid id+term" {:concept-id concept-id :term term}))))
+
+(defn parse-id+term [s]
+  (let [[concept-id term] (str/split s #"\|" 2)]
+    (vector (parse-long concept-id) term)))
+
 (defn- ui-select*
   "HTML SELECT for SNOMED CT concept.
    - selected-concept : a map representing currently selected concept
@@ -48,8 +58,8 @@
        (for [{:info.snomed.Concept/keys [id preferredDescription] :as option} (sort-by (comp :info.snomed.Description/term :info.snomed.Concept/preferredDescription) options)
              :let [preferredTerm (:info.snomed.Description/term preferredDescription)]]
          (if (and selected-concept-id (= id selected-concept-id))
-           [:option {:value id :selected "selected"} preferredTerm]
-           [:option {:value id} preferredTerm]))]
+           [:option {:value (make-id+term id preferredTerm) :selected "selected"} preferredTerm]
+           [:option {:value (make-id+term id preferredTerm)} preferredTerm]))]
       [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
        [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]
      (when (and other-action (not disabled))
@@ -74,29 +84,32 @@
 
 (defn- ui-select-autocomplete*
   "A combined HTML SELECT and autocomplete for SNOMED CT."
-  [{:keys [id spinner-id autocompleting] :as config}]
+  [{:keys [id spinner-id selected-concept common-concepts autocompleting] :as config}]
   [:div {:id id}                                            ;; this can get replaced dynamically
-   (if-not autocompleting
+   (if (or autocompleting (and (nil? selected-concept) (empty? common-concepts)))
+     (ui-autocomplete*
+       (assoc config
+         :close-action {:hx-post      (route/url-for :snomed/autocomplete)
+                        :hx-target    (str "#" id)
+                        :hx-indicator (str "#" spinner-id)
+                        :hx-vals      (web/write-hx-vals :data (assoc config :autocompleting false))}))
      (ui-select*
        (assoc config
          :other-action {:hx-post      (route/url-for :snomed/autocomplete)
                         :hx-indicator (str "#" spinner-id)
                         :hx-target    (str "#" id)
                         :hx-vals      (web/write-hx-vals :data (assoc config :autocompleting true))}))
-     (ui-autocomplete*
-       (assoc config
-         :close-action {:hx-post      (route/url-for :snomed/autocomplete)
-                        :hx-target    (str "#" id)
-                        :hx-indicator (str "#" spinner-id)
-                        :hx-vals      (web/write-hx-vals :data (assoc config :autocompleting false))})))
+     )
    (ui/ui-spinner {:id spinner-id})])
 
 (defn ui-select-autocomplete
   "HTML select/autocomplete user interface control. This can be dropped into any
   form and allows the user to select from common concepts if provided, or choose
   to search using an autocompletion textfield. "
-  [{:keys [id name selected-concept common-concepts ecl size max-hits placeholder] :as params}]
+  [{:keys [id name disabled selected-concept common-concepts ecl size max-hits placeholder] :as params}]
   (let [config (make-config params)]
+    (when (= name "concept-id")
+      (throw (ex-info "invalid 'name' for UI SNOMED control element" {:s name})))
     (log/trace "ui-select-autocomplete" config)
     (ui-select-autocomplete* config)))
 
@@ -123,7 +136,8 @@
   (let [hermes (:hermes env)
         {:keys [search-id ecl max-hits selected-id spinner-id size close-action] :as config} (web/read-hx-vals :data form-params)
         s (get form-params (keyword search-id))             ;; our data tells us the name of the form value to use
-        results (when-not (str/blank? s) (sct/search hermes {:s s :constraint ecl :max-hits max-hits :fuzzy 0 :fallback-fuzzy 2}))]
+        results (when-not (str/blank? s) (sct/search hermes {:s s :constraint ecl :max-hits max-hits :fuzzy 0 :fallback-fuzzy 2}))
+        default-result (first results)]
     (log/debug "autocomplete-results" {:s s :ecl ecl :max-hits max-hits})
     (web/ok
       (web/render
@@ -131,17 +145,18 @@
          (if (seq results)
            [:select {:hx-post      (route/url-for :snomed/autocomplete-selected-result)
                      :hx-vals      (web/write-hx-vals :data config)
-                     :hx-trigger   "change"
+                     :hx-trigger   "change,load"
                      :hx-indicator (str "#" spinner-id)
                      :hx-target    (str "#" selected-id)
                      :name         "concept-id"
                      :size         (or size 5)}
             (for [result results]
-              [:option {:value (.-conceptId result)}
-               (let [term (.-term result), preferred-term (.-preferredTerm result)]
-                 (if (= term preferred-term)
-                   term
-                   (str term " (" preferred-term ")")))])]
+                  [:option (cond-> {:value (.-conceptId result)}
+                             (= result default-result) (assoc :selected true)) ;; always select first option by default
+                   (let [term (.-term result), preferred-term (.-preferredTerm result)]
+                     (if (= term preferred-term)
+                       term
+                       (str term " (" preferred-term ")")))])]
            (ui/ui-button close-action "Cancel"))
          [:div {:id selected-id}]]))))
 
