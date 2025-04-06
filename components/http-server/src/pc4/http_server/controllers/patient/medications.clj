@@ -108,7 +108,7 @@
             [:div.col-span-1 (ui/ui-local-date {:name "date-to" 
                                                :disabled (not can-edit) 
                                                :max now 
-                                               :hx-trigger "change delay:300ms"
+                                               :hx-trigger "change delay:1000ms, blur"
                                                :hx-disabled-elt "this,#reason-for-stopping"
                                                :hx-post url 
                                                :hx-target "#edit-medication" 
