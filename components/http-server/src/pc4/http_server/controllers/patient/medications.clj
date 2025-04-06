@@ -108,7 +108,7 @@
             [:div.col-span-1 (ui/ui-local-date {:name "date-to" 
                                                :disabled (not can-edit) 
                                                :max now 
-                                               :hx-trigger "change"
+                                               :hx-trigger "change delay:300ms"
                                                :hx-disabled-elt "this,#reason-for-stopping"
                                                :hx-post url 
                                                :hx-target "#edit-medication" 
@@ -245,7 +245,7 @@
       (println "\n\n\n\nSAVE medication\n")
       (clojure.pprint/pprint params)
       (let [rsdb (get-in request [:env :rsdb])
-            {:keys [action event-id] :or {action :save-event}} (web/read-hx-vals "action" params)
+            {:keys [action event-id] :or {action :save-medication}} (web/read-hx-vals "action" params)
             medication (cond-> (parse-medication-from-form current-patient params)
                          (= :add-event action)
                          (update :t_medication/events
@@ -262,6 +262,7 @@
                                            (dissoc % :t_medication_event/id) %) evts))))]
         (println "\n\n\n medication:")
         (clojure.pprint/pprint medication)
+        (clojure.pprint/pprint action)
         (if (= :save-medication action)
           (do (rsdb/upsert-medication! rsdb medication)
               (web/hx-redirect (route/url-for :patient/medications))) ;; TODO: implement return-url parameter

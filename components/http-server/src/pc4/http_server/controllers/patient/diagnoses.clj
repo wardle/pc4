@@ -94,7 +94,7 @@
              {:name "date-diagnosis" :disabled (not can-edit) :max now} date_diagnosis))
          (ui/ui-simple-form-item
            {:label "Date to"}
-           (ui/ui-local-date {:name    "date-to" :disabled (not can-edit) :max now :hx-trigger "change"
+           (ui/ui-local-date {:name    "date-to" :disabled (not can-edit) :max now :hx-trigger "change delay:300ms"
                               :hx-disabled-elt "this,#status"
                               :hx-post url :hx-target "#edit-diagnosis" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"} date_to))
          (ui/ui-simple-form-item
