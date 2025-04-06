@@ -105,14 +105,34 @@
          (ui/ui-simple-form-item
            {:label "Date to:"}
            [:div.mt-2.grid.grid-cols-1.md:grid-cols-2
-            [:div.col-span-1 (ui/ui-local-date {:name "date-to" :disabled (not can-edit) :max now} date_to)]
+            [:div.col-span-1 (ui/ui-local-date {:name "date-to" 
+                                               :disabled (not can-edit) 
+                                               :max now 
+                                               :hx-trigger "change"
+                                               :hx-disabled-elt "this,#reason-for-stopping"
+                                               :hx-post url 
+                                               :hx-target "#edit-medication" 
+                                               :hx-swap "outerHTML" 
+                                               :hx-vals (web/write-hx-vals :action {:action :update-medication})} date_to)]
             [:div.col-span-1 (ui/ui-local-date-accuracy {:name "date-to-accuracy" :disabled (not can-edit)} date_to_accuracy)]])
          (ui/ui-simple-form-item
            {:label "Reason for stopping:"}
            (ui/ui-select-button {:name        "reason-for-stopping"
+                                 :id          "reason-for-stopping"
                                  :disabled    (not can-edit)
-                                 :selected-id (or reason_for_stopping :NOT_APPLICABLE)
-                                 :options     (sort-by :text (map reason->option reasons))}))
+                                 :selected-id (cond
+                                                (and date_to (= reason_for_stopping :NOT_APPLICABLE)) :OTHER
+                                                (and date_to reason_for_stopping) reason_for_stopping
+                                                date_to :OTHER
+                                                :else :NOT_APPLICABLE)
+                                 :options     (let [pred (if date_to 
+                                                    #(not= :NOT_APPLICABLE (:id %))  ;; When date_to has a value, exclude NOT_APPLICABLE
+                                                    #(= :NOT_APPLICABLE (:id %)))    ;; When date_to is blank, only include NOT_APPLICABLE
+                                               options (->> reasons
+                                                            (map reason->option)
+                                                            (filter pred)
+                                                            (sort-by :text))]
+                                                options)}))
          (ui/ui-simple-form-item
            {:label "Notes"}
            (ui/ui-textarea {:name "more-information" :disabled (not can-edit)} more_information))
@@ -124,7 +144,7 @@
          (ui/ui-action-bar
            (ui/ui-submit-button
              {:disabled (not can-edit)
-              :hx-vals  (web/write-hx-vals :action {:action :save-event})}
+              :hx-vals  (web/write-hx-vals :action {:action :save-medication})}
              "Save")
            (ui/ui-button
              {:disabled  (not can-edit)
@@ -235,14 +255,14 @@
                          (update :t_medication/events
                                  (fn [evts]
                                    (remove #(= event-id (:t_medication_event/id %)) evts)))
-                         (= :save-event action)
+                         (= :save-medication action)
                          (update :t_medication/events
                                  (fn [evts]
                                    (map #(if (uuid? (:t_medication_event/id %))
                                            (dissoc % :t_medication_event/id) %) evts))))]
         (println "\n\n\n medication:")
         (clojure.pprint/pprint medication)
-        (if (= :save-event action)
+        (if (= :save-medication action)
           (do (rsdb/upsert-medication! rsdb medication)
               (web/hx-redirect (route/url-for :patient/medications))) ;; TODO: implement return-url parameter
           (web/ok
