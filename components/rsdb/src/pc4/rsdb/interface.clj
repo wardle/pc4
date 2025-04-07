@@ -162,8 +162,11 @@
   ([{:keys [conn]} username opts]
    (users/fetch-user conn username opts)))
 
-(defn user-by-id [{:keys [conn]} user-id]
-  (users/fetch-user-by-id conn user-id))
+(defn user-by-id
+  ([{:keys [conn]} user-id]
+   (users/fetch-user-by-id conn user-id))
+  ([{:keys [conn]} user-id {:keys [with-credentials] :as opts}]
+   (users/fetch-user-by-id conn user-id opts)))
 
 (defn user->display-names [user]
   (users/user->display-names user))

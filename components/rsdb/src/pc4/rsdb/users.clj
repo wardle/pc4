@@ -376,9 +376,14 @@
                                   with-credentials
                                   (update :select conj :credential))))))
 
-(defn fetch-user-by-id [conn user-id]
-  (db/execute-one! conn (sql/format (assoc fetch-user-query
-                                           :where [:= :t_user/id user-id]))))
+(defn fetch-user-by-id
+  ([conn user-id]
+   (fetch-user-by-id conn user-id {}))
+  ([conn user-id {:keys [with-credentials] :or {with-credentials false}}]
+   (db/execute-one! conn (sql/format (cond-> (assoc fetch-user-query
+                                               :where [:= :t_user/id user-id])
+                                       with-credentials
+                                       (update :select conj :credential))))))
 
 (defn job-title [{custom-job-title :t_user/custom_job_title, job-title :t_job_title/name}]
   (if (str/blank? custom-job-title) job-title custom-job-title))

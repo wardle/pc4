@@ -40,6 +40,8 @@
     ["/user/:user-id/send-message" :get [login/authenticated user/send-message] :route-name :user/send-message]
     ["/user/:user-id/send-message" :post [login/authenticated user/send-message] :route-name :user/send-message!]
     ["/user/:user-id/downloads" :get [login/authenticated user/downloads] :route-name :user/downloads]
+    ["/user/:user-id/change-password" :get [login/authenticated user/change-password] :route-name :user/change-password]
+    ["/user/:user-id/change-password" :post [login/authenticated user/process-change-password] :route-name :user/process-change-password!]
     ["/project/:project-id/home" :get [login/authenticated project/update-session project/home] :route-name :project/home]
     ["/project/:project-id/team" :get [login/authenticated project/update-session project/team] :route-name :project/team]
     ["/project/:project-id/find-patient" :get [login/authenticated project/update-session project/find-patient] :route-name :project/find-patient]
