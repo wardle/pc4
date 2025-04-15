@@ -224,8 +224,8 @@
   (when-let [duration-data (get msss-data duration-years)]
     ;; Find closest EDSS value to target percentile
     (let [matching-entries (->> duration-data
-                             (sort-by val)
-                             (filter #(>= percentile (val %))))]
+                                (sort-by val)
+                                (filter #(>= percentile (val %))))]
       (when (seq matching-entries)
         (key (last matching-entries))))))
 
@@ -288,8 +288,6 @@
   ^XYItemLabelGenerator [prepared-scores]
   (reify XYItemLabelGenerator
     (generateLabel [_this dataset series item]
-      ;; Since we're using the exact same prepared scores to create both the dataset
-      ;; and the labels, the item index directly corresponds to the position in our vector
       (if-let [score (get prepared-scores item)]
         (if (:in-relapse? score) "R" "")
         ""))))
@@ -350,6 +348,10 @@
         (.setSeriesShapesVisible renderer 0 true)
         (.setUseOutlinePaint renderer true)
         (.setUseFillPaint renderer true)
+
+        ;; Make the main EDSS line thicker for better visibility
+        (.setSeriesStroke renderer 0 (BasicStroke. 2.0))
+
         (.setRenderer plot renderer)
 
         ;; Set up label generator for relapse indicators using the same prepared scores
@@ -375,11 +377,11 @@
           range-axis (.getRangeAxis plot)]
       ;; Configure the y-axis
       (.setTickLabelsVisible range-axis false)
-      
+
       ;; Move the axis label further from the plot
       (.setLabelInsets range-axis (org.jfree.chart.ui.RectangleInsets. 0.0 0.0 0.0 25.0))
       (.setLabelFont range-axis (Font. "sanserif" Font/BOLD 12))
-      
+
       (let [renderer (XYLineAndShapeRenderer.)]
         (.setSeriesShapesVisible renderer 0 false)
         (.setSeriesLinesVisible renderer 0 false)
@@ -424,8 +426,8 @@
     chart))
 
 (s/fdef create-combined-chart
-  :args (s/cat :params (s/keys :opt-un [::edss-scores ::ms-events ::logmar-scores 
-                                        ::medications ::ms-onset-date 
+  :args (s/cat :params (s/keys :opt-un [::edss-scores ::ms-events ::logmar-scores
+                                        ::medications ::ms-onset-date
                                         ::start-date ::end-date ::msss-data ::width ::height]))
   :ret (s/nilable #(instance? JFreeChart %)))
 
@@ -446,9 +448,9 @@
   Returns a JFreeChart object with plots for each provided data type, 
   or nil if no data is available to create any plots"
   ^JFreeChart [params]
-  (let [{:keys [edss-scores ms-events logmar-scores medications ms-onset-date 
+  (let [{:keys [edss-scores ms-events logmar-scores medications ms-onset-date
                 start-date end-date msss-data width height]
-         :or {width 800, height 600}} params
+         :or   {width 800, height 600}} params
         domain-axis (DateAxis. "Date")
         plot (CombinedDomainXYPlot. domain-axis)]
 
@@ -464,18 +466,22 @@
         (let [edss-dataset (create-edss-dataset prepared-edss-scores)
               edss-chart (ChartFactory/createTimeSeriesChart "" "Date" "EDSS" edss-dataset false false false)
               edss-plot (.getXYPlot edss-chart)]
-          
+
           ;; Configure EDSS plot
           (let [range-axis (.getRangeAxis edss-plot)]
             (.setLowerBound range-axis 0)
             (.setUpperBound range-axis 10))
-          
+
           (let [renderer (XYLineAndShapeRenderer.)]
             (.setSeriesShapesVisible renderer 0 true)
             (.setUseOutlinePaint renderer true)
             (.setUseFillPaint renderer true)
+
+            ;; Make the main EDSS line thicker for better visibility
+            (.setSeriesStroke renderer 0 (BasicStroke. 2.0))
+
             (.setRenderer edss-plot renderer)
-            
+
             ;; Set up label generator for relapse indicators using the same prepared scores
             (let [generator (edss-label-generator prepared-edss-scores)]
               (.setSeriesItemLabelGenerator renderer 0 generator)
@@ -483,75 +489,74 @@
 
           ;; Add MSSS renderer if we have onset date and MSSS data
           (when (and ms-onset-date (seq msss-data))
-            (let [line-renderer (XYLineAndShapeRenderer. true false)
-                  dashed (BasicStroke. 1.0 BasicStroke/CAP_BUTT BasicStroke/JOIN_BEVEL
-                                       0 (float-array [5]) 0)]
-              ;; Ensure lines are drawn correctly for dotted patterns
-              (.setDrawSeriesLineAsPath line-renderer true)
-              
-              ;; Set up stroke (line style) for each percentile - dotted lines with different width
-              (.setSeriesStroke line-renderer 0 dashed)  ;; 5th percentile
-              (.setSeriesStroke line-renderer 1 dashed)  ;; 25th percentile
-              (.setSeriesStroke line-renderer 2 (BasicStroke. 1.5))  ;; Median - solid, slightly thicker
-              (.setSeriesStroke line-renderer 3 dashed)  ;; 75th percentile
-              (.setSeriesStroke line-renderer 4 dashed)  ;; 95th percentile
-              
-              ;; Set colors for the percentile lines - use distinct vibrant colors
-              (.setSeriesPaint line-renderer 0 (Color. 0.8 0.2 0.2 1.0))  ;; 5th percentile - red
-              (.setSeriesPaint line-renderer 1 (Color. 0.2 0.2 0.8 1.0))  ;; 25th percentile - blue
-              (.setSeriesPaint line-renderer 2 (Color. 0.2 0.8 0.2 1.0))  ;; Median - green
-              (.setSeriesPaint line-renderer 3 (Color. 0.8 0.4 0.0 1.0))  ;; 75th percentile - orange
-              (.setSeriesPaint line-renderer 4 (Color. 0.8 0.0 0.0 1.0))  ;; 95th percentile - dark red
-              
-              ;; No shapes (markers) on the percentile lines
-              (.setSeriesShapesVisible line-renderer 0 false)
-              (.setSeriesShapesVisible line-renderer 1 false)
-              (.setSeriesShapesVisible line-renderer 2 false)
-              (.setSeriesShapesVisible line-renderer 3 false)
-              (.setSeriesShapesVisible line-renderer 4 false)
-              
-              ;; Configure labels for the lines
-              (.setDefaultItemLabelFont line-renderer (Font. "SansSerif" Font/BOLD 10))
-              
-              ;; Enable item labels for all percentile series
-              (.setSeriesItemLabelsVisible line-renderer 0 true)  ;; 5th percentile
-              (.setSeriesItemLabelsVisible line-renderer 1 true)  ;; 25th percentile
-              (.setSeriesItemLabelsVisible line-renderer 2 true)  ;; median (50th)
-              (.setSeriesItemLabelsVisible line-renderer 3 true)  ;; 75th percentile
-              (.setSeriesItemLabelsVisible line-renderer 4 true)  ;; 95th percentile
-              
-              ;; Use our quartile label generator for all percentile series
-              (let [label-generator (quartile-label-generator)]
-                (.setSeriesItemLabelGenerator line-renderer 0 label-generator)
-                (.setSeriesItemLabelGenerator line-renderer 1 label-generator)
-                (.setSeriesItemLabelGenerator line-renderer 2 label-generator)
-                (.setSeriesItemLabelGenerator line-renderer 3 label-generator)
-                (.setSeriesItemLabelGenerator line-renderer 4 label-generator))
-              
-              ;; Configure label positions to be at the right end of the plot with better visibility
-              ;; OUTSIDE12 places them at the right edge with proper vertical position
-              ;; CENTER_LEFT aligns the text to start from the data point
-              (let [position (ItemLabelPosition. ItemLabelAnchor/OUTSIDE12
-                                                TextAnchor/CENTER_LEFT)]
-                (.setSeriesPositiveItemLabelPosition line-renderer 0 position)
-                (.setSeriesPositiveItemLabelPosition line-renderer 1 position)
-                (.setSeriesPositiveItemLabelPosition line-renderer 2 position)
-                (.setSeriesPositiveItemLabelPosition line-renderer 3 position)
-                (.setSeriesPositiveItemLabelPosition line-renderer 4 position))
-                
-              ;; Set item label paint to match the line colors
-              (.setSeriesItemLabelPaint line-renderer 0 (Color. 0.8 0.2 0.2 1.0))  ;; 5th - red
-              (.setSeriesItemLabelPaint line-renderer 1 (Color. 0.2 0.2 0.8 1.0))  ;; 25th - blue
-              (.setSeriesItemLabelPaint line-renderer 2 (Color. 0.2 0.8 0.2 1.0))  ;; 50th - green
-              (.setSeriesItemLabelPaint line-renderer 3 (Color. 0.8 0.4 0.0 1.0))  ;; 75th - orange
-              (.setSeriesItemLabelPaint line-renderer 4 (Color. 0.8 0.0 0.0 1.0))  ;; 95th - dark red
-              
-              ;; Set the renderer for the plot
-              (.setRenderer edss-plot 1 line-renderer)
-              
-              ;; Add MSSS dataset
-              (.setDataset edss-plot 1
-                          (create-msss-dataset ms-onset-date start-date end-date msss-data))))
+            ;; First create and add the dataset
+            (let [msss-dataset (create-msss-dataset ms-onset-date start-date end-date msss-data)]
+              (.setDataset edss-plot 1 msss-dataset)
+
+              ;; Then create and configure the renderer
+              (let [line-renderer (XYLineAndShapeRenderer. true false)
+                    dashed (BasicStroke. 1.0 BasicStroke/CAP_BUTT BasicStroke/JOIN_BEVEL
+                                         0 (float-array [5]) 0)
+                    series-count (.getSeriesCount msss-dataset)]
+
+                ;; Ensure lines are drawn correctly for dotted patterns
+                (.setDrawSeriesLineAsPath line-renderer true)
+
+                ;; Basic settings for all lines
+                (.setDefaultItemLabelFont line-renderer (Font. "SansSerif" Font/BOLD 10))
+
+                ;; Configure all series with consistent settings
+                (let [label-generator (quartile-label-generator)
+                      label-position (ItemLabelPosition. ItemLabelAnchor/OUTSIDE12 TextAnchor/CENTER_LEFT)]
+                  (doseq [i (range series-count)]
+                    (doto line-renderer
+                      ;; No shapes (markers) on any percentile lines
+                      (.setSeriesShapesVisible i false)
+
+                      ;; Enable labels with the same generator
+                      (.setSeriesItemLabelsVisible i true)
+                      (.setSeriesItemLabelGenerator i label-generator)
+
+                      ;; Same label position for all series
+                      (.setSeriesPositiveItemLabelPosition i label-position))))
+
+                ;; Series-specific styling based on percentile names
+                (doseq [i (range series-count)]
+                  (let [series-key (str (.getSeriesKey msss-dataset i))]
+                    (case series-key
+                      "5th" (doto line-renderer
+                              (.setSeriesStroke i dashed)
+                              (.setSeriesPaint i (Color. 0.8 0.2 0.2 1.0))
+                              (.setSeriesItemLabelPaint i (Color. 0.8 0.2 0.2 1.0)))
+
+                      "25th" (doto line-renderer
+                               (.setSeriesStroke i dashed)
+                               (.setSeriesPaint i (Color. 0.2 0.2 0.8 1.0))
+                               (.setSeriesItemLabelPaint i (Color. 0.2 0.2 0.8 1.0)))
+
+                      "Median" (doto line-renderer
+                                 (.setSeriesStroke i dashed)
+                                 (.setSeriesPaint i (Color. 0.2 0.8 0.2 1.0))
+                                 (.setSeriesItemLabelPaint i (Color. 0.2 0.8 0.2 1.0)))
+
+                      "75th" (doto line-renderer
+                               (.setSeriesStroke i dashed)
+                               (.setSeriesPaint i (Color. 0.8 0.4 0.0 1.0))
+                               (.setSeriesItemLabelPaint i (Color. 0.8 0.4 0.0 1.0)))
+
+                      "95th" (doto line-renderer
+                               (.setSeriesStroke i dashed)
+                               (.setSeriesPaint i (Color. 0.8 0.0 0.0 1.0))
+                               (.setSeriesItemLabelPaint i (Color. 0.8 0.0 0.0 1.0)))
+
+                      ;; Default for any other series
+                      (doto line-renderer
+                        (.setSeriesStroke i dashed)
+                        (.setSeriesPaint i Color/DARK_GRAY)
+                        (.setSeriesItemLabelPaint i Color/DARK_GRAY)))))
+
+                ;; Set the renderer for the plot
+                (.setRenderer edss-plot 1 line-renderer))))
 
           (.add plot edss-plot 5)))
 
@@ -560,29 +565,29 @@
         (let [ms-event-dataset (create-ms-event-dataset prepared-ms-events)
               ms-event-chart (ChartFactory/createTimeSeriesChart "" "Date" "Event" ms-event-dataset false false false)
               ms-event-plot (.getXYPlot ms-event-chart)]
-          
+
           ;; Configure the y-axis
           (let [range-axis (.getRangeAxis ms-event-plot)]
             (.setTickLabelsVisible range-axis false)
             (.setLabelInsets range-axis (org.jfree.chart.ui.RectangleInsets. 0.0 0.0 0.0 25.0))
             (.setLabelFont range-axis (Font. "sanserif" Font/BOLD 12)))
-          
+
           (let [renderer (XYLineAndShapeRenderer.)]
             (.setSeriesShapesVisible renderer 0 false)
             (.setSeriesLinesVisible renderer 0 false)
             (.setUseOutlinePaint renderer true)
             (.setUseFillPaint renderer true)
             (.setRenderer ms-event-plot renderer)
-            
+
             ;; Set up label generator for event types using the same prepared events
             (let [generator (ms-event-label-generator prepared-ms-events)]
               (.setSeriesItemLabelGenerator renderer 0 generator)
               (.setSeriesItemLabelsVisible renderer 0 true)
               (.setSeriesItemLabelFont renderer 0 (Font. "sanserif" Font/PLAIN 8))
               (.setSeriesPositiveItemLabelPosition renderer 0
-                                                 (ItemLabelPosition. ItemLabelAnchor/CENTER
-                                                                     TextAnchor/CENTER))))
-          
+                                                   (ItemLabelPosition. ItemLabelAnchor/CENTER
+                                                                       TextAnchor/CENTER))))
+
           (.add plot ms-event-plot 1)))
 
       ;; Add logMAR plot if data is available
@@ -590,19 +595,19 @@
         (let [logmar-dataset (create-logmar-dataset prepared-logmar-scores)
               logmar-chart (ChartFactory/createTimeSeriesChart "" "Date" "logMAR" logmar-dataset false false false)
               logmar-plot (.getXYPlot logmar-chart)]
-          
+
           ;; Configure y-axis
           (let [range-axis (.getRangeAxis logmar-plot)]
             (.setLowerBound range-axis -0.4)
             (.setUpperBound range-axis 3.0))
-          
+
           (let [renderer (XYLineAndShapeRenderer.)]
             (.setSeriesShapesVisible renderer 0 true)
             (.setSeriesShapesVisible renderer 1 true)
             (.setUseOutlinePaint renderer true)
             (.setUseFillPaint renderer true)
             (.setRenderer logmar-plot renderer))
-          
+
           (.add plot logmar-plot 2))))
 
     ;; Add medications if available
@@ -625,13 +630,13 @@
         (.setTickMarksVisible date-axis true)
         (.setLabel date-axis "Date"))
 
-      ;; Create the chart with visible axes AND legend
-      (doto (JFreeChart. "" JFreeChart/DEFAULT_TITLE_FONT plot true)
+      ;; Create the chart with visible axes but no legend
+      (doto (JFreeChart. "" JFreeChart/DEFAULT_TITLE_FONT plot false)
         (.setAntiAlias true)))))
 
 ;; Public API
 (s/fdef create-edss-timeline-chart
-  :args (s/cat :params (s/keys :opt-un [::edss-scores ::ms-events ::logmar-scores ::medications 
+  :args (s/cat :params (s/keys :opt-un [::edss-scores ::ms-events ::logmar-scores ::medications
                                         ::ms-onset-date ::start-date ::end-date
                                         ::sex ::width ::height ::msss-data]))
   :ret (s/nilable #(instance? JFreeChart %)))
