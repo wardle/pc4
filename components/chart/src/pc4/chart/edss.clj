@@ -53,6 +53,7 @@
                                                        (LocalDate/parse %)
                                                        true
                                                        (catch Exception _ false)))))
+;; Standard EDSS values - defined once for reuse throughout the codebase
 (def valid-edss-values #{0.0 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5 10.0})
 (s/def ::edss (s/nilable (s/and number? valid-edss-values)))
 (s/def ::in-relapse? boolean?)
@@ -311,6 +312,23 @@
         (:abbreviation event)
         ""))))
 
+(s/fdef quartile-label-generator
+  :args (s/cat)
+  :ret #(instance? XYItemLabelGenerator %))
+
+(defn quartile-label-generator
+  "Creates a label generator for MSSS percentile lines that shows labels only for 
+   the last point in each series, using the series key as the label text.
+   
+   This ensures the chart isn't cluttered with too many labels while still
+   providing identification for each percentile line."
+  ^XYItemLabelGenerator []
+  (reify XYItemLabelGenerator
+    (generateLabel [_this dataset series item]
+      ;; Only show label for the last item in each series
+      (when (= item (dec (.getItemCount dataset series)))
+        (.getSeriesKey dataset series)))))
+
 (s/fdef create-edss-chart
   :args (s/cat :edss-scores ::edss-scores)
   :ret #(instance? JFreeChart %))
@@ -465,30 +483,72 @@
 
           ;; Add MSSS renderer if we have onset date and MSSS data
           (when (and ms-onset-date (seq msss-data))
-            (let [renderer2 (XYLineAndShapeRenderer. true false)
-                  dashed (BasicStroke. 1 BasicStroke/CAP_BUTT BasicStroke/JOIN_BEVEL
-                                       0 (float-array [9]) 0)]
-              (.setDrawSeriesLineAsPath renderer2 true)
-
-              ;; Set colors for percentile lines
-              (.setSeriesPaint renderer2 0 (Color. 0.0 0.0 0.0 0.2))
-              (.setSeriesPaint renderer2 1 (Color. 0.0 0.0 0.0 0.3))
-              (.setSeriesPaint renderer2 2 (Color. 0.0 0.8 0.0 0.8))
-              (.setSeriesPaint renderer2 3 (Color. 0.0 0.0 0.0 0.3))
-              (.setSeriesPaint renderer2 4 (Color. 0.0 0.0 0.0 0.2))
-
-              ;; Set stroke styles
-              (.setSeriesStroke renderer2 0 dashed)
-              (.setSeriesStroke renderer2 1 dashed)
-              (.setSeriesStroke renderer2 2 dashed)
-              (.setSeriesStroke renderer2 3 dashed)
-              (.setSeriesStroke renderer2 4 dashed)
-
-              ;; Configure labels - JFreeChart 1.5.x uses different method for setting font
-              (.setDefaultItemLabelFont renderer2 (Font. "sanserif" Font/PLAIN 8))
-
-              (.setRenderer edss-plot 1 renderer2)
-
+            (let [line-renderer (XYLineAndShapeRenderer. true false)
+                  dashed (BasicStroke. 1.0 BasicStroke/CAP_BUTT BasicStroke/JOIN_BEVEL
+                                       0 (float-array [5]) 0)]
+              ;; Ensure lines are drawn correctly for dotted patterns
+              (.setDrawSeriesLineAsPath line-renderer true)
+              
+              ;; Set up stroke (line style) for each percentile - dotted lines with different width
+              (.setSeriesStroke line-renderer 0 dashed)  ;; 5th percentile
+              (.setSeriesStroke line-renderer 1 dashed)  ;; 25th percentile
+              (.setSeriesStroke line-renderer 2 (BasicStroke. 1.5))  ;; Median - solid, slightly thicker
+              (.setSeriesStroke line-renderer 3 dashed)  ;; 75th percentile
+              (.setSeriesStroke line-renderer 4 dashed)  ;; 95th percentile
+              
+              ;; Set colors for the percentile lines - use distinct vibrant colors
+              (.setSeriesPaint line-renderer 0 (Color. 0.8 0.2 0.2 1.0))  ;; 5th percentile - red
+              (.setSeriesPaint line-renderer 1 (Color. 0.2 0.2 0.8 1.0))  ;; 25th percentile - blue
+              (.setSeriesPaint line-renderer 2 (Color. 0.2 0.8 0.2 1.0))  ;; Median - green
+              (.setSeriesPaint line-renderer 3 (Color. 0.8 0.4 0.0 1.0))  ;; 75th percentile - orange
+              (.setSeriesPaint line-renderer 4 (Color. 0.8 0.0 0.0 1.0))  ;; 95th percentile - dark red
+              
+              ;; No shapes (markers) on the percentile lines
+              (.setSeriesShapesVisible line-renderer 0 false)
+              (.setSeriesShapesVisible line-renderer 1 false)
+              (.setSeriesShapesVisible line-renderer 2 false)
+              (.setSeriesShapesVisible line-renderer 3 false)
+              (.setSeriesShapesVisible line-renderer 4 false)
+              
+              ;; Configure labels for the lines
+              (.setDefaultItemLabelFont line-renderer (Font. "SansSerif" Font/BOLD 10))
+              
+              ;; Enable item labels for all percentile series
+              (.setSeriesItemLabelsVisible line-renderer 0 true)  ;; 5th percentile
+              (.setSeriesItemLabelsVisible line-renderer 1 true)  ;; 25th percentile
+              (.setSeriesItemLabelsVisible line-renderer 2 true)  ;; median (50th)
+              (.setSeriesItemLabelsVisible line-renderer 3 true)  ;; 75th percentile
+              (.setSeriesItemLabelsVisible line-renderer 4 true)  ;; 95th percentile
+              
+              ;; Use our quartile label generator for all percentile series
+              (let [label-generator (quartile-label-generator)]
+                (.setSeriesItemLabelGenerator line-renderer 0 label-generator)
+                (.setSeriesItemLabelGenerator line-renderer 1 label-generator)
+                (.setSeriesItemLabelGenerator line-renderer 2 label-generator)
+                (.setSeriesItemLabelGenerator line-renderer 3 label-generator)
+                (.setSeriesItemLabelGenerator line-renderer 4 label-generator))
+              
+              ;; Configure label positions to be at the right end of the plot with better visibility
+              ;; OUTSIDE12 places them at the right edge with proper vertical position
+              ;; CENTER_LEFT aligns the text to start from the data point
+              (let [position (ItemLabelPosition. ItemLabelAnchor/OUTSIDE12
+                                                TextAnchor/CENTER_LEFT)]
+                (.setSeriesPositiveItemLabelPosition line-renderer 0 position)
+                (.setSeriesPositiveItemLabelPosition line-renderer 1 position)
+                (.setSeriesPositiveItemLabelPosition line-renderer 2 position)
+                (.setSeriesPositiveItemLabelPosition line-renderer 3 position)
+                (.setSeriesPositiveItemLabelPosition line-renderer 4 position))
+                
+              ;; Set item label paint to match the line colors
+              (.setSeriesItemLabelPaint line-renderer 0 (Color. 0.8 0.2 0.2 1.0))  ;; 5th - red
+              (.setSeriesItemLabelPaint line-renderer 1 (Color. 0.2 0.2 0.8 1.0))  ;; 25th - blue
+              (.setSeriesItemLabelPaint line-renderer 2 (Color. 0.2 0.8 0.2 1.0))  ;; 50th - green
+              (.setSeriesItemLabelPaint line-renderer 3 (Color. 0.8 0.4 0.0 1.0))  ;; 75th - orange
+              (.setSeriesItemLabelPaint line-renderer 4 (Color. 0.8 0.0 0.0 1.0))  ;; 95th - dark red
+              
+              ;; Set the renderer for the plot
+              (.setRenderer edss-plot 1 line-renderer)
+              
               ;; Add MSSS dataset
               (.setDataset edss-plot 1
                           (create-msss-dataset ms-onset-date start-date end-date msss-data))))
@@ -565,8 +625,8 @@
         (.setTickMarksVisible date-axis true)
         (.setLabel date-axis "Date"))
 
-      ;; Create the chart with visible axes but no legend
-      (doto (JFreeChart. "" JFreeChart/DEFAULT_TITLE_FONT plot false)
+      ;; Create the chart with visible axes AND legend
+      (doto (JFreeChart. "" JFreeChart/DEFAULT_TITLE_FONT plot true)
         (.setAntiAlias true)))))
 
 ;; Public API

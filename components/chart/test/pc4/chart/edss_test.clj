@@ -5,7 +5,8 @@
             [clojure.spec.test.alpha :as stest]
             [pc4.chart.edss :as edss]
             [pc4.chart.gen :as chart-gen]
-            [pc4.chart.common :refer [chart-test-dir-fixture save-test-chart]])
+            [pc4.chart.common :refer [chart-test-dir-fixture save-test-chart]]
+            [pc4.rsdb.msss :as msss])
   (:import (java.time LocalDate)
            (org.jfree.chart JFreeChart)))
 
@@ -93,7 +94,7 @@
           chart (edss/create-edss-timeline-chart data)]
       (is (instance? JFreeChart chart)
           "Should create chart with MSSS data")
-      (save-test-chart chart "msss-chart" data)))
+      (save-test-chart chart "msss-chart-sample" data)))
   
   (testing "Percentile calculation from MSSS data"
     (let [msss-data {5 {0.0 0.1, 1.0 0.5, 2.0 1.5, 3.0 3.0, 4.0 4.6, 6.0 7.6}}]
@@ -105,6 +106,47 @@
           "Should return highest EDSS value when percentile is higher than explicitly defined values")
       (is (nil? (#'edss/percentile-edss-for-duration msss-data 10 1.0))
           "Should return nil when duration not found"))))
+
+;; Test using real MSSS datasets from rsdb
+(deftest test-real-msss-datasets
+  (testing "MSSS chart with real Roxburgh dataset"
+    (let [roxburgh-data (msss/msss-lookup {:type :roxburgh})
+          ;; Create EDSS history with valid EDSS values spanning 15 years
+          edss-history (for [year (range 1 16)
+                             :let [date (.minusYears (LocalDate/now) (- 16 year))
+                                   ;; We'll use values that progress from 1.0 to 6.0 over time
+                                   edss (case (int (/ year 3))
+                                          0 1.0
+                                          1 2.0
+                                          2 3.0
+                                          3 4.0
+                                          4 5.0
+                                          6.0)]]
+                         {:id year
+                          :date date
+                          :edss edss})
+          ;; Add some relapses
+          ms-events [{:id 1 
+                      :date (.minusYears (LocalDate/now) 14) 
+                      :type :relapse 
+                      :abbreviation "R"}
+                     {:id 2 
+                      :date (.minusYears (LocalDate/now) 10) 
+                      :type :relapse 
+                      :abbreviation "R"}
+                     {:id 3 
+                      :date (.minusYears (LocalDate/now) 5) 
+                      :type :relapse 
+                      :abbreviation "R"}]
+          ms-onset-date (.minusYears (LocalDate/now) 15)
+          chart-data {:edss-scores edss-history
+                     :ms-events ms-events
+                     :ms-onset-date ms-onset-date
+                     :msss-data roxburgh-data}
+          chart (edss/create-edss-timeline-chart chart-data)]
+      (is (instance? JFreeChart chart) "Should create chart with Roxburgh MSSS data")
+      (save-test-chart chart "msss-chart-roxburgh" chart-data))))
+  
 
 ;; Edge cases testing
 (deftest test-edge-cases

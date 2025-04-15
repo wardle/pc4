@@ -28,15 +28,15 @@
 ;; EDSS score generator
 (def gen-edss-score
   "Generator for EDSS scores using valid EDSS values (0, 1.0, 1.5, 2.0...10.0)"
-  (gen/fmap (fn [[id days-ago edss-idx in-relapse?]]
+  (gen/fmap (fn [[id days-ago edss in-relapse?]]
               {:id          id
                :date        (.minusDays (LocalDate/now) days-ago)
-               :edss        (get [0.0 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 5.0 5.5 6.0 6.5 7.0 7.5 8.0 8.5 9.0 9.5 10.0] edss-idx)
+               :edss        edss
                :in-relapse? in-relapse?})
             (gen/tuple
-              gen-positive-id                             ; positive integer ID
-              (gen/choose 0 3650)                           ; days ago (up to 10 years)
-              (gen/choose 0 19)                             ; index into valid EDSS values array
+              gen-positive-id                              ; positive integer ID
+              (gen/choose 0 3650)                          ; days ago (up to 10 years)
+              (gen/elements edss/valid-edss-values)        ; valid EDSS value
               (gen/boolean))))
 
 ;; MS event generator
