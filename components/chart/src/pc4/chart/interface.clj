@@ -1,74 +1,117 @@
 (ns pc4.chart.interface
+  "Public interfaces for chart generation"
   (:require
-    [incanter.core :as incanter]
-    [incanter.charts :as charts])
-  (:import (java.util Date TimeZone)
-           (java.time LocalDate ZoneId)
-           (org.jfree.chart ChartFactory)
-           (org.jfree.chart.labels XYItemLabelGenerator)
-           (org.jfree.chart.renderer.xy XYLineAndShapeRenderer)
-           (org.jfree.data.time Day RegularTimePeriod TimeSeries)))
+    [clojure.java.io :as io]
+    [clojure.spec.alpha :as s]
+    [pc4.chart.edss :as edss]
+    [pc4.chart.medication :as medication])
+  (:import (java.time LocalDate ZoneId)
+           (org.jfree.chart ChartFactory JFreeChart ChartUtils)
+           (org.jfree.chart.plot XYPlot)
+           (java.io File)
+           (javax.imageio ImageIO)
+           (java.awt.image BufferedImage)))
+
+;; EDSS timeline chart
+(defn create-edss-timeline-chart
+  "Create an EDSS timeline chart with comprehensive patient data.
+  
+  Parameters:
+  - params: A map containing any of the following (all are optional):
+      :edss-scores - collection of maps with :id, :date, :edss, and optional :in-relapse?
+      :ms-events - collection of maps with :id, :date, :type, :abbreviation
+      :logmar-scores - collection of visual acuity scores (maps with :id, :date, :left-logmar, :right-logmar)
+      :medications - collection of medication records (maps with :id, :name, :start-date, :end-date)
+      :ms-onset-date - date of MS onset for MSSS calculations
+      :msss-data - map of MSSS values keyed by disease duration and EDSS score
+      :start-date, :end-date - date range for chart
+      :width, :height - dimensions of chart in pixels
+  
+  Returns:
+  - A JFreeChart object with plots for each provided data type
+  - nil if no data is provided that can be plotted"
+  [params]
+  (edss/create-edss-timeline-chart params))
+
+;; Medication charts
+(defn create-medication-chart
+  "Create a chart for a single medication type
+  
+  Parameters:
+  - medications: collection of maps of the same medication, with :id, :name, :start-date keys
+                 and optional :end-date and :daily-dose
+  
+  Returns a JFreeChart object for a single medication"
+  [medications]
+  (medication/create-medication-chart medications))
+
+(defn create-medications-chart
+  "Create a combined chart showing multiple medications over time
+  
+  Parameters:
+  - medications: collection of medication maps with :id, :name, :start-date keys 
+                 and optional :end-date and :daily-dose
+                 
+  Returns a JFreeChart with subplots for each medication type"
+  [medications]
+  (medication/create-medications-chart medications))
+
+(defn chart-to-image
+  "Convert a JFreeChart to a BufferedImage for display or saving.
+  Returns nil if chart is nil."
+  [^JFreeChart chart width height]
+  (when chart
+    (.createBufferedImage chart width height)))
+
+(defn save-chart
+  "Save a JFreeChart to a PNG file
+  
+  Parameters:
+  - chart: the JFreeChart to save
+  - filename: path where the chart should be saved
+  - width: image width in pixels
+  - height: image height in pixels
+  
+  Returns:
+  - The absolute path to the saved file
+  - nil if chart is nil"
+  [^JFreeChart chart filename width height]
+  (when chart
+    (let [file (io/file filename)]
+      (ChartUtils/saveChartAsPNG file chart width height)
+      (.getAbsolutePath file))))
 
 
-#_(defn make-time-series
-    [^RegularTimePeriod period title data date-fn value-fn]
-    (let [time-series (TimeSeries. title)]
-      (doseq [item data]
-        (let [date (date-fn item)
-              value (value-fn item)]
-          (when (and date #(instance? Date date) value)
-            (.addOrUpdate time-series (RegularTimePeriod/createInstance period ^Date date (TimeZone/getDefault) nil)))))))
-
-#_(def edss-label-generator
-    "An label generator that "
-    (reify XYItemLabelGenerator
-      (generateLabel [this dataset series item]
-        "")))
-
-
-
-
+;; Examples
 (comment
-  (def dataset (make-time-series (Day.) "Test" [] :date :value))
-  (def chart (ChartFactory/createTimeSeriesChart "" "Date" "EDSS" dataset false false false))
-  (.setAntiAlias chart true)
-  (def plot (.getXYPlot chart))
-  (def range (.getRangeAxis plot))
-  (.setLowerBound range 0)
-  (.setUpperBound range 10)
-  (def renderer (XYLineAndShapeRenderer.))
-  (.setSeriesShapesVisible renderer 0 true)
-  (.setUseOutlinePaint renderer true)
-  (.setUseFillPaint renderer true)
-  (.setRenderer plot renderer)
-  (.setSeriesItemLabelGenerator 0 (edss-label-generator))
-  (.setSeriesItemLabelVisible renderer 0 true))
-
-
-(defn local-date->epoch-millis
-  [^LocalDate date]
-  (.toEpochMilli (.toInstant (.atStartOfDay date (ZoneId/systemDefault)))))
-
-
-(comment
-  (require '[incanter.charts :as charts])
-  (require '[incanter.stats :as stats])
-  (require '[incanter.core :as incanter])
-  (def x [1 2 3 4 5])
-  (def x [(LocalDate/of 1970 1 1)
-          (LocalDate/of 1980 1 1)
-          (LocalDate/of 1985 1 1)
-          (LocalDate/of 2000 1 1)
-          (LocalDate/of 2020 1 1)])
-  (def y [1 2 3.5 nil 10])
-  (incanter/view
-    (doto
-      (charts/time-series-plot (map local-date->epoch-millis x) y
-                               :x-label "Date"
-                               :y-label "EDSS"
-                               :points true)
-      (charts/set-stroke :width 0.5 :dash 4)
-      (charts/set-point-size 5)))
-  (incanter/view (doto (charts/scatter-plot x y)
-                   (charts/set-theme :default)))
-  (incanter/view (charts/histogram (stats/sample-normal 10000 :mean 10)) :width 700 :height 700))
+  ;; Example of using the EDSS timeline chart
+  (def sample-edss-scores
+    [{:id 1 :date (LocalDate/now) :edss 3.5 :in-relapse? false}
+     {:id 2 :date (.minusMonths (LocalDate/now) 3) :edss 2.5 :in-relapse? false}
+     {:id 3 :date (.minusMonths (LocalDate/now) 6) :edss 4.0 :in-relapse? true}])
+  
+  (def sample-ms-events
+    [{:id 1 :date (.minusMonths (LocalDate/now) 6) :type :relapse :abbreviation "R"}
+     {:id 2 :date (.minusMonths (LocalDate/now) 2) :type :mri :abbreviation "M"}])
+  
+  ;; Example MSSS data structure (normally from pc4.rsdb.msss/msss-lookup)
+  (def sample-msss-data
+    {0  {0.0 0.7, 1.0 2.3, 1.5 3.5, 2.0 4.3, 2.5 5.1, 3.0 5.9, 3.5 6.7, 4.0 7.4, 4.5 8.0, 5.0 8.5, 5.5 9.0, 6.0 9.3, 6.5 9.5, 7.0 9.8, 7.5 9.9, 8.0 10.0},
+     5  {0.0 0.1, 1.0 0.5, 1.5 0.9, 2.0 1.5, 2.5 2.2, 3.0 3.0, 3.5 3.8, 4.0 4.6, 4.5 5.4, 5.0 6.2, 5.5 6.9, 6.0 7.6, 6.5 8.1, 7.0 8.7, 7.5 9.1, 8.0 9.5, 8.5 9.7, 9.0 9.9, 9.5 10.0},
+     10 {0.0 0.1, 1.0 0.3, 1.5 0.5, 2.0 0.8, 2.5 1.2, 3.0 1.7, 3.5 2.3, 4.0 3.0, 4.5 3.9, 5.0 4.8, 5.5 5.7, 6.0 6.6, 6.5 7.4, 7.0 8.1, 7.5 8.7, 8.0 9.2, 8.5 9.6, 9.0 9.8, 9.5 10.0}})
+  
+  ;; Basic chart without MSSS data
+  (def basic-chart (create-edss-timeline-chart 
+                    {:edss-scores sample-edss-scores 
+                     :ms-events sample-ms-events
+                     :ms-onset-date (.minusYears (LocalDate/now) 2)}))
+  
+  ;; Chart with MSSS data included
+  (def msss-chart (create-edss-timeline-chart 
+                    {:edss-scores sample-edss-scores 
+                     :ms-events sample-ms-events
+                     :ms-onset-date (.minusYears (LocalDate/now) 2)
+                     :msss-data sample-msss-data}))
+  
+  ;; Save chart to file
+  (save-chart msss-chart "/tmp/edss-chart.png" 800 600))
