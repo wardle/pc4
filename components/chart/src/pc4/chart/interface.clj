@@ -8,7 +8,7 @@
   (:import (java.time LocalDate ZoneId)
            (org.jfree.chart ChartFactory JFreeChart ChartUtils)
            (org.jfree.chart.plot XYPlot)
-           (java.io File)
+           (java.io ByteArrayOutputStream File OutputStream)
            (javax.imageio ImageIO)
            (java.awt.image BufferedImage)))
 
@@ -81,6 +81,21 @@
       (ChartUtils/saveChartAsPNG file chart width height)
       (.getAbsolutePath file))))
 
+
+(defn write-chart
+  "Return a JFreeChart as a byte array."
+  ^bytes [^JFreeChart chart width height]
+  (when chart
+    (with-open [baos (ByteArrayOutputStream.)]
+      (ChartUtils/writeChartAsPNG baos chart width height)
+      (.toByteArray baos))))
+
+(defn stream-chart
+  "Returns a function that will write out the chart to the outputstream
+  specified."
+  [^JFreeChart chart width height]
+  (fn [^OutputStream out]
+    (ChartUtils/writeChartAsPNG out chart width height)))
 
 ;; Examples
 (comment
