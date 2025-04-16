@@ -10,7 +10,7 @@
     (java.time LocalDate ZoneId)
     (java.util Date)
     (org.jfree.chart ChartFactory ChartUtils JFreeChart)
-    (org.jfree.chart.axis DateAxis ValueAxis DateTickUnit DateTickUnitType)
+    (org.jfree.chart.axis DateAxis ValueAxis DateTickUnit DateTickUnitType NumberTickUnit)
     (org.jfree.chart.labels ItemLabelAnchor ItemLabelPosition XYItemLabelGenerator)
     (org.jfree.chart.plot CombinedDomainXYPlot PlotOrientation XYPlot)
     (org.jfree.chart.renderer.xy XYLineAndShapeRenderer)
@@ -343,6 +343,9 @@
           range-axis (.getRangeAxis plot)]
       (.setLowerBound range-axis 0)
       (.setUpperBound range-axis 10)
+      (.setTickUnit range-axis (NumberTickUnit. 0.5))
+      (.setMinorTickCount range-axis 0)  ;; Disable minor ticks
+      (.setMinorTickMarksVisible range-axis false)
 
       (let [renderer (XYLineAndShapeRenderer.)]
         (.setSeriesShapesVisible renderer 0 true)
@@ -470,7 +473,10 @@
           ;; Configure EDSS plot
           (let [range-axis (.getRangeAxis edss-plot)]
             (.setLowerBound range-axis 0)
-            (.setUpperBound range-axis 10))
+            (.setUpperBound range-axis 10)
+            (.setTickUnit range-axis (NumberTickUnit. 0.5))
+            (.setMinorTickCount range-axis 0)  ;; Disable minor ticks
+            (.setMinorTickMarksVisible range-axis false))
 
           (let [renderer (XYLineAndShapeRenderer.)]
             (.setSeriesShapesVisible renderer 0 true)
