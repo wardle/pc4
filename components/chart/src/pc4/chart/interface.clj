@@ -4,6 +4,7 @@
     [clojure.java.io :as io]
     [clojure.spec.alpha :as s]
     [pc4.chart.edss :as edss]
+    [pc4.chart.generic :as generic]
     [pc4.chart.medication :as medication])
   (:import (java.time LocalDate ZoneId)
            (org.jfree.chart ChartFactory JFreeChart ChartUtils)
@@ -97,6 +98,30 @@
   (fn [^OutputStream out]
     (ChartUtils/writeChartAsPNG out chart width height)))
 
+;; Generic chart creation functions
+(defn chart-creator
+  "Creates a function that generates a time series chart based on configuration.
+   
+   Parameters:
+   - config: A map containing chart configuration:
+     - :title - Chart title
+     - :x-label - X-axis label
+     - :y-label - Y-axis label
+     - :series-name - Name for the data series
+     - :y-lower-bound - Optional lower bound for Y-axis
+     - :y-upper-bound - Optional upper bound for Y-axis
+     - :date-fn - Function to extract date (defaults to :date)
+     - :value-fn - Function to extract value (defaults to :value)
+     - :tick-unit - Optional tick unit for Y-axis
+   
+   Returns:
+   - A function that takes a collection of data items and returns a JFreeChart
+   
+   Throws:
+   - Exception if config doesn't match the required specification"
+  [config]
+  (generic/chart-creator config))
+
 ;; Examples
 (comment
   ;; Example of using the EDSS timeline chart
@@ -129,4 +154,28 @@
                      :msss-data sample-msss-data}))
   
   ;; Save chart to file
-  (save-chart msss-chart "/tmp/edss-chart.png" 800 600))
+  (save-chart msss-chart "/tmp/edss-chart.png" 800 600)
+  
+  ;; Example of using the generic chart creator
+  (def weight-config
+    {:title "Weight Over Time"
+     :x-label "Date"
+     :y-label "Weight (kg)"
+     :series-name "Weight"
+     :y-lower-bound 50
+     :y-upper-bound 100
+     :date-fn :date
+     :value-fn :weight})
+  
+  (def create-weight-chart (chart-creator weight-config))
+  
+  (def weight-data
+    [{:id 1 :date (LocalDate/now) :weight 75.5}
+     {:id 2 :date (.minusMonths (LocalDate/now) 1) :weight 76.2}
+     {:id 3 :date (.minusMonths (LocalDate/now) 2) :weight 77.8}
+     {:id 4 :date (.minusMonths (LocalDate/now) 3) :weight 79.1}
+     {:id 5 :date (.minusMonths (LocalDate/now) 4) :weight 78.3}])
+  
+  (def weight-chart (create-weight-chart weight-data))
+  
+  (save-chart weight-chart "/tmp/weight-chart.png" 800 600))
