@@ -6,7 +6,7 @@
             [pc4.chart.edss :as edss]
             [pc4.chart.gen :as chart-gen]
             [pc4.chart.common :refer [chart-test-dir-fixture save-test-chart]]
-            [pc4.rsdb.msss :as msss])
+            [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDate)
            (org.jfree.chart JFreeChart)))
 
@@ -110,7 +110,7 @@
 ;; Test using real MSSS datasets from rsdb
 (deftest test-real-msss-datasets
   (testing "MSSS chart with real Roxburgh dataset"
-    (let [roxburgh-data (msss/msss-lookup {:type :roxburgh})
+    (let [roxburgh-data (rsdb/msss-lookup {:type :roxburgh})
           ;; Create EDSS history with valid EDSS values spanning 15 years
           edss-history (for [year (range 1 16)
                              :let [date (.minusYears (LocalDate/now) (- 16 year))

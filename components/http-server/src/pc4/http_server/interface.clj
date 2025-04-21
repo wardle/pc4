@@ -14,6 +14,7 @@
     [pc4.http-server.controllers.home :as home]
     [pc4.http-server.controllers.login :as login]
     [pc4.http-server.controllers.patient :as patient]
+    [pc4.http-server.controllers.patient.charts :as patient-charts]
     [pc4.http-server.controllers.patient.diagnoses :as patient-diagnoses]
     [pc4.http-server.controllers.patient.medications :as patient-medications]
     [pc4.http-server.controllers.project :as project]
@@ -67,6 +68,7 @@
     ["/patient/:patient-identifier/medication/:medication-id" :get [login/authenticated patient/authorized patient-medications/edit-medication-handler] :route-name :patient/edit-medication]
     ["/patient/:patient-identifier/medication/:medication-id" :post [tap-ctx login/authenticated patient/authorized (ring/nested-params) patient-medications/save-medication-handler] :route-name :patient/save-medication]
     ["/patient/:patient-identifier/medication/:medication-id" :delete [login/authenticated patient/authorized patient-medications/delete-medication-handler] :route-name :patient/delete-medication]
+    ["/patient/:patient-identifier/chart" :get [login/authenticated patient/authorized patient-charts/chart-handler] :route-name :patient/chart]
     ["/patient/:patient-identifier/documents" :get [login/authenticated patient/authorized patient/documents] :route-name :patient/documents]
     ["/patient/:patient-identifier/results" :get [login/authenticated patient/authorized patient/results] :route-name :patient/results]
     ["/patient/:patient-identifier/procedures" :get [login/authenticated patient/authorized patient/procedures] :route-name :patient/procedures]
@@ -160,8 +162,6 @@
   (require '[integrant.repl :as ig.repl])
   (ig.repl/set-prep! prep-system)
   (ig.repl/go [::server])
-
-
 
   (require '[edn-query-language.core :as eql])
 

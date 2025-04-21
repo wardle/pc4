@@ -340,6 +340,10 @@
 (defn medications->events [{:keys [conn]} medication-ids]
   (patients/fetch-medication-events conn medication-ids))
 
+(defn calculate-total-daily-dose
+  [medication]
+  (patients/calculate-medication-daily-dose medication))
+
 (defn patient->addresses [{:keys [conn]} patient]
   (patients/fetch-patient-addresses conn patient))
 
@@ -353,6 +357,11 @@
 
 (defn patient->encounters [{:keys [conn]} patient-pk]
   (patients/patient->encounters conn patient-pk))
+
+(defn patient->active-encounter-ids
+  "Return a set of active encounter ids for the given patient."
+  [{:keys [conn]} patient]
+  (patients/patient->active-encounter-ids conn patient))
 
 (defn ^:deprecated ms-event->patient-identifier
   [{:keys [conn]} ms-event]
@@ -474,6 +483,7 @@
 (def ms-event-is-relapse? patients/ms-event-is-relapse?)
 
 (def medication-reasons-for-stopping db/medication-reasons-for-stopping)
+
 
 ;;
 ;; forms

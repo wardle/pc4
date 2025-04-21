@@ -76,7 +76,8 @@
   {:extra-deps {djblue/portal {:mvn/version "0.57.3"}}}
 
   :test
-  {:extra-paths ["components/lemtrada/test"
+  {:extra-paths ["components/chart/test"
+                 "components/lemtrada/test"
                  "components/rsdb/test"
                  "components/graph/test"
                  "components/deprivare/test"

@@ -79,6 +79,14 @@
    {:status  200
     :headers {"HX-Location" (merge opts {"path" path})}}))
 
+(defn bad-request
+  "The HTTP 400 Bad Request client error response status code indicates that the
+  server would not process the request due to something the server considered to
+  be a client error. The reason for a 400 response is typically due to malformed
+  request syntax, invalid request message framing, or deceptive request routing."
+  ([] (bad-request nil))
+  ([body] {:status 400, :body (or body "Bad request")}))
+
 (defn forbidden
   "The HTTP 403 Forbidden client error response status code indicates that the
   server understood the request but refused to process it. This status is
@@ -93,6 +101,13 @@
   [body]
   {:status 404
    :body   (or body "Not found")})
+
+(defn server-error
+  ([]
+   (server-error nil))
+  ([body]
+   {:status 500
+    :body   (or body "Server error")}))
 
 (defn no-content
   []

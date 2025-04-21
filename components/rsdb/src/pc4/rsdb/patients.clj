@@ -15,8 +15,7 @@
     [pc4.ods.interface :as ods]
     [pc4.rsdb.db :as db]
     [pc4.rsdb.projects :as projects]
-    [pc4.rsdb.users :as users]
-    [pc4.snomedct.interface :as hermes])
+    [pc4.rsdb.users :as users])
   (:import (java.time LocalDate LocalDateTime)
            (java.time.format DateTimeFormatter)))
 
@@ -572,7 +571,7 @@
 
 (defn encounter->users#
   [conn encounter-id]
-  (jdbc/execute! conn (sql/format (assoc pc4.rsdb.users/fetch-user-query
+  (jdbc/execute! conn (sql/format (assoc users/fetch-user-query
                                     :where [:in :t_user/id {:select-distinct :userid
                                                             :from            :t_encounter_user
                                                             :where           [:= :encounterid encounter-id]}]))))
@@ -583,6 +582,17 @@
                                  :from     [:t_encounter]
                                  :where    [:= :patient_fk patient-pk]
                                  :order-by [[:date_time :desc]]})))
+
+(defn patient->active-encounter-ids
+  [conn {:t_patient/keys [id patient_identifier]}]
+  (into #{}
+        (jdbc/plan conn (sql/format {:select :id :from :t_encounter
+                                     :where
+                                     [:and
+                                      [:!= :is_deleted "true"]
+                                      [:= :patient_fk
+                                            (or id {:select :t_patient/id :from [:t_patient]
+                                                    :where  [:= :t_patient/patient_identifier patient_identifier]})]]}))))
 
 (defn encounter-templates-by-ids [conn encounter-template-ids]
   (jdbc/execute! conn (sql/format {:select [:*] :from [:t_encounter_template]
@@ -840,6 +850,20 @@
   [conn {:t_medication/keys [id]}]
   (next.jdbc.sql/delete! conn :t_medication_event {:medication_fk id})
   (next.jdbc.sql/delete! conn :t_medication {:id id}))
+
+(defn calculate-medication-daily-dose
+  "Calculate total 'equivalent' daily dose in units of grams per day. This is
+  an inexact process as units such as mL are not currently converted via dm+d
+  reference knowledge to mg equivalent before conversion. This is instead a
+  simple trick for charting purposes."
+  ;; TODO: contemplate a more 'exact' approach using dm+d reference data
+  ;; TODO: support grouping by active drug ingredient
+  [{:t_medication/keys [dose units frequency] :as medication}]
+  (when (s/valid? (s/keys :req [:t_medication/dose :t_medication/units :t_medication/frequency]) medication)
+    (let [unit-factor (get db/medication-unit-conversion-factors units)
+          freq-factor (get db/medication-frequency-conversion-factors frequency)]
+      (when (and dose unit-factor freq-factor)
+        (* dose unit-factor freq-factor)))))
 
 (defn fetch-summary-multiple-sclerosis
   [conn patient-identifier]

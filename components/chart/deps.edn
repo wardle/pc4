@@ -1,5 +1,7 @@
-{:paths   ["src" "resources"]
- :deps    {org.jfree/jfreechart {:mvn/version "1.5.4"}}
- :aliases {:test {:extra-paths ["test"]
-                  :extra-deps 
-                  {pc4/rsdb {:local/root "../rsdb"}}}}}
+{:paths     ["src" "resources"]
+ :deps      {org.jfree/jfreechart {:mvn/version "1.5.4"}}
+ :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
+             "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
+
+ :aliases   {:test {:extra-paths ["test"]
+                    :extra-deps  {pc4/rsdb {:local/root "../rsdb"}}}}}

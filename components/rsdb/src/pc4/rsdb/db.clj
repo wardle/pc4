@@ -35,6 +35,7 @@
    :t_medication/reason_for_stopping              keyword
    :t_medication/temporary_stop                   parse-boolean
    :t_medication/route                            keyword
+   :t_medication/units                            keyword
    :t_medication_event/type                       {"INFUSION_REACTION" :INFUSION_REACTION ;; TODO: fix consistency of type in legacy rsdb
                                                    "AdverseEvent"      :ADVERSE_EVENT}
    :t_medication_event/sample_obtained_antibodies parse-boolean
@@ -156,22 +157,36 @@
 (s/def ::repeatable-read-txn repeatable-read-txn?)
 (s/def ::serializable-txn serializable-txn?)
 
+;;
+;; t_death_certificate
+;;
 (s/def :t_death_certificate/part1a (s/nilable string?))
 (s/def :t_death_certificate/part1b (s/nilable string?))
 (s/def :t_death_certificate/part1c (s/nilable string?))
 (s/def :t_death_certificate/part2 (s/nilable string?))
+
+;;
+;; t_diagnosis
+;;
 (s/def :t_diagnosis/id int?)
 (s/def :t_diagnosis/date_diagnosis (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/date_onset (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/date_to (s/nilable #(instance? LocalDate %)))
 (s/def :t_diagnosis/status #{"INACTIVE_REVISED" "ACTIVE" "INACTIVE_RESOLVED" "INACTIVE_IN_ERROR"})
 (s/def :t_diagnosis/concept_fk int?)
+
+;;
+;; t_encounter
+;;
 (s/def :t_encounter/episode_fk int?)
 (s/def :t_encounter/date_time #(instance? LocalDateTime %))
 (s/def :t_encounter/id int?)
 (s/def :t_encounter/patient_fk int?)
 (s/def :t_encounter/encounter_template_fk int?)
 
+;;
+;; t_episode
+;;
 (s/def :t_episode/id int?)
 (s/def :t_episode/date_discharge (s/nilable #(instance? LocalDate %)))
 (s/def :t_episode/date_referral #(instance? LocalDate %))
@@ -183,6 +198,10 @@
 (s/def :t_episode/registration_user_fk (s/nilable int?))
 (s/def :t_episode/stored_pseudonym (s/nilable string?))
 (s/def :t_episode/external_identifier (s/nilable string?))
+
+;;
+;; t_medication_event
+;;
 (s/def :t_medication_event/id int?)
 (s/def :t_medication_event/type #{:INFUSION_REACTION :ADVERSE_EVENT})
 (s/def :t_medication_event/action_taken (s/nilable string?))
@@ -195,23 +214,73 @@
 (s/def :t_medication_event/reaction_date_time (s/nilable #(instance? LocalDateTime %)))
 (s/def :t_medication_event/infusion_start_date_time (s/nilable #(instance? LocalDateTime %)))
 (s/def :t_medication_event/event_concept_fk (s/nilable int?))
-(s/def :t_medication/id int?)
-(s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
-(s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
+
+;;
+;; t_medication
+;;
 (def medication-reasons-for-stopping
   #{:CHANGE_OF_DOSE :ADVERSE_EVENT :NOT_APPLICABLE :PREGNANCY :LACK_OF_EFFICACY :PLANNING_PREGNANCY :RECORDED_IN_ERROR
     :ALLERGIC_REACTION :ANTI_JCV_POSITIVE__PML_RISK :LACK_OF_TOLERANCE
     :NON_ADHERENCE :OTHER
     :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
     :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
+(def medication-unit-conversion-factors
+  {:GRAM       1.0
+   :MILLIGRAM  0.001
+   :MICROGRAM  0.000001
+   ;; Note: MILLILITRES doesn't have a weight conversion, but we'll keep it
+   ;; at 0.001 for volume-to-volume comparison if needed
+   :MILLILITRES 0.001
+   :UNITS      1.0
+   :TABLETS    1.0
+   :PUFFS      1.0
+   :NONE       1.0})
+(def medication-frequency-conversion-factors
+  {:PER_HOUR          24.0
+   :TWELVE_TIMES_DAILY 12.0
+   :TEN_TIMES_DAILY   10.0
+   :NINE_TIMES_DAILY  9.0
+   :EIGHT_TIMES_DAILY 8.0
+   :SEVEN_TIMES_DAILY 7.0
+   :SIX_TIMES_DAILY   6.0
+   :FIVE_TIMES_DAILY  5.0
+   :FOUR_TIMES_DAILY  4.0
+   :THREE_TIMES_DAILY 3.0
+   :TWICE_DAILY       2.0
+   :ONCE_DAILY        1.0
+   :ALTERNATE_DAYS    0.5
+   :EVERY_THIRD_DAY   (/ 1.0 3.0)
+   :ONCE_WEEKLY       (/ 1.0 7.0)
+   :TWICE_PER_WEEK    (/ 2.0 7.0)
+   :ONCE_TWO_WEEKLY   (/ 1.0 14.0)
+   :ONCE_MONTHLY      (/ 1.0 30.0)
+   :ONCE_TWO_MONTHLY  (/ 1.0 60.0)
+   :ONCE_THREE_MONTHLY (/ 1.0 90.0)
+   :ONCE_YEARLY       (/ 1.0 365.0)
+   :SPECIFIED_TIMES   nil
+   :NOT_APPLICABLE    nil})
+(s/def :t_medication/id int?)
+(s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
+(s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/reason_for_stopping medication-reasons-for-stopping)
 (s/def :t_medication/events (s/nilable (s/coll-of (s/keys :req [:t_medication_event/type]))))
+(s/def :t_medication/units (s/nilable (set (keys medication-unit-conversion-factors))))
+(s/def :t_medication/frequency (s/nilable (set (keys medication-frequency-conversion-factors))))
+(s/def :t_medication/dose (s/nilable decimal?))
+(s/def :t_medication/medication_concept_fk int?)
 
+;;
+;; t_ms_event
+;;
 (s/def :t_ms_event/id int?)
 (s/def :t_ms_event/date #(instance? LocalDate %))
 (s/def :t_ms_event/impact (s/nilable string?))
 (s/def :t_ms_event/notes (s/nilable string?))
 (s/def :t_ms_event/summary_multiple_sclerosis_fk int?)
+
+;;
+;; t_patient
+;;
 (s/def :t_patient/id int?)
 (s/def :t_patient/patient_identifier int?)
 (s/def :t_patient/nhs_number (s/nilable (s/and string? nhs-number/valid?)))
@@ -220,11 +289,22 @@
 (s/def :t_patient_hospital/hospital_fk string?)
 (s/def :t_patient_hospital/patient_identifier string?)
 (s/def :t_patient_telephone/telephone string?)
+
+;;
+;; t_user
+;;
 (s/def :t_user/id int?)
+
+;;
+;; t_smoking_history  [[ this is misnamed ]]
+;;
 (s/def :t_smoking_history/id int?)
 (s/def :t_smoking_history/current_cigarettes_per_day int?)
 (s/def :t_smoking_history/status #{"NEVER_SMOKED" "CURRENT_SMOKER" "EX_SMOKER"})
 
+;;
+;; t_address
+;;
 (s/def :t_address/address1 (s/nilable string?))
 (s/def :t_address/address2 (s/nilable string?))
 (s/def :t_address/address3 (s/nilable string?))

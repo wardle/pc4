@@ -2,22 +2,22 @@
   "Medication charting functionality that can be used independently or
    as part of combined charts (e.g., EDSS charts)."
   (:require
-   [clojure.spec.alpha :as s])
+    [clojure.spec.alpha :as s])
   (:import
-   (java.time LocalDate)
-   (java.awt Font)
-   (org.jfree.chart JFreeChart)
-   (org.jfree.chart.axis DateAxis NumberAxis)
-   (org.jfree.chart.plot CombinedDomainXYPlot PlotOrientation XYPlot)
-   (org.jfree.chart.renderer.xy XYBarRenderer StandardXYBarPainter)
-   (org.jfree.data.time SimpleTimePeriod TimePeriodValues TimePeriodValuesCollection Day)))
+    (java.time LocalDate LocalDateTime)
+    (java.awt Font)
+    (org.jfree.chart JFreeChart)
+    (org.jfree.chart.axis DateAxis NumberAxis)
+    (org.jfree.chart.plot CombinedDomainXYPlot Plot PlotOrientation XYPlot)
+    (org.jfree.chart.renderer.xy XYBarRenderer StandardXYBarPainter)
+    (org.jfree.data.time SimpleTimePeriod TimePeriodValues TimePeriodValuesCollection)))
 
 ;; Specs for medication data
 (s/def ::id any?)
 (s/def ::name string?)
 (s/def ::date (s/or :local-date #(instance? LocalDate %)
-                    :iso-date-string (s/and string? #(try 
-                                                       (LocalDate/parse %) 
+                    :iso-date-string (s/and string? #(try
+                                                       (LocalDate/parse %)
                                                        true
                                                        (catch Exception _ false)))))
 (s/def ::start-date ::date)
@@ -32,6 +32,7 @@
    Accepts either a LocalDate instance or an ISO date string."
   ^LocalDate [date]
   (cond
+    (nil? date) date
     (instance? LocalDate date) date
     (string? date) (LocalDate/parse date)
     :else (throw (ex-info "Invalid date format" {:date date}))))
@@ -56,19 +57,19 @@
 (defn- create-medication-dataset
   "Create a dataset for medications of a specific type"
   ^TimePeriodValuesCollection [medications]
-  (let [med-name (-> medications first :name)
-        series (TimePeriodValues. med-name)
+  (let [series (TimePeriodValues. (-> medications first :name))
         collection (TimePeriodValuesCollection.)]
-    
+
     (doseq [{:keys [start-date end-date daily-dose]} medications
+            :when start-date                                ;; TODO: could use earliest known date instead?
             :let [start (normalize-date start-date)
                   end (if end-date (normalize-date end-date) (now))
                   dose (or daily-dose 1.0)
-                  time-period (SimpleTimePeriod. 
-                               (local-date->util-date start) 
-                               (local-date->util-date end))]]
-      (.add series time-period dose))
-    
+                  time-period (SimpleTimePeriod.
+                                (local-date->util-date start)
+                                (local-date->util-date end))]]
+      (.add series time-period (double dose)))
+
     (.addSeries collection series)
     collection))
 
@@ -85,9 +86,9 @@
   
   Returns a JFreeChart with a bar chart for the medication"
   ^JFreeChart [medications]
-  (when-not (seq medications) 
+  (when-not (seq medications)
     (throw (IllegalArgumentException. "Empty medications collection")))
-  
+
   (let [med-name (-> medications first :name)
         dataset (create-medication-dataset medications)
         range-axis (NumberAxis. med-name)
@@ -96,11 +97,28 @@
                    (.setBarPainter (StandardXYBarPainter.))
                    (.setShadowVisible false))
         plot (XYPlot. dataset domain-axis range-axis renderer)]
-    
+
     (.setTickLabelsVisible range-axis false)
-    
+
     (doto (JFreeChart. med-name JFreeChart/DEFAULT_TITLE_FONT plot false)
-          (.setAntiAlias true))))
+      (.setAntiAlias true))))
+
+(defn create-medication-plot
+  ^Plot [med-name meds]
+  (let [font (Font. "SansSerif" Font/PLAIN 9)
+        dataset (create-medication-dataset meds)
+        domain-axis (DateAxis. "Date")
+        range-axis (doto (NumberAxis.)
+                     (.setLabel (if (> (count med-name) 30)
+                                  (str (subs med-name 0 27) "...")
+                                  med-name))
+                     (.setLabelFont font)
+                     (.setLabelAngle (/ Math/PI 2))
+                     (.setTickLabelsVisible false))
+        renderer (doto (XYBarRenderer.)
+                   (.setBarPainter (StandardXYBarPainter.))
+                   (.setShadowVisible false))]
+    (XYPlot. dataset domain-axis range-axis renderer) ))
 
 (s/fdef create-medications-chart
   :args (s/cat :medications ::medications)
@@ -115,37 +133,27 @@
                  
   Returns a JFreeChart with subplots for each medication type"
   ^JFreeChart [medications]
-  (let [domain-axis (DateAxis. "Date")
+  (let [font (Font. "SansSerif" Font/PLAIN 9)
+        domain-axis (DateAxis. "Date")
         plot (CombinedDomainXYPlot. domain-axis)
-        medications-by-name (group-by :name medications)
-        font (Font. "SansSerif" Font/PLAIN 9)]
-    
+        medications-by-name (group-by :name medications)    ;; group by name so multiple courses are shown
+        plots (reduce-kv (fn [acc med-name meds]
+                           (conj acc [med-name (create-medication-plot med-name meds)])) [] medications-by-name)]
+
     (.setGap plot 0)
-    
+
     ;; Add a subplot for each medication type
-    (doseq [[med-name meds] medications-by-name]
-      (let [dataset (create-medication-dataset meds)
-            range-axis (doto (NumberAxis.)
-                         (.setLabel (if (> (count med-name) 30)
-                                      (str (subs med-name 0 27) "...")
-                                      med-name))
-                         (.setLabelFont font)
-                         (.setLabelAngle (/ Math/PI 2))
-                         (.setTickLabelsVisible false))
-            renderer (doto (XYBarRenderer.)
-                       (.setBarPainter (StandardXYBarPainter.))
-                       (.setShadowVisible false))
-            med-plot (XYPlot. dataset domain-axis range-axis renderer)]
-        (.add plot med-plot 1)))
-    
+    (doseq [[_ medplot] (sort-by first plots)]
+      (.add plot medplot 1))
+
     (.setOrientation plot PlotOrientation/VERTICAL)
-    
+
     ;; Format domain axis
     (.setLabelFont domain-axis font)
     (.setTickLabelFont domain-axis font)
-    
+
     (doto (JFreeChart. "" font plot false)
-          (.setAntiAlias true))))
+      (.setAntiAlias true))))
 
 (s/fdef get-medication-plots
   :args (s/cat :medication-chart #(instance? JFreeChart %))
