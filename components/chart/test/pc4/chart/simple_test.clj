@@ -1,15 +1,15 @@
-(ns pc4.chart.generic-test
+(ns pc4.chart.simple-test
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.spec.alpha :as s]
             [clojure.spec.gen.alpha :as gen]
             [clojure.spec.test.alpha :as stest]
             [pc4.chart.gen :as chart-gen]
-            [pc4.chart.generic :as generic]
+            [pc4.chart.simple :as simple]
             [pc4.chart.common :refer [chart-test-dir-fixture save-test-chart]])
   (:import (java.time LocalDate)
            (org.jfree.chart JFreeChart)))
 
-(use-fixtures :once (chart-test-dir-fixture "generic-chart-test"))
+(use-fixtures :once (chart-test-dir-fixture "simple-chart-test"))
 
 (stest/instrument)
 
@@ -57,7 +57,7 @@
                         :x-label "Date" 
                         :y-label "Value" 
                         :series-name "Series 1"}]
-      (is (fn? (generic/chart-creator valid-config)) 
+      (is (fn? (simple/time-series-chart valid-config)) 
           "Should return a function with valid config")))
   
   (testing "Invalid configurations are rejected"
@@ -65,7 +65,7 @@
                           {:title 123 :x-label "X" :y-label "Y" :series-name "S"} ; Wrong type
                           {:title "" :x-label "" :y-label "" :series-name ""}]] ; Empty strings (valid but poor practice)
       (doseq [config invalid-configs]
-        (is (thrown? Exception (generic/chart-creator config))
+        (is (thrown? Exception (simple/time-series-chart config))
             (str "Should throw exception for invalid config: " config))))))
 
 ;; Test chart creation with weight data
@@ -81,7 +81,7 @@
                          :value-fn :weight}]
       
       (doseq [weight-records (gen/sample (gen/vector gen-weight-record 5 15) 3)]
-        (let [chart-fn (generic/chart-creator weight-config)
+        (let [chart-fn (simple/time-series-chart weight-config)
               chart (chart-fn weight-records)]
           (is (instance? JFreeChart chart)
               "Should create a weight chart with generated data")
@@ -102,7 +102,7 @@
                        :value-fn :score}]
       
       (doseq [score-records (gen/sample (gen/vector gen-score-record 5 15) 3)]
-        (let [chart-fn (generic/chart-creator score-config)
+        (let [chart-fn (simple/time-series-chart score-config)
               chart (chart-fn score-records)]
           (is (instance? JFreeChart chart)
               "Should create a score chart with generated data")
@@ -122,7 +122,7 @@
                     :value-fn (fn [item] (- (:systolic item) (:diastolic item)))}
           bp-data (gen/generate (gen/vector gen-bp-record 10))]
       
-      (let [chart-fn (generic/chart-creator bp-config)
+      (let [chart-fn (simple/time-series-chart bp-config)
             chart (chart-fn bp-data)]
         (is (instance? JFreeChart chart)
             "Should create chart with custom accessor function")
@@ -146,7 +146,7 @@
                      ;; For demo, we're using a fixed height of 1.75m
                      :value-fn (fn [item] (/ (:weight item) (* 1.75 1.75)))}
           
-          chart-fn (generic/chart-creator bmi-config)
+          chart-fn (simple/time-series-chart bmi-config)
           chart (chart-fn weight-records)]
       
       (is (instance? JFreeChart chart)
@@ -157,7 +157,7 @@
 ;; Test with edge cases
 (deftest test-edge-cases
   (testing "Empty data returns nil"
-    (let [chart-fn (generic/chart-creator {:title "Empty Chart" 
+    (let [chart-fn (simple/time-series-chart {:title "Empty Chart" 
                                           :x-label "Date" 
                                           :y-label "Value" 
                                           :series-name "No Data"})]
@@ -173,7 +173,7 @@
                  :x-label "Date" 
                  :y-label "Weight" 
                  :series-name "Mixed Data"}
-          chart-fn (generic/chart-creator config)
+          chart-fn (simple/time-series-chart config)
           chart (chart-fn data)]
       
       (is (instance? JFreeChart chart)
@@ -198,7 +198,7 @@
                         :tick-unit 1.0
                         :date-fn :date
                         :value-fn :weight}
-          chart-fn (generic/chart-creator weight-config)
+          chart-fn (simple/time-series-chart weight-config)
           chart (chart-fn weight-data)]
       
       (is (instance? JFreeChart chart)

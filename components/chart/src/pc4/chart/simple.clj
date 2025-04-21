@@ -1,5 +1,5 @@
-(ns pc4.chart.generic
-  "General purpose chart generation functionality that separates 
+(ns pc4.chart.simple
+  "Simple chart generation functionality that separates 
    configuration from data and chart generation"
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str])
@@ -61,11 +61,11 @@
     
     chart))
 
-(s/fdef chart-creator
+(s/fdef time-series-chart
   :args (s/cat :config ::chart-config)
   :ret ifn?)
 
-(defn chart-creator
+(defn time-series-chart
   "Creates a function that generates a time series chart based on configuration.
    
    Parameters:

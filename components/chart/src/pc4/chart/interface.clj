@@ -4,8 +4,8 @@
     [clojure.java.io :as io]
     [clojure.spec.alpha :as s]
     [pc4.chart.edss :as edss]
-    [pc4.chart.generic :as generic]
-    [pc4.chart.medication :as medication])
+    [pc4.chart.medication :as medication]
+    [pc4.chart.simple :as simple])
   (:import (java.time LocalDate ZoneId)
            (org.jfree.chart ChartFactory JFreeChart ChartUtils)
            (org.jfree.chart.plot XYPlot)
@@ -98,8 +98,8 @@
   (fn [^OutputStream out]
     (ChartUtils/writeChartAsPNG out chart width height)))
 
-;; Generic chart creation functions
-(defn chart-creator
+;; Simple chart creation functions
+(defn time-series-chart
   "Creates a function that generates a time series chart based on configuration.
    
    Parameters:
@@ -120,7 +120,7 @@
    Throws:
    - Exception if config doesn't match the required specification"
   [config]
-  (generic/chart-creator config))
+  (simple/time-series-chart config))
 
 ;; Examples
 (comment
@@ -156,7 +156,7 @@
   ;; Save chart to file
   (save-chart msss-chart "/tmp/edss-chart.png" 800 600)
   
-  ;; Example of using the generic chart creator
+  ;; Example of using the simple chart creator
   (def weight-config
     {:title "Weight Over Time"
      :x-label "Date"
@@ -167,7 +167,7 @@
      :date-fn :date
      :value-fn :weight})
   
-  (def create-weight-chart (chart-creator weight-config))
+  (def create-weight-chart (time-series-chart weight-config))
   
   (def weight-data
     [{:id 1 :date (LocalDate/now) :weight 75.5}

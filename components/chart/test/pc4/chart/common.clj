@@ -7,7 +7,16 @@
            (java.nio.file.attribute FileAttribute)
            (org.jfree.chart JFreeChart ChartUtils)))
 
-;; Create a dynamic var to hold the temporary directory
+;; Create a shared temporary directory for all chart tests
+(def shared-chart-test-dir 
+  (delay 
+    (let [temp-dir (Files/createTempDirectory 
+                    "chart-tests-" 
+                    (into-array FileAttribute []))]
+      (println "All chart test files will be saved to:" (.toString temp-dir))
+      (.toFile temp-dir))))
+
+;; Dynamic var for backward compatibility
 (def ^:dynamic *chart-test-dir* nil)
 
 ;; Counter for unique filenames 
@@ -44,24 +53,19 @@
       (.getAbsolutePath png-file))))
 
 (defn chart-test-dir-fixture 
-  "Test fixture that creates a temporary directory for chart output.
+  "Test fixture that sets up the shared test directory for chart output.
    
-   Parameters:
-   - prefix: Optional prefix for the temp directory name (default is 'chart-test')
+   The prefix parameter is kept for backward compatibility but is ignored
+   as all charts are saved to the same shared directory.
    
    Usage: 
-   (use-fixtures :once (chart-test-dir-fixture \"my-test\"))"
+   (use-fixtures :once (chart-test-dir-fixture))"
   ([] (chart-test-dir-fixture "chart-test"))
-  ([prefix]
+  ([_prefix]
    (fn [f]
-     (let [temp-dir (Files/createTempDirectory 
-                      (str prefix "-") 
-                      (into-array FileAttribute []))]
-       (println "Chart test files will be saved to:" (.toString temp-dir))
-       (binding [*chart-test-dir* (.toFile temp-dir)]
-         (reset! test-chart-counter 0)
-         (try
-           (f)
-           (finally
-             ;; We don't delete the directory to allow inspection of the charts
-             nil)))))))
+     (binding [*chart-test-dir* @shared-chart-test-dir]
+       (try
+         (f)
+         (finally
+           ;; We don't delete the directory to allow inspection of the charts
+           nil))))))
