@@ -52,12 +52,20 @@
   (log/info "starting pc4 nrepl server" {:profile profile})
   (ig/init profile [:repl/server]))
 
-(defn serve [{:keys [profile]}]
+(defn ^:deprecated serve                                    ;; TODO: remove
+  [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
-  (log/info "starting pc4 with profile" {:profile profile})
+  (log/info "starting pc4 fulcro-server with profile" {:profile profile})
   (let [conf (config/config profile)]
     (ig/load-namespaces conf [:pc4.fulcro-server.interface/server])
     (ig/init conf [:repl/server :pc4.fulcro-server.interface/server])))
+
+(defn serve2 [{:keys [profile]}]
+  (when-not profile (exit 1 "Missing profile"))
+  (log/info "starting pc4 http-server with profile" {:profile profile})
+  (let [conf (config/config profile)]
+    (ig/load-namespaces conf [:pc4.http-server.interface/server])
+    (ig/init conf [:repl/server :pc4.http-server.interface/server])))
 
 (defn migrate [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
@@ -135,7 +143,7 @@
       {:exit-message (usage summary)}
       errors
       {:error true, :exit-message (error-msg errors)}
-      (#{"nrepl" "serve" "migrate" "status"} command)
+      (#{"nrepl" "serve" "serve2" "migrate" "status"} command)
       {:command command :options options}
       :else
       {:error true, :exit-message (usage summary)})))
@@ -147,7 +155,7 @@
       (exit (if error 1 0) exit-message)
       (case command
         "nrepl" (nrepl {:profile profile})
-        "serve" (serve {:profile profile})
+        "serve" (serve2 {:profile profile})
         "migrate" (migrate {:profile profile})
         "status" (status {:profile profile})))))
 
