@@ -150,7 +150,20 @@
         {:items [{:text   "Add medication..."
                   :hidden (not can-edit?)
                   :url    (route/url-for :patient/edit-medication :path-params {:patient-identifier patient_identifier
-                                                                               :medication-id       "new"})}]}
+                                                                                :medication-id      "new"})}]}
+        :relapses
+        {:items [{:text   "Add disease event..."
+                  :hidden (not can-edit?)
+                  :url    (route/url-for :patient/edit-ms-event :path-params {:patient-identifier patient_identifier
+                                                                              :ms-event-id        "new"})}
+                 {:text   "View EDSS"
+                  :hidden false
+                  :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
+        :encounters
+        {:items [{:text   "Add encounter..."
+                  :hidden (not can-edit?)
+                  :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
+                                                                          :encounter-id       "new"})}]}
         {:items []})}}))
 
 (pco/defresolver patient-page
@@ -478,7 +491,6 @@
           :else                                             ;; user not authorized
           (web/forbidden "You do not have permission"))))))
 
-(defn encounters [request])
 
 (defn documents [request])
 
@@ -490,7 +502,6 @@
 
 (defn family [request])
 
-(defn neuroinflammatory [request])
 
 (defn motorneurone [request])
 
