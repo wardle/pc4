@@ -20,7 +20,7 @@
                                                        (LocalDate/parse %)
                                                        true
                                                        (catch Exception _ false)))))
-(s/def ::start-date ::date)
+(s/def ::start-date (s/nilable ::date))
 (s/def ::end-date (s/nilable ::date))
 (s/def ::daily-dose (s/nilable (s/and number? #(>= % 0))))
 (s/def ::medication (s/keys :req-un [::id ::name ::start-date]
