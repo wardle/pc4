@@ -319,6 +319,9 @@
 (defn patient->ms-events [{:keys [conn]} sms-id]
   (patients/fetch-ms-events conn sms-id))
 
+(defn ms-event-by-id [{:keys [conn]} ms-event-id]
+  (patients/fetch-ms-event conn ms-event-id))
+
 (def ms-event-ordering-error->en-GB patients/ms-event-ordering-error->en-GB)
 (def ms-event-ordering-errors patients/ms-event-ordering-errors)
 

@@ -591,8 +591,8 @@
                                      [:and
                                       [:!= :is_deleted "true"]
                                       [:= :patient_fk
-                                            (or id {:select :t_patient/id :from [:t_patient]
-                                                    :where  [:= :t_patient/patient_identifier patient_identifier]})]]}))))
+                                       (or id {:select :t_patient/id :from [:t_patient]
+                                               :where  [:= :t_patient/patient_identifier patient_identifier]})]]}))))
 
 (defn encounter-templates-by-ids [conn encounter-template-ids]
   (jdbc/execute! conn (sql/format {:select [:*] :from [:t_encounter_template]
@@ -1054,6 +1054,18 @@
                       :t_ms_event/is_progressive (ms-event-is-progressive? %)
                       :t_ms_event/type (select-keys % [:t_ms_event_type/id :t_ms_event_type/name
                                                        :t_ms_event_type/abbreviation])))))
+
+
+(defn fetch-ms-event
+  [conn ms-event-id]
+  (if-let [event (db/execute-one! conn (sql/format {:select    [:t_ms_event/* :t_ms_event_type/*]
+                                                    :from      [:t_ms_event]
+                                                    :left-join [:t_ms_event_type [:= :t_ms_event_type/id :ms_event_type_fk]]
+                                                    :where     [:= :t_ms_event/id ms-event-id]}))]
+    (assoc event :t_ms_event/is_relapse (ms-event-is-relapse? event)
+                 :t_ms_event/is_progressive (ms-event-is-progressive? event)
+                 :t_ms_event/type (select-keys event [:t_ms_event_type/id :t_ms_event_type/name
+                                                  :t_ms_event_type/abbreviation]))))
 
 (defn patient-identifier-for-ms-event
   "Returns the patient identifier for a given MS event"
