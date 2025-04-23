@@ -5,6 +5,35 @@
                       (java.time.format DateTimeFormatter)]
                :cljs [(goog.date Date)])))
 
+;; Date formatting utilities
+#?(:clj
+   (defn format-date
+     "Format a LocalDate in a human-readable format (dd-MMM-yyyy)."
+     [^LocalDate date]
+     (when date
+       (.format date (DateTimeFormatter/ofPattern "dd-MMM-yyyy")))))
+
+#?(:clj
+   (defn format-date-time
+     "Format a LocalDateTime in a human-readable format (dd-MMM-yyyy HH:mm)."
+     [date-time]
+     (when date-time
+       (.format date-time (DateTimeFormatter/ofPattern "dd-MMM-yyyy HH:mm")))))
+
+#?(:cljs
+   (defn format-date
+     "Format a date in a human-readable format (dd-MMM-yyyy)."
+     [date]
+     (when date
+       (str date))))
+
+#?(:cljs
+   (defn format-date-time
+     "Format a date-time in a human-readable format (dd-MMM-yyyy HH:mm)."
+     [date-time]
+     (when date-time
+       (str date-time))))
+
 (rum/defc icon-home []
   [:svg.-ml-1.mr-3.h-6.w-6.flex-shrink-0 {:fill "none" :viewBox "0 0 24 24" :stroke-width "1.5" :stroke "currentColor" :aria-hidden "true"}
    [:path {:stroke-linecap "round" :stroke-linejoin "round" :d "M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"}]])
@@ -107,6 +136,84 @@
     [:div.mt-5
      content]]])
 
+(rum/defc ui-modal
+  "A modal dialog that is initially hidden and can be revealed with JavaScript.
+   
+   Parameters:
+   - id: The ID of the modal element for targeting with HTMX
+   - hidden?: Boolean to determine if modal is initially hidden (defaults to true)
+   - title: The title of the modal
+   - actions: A sequence of actions (maps) with :id, :title, :role (primary/secondary), 
+             :disabled?, and data attributes for behavior
+   - cancel: Either an action map for clicking outside the modal to cancel/dismiss it,
+             or an ID (default :cancel) that references an action in the actions list.
+   - size: Size of the modal - :small, :medium, :large, :xl, :full or custom classes (defaults to :large)
+   
+   Usage example:
+   (ui-modal 
+     {:id \"my-modal\" 
+      :title \"Confirmation\"
+      :size :large
+      :cancel :cancel  ;; References the cancel action in the actions list
+      :actions [{:id \"confirm\" :title \"Confirm\" :role :primary :hx-post \"/confirm\"}
+                {:id :cancel :title \"Cancel\" :hx-target \"#my-modal\" :hx-swap \"outerHTML\" :hx-select \".hidden\"}]}
+     [:p \"Are you sure you want to continue?\"])"
+  [{:keys [id hidden? title actions cancel size] :or {size :large, cancel :cancel}} & content]
+  [:div.fixed.z-10.inset-0.overflow-y-auto
+   (cond-> {:id id :role "dialog" :aria-modal "true" :aria-labelledby (str id "-title")}
+     (or (nil? hidden?) hidden?) (assoc :class "hidden"))
+   [:div.flex.items-end.justify-center.min-h-screen.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+    ;; Background overlay
+    [:div.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity.cursor-pointer
+     (merge {:aria-hidden "true"}
+            (if (map? cancel)
+              cancel
+              (first (filter #(when (= (:id %) cancel) %) actions))))
+
+     ;; This element is to trick the browser into centering the modal contents
+     [:span.hidden.sm:inline-block.sm:align-middle.sm:h-screen
+      {:aria-hidden             "true"
+       :dangerouslySetInnerHTML {:__html "&#8203;"}}]]      ;; zero width space
+
+    ;; Modal panel
+    [:div.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:p-6
+     {:class (into ["w-11/12" "sm:w-full"] 
+                  (case size
+                    :small ["sm:max-w-sm"]
+                    :medium ["sm:max-w-xl"]
+                    :large ["sm:max-w-4xl"]
+                    :xl ["sm:max-w-7xl"]
+                    :full ["sm:max-w-[95%]"]
+                    (if (string? size) [size] [])))}
+     ;; Modal header
+     (when title
+       [:div.mt-3.text-center.sm:mt-0.sm:text-left
+        [:h3#modal-title.text-lg.font-medium.leading-6.text-gray-900 
+         {:id (str id "-title")}
+         title]])
+     
+     ;; Modal content
+     [:div.mt-4 content]
+     
+     ;; Modal footer with actions
+     (when (seq actions)
+       [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
+        (for [{:keys [id title role disabled? hidden?] :as action} actions
+              :when (and action (not hidden?))]
+          [:button
+           (cond-> {:key id
+                    :type "button"
+                    :class (str "w-full inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm "
+                                (case role
+                                  :primary "border-transparent text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+                                  :danger "border-transparent text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                                  "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500")
+                                (when disabled? " opacity-50 cursor-not-allowed"))}
+             disabled? (assoc :disabled "disabled")
+             ;; Add any data attributes that start with :hx-
+             :else (merge (select-keys action (filter #(str/starts-with? (name %) "hx-") (keys action)))))
+           title])])]]])
+
 (rum/defc ui-label [{:keys [for label]}]
   [:label.block.text-sm.font-medium.text-gray-600 {:for for} label])
 
@@ -115,9 +222,9 @@
   [{:keys [id name placeholder type required auto-focus disabled] :as opts :or {type "text"}}]
   [:input.p-2.shadow.sm-focus.ring-indigo-500.border.focus:border-indigo-500.block.w-full.sm:text-sm.border-gray-300.rounded-md
    (merge opts
-          {:name        (or name id)
-           :id          (or id name)
-           :class       (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-500" "bg-gray-50" "italic"])})])
+          {:name  (or name id)
+           :id    (or id name)
+           :class (if-not disabled ["text-gray-700" "bg-white" "shadow"] ["text-gray-500" "bg-gray-50" "italic"])})])
 
 (rum/defc ui-textfield
   "Label and input for a textfield, with optional help-text."
@@ -133,11 +240,26 @@
   [{:keys [disabled]} content]
   [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600
    {:type  "submit"
-    :class (if disabled ["opacity-50 pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
+    :class (if disabled ["opacity-50" "pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
+   content])
+
+(rum/defc ui-cancel-button
+  [{:keys [disabled] :as params} content]
+  [:a.px-3.py-2.text-sm.font-semibold.rounded-md.bg-white.text-gray-900.shadow-sm.ring-1.ring-inset.ring-gray-300
+   (merge {:class (if disabled ["opacity-50" "pointer-events-none"] ["hover:bg-gray-50" "cursor-pointer"])}
+          params)
+   content])
+
+(rum/defc ui-delete-button
+  [{:keys [disabled] :as params} content]
+  [:button.px-3.py-2.text-sm.font-semibold.rounded-md.bg-red-50.text-red-700.shadow-sm.ring-1.ring-inset.ring-red-300
+   (merge {:type  "submit"
+           :class (if disabled ["opacity-50" "pointer-events-none"] ["hover:bg-red-100" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-red-500"])}
+          params)
    content])
 
 (rum/defc ui-select-button
-  [{:keys [id name label disabled hx-get hx-target hx-swap options selected-id selected]}]
+  [{:keys [id name label disabled hx-post hx-get hx-target hx-swap options selected-id selected]}]
   [:div
    (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
    [:div.mt-2.grid.grid-cols-1
@@ -146,6 +268,7 @@
               :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
        disabled (assoc :disabled "disabled")
        hx-get (assoc :hx-get hx-get)
+       hx-post (assoc :hx-post hx-post)
        hx-target (assoc :hx-target hx-target)
        hx-swap (assoc :hx-swap hx-swap))
      (for [{:keys [id text] :as option} options]
