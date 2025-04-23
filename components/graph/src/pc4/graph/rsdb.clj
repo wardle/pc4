@@ -399,28 +399,36 @@
                 :t_summary_multiple_sclerosis/ms_diagnosis (when ms-diagnosis-id {:t_ms_diagnosis/id   ms-diagnosis-id
                                                                                   :t_ms_diagnosis/name (:t_ms_diagnosis/name sms)}))}))
 
+(def ms-event-properties
+  [:t_ms_event/id
+   :t_ms_event/date :t_ms_event/impact
+   :t_ms_event/is_relapse :t_ms_event/is_progressive
+   :t_ms_event/site_arm_motor :t_ms_event/site_ataxia
+   :t_ms_event/site_bulbar :t_ms_event/site_cognitive
+   :t_ms_event/site_diplopia :t_ms_event/site_face_motor
+   :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor
+   :t_ms_event/site_limb_sensory :t_ms_event/site_optic_nerve
+   :t_ms_event/site_other :t_ms_event/site_psychiatric
+   :t_ms_event/site_sexual :t_ms_event/site_sphincter
+   :t_ms_event/site_unknown :t_ms_event/site_vestibular
+   {:t_ms_event/type [:t_ms_event_type/id
+                      :t_ms_event_type/name
+                      :t_ms_event_type/abbreviation]}
+   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we also flatten this
+   :t_ms_event_type/name
+   :t_ms_event_type/abbreviation])
+
 (pco/defresolver summary-multiple-sclerosis->events
   [{rsdb :com.eldrix/rsdb} {sms-id :t_summary_multiple_sclerosis/id}]
   {::pco/output [{:t_summary_multiple_sclerosis/events
-                  [:t_ms_event/id
-                   :t_ms_event/date :t_ms_event/impact
-                   :t_ms_event/is_relapse :t_ms_event/is_progressive
-                   :t_ms_event/site_arm_motor :t_ms_event/site_ataxia
-                   :t_ms_event/site_bulbar :t_ms_event/site_cognitive
-                   :t_ms_event/site_diplopia :t_ms_event/site_face_motor
-                   :t_ms_event/site_face_sensory :t_ms_event/site_leg_motor
-                   :t_ms_event/site_limb_sensory :t_ms_event/site_optic_nerve
-                   :t_ms_event/site_other :t_ms_event/site_psychiatric
-                   :t_ms_event/site_sexual :t_ms_event/site_sphincter
-                   :t_ms_event/site_unknown :t_ms_event/site_vestibular
-                   {:t_ms_event/type [:t_ms_event_type/id
-                                      :t_ms_event_type/name
-                                      :t_ms_event_type/abbreviation]}
-                   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we also flatten this
-                   :t_ms_event_type/name
-                   :t_ms_event_type/abbreviation]}]}
+                  ms-event-properties}]}
   (let [events (rsdb/patient->ms-events rsdb sms-id)]
     {:t_summary_multiple_sclerosis/events events}))
+
+(pco/defresolver ms-event-by-id
+  [{rsdb :com.eldrix/rsdb} {id :t_ms_event/id}]
+  {::pco/output ms-event-properties}
+  (rsdb/ms-event-by-id rsdb id))
 
 (pco/defresolver ms-events->ordering-errors
   [{:t_summary_multiple_sclerosis/keys [events]}]
@@ -1840,6 +1848,7 @@
    diagnosis-by-id
    patient->summary-multiple-sclerosis
    summary-multiple-sclerosis->events
+   ms-event-by-id
    ms-events->ordering-errors
    event->summary-multiple-sclerosis
    patient->medications
