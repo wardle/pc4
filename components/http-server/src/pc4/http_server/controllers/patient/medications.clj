@@ -152,7 +152,7 @@
               :hx-target "#edit-medication" :hx-swap "outerHTML"
               :hx-vals   (web/write-hx-vals :action {:action :add-event})}
              "Add event")
-           (ui/ui-button
+           (ui/ui-delete-button
              {:disabled (or (not can-edit) (= id "new") (nil? id))
               :hx-delete (when (and id can-edit (not= id "new"))
                            (route/url-for :patient/delete-medication 
@@ -261,8 +261,6 @@
                                    (map #(if (uuid? (:t_medication_event/id %))
                                            (dissoc % :t_medication_event/id) %) evts))))]
         (println "\n\n\n medication:")
-        (clojure.pprint/pprint medication)
-        (clojure.pprint/pprint action)
         (if (= :save-medication action)
           (do (rsdb/upsert-medication! rsdb medication)
               (web/hx-redirect (route/url-for :patient/medications))) ;; TODO: implement return-url parameter
