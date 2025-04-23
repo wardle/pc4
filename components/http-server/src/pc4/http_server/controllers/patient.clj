@@ -33,6 +33,12 @@
   {:ui/current-medication
    {:t_medication/id (some-> (get-in request [:path-params :medication-id]) parse-long)}})
 
+(pco/defresolver current-ms-event
+  [{:keys [request]} _]
+  {::pco/output [{:ui/current-ms-event [:t_ms_event/id]}]}
+  {:ui/current-ms-event
+   {:t_ms_event/id (some-> request :path-params :ms-event-id parse-long)}})
+
 (pco/defresolver patient->best-hospital-crn
   [{rsdb :com.eldrix/rsdb} {current-project :ui/current-project, hospitals :t_patient/hospitals}]
   {::pco/input  [{:ui/current-project [:t_project/id]}
@@ -191,6 +197,7 @@
 (def resolvers [current-patient
                 current-diagnosis
                 current-medication
+                current-ms-event
                 patient->best-hospital-crn
                 patient-banner patient-menu
                 patient-page
