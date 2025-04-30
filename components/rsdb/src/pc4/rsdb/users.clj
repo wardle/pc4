@@ -26,10 +26,10 @@
             [next.jdbc.plan :as jdbc.plan]
             [next.jdbc.sql :as jdbc.sql]
             [pc4.fhir.interface :as fhir]
+            [pc4.queue.interface :as queue]
             [pc4.rsdb.auth :as auth]
             [pc4.rsdb.db :as db]
             [pc4.rsdb.projects :as projects]
-            [pc4.rsdb.queue :as queue]
             [pc4.wales-nadex.interface :as nadex])
   (:import (er.extensions.crypting BCrypt)
            (java.security MessageDigest)
@@ -63,13 +63,13 @@
       (log/warn "warning: using outdated password check for user " username)
       (= credential hash))
 
-    (and credential (= authentication_method :LOCAL17))                      ;; TODO: upgrade to more modern hash here and in rsdb codebase
+    (and credential (= authentication_method :LOCAL17))     ;; TODO: upgrade to more modern hash here and in rsdb codebase
     (BCrypt/checkpw password credential)
 
     (and wales-nadex (= authentication_method :NADEX))
     (nadex/can-authenticate? wales-nadex username password)
 
-    (and credential (= authentication_method :NADEX))                        ;; TODO: remove this fallback
+    (and credential (= authentication_method :NADEX))       ;; TODO: remove this fallback
     (do (log/warn "requested NADEX authentication but no connection, fallback to LOCAL17")
         (BCrypt/checkpw password credential))
 
@@ -111,20 +111,20 @@
   [conn nspace username]
   (when (and conn (= "cymru.nhs.uk" nspace))
     (jdbc/execute-one!
-     conn (sql/format {:select :id :from :t_user
-                       :where  [:= :username (.toLowerCase username)]}))))
+      conn (sql/format {:select :id :from :t_user
+                        :where  [:= :username (.toLowerCase username)]}))))
 
 (defn- save-password!
   [conn username new-password & {:keys [update-auth-method?]}]
   (let [hash (BCrypt/hashpw new-password (BCrypt/gensalt))]
     (jdbc/execute-one!
-     conn
-     (sql/format {:update :t_user
-                  :where  [:= :username username]
-                  :set    (cond-> {:credential           hash
-                                   :must_change_password false}
-                            update-auth-method?
-                            (assoc :authentication_method :LOCAL17))}))))
+      conn
+      (sql/format {:update :t_user
+                   :where  [:= :username username]
+                   :set    (cond-> {:credential           hash
+                                    :must_change_password false}
+                             update-auth-method?
+                             (assoc :authentication_method :LOCAL17))}))))
 
 (defn save-password
   "Save a password for the given user.
@@ -141,36 +141,36 @@
 (defn count-unread-messages
   [conn username]
   (jdbc.plan/select-one!
-   conn :unread_messages
-   (sql/format {:select [[:%count.t_message/id :unread_messages]]
-                :from   [:t_message :t_user]
-                :where  [:and
-                         [:= :t_user/username username]
-                         [:= :t_message/to_user_fk :t_user/id]
-                         [:= :is_unread "true"]]})))
+    conn :unread_messages
+    (sql/format {:select [[:%count.t_message/id :unread_messages]]
+                 :from   [:t_message :t_user]
+                 :where  [:and
+                          [:= :t_user/username username]
+                          [:= :t_message/to_user_fk :t_user/id]
+                          [:= :is_unread "true"]]})))
 
 (defn count-incomplete-messages
   [conn username]
   (jdbc.plan/select-one!
-   conn :incomplete_messages
-   (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
-                :from   [:t_message :t_user]
-                :where  [:and
-                         [:= :t_user/username username]
-                         [:= :t_message/to_user_fk :t_user/id]
-                         [:= :is_completed "false"]]})))
+    conn :incomplete_messages
+    (sql/format {:select [[:%count.t_message/id :incomplete_messages]]
+                 :from   [:t_message :t_user]
+                 :where  [:and
+                          [:= :t_user/username username]
+                          [:= :t_message/to_user_fk :t_user/id]
+                          [:= :is_completed "false"]]})))
 
 (defn projects
   [conn username]
   (db/execute!
-   conn
-   (sql/format {:select [:*]
-                :from   [:t_project]
-                :where  [:in :t_project/id {:select [:t_project_user/project_fk]
-                                            :from   [:t_project_user :t_user]
-                                            :where  [:and
-                                                     [:= :t_project_user/user_fk :t_user/id]
-                                                     [:= :t_user/username username]]}]})))
+    conn
+    (sql/format {:select [:*]
+                 :from   [:t_project]
+                 :where  [:in :t_project/id {:select [:t_project_user/project_fk]
+                                             :from   [:t_project_user :t_user]
+                                             :where  [:and
+                                                      [:= :t_project_user/user_fk :t_user/id]
+                                                      [:= :t_user/username username]]}]})))
 
 (defn sql-active-project-ids
   "Generate SQL to return a user's active project identifiers.
@@ -225,7 +225,7 @@
              :t_project [:= :project_fk :t_project/id]
              :t_role [:= :role_fk :t_role/id]]
     :where  (if project-id [:and [:= :t_user/username username] [:= :t_project/id project-id]]
-                [:= :t_user/username username])}))
+                           [:= :t_user/username username])}))
 
 (s/fdef roles-for-user
   :args (s/cat :conn ::db/conn :username string? :opts (s/? (s/keys :opt [:t_project/id])))
@@ -260,11 +260,11 @@
    (roles-for-user conn username {}))
   ([conn username opts]
    (->> (db/execute!
-         conn
-         (sql/format (roles-for-user-sql username opts)))
+          conn
+          (sql/format (roles-for-user-sql username opts)))
         (map #(assoc % :t_project_user/active? (projects/role-active? %)
-                     :t_project/active? (projects/active? %)
-                     :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
+                       :t_project/active? (projects/active? %)
+                       :t_project_user/permissions (get auth/permission-sets (:t_project_user/role %)))))))
 
 (s/fdef permissions-for-project
   :args (s/cat :roles (s/coll-of ::role) :project-id int?))
@@ -372,7 +372,7 @@
   ([conn username {:keys [with-credentials] :or {with-credentials false}}]
    (db/execute-one! conn
                     (sql/format (cond-> (assoc fetch-user-query
-                                               :where [:= :username (str/lower-case username)])
+                                          :where [:= :username (str/lower-case username)])
                                   with-credentials
                                   (update :select conj :credential))))))
 
@@ -436,13 +436,13 @@
   (when-not (s/valid? ::create-user user)
     (throw (ex-info "Invalid parameters" (s/explain-data ::create-user user))))
   (let [[new-password credential] (random-password {})]
-    {:sql {:insert-into :t_user
-           :values      [(merge {:t_user/credential            credential
-                                 :t_user/must_change_password  true
-                                 :t_user/role_fk               4                       ;; normal user
-                                 :t_user/job_title_fk 14                                        ;; "other" 
-                                 :t_user/authentication_method "LOCAL17"}
-                                user)]}
+    {:sql      {:insert-into :t_user
+                :values      [(merge {:t_user/credential            credential
+                                      :t_user/must_change_password  true
+                                      :t_user/role_fk               4 ;; normal user
+                                      :t_user/job_title_fk          14 ;; "other"
+                                      :t_user/authentication_method "LOCAL17"}
+                                     user)]}
      :password new-password}))
 
 (def known-job-titles
@@ -482,20 +482,20 @@
 
 (defn create-managed-user-sql
   [{identifiers :org.hl7.fhir.Practitioner/identifier
-    names :org.hl7.fhir.Practitioner/name
-    telecom :org.hl7.fhir.Practitioner/telecom}]
+    names       :org.hl7.fhir.Practitioner/name
+    telecom     :org.hl7.fhir.Practitioner/telecom}]
   (let [id (fhir/best-identifier "https://fhir.nhs.wales/Id/nadex-identifier" identifiers)
         nm (fhir/best-human-name names)
         email (:org.hl7.fhir.ContactPoint/value (fhir/best-contact-point "email" telecom))]
     (when (and id nm)
-      (create-user-sql {:t_user/username (:org.hl7.fhir.Identifier/value id)
-                        :t_user/title (str/join " " (:org.hl7.fhir.HumanName/prefix nm))
-                        :t_user/first_names (str/join " " (:org.hl7.fhir.HumanName/given nm))
-                        :t_user/last_name (:org.hl7.fhir.HumanName/family nm)
-                        :t_user/email email
-                        :t_user/job_title_fk 14                                        ;; "other" ;; TODO: map from FHIR (SNOMED) job titles 
-                        :t_user/role_fk 4
-                        :t_user/must_change_password false
+      (create-user-sql {:t_user/username              (:org.hl7.fhir.Identifier/value id)
+                        :t_user/title                 (str/join " " (:org.hl7.fhir.HumanName/prefix nm))
+                        :t_user/first_names           (str/join " " (:org.hl7.fhir.HumanName/given nm))
+                        :t_user/last_name             (:org.hl7.fhir.HumanName/family nm)
+                        :t_user/email                 email
+                        :t_user/job_title_fk          14    ;; "other" ;; TODO: map from FHIR (SNOMED) job titles
+                        :t_user/role_fk               4
+                        :t_user/must_change_password  false
                         :t_user/authentication_method "NADEX"}))))
 
 (comment
@@ -505,10 +505,10 @@
   (gen/generate (s/gen :org.hl7.fhir/Practitioner)))
 
 (comment
-  (create-user-sql {:t_user/username "ma090906"
-                    :t_user/title "Mr"
-                    :t_user/last_name "Wardle"
-                    :t_user/first_names "Mark"
+  (create-user-sql {:t_user/username     "ma090906"
+                    :t_user/title        "Mr"
+                    :t_user/last_name    "Wardle"
+                    :t_user/first_names  "Mark"
                     :t_user/job_title_fk 8}))
 
 (defn create-user [conn user]
@@ -549,14 +549,14 @@
 (defn ^:deprecated fetch-user-photo
   [conn username]
   (jdbc/execute-one!
-   conn
-   (sql/format
-    {:select [:username :data :originalfilename :mimetype :size :creationdate]
-     :from   [:erattachmentdata :erattachment :t_user]
-     :where  [:and
-              [:= :erattachment/attachmentdataid :erattachmentdata/id]
-              [:= :erattachment/id :t_user/photo_fk]
-              [:= :t_user/username username]]})))
+    conn
+    (sql/format
+      {:select [:username :data :originalfilename :mimetype :size :creationdate]
+       :from   [:erattachmentdata :erattachment :t_user]
+       :where  [:and
+                [:= :erattachment/attachmentdataid :erattachmentdata/id]
+                [:= :erattachment/id :t_user/photo_fk]
+                [:= :t_user/username username]]})))
 
 (defn user-id->photo
   [conn user-id]
@@ -581,14 +581,14 @@
   the moment, all recent news is returned."
   [conn username]
   (db/execute! conn (sql/format
-                     {:select    [:t_news/id :date_time :t_news/title :body
-                                  :username :t_user/id :t_user/title :first_names :last_name :postnomial :custom_initials
-                                  :email :custom_job_title :t_job_title/name]
-                      :from      [:t_news]
-                      :left-join [:t_user [:= :author_fk :t_user/id]
-                                  :t_job_title [:= :job_title_fk :t_job_title/id]]
-                      :order-by  [[:date_time :desc]]
-                      :limit     5})))
+                      {:select    [:t_news/id :date_time :t_news/title :body
+                                   :username :t_user/id :t_user/title :first_names :last_name :postnomial :custom_initials
+                                   :email :custom_job_title :t_job_title/name]
+                       :from      [:t_news]
+                       :left-join [:t_user [:= :author_fk :t_user/id]
+                                   :t_job_title [:= :job_title_fk :t_job_title/id]]
+                       :order-by  [[:date_time :desc]]
+                       :limit     5})))
 
 (defn record-login!
   "Record the date of login for audit purposes. At the moment, this simply
@@ -649,10 +649,10 @@
 (defn send-message
   "Send a message from one user to another. If the user has chosen in their
   preferences to 'send_email_for_messages', then a job in the queue will be
-  created under topic :user/email. Returns a map containing the following keys:
-  - message : the created message, including id
-  - email   : if an email was queued, the payload of that job."
-  [conn from-user-id {to-user-id :t_user/id, send-email :t_user/send_email_for_messages, email :t_user/email} {patient-pk :t_patient/id} subject body]
+  created with jobtype :user/email. Returns a map containing the following keys:
+  - message      : the created message, including id
+  - email-job-id : if an email was queued, the job-id of the email."
+  [conn from-user-id {to-user-id :t_user/id, send-email? :t_user/send_email_for_messages, email :t_user/email} {patient-pk :t_patient/id} subject body]
   (jdbc/with-transaction [txn conn]
     (log/debug "message" {:from from-user-id :to to-user-id :email email :send-email? send-email})
     (let [message (jdbc.sql/insert! txn :t_message {:t_message/date_time    (java.time.LocalDateTime/now)
@@ -663,12 +663,16 @@
                                                     :t_message/to_user_fk   to-user-id
                                                     :t_message/patient_fk   patient-pk
                                                     :t_message/subject      subject})]
-      (when send-email
+      (when send-email?
         (log/debug "queuing email for message" {:message-id (:t_message/id message) :to to-user-id :to-email email :from from-user-id}))
       (cond-> {:message message}
-        send-email
-        (assoc :email (queue/enqueue-job txn :user/email {:message-id (:t_message/id message)
-                                                          :to         email :subject subject :body body}))))))
+        send-email?
+        (assoc :email-job-id (queue/enqueue! txn :default
+                                             :user/email
+                                             {:message-id (:t_message/id message)
+                                              :to         email
+                                              :subject    subject
+                                              :body       body}))))))
 
 (comment
   (require '[next.jdbc.connection])

@@ -33,4 +33,4 @@
   (migratus/pending-list conf)
   (migratus/migrate conf)
   (migratus/rollback conf)
-  (migratus/create conf "remove-null-constraint-form-smoking-history"))
+  (migratus/create conf "remove-old-job-queue"))

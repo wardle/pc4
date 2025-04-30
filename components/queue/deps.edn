@@ -1,0 +1,4 @@
+{:paths   ["src" "resources"]
+ :deps    {msolli/proletarian {:mvn/version "1.0.89-alpha"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps  {}}}}

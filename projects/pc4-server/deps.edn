@@ -20,6 +20,7 @@
         poly/nhspd         {:local/root "../../components/nhspd"}
         poly/ods           {:local/root "../../components/ods"}
         poly/ods-weekly    {:local/root "../../components/ods-weekly"}
+        poly/queue         {:local/root "../../components/queue"}
         poly/report        {:local/root "../../components/report"}
         poly/rsdb          {:local/root "../../components/rsdb"}
         poly/snomedct      {:local/root "../../components/snomedct"}

@@ -33,6 +33,10 @@
  {:root #ref [:pc4/root]
   :f    "dmd-2024-01-29.db"}
 
+ :pc4.emailer.interface/svc
+ #profile {:default {:disabled true}
+           :cvx     {:host "cavmail.cymru.nhs.uk"}}
+
  :pc4.lemtrada.interface/env
  {:hermes    #ig/ref :pc4.snomedct.interface/svc
   :cavpms    #ig/ref :pc4.wales-cav-pms.interface/svc
@@ -56,6 +60,22 @@
  {:root #ref [:pc4/root]
   :f    "ods-weekly-2024-02-15.db"}
 
+
+ :pc4.queue.interface/svc
+ {:ds      #ig/ref :pc4.rsdb.interface/conn
+  :env     {:rsdb          #ig/ref :pc4.rsdb.interface/svc
+            :email         #ig/ref :pc4.emailer.interface/svc
+            :wales-nadex   #ig/ref :pc4.wales-nadex.interface/svc
+            :wales-empi    #ig/ref :pc4.wales-empi.interface/svc
+            :wales-cav-pms #ig/ref :pc4.wales-cav-pms.interface/svc}
+  :workers [{:queue               :default
+             :nthreads            1
+             :polling-interval-ms 200}
+            {:queue               :demographic
+             :nthreads            1
+             :polling-interval-ms 1000}]
+  }
+
  :pc4-aws-db-conn
  {:dbtype          "postgresql"
   :host            #ref [:secrets :pc4 :db :host]
@@ -64,16 +84,20 @@
   :dbname          "rsdb"
   :maximumPoolSize 10}
 
+ :pc4.rsdb.interface/conn
+ #profile {:default {:dbtype          "postgresql"
+                     :dbname          "rsdb"
+                     :maximumPoolSize 10}
+           :pc4     #ref [:pc4-aws-db-conn]
+           :pc4-dev #ref [:pc4-aws-db-conn]}
+
  :pc4.rsdb.interface/svc
- {:conn #profile {:default {:dbtype          "postgresql"
-                            :dbname          "rsdb"
-                            :maximumPoolSize 10}
-                  :pc4     #ref [:pc4-aws-db-conn]
-                  :pc4-dev #ref [:pc4-aws-db-conn]}
-  :wales-nadex #ig/ref :pc4.wales-nadex.interface/svc
-  :hermes      #ig/ref :pc4.snomedct.interface/svc
-  :ods         #ig/ref :pc4.ods.interface/svc
-  :legacy-global-pseudonym-salt  #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
+ {:conn                         #ig/ref :pc4.rsdb.interface/conn
+  :email                        #ig/ref :pc4.emailer.interface/svc
+  :wales-nadex                  #ig/ref :pc4.wales-nadex.interface/svc
+  :hermes                       #ig/ref :pc4.snomedct.interface/svc
+  :ods                          #ig/ref :pc4.ods.interface/svc
+  :legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
  :pc4.snomedct.interface/svc
  {:root           #ref [:pc4/root]
@@ -112,7 +136,7 @@
  :pc4.graph.interface/ops
  [#clj/var com.eldrix.clods.graph/all-resolvers
   #clj/var com.eldrix.odsweekly.graph/all-resolvers
-  #ig/ref :pc4.deprivare.interface/ops                         ;; operations for deprivare are determined dynamically at runtime
+  #ig/ref :pc4.deprivare.interface/ops                      ;; operations for deprivare are determined dynamically at runtime
   #clj/var com.eldrix.dmd.graph/all-resolvers
   #clj/var pc4.graph.rsdb/all-resolvers
   #clj/var com.eldrix.hermes.graph/all-resolvers
@@ -139,7 +163,7 @@
  {:connect-viz #profile {:default false, :dev true}
   :env         #ig/ref :pc4.graph.interface/env}
 
-;; HTTP server for Fulcro front-end
+ ;; HTTP server for Fulcro front-end
  :pc4.fulcro-server.interface/server
  {:port            #long #or [#env PORT 8080]
   :allowed-origins "*"
@@ -153,10 +177,12 @@
 
  ;; HTTP server (htmx application)
  :pc4.http-server.interface/server
- {:port #long #or [#env PORT 8080]
-  :host "0.0.0.0"
+ {:port        #long #or [#env PORT 8080]
+  :host        "0.0.0.0"
+  :cache?      #profile {:default true :dev false}
   :session-key #ref [:secrets :pc4 :session-key]
-  :env {:rsdb   #ig/ref :pc4.rsdb.interface/svc
-        :hermes #ig/ref :pc4.snomedct.interface/svc
-        :ods    #ig/ref :pc4.ods.interface/svc
-        :pathom #ig/ref :pc4.graph.interface/boundary-interface}}}
+  :env         {:rsdb   #ig/ref :pc4.rsdb.interface/svc
+                :hermes #ig/ref :pc4.snomedct.interface/svc
+                :ods    #ig/ref :pc4.ods.interface/svc
+                :pathom #ig/ref :pc4.graph.interface/boundary-interface
+                :queue  #ig/ref :pc4.queue.interface/svc}}}

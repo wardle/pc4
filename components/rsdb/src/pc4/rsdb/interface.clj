@@ -12,6 +12,7 @@
    [pc4.rsdb.migrations :as migrations]
    [pc4.rsdb.forms :as forms]
    [pc4.rsdb.demographics :as demog]
+   [pc4.rsdb.jobs]                                          ;; register queue job handlers
    [pc4.rsdb.msss :as msss]
    [pc4.rsdb.patients :as patients]
    [pc4.rsdb.projects :as projects]
@@ -32,17 +33,21 @@
 (s/def ::service-config
   (s/keys :req-un [::conn ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
 
-(defmethod ig/init-key ::svc
-  [_ {:keys [conn] :as config}]
-  (log/info "opening PatientCare EPR [rsdb] database connection" (if (map? conn) (dissoc conn :password) conn))
-  (when-not (s/valid? ::service-config config)
-    (throw (ex-info "invalid rsdb svc config" (s/explain-data ::service-config config))))
-  (assoc config :conn (connection/->pool HikariDataSource conn)))
+(defmethod ig/init-key ::conn
+  [_ config]
+  (log/info "opening PatientCare EPR [rsdb] database connection" (if (map? config) (dissoc config :password) config))
+  (connection/->pool HikariDataSource config))
 
-(defmethod ig/halt-key! ::svc
-  [_ {:keys [conn]}]
+(defmethod ig/halt-key! ::conn
+  [_ conn]
   (log/info "closing PatientCare EPR [rsdb] database connection")
   (when conn (.close conn)))
+
+(defmethod ig/init-key ::svc
+  [_ config]
+  (when-not (s/valid? ::service-config config)
+    (throw (ex-info "invalid rsdb svc config" (s/explain-data ::service-config config))))
+  config)
 
 (defn valid-service?
   [svc]
