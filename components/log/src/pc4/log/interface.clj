@@ -37,6 +37,10 @@
   [& args]
   `(log/logp :fatal ~@args))
 
+(defmacro logp
+  [level & args]
+  `(log/logp ~level ~@args))
+
 (comment)
 
 
