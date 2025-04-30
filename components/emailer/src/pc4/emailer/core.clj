@@ -3,36 +3,39 @@
     *very* thin wrapper around the Clojure 'postal' library, which itself wraps
     the Jakarta Mail library. It is trivially easy to use."
   (:require
-   [clojure.spec.alpha :as s]
-   [postal.core :as postal]))
+    [clojure.spec.alpha :as s]
+    [pc4.log.interface :as log]
+    [postal.core :as postal]))
 
 (s/def ::host string?)
 (s/def ::port (s/int-in 0 65535))
 (s/def ::user string?)
 (s/def ::pass string?)
-(s/def ::smtp (s/keys :req-un [::host] :opt-un [::port ::user ::pass]))
+(s/def ::disabled boolean?)
+(s/def ::config (s/keys :opt-un [::host ::port ::user ::pass ::disabled]))
 
 (s/def ::from string?)
 (s/def ::to (s/or :single string? :multiple (s/coll-of string?)))
 (s/def ::cc (s/or :single string? :multiple (s/coll-of string?)))
 (s/def ::bcc (s/or :single string? :multiple (s/coll-of string?)))
+(s/def ::subject string?)
 (s/def ::message (s/keys :req-un [::from ::to] :opt-un [::subject ::body ::cc ::bcc]))
 
 (defn valid-config?
   "Is the configuration valid?"
   [config]
-  (s/valid? ::smtp config))
+  (s/valid? ::config config))
 
 (s/fdef send-message
   :args (s/cat :smtp ::smtp :message ::message))
 (defn send-message
-  "Send a 'message' using configuration in 'smtp'. "
-  [config message]
-  (postal/send-message config message))
+  "Send a 'message' using configuration in 'config'. "
+  [{:keys [disabled] :as config} message]
+  (if-not disabled
+    (postal/send-message config message)
+    (log/info "email service disabled for email" (select-keys message [:from :to :cc :bcc :subject]))))
 
 (comment
-  (require '[com.eldrix.pc4.system :as pc4])
-  (def config (::smtp (pc4/config :dev)))
   (postal/send-message {:host "cavmail.cymru.nhs.uk"}
                        {:from       "mark.wardle@wales.nhs.uk"
                         :to         "mark@wardle.org"
