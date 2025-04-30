@@ -475,10 +475,9 @@
                                    [:li error])]})])
                   (ui/ui-modal {:id "edss-chart"
                                 :hidden? true
+                                :size :xl
                                 :cancel {:onClick "htmx.addClass(htmx.find(\"#edss-chart\"), \"hidden\");"}}
-                               [:img {:src (route/url-for :patient/chart :query-params {:type "edss"
-                                                                                        :width 1024
-                                                                                        :height 800})}])
+                               [:img {:src (route/url-for :patient/chart :query-params {:type "edss" :width 1600 :height 800})}])
                  ;; Display MS events if any and applicable
                  (when show-ms?
                    [:div

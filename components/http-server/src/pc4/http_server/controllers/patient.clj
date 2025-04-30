@@ -156,7 +156,7 @@
                   :hidden (not can-edit?)
                   :url    (route/url-for :patient/edit-ms-event :path-params {:patient-identifier patient_identifier
                                                                               :ms-event-id        "new"})}
-                 {:text   "View EDSS"
+                 {:text   "EDSS chart "
                   :hidden false
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
