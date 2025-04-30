@@ -131,18 +131,22 @@
 (s/def ::pathom ifn?)
 (s/def ::host string?)
 (s/def ::port (s/int-in 0 65535))
+(s/def ::disable-cache boolean?)
 (s/def ::session-key string?)
 (s/def ::env (s/keys :req-un [::hermes ::rsdb ::ods ::pathom]))
 (s/def ::config (s/keys :req-un [::host ::port ::env]
-                        :opt-un [::session-key]))
+                        :opt-un [::disable-cache ::session-key]))
 
 (defmethod ig/init-key ::server
-  [_ {:keys [session-key] :as config}]
+  [_ {:keys [cache? session-key] :or {cache? true} :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid server configuration" (s/explain ::config config))))
   (log/info "starting http server" (select-keys config [:host :port]))
   (when-not session-key
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
+  (when-not cache?
+    (log/warn "template cache disabled")
+    (selmer.parser/cache-off!))
   (start config))
 
 (defmethod ig/halt-key! ::server
