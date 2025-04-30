@@ -290,7 +290,7 @@
                                       [:a {:href (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})}
                                        (get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])])
                     (ui/ui-table-cell {} (str (:t_medication/date_from %)))
-                    (ui/ui-table-cell {} (str (:t_diagnosis/date_to %))))))))])
+                    (ui/ui-table-cell {} (str (:t_medication/date_to %))))))))])
 
 (def medications-handler
   (pathom/handler
