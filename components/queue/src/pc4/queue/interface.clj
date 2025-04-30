@@ -32,13 +32,6 @@
 
 (s/def ::job-id uuid?)
 
-(defmulti payload-spec identity)
-
-(defmethod payload-spec :default [_] any?)
-
-(s/def ::job (s/multi-spec job-spec (fn [v _tag] v)))
-
-
 (defmulti handle-job!
   "Multi-method for background asynchronous job processing.
   Parameters:
