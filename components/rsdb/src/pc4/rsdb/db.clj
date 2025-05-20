@@ -40,6 +40,8 @@
                                                    "AdverseEvent"      :ADVERSE_EVENT}
    :t_medication_event/sample_obtained_antibodies parse-boolean
    :t_medication_event/severity                   keyword
+   :t_message/is_unread                           parse-boolean
+   :t_message/is_completed                        parse-boolean
    :t_ms_event/date                               parse-local-date
    :t_patient/date_birth                          parse-local-date
    :t_patient/date_death                          parse-local-date
