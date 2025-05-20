@@ -227,40 +227,40 @@
     :PATIENT_CHOICE_CONVENIENCE :PERSISTENCE_OF_RELAPSES
     :PERSISTING_MRI_ACTIVITY :DISEASE_PROGRESSION :SCHEDULED_STOP})
 (def medication-unit-conversion-factors
-  {:GRAM       1.0
-   :MILLIGRAM  0.001
-   :MICROGRAM  0.000001
+  {:GRAM        1.0
+   :MILLIGRAM   0.001
+   :MICROGRAM   0.000001
    ;; Note: MILLILITRES doesn't have a weight conversion, but we'll keep it
    ;; at 0.001 for volume-to-volume comparison if needed
    :MILLILITRES 0.001
-   :UNITS      1.0
-   :TABLETS    1.0
-   :PUFFS      1.0
-   :NONE       1.0})
+   :UNITS       1.0
+   :TABLETS     1.0
+   :PUFFS       1.0
+   :NONE        1.0})
 (def medication-frequency-conversion-factors
-  {:PER_HOUR          24.0
+  {:PER_HOUR           24.0
    :TWELVE_TIMES_DAILY 12.0
-   :TEN_TIMES_DAILY   10.0
-   :NINE_TIMES_DAILY  9.0
-   :EIGHT_TIMES_DAILY 8.0
-   :SEVEN_TIMES_DAILY 7.0
-   :SIX_TIMES_DAILY   6.0
-   :FIVE_TIMES_DAILY  5.0
-   :FOUR_TIMES_DAILY  4.0
-   :THREE_TIMES_DAILY 3.0
-   :TWICE_DAILY       2.0
-   :ONCE_DAILY        1.0
-   :ALTERNATE_DAYS    0.5
-   :EVERY_THIRD_DAY   (/ 1.0 3.0)
-   :ONCE_WEEKLY       (/ 1.0 7.0)
-   :TWICE_PER_WEEK    (/ 2.0 7.0)
-   :ONCE_TWO_WEEKLY   (/ 1.0 14.0)
-   :ONCE_MONTHLY      (/ 1.0 30.0)
-   :ONCE_TWO_MONTHLY  (/ 1.0 60.0)
+   :TEN_TIMES_DAILY    10.0
+   :NINE_TIMES_DAILY   9.0
+   :EIGHT_TIMES_DAILY  8.0
+   :SEVEN_TIMES_DAILY  7.0
+   :SIX_TIMES_DAILY    6.0
+   :FIVE_TIMES_DAILY   5.0
+   :FOUR_TIMES_DAILY   4.0
+   :THREE_TIMES_DAILY  3.0
+   :TWICE_DAILY        2.0
+   :ONCE_DAILY         1.0
+   :ALTERNATE_DAYS     0.5
+   :EVERY_THIRD_DAY    (/ 1.0 3.0)
+   :ONCE_WEEKLY        (/ 1.0 7.0)
+   :TWICE_PER_WEEK     (/ 2.0 7.0)
+   :ONCE_TWO_WEEKLY    (/ 1.0 14.0)
+   :ONCE_MONTHLY       (/ 1.0 30.0)
+   :ONCE_TWO_MONTHLY   (/ 1.0 60.0)
    :ONCE_THREE_MONTHLY (/ 1.0 90.0)
-   :ONCE_YEARLY       (/ 1.0 365.0)
-   :SPECIFIED_TIMES   nil
-   :NOT_APPLICABLE    nil})
+   :ONCE_YEARLY        (/ 1.0 365.0)
+   :SPECIFIED_TIMES    nil
+   :NOT_APPLICABLE     nil})
 (s/def :t_medication/id int?)
 (s/def :t_medication/date_from (s/nilable #(instance? LocalDate %)))
 (s/def :t_medication/date_to (s/nilable #(instance? LocalDate %)))
