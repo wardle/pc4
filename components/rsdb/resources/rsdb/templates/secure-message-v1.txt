@@ -1,0 +1,40 @@
+======================================
+PATIENTCARE - SECURE MESSAGE
+======================================
+
+FROM: {{ from }}
+TO: {{ to }}
+DATE: {{ date_time|default:now }}
+SUBJECT: {{ subject }}
+
+{% if patient %}
+--------------------------------------
+PATIENT:
+--------------------------------------
+Name: {{ patient.name }}
+{% if patient.id %}ID: {{ patient.id }}{% endif %}
+{% if patient.nnn %}NHS Number: {{ patient.nnn }}{% endif %}
+{% if patient.crn %}CRN/MRN: {{ patient.crn }}{% endif %}
+{% if patient.dob %}Date of birth: {{ patient.dob }}{% endif %}
+{% if patient.address %}Address: {{ patient.address }}{% endif %}
+--------------------------------------
+{% endif %}
+
+MESSAGE:
+--------------------------------------
+{{ body }}
+--------------------------------------
+
+WARNING: Please do not reply to this email; it was sent from an unmonitored email address.
+
+This message contains confidential information and is intended only for the recipient named above. 
+If you have received this email in error, please notify the sender immediately and delete it from your system.
+
+{% if url %}
+To view and reply to this message in PatientCare, please log in to your account at: {{ url }}
+You will need to be connected to the NHS network.
+{% else %}
+As you do not have an NHS email registered for use with PatientCare, you must login from an NHS computer to read this message.
+{% endif %}
+
+© {% now Y %} Eldrix Ltd / PatientCare. All rights reserved.

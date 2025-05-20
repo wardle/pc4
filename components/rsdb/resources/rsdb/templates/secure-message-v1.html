@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Message from PatientCare</title>
+  <meta name="generator" content="PatientCare">
+  <meta name="author" content="{{ from.name }}">
+  <style>
+    /* Base styles */
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    /* Header */
+    .header {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .logo {
+      margin-bottom: 15px;
+    }
+    
+    .logo img {
+      max-height: 60px;
+    }
+    
+    /* Message details */
+    .message-details {
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .detail-row {
+      display: block;
+      margin-bottom: 8px;
+    }
+    
+    .detail-label {
+      font-weight: 600;
+      color: #4b5563;
+      width: 60px;
+      display: inline-block;
+    }
+    
+    /* Patient banner */
+    .patient-banner {
+      background-color: #e0f2fe;
+      border-left: 4px solid #0ea5e9;
+      border-radius: 4px;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+    }
+    
+    .patient-name {
+      font-weight: 600;
+      color: #0369a1;
+    }
+    
+    /* Message body */
+    .message-body {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    
+    /* Footer */
+    .footer {
+      font-size: 12px;
+      color: #6b7280;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 15px;
+      margin-top: 20px;
+    }
+    
+    .warning {
+      color: #b91c1c;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    
+    .disclaimer {
+      margin-bottom: 10px;
+    }
+    
+    .org-name {
+      color: #1e40af;
+      margin: 0;
+    }
+    
+    .message-title {
+      margin-top: 5px;
+    }
+    
+    .subject-text {
+      font-weight: 600;
+    }
+    
+    .patient-info,
+    .patient-address {
+      font-size: 13px;
+      margin-top: 5px;
+    }
+    
+    .patient-detail {
+      margin-right: 10px;
+    }
+    
+    .login-link {
+      color: #2563eb;
+    }
+    
+    .copyright {
+      color: #9ca3af;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">
+      <h1 class="org-name">PatientCare</h1>
+    </div>
+    <h2 class="message-title">Secure Message</h2>
+  </div>
+  
+  <div class="message-details">
+    <div class="detail-row">
+      <span class="detail-label">From:</span>
+      <span>{{ from.name }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">To:</span>
+      <span>{{ to.name }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Date:</span>
+      <span>{{ date_time|default:now }}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">Subject:</span>
+      <span class="subject-text">{{ subject }}</span>
+    </div>
+  </div>
+  
+  {% if patient %}
+  <div class="patient-banner">
+    <div class="patient-name">{{ patient.name }}</div>
+    <div class="patient-info">
+      {% if patient.id %}<span class="patient-detail">ID: {{ patient.id }}</span>{% endif %}
+      {% if patient.nnn %}<span class="patient-detail">NHS: {{ patient.nnn }}</span>{% endif %}
+      {% if patient.crn %}<span class="patient-detail">CRN/MRN: {{ patient.crn }}</span>{% endif %}
+      {% if patient.dob %}<span class="patient-detail">Date of birth: {{ patient.dob }}</span>{% endif %}
+    </div>
+    {% if patient.address %}
+    <div class="patient-address">
+      Address: {{ patient.address }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  
+  <div class="message-body">
+    {{ body|safe }}
+  </div>
+  
+  <div class="footer">
+    <p class="warning">Please do not reply to this email; it was sent from an unmonitored email address.</p>
+    
+    <p class="disclaimer">
+      This message may contain confidential information and is intended only for the recipient named above.
+      If you have received this email in error, please notify the sender immediately and delete it from your system.
+    </p>
+    
+    {% if url %}
+    <p>
+      To view and reply to this message in PatientCare, please 
+      <a href="{{ url }}" class="login-link">log in</a> to your account.
+      You will need to be connected to the NHS network.
+    </p>
+    {% else %}
+    <p>
+      As you do not have an NHS email registered for use with PatientCare, you must login from an NHS computer to read
+      this message.
+    </p>
+    {% endif %}
+    
+    <p class="copyright">© {% now Y %} Eldrix Ltd / PatientCare. All rights reserved.</p>
+  </div>
+</body>
+</html>

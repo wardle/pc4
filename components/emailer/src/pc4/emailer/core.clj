@@ -42,7 +42,11 @@
                         :subject    "Hello there"
                         :body       "Hello there Mark"
                         :user-agent "PatientCare v4"})
-  (postal/send-message config
+
+  (def config (pc4.config.core/config :dev))
+  (keys config)
+  (:pc4.emailer.interface/svc config)
+  (postal/send-message (:pc4.emailer.interface/svc config)
                        {:from    "mark@eldrix.co.uk"
                         :to      "mark@eldrix.co.uk"
                         :subject "Test message"
