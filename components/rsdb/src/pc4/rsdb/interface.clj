@@ -143,7 +143,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; TODO: clean up rsdb API, remove redundancy, adopt more standard patterns, and simplify 
 ;; TODO: use request / response pattern as per HTTP type approach; this will be scalable
-;; and independent of any particular implementation
+;; TODO: and independent of any particular implementation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;
@@ -706,3 +706,6 @@
   (jdbc/with-transaction [txn conn]
     (patients/set-cav-authoritative-demographics! ods txn patient patient-hospital)))
 
+(defn send-message
+  [conn to-user-id from-user-id patient-identifier subject body]
+  (pc4.rsdb.messages/send-message conn to-user-id from-user-id patient-identifier subject body))

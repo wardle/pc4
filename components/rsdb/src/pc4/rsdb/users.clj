@@ -629,50 +629,10 @@
 
 
 
-(defn is-nhs-wales-email? [email]
-  (str/ends-with? (str/lower-case email) "wales.nhs.uk"))
 
-(defn email-patient-identifiable-information?
-  "Can this user receive patient identifiable information by email?
-  At the moment, this simply checks the email address of the user."
-  [{email :t_user/email}]
-  (is-nhs-wales-email? email))
 
-(defn sanitise-message [{:t_message/keys [subject body]}]
-  "You have a new secure message on PatientCare")
 
-(s/fdef send-message
-  :args (s/cat :conn ::conn :from-user-id int?
-               :to-user (s/keys :req [:t_user/id :t_user/email :t_user/send_email_for_messages])
-               :patient (s/nilable (s/keys :req [:t_patient/id]))
-               :subject string? :message string?))
-(defn send-message
-  "Send a message from one user to another. If the user has chosen in their
-  preferences to 'send_email_for_messages', then a job in the queue will be
-  created with jobtype :user/email. Returns a map containing the following keys:
-  - message      : the created message, including id
-  - email-job-id : if an email was queued, the job-id of the email."
-  [conn from-user-id {to-user-id :t_user/id, send-email? :t_user/send_email_for_messages, email :t_user/email} {patient-pk :t_patient/id} subject body]
-  (jdbc/with-transaction [txn conn]
-    (log/debug "message" {:from from-user-id :to to-user-id :email email :send-email? send-email})
-    (let [message (jdbc.sql/insert! txn :t_message {:t_message/date_time    (java.time.LocalDateTime/now)
-                                                    :t_message/from_user_fk from-user-id
-                                                    :t_message/is_unread    "true"
-                                                    :t_message/is_completed "false"
-                                                    :t_message/message      body
-                                                    :t_message/to_user_fk   to-user-id
-                                                    :t_message/patient_fk   patient-pk
-                                                    :t_message/subject      subject})]
-      (when send-email?
-        (log/debug "queuing email for message" {:message-id (:t_message/id message) :to to-user-id :to-email email :from from-user-id}))
-      (cond-> {:message message}
-        send-email?
-        (assoc :email-job-id (queue/enqueue! txn :default
-                                             :user/email
-                                             {:message-id (:t_message/id message)
-                                              :to         email
-                                              :subject    subject
-                                              :body       body}))))))
+
 
 (comment
   (require '[next.jdbc.connection])
