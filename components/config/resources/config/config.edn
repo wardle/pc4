@@ -34,7 +34,11 @@
   :f    "dmd-2024-01-29.db"}
 
  :pc4.emailer.interface/svc
- #profile {:default {:disabled true}
+ #profile {:default {:host "email-smtp.eu-west-2.amazonaws.com"
+                     :port 587
+                     :tls  true
+                     :user #ref [:secrets :aws :smtp :user]
+                     :pass #ref [:secrets :aws :smtp :pass]}
            :cvx     {:host "cavmail.cymru.nhs.uk"}}
 
  :pc4.lemtrada.interface/env
@@ -60,14 +64,14 @@
  {:root #ref [:pc4/root]
   :f    "ods-weekly-2024-02-15.db"}
 
-
  :pc4.queue.interface/svc
  {:ds      #ig/ref :pc4.rsdb.interface/conn
   :env     {:rsdb          #ig/ref :pc4.rsdb.interface/svc
             :email         #ig/ref :pc4.emailer.interface/svc
             :wales-nadex   #ig/ref :pc4.wales-nadex.interface/svc
             :wales-empi    #ig/ref :pc4.wales-empi.interface/svc
-            :wales-cav-pms #ig/ref :pc4.wales-cav-pms.interface/svc}
+            :wales-cav-pms #ig/ref :pc4.wales-cav-pms.interface/svc
+            :config        {:email {:default-payload {:from "mark@eldrix.co.uk"}}}}
   :workers [{:queue               :default
              :nthreads            1
              :polling-interval-ms 200}
