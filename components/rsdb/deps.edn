@@ -7,8 +7,11 @@
            com.zaxxer/HikariCP               {:mvn/version "5.1.0"}
            dev.weavejester/medley            {:mvn/version "1.8.1"}
 
+           org.jsoup/jsoup                   {:mvn/version "1.18.3"}
+
            org.postgresql/postgresql         {:mvn/version "42.7.5"}
            migratus/migratus                 {:mvn/version "1.6.3"}
+           selmer/selmer                     {:mvn/version "1.12.62"}
            wonder.core/ERExtensions          {:mvn/version "7.4"
                                               :exclusions  [log4j/log4j
                                                             commons-logging/commons-logging]}}
