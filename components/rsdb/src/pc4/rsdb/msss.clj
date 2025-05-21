@@ -26,7 +26,7 @@
 
 (declare fetch-msss-sqlvec) ;; hugsql automatically defines a function to generate the SQL
 
-(hugsql/def-sqlvec-fns "rsdb/msss-edss.sql")
+(hugsql/def-sqlvec-fns "rsdb/msss/msss-edss.sql")
 
 (defn multiple-sclerosis-concept-ids
   [hermes]
