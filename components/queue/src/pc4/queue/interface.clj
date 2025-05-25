@@ -123,9 +123,9 @@
   - job-type      : keyword representing job type
   - payload       : job payload
 
-  It would usually be expected to call this in context of an existing database
-  transaction/connection, but for convenience, the queue service can also be
-  passed in.
+  It would usually be expected to call this in the context of an existing
+  database transaction/connection, but for convenience, the queue service can
+  also be passed in.
 
   Options:
   - :process-at   : [[java.time.Instant]] for when job should be processed
