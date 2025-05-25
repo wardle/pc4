@@ -27,6 +27,10 @@ MESSAGE:
 
 WARNING: Please do not reply to this email; it was sent from an unmonitored email address.
 
+You have received this message as you are a registered user of PatientCare and have chosen to receive
+email notifications when you receive a secure message on PatientCare. To change this, log in and change
+your preferences.
+
 This message contains confidential information and is intended only for the recipient named above. 
 If you have received this email in error, please notify the sender immediately and delete it from your system.
 
