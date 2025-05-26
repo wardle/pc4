@@ -13,12 +13,13 @@
    [pc4.rsdb.forms :as forms]
    [pc4.rsdb.demographics :as demog]
    [pc4.rsdb.jobs]                                          ;; register queue job handlers
+   [pc4.rsdb.messages :as messages]
    [pc4.rsdb.msss :as msss]
    [pc4.rsdb.patients :as patients]
    [pc4.rsdb.projects :as projects]
    [pc4.rsdb.results :as results]
-   [pc4.snomedct.interface :as hermes]
    [pc4.rsdb.users :as users]
+   [pc4.snomedct.interface :as hermes]
    [pc4.wales-nadex.interface :as nadex]
    [next.jdbc.connection :as connection]
    [next.jdbc.specs])
@@ -708,4 +709,4 @@
 
 (defn send-message
   [conn to-user-id from-user-id patient-identifier subject body]
-  (pc4.rsdb.messages/send-message conn to-user-id from-user-id patient-identifier subject body))
+  (messages/send-message conn to-user-id from-user-id patient-identifier subject body))
