@@ -16,8 +16,8 @@
 (def ch (async/chan))
 
 (defmethod queue/handle-job! ::test-job
-  [job-type env payload]
-  (async/>!! ch [job-type env payload]))
+  [env job-type payload]
+  (async/>!! ch [env job-type payload]))
 
 (deftest test-simple-queue
   (let [ds (jdbc/get-datasource test-db-connection-spec)
@@ -25,7 +25,7 @@
     (with-open [conn (jdbc/get-connection ds)]
       (try (queue/start! worker)
            (queue/enqueue! conn :test-queue ::test-job test-payload)
-           (let [[job-type env payload] (async/<!! ch)]     ;; wait for worker to finish
+           (let [[env job-type payload] (async/<!! ch)]     ;; wait for worker to finish
              (is (= ::test-job job-type))
              (is (= test-env env))
              (is (= test-payload payload)))

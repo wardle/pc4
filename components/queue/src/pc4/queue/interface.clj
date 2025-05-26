@@ -8,7 +8,8 @@
             [proletarian.job :as job]
             [proletarian.protocols :as p]
             [proletarian.worker :as worker])
-  (:import (java.sql Connection)))
+  (:import (java.sql Connection)
+           (java.time Duration Instant)))
 
 (s/def ::ds any?)
 (s/def ::queue keyword?)
@@ -30,6 +31,7 @@
 (s/def ::svc
   (s/keys :req-un [::ds ::queue-workers ::serializer]))
 
+(s/def ::job-type keyword?)
 (s/def ::job-id uuid?)
 
 (defmulti handle-job!
@@ -112,9 +114,13 @@
   (doseq [worker queue-workers]
     (worker/stop! worker)))
 
+(s/def ::process-at #(instance? Instant %))
+(s/def ::process-in #(instance? Duration %))
+
 (s/fdef enqueue!
   :args (s/cat :svc-or-conn (s/or :svc ::svc :conn :next.jdbc.specs/connection)
-               :queue ::queue :job-type ::job-type ::payload any?))
+               :queue ::queue :job-type ::job-type ::payload any?
+               :opts (s/? (s/keys :opt-un [::process-at ::process-in]))))
 (defn enqueue!
   "Enqueue a job in the named job queue. Returns the job id of the enqueued job.
   Parameters:
@@ -164,7 +170,7 @@
   system
   (keys system)
   (def svc (:pc4.queue.interface/svc system))
-  (enqueue! svc :default :user/email {:to "mark@wardle.org" :from "mark@wardle.org"} {:process-in (java.time.Duration/ofMinutes 1)})
+  (enqueue! svc :default :user/email {:to "mark@wardle.org" :from "mark@wardle.org"} {:process-in (Duration/ofMinutes 1)})
   (enqueue! svc :default :user/email {:to "mark@wardle.org" :from "mark@wardle.org" :subject "Hello World!"})
   (ig/halt! system)
   (status svc (parse-uuid "b5a7d132-1a05-460b-ab9f-3ab4d0abaa84"))
