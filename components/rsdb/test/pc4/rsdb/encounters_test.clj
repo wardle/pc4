@@ -11,7 +11,7 @@
     (let [conn (jdbc/get-connection "jdbc:postgresql:rsdb")
           exercises (s/exercise-fn `encounters/q-encounters 100)]
       (doseq [[[params] query] exercises]
-        (try 
+        (try
           (jdbc/execute! conn (sql/format {:select :%count.* :from [[query :encounters]]}))
           (is true)
           (catch Exception e
