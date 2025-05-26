@@ -2,7 +2,6 @@
   (:require
     [buddy.core.codecs :as codecs]
     [clojure.spec.alpha :as s]
-    [clojure.string :as str]
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.interceptor :as intc]
@@ -10,6 +9,7 @@
     [io.pedestal.http.ring-middlewares :as ring]
     [io.pedestal.http.route :as route]
     [integrant.core :as ig]
+    [pc4.http-server.web :as web]
     [pc4.ods.interface :as clods]
     [pc4.http-server.controllers.home :as home]
     [pc4.http-server.controllers.login :as login]
@@ -98,11 +98,10 @@
      :enter (fn [context] (assoc-in context [:request :env] env))}))
 
 (defn csrf-error-handler
-  "Log CSRF errors and redirect to home."
+  "Log CSRF errors and redirect to home page."
   [ctx]
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
-  (assoc ctx :response {:status  303
-                        :headers {"Location" "/"}}))
+  (web/redirect-see-other "/"))
 
 (defn start
   [{:keys [env session-key host port join?]}]
@@ -145,7 +144,7 @@
   (when-not session-key
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (when-not cache?
-    (log/warn "template cache disabled")
+    (log/warn "template cache disabled for development - performance will be degraded")
     (selmer.parser/cache-off!))
   (start config))
 
@@ -173,7 +172,7 @@
   (require '[integrant.repl :as ig.repl])
   (ig.repl/set-prep! prep-system)
   (ig.repl/go [::server])
-
+  (pc4.config.interface/config :dev)
   (require '[edn-query-language.core :as eql])
 
   (require '[portal.api :as portal])
