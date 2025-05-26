@@ -1,19 +1,48 @@
 (ns pc4.rsdb.encounters
   (:require
     [clojure.spec.alpha :as s]
+    [clojure.spec.gen.alpha :as gen]
     [clojure.string :as str]
     [honey.sql :as sql]
-    [honey.sql.helpers :as h]))
+    [honey.sql.helpers :as h])
+  (:import (java.time LocalDate LocalDateTime)))
+
+(defn gen-local-date []
+  (gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
+            (s/gen (s/int-in 1 (* 365 10)))))
+
+(defn gen-local-date-time []
+  (gen/fmap (fn [seconds] (.minusSeconds (LocalDateTime/now) (long seconds)))
+            (s/gen (s/int-in 1 (* 365 20 24 60 60)))))
+
+(s/def ::local-date
+  (s/with-gen #(instance? LocalDate %) #(gen-local-date)))
+
+(s/def ::local-date-time
+  (s/with-gen #(instance? LocalDateTime %) #(gen-local-date-time)))
 
 (s/def ::patient-identifier int?)
 (s/def ::patient-pk int?)
 (s/def ::user-id int?)
 (s/def ::project-id int?)
+(s/def ::episode-id int?)
 (s/def ::encounter-template-id int?)
-(s/def ::encounter-template int?)
-(s/def ::s string?)
+(s/def ::deleted boolean?)
+(s/def ::in-person (s/nilable boolean?))
+(s/def ::from-date (s/or :local-date ::local-date :local-date-time ::local-date-time))
+(s/def ::to-date (s/or :local-date ::local-date :local-date-time ::local-date-time))
+(s/def ::limit pos-int?)
+(s/def ::offset pos-int?)
 (s/def ::view #{:notes :users :ninflamm :mnd})
-(s/def ::query (s/keys :opt-un [::patient-identifier ::patient-pk ::user-id ::project-id ::encounter-template-id ::s ::view]))
+(s/def ::query
+  (s/keys :opt-un [::patient-identifier ::patient-pk
+                   ::user-id
+                   ::project-id ::episode-id
+                   ::encounter-template-id
+                   ::deleted ::in-person
+                   ::from-date ::to-date
+                   ::limit ::offset
+                   ::view]))
 
 
 (s/fdef q-encounters
@@ -28,7 +57,8 @@
   - project-id: filter encounters by project id
   - episode-id: filter encounters by episode id
   - encounter-template-id: filter encounters by encounter template ID
-  - in-person: filter encounters whether in person (true, false or nil)
+  - deleted: filter encounters based on whether deleted (true, false or nil, default false)
+  - in-person: filter encounters whether in person (true, false or nil; default nil)
   - from-date: filter encounters equal to, or after this date
   - to-date: filter encounters before this date
   - limit: use for pagination
@@ -42,9 +72,9 @@
   Dates can be either a [[java.time.LocalDate]], or [[java.time.LocalDateTime]]
   Returns a query map that can be formatted using 'honey sql'.
   Encounters are ordered by date_time descending."
-  [{:keys [patient-identifier patient-pk user-id project-id episode-id encounter-template-id in-person
-           from-date to-date limit offset view]
-    :or   {view :notes} :as query}]
+  [{:keys [patient-identifier patient-pk user-id project-id episode-id encounter-template-id
+           deleted in-person from-date to-date limit offset view]
+    :or   {deleted false, view :notes} :as query}]
   (when-not (s/valid? ::query query)
     (throw (ex-info "invalid parameters" (s/explain-data ::query query))))
   (cond->
@@ -58,6 +88,9 @@
                                 (h/where := :t_patient/patient_identifier patient-identifier)))
     patient-pk
     (h/where := :patient_fk patient-pk)
+
+    (some? deleted)
+    (h/where := :t_encounter/is_deleted (str deleted))
 
     (or (= :users view) user-id)
     (-> (h/left-join :t_encounter_user [:= :t_encounter_user/encounterid :t_encounter/id])
