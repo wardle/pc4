@@ -16,12 +16,8 @@
 (s/def ::query (s/keys :opt-un [::patient-identifier ::patient-pk ::user-id ::project-id ::encounter-template-id ::s ::view]))
 
 
-(defn q-encounters-s
-  [query s]
-  (-> (h/select :*)
-      (h/from query)
-      (h/where)))
-
+(s/fdef q-encounters
+  :args (s/cat :query ::query))
 (defn q-encounters
   "Builds a query to fetch encounter data with various filtering and view options.
   
