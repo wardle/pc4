@@ -1,5 +1,5 @@
 <nav aria-label="sidebar">
-    <div class="space-y-1 border border-gray-100 bg-white shadow">
+    <div class="border border-gray-100 bg-white shadow">
         {% if menu.title %}
         <div class="text-center sm:text-left p-2 mb-4 w-full border border-gray-100 italic text-sm bg-gray-50 shadow rounded-md">
             {{menu.title}}
@@ -9,7 +9,7 @@
         {% if item.id %}
         {% ifequal item.id menu.selected %}
             {% if item.sub %}
-            <a class="bg-gray-300 text-gray-800 group flex items-center rounded-md px-3 py-2 text-xs italic">
+            <a class="bg-gray-300 text-gray-800 group flex items-center rounded-md px-3 py-1 text-xs italic">
                 <span class="px-2"> {{ item.icon }} {{ item.text }} {{ item.content|safe}}</span>
             </a>
             {% else %}
@@ -20,14 +20,14 @@
         {% else %}
             {% if not item.hidden %}
                 {% if item.sub %}
-                    <a class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-2 text-xs italic"
+                    <a class="text-gray-500 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-1 text-xs italic"
                        href="{{ item.url }}">
                         <span class="px-2"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
                     </a>
                 {% else %}
                 <a class="text-gray-800 hover:bg-gray-50 hover:text-gray-900 font-bold group flex items-center rounded-md px-3 py-2 text-sm font-medium"
                     href="{{ item.url }}">
-                    <span class="pr-2"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
+                    <span class="pr-1"> {{ item.icon }} {{item.text }}{{ item.content|safe }}</span>
                 </a>
                 {% endif %}
             {% endif %}
@@ -40,7 +40,7 @@
         {% if menu.submenu.title %}
         <h3 class="px-3 text-sm font-medium text-gray-500">{{ menu.submenu.title }}</h3>
         {% endif %}
-        <div class="mt-1 p-2 space-y-2">
+        <div class="mt-1 p-2 space-y-1">
             {% for item in menu.submenu.items %}
             {% if not item.hidden %}
                 {% if item.text %}
@@ -50,7 +50,7 @@
                         {{item.text}}
                     </a>
                     {% elif item.onClick %}
-                    <a class="group flex items-center rounded-full bg-blue-50 border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600"
+                    <a class="group flex items-center rounded-full bg-blue-50 border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600 cursor-pointer"
                         onClick="{{ item.onClick }}">
                         {{item.text}}
                     </a>
@@ -61,7 +61,7 @@
                     {% endif %}
                 {% endif %}
                 {% if item.content %}
-                    {{ item.content|safe}}
+                    {{ item.content | safe}}
                 {% endif %}
             {% endif %}
             {% endfor %}
