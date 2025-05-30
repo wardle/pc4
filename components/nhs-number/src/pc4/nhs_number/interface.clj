@@ -8,8 +8,9 @@
   [s]
   (nnn/valid? s))
 
-(defn format-nnn [s]
-  (nnn/format-nnn s))
+(defn format-nnn
+  ([s] (nnn/format-nnn s))
+  ([s sep] (nnn/format-nnn s sep)))
 
 (defn normalise
   ([s]

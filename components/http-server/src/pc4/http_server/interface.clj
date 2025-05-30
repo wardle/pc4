@@ -88,7 +88,8 @@
     ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete-handler] :route-name :snomed/autocomplete]
     ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results-handler] :route-name :snomed/autocomplete-results]
     ["/ui/snomed/autocomplete-selected-result" :post [login/authenticated snomed/autocomplete-selected-result-handler] :route-name :snomed/autocomplete-selected-result]
-    ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]})
+    ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]
+    ["/ui/list-encounters" :get [login/authenticated patient-encounters/list-encounters-handler] :route-name :ui/list-encounters]})
 
 (defn env-interceptor
   "Return an interceptor to inject the given env into the request."

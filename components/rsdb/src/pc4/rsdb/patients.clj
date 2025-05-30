@@ -187,18 +187,18 @@
    (let [on-date# (or on-date (LocalDate/now))]
      (-> query
          (h/left-join
-           [{:select [:patient_fk :address1 :address2 :address3 :address4 :postcode_raw :date_from :date_to
+           [{:select [:t_address/patient_fk :t_address/address1 :t_address/address2 :t_address/address3 :t_address/address4 :t_address/postcode_raw :t_address/date_from :t_address/date_to
                       [[:raw "row_number() over (partition by patient_fk order by date_from desc nulls last, date_to desc nulls last, id asc) AS address_row_number"]]]
              :from   :t_address
              :where  [:and
-                      [:or [:= :date_from nil] [:<= :date_from on-date#]]
-                      [:or [:= :date_to nil] [:> :date_to on-date#]]]} :current_address]
+                      [:or [:= :t_address/date_from nil] [:<= :t_address/date_from on-date#]]
+                      [:or [:= :t_address/date_to nil] [:> :t_address/date_to on-date#]]]} :current_address]
            [:and
             [:= :address_row_number 1]
             [:= :t_patient/id :current_address/patient_fk]])
          (cond->
            update-select?                                   ;; only alter select if explicitly requested
-           (h/select :address1 :address2 :address3 :address4 :postcode_raw, :date_from :date_to))))))
+           (h/select :current_address/address1 :current_address/address2 :current_address/address3 :current_address/address4 :current_address/postcode_raw, :current_address/date_from :current_address/date_to))))))
 
 (defn with-hospital-crns
   ([query {:keys [hospital-identifiers ods hospital-identifier update-select?]}]

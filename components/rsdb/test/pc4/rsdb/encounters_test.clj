@@ -12,7 +12,7 @@
           exercises (s/exercise-fn `encounters/q-encounters 100)]
       (doseq [[[params] query] exercises]
         (try
-          (jdbc/execute! conn (sql/format {:select :%count.* :from [[query :encounters]]}))
+          (jdbc/execute! conn (sql/format query))
           (is true)
           (catch Exception e
             (is false (str "SQL execution failed for params: " params 

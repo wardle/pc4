@@ -293,7 +293,7 @@
      [:div.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
       [:table.min-w-full.divide-y.divide-gray-200 content]]]]])
 
-(rum/defc ui-table-head [content]
+(rum/defc ui-table-head [& content]
   [:thead.bg-gray-50 content])
 
 (rum/defc ui-table-heading
@@ -301,7 +301,7 @@
   [:th.px-2.py-3.text-left.text-xs.font-semibold.text-gray-900.uppercase.tracking-wider
    opts content])
 
-(rum/defc ui-table-body [content]
+(rum/defc ui-table-body [& content]
   [:tbody.bg-white content])
 
 (rum/defc ui-table-row [opts & content]

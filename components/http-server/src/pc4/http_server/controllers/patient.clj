@@ -156,11 +156,18 @@
                   :hidden (not can-edit?)
                   :url    (route/url-for :patient/edit-ms-event :path-params {:patient-identifier patient_identifier
                                                                               :ms-event-id        "new"})}
-                 {:text   "EDSS chart "
-                  :hidden false
+                 {:text    "EDSS chart "
+                  :hidden  false
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
-        {:items [{:text   "Add encounter..."
+        {:items [{:content (web/render [:form {:hx-target "#list-encounters" :hx-trigger "change"
+                                               :hx-get    (route/url-for :ui/list-encounters)}
+                                        [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]
+                                        (ui/ui-select-button {:name "view" :options [{:id :notes :text "Notes"}
+                                                                                     {:id :users :text "Users"}
+                                                                                     {:id :ninflamm :text "Neuroinflammatory"}
+                                                                                     {:id :mnd :text "Motor neurone disease"}]})])}
+                 {:text   "Add encounter..."
                   :hidden (not can-edit?)
                   :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
                                                                           :encounter-id       "new"})}]}

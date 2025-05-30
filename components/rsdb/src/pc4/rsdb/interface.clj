@@ -1,28 +1,30 @@
 (ns pc4.rsdb.interface
   (:require
-   [clojure.spec.alpha :as s]
-   [clojure.string :as str]
-   [integrant.core :as ig]
-   [next.jdbc :as jdbc]
-   [next.jdbc.plan :as plan]
-   [pc4.log.interface :as log]
-   [pc4.ods.interface :as ods]
-   [pc4.rsdb.auth :as auth]
-   [pc4.rsdb.db :as db]
-   [pc4.rsdb.migrations :as migrations]
-   [pc4.rsdb.forms :as forms]
-   [pc4.rsdb.demographics :as demog]
-   [pc4.rsdb.jobs]                                          ;; register queue job handlers
-   [pc4.rsdb.messages :as messages]
-   [pc4.rsdb.msss :as msss]
-   [pc4.rsdb.patients :as patients]
-   [pc4.rsdb.projects :as projects]
-   [pc4.rsdb.results :as results]
-   [pc4.rsdb.users :as users]
-   [pc4.snomedct.interface :as hermes]
-   [pc4.wales-nadex.interface :as nadex]
-   [next.jdbc.connection :as connection]
-   [next.jdbc.specs])
+    [clojure.spec.alpha :as s]
+    [clojure.string :as str]
+    [honey.sql :as sql]
+    [integrant.core :as ig]
+    [next.jdbc :as jdbc]
+    [next.jdbc.plan :as plan]
+    [pc4.log.interface :as log]
+    [pc4.ods.interface :as ods]
+    [pc4.rsdb.auth :as auth]
+    [pc4.rsdb.db :as db]
+    [pc4.rsdb.encounters :as encounters]
+    [pc4.rsdb.migrations :as migrations]
+    [pc4.rsdb.forms :as forms]
+    [pc4.rsdb.demographics :as demog]
+    [pc4.rsdb.jobs]                                         ;; register queue job handlers
+    [pc4.rsdb.messages :as messages]
+    [pc4.rsdb.msss :as msss]
+    [pc4.rsdb.patients :as patients]
+    [pc4.rsdb.projects :as projects]
+    [pc4.rsdb.results :as results]
+    [pc4.rsdb.users :as users]
+    [pc4.snomedct.interface :as hermes]
+    [pc4.wales-nadex.interface :as nadex]
+    [next.jdbc.connection :as connection]
+    [next.jdbc.specs])
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (s/def ::conn :next.jdbc.specs/proto-connectable)
@@ -363,6 +365,10 @@
    (patients/patient->episodes conn patient-pk project-id-or-ids))
   ([{:keys [conn]} patient-pk]
    (patients/patient->episodes conn patient-pk)))
+
+(defn list-encounters
+  [{:keys [conn]} params]
+    (jdbc/execute! conn (sql/format (encounters/q-encounters params))))
 
 (defn patient->encounters [{:keys [conn]} patient-pk]
   (patients/patient->encounters conn patient-pk))
