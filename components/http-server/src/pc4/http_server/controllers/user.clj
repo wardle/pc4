@@ -78,9 +78,6 @@
 
 (defn send-message [request])
 
-;; Removed UI component functions in favor of Selmer templates
-
-
 (def change-password
   "Handler for the change password page."
   (pathom/handler
