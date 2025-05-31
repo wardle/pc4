@@ -6,6 +6,7 @@
     [pc4.http-server.pathom :as pathom]
     [pc4.http-server.ui :as ui]
     [pc4.http-server.web :as web]
+    [pc4.nhs-number.interface :as nnn]
     [pc4.rsdb.forms :as forms]
     [pc4.rsdb.html :as html]
     [pc4.rsdb.interface :as rsdb])
@@ -36,61 +37,61 @@
 (defn parse-list-encounter-params
   "Parse HTTP request parameters into a map suitable for q-encounters.
   Returns a map that conforms to pc4.rsdb.encounters/::query spec."
-  [{:keys [params] :as _request}]
-  (clojure.pprint/pprint params)
+  [{:keys [form-params] :as _request}]
   (reduce-kv
     (fn [acc k v]
       (assoc acc k ((get encounter-param-parsers k identity) v)))
     {}
-    params))
-
+    form-params))
 
 (def all-headings
   [{:id    :date-time
     :title "Date/time"
-    :fn    (fn [{:t_encounter/keys [date_time]}] (ui/format-date-time date_time))}
+    :f2    (fn [{:keys [patient-identifier]} {:t_encounter/keys [id date_time] patient-identifier# :t_patient/patient-identifier}]
+             [:a {:href (route/url-for :patient/encounter :path-params {:patient-identifier (or patient-identifier# patient-identifier)
+                                                                        :encounter-id       id})} (ui/format-date-time date_time)])}
    {:id    :project
     :title "Project"
-    :fn    :t_project/title}
+    :f     :t_project/title}
    {:id    :encounter-template
     :title "Type"
-    :fn    :t_encounter_template/title}
+    :f     :t_encounter_template/title}
    {:id    :notes
     :title "Notes"
-    :fn    (fn [{:t_encounter/keys [notes]}] (html/html->text notes))}
+    :f     (fn [{:t_encounter/keys [notes]}] (html/html->text notes))}
    {:id    :patient
     :title "Patient"
-    :fn    (fn [{:t_patient/keys [title first_names last_name]}] (str last_name ", " first_names (when-not (str/blank? title) (str " (" title ")"))))}
+    :f     (fn [{:t_patient/keys [title first_names last_name]}] (str last_name ", " first_names (when-not (str/blank? title) (str " (" title ")"))))}
    {:id    :nhs-number
     :title "NHS number"
-    :fn    (fn [{:t_patient/keys [nhs_number]}] (pc4.nhs-number.interface/format-nnn nhs_number))}
+    :f     (fn [{:t_patient/keys [nhs_number]}] (nnn/format-nnn nhs_number))}
    {:id    :crns
     :title "CRN(s)"
-    :fn    :crns}
+    :f     :crns}
    {:id    :address
     :title "Address"
-    :fn    (fn [{:t_address/keys [address1 address2 postcode_raw]}] (str/join ", " (remove nil? [address1 address2 postcode_raw])))}
+    :f     (fn [{:t_address/keys [address1 address2 postcode_raw]}] (str/join ", " (remove nil? [address1 address2 postcode_raw])))}
    {:id    :sro
     :title "Responsible"
-    :fn    :sro}
+    :f     :sro}
    {:id    :users
     :title "Users"
-    :fn    :users}
+    :f     :users}
    {:id    :edss
     :title "EDSS"
-    :fn    :t_form_edss/edss_score}
+    :f     :t_form_edss/edss_score}
    {:id    :alsfrs
     :title "ALSFRS"
-    :fn    (constantly "")}
+    :f     (constantly "")}
    {:id    :in-relapse
     :title "In relapse"
-    :fn    :t_form_ms_relapse/in_relapse}
+    :f     :t_form_ms_relapse/in_relapse}
    {:id    :weight
     :title "Weight/height"
-    :fn    :t_form_weight_height/weight_kilogram}
+    :f     :t_form_weight_height/weight_kilogram}
    {:id    :lung-function
     :title "Lung function"
-    :fn    :t_form_lung_function/fvc_sitting}])
+    :f     :t_form_lung_function/fvc_sitting}])
 
 (def heading-by-id
   (reduce
@@ -131,6 +132,7 @@
    :with-project true
    :with-patient false})
 
+
 (defn list-encounters-handler
   [request]
   (let [rsdb (get-in request [:env :rsdb])
@@ -147,8 +149,11 @@
             (for [encounter encounters]
               (ui/ui-table-row
                 {}
-                (for [{:keys [fn] :or {fn (constantly "")}} headings#]
-                  (ui/ui-table-cell {} (fn encounter)))))))))))
+                (for [{:keys [f f2] :or {f (constantly "")}} headings#]
+                  (ui/ui-table-cell {} (cond
+                                         f2 (f2 parsed-params encounter)
+                                         f (f encounter)
+                                         :else "")))))))))))
 
 (def encounter-handler
   (pathom/handler
@@ -162,17 +167,6 @@
                                                                          :t_project/title]}]}]}]
     (fn [request {:ui/keys [current-encounter]}]
       (web/ok (web/render "ok")))))
-
-(defn encounter->display
-  "Format an encounter for display in the list."
-  [encounter]
-  (let [{:t_encounter/keys [id date_time status encounter_template]} encounter
-        {:t_encounter_template/keys [name title]} encounter_template]
-    {:id          id
-     :date-time   (ui/format-date-time date_time)
-     :title       name
-     :description title
-     :status      status}))
 
 (def encounters-handler
   (pathom/handler
@@ -191,9 +185,12 @@
             (assoc patient-page
               :content
               (web/render
-                [:div
-                 {:id "list-encounters"
-                  :hx-get (route/url-for :ui/list-encounters :query-params {:patient-identifier patient_identifier})
-                  :hx-trigger "load"}
-                 (ui/ui-spinner {})]))))))))
+                [:form                                      ;; todo replace with a 'filter-encounters' component
+                 [:div
+                        {:id         "list-encounters"
+                         :hx-post    (route/url-for :ui/list-encounters)
+                         :hx-trigger "load"}
+                        (ui/ui-spinner {})]
+                 [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
+                 [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]]))))))))
 

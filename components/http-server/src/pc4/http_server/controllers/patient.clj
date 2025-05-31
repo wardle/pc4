@@ -5,6 +5,7 @@
     [com.eldrix.nhsnumber :as nnn]
     [com.wsscode.pathom3.connect.operation :as pco]
     [edn-query-language.core :as eql]
+    [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [pc4.http-server.controllers.user :as user]
     [pc4.http-server.pathom :as p]
@@ -96,6 +97,7 @@
   {::pco/input  [:t_patient/patient_identifier :t_patient/diagnoses :t_patient/permissions]
    ::pco/output [:ui/patient-menu]}
   (let [selected menu
+        csrf-token (csrf/existing-token request)
         can-edit? (permissions :PATIENT_EDIT)
         diagnosis-ids (set (map :t_diagnosis/concept_fk (filter rsdb/diagnosis-active? diagnoses)))
         ninflamm (snomedct/intersect-ecl hermes diagnosis-ids "<<39367000")
@@ -161,7 +163,8 @@
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
         {:items [{:content (web/render [:form {:hx-target "#list-encounters" :hx-trigger "change"
-                                               :hx-get    (route/url-for :ui/list-encounters)}
+                                               :hx-post    (route/url-for :ui/list-encounters)}
+                                        [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
                                         [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]
                                         (ui/ui-select-button {:name "view" :options [{:id :notes :text "Notes"}
                                                                                      {:id :users :text "Users"}
