@@ -85,12 +85,9 @@
            (assoc ctx :response (web/redirect-see-other (route/url-for :user/login :query-params query-params)))))))
    :leave
    (fn [ctx]                                                ;; ensure response is not cached
-     (update-in ctx [:response :headers] assoc
-                "Cache-Control" "no-cache, must-revalidate, max-age=0, no-store, private"
-                "Pragma" "no-cache"
-                "Expires" "0"))})
+     (update-in ctx [:response :headers] assoc "Cache-Control" "no-store"))})
 
 (defn logout
   [_request]
-  (-> (web/moved-permanently (route/url-for :home))
+  (-> (web/redirect-see-other (route/url-for :home))
       (assoc :session nil)))
