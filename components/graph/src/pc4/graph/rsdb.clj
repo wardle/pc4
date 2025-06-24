@@ -1193,6 +1193,21 @@
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
   {:t_user/active_projects (filterv rsdb/project->active? (rsdb/user->projects rsdb username))})
 
+(pco/defresolver user->colleagues
+  [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
+  {::pco/output [{:t_user/colleagues [:t_user/id
+                                      :t_user/username
+                                      :t_user/first_names
+                                      :t_user/last_name
+                                      :t_user/full_name]}]}
+  (let [user-projects (rsdb/user->projects rsdb username)
+        project-ids (map :t_project/id user-projects)]
+    {:t_user/colleagues 
+     (when (seq project-ids)
+       (->> (mapcat #(rsdb/project->users rsdb % {:group-by :user :active true}) project-ids)
+            (remove #(= (:t_user/username %) username))
+            (distinct)))}))
+
 (pco/defresolver user->roles
   [{rsdb :com.eldrix/rsdb, :as env} {username :t_user/username}]
   {::pco/output [{:t_user/roles [:t_project_user/date_from
@@ -1916,6 +1931,7 @@
    user->full-name
    user->initials
    user->active-projects
+   user->colleagues
    user->roles
    user->common-concepts
    user->latest-news
