@@ -250,6 +250,16 @@
 
 (defn set-must-change-password! [{:keys [conn]} username]
   (users/set-must-change-password! conn username))
+
+(defn search-users
+  "Search for users by name or username."
+  [{:keys [conn]} s opts]
+  (users/search-users conn s opts))
+
+(defn fetch-users
+  "Fetch users for a project."
+  [{:keys [conn]} project-id params]
+  (projects/fetch-users conn project-id params))
 ;;
 
 ;; patients

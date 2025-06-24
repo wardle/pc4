@@ -599,6 +599,34 @@
   ([conn username ^LocalDateTime date]
    (jdbc.sql/update! conn :t_user {:date_last_login date} {:username username})))
 
+(defn search-users
+  "Search for users by name or username using tokenized search.
+   Each token in the search term must match at least one field (username, first_names, or last_name).
+   This allows searches like 'John Smith' to match users with first name 'John' and last name 'Smith'.
+   
+   Parameters:
+   - conn: database connection
+   - s: search term to tokenize and match against names
+   - opts: options map with optional keys:
+     - :limit : maximum number of results (default 50)"
+  [conn s {:keys [limit] :or {limit 50}}]
+  (when-not (str/blank? s)
+    (let [tokens (->> (str/split (str/trim s) #"\s+")
+                      (remove str/blank?)
+                      (map #(str "%" (str/lower-case %) "%")))
+          clauses (for [token tokens]
+                    [:or
+                     [:ilike [:lower :username] token]
+                     [:ilike [:lower :first_names] token]
+                     [:ilike [:lower :last_name] token]])]
+      (when (seq clauses)
+        (db/execute! conn
+                     (sql/format 
+                       (merge fetch-user-query
+                              {:where (into [:and] clauses)
+                               :order-by [:last_name :first_names]
+                               :limit limit})))))))
+
 (defn user->display-names
   "Add display names (`:t_user/full_name`, `:t_user/initials`) to the user when
   possible."
