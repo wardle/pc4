@@ -1,0 +1,28 @@
+{% if users|not-empty %}
+{% for user in users %}
+<div class="px-6 py-4 cursor-pointer border-b border-gray-100 flex flex-col transition-colors duration-200 hover:bg-gray-50 last:border-b-0"
+     id="{{user.user-id}}"
+     hx-post="{{url}}"
+     hx-params="__anti-forgery-token,data,{{action-key}}"
+     hx-target="#{{target}}">
+    <div class="font-medium mb-1">{{user.full-name}}</div>
+    <div class="text-gray-600 text-sm">{{user.job-title}}</div>
+</div>
+{% endfor %}
+{% else %}
+<div class="px-6 py-4 text-gray-500 text-center">
+    {% if mode = :all-users %}
+        {% if s %}
+            No users found matching "{{s}}"
+        {% else %}
+            Enter 3 or more characters to search all users
+        {% endif %}
+    {% else %}
+        {% if s %}
+            No colleagues found matching "{{s}}"
+        {% else %}
+            You have no colleagues.
+        {% endif %}
+    {% endif %}
+</div>
+{% endif %}

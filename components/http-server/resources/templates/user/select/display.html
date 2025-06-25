@@ -1,0 +1,45 @@
+<div id="{{target}}" class="user-select-component">
+    {% if multiple %}
+        {% for user in selected %}
+        <input type="hidden" name="{{name}}" value="{{user.user-id}}">
+        {% endfor %}
+    {% else %}
+        <input type="hidden" name="{{name}}" value="{{selected.user-id}}">
+    {% endif %}
+    
+    {% if disabled %}
+        <div class="border border-gray-300 px-4 py-2 rounded bg-gray-100 cursor-not-allowed opacity-70">
+            {% if multiple %}
+                {% if selected|not-empty %}
+                    {% for user in selected %}
+                        <div>
+                        <span class="text-black">{{user.full-name}}</span>
+                        <span class="text-gray-600 italic">({{user.job-title}})</span>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% else %}
+                {% if selected %}
+                    <span class="text-black">{{selected.full-name}}</span>
+                    <span class="text-gray-600 italic">({{selected.job-title}})</span>
+                {% else %}
+                    <span class="text-gray-600 italic">{{placeholder}}</span>
+                {% endif %}
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="border border-gray-300 px-4 py-2 rounded bg-gray-50 cursor-pointer hover:bg-gray-100" 
+             hx-post="{{url}}" 
+             hx-vals="{{hx-vals}}"
+             hx-trigger="click"
+             hx-target="#{{target}}">
+            <input type="hidden" name="{{action-key}}" value="choose">
+            {% if selected %}
+            <span class="text-black">{{selected.full-name}}</span>
+            <span class="text-gray-600 italic">({{selected.job-title}})</span>
+            {% else %}
+                <span class="text-gray-600 italic">{{placeholder}}</span>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>

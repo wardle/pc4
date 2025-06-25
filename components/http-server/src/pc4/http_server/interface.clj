@@ -2,6 +2,7 @@
   (:require
     [buddy.core.codecs :as codecs]
     [clojure.spec.alpha :as s]
+    [integrant.repl :as ig.repl]
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.interceptor :as intc]
@@ -11,6 +12,7 @@
     [integrant.core :as ig]
     [pc4.http-server.web :as web]
     [pc4.ods.interface :as clods]
+    [pc4.http-server.controllers.encounters :as encounters]
     [pc4.http-server.controllers.home :as home]
     [pc4.http-server.controllers.login :as login]
     [pc4.http-server.controllers.patient :as patient]
@@ -22,6 +24,7 @@
     [pc4.http-server.controllers.project :as project]
     [pc4.http-server.controllers.snomed :as snomed]
     [pc4.http-server.controllers.user :as user]
+    [pc4.http-server.controllers.user.select :as user-select]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]
     [selmer.parser :as selmer]))
@@ -88,8 +91,10 @@
     ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete-handler] :route-name :snomed/autocomplete]
     ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results-handler] :route-name :snomed/autocomplete-results]
     ["/ui/snomed/autocomplete-selected-result" :post [login/authenticated snomed/autocomplete-selected-result-handler] :route-name :snomed/autocomplete-selected-result]
-    ["/ui/user/search" :get [login/authenticated user/search] :route-name :user/search]
-    ["/ui/list-encounters" :post [login/authenticated patient-encounters/list-encounters-handler] :route-name :ui/list-encounters]})
+    ["/ui/user/select" :post [login/authenticated user-select/user-select-handler] :route-name :user/select]
+    ["/ui/user/search" :post [login/authenticated user-select/user-search-handler] :route-name :user/search]
+    ["/ui/list-encounters" :post [login/authenticated encounters/list-encounters-handler] :route-name :ui/list-encounters]
+    ["/encounters/create" :get [login/authenticated encounters/create-encounter-handler] :route-name :encounters/create]})
 
 (defn env-interceptor
   "Return an interceptor to inject the given env into the request."
@@ -173,6 +178,7 @@
   (require '[integrant.repl :as ig.repl])
   (ig.repl/set-prep! prep-system)
   (ig.repl/go [::server])
+  (ig.repl/halt)
   (pc4.config.interface/config :dev)
   (require '[edn-query-language.core :as eql])
 
