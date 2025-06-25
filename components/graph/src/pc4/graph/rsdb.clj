@@ -1348,6 +1348,14 @@
   (log/debug "search-patient-by-pseudonym" params)
   (rsdb/patient-by-project-pseudonym rsdb project-id pseudonym))
 
+
+(pco/defmutation search-users
+  [{rsdb :com.eldrix/rsdb} {:keys [s limit] :as params}]
+  {::pco/op-name 'pc4.rsdb/search-users
+   ::pco/output user-properties}
+  (rsdb/search-users rsdb s (cond-> {}
+                              limit (assoc :limit limit))))
+
 (defn guard-can-for-patient?                                ;; TODO: turn into a macro for defmutation?
   [{rsdb :com.eldrix/rsdb manager :session/authorization-manager :as env} patient-identifier permission]
   (when-not manager
@@ -1953,6 +1961,7 @@
    register-patient-to-project!
    break-glass!
    search-patient-by-pseudonym
+   search-users
    save-diagnosis!
    save-medication!
    delete-medication!
