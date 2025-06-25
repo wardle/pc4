@@ -1075,7 +1075,8 @@
   (throw (ex-info "not implemented" {})))
 
 (def user-properties
-  [:t_user/username
+  [:t_user/id
+   :t_user/username
    :t_user/title
    :t_user/first_names
    :t_user/last_name
