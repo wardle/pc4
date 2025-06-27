@@ -1,13 +1,18 @@
-<div class="bg-white rounded-lg overflow-hidden shadow-lg">
+<div class="bg-white rounded-lg shadow-lg flex flex-col">
     <input type="hidden" name="data" value="{{config}}">
-    <div class="px-6 py-4 border-b border-gray-200">
+
+    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
+        <h3 class="m-0 text-xl font-medium">{{title}}</h3>
+    </div>
+
+    <div class="px-6 py-4 border-b border-gray-200 bg-white">
         <div class="mt-2 grid grid-cols-1">
             <select class="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white py-1.5 pl-3 pr-8 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
                     id="{{mode-key}}"
                     name="{{mode-key}}"
                     hx-trigger="change"
                     hx-post="{{search-url}}"
-                    hx-target="#user-options">
+                    hx-target="#{{search-target}}">
                 <option value="colleagues">My colleagues</option>
                 <option value="all-users">Search all users</option>
             </select>
@@ -20,17 +25,18 @@
         </div>
         <input type="search"
                class="w-full px-2 py-2 border border-gray-300 rounded mb-4 text-base box-border"
-               placeholder="Enter search term..."
+               placeholder="{{placeholder}}"
                hx-post="{{search-url}}"
                hx-trigger="keyup changed delay:300ms"
-               hx-target="#user-options"
+               hx-target="#{{search-target}}"
                name="s"
                value="{{s}}">
     </div>
 
-    <div id="user-options" class="max-h-96 overflow-y-auto py-2"
+    <div class="max-h-96 overflow-y-auto py-2"
          hx-post="{{search-url}}"
          hx-trigger="load">
         {% include "templates/ui/spinner.html" with id="spinner" %}
     </div>
+
 </div>

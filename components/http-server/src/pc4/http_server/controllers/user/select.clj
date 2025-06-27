@@ -4,6 +4,7 @@
   initially, and this latter state is propagated unchanged through the lifecycle
   of the user interaction."
   (:require
+    [clojure.edn :as edn]
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
     [io.pedestal.http.csrf :as csrf]
@@ -39,7 +40,8 @@
      :name          (or component-name id)
      :disabled      (boolean disabled)
      :required      (boolean required)
-     :selected      selected
+     :selected      selected                                ;; original selection before modal opened
+     :selected-key  (str id# "-selected")                   ;; form keeps track of 'new' selection using this id
      :multiple      (boolean multiple)
      :placeholder   (or placeholder (if multiple "Choose users..." "Choose user..."))
      :target        (str id# "-target")
@@ -120,9 +122,20 @@
           (and user-id (not multiple))
           (ui-select-user (assoc config :selected (make-user (pathom/process env request (user-query user-id)))))
 
-          ;; user opening modal dialog to select multiple users
+          ;; user has selected an item in multiple mode -> add user to selected items list
+          (and user-id multiple)
+          (ui/ui-modal {:title   label :hidden? false
+                        :actions [(assoc modal-action :id :save :title "Save" :role :primary)
+                                  (assoc modal-action :id :cancel :title "Cancel")]}
+                       (render* "templates/user/select/choose-multiple.html"
+                                (update config :selected (fnil conj []) (make-user (pathom/process env request (user-query user-id)))) request))
+
+          ;; open modal dialog to select multiple users
           multiple
-          (ui/ui-modal {:title label :hidden? false} (render* "templates/user/select/choose-multiple.html" config request))
+          (ui/ui-modal {:title   label :hidden? false
+                        :actions [(assoc modal-action :id :save :title "Save" :role :primary)
+                                  (assoc modal-action :id :cancel :title "Cancel")]}
+                       (render* "templates/user/select/choose-multiple.html" config request))
 
           ;; user opening modal dialog to select a single user
           (not multiple)
@@ -162,25 +175,46 @@
   [s n]
   (when (>= (count s) n) s))
 
+
+(defn add-user-action
+  [user action]
+  (assoc user :action (pr-str [action user])))
+
 (defn user-search-handler
   "Return a rendered list of users
   Parameters:
   - s: search string
   - mode: 'colleagues' or 'all-users'."                     ;;TODO: add 'register user' option
   [{:keys [env form-params session] :as request}]
-  (let [user (:authenticated-user session)
-        {:keys [mode-key] :as config} (web/read-hx-vals :data form-params)
-        mode (keyword (get form-params (keyword mode-key)))
+  (let [authenticated-user (:authenticated-user session)
+        {:keys [mode-key multiple selected selected-key] :as config} (web/read-hx-vals :data form-params) ;; selected represents 'original' list of selected users when modal first opened
+        mode (keyword (get form-params (keyword mode-key))) ;; :colleagues or :all-users
+        trigger (some-> (web/hx-trigger-name request) edn/read-string) ;; when we trigger adding or removing user and are refreshing, we will have an action and a user clicked
+        [action user] (when (vector? trigger) trigger)      ;; if trigger encodes clojure data, destructure action and user
         s (some-> (:s form-params) str/trim (minimum-chars 3))
+        ;; generate a list of 'currently selected' users - either from 'original list', or from form during editing
+        selected (or (some-> (get form-params (keyword selected-key)) edn/read-string) selected)
+        selected-users (case action
+                         :add (conj selected user)
+                         :remove (remove #(= (:user-id %) (:user-id user)) selected)
+                         selected)
+        ;; generate a set of 'currently selected' user ids, to make it easy to remove from the 'available' list.
+        selected-ids (into #{} (map :user-id) selected-users)
+        ;; generate a list of 'available users'... we remove all 'selected' users.
         users (->> (case mode
-                     :colleagues (search-colleagues env request user)
+                     :colleagues (search-colleagues env request authenticated-user)
                      :all-users (search-all-users env request s))
                    (sort-by (juxt (comp str/trim :t_user/last_name) :t_user/first_names))
                    (map make-user)
+                   (remove #(selected-ids (:user-id %)))
                    (filter (make-filter-fn s))
                    distinct)]
-    (log/debug "user search" {:s s :mode mode})
+    (log/debug "user search" {:action action :user user :s s :mode mode :form-params form-params})
     (web/ok
-      (web/render-file "templates/user/select/list-single.html"
+      (web/render-file (if multiple "templates/user/select/list-multiple.html"
+                                    "templates/user/select/list-single.html")
                        (assoc (make-context config request)
-                         :users users, :s s, :mode mode)))))
+                         :selected (map #(add-user-action % :remove) selected-users)
+                         :selected-data (pr-str selected-users)
+                         :users (map #(add-user-action % :add) users)
+                         :s s, :mode mode)))))

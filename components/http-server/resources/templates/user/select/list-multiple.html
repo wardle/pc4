@@ -1,0 +1,57 @@
+<div id="{{search-target}}" class="flex flex-1 overflow-hidden md:flex-row flex-col">
+
+    <!-- Selected Users Panel (Left) -->
+    <div class="w-80 md:border-r border-b md:border-b-0 border-gray-200 flex flex-col bg-gray-50 md:max-h-none max-h-48">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 font-medium text-sm text-gray-700">
+            Selected ({{selected|count}})
+        </div>
+        <div class="flex-1 overflow-y-auto py-2">
+            <input type="hidden" name="{{selected-key}}" value="{{selected-data}}">
+            {% for user in selected %}
+            <div class="relative px-6 py-4 cursor-pointer flex flex-col bg-white mx-2 my-1 rounded border border-gray-300 hover:bg-red-50"
+                 hx-post="{{search-url}}"
+                 hx-target="#{{search-target}}"
+                 name="{{user.action}}">
+                <button type="button"
+                        class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-red-500 border-none text-white cursor-pointer text-xl w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-red-600 hover:scale-110">
+                    −
+                </button>
+                <div class="font-medium mb-1">{{user.full-name}}</div>
+                <div class="text-gray-600 text-sm">{{user.job-title}}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Available Users Panel (Right) -->
+    <div class="flex-1 flex flex-col">
+        {% if users %}
+        {% for user in users %}
+        <div class="relative px-6 py-4 cursor-pointer border-b border-gray-100 flex flex-col hover:bg-gray-50 last:border-b-0"
+             hx-post="{{search-url}}"
+             hx-target="#{{search-target}}"
+             hx-params="__anti-forgery-token,data,s,{{mode-key}},{{selected-key}}"
+             name="{{user.action}}">
+            <button type="button"
+                    class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-green-500 border-none text-white cursor-pointer text-xl w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-green-600 hover:scale-110">
+                +
+            </button>
+            <div class="font-medium mb-1">{{user.full-name}}</div>
+            <div class="text-gray-600 text-sm">{{user.job-title}}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="px-6 py-4 text-gray-500 text-center">
+            {% if s %}
+            No users found matching "{{s}}"
+            {% else %}
+            {% if current-mode = "all-users" %}
+            Enter 3 or more characters to search all users
+            {% else %}
+            No colleagues found
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
