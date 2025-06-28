@@ -95,12 +95,12 @@
   [:t_user/id :t_user/last_name :t_user/first_names :t_user/full_name :t_user/job_title :t_user/active?])
 
 (defn ^:private make-user
-  [{:t_user/keys [id full_name job_title] :as user}]
-  (when user {:user-id id :full-name full_name :job-title job_title}))
+  [{:t_user/keys [id first_names last_name full_name job_title] :as user}]
+  (when user {:user-id id :full-name full_name :last-name last_name :first-names first_names :job-title job_title}))
 
 (defn user-select-handler
   [{:keys [env form-params] :as request}]
-  (let [{:keys [target label multiple required selected] :as config} (web/read-hx-vals :data form-params)
+  (let [{:keys [target label multiple required selected selected-key] :as config} (web/read-hx-vals :data form-params)
         trigger (web/hx-trigger request)
         user-id (some-> trigger parse-long)                 ;; trigger is sometimes a user-id of the item selected
         modal-action {:hx-post (route/url-for :user/select), :hx-target (str "#" target)
@@ -122,13 +122,8 @@
           (and user-id (not multiple))
           (ui-select-user (assoc config :selected (make-user (pathom/process env request (user-query user-id)))))
 
-          ;; user has selected an item in multiple mode -> add user to selected items list
-          (and user-id multiple)
-          (ui/ui-modal {:title   label :hidden? false
-                        :actions [(assoc modal-action :id :save :title "Save" :role :primary)
-                                  (assoc modal-action :id :cancel :title "Cancel")]}
-                       (render* "templates/user/select/choose-multiple.html"
-                                (update config :selected (fnil conj []) (make-user (pathom/process env request (user-query user-id)))) request))
+          (= "save" trigger)
+          (ui-select-user (assoc config :selected (some-> (get form-params (keyword selected-key)) edn/read-string)))
 
           ;; open modal dialog to select multiple users
           multiple
@@ -175,6 +170,8 @@
   [s n]
   (when (>= (count s) n) s))
 
+(def by-name
+  (juxt (comp (fnil str/trim "") :last-name) :first-names :full-name))
 
 (defn add-user-action
   [user action]
@@ -194,18 +191,19 @@
         s (some-> (:s form-params) str/trim (minimum-chars 3))
         ;; generate a list of 'currently selected' users - either from 'original list', or from form during editing
         selected (or (some-> (get form-params (keyword selected-key)) edn/read-string) selected)
-        selected-users (case action
-                         :add (conj selected user)
-                         :remove (remove #(= (:user-id %) (:user-id user)) selected)
-                         selected)
+        selected-users (->> (case action
+                              :add (conj selected user)
+                              :remove (remove #(= (:user-id %) (:user-id user)) selected)
+                              selected)
+                            (sort-by by-name))
         ;; generate a set of 'currently selected' user ids, to make it easy to remove from the 'available' list.
         selected-ids (into #{} (map :user-id) selected-users)
         ;; generate a list of 'available users'... we remove all 'selected' users.
         users (->> (case mode
                      :colleagues (search-colleagues env request authenticated-user)
                      :all-users (search-all-users env request s))
-                   (sort-by (juxt (comp str/trim :t_user/last_name) :t_user/first_names))
                    (map make-user)
+                   (sort-by by-name)
                    (remove #(selected-ids (:user-id %)))
                    (filter (make-filter-fn s))
                    distinct)]
