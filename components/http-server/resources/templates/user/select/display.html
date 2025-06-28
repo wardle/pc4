@@ -17,6 +17,8 @@
                         <span class="text-gray-600 italic">({{user.job-title}})</span>
                         </div>
                     {% endfor %}
+                {% else %}
+                    <span class="text-gray-600 italic">{{placeholder}}</span>
                 {% endif %}
             {% else %}
                 {% if selected %}
@@ -34,11 +36,24 @@
              hx-trigger="click"
              hx-target="#{{target}}">
             <input type="hidden" name="{{action-key}}" value="choose">
-            {% if selected %}
-            <span class="text-black">{{selected.full-name}}</span>
-            <span class="text-gray-600 italic">({{selected.job-title}})</span>
+            {% if multiple %}
+                {% if selected|not-empty %}
+                    {% for user in selected %}
+                    <div>
+                        <span class="text-black">{{user.full-name}}</span>
+                        <span class="text-gray-600 italic">({{user.job-title}})</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <span class="text-gray-600 italic">{{placeholder}}</span>
+                {% endif %}
             {% else %}
-                <span class="text-gray-600 italic">{{placeholder}}</span>
+                {% if selected %}
+                <span class="text-black">{{selected.full-name}}</span>
+                <span class="text-gray-600 italic">({{selected.job-title}})</span>
+                {% else %}
+                    <span class="text-gray-600 italic">{{placeholder}}</span>
+                {% endif %}
             {% endif %}
         </div>
     {% endif %}
