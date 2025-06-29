@@ -14,7 +14,7 @@
                     {% for user in selected %}
                         <div>
                         <span class="text-black">{{user.full-name}}</span>
-                        <span class="text-gray-600 italic">({{user.job-title}})</span>
+                        <span class="text-gray-600 italic text-sm">{{user.job-title}}</span>
                         </div>
                     {% endfor %}
                 {% else %}
@@ -23,7 +23,7 @@
             {% else %}
                 {% if selected %}
                     <span class="text-black">{{selected.full-name}}</span>
-                    <span class="text-gray-600 italic">({{selected.job-title}})</span>
+                    <span class="text-gray-600 italic text-sm">{{selected.job-title}}</span>
                 {% else %}
                     <span class="text-gray-600 italic">{{placeholder}}</span>
                 {% endif %}
@@ -41,7 +41,7 @@
                     {% for user in selected %}
                     <div>
                         <span class="text-black">{{user.full-name}}</span>
-                        <span class="text-gray-600 italic">({{user.job-title}})</span>
+                        <span class="text-gray-600 italic text-sm">{{user.job-title}}</span>
                     </div>
                     {% endfor %}
                 {% else %}
@@ -50,7 +50,7 @@
             {% else %}
                 {% if selected %}
                 <span class="text-black">{{selected.full-name}}</span>
-                <span class="text-gray-600 italic">({{selected.job-title}})</span>
+                <span class="text-gray-600 italic text-sm">{{selected.job-title}}</span>
                 {% else %}
                     <span class="text-gray-600 italic">{{placeholder}}</span>
                 {% endif %}
