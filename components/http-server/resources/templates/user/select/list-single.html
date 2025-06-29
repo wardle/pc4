@@ -1,10 +1,15 @@
 {% if users|not-empty %}
 {% for user in users %}
-<div class="px-6 py-4 cursor-pointer border-b border-gray-100 flex flex-col transition-colors duration-200 hover:bg-gray-50 last:border-b-0"
+<div class="relative px-6 py-4 cursor-pointer border-b border-gray-100 flex flex-col transition-colors duration-200 {% if user.user-id = selected.user-id %}bg-green-50 hover:bg-green-100{% else %}hover:bg-gray-50{% endif %} last:border-b-0"
      id="{{user.user-id}}"
      hx-post="{{url}}"
      hx-params="__anti-forgery-token,data,{{action-key}}"
      hx-target="#{{target}}">
+    {% if user.user-id = selected.user-id %}
+    <div class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-500 text-white w-7 h-7 flex items-center justify-center rounded-full">
+        {% include "templates/ui/icon-selected.html" %}
+    </div>
+    {% endif %}
     <div class="font-medium mb-1">{{user.full-name}}</div>
     <div class="text-gray-600 text-sm">{{user.job-title}}</div>
 </div>

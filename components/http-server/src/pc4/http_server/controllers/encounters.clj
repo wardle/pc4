@@ -160,7 +160,7 @@
     (fn [request {:ui/keys [csrf-token authenticated-user]}]
       (web/page
         {}
-        [:div.max-w-4xl.mx-auto.p-6
+        [:div.p-6
          (ui/ui-title {:title    "Create New Encounter"
                        :subtitle "Test page demonstrating user selection components"})
 
