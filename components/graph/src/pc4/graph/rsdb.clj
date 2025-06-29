@@ -1091,6 +1091,10 @@
    :t_user/professional_registration
    :t_professional_registration_authority/abbreviation
    :t_professional_registration_authority/name])
+   :t_professional_registration_authority/name
+   :t_job_title/name                                        ;; job title properties are flattened into parent
+   :t_job_title/can_be_responsible_clinician                ;; rather than nested
+   :t_job_title/is_clinical])
 
 (pco/defresolver user-by-username
   [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
@@ -1199,8 +1203,7 @@
   {::pco/output [{:t_user/colleagues [:t_user/id
                                       :t_user/username
                                       :t_user/first_names
-                                      :t_user/last_name
-                                      :t_user/full_name]}]}
+                                      :t_user/last_name]}]}
   (let [user-projects (rsdb/user->projects rsdb username)
         project-ids (map :t_project/id user-projects)]
     {:t_user/colleagues 

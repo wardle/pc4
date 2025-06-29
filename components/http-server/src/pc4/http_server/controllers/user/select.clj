@@ -19,6 +19,7 @@
 (s/def ::name string?)
 (s/def ::label (s/nilable string?))
 (s/def ::required boolean?)
+(s/def ::only-responsible boolean?)
 (s/def ::disabled boolean?)
 (s/def ::multiple boolean?)
 (s/def ::user-id int?)
@@ -27,27 +28,28 @@
 (s/def ::user (s/keys :req-un [::user-id ::full-name ::job-title]))
 (s/def ::selected (s/nilable (s/or :single ::user :multiple (s/coll-of ::user))))
 (s/def ::params (s/keys :req-un [(or ::id ::name)]
-                        :opt-un [::label ::required ::disabled ::multiple ::selected]))
+                        :opt-un [::label ::required ::disabled ::multiple ::selected ::only-responsible]))
 
 (defn make-config
-  [{component-name :name, :keys [id label placeholder multiple selected disabled required], :as params}]
+  [{component-name :name, :keys [id label placeholder multiple selected disabled required only-responsible], :as params}]
   (when-not (s/valid? ::params params)
     (log/error "invalid parameters" (s/explain-data ::params params))
     (throw (ex-info "invalid parameters" (s/explain-data ::params params))))
   (let [id# (or id component-name (throw (ex-info "invalid parameters: must specify id or name" params)))]
-    {:id            id#
-     :label         label
-     :name          (or component-name id)
-     :disabled      (boolean disabled)
-     :required      (boolean required)
-     :selected      selected                                ;; original selection before modal opened
-     :selected-key  (str id# "-selected")                   ;; form keeps track of 'new' selection using this id
-     :multiple      (boolean multiple)
-     :placeholder   (or placeholder (if multiple "Choose users..." "Choose user..."))
-     :target        (str id# "-target")
-     :search-target (str id# "-search-target")
-     :action-key    (str id# "-action")
-     :mode-key      (str id# "-mode")}))
+    {:id               id#
+     :label            label
+     :name             (or component-name id)
+     :disabled         (boolean disabled)
+     :required         (boolean required)
+     :selected         selected                             ;; original selection before modal opened
+     :selected-key     (str id# "-selected")                ;; form keeps track of 'new' selection using this id
+     :multiple         (boolean multiple)
+     :only-responsible (boolean only-responsible)
+     :placeholder      (or placeholder (if multiple "Choose users..." "Choose user..."))
+     :target           (str id# "-target")
+     :search-target    (str id# "-search-target")
+     :action-key       (str id# "-action")
+     :mode-key         (str id# "-mode")}))
 
 (defn make-context
   [config request]
@@ -84,15 +86,17 @@
     (render* "templates/user/select/display.html" config)))
 
 (defn ui-select-users
+  "Same as [[ui-select-user]] but for selecting multiple users."
   [params]
   (ui-select-user (assoc params :multiple true)))
 
+(def user-properties
+  [:t_user/id :t_user/last_name :t_user/first_names :t_user/full_name :t_user/job_title
+   :t_job_title/can_be_responsible_clinician])
+
 (defn user-query [user-id]
   {:pathom/entity {:t_user/id user-id}
-   :pathom/eql    [:t_user/id :t_user/full_name :t_user/job_title]})
-
-(def user-properties
-  [:t_user/id :t_user/last_name :t_user/first_names :t_user/full_name :t_user/job_title :t_user/active?])
+   :pathom/eql    user-properties})
 
 (defn ^:private make-user
   [{:t_user/keys [id first_names last_name full_name job_title] :as user}]
@@ -139,16 +143,17 @@
                                   (assoc modal-action :id :cancel :title "Cancel")]}
                        (render* "templates/user/select/choose-single.html" config request)))))))
 
-(defn make-filter-fn
-  "Return a function that filters users by a search string."
-  [s]
-  ;; TODO: tokenise and use tokens for filtering instead for more intuitive search
+(defn make-s-filter [s]
   (if (str/blank? s)
     (constantly true)
     (let [s' (str/lower-case s)]
-      (fn [{:keys [id full-name job-title]}]
-        (or (str/includes? (str/lower-case full-name) s')
-            (str/includes? (str/lower-case job-title) s'))))))
+      (fn [{:t_user/keys [full_name job_title]}]
+        (or (str/includes? (str/lower-case full_name) s')
+            (str/includes? (str/lower-case job_title) s'))))))
+
+(defn make-responsible-filter
+  [only-responsible]
+  (if only-responsible :t_job_title/can_be_responsible_clinician (constantly true)))
 
 (defn search-colleagues
   [env request user]
@@ -178,6 +183,7 @@
   (assoc user :action (pr-str [action user])))
 
 
+
 (defn user-search-handler
   "Return a rendered list of users
   Parameters:
@@ -185,16 +191,17 @@
   - mode: 'colleagues' or 'all-users'."                     ;;TODO: add 'register user' option
   [{:keys [env form-params session] :as request}]
   (let [authenticated-user (:authenticated-user session)
-        {:keys [mode-key multiple selected selected-key] :as config} (web/read-hx-vals :data form-params) ;; selected represents 'original' list of selected users when modal first opened
+        {:keys [mode-key multiple selected selected-key only-responsible] :as config} (web/read-hx-vals :data form-params) ;; selected represents 'original' list of selected users when modal first opened
         mode (keyword (get form-params (keyword mode-key))) ;; :colleagues or :all-users
         s (some-> (:s form-params) str/trim (minimum-chars 3))
         base-context (assoc (make-context config request) :s s :mode mode)
         all-available-users (->> (case mode
                                    :colleagues (search-colleagues env request authenticated-user)
                                    :all-users (search-all-users env request s))
+                                 (filter (make-s-filter s))
+                                 (filter (make-responsible-filter only-responsible))
                                  (map make-user)
                                  (sort-by by-name)
-                                 (filter (make-filter-fn s))
                                  distinct)]
     (web/ok
       (if multiple

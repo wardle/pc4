@@ -190,11 +190,12 @@
            [:div.p-4.border.border-gray-200.rounded-lg
             [:h4.text-md.font-medium.text-gray-700.mb-3 "Single User Selection"]
             [:p.text-sm.text-gray-600.mb-3 "Select a responsible clinician for this encounter:"]
-            (user-select/ui-select-user {:id         "responsible-user"
-                                         :name       "responsible-user-id"
-                                         :label      "Responsible Clinician"
-                                         :csrf-token csrf-token
-                                         :required   false})]
+            (user-select/ui-select-user {:id               "responsible-user"
+                                         :name             "responsible-user-id"
+                                         :label            "Responsible Clinician"
+                                         :only-responsible true
+                                         :csrf-token       csrf-token
+                                         :required         false})]
 
            ;; Multiple user selection
            [:div.p-4.border.border-gray-200.rounded-lg
