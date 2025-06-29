@@ -177,6 +177,7 @@
   [user action]
   (assoc user :action (pr-str [action user])))
 
+
 (defn user-search-handler
   "Return a rendered list of users
   Parameters:
@@ -186,11 +187,19 @@
   (let [authenticated-user (:authenticated-user session)
         {:keys [mode-key multiple selected selected-key] :as config} (web/read-hx-vals :data form-params) ;; selected represents 'original' list of selected users when modal first opened
         mode (keyword (get form-params (keyword mode-key))) ;; :colleagues or :all-users
-        s (some-> (:s form-params) str/trim (minimum-chars 3))]
+        s (some-> (:s form-params) str/trim (minimum-chars 3))
+        base-context (assoc (make-context config request) :s s :mode mode)
+        all-available-users (->> (case mode
+                                   :colleagues (search-colleagues env request authenticated-user)
+                                   :all-users (search-all-users env request s))
+                                 (map make-user)
+                                 (sort-by by-name)
+                                 (filter (make-filter-fn s))
+                                 distinct)]
     (web/ok
       (if multiple
         (let [trigger (some-> (web/hx-trigger-name request) edn/read-string) ;; when we trigger adding or removing user and are refreshing, we will have an action and a user clicked
-              [action user] (when (vector? trigger) trigger)      ;; if trigger encodes clojure data, destructure action and user
+              [action user] (when (vector? trigger) trigger) ;; if trigger encodes clojure data, destructure action and user
               ;; generate a list of 'currently selected' users - either from 'original list', or from form during editing
               selected (or (some-> (get form-params (keyword selected-key)) edn/read-string) selected)
               selected-users (->> (case action
@@ -200,31 +209,14 @@
                                   (sort-by by-name))
               ;; generate a set of 'currently selected' user ids, to make it easy to remove from the 'available' list.
               selected-ids (into #{} (map :user-id) selected-users)
-              ;; generate a list of 'available users'... we remove all 'selected' users.
-              users (->> (case mode
-                           :colleagues (search-colleagues env request authenticated-user)
-                           :all-users (search-all-users env request s))
-                         (map make-user)
-                         (sort-by by-name)
-                         (remove #(selected-ids (:user-id %)))
-                         (filter (make-filter-fn s))
-                         distinct)]
+              ;; when in 'multiple mode', filter out selected users from available list
+              users (remove #(selected-ids (:user-id %)) all-available-users)]
           (web/render-file "templates/user/select/list-multiple.html"
-                           (assoc (make-context config request)
+                           (assoc base-context
                              :selected (map #(add-user-action % :remove) selected-users)
                              :selected-data (pr-str selected-users)
-                             :users (map #(add-user-action % :add) users)
-                             :s s, :mode mode)))
-        (let [;; generate a list of 'available users' - no need to filter out selected users
-              users (->> (case mode
-                           :colleagues (search-colleagues env request authenticated-user)
-                           :all-users (search-all-users env request s))
-                         (map make-user)
-                         (sort-by by-name)
-                         (filter (make-filter-fn s))
-                         distinct)]
-          (web/render-file "templates/user/select/list-single.html"
-                           (assoc (make-context config request)
-                             :selected selected
-                             :users users
-                             :s s, :mode mode)))))))
+                             :users (map #(add-user-action % :add) users))))
+        (web/render-file "templates/user/select/list-single.html"
+                         (assoc base-context
+                           :selected selected
+                           :users (map #(add-user-action % :add) all-available-users)))))))
