@@ -57,7 +57,7 @@
 
  :pc4.ods.interface/svc
  {:root  #ref [:pc4/root]
-  :f     "ods-2024-01-08.db"
+  :f     "ods-2025-06-23.db"
   :nhspd #ig/ref :pc4.nhspd.interface/svc}
 
  :pc4.ods-weekly.interface/svc

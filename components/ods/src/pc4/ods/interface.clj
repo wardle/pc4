@@ -19,7 +19,7 @@
     (throw (ex-info "invalid ods configuration" (s/explain-data ::config config))))
   (let [path' (or path (.getCanonicalPath (io/file root f)))]
     (log/info "opening ODS index (clods) from " path')
-    (clods/open-index {:ods-dir path' :nhspd nhspd})))
+    (clods/open-index {:f path' :nhspd nhspd})))
 
 (defmethod ig/halt-key! ::svc
   [_ clods]
@@ -29,42 +29,35 @@
 (defn valid-service?
   "Is 'svc' a valid ODS service?"
   [svc]
-  (satisfies? clods/ODS svc))
+  (clods/valid-service? svc))
 
 (def fetch-org clods/fetch-org)
+
+(defn search-org
+  "Search for an organisation
+  Parameters :
+  - searcher : A Lucene IndexSearcher
+  - nhspd    : NHS postcode directory service
+  - params   : Search parameters; a map containing:
+    |- :s             : search for name or address of organisation
+    |- :n             : search for name of organisation
+    |- :address       : search within address
+    |- :fuzzy         : fuzziness factor (0-2)
+    |- :only-active?  : only include active organisations (default, true)
+    |- :roles         : a string or vector of roles
+    |- :from-location : a map containing:
+    |  |- :postcode : UK postal code, or
+    |  |- :lat      : latitude (WGS84)
+    |  |- :lon      : longitude (WGS84), and
+    |  |- :range    : range in metres (optional)
+    |- :limit      : limit on number of search results."
+  [svc params]
+  (clods/search-org svc params))
+
 (def fetch-postcode clods/fetch-postcode)
 (def parse-org-id clods/parse-org-id)
-
-(def related? clods/related?)
-
-(defn make-related?-fn
-  "Returns a function that can check whether two organisations are related.  
- 
-  This is optimised for the use-case in which one needs to make repeated
-  checks from a single target organisation to many others. As each check 
-  requires a lookup of the organisation and its relationships, this will 
-  memoize that call to prevent duplicate lookups.
-
-  Example:
-    ((make-related?-fn ods-svc \"7A4\") \"RWMBV\")  
-  => true
-  
-  This is because RWMBV is the old code for UHW, which was replaced by 7A4BV, which is
-  part of Cardiff and Vale University Health Board (7A4)."
-  [ods-svc org-code]
-  (let [fetch-fn (memoize clods/fetch-org)
-        org (fetch-fn ods-svc nil org-code)]
-    (if org
-      (fn [other-org-code]
-        (when-let [other-org (fetch-fn ods-svc nil other-org-code)]
-          (boolean (clods/related? ods-svc other-org org))))
-      (constantly false))))
-
-(defn equivalent-and-child-org-ids
-  "Return a set of tuples of roots and extensions for organisations equivalent
-  to, and 'children of' the specified organisation."
-  [ods-svc root extension]
-  (clods/equivalent-and-child-org-ids ods-svc root extension))
+(def equivalent-org-codes clods/equivalent-org-codes)
+(def related-org-codes clods/related-org-codes)
 
 (defn graph-resolvers
   "Dynamically return the graph resolvers for 'ods'."

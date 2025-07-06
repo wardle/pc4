@@ -12,6 +12,7 @@
     [next.jdbc.plan :as plan]
     [next.jdbc.sql]
     [pc4.nhs-number.interface :as nhs-number]
+    [pc4.ods.interface :as clods]
     [pc4.ods.interface :as ods]
     [pc4.rsdb.db :as db]
     [pc4.rsdb.projects :as projects]
@@ -27,11 +28,11 @@
   (def f (ods/make-related?-fn ods-svc "RWM"))
   (f "7A4"))
 
-(defn xf-patient-hospital-by-org-id
+(defn xf-patient-hospital-by-org-code
   "Returns a transducer that can filter a sequence of t_patient_hospital to 
   return only those linked to the organisation specified."
   [ods-svc org-code]
-  (let [related? (ods/make-related?-fn ods-svc org-code)]
+  (let [related? (ods/related-org-codes ods-svc org-code)]    ;; a set of related organisational ids
     (filter (fn [{:t_patient_hospital/keys [hospital_identifier hospital_fk]}]
               (related? (or hospital_identifier hospital_fk))))))
 
@@ -59,10 +60,9 @@
     (throw (ex-info "Missing hospital number " ph)))
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
                                                  (ods/parse-org-id hospital_identifier))
-        org (ods/fetch-org ods root extension)
-        cavuhb (ods/fetch-org ods nil "7A4")]
-    (if-not (ods/related? ods org cavuhb)
-      (throw (ex-info "Invalid organisation. Must be CAVUHB." {:patient ph :org org}))
+        cavuhb? (ods/related-org-codes ods "7A4")]
+    (if-not (cavuhb? extension)
+      (throw (ex-info "Invalid organisation. Must be CAVUHB." {:patient ph :org extension}))
       ;; first, set patient record so it uses an authority for demographics
       (do
         (jdbc/execute-one! txn (sql/format {:update :t_patient
@@ -203,10 +203,9 @@
 (defn with-hospital-crns
   ([query {:keys [hospital-identifiers ods hospital-identifier update-select?]}]
    (let [hospital-identifiers
-         (or hospital-identifiers
-             (when hospital-identifier
-               (map second (ods/equivalent-and-child-org-ids ods nil hospital-identifier))))]
-     (cond-> query
+         (or hospital-identifiers                           ;; TODO: look at 'parent' org and then partner sites for that org?
+             (when (and ods hospital-identifier) (clods/equivalent-org-codes ods hospital-identifier)))]
+     (cond-> query                                          ;;TODO: or perhaps t_patient_hospital should have org not hospital???
        ;; if we have hospital identifiers -> use them 
        (seq hospital-identifiers)
        (h/left-join
@@ -352,7 +351,7 @@
 
 (defn patient-pk->hospitals-for-org
   [conn patient-pk ods-svc org-code]
-  (let [xf (xf-patient-hospital-by-org-id ods-svc org-code)]
+  (let [xf (xf-patient-hospital-by-org-code ods-svc org-code)]
     (into [] xf (patient-pk->hospitals conn patient-pk))))
 
 (defn patient-pk->crn-for-org
@@ -376,14 +375,19 @@
   project (either user's default, or currently set). Within an encounter, we
   know the encounter organisation, so prefer [[patient-pk->crn-for-org]]."
   [conn ods-svc project-id]
-  (let [orgs (when project-id (projects/project->default-hospital-org-ids conn project-id))
-        orgs# (into #{} (map peek) (mapcat #(ods/equivalent-and-child-org-ids ods-svc nil %) orgs))]
+  (let [org-ids (when project-id (projects/project->default-hospital-org-ids conn project-id))
+        org-ids# (into #{} (mapcat #(ods/equivalent-org-codes ods-svc %) org-ids))]
     (fn [patient-hospitals]
-      (let [related (filter #(orgs# (:t_patient_hospital/hospital_fk %)) patient-hospitals)
+      (let [related (filter #(org-ids# (:t_patient_hospital/hospital_fk %)) patient-hospitals)
             related' (filter :t_patient_hospital/authoritative related)]
         (cond
-          (seq related') (first related')
-          (seq related) (first related)
+          ;; best match is first authoritative record linked to this project
+          (seq related')
+          (first related')
+          ;; next best is first non-authoritative record linked to this project
+          (seq related)
+          (first related)
+          ;; otherwise, choose either first authoritative record, or first record
           :else
           (let [authoritative (filter :t_patient_hospital/authoritative patient-hospitals)]
             (if (seq authoritative)

@@ -1,0 +1,42 @@
+<div id="{{target}}" class="org-select-component">
+    <input type="hidden" name="{{name}}" value="{{selected}}">
+    
+    {% if error %}
+        <div class="text-red-600 text-sm mb-2">
+            <span class="font-medium">Error:</span> {{error}}
+        </div>
+    {% endif %}
+    
+    {% if disabled %}
+        <div class="border border-gray-300 px-4 py-2 rounded bg-gray-100 cursor-not-allowed opacity-70">
+            {% if selected %}
+                {% with org=selected-org %}
+                    <span class="text-black">{{org.name}}</span>
+                    {% if org.address %}
+                        <span class="text-gray-600 italic text-sm block">{{org.address}}</span>
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                <span class="text-gray-600 italic">{{placeholder}}</span>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="border border-gray-300 px-4 py-2 rounded bg-gray-50 cursor-pointer hover:bg-gray-100" 
+             hx-post="{{url}}" 
+             hx-vals="{{hx-vals}}"
+             hx-trigger="click"
+             hx-target="#{{target}}">
+            <input type="hidden" name="{{action-key}}" value="choose">
+            {% if selected %}
+                {% with org=selected-org %}
+                    <span class="text-black">{{org.name}}</span>
+                    {% if org.address %}
+                        <span class="text-gray-600 italic text-sm block">{{org.address}}</span>
+                    {% endif %}
+                {% endwith %}
+            {% else %}
+                <span class="text-gray-600 italic">{{placeholder}}</span>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>

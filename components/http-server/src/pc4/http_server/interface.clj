@@ -10,6 +10,7 @@
     [io.pedestal.http.ring-middlewares :as ring]
     [io.pedestal.http.route :as route]
     [integrant.core :as ig]
+    [pc4.config.core :as config]
     [pc4.http-server.web :as web]
     [pc4.ods.interface :as clods]
     [pc4.http-server.controllers.encounters :as encounters]
@@ -24,7 +25,10 @@
     [pc4.http-server.controllers.project :as project]
     [pc4.http-server.controllers.snomed :as snomed]
     [pc4.http-server.controllers.user :as user]
-    [pc4.http-server.controllers.user.select :as user-select]
+    [pc4.http-server.controllers.select-user :as select-user]
+    [pc4.http-server.controllers.select-org :as select-org]
+    [pc4.http-server.controllers.test.select-user :as test-select-user]
+    [pc4.http-server.controllers.test.select-org :as test-select-org]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]
     [selmer.parser :as selmer]))
@@ -91,10 +95,13 @@
     ["/ui/snomed/autocomplete" :post [login/authenticated snomed/autocomplete-handler] :route-name :snomed/autocomplete]
     ["/ui/snomed/autocomplete-results" :post [login/authenticated snomed/autocomplete-results-handler] :route-name :snomed/autocomplete-results]
     ["/ui/snomed/autocomplete-selected-result" :post [login/authenticated snomed/autocomplete-selected-result-handler] :route-name :snomed/autocomplete-selected-result]
-    ["/ui/user/select" :post [login/authenticated user-select/user-select-handler] :route-name :user/select]
-    ["/ui/user/search" :post [login/authenticated user-select/user-search-handler] :route-name :user/search]
+    ["/ui/user/select" :post [login/authenticated select-user/user-select-handler] :route-name :user/select]
+    ["/ui/user/search" :post [login/authenticated select-user/user-search-handler] :route-name :user/search]
+    ["/ui/org/select" :post [login/authenticated select-org/org-select-handler] :route-name :org/select]
+    ["/ui/org/search" :post [login/authenticated select-org/org-search-handler] :route-name :org/search]
     ["/ui/list-encounters" :post [login/authenticated encounters/list-encounters-handler] :route-name :ui/list-encounters]
-    ["/encounters/create" :get [login/authenticated encounters/create-encounter-handler] :route-name :encounters/create]})
+    ["/test/user-select" :get [login/authenticated test-select-user/test-user-select-handler] :route-name :test/user-select]
+    ["/test/org-select" :get [login/authenticated test-select-org/test-org-select-handler] :route-name :test/org-select]})
 
 (defn env-interceptor
   "Return an interceptor to inject the given env into the request."
@@ -146,7 +153,7 @@
   [_ {:keys [cache? session-key] :or {cache? true} :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid server configuration" (s/explain ::config config))))
-  (log/info "starting http server" (select-keys config [:host :port]))
+  (log/info "starting http server" (select-keys config [:host :port :cache?]))
   (when-not session-key
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart or load balancing"))
   (when-not cache?

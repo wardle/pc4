@@ -234,14 +234,14 @@
    ::pco/output [:t_patient_hospital/authoritative_demographics]}
   (let [{:keys [root extension]} (if hospital_fk {:root nil :extension hospital_fk}
                                                  (clods/parse-org-id hospital_identifier))
-        org (clods/fetch-org clods root extension)]
+        related? (clods/related-org-codes clods extension)]
     {:t_patient_hospital/authoritative_demographics
      (cond
        ;; Is this a hospital within Cardiff and Vale UHB?
-       (clods/related? clods org (clods/fetch-org clods nil "7A4"))
+       (related? "7A4")
        :CAVUHB
        ;; Is this a hospital within Aneurin Bevan UHB?
-       (clods/related? clods org (clods/fetch-org clods nil "7A6"))
+       (related? "7A6")
        :ABUHB)}))
 
 (pco/defresolver patient-hospital->hospital-crn
@@ -355,7 +355,7 @@
 
 (pco/defresolver diagnosis-by-id
   [{rsdb :com.eldrix/rsdb, :as env} {:t_diagnosis/keys [id]}]
-  {::pco/input [:t_diagnosis/id]
+  {::pco/input  [:t_diagnosis/id]
    ::pco/output diagnosis-properties}
   (when-let [diag (rsdb/diagnosis-by-id rsdb id)]
     (println "diagnosis:" diag)
@@ -414,7 +414,7 @@
    {:t_ms_event/type [:t_ms_event_type/id
                       :t_ms_event_type/name
                       :t_ms_event_type/abbreviation]}
-   :t_ms_event_type/id                      ;; the event type is a to-one relationship, so we also flatten this
+   :t_ms_event_type/id                                      ;; the event type is a to-one relationship, so we also flatten this
    :t_ms_event_type/name
    :t_ms_event_type/abbreviation])
 
@@ -1090,7 +1090,6 @@
    :t_user/authentication_method
    :t_user/professional_registration
    :t_professional_registration_authority/abbreviation
-   :t_professional_registration_authority/name])
    :t_professional_registration_authority/name
    :t_job_title/name                                        ;; job title properties are flattened into parent
    :t_job_title/can_be_responsible_clinician                ;; rather than nested
@@ -1206,7 +1205,7 @@
                                       :t_user/last_name]}]}
   (let [user-projects (rsdb/user->projects rsdb username)
         project-ids (map :t_project/id user-projects)]
-    {:t_user/colleagues 
+    {:t_user/colleagues
      (when (seq project-ids)
        (->> (mapcat #(rsdb/project->users rsdb % {:group-by :user :active true}) project-ids)
             (remove #(= (:t_user/username %) username))
@@ -1355,7 +1354,7 @@
 (pco/defmutation search-users
   [{rsdb :com.eldrix/rsdb} {:keys [s limit] :as params}]
   {::pco/op-name 'pc4.rsdb/search-users
-   ::pco/output user-properties}
+   ::pco/output  user-properties}
   (rsdb/search-users rsdb s (cond-> {}
                               limit (assoc :limit limit))))
 

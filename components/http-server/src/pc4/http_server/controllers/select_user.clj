@@ -1,4 +1,4 @@
-(ns pc4.http-server.controllers.user.select
+(ns pc4.http-server.controllers.select-user
   "User selection controller with mode-based switching. State is represented
   either as form values or as an encoded 'config' based on the parameters used
   initially, and this latter state is propagated unchanged through the lifecycle
@@ -14,6 +14,7 @@
     [pc4.http-server.web :as web]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb]))
+
 
 (s/def ::id string?)
 (s/def ::name string?)

@@ -3,7 +3,6 @@
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.http-server.controllers.user.select :as user-select]
     [pc4.http-server.pathom :as pathom]
     [pc4.http-server.ui :as ui]
     [pc4.http-server.web :as web]
@@ -151,93 +150,3 @@
                                          f2 (f2 parsed-params encounter)
                                          f (f encounter)
                                          :else "")))))))))))
-
-(def create-encounter-handler
-  "Handler for creating new encounters with user selection demonstration."
-  (pathom/handler
-    [:ui/csrf-token
-     {:ui/authenticated-user [:t_user/id :t_user/username :t_user/full_name :t_user/job_title]}]
-    (fn [request {:ui/keys [csrf-token authenticated-user]}]
-      (web/page
-        {}
-        [:div.p-6
-         (ui/ui-title {:title    "Create New Encounter"
-                       :subtitle "Test page demonstrating user selection components"})
-
-         [:form.space-y-6 {:method "POST" :action "#"}
-          [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
-
-          ;; Basic encounter fields
-          (ui/ui-simple-form
-            (ui/ui-simple-form-title {:title "Encounter Details"})
-
-            (ui/ui-simple-form-item {:label "Encounter Date"}
-              (ui/ui-textfield {:id       "encounter-date"
-                                :name     "encounter-date"
-                                :type     "date"
-                                :required true}))
-
-            (ui/ui-simple-form-item {:label "Notes"}
-              (ui/ui-textarea {:id   "notes"
-                               :name "notes"
-                               :rows 4} nil)))
-
-          ;; User selection demonstration
-          [:div.space-y-4
-           [:h3.text-lg.font-medium.text-gray-900 "User Selection Examples"]
-
-           ;; Single user selection
-           [:div.p-4.border.border-gray-200.rounded-lg
-            [:h4.text-md.font-medium.text-gray-700.mb-3 "Single User Selection"]
-            [:p.text-sm.text-gray-600.mb-3 "Select a responsible clinician for this encounter:"]
-            (user-select/ui-select-user {:id               "responsible-user"
-                                         :name             "responsible-user-id"
-                                         :label            "Responsible Clinician"
-                                         :only-responsible true
-                                         :csrf-token       csrf-token
-                                         :required         false})]
-
-           ;; Multiple user selection
-           [:div.p-4.border.border-gray-200.rounded-lg
-            [:h4.text-md.font-medium.text-gray-700.mb-3 "Multiple User Selection"]
-            [:p.text-sm.text-gray-600.mb-3 "Select team members involved in this encounter:"]
-            (user-select/ui-select-users {:id         "team-members"
-                                          :name       "team-member-ids"
-                                          :label      "Team Members"
-                                          :csrf-token csrf-token
-                                          :required   false})]
-
-           ;; Optional user selection
-           [:div.p-4.border.border-gray-200.rounded-lg
-            [:h4.text-md.font-medium.text-gray-700.mb-3 "Optional User Selection"]
-            [:p.text-sm.text-gray-600.mb-3 "Optionally assign a reviewer:"]
-            (user-select/ui-select-user {:id         "reviewer"
-                                         :csrf-token csrf-token
-                                         :name       "reviewer-id"
-                                         :label      "Reviewer (Optional)"
-                                         :required   false})]
-
-           ;; Pre-selected users example
-           [:div.p-4.border.border-gray-200.rounded-lg
-            [:h4.text-md.font-medium.text-gray-700.mb-3 "Pre-selected User"]
-            [:p.text-sm.text-gray-600.mb-3 "Current user pre-selected as default:"]
-            (user-select/ui-select-user {:id         "created-by"
-                                         :name       "created-by-id"
-                                         :label      "Created By"
-                                         :csrf-token csrf-token
-                                         :disabled   false
-                                         :selected   {:user-id   (:t_user/id authenticated-user)
-                                                      :full-name (:t_user/full_name authenticated-user)
-                                                      :job-title (:t_user/job_title authenticated-user)}
-                                         :required   true})]]
-
-          ;; Action buttons
-          (ui/ui-action-bar
-            (ui/ui-submit-button {} "Create Encounter")
-            (ui/ui-cancel-button {:href "/"} "Cancel"))
-
-          ;; Debug section
-          [:div.mt-8.p-4.bg-gray-50.rounded-lg
-           [:h4.text-sm.font-medium.text-gray-700.mb-2 "Current User Info (for testing)"]
-           [:pre.text-xs.text-gray-600 (pr-str authenticated-user)]]]]))))
-
