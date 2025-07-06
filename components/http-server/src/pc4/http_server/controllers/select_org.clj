@@ -29,7 +29,7 @@
 (s/def ::placeholder string?)
 (s/def ::roles (s/or :single string? :multiple (s/coll-of string?)))
 (s/def ::common-orgs (s/coll-of ::org))
-(s/def ::fields #(set/subset? % #{:name :address :primary-role})) ;; fields to display
+(s/def ::fields #(set/subset? % #{:name :address :code :primary-role})) ;; fields to display
 (s/def ::active boolean?)
 (s/def ::postcode (s/nilable string?))
 (s/def ::range (s/nilable number?))
@@ -83,20 +83,18 @@
     (let [org-code (:org.hl7.fhir.Identifier/value (first identifier))
           {:org.hl7.fhir.Address/keys [line city postalCode distance]} (first address)
           address# (str/join ", " (remove str/blank? (into (vec line) [city postalCode])))]
-      (cond-> {:code org-code
+      (cond-> {:code   org-code
                :name   (if active name (str name " (inactive)"))
                :active active}
         distance
-        (assoc :distance (if (> distance 1000) (str (int (/ distance 1000)) "km") (str distance "m")))
+        (assoc :distance (if (> distance 1000) (str (int (/ distance 1000)) "km") (str (int distance) "m")))
         (:address fields)
         (assoc :address address#)))))
 
 (defn make-context
   "Creates template context from config and request."
-  [config request]
-  (let [;; Format selected FHIR organisation for display
-        selected-org (when (:selected config)
-                       (format-org-display (:selected config) (:display-fields config)))]
+  [{:keys [selected fields] :as config} request]
+  (let [selected-org (when selected (format-org-display selected fields))]
     (assoc config
       :url (route/url-for :org/select)
       :search-url (route/url-for :org/search)
