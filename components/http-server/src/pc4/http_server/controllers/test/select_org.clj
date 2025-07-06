@@ -4,7 +4,8 @@
     [pc4.http-server.controllers.select-org :as select-org]
     [pc4.http-server.pathom :as pathom]
     [pc4.http-server.ui :as ui]
-    [pc4.http-server.web :as web]))
+    [pc4.http-server.web :as web]
+    [pc4.ods.interface :as ods]))
 
 (def test-org-select-handler
   "Test page demonstrating organisation selection components with various configurations."
@@ -86,9 +87,9 @@
                                       :name        "nearby-gp-code"
                                       :label       "Nearby GP Surgery"
                                       :roles       "RO177"
-                                      :postcode    "CF14 4XW"
+                                      :postcode    "CF14 2HB"
                                       :range       50000
-                                      :limit       25
+                                      :limit       100
                                       :placeholder "Find nearby GP surgery..."
                                       :required    false})]
 

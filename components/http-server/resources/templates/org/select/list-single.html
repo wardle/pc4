@@ -1,12 +1,17 @@
 {% if has-results %}
     <div class="divide-y divide-gray-200">
         {% for org in organisations %}
-        <div class="px-6 py-3 hover:bg-gray-50 cursor-pointer"
+        <div class="relative px-6 py-3 hover:bg-gray-50 cursor-pointer"
              hx-post="{{url}}"
-             hx-vals="{{hx-vals}}"
              hx-trigger="click"
              hx-target="#{{target}}"
              id="{{org.code}}">
+            {% if org.code = selected-org.code %}
+            <div class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-500 text-white w-7 h-7 flex items-center justify-center rounded-full">
+                {% include "templates/ui/icon-selected.html" %}
+            </div>
+            {% endif %}
+
             <div class="flex items-center justify-between">
                 <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium text-gray-900 truncate">
@@ -21,11 +26,6 @@
                     </div>
                     {% endif %}
 
-                </div>
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                    </svg>
                 </div>
             </div>
         </div>
