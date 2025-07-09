@@ -1,4 +1,10 @@
-{% if has-results %}
+{% if search-performed %}
+<div class="text-sm text-gray-500 px-6 pt-2">
+    Showing {{ organisations|length }} results.
+</div>
+{% endif %}
+
+{% if organisations|not-empty %}
     <div class="divide-y divide-gray-200">
         {% for org in organisations %}
         <div class="relative px-6 py-3 hover:bg-gray-50 cursor-pointer"
@@ -17,7 +23,7 @@
                     <div class="text-sm font-medium text-gray-900 truncate">
                         {{org.name}}
                         {% if org.distance %}
-                        <span class="p-4 text-xs text-gray-600 truncate">({{org.distance}} away)</span>
+                        <span class="p-4 text-xs text-gray-600 truncate">({{org.distance-display}} away)</span>
                         {% endif %}
                     </div>
                     {% if org.address %}

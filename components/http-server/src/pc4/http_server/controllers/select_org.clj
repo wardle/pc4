@@ -34,38 +34,39 @@
 (s/def ::postcode (s/nilable string?))
 (s/def ::range (s/nilable number?))
 (s/def ::limit number?)
+(s/def ::allow-unfiltered boolean?)
 (s/def ::params (s/keys :req-un [(or ::id ::name) ::roles]
                         :opt-un [::label ::required ::disabled ::selected ::placeholder
-                                 ::common-orgs ::fields ::only-active?
-                                 ::postcode ::range ::limit]))
+                                 ::common-orgs ::fields ::active
+                                 ::postcode ::range ::limit ::allow-unfiltered]))
 
 (defn make-config
   "Creates configuration map from parameters with validation and defaults."
   [{component-name :name, :keys [id label placeholder selected disabled required roles
-                                 common-orgs fields active postcode range limit] :as params}]
+                                 common-orgs fields active postcode range limit allow-unfiltered] :as params}]
   (when-not (s/valid? ::params params)
     (log/error "invalid parameters" (s/explain-data ::params params))
     (throw (ex-info "invalid parameters" (s/explain-data ::params params))))
   (let [id# (or id component-name (throw (ex-info "invalid parameters: must specify id or name" params)))]
-    {:id            id#
-     :label         label
-     :name          (or component-name id)
-     :disabled      (boolean disabled)
-     :required      (boolean required)
-     :selected      selected
-     :selected-key  (str id# "-selected")
-     :placeholder   (or placeholder "= CHOOSE =")
-     :target        (str id# "-target")
-     :search-target (str id# "-search-target")
-     :action-key    (str id# "-action")
-     :mode-key      (str id# "-mode")
-     :roles         roles
-     :common-orgs   (or common-orgs [])
-     :fields        (or fields #{:name :address})
-     :active        (if (nil? active) true active)
-     :postcode      postcode
-     :range         range
-     :limit         (or limit 1000)}))
+    {:id               id#
+     :label            label
+     :name             (or component-name id)
+     :disabled         (boolean disabled)
+     :required         (boolean required)
+     :selected         selected
+     :placeholder      (or placeholder "= CHOOSE =")
+     :target           (str id# "-target")
+     :search-target    (str id# "-search-target")
+     :action-key       (str id# "-action")
+     :mode-key         (str id# "-mode")
+     :roles            roles
+     :common-orgs      (or common-orgs [])
+     :fields           (or fields #{:name :address})
+     :active           (if (nil? active) true active)
+     :postcode         postcode
+     :range            range
+     :limit            (or limit 1000)
+     :allow-unfiltered (boolean allow-unfiltered)}))
 
 
 (defn fetch-org
@@ -82,19 +83,36 @@
   (when fhir-org
     (let [org-code (:org.hl7.fhir.Identifier/value (first identifier))
           {:org.hl7.fhir.Address/keys [line city postalCode distance]} (first address)
-          address# (str/join ", " (remove str/blank? (into (vec line) [city postalCode])))]
-      (cond-> {:code   org-code
-               :name   (if active name (str name " (inactive)"))
-               :active active}
-        distance
-        (assoc :distance (if (> distance 1000) (str (int (/ distance 1000)) "km") (str (int distance) "m")))
-        (:address fields)
-        (assoc :address address#)))))
+          address# (str/join ", " (remove str/blank? (into (vec line) [city postalCode])))
+          org-map {:code   org-code
+                   :name   (if active name (str name " (inactive)"))
+                   :active active}]
+      (cond-> org-map
+        distance (assoc :distance distance
+                        :distance-display (if (> distance 1000) (str (int (/ distance 1000)) "km") (str (int distance) "m")))
+        (and address (:address fields)) (assoc :address address#)))))
+
+(defn resolve-common-orgs
+  "Resolves a collection of org codes to FHIR Organisation objects."
+  [env request org-codes]
+  (->> org-codes
+       (map #(fetch-org env request %))
+       (filter some?)))
+
+(defn search-organisations
+  "Search for organisations using the ODS service and convert to FHIR format."
+  [env request params]
+  (get (pathom/process env request [{(list 'uk.nhs.ord/search params)
+                                     [:org.hl7.fhir.Organization/name
+                                      :org.hl7.fhir.Organization/active
+                                      :org.hl7.fhir.Organization/identifier
+                                      :org.hl7.fhir.Organization/address]}])
+       'uk.nhs.ord/search))
 
 (defn make-context
   "Creates template context from config and request."
-  [{:keys [selected fields] :as config} request]
-  (let [selected-org (when selected (format-org-display selected fields))]
+  [config request]
+  (let [selected-org (when (:selected config) (format-org-display (:selected config) (:fields config)))]
     (assoc config
       :url (route/url-for :org/select)
       :search-url (route/url-for :org/search)
@@ -114,8 +132,10 @@
       (web/render-file template (make-context config request))}}]))
 
 (defn ui-select-org
-  "A organisation selection control. Displays current selection and allows 
-  'click to edit' functionality with a modal dialog.
+  "An organisation selection control. Displays current selection and allows
+  'click to edit' functionality with a modal dialog. When collapsed, it is
+  essentially a hidden INPUT element with name 'name' and value as a data
+  representation of a HL7 FHIR Organisation.
   
   Parameters:
   - :id          - Control identifier
@@ -129,18 +149,14 @@
   - :fields      - Set of fields to display (default #{:name})
   - :active      - Whether to include only active orgs (default true)
   - :postcode    - Postcode for location-based search
-  - :distance    - Search radius in metres
-  - :limit       - Maximum search results (default 100)"
+  - :range       - Search radius in metres
+  - :limit       - Maximum search results (default 100)
+  - :allow-unfiltered - Whether to allow searches without filters (default false)"
   [params]
   (log/debug "rendering org-select:" params)
   (let [config (make-config params)]
     (render* "templates/org/select/display.html" config)))
 
-
-(defn add-org-action
-  "Adds an action to an organisation for template rendering."
-  [org action]
-  (assoc org :action (pr-str [action org])))
 
 (defn minimum-chars
   "Return 's' when and only when it meets length 'n'."
@@ -150,7 +166,7 @@
 (defn org-select-handler
   "HTTP handler for organisation selection actions."
   [{:keys [env form-params] :as request}]
-  (let [{:keys [target label required selected] :as config} (web/read-hx-vals :data form-params)
+  (let [{:keys [target label required selected common-orgs fields active postcode range limit initial-search?] :as config} (web/read-hx-vals :data form-params)
         trigger (web/hx-trigger request)
         org-code (when (and trigger (not= "cancel" trigger) (not= "clear" trigger)) trigger)
         modal-action {:hx-post (route/url-for :org/select), :hx-target (str "#" target)
@@ -177,74 +193,87 @@
 
           ;; user opening modal dialog to select an organisation
           :else
-          (ui/ui-modal {:title   (or label "Select Organisation")
-                        :hidden? false
-                        :size    :large
-                        :actions [(assoc modal-action :id :clear :title "Clear"
-                                                      :hidden? (or required (nil? selected)))
-                                  (assoc modal-action :id :cancel :title "Cancel")]}
-                       (render* "templates/org/select/choose-single.html" config request)))))))
-
-
-
-(defn search-organisations
-  "Search for organisations using the ODS service and convert to FHIR format."
-  [env request params]
-  (get (pathom/process env request [{(list 'uk.nhs.ord/search params)
-                                     [:org.hl7.fhir.Organization/name
-                                      :org.hl7.fhir.Organization/active
-                                      :org.hl7.fhir.Organization/identifier
-                                      :org.hl7.fhir.Organization/address]}])
-       'uk.nhs.ord/search))
-
-(defn resolve-common-orgs
-  "Resolves a collection of org codes to FHIR Organisation objects."
-  [env request org-codes]
-  (->> org-codes
-       (map #(fetch-org env request %))
-       (filter some?)))
+          (let [default-sort-by (if (and postcode range) "distance" "name")]
+            (ui/ui-modal {:title   (or label "Select Organisation")
+                          :hidden? false
+                          :size    :xl
+                          :actions [(assoc modal-action :id :clear :title "Clear"
+                                                        :hidden? (or required (nil? selected)))
+                                    (assoc modal-action :id :cancel :title "Cancel")]}
+                         (render* "templates/org/select/choose-single.html"
+                                  (assoc config :default-sort-by default-sort-by)
+                                  request))))))))
 
 (defn org-search-handler
-  "HTTP handler for organisation search operations."
+  "HTTP handler for organisation search operations from the form."
   [{:keys [env form-params] :as request}]
-  (let [{:keys [common-orgs fields roles active postcode range limit] :as config} (web/read-hx-vals :data form-params)
+  (let [{:keys [fields roles active common-orgs postcode range limit allow-unfiltered] :as config} (web/read-hx-vals :data form-params)
         s (some-> (:s form-params) str/trim (minimum-chars 3))
-        show-filters? (boolean (:show-filters form-params))
-        postal-code-filter (or (:postcode-filter form-params) postcode)
+        postcode-filter (or (:postcode-filter form-params) postcode)
         range-filter (or (some-> (:range-filter form-params) parse-long) range)
-        base-context (assoc (make-context config request)
-                       :s s
-                       :show-filters show-filters?
-                       :postcode-filter postal-code-filter
-                       :range-filter range-filter)]
+        limit-filter (or (some-> (:limit-filter form-params) parse-long) limit)
+        sort-by-param (or (:sort-by form-params) "name")
 
-    (log/debug "org-search-handler" {:s s :show-filters show-filters? :config config})
+        user-searched? (or s (not (str/blank? (:postcode-filter form-params)))) ; Check if user has typed or entered postcode
+        initial-load? (not user-searched?)]
+
+    (log/debug "org-search-handler debug:" {:s                 s
+                                            :postcode-filter   postcode-filter
+                                            :user-searched?    user-searched?
+                                            :initial-load?     initial-load?
+                                            :allow-unfiltered  allow-unfiltered
+                                            :common-orgs-count (count common-orgs)})
 
     (web/ok
-      (let [;; Get search results if we have search text or location filters
-            search-results (when (or s postal-code-filter)
-                             (search-organisations env request
-                                                   {:s             s
-                                                    :roles         roles
-                                                    :active        active
-                                                    :from-location {:postcode postal-code-filter
-                                                                    :range    range-filter}
-                                                    :limit         limit}))
-            _ (log/debug search-results)
+      (cond
+        ;; Case 1: User has performed a search
+        user-searched?
+        (do (log/debug "org-search-handler: Case 1 - User searched")
+            (let [search-params (cond-> {:roles roles :active active :limit limit-filter}
+                                  (not-empty postcode-filter) (assoc :from-location {:postcode postcode-filter :range range-filter})
+                                  s (assoc :s s))
+                  search-results (search-organisations env request search-params)
+                  all-orgs (->> search-results
+                                (map #(format-org-display % fields))
+                                (filter some?)
+                                (sort-by (if (= sort-by-param "distance") :distance :name))
+                                distinct)]
+              (web/render-file "templates/org/select/list-single.html"
+                               (assoc (make-context config request)
+                                 :organisations all-orgs
+                                 :search-performed true))))
 
-            ;; Get common orgs if no search results and no search text
-            common-results (when (and (empty? search-results) (str/blank? s))
-                             (resolve-common-orgs env request common-orgs))
+        ;; Case 2: Initial load, and unfiltered search is allowed
+        (and initial-load? allow-unfiltered)
+        (do (log/debug "org-search-handler: Case 2 - Initial load with unfiltered search allowed")
+            (let [search-params (cond-> {:roles roles :active active :limit limit}
+                                  (not-empty postcode) (assoc :from-location {:postcode postcode :range range}))
+                  search-results (search-organisations env request search-params)
+                  all-orgs (->> search-results
+                                (map #(format-org-display % fields))
+                                (filter some?)
+                                (sort-by (if (= sort-by-param "distance") :distance :name))
+                                distinct)]
+              (web/render-file "templates/org/select/list-single.html"
+                               (assoc (make-context config request)
+                                 :organisations all-orgs
+                                 :search-performed true))))
 
-            ;; Combine and format results
-            all-orgs (->> (or search-results common-results [])
-                          (map #(format-org-display % fields))
-                          (filter some?)
-                          (sort-by :org-name)
-                          distinct)]
+        ;; Case 3: Initial load, filtered search not allowed, but common orgs are present
+        (and initial-load? (not allow-unfiltered) (not-empty common-orgs))
+        (do (log/debug "org-search-handler: Case 3 - Initial load with common orgs")
+            (let [common-results (->> (resolve-common-orgs env request common-orgs)
+                                      (map #(format-org-display % fields))
+                                      (sort-by :name))]     ; Use sort-by-param if needed
+              (web/render-file "templates/org/select/list-single.html"
+                               (assoc (make-context config request)
+                                 :organisations common-results
+                                 :search-performed false))))
 
-        (web/render-file "templates/org/select/list-single.html"
-                         (assoc base-context
-                           :organisations (map #(add-org-action % :select) all-orgs)
-                           :has-results (seq all-orgs)
-                           :search-performed (or (not (str/blank? s)) postal-code-filter)))))))
+        ;; Case 4: Initial load, filtered search required, no common orgs -> show empty state
+        :else
+        (do (log/debug "org-search-handler: Case 4 - Empty state")
+            (web/render-file "templates/org/select/list-single.html"
+                             (assoc (make-context config request)
+                               :organisations []
+                               :search-performed false)))))))

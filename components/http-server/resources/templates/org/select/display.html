@@ -29,7 +29,12 @@
             <input type="hidden" name="{{action-key}}" value="choose">
             {% if selected %}
                 {% with org=selected-org %}
-                    <span class="text-black">{{org.name}}</span>
+                    <span class="text-black">
+                        {{org.name}}
+                        {% if org.display-code %}
+                        ({{ org.display-code }})
+                        {% endif %}
+                    </span>
                     {% if org.address %}
                         <span class="text-gray-600 italic text-sm block">{{org.address}}</span>
                     {% endif %}

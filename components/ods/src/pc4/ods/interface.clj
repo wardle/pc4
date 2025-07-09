@@ -36,14 +36,13 @@
 (defn search-org
   "Search for an organisation
   Parameters :
-  - searcher : A Lucene IndexSearcher
-  - nhspd    : NHS postcode directory service
+  - svc      : ODS service
   - params   : Search parameters; a map containing:
     |- :s             : search for name or address of organisation
     |- :n             : search for name of organisation
     |- :address       : search within address
     |- :fuzzy         : fuzziness factor (0-2)
-    |- :only-active?  : only include active organisations (default, true)
+    |- :active        : only include active organisations (default, true)
     |- :roles         : a string or vector of roles
     |- :from-location : a map containing:
     |  |- :postcode : UK postal code, or

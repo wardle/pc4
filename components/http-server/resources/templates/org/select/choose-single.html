@@ -1,81 +1,93 @@
-<div class="bg-white rounded-lg overflow-hidden shadow-lg">
-    <input type="hidden" name="data" value="{{config}}">
-    
-    <div class="px-6 py-4 border-b border-gray-200">
-        <!-- Search input with filter button -->
-        <div class="flex gap-2 mb-4">
-            <input type="search"
-                   autofocus
-                   class="flex-1 px-3 py-2 border border-gray-300 rounded-md text-base box-border focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                   placeholder="Search organisations by name or address..."
-                   hx-post="{{search-url}}"
-                   hx-trigger="keyup changed delay:300ms"
-                   hx-target="#org-results"
-                   name="s"
-                   value="{{s}}">
-            
-            <!-- Filter toggle button with icon -->
-            <button type="button"
-                    class="inline-flex items-center justify-center px-3 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors{% if show-filters %} bg-indigo-50 border-indigo-300 text-indigo-600{% else %} text-gray-500{% endif %}"
-                    title="{% if show-filters %}Hide location filters{% else %}Show location filters{% endif %}"
-                    hx-post="{{search-url}}"
-                    hx-target="#org-results"
-                    {% if show-filters %}
-                    hx-vals='{"show-filters": "false"}'
-                    {% else %}
-                    hx-vals='{"show-filters": "true"}'
-                    {% endif %}
-                    hx-include="[name='s']">
-                <!-- Filter icon (Heroicon: funnel) -->
-                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-                </svg>
-            </button>
-        </div>
-        
-        <!-- Collapsible filter section -->
-        {% if show-filters %}
-        <div class="mt-4 p-4 bg-gray-50 rounded-md">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+<div class="space-y-6">
+    <!-- Search and Filters Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Search input -->
+            <div>
+                <label for="s" class="block text-sm font-medium text-gray-700 mb-1">Name or Address</label>
+                <input type="search"
+                       autofocus
+                       id="s"
+                       name="s"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                       placeholder="e.g. St James's"
+                       hx-post="{{search-url}}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#org-results"
+                       hx-include="[name='postcode-filter'], [name='range-filter'], [name='limit-filter'], [name='sort-by']"
+                       hx-vals='{{hx-vals}}'>
+            </div>
+
+            <!-- Postcode filter -->
+            <div>
+                <label for="postcode-filter" class="block text-sm font-medium text-gray-700 mb-1">Postcode</label>
+                <input type="text"
+                       id="postcode-filter"
+                       name="postcode-filter"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                       placeholder="e.g. CF14 4XW"
+                       value="{{postcode}}"
+                       hx-post="{{search-url}}"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#org-results"
+                       hx-include="[name='s'], [name='range-filter'], [name='limit-filter'], [name='sort-by']"
+                       hx-vals='{{hx-vals}}'>
+            </div>
+
+            <!-- Distance filter -->
+            <div>
+                <label for="range-filter" class="block text-sm font-medium text-gray-700 mb-1">Distance (metres)</label>
+                <input type="number"
+                       id="range-filter"
+                       name="range-filter"
+                       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                       placeholder="e.g. 5000"
+                       value="{{range}}"
+                       hx-post="{{search-url}}"
+                       hx-trigger="change"
+                       hx-target="#org-results"
+                       hx-include="[name='s'], [name='postcode-filter'], [name='limit-filter'], [name='sort-by']"
+                       hx-vals='{{hx-vals}}'>
+            </div>
+
+            <!-- Sort and Limit controls -->
+            <div class="grid grid-cols-2 gap-2">
                 <div>
-                    <label for="postal-code-filter" class="block text-sm font-medium text-gray-700">
-                        Postcode
-                    </label>
-                    <input type="text"
-                           id="postal-code-filter"
-                           name="postal-code-filter"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                           placeholder="e.g. CF14 4XW"
-                           value="{{postal-code-filter}}"
-                           hx-post="{{search-url}}"
-                           hx-trigger="keyup changed delay:500ms"
-                           hx-target="#org-results"
-                           hx-include="[name='s'], [name='distance-filter']">
+                    <label for="sort-by" class="block text-sm font-medium text-gray-700 mb-1">Sort by</label>
+                    <select id="sort-by" name="sort-by"
+                            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                            hx-post="{{search-url}}"
+                            hx-trigger="change"
+                            hx-target="#org-results"
+                            hx-include="[name='s'], [name='postcode-filter'], [name='range-filter'], [name='limit-filter']"
+                            hx-vals='{{hx-vals}}'>
+                        <option value="name" {% ifequal default-sort-by "name" %}selected{% endifequal %}>Name</option>
+                        <option value="distance" {% ifequal default-sort-by "distance" %}selected{% endifequal %}>Distance</option>
+                    </select>
                 </div>
                 <div>
-                    <label for="distance-filter" class="block text-sm font-medium text-gray-700">
-                        Distance (metres)
-                    </label>
+                    <label for="limit-filter" class="block text-sm font-medium text-gray-700 mb-1">Limit</label>
                     <input type="number"
-                           id="distance-filter"
-                           name="distance-filter"
-                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                           placeholder="e.g. 5000"
-                           value="{{distance-filter}}"
+                           id="limit-filter"
+                           name="limit-filter"
+                           class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                           placeholder="e.g. 100"
+                           value="{{limit}}"
                            hx-post="{{search-url}}"
                            hx-trigger="change"
                            hx-target="#org-results"
-                           hx-include="[name='s'], [name='postal-code-filter']">
+                           hx-include="[name='s'], [name='postcode-filter'], [name='range-filter'], [name='sort-by']"
+                           hx-vals='{{hx-vals}}'>
                 </div>
             </div>
         </div>
-        {% endif %}
     </div>
 
-    <!-- Results area -->
-    <div id="org-results" class="max-h-96 overflow-y-auto py-2"
+    <!-- Results Section -->
+    <div id="org-results" class="overflow-y-auto h-96 max-h-96 border rounded-lg bg-white"
          hx-post="{{search-url}}"
+         hx-vals='{{hx-vals}}'
          hx-trigger="load">
-        {% include "templates/ui/spinner.html" with id="spinner" %}
+        {% include "templates/ui/spinner.html" %}
     </div>
 </div>

@@ -27,6 +27,17 @@
            [:p.text-sm.text-gray-600.mb-3 "Select a GP surgery (role RO177) with name only display:"]
            (select-org/ui-select-org {:id          "basic-gp"
                                       :name        "gp-surgery-code"
+                                      :fields      #{:name}
+                                      :label       "GP Surgery"
+                                      :roles       "RO177"
+                                      :placeholder "Choose GP surgery..."
+                                      :required    true})]
+
+          [:div.p-4.border.border-gray-200.rounded-lg
+           [:h4.text-md.font-medium.text-gray-700.mb-3 "Basic GP Surgery Selection"]
+           [:p.text-sm.text-gray-600.mb-3 "Select a GP surgery (role RO177) with name and address display:"]
+           (select-org/ui-select-org {:id          "basic-gp2"
+                                      :name        "gp-surgery-code2"
                                       :label       "GP Surgery"
                                       :roles       "RO177"
                                       :placeholder "Choose GP surgery..."
@@ -59,13 +70,14 @@
                              :org.hl7.fhir.Address/city       "Cardiff"
                              :org.hl7.fhir.Address/postalCode "CF14 4XW"
                              :org.hl7.fhir.Address/country    "Wales"}]}]
-             (select-org/ui-select-org {:id       "preselected"
-                                        :name     "uhb-code"
-                                        :label    "University Health Board"
-                                        :roles    "RO142"
-                                        :fields   #{:name :address}
-                                        :selected fake-uhb
-                                        :required true}))]
+             (select-org/ui-select-org {:id               "preselected"
+                                        :name             "uhb-code"
+                                        :label            "University Health Board"
+                                        :roles            "RO142"
+                                        :fields           #{:name :address}
+                                        :allow-unfiltered true
+                                        :selected         fake-uhb
+                                        :required         true}))]
 
           ;; Common organisations
           [:div.p-4.border.border-gray-200.rounded-lg
@@ -88,7 +100,7 @@
                                       :label       "Nearby GP Surgery"
                                       :roles       "RO177"
                                       :postcode    "CF14 2HB"
-                                      :range       50000
+                                      :range       5000
                                       :limit       100
                                       :placeholder "Find nearby GP surgery..."
                                       :required    false})]
@@ -97,28 +109,28 @@
           [:div.p-4.border.border-gray-200.rounded-lg
            [:h4.text-md.font-medium.text-gray-700.mb-3 "Include Inactive Organisations"]
            [:p.text-sm.text-gray-600.mb-3 "Hospital search including historical/inactive organisations:"]
-           (select-org/ui-select-org {:id             "all-hospitals"
-                                      :name           "any-hospital-code"
-                                      :label          "Any Hospital (Active or Inactive)"
-                                      :roles          ["RO198" "RO197"]
-                                      :only-active?   false
-                                      :display-fields #{:name :town :postcode}
-                                      :limit          50
-                                      :placeholder    "Search all hospitals..."
-                                      :required       false})]
+           (select-org/ui-select-org {:id          "all-hospitals"
+                                      :name        "any-hospital-code"
+                                      :label       "Any Hospital (Active or Inactive)"
+                                      :roles       ["RO198" "RO197"]
+                                      :active      false
+                                      :fields      #{:name :address}
+                                      :limit       50
+                                      :placeholder "Search all hospitals..."
+                                      :required    false})]
 
           ;; Multiple roles example
           [:div.p-4.border.border-gray-200.rounded-lg
            [:h4.text-md.font-medium.text-gray-700.mb-3 "Multiple Organisation Roles"]
            [:p.text-sm.text-gray-600.mb-3 "Search across multiple organisation types (GP surgeries and health centres):"]
-           (select-org/ui-select-org {:id             "multi-role"
-                                      :name           "healthcare-provider-code"
-                                      :label          "Healthcare Provider"
-                                      :roles          ["RO76" "RO177"]
-                                      :display-fields #{:name :address1 :town}
-                                      :limit          100
-                                      :placeholder    "Search healthcare providers..."
-                                      :required       false})]
+           (select-org/ui-select-org {:id          "multi-role"
+                                      :name        "healthcare-provider-code"
+                                      :label       "Healthcare Provider"
+                                      :roles       ["RO76" "RO177"]
+                                      :fields      #{:name :address}
+                                      :limit       100
+                                      :placeholder "Search healthcare providers..."
+                                      :required    false})]
 
           ;; Disabled example
           [:div.p-4.border.border-gray-200.rounded-lg
@@ -162,7 +174,7 @@
              [:pre.mt-1.whitespace-pre-wrap "{:roles \"RO76\" :display-fields #{:name}}"]]
             [:div
              [:strong "Hospital with address (RO142):"]
-             [:pre.mt-1.whitespace-pre-wrap "{:roles \"RO142\" :display-fields #{:name :town :postcode}}"]]
+             [:pre.mt-1.whitespace-pre-wrap "{:roles \"RO142\" :display-fields #{:name :address}}"]]
             [:div
              [:strong "Location search:"]
              [:pre.mt-1.whitespace-pre-wrap "{:postal-code \"CF14 4XW\" :distance 5000 :limit 25}"]]
