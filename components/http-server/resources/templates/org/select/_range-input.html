@@ -1,0 +1,10 @@
+<input type="number"
+       id="range"
+       name="range"
+       class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+       placeholder="e.g. 10"
+       value="{{range}}"
+       hx-post="{{search-url}}"
+       hx-trigger="change"
+       hx-target="#org-results"
+       hx-include="[name='data'],[name='s'], [name='postcode'], [name='limit'], [name='sort-by']">

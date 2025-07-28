@@ -53,7 +53,7 @@
 
  :pc4.nhspd.interface/svc
  {:root #ref [:pc4/root]
-  :f    "nhspd-2022-11-10.db"}
+  :f    "nhspd-2025-05-22.db"}
 
  :pc4.ods.interface/svc
  {:root  #ref [:pc4/root]
@@ -105,7 +105,7 @@
 
  :pc4.snomedct.interface/svc
  {:root           #ref [:pc4/root]
-  :f              "hermes-v1.4-2023.10.04.db"
+  :f              "snomed-2025-07-09.db"
   :default-locale "en-GB"}
 
  :pc4.wales-cav-pms.interface/svc

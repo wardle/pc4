@@ -54,6 +54,7 @@
   (clods/search-org svc params))
 
 (def fetch-postcode clods/fetch-postcode)
+(def os-grid-reference clods/os-grid-reference)
 (def parse-org-id clods/parse-org-id)
 (def equivalent-org-codes clods/equivalent-org-codes)
 (def related-org-codes clods/related-org-codes)

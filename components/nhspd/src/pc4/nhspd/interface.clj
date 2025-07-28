@@ -2,7 +2,7 @@
   (:require
    [clojure.java.io :as io]
    [pc4.log.interface :as log]
-   [com.eldrix.nhspd.core :as nhspd]
+   [com.eldrix.nhspd.api :as nhspd]
    [com.eldrix.nhspd.postcode :as pc]
    [integrant.core :as ig]))
 
@@ -10,7 +10,7 @@
   [_ {:keys [root f path]}]
   (let [path' (or path (.getCanonicalPath (io/file root f)))]
     (log/info "opening nhspd index " path')
-    (nhspd/open-index path')))
+    (nhspd/open path')))
 
 (defmethod ig/halt-key! ::svc
   [_ nhspd]
@@ -49,7 +49,7 @@
   "Returns WGS84 geographical coordinates for a given postcode.
    - pc : a UK postal code; will be coerced into the PCD2 postcode standard."
   [svc s]
-  (nhspd/fetch-wgs84 svc s))
+  (nhspd/with-wgs84 (nhspd/postcode svc s)))
 
 (defn normalize
   "Normalizes a postcode into uppercase 8-characters with left-aligned outward

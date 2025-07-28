@@ -24,10 +24,10 @@
           ;; Basic organisation selection
           [:div.p-4.border.border-gray-200.rounded-lg
            [:h4.text-md.font-medium.text-gray-700.mb-3 "Basic GP Surgery Selection"]
-           [:p.text-sm.text-gray-600.mb-3 "Select a GP surgery (role RO177) with name only display:"]
+           [:p.text-sm.text-gray-600.mb-3 "Select a GP surgery (role RO177) with name and code display:"]
            (select-org/ui-select-org {:id          "basic-gp"
                                       :name        "gp-surgery-code"
-                                      :fields      #{:name}
+                                      :fields      #{:name :code}
                                       :label       "GP Surgery"
                                       :roles       "RO177"
                                       :placeholder "Choose GP surgery..."
