@@ -57,10 +57,10 @@
 (defn ui-form-edss
   "EDSS form with radio button selection"
   ([]
-   [:form/id
+   [:form/id :form/actions
     :form_edss/id :form_edss/edss_score :form_edss/is_deleted
     :form_edss/user_fk :form_edss/encounter_fk])
-  ([{:form/keys [user] :form_edss/keys [edss_score] :as form-data} {:keys [disabled]}]
+  ([{:form/keys [user actions] :form_edss/keys [edss_score] :as form-data}]
    (println "edss form" form-data)
    (ui/ui-simple-form
      #_(ui/ui-simple-form-title {:title "EDSS (short-form)"})
@@ -71,7 +71,7 @@
         [:div.sm:columns-2
          (ui/ui-radio-button
            {:name     "edss_score"
-            :disabled disabled
+            :disabled (not (:EDIT actions))
             :value-id (some-> edss_score name)
             :options  (map (fn [{:keys [id score description]}]
                              {:id   id
@@ -81,74 +81,74 @@
 (defn ui-form-ms-relapse
   "MS relapse form with checkbox and dropdowns"
   ([]
-   [:form/id :form_ms_relapse/id :form_ms_relapse/in_relapse :form_ms_relapse/ms_disease_course_fk
+   [:form/id :form/actions :form_ms_relapse/id :form_ms_relapse/in_relapse :form_ms_relapse/ms_disease_course_fk
     :form_ms_relapse/activity :form_ms_relapse/progression
     :form_ms_relapse/is_deleted :form_ms_relapse/user_fk :form_ms_relapse/encounter_fk
     {:form/encounter [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]}
     {:com.eldrix.rsdb/all-ms-disease-courses [:t_ms_disease_course/id :t_ms_disease_course/name]}])
   ([{:form_ms_relapse/keys [in_relapse ms_disease_course_fk activity progression]
-     :form/keys            [encounter]
-     :com.eldrix.rsdb/keys [all-ms-disease-courses] :as form-data}
-    {:keys [disabled]}]
-   (clojure.pprint/pprint form-data)
-   (ui/ui-simple-form
-     (ui/ui-simple-form-title
-       {:title "Neuroinflammatory disease relapse information"})
-     (ui/ui-simple-form-item
-       {:label "Responsible user"}
-       (ui-form-user form-data))
-     (ui/ui-simple-form-item
-       {:label     "In relapse?"
-        :sub-label (str "on " (some-> encounter :t_encounter/date_time LocalDateTime/.toLocalDate))}
-       [:div.pt-2
-        (ui/ui-checkbox
-          {:label       "In relapse"
-           :description "Is the patient having a clinical relapse or recovering from a relapse?"
-           :checked     in_relapse
-           :disabled    disabled
-           :name        "in_relapse"})])
-     (ui/ui-simple-form-item
-       {:label "Current multiple sclerosis disease course"}
-       (ui/ui-select-button
-         {:selected-id ms_disease_course_fk
-          :options     (->> all-ms-disease-courses
-                            (map (fn [{:t_ms_disease_course/keys [id name]}]
-                                   {:id id :text name}))
-                            (sort-by :text))
-          :disabled    disabled
-          :name        "ms_disease_course_fk"}))
-     (ui/ui-simple-form-item
-       {:label "Current disease activity"}
-       (ui/ui-select-button
-         {:no-selection-string "UNKNOWN"
-          :selected-id         activity
-          :options             [{:id "ACTIVE" :text "ACTIVE"}
-                                {:id "INACTIVE" :text "INACTIVE"}
-                                {:id "INDETERMINATE" :text "INDETERMINATE"}]
-          :disabled            disabled
-          :name                "activity"}))
-     (ui/ui-simple-form-item
-       {:label "Current disease progression"}
-       (ui/ui-select-button
-         {:no-selection-string "UNKNOWN"
-          :selected-id         progression
-          :options             [{:id "WITHOUT_PROGRESSION" :text "WITHOUT_PROGRESSION"}
-                                {:id "WITH_PROGRESSION" :text "WITH_PROGRESSION"}]
-          :disabled            disabled
-          :name                "progression"})))))
+     :form/keys            [encounter actions]
+     :com.eldrix.rsdb/keys [all-ms-disease-courses] :as form-data}]
+   (let [disabled (not (:EDIT actions))]
+     (clojure.pprint/pprint form-data)
+     (ui/ui-simple-form
+       (ui/ui-simple-form-title
+         {:title "Neuroinflammatory disease relapse information"})
+       (ui/ui-simple-form-item
+         {:label "Responsible user"}
+         (ui-form-user form-data))
+       (ui/ui-simple-form-item
+         {:label     "In relapse?"
+          :sub-label (str "on " (some-> encounter :t_encounter/date_time LocalDateTime/.toLocalDate))}
+         [:div.pt-2
+          (ui/ui-checkbox
+            {:label       "In relapse"
+             :description "Is the patient having a clinical relapse or recovering from a relapse?"
+             :checked     in_relapse
+             :disabled    disabled
+             :name        "in_relapse"})])
+       (ui/ui-simple-form-item
+         {:label "Current multiple sclerosis disease course"}
+         (ui/ui-select-button
+           {:selected-id ms_disease_course_fk
+            :options     (->> all-ms-disease-courses
+                              (map (fn [{:t_ms_disease_course/keys [id name]}]
+                                     {:id id :text name}))
+                              (sort-by :text))
+            :disabled    disabled
+            :name        "ms_disease_course_fk"}))
+       (ui/ui-simple-form-item
+         {:label "Current disease activity"}
+         (ui/ui-select-button
+           {:no-selection-string "UNKNOWN"
+            :selected-id         activity
+            :options             [{:id "ACTIVE" :text "ACTIVE"}
+                                  {:id "INACTIVE" :text "INACTIVE"}
+                                  {:id "INDETERMINATE" :text "INDETERMINATE"}]
+            :disabled            disabled
+            :name                "activity"}))
+       (ui/ui-simple-form-item
+         {:label "Current disease progression"}
+         (ui/ui-select-button
+           {:no-selection-string "UNKNOWN"
+            :selected-id         progression
+            :options             [{:id "WITHOUT_PROGRESSION" :text "WITHOUT_PROGRESSION"}
+                                  {:id "WITH_PROGRESSION" :text "WITH_PROGRESSION"}]
+            :disabled            disabled
+            :name                "progression"}))))))
 
 (defn ui-form-weight-height
   "Weight and height form with BMI calculation"
   ([]
-   [:form/id :form_weight_height/id
+   [:form/id :form/actions :form_weight_height/id
     :form_weight_height/weight_kilogram :form_weight_height/height_metres
     :form_weight_height/is_deleted
     :form_weight_height/encounter_fk :form_weight_height/user_fk
     {:form/encounter [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]}])
   ([{:form_weight_height/keys [weight_kilogram height_metres]
-     :form/keys               [encounter] :as form-data}
-    {:keys [disabled]}]
-   (let [patient-age (when-let [period (:t_encounter/patient_age encounter)]
+     :form/keys               [actions encounter] :as form-data}]
+   (let [disabled (not (:EDIT actions))
+         patient-age (when-let [period (:t_encounter/patient_age encounter)]
                        (.-years period))
          bmi (when (and weight_kilogram height_metres)
                (.round (/ weight_kilogram (* height_metres height_metres)) 1))]
@@ -176,7 +176,7 @@
 (defn ui-form-smoking-history
   "Smoking history form with conditional fields"
   ([]
-   [:form/id :form_smoking_history/id
+   [:form/id :form/actions :form_smoking_history/id
     :form_smoking_history/status
     :form_smoking_history/current_cigarettes_per_day :form_smoking_history/duration_years
     :form_smoking_history/previous_cigarettes_per_day :form_smoking_history/previous_duration_years
@@ -184,62 +184,63 @@
     :form_smoking_history/is_deleted
     :form_smoking_history/encounter_fk :form_smoking_history/user_fk
     {:form/encounter [:t_encounter/id :t_encounter/date_time :t_encounter/patient_age]}])
-  ([{:form_smoking_history/keys [status current_cigarettes_per_day duration_years
+  ([{:form/keys [actions]
+     :form_smoking_history/keys [status current_cigarettes_per_day duration_years
                                  previous_cigarettes_per_day previous_duration_years
-                                 year_gave_up] :as form-data}
-    {:keys [disabled]}]
-   [:<>
-    (ui/ui-simple-form-item
-      {:label "Smoking status"}
-      (ui/ui-select-button
-        {:selected status
-         :options  [{:id "NEVER_SMOKED" :text "Never Smoked"}
-                    {:id "EX_SMOKER" :text "Ex Smoker"}
-                    {:id "CURRENT_SMOKER" :text "Current Smoker"}]
-         :disabled disabled
-         :name     "status"}))
-    (case status
-      "NEVER_SMOKED" nil
-      "CURRENT_SMOKER"
-      [:div
-       (ui/ui-simple-form-item
-         {:label "Current cigarettes per day"}
-         (ui/ui-textfield*
-           {:value    (str current_cigarettes_per_day)
-            :disabled disabled
-            :type     "number"
-            :name     "current_cigarettes_per_day"}))
-       (ui/ui-simple-form-item
-         {:label "Duration in years"}
-         (ui/ui-textfield*
-           {:value    (str duration_years)
-            :disabled disabled
-            :type     "number"
-            :name     "duration_years"}))]
-      "EX_SMOKER"
-      [:div
-       (ui/ui-simple-form-item
-         {:label "Previous number of cigarettes per day"}
-         (ui/ui-textfield*
-           {:value    (str previous_cigarettes_per_day)
-            :disabled disabled
-            :type     "number"
-            :name     "previous_cigarettes_per_day"}))
-       (ui/ui-simple-form-item
-         {:label "Duration in years"}
-         (ui/ui-textfield*
-           {:value    (str previous_duration_years)
-            :disabled disabled
-            :type     "number"
-            :name     "previous_duration_years"}))
-       (ui/ui-simple-form-item
-         {:label "Year gave up smoking cigarettes"}
-         (ui/ui-textfield*
-           {:value    (str year_gave_up)
-            :disabled disabled
-            :type     "number"
-            :name     "year_gave_up"}))]
-      nil)]))
+                                 year_gave_up] :as form-data}]
+   (let [disabled (not (:EDIT actions))]
+     [:<>
+      (ui/ui-simple-form-item
+        {:label "Smoking status"}
+        (ui/ui-select-button
+          {:selected status
+           :options  [{:id "NEVER_SMOKED" :text "Never Smoked"}
+                      {:id "EX_SMOKER" :text "Ex Smoker"}
+                      {:id "CURRENT_SMOKER" :text "Current Smoker"}]
+           :disabled disabled
+           :name     "status"}))
+      (case status
+        "NEVER_SMOKED" nil
+        "CURRENT_SMOKER"
+        [:div
+         (ui/ui-simple-form-item
+           {:label "Current cigarettes per day"}
+           (ui/ui-textfield*
+             {:value    (str current_cigarettes_per_day)
+              :disabled disabled
+              :type     "number"
+              :name     "current_cigarettes_per_day"}))
+         (ui/ui-simple-form-item
+           {:label "Duration in years"}
+           (ui/ui-textfield*
+             {:value    (str duration_years)
+              :disabled disabled
+              :type     "number"
+              :name     "duration_years"}))]
+        "EX_SMOKER"
+        [:div
+         (ui/ui-simple-form-item
+           {:label "Previous number of cigarettes per day"}
+           (ui/ui-textfield*
+             {:value    (str previous_cigarettes_per_day)
+              :disabled disabled
+              :type     "number"
+              :name     "previous_cigarettes_per_day"}))
+         (ui/ui-simple-form-item
+           {:label "Duration in years"}
+           (ui/ui-textfield*
+             {:value    (str previous_duration_years)
+              :disabled disabled
+              :type     "number"
+              :name     "previous_duration_years"}))
+         (ui/ui-simple-form-item
+           {:label "Year gave up smoking cigarettes"}
+           (ui/ui-textfield*
+             {:value    (str year_gave_up)
+              :disabled disabled
+              :type     "number"
+              :name     "year_gave_up"}))]
+        nil)])))
 
 (defn ui-encounter-banner
   "Renders encounter banner with date and project information"
@@ -273,15 +274,15 @@
 (defn action-buttons
   "Form action buttons (Save, Cancel, Delete)"
   ([]
-   [:form/id
+   [:form/id :form/status :form/actions
     :form/is_deleted
-    {:form/encounter [:t_encounter/is_deleted :t_encounter/is_locked :t_encounter/lock_date_time
-                      {:t_encounter/patient [:t_patient/permissions]}]}])
-  ([{:form/keys [id is_deleted encounter] :as form-data}]
+    {:form/encounter [:t_encounter/id :t_encounter/is_deleted :t_encounter/is_locked
+                      {:t_encounter/patient [:t_patient/patient_identifier
+                                             :t_patient/permissions]}]}])
+  ([{:form/keys [id actions status] :as form}]
+   (clojure.pprint/pprint form)
    (let [is-new-form? (string? (str id))
-         patient (:t_encounter/patient encounter)
-         is-locked (:t_encounter/is_locked encounter)
-         can-edit (or (not is-locked) (:CAN_EDIT (:t_patient/permissions patient)))]
+         can-edit (:EDIT actions)]
      [:div.sm:flex.flex-row.sm:justify-end.mt-5.border.shadow-md.py-2.bg-gray-100
       (if can-edit
         [:div
@@ -291,7 +292,7 @@
          (ui/ui-submit-button {} "Save")]
         [:div
          [:span.text-sm.pt-3.mr-4.italic.text-gray-500
-          (if is-locked
+          (if (:LOCKED status)
             "You cannot edit this form as the encounter is locked"
             "You do not have permission to edit this form")]
          (ui/ui-cancel-button {:hx-get "/close-url"} "Close")])])))
@@ -299,7 +300,7 @@
 (defn ui-form-unsupported
   ([]
    [:form/id {:form/form_type [:form_type/title]} :form/summary_result])
-  ([{:form/keys [id form_type summary_result]} _]
+  ([{:form/keys [id form_type summary_result]}]
    (ui/ui-simple-form
      (ui/ui-simple-form-title
        {:title (:form_type/title form_type)})
@@ -355,5 +356,5 @@
                               :banner  (:ui/patient-banner current-patient)
                               :content (web/render [:div
                                                     (ui-encounter-banner current-form)
-                                                    (ui-layout current-form (form current-form {}))])})
-            (web/render (ui-layout current-form (form current-form {})))))))))
+                                                    (ui-layout current-form (form current-form))])})
+            (web/render (ui-layout current-form (form current-form)))))))))

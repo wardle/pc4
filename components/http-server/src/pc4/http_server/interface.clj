@@ -66,6 +66,7 @@
     ["/patient/:patient-identifier/break-glass" :post [login/authenticated patient/do-break-glass] :route-name :patient/do-break-glass]
     ["/patient/:patient-identifier/encounters" :get [login/authenticated patient/authorized patient-encounters/encounters-handler] :route-name :patient/encounters]
     ["/patient/:patient-identifier/encounter/:encounter-id" :get [login/authenticated patient/authorized patient-encounters/encounter-handler] :route-name :patient/encounter]
+    ["/patient/:patient-identifier/encounter/:encounter-id/lock" :post [login/authenticated patient/authorized patient-encounters/encounter-lock-handler] :route-name :encounter/lock]
     ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :get [login/authenticated patient/authorized patient-forms/form-handler] :route-name :patient/form]
     ["/patient/:patient-identifier/nhs" :get [login/authenticated patient/authorized patient/nhs] :route-name :patient/nhs]
     ["/patient/:patient-identifier/projects" :get [login/authenticated patient/authorized patient/projects] :route-name :patient/projects]
