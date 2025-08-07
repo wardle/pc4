@@ -1064,6 +1064,44 @@
       (log/error "Missing hint on parameters" (:query-params env))
       (throw (ex-info "Missing hint on parameters for form. Specify :encounter-id in load parameters" (:query-params env))))))
 
+(pco/defresolver form->status
+  [_ {:form/keys [is_deleted encounter]}]
+  {::pco/input  [:form/is_deleted
+                 {:form/encounter [:t_encounter/is_locked
+                                   :t_encounter/is_deleted
+                                   {:t_encounter/patient [:t_patient/permissions]}]}]
+   ::pco/output [:form/can_edit]}
+  {:form/status
+   (cond
+     is_deleted #{:DELETED :FORM_DELETED}
+     (:t_encounter/is_locked encounter) #{:LOCKED}
+     (:t_encounter/is_deleted encounter) #{:DELETED :ENCOUNTER_DELETED}
+     (:PATIENT_EDIT (:t_patient/permissions (:t_encounter/patient encounter))) #{:EDITABLE}
+     :else #{:UNAUTHORIZED})})
+
+(pco/defresolver form->actions
+  [_ {:form/keys [id is_deleted encounter] :as form}]
+  {::pco/input  [:form/id
+                 :form/is_deleted
+                 {:form/encounter [:t_encounter/id :t_encounter/is_deleted :t_encounter/is_locked
+                                   {:t_encounter/patient [:t_patient/patient_identifier
+                                                          :t_patient/permissions]}]}]
+   ::pco/output [:form/actions]}
+  {:form/actions
+   (let [patient (:t_encounter/patient encounter)
+         permissions (:t_patient/permissions patient)
+         can-edit (:PATIENT_EDIT permissions)
+         can-unlock (:PATIENT_UNLOCK permissions)
+         encounter-deleted (:t_encounter/is_deleted encounter)
+         is-locked (:t_encounter/is_locked encounter)]
+     (cond-> #{:CANCEL}
+       (and is-locked can-unlock (not is_deleted) (not encounter-deleted))
+       (conj :UNLOCK)
+       (and can-edit (not is_deleted) (not encounter-deleted) (not is-locked))
+       (conj :LOCK :SAVE)
+       (and can-edit is_deleted (not encounter-deleted))
+       (conj :UNDELETE)))})
+
 (pco/defresolver encounter->forms_generic_procedures
   [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/id]
@@ -1930,6 +1968,8 @@
    encounter->form_smoking
    encounter->forms
    form-by-id
+   form->status
+   form->actions
    patient->results
    user-by-username
    user-by-id
