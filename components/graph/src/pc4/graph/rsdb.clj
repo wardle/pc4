@@ -631,6 +631,17 @@
   ;; TODO: patient->active-project-ids should be its own resolver to avoid duplication
   {:t_patient/administrators (rsdb/projects->administrator-users rsdb (rsdb/patient->active-project-identifiers rsdb patient_identifier))})
 
+(pco/defresolver patient->local-gp-surgeries
+  "Return 'local' GP surgeries within 5km of patient's current address."
+  [{ods :com.eldrix/clods} {:t_patient/keys [address]}]
+  {::pco/input  [{:t_patient/address [:t_address/postcode_raw]}]
+   ::pco/output [:t_patient/local_gp_surgeries]}
+  {:t_patient/local_gp_surgeries
+   (when-let [postcode (:t_address/postcode_raw address)]
+     (clods/search-org ods {:role     "RO177"               ;; TODO: parameterise the range
+                            :postcode postcode
+                            :range    5000}))})
+
 (pco/defresolver episode-by-id
   [{rsdb :com.eldrix/rsdb} {:t_episode/keys [id]}]
   {::pco/output episode-properties}
