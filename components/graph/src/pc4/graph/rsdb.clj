@@ -1060,6 +1060,7 @@
 (pco/defresolver form-by-id
   [{rsdb :com.eldrix/rsdb :as env} {form-id :form/id}]
   {::pco/output [:form/id
+                 :form/is_deleted
                  :form/user_fk
                  :form/encounter_fk
                  :form/summary_result
@@ -1081,7 +1082,7 @@
                  {:form/encounter [:t_encounter/is_locked
                                    :t_encounter/is_deleted
                                    {:t_encounter/patient [:t_patient/permissions]}]}]
-   ::pco/output [:form/can_edit]}
+   ::pco/output [:form/status]}
   {:form/status
    (cond
      is_deleted #{:DELETED :FORM_DELETED}
@@ -1091,9 +1092,8 @@
      :else #{:UNAUTHORIZED})})
 
 (pco/defresolver form->actions
-  [_ {:form/keys [id is_deleted encounter] :as form}]
-  {::pco/input  [:form/id
-                 :form/is_deleted
+  [_ {:form/keys [is_deleted encounter] :as form}]
+  {::pco/input  [:form/is_deleted
                  {:form/encounter [:t_encounter/id :t_encounter/is_deleted :t_encounter/is_locked
                                    {:t_encounter/patient [:t_patient/patient_identifier
                                                           :t_patient/permissions]}]}]
@@ -1109,7 +1109,7 @@
        (and is-locked can-unlock (not is_deleted) (not encounter-deleted))
        (conj :UNLOCK)
        (and can-edit (not is_deleted) (not encounter-deleted) (not is-locked))
-       (conj :LOCK :SAVE)
+       (conj :LOCK :EDIT :SAVE)
        (and can-edit is_deleted (not encounter-deleted))
        (conj :UNDELETE)))})
 
