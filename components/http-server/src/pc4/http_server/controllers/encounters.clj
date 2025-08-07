@@ -3,13 +3,10 @@
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.http-server.pathom :as pathom]
     [pc4.http-server.ui :as ui]
     [pc4.http-server.web :as web]
     [pc4.nhs-number.interface :as nnn]
-    [pc4.rsdb.html :as html]
-    [pc4.rsdb.interface :as rsdb]
-    [rum.core :as rum])
+    [pc4.rsdb.interface :as rsdb])
   (:import [java.time LocalDate]))
 
 ;; List encounters functionality
@@ -59,7 +56,7 @@
     :f     :t_encounter_template/title}
    {:id    :notes
     :title "Notes"
-    :f     (fn [{:t_encounter/keys [notes]}] (html/html->text notes))}
+    :f     (fn [{:t_encounter/keys [notes]}] (web/html->text notes))}
    {:id    :patient
     :title "Patient"
     :f     (fn [{:t_patient/keys [title first_names last_name]}] (str last_name ", " first_names (when-not (str/blank? title) (str " (" title ")"))))}
@@ -133,20 +130,21 @@
   [request]
   (let [rsdb (get-in request [:env :rsdb])
         parsed-params (merge default-params (parse-list-encounter-params request))
+        {:keys [view]} parsed-params
         encounters (when (seq parsed-params) (rsdb/list-encounters rsdb parsed-params))
         headings# (headings parsed-params)]
-    (web/ok
-      (web/render
-        (ui/ui-table
-          (ui/ui-table-head
-            (for [{:keys [title]} headings#]
-              (ui/ui-table-heading {} title)))
-          (ui/ui-table-body
-            (for [encounter encounters]
-              (ui/ui-table-row
-                {}
-                (for [{:keys [f f2] :or {f (constantly "")}} headings#]
-                  (ui/ui-table-cell {} (cond
-                                         f2 (f2 parsed-params encounter)
-                                         f (f encounter)
-                                         :else "")))))))))))
+    (-> (web/ok
+          (web/render
+            (ui/ui-table
+              (ui/ui-table-head
+                (for [{:keys [title]} headings#]
+                  (ui/ui-table-heading {} title)))
+              (ui/ui-table-body
+                (for [encounter encounters]
+                  (ui/ui-table-row
+                    {}
+                    (for [{:keys [f f2] :or {f (constantly "")}} headings#]
+                      (ui/ui-table-cell {} (cond
+                                             f2 (f2 parsed-params encounter)
+                                             f (f encounter)
+                                             :else ""))))))))))))

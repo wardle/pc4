@@ -1,5 +1,5 @@
 (ns pc4.http-server.pathom
-  (:require [com.wsscode.pathom3.interface.eql :as p.eql]))
+  (:require [edn-query-language.core :as eql]))
 
 (defn process
   "Execute the `query` in the context of the http `request`.
@@ -40,5 +40,13 @@
      ([request output]
       (f request output)))))
 
+
+(defn merge-queries                                         ;; TODO: deprecate once merged into upstream lib
+  ([qa] qa)
+  ([qa qb] (eql/merge-queries qa qb))
+  ([qa qb & more]
+   (some-> (reduce (fn [ast q] (eql/merge-asts ast (eql/query->ast q)))
+                   (eql/merge-asts (eql/query->ast qa) (eql/query->ast qb)) more)
+           (eql/ast->query))))
 
 

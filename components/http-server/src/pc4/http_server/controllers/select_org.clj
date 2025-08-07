@@ -3,11 +3,9 @@
   Provides single organisation selection using the ODS (Organisation Data Service)
   with configurable display fields and search filtering."
   (:require
-    [clojure.edn :as edn]
     [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
-    [com.eldrix.clods.core :as clods]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [pc4.http-server.pathom :as pathom]
@@ -213,7 +211,7 @@
         {:keys [allow-unfiltered common-orgs fields range roles] :as config} (web/read-hx-vals :data form-params)
         search-text (some-> (:s form-params) str/trim (minimum-chars 3))
         postcode (some-> (:postcode form-params) str/trim (minimum-chars 2))
-        {:keys [OSNRTH1M OSEAST1M] :as coords} (when postcode (clods/os-grid-reference ods postcode))
+        {:keys [OSNRTH1M OSEAST1M] :as coords} (when postcode (ods/os-grid-reference ods postcode))
         range-km (or (some-> (:range form-params) str/trim parse-long) (when range (/ range 1000)) 10)
         limit (some-> (:limit form-params) str/trim parse-long)
         trigger-id (web/hx-trigger request)

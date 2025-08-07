@@ -1,9 +1,10 @@
 (ns pc4.http-server.ui
   (:require [clojure.string :as str]
             [rum.core :as rum])
-  (:import #?@(:clj  [(java.time LocalDate)
+  (:import #?@(:clj  [(java.time LocalDateTime LocalDate)
                       (java.time.format DateTimeFormatter)]
-               :cljs [(goog.date Date)])))
+               :cljs [(goog.date Date)])
+           (java.time.temporal Temporal)))
 
 ;; Date formatting utilities
 #?(:clj
@@ -19,6 +20,12 @@
      [date-time]
      (when date-time
        (.format date-time (DateTimeFormatter/ofPattern "dd-MMM-yyyy HH:mm")))))
+
+#?(:clj
+   (defn day-of-week
+     "Returns a localised day of week (e.g. \"Thu\" for a given TemporalAccessor."
+     [t]
+     (when t (DateTimeFormatter/.format (DateTimeFormatter/ofPattern "E") t))))
 
 #?(:cljs
    (defn format-date
@@ -177,32 +184,32 @@
 
     ;; Modal panel
     [:div.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:p-6
-     {:class (into ["w-11/12" "sm:w-full"] 
-                  (case size
-                    :small ["sm:max-w-sm"]
-                    :medium ["sm:max-w-xl"]
-                    :large ["sm:max-w-4xl"]
-                    :xl ["sm:max-w-7xl"]
-                    :full ["sm:max-w-[95%]"]
-                    (if (string? size) [size] [])))}
+     {:class (into ["w-11/12" "sm:w-full"]
+                   (case size
+                     :small ["sm:max-w-sm"]
+                     :medium ["sm:max-w-xl"]
+                     :large ["sm:max-w-4xl"]
+                     :xl ["sm:max-w-7xl"]
+                     :full ["sm:max-w-[95%]"]
+                     (if (string? size) [size] [])))}
      ;; Modal header
      (when title
        [:div.mt-3.text-center.sm:mt-0.sm:text-left
-        [:h3#modal-title.text-lg.font-medium.leading-6.text-gray-900 
+        [:h3#modal-title.text-lg.font-medium.leading-6.text-gray-900
          {:id (str id "-title")}
          title]])
-     
+
      ;; Modal content
      [:div.mt-4 content]
-     
+
      ;; Modal footer with actions
      (when (seq actions)
        [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
         (for [{:keys [id title role disabled? hidden?] :as action} actions
               :when (and action (not hidden?))]
           [:button
-           (cond-> {:id id
-                    :type "button"
+           (cond-> {:id    id
+                    :type  "button"
                     :class (str "w-full inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm "
                                 (case role
                                   :primary "border-transparent text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
@@ -259,24 +266,25 @@
    content])
 
 (rum/defc ui-select-button
-  [{:keys [id name label disabled hx-post hx-get hx-target hx-swap options selected-id selected]}]
-  [:div
-   (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
-   [:div.mt-2.grid.grid-cols-1
-    [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
-     (cond-> {:name  (or name id), :id (or id name)
-              :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
-       disabled (assoc :disabled "disabled")
-       hx-get (assoc :hx-get hx-get)
-       hx-post (assoc :hx-post hx-post)
-       hx-target (assoc :hx-target hx-target)
-       hx-swap (assoc :hx-swap hx-swap))
-     (for [{:keys [id text] :as option} options]
-       (if (or (and selected-id (= id selected-id)) (and selected (= option selected)))
-         [:option {:value id :selected "selected"} text]
-         [:option {:value id} text]))]
-    [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
-     [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]])
+  [{:keys [id name label disabled hx-post hx-get hx-target hx-swap options selected-id selected no-selection-string]}]
+  (let [options# (if no-selection-string (into [{:id nil :text no-selection-string}] options) options)]
+    [:div
+     (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
+     [:div.mt-2.grid.grid-cols-1
+      [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+       (cond-> {:name  (or name id), :id (or id name)
+                :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
+         disabled (assoc :disabled "disabled")
+         hx-get (assoc :hx-get hx-get)
+         hx-post (assoc :hx-post hx-post)
+         hx-target (assoc :hx-target hx-target)
+         hx-swap (assoc :hx-swap hx-swap))
+       (for [{:keys [id text] :as option} options#]
+         (if (or (and selected-id (= id selected-id)) (and selected (= option selected)))
+           [:option {:value id :selected "selected"} text]
+           [:option {:value id} text]))]
+      [:svg.pointer-events-none.col-start-1.row-start-1.mr-2.size-5.self-center.justify-self-end.text-gray-500.sm:size-4 {:viewBox "0 0 16 16" :fill "currentColor" :aria-hidden "true" :data-slot "icon"}
+       [:path {:fill-rule "evenodd" :d "M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" :clip-rule "evenodd"}]]]]))
 
 (rum/defc ui-title [{:keys [id title subtitle]}]
   [:div.sm:flex.sm:items-center.pl-2.pb-4
@@ -317,8 +325,8 @@
    [:div.mt-1.sm:mt-0.sm:col-span-2
     [:div.w-full.rounded-md.shadow-sm
      (when subtitle
-       [:h4.text-xs.italic.font-light.text-gray-600 subtitle]
-       [:h3.text-lg.font-medium.leading-6.text-gray-900 title])]]])
+       [:h4.text-xs.italic.font-light.text-gray-600 subtitle])
+     [:h3.text-lg.font-medium.leading-6.text-gray-900 title]]]])
 
 (rum/defc ui-simple-form-item
   [{:keys [for label sublabel]} & content]
@@ -338,7 +346,7 @@
 
 (rum/defc ui-local-date
   [{:keys [id name label disabled] :as opts} ^LocalDate local-date]
-  [:div
+  [:div.mt-2
    (when label
      (ui-label {:for (or id name) :label label}))
    (when (or (not disabled) local-date)
@@ -401,3 +409,34 @@
      [:path {:d "M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z" :stroke "currentColor" :stroke-width "5" :stroke-linecap "round" :stroke-linejoin "round"}]
      [:path.text-gray-900 {:d "M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762" :stroke "currentColor" :stroke-width "5" :stroke-linecap "round" :stroke-linejoin "round"}]]
     [:span.sr-only "Loading..."]]])
+
+(rum/defc ui-checkbox
+  "Checkbox component with label and optional description"
+  [{:keys [name label description checked disabled]}]
+  [:div.relative.flex.items-start
+   [:div.flex.items-center.h-5
+    [:input.focus:ring-indigo-500.h-4.w-4.text-indigo-600.border-gray-300.rounded
+     {:name     name
+      :type     "checkbox"
+      :disabled disabled
+      :checked  checked}]]
+   [:div.ml-3.text-sm
+    [:label.font-medium.text-gray-700 {:for name} label]
+    (when description [:p.text-gray-500 description])]])
+
+(rum/defc ui-radio-button
+  "Radio button group component"
+  [{:keys [name value value-id options disabled id-key display-key] :or {display-key :text id-key :id}}]
+  (for [{:keys [id] :as option} options
+        :let [id' (or id (id-key option))]]
+    [:div.flex.items-center.divide-y.divide-dotted {:key id'}
+     [:input.text-blue-600.bg-gray-100.border-gray-300.focus:ring-blue-500
+      {:type     "radio"
+       :id       id'
+       :disabled disabled
+       :name     name
+       :checked  (or (and value-id (= id' value-id)) (= id' (id-key value)))
+       :value    id'}]
+     [:label.ms-2.text-sm.font-medium.text-gray-900
+      {:for id'}
+      (display-key option)]]))

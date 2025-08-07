@@ -40,6 +40,18 @@
   {:ui/current-ms-event
    {:t_ms_event/id (some-> request :path-params :ms-event-id parse-long)}})
 
+(pco/defresolver current-encounter
+  [{:keys [request]} _]
+  {::pco/output [{:ui/current-encounter [:t_encounter/id]}]}
+  {:ui/current-encounter
+   {:t_encounter/id (some-> request :path-params :encounter-id parse-long)}})
+
+(pco/defresolver current-form
+  [{:keys [request]} _]
+  {::pco/output [{:ui/current-form [:form/id]}]}
+  {:ui/current-form
+   {:form/id (some-> request :path-params :form-id parse-long)}})
+
 (pco/defresolver patient->best-hospital-crn
   [{rsdb :com.eldrix/rsdb} {current-project :ui/current-project, hospitals :t_patient/hospitals}]
   {::pco/input  [{:ui/current-project [:t_project/id]}
@@ -162,18 +174,21 @@
                   :hidden  false
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
-        {:items [{:content (web/render [:form {:hx-target "#list-encounters" :hx-trigger "change"
-                                               :hx-post    (route/url-for :ui/list-encounters)}
-                                        [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
-                                        [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]
-                                        (ui/ui-select-button {:name "view" :options [{:id :notes :text "Notes"}
-                                                                                     {:id :users :text "Users"}
-                                                                                     {:id :ninflamm :text "Neuroinflammatory"}
-                                                                                     {:id :mnd :text "Motor neurone disease"}]})])}
-                 {:text   "Add encounter..."
-                  :hidden (not can-edit?)
-                  :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
-                                                                          :encounter-id       "new"})}]}
+        (let [encounters-view (keyword (get-in request [:params "view"] "notes"))]
+          {:items [{:content (web/render [:form {:hx-target "#list-encounters" 
+                                                 :hx-trigger "change"
+                                                 :hx-get     (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
+                                                 :hx-push-url "true"}
+                                          (ui/ui-select-button {:name "view" 
+                                                                :selected-id encounters-view
+                                                                :options [{:id :notes :text "Notes"}
+                                                                          {:id :users :text "Users"}
+                                                                          {:id :ninflamm :text "Neuroinflammatory"}
+                                                                          {:id :mnd :text "Motor neurone disease"}]})])}
+                   {:text   "Add encounter..."
+                    :hidden (not can-edit?)
+                    :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
+                                                                            :encounter-id       "new"})}]})
         {:items []})}}))
 
 (pco/defresolver patient-page
@@ -221,6 +236,8 @@
                 current-diagnosis
                 current-medication
                 current-ms-event
+                current-encounter
+                current-form
                 patient->best-hospital-crn
                 patient-banner patient-menu
                 patient-page
@@ -327,7 +344,7 @@
            authorized? (rsdb/authorized? authorization-manager patient-project-ids :PATIENT_VIEW)
            authenticated-user (get-in ctx [:request :session :authenticated-user])
            break-glass? (= (get-in ctx [:request :session :break-glass]) patient-identifier)]
-       (log/debug "checking authorization " {:username            (:t_user/username authenticated-user)
+       (log/trace "checking authorization " {:username            (:t_user/username authenticated-user)
                                              :patient-identifier  patient-identifier
                                              :authorized?         authorized?
                                              :patient-project-ids patient-project-ids

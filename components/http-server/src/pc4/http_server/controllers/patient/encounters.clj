@@ -133,40 +133,144 @@
    :with-patient false})
 
 
-(defn list-encounters-handler
-  [request]
-  (let [rsdb (get-in request [:env :rsdb])
-        parsed-params (merge default-params (parse-list-encounter-params request))
-        encounters (when (seq parsed-params) (rsdb/list-encounters rsdb parsed-params))
-        headings# (headings parsed-params)]
-    (web/ok
-      (web/render
-        (ui/ui-table
-          (ui/ui-table-head
-            (for [{:keys [title]} headings#]
-              (ui/ui-table-heading {} title)))
-          (ui/ui-table-body
-            (for [encounter encounters]
-              (ui/ui-table-row
-                {}
-                (for [{:keys [f f2] :or {f (constantly "")}} headings#]
-                  (ui/ui-table-cell {} (cond
-                                         f2 (f2 parsed-params encounter)
-                                         f (f encounter)
-                                         :else "")))))))))))
-
 (def encounter-handler
   (pathom/handler
-    [{:ui/current-encounter
+    {:menu :encounters}
+    [:ui/csrf-token
+     :ui/navbar
+     {:ui/current-patient
+      [:ui/patient-banner]}
+     {:ui/current-encounter
       [:t_encounter/id
        :t_encounter/date_time
-       :t_encounter/lock_date_time
+       :t_encounter/is_deleted
        :t_encounter/is_locked
+       :t_encounter/lock_date_time
+       :t_encounter/hospital_crn
+       :t_encounter/notes
        {:t_encounter/encounter_template [:t_encounter_template/title
                                          {:t_encounter_template/project [:t_project/id
-                                                                         :t_project/title]}]}]}]
-    (fn [request {:ui/keys [current-encounter]}]
-      (web/ok (web/render "ok")))))
+                                                                         :t_project/title]}]}
+       {:t_encounter/completed_forms [:form/id
+                                      :form/form_type
+                                      :form/summary_result
+                                      {:form/user [:t_user/id
+                                                   :t_user/full_name
+                                                   :t_user/initials]}]}
+       {:t_encounter/available_form_types [:form_type/id
+                                           :form_type/nm
+                                           :form_type/title]}
+       {:t_encounter/patient [:t_patient/patient_identifier
+                              :t_patient/permissions]}]}]
+    (fn [request {:ui/keys [csrf-token navbar current-patient current-encounter]}]
+      (let [{:t_encounter/keys [id date_time is_deleted is_locked lock_date_time hospital_crn notes
+                                encounter_template completed_forms available_form_types patient]} current-encounter
+            {:t_encounter_template/keys [title project]} encounter_template
+            project-title (:t_project/title project)
+            {:t_patient/keys [patient_identifier permissions]} patient
+            can-edit-patient? (get permissions :PATIENT_EDIT)
+            can-edit-encounter? (and can-edit-patient? (not is_locked))]
+        (web/ok
+          (web/render
+            [:div
+             ;; Patient banner
+             [:div
+              {:dangerouslySetInnerHTML {:__html (web/render-file "templates/patient/base.html"
+                                                                  {:navbar navbar, :banner (:ui/patient-banner current-patient)})}}]
+
+             ;; Main encounter content
+
+             [:div.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
+              ;; Left sidebar with encounter info and actions
+              [:div.col-span-1.p-2.space-y-2
+               ;; Back button
+               [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-gray-300.shadow-sm.text-sm.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                {:onclick "history.back()"}
+                "Back"]
+
+               ;; Encounter info panel
+               (when (and date_time encounter_template)
+                 [:div.shadow.bg-gray-50
+                  [:div.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
+                   (ui/format-date-time date_time)]
+                  [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center
+                   project-title]
+                  [:div.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
+                   title]])
+
+               ;; Warning if deleted
+               (when is_deleted
+                 [:div.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
+                  "Warning: this encounter has been deleted"])
+
+               ;; Edit button (if allowed)
+               (when (and (not is_deleted) (not is_locked) can-edit-patient?)
+                 [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600.hover:bg-blue-700
+                  "Edit"])
+
+               ;; Lock/unlock info and buttons
+               (when (or is_locked lock_date_time can-edit-patient?)
+                 [:div.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
+                  (if is_locked
+                    [:div.grid.grid-cols-1.gap-2
+                     "This encounter has been locked against editing"
+                     (when (and (not is_deleted) can-edit-patient?)
+                       [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                        "Unlock"])]
+                    [:div.grid.grid-cols-1.gap-2
+                     (when lock_date_time
+                       [:span "This encounter will lock at " [:br] (ui/format-date-time lock_date_time)])
+                     (when can-edit-patient?
+                       [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                        "Lock encounter now"])])])]
+
+              ;; Main content area
+              [:div.col-span-1.lg:col-span-5.pt-2
+               {:id "main-content"}
+               ;; Forms table
+               (ui/ui-table
+                 (ui/ui-table-head
+                   (ui/ui-table-row {}
+                                    (ui/ui-table-heading {} "Form")
+                                    (ui/ui-table-heading {} "Result")
+                                    (ui/ui-table-heading {} "User")))
+                 (ui/ui-table-body
+                   ;; Completed forms
+                   (for [{form-id :form/id :form/keys [form_type summary_result user]} completed_forms
+                         :let [{:form_type/keys [nm title]} form_type]]
+                     (ui/ui-table-row
+                       {:class     "cursor-pointer hover:bg-gray-200"}
+                       (ui/ui-table-cell
+                         [:a {:href (route/url-for :patient/form :path-params {:patient-identifier patient_identifier
+                                                                               :encounter-id       id
+                                                                               :form-type          nm
+                                                                               :form-id            form-id})}
+                          [:span.text-blue-500.underline title]])
+                       (ui/ui-table-cell {} summary_result)
+                       (ui/ui-table-cell {}
+                                         [:span.hidden.lg:block (:t_user/full_name user)]
+                                         [:span.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)])))
+
+                   ;; Available forms to add (if can edit)
+                   (when can-edit-encounter?
+                     (for [{:form_type/keys [id nm title]} available_form_types]
+                       (ui/ui-table-row
+                         {:class "italic cursor-pointer hover:bg-gray-200"}
+                         (ui/ui-table-cell {} [:span title])
+                         (ui/ui-table-cell {} [:span "Pending"])
+                         (ui/ui-table-cell {} ""))))))
+
+               ;; Notes panel
+               [:div.mt-4.bg-white.shadow.rounded-lg
+                [:div.px-4.py-5.sm:p-6
+                 [:h3.text-lg.leading-6.font-medium.text-gray-900
+                  (if can-edit-encounter?
+                    [:a.cursor-pointer.text-blue-500.underline "Notes"]
+                    "Notes")]
+                 [:div.mt-2.text-sm.text-gray-500
+                  {:id "notes-content"}
+                  [:div.shadow-inner.p-4.text-sm
+                   {:dangerouslySetInnerHTML {:__html (or notes "")}}]]]]]]]))))))
 
 (def encounters-handler
   (pathom/handler
@@ -176,21 +280,37 @@
      {:ui/current-patient
       [:t_patient/patient_identifier
        :t_patient/permissions]}]
-    (fn [_ {:ui/keys [csrf-token patient-page current-patient]}]
+    (fn [request {:ui/keys [csrf-token patient-page current-patient]}]
       (let [{:t_patient/keys [patient_identifier permissions]} current-patient
-            can-edit? (get-in permissions [:PATIENT_EDIT])]
+            can-edit? (get-in permissions [:PATIENT_EDIT])
+            view (keyword (get-in request [:query-params :view] "notes"))
+            rsdb (get-in request [:env :rsdb])
+            encounters-params {:patient-identifier patient_identifier
+                               :view               view
+                               :with-project       true
+                               :with-patient       false}
+            encounters (rsdb/list-encounters rsdb encounters-params)
+            headings# (headings encounters-params)
+            response
+            (ui/ui-table
+              (ui/ui-table-head
+                (for [{:keys [title]} headings#]
+                  (ui/ui-table-heading {} title)))
+              (ui/ui-table-body
+                (for [encounter encounters]
+                  (ui/ui-table-row
+                    {}
+                    (for [{:keys [f f2] :or {f (constantly "")}} headings#]
+                      (ui/ui-table-cell {} (cond
+                                             f2 (f2 encounters-params encounter)
+                                             f (f encounter)
+                                             :else "")))))))]
         (web/ok
-          (web/render-file
-            "templates/patient/base.html"
-            (assoc patient-page
-              :content
-              (web/render
-                [:form                                      ;; todo replace with a 'filter-encounters' component
-                 [:div
-                        {:id         "list-encounters"
-                         :hx-post    (route/url-for :ui/list-encounters)
-                         :hx-trigger "load"}
-                        (ui/ui-spinner {})]
-                 [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
-                 [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]]))))))))
+          (if (= (web/hx-target request) "list-encounters")
+            (web/render response)
+            (web/render-file
+              "templates/patient/base.html"
+              (assoc patient-page
+                :content
+                (web/render [:div {:id "list-encounters"} response])))))))))
 

@@ -2,9 +2,11 @@
   (:require
     [clojure.data.json :as json]
     [clojure.edn :as edn]
+    [clojure.string :as str]
     [pc4.log.interface :as log]
     [rum.core :as rum]
-    [selmer.parser :as selmer]))
+    [selmer.parser :as selmer])
+  (:import (org.jsoup Jsoup)))
 
 (defn render
   "Render the markup 'src' using rum. This is designed only for server-side
@@ -18,6 +20,12 @@
   Uses selmer."
   [filename-or-url context-map]
   (selmer/render-file filename-or-url context-map))
+
+(defn html->text
+  "Convert a string containing HTML to plain text."
+  [^String html]
+  (when-not (str/blank? html)
+    (.text (Jsoup/parse html))))
 
 (defn ok
   [content]
@@ -113,6 +121,19 @@
   []
   {:status 204})
 
+
+;;
+;; htmx helper functions
+;;
+
+(defn htmx-request?
+  "Check if the request is an HTMX request by looking for the HX-Request header."
+  [request]
+  (some? (get-in request [:headers "hx-request"])))
+
+(defn hx-target
+  [request]
+  (get-in request [:headers "hx-target"]))
 
 (defn hx-trigger
   "Return the id of the triggered element if it exists"
