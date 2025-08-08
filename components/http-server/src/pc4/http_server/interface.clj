@@ -68,6 +68,8 @@
     ["/patient/:patient-identifier/encounter/:encounter-id" :get [login/authenticated patient/authorized patient-encounters/encounter-handler] :route-name :patient/encounter]
     ["/patient/:patient-identifier/encounter/:encounter-id/lock" :post [login/authenticated patient/authorized patient-encounters/encounter-lock-handler] :route-name :encounter/lock]
     ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :get [login/authenticated patient/authorized patient-forms/form-handler] :route-name :patient/form]
+    ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :post [login/authenticated patient/authorized patient-forms/form-save-handler] :route-name :patient/form-save]
+    ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :delete [login/authenticated patient/authorized patient-forms/form-delete-handler] :route-name :patient/form-delete]
     ["/patient/:patient-identifier/nhs" :get [login/authenticated patient/authorized patient/nhs] :route-name :patient/nhs]
     ["/patient/:patient-identifier/projects" :get [login/authenticated patient/authorized patient/projects] :route-name :patient/projects]
     ["/patient/:patient-identifier/admissions" :get [login/authenticated patient/authorized patient/admissions] :route-name :patient/admissions]

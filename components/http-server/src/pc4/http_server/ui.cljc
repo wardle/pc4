@@ -244,10 +244,11 @@
      [:p.text-sm.text-gray-500.italic help-text])])
 
 (rum/defc ui-submit-button
-  [{:keys [disabled]} content]
+  [{:keys [disabled] :as params} content]
   [:button.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600
-   {:type  "submit"
-    :class (if disabled ["opacity-50" "pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
+   (merge {:type  "submit"
+           :class (if disabled ["opacity-50" "pointer-events-none"] ["hover:bg-blue-400" "focus:outline-none" "focus:ring-2 focus:ring-offset-2.focus:ring-blue-500"])}
+          params)
    content])
 
 (rum/defc ui-cancel-button

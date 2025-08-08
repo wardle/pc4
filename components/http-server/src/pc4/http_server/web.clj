@@ -145,6 +145,13 @@
   [{:keys [headers] :as request}]
   (get headers "hx-trigger-name"))
 
+;;
+;; we encode Clojure data within hx-vals; this is asymmetric because we smuggle
+;; the data into JSON using the key 'k'. When there is a HTMX request back to
+;; the server, HTMX submits the JSON keys and values as form data. As such,
+;; `read-hx-vals` is used against form params, reading the value of 'k' and then
+;; reading back as Clojure data.
+;;
 (defn write-hx-vals [k x]
   (str (json/write-str {k (pr-str x)})))
 

@@ -7,21 +7,40 @@
 
   This means the data query and rendering are co-located."
   (:require
+    [clojure.spec.alpha :as s]
     [edn-query-language.core :as eql]
+    [io.pedestal.http.route :as route]
     [pc4.log.interface :as log]
+    [pc4.http-server.controllers.select-user :as select-user]
     [pc4.http-server.pathom :as pathom]
     [pc4.http-server.ui :as ui]
-    [pc4.http-server.web :as web])
+    [pc4.http-server.web :as web]
+    [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDateTime)))
+
+(s/def ::request map?)
+(s/def ::query-fn (s/fspec :args [::request]))
+(s/def ::query (s/or :query ::eql/query :fn ::query-fn))
+(s/def ::data map?)
+(s/def ::view (s/fspec :args [::data]))
+(s/def ::form-params map?)
+(s/def ::value any?)
+(s/def ::parser (s/fspec :args [::value]))
+(s/def ::parse-map (s/map-of keyword? ::parser))
+(s/def ::parse (s/or ::map ::parse-map ::fn (s/fspec :args [::form-params])))
+(s/def ::form (s/keys :req-un [::query ::view ::parse]))
 
 (defn ui-form-user
   ([]
    [{:form/user [:t_user/id :t_user/full_name :t_user/job_title]}])
-  ([{:form/keys [user]}]
+  ([{:form/keys [actions user]}]
    (let [selected-user (when user
                          {:user-id   (:t_user/id user) :full-name (:t_user/full_name user)
                           :job-title (or (:t_user/job_title user) "")})]
-     (pc4.http-server.controllers.select-user/ui-select-user {:name "user-id" :selected selected-user}))))
+     (select-user/ui-select-user
+       {:name     "user-id"
+        :selected selected-user
+        :disabled (not (:EDIT actions))}))))
 
 (def edss-scores
   "EDSS score options with descriptions"
@@ -259,43 +278,9 @@
        [:span.text-gray-400.italic project-title]
        [:span.text-gray-600 encounter-template-title]]])))
 
-(defn form-layout
-  "Main form layout with patient banner, encounter banner and action buttons"
-  ([{:keys [patient-banner encounter-banner can-edit? form-content action-buttons]}]
-   [:<>
-    patient-banner
-    encounter-banner
-    [:div.bg-white.shadow.sm:rounded-lg
-     [:div.px-4.py-5.sm:p-6
-      [:div.mt-2.text-gray-500 form-content]
-      [:div.sm:flex.flex-row.sm:justify-end.mt-5.sm:border.shadow-md.py-2.sm:px-2.sm:bg-gray-100
-       action-buttons]]]]))
-
-(defn action-buttons
-  "Form action buttons (Save, Cancel, Delete)"
-  ([]
-   [:form/id :form/status :form/actions
-    :form/is_deleted
-    {:form/encounter [:t_encounter/id :t_encounter/is_deleted :t_encounter/is_locked
-                      {:t_encounter/patient [:t_patient/patient_identifier
-                                             :t_patient/permissions]}]}])
-  ([{:form/keys [id actions status] :as form}]
-   (clojure.pprint/pprint form)
-   (let [is-new-form? (string? (str id))
-         can-edit (:EDIT actions)]
-     [:div.sm:flex.flex-row.sm:justify-end.mt-5.border.shadow-md.py-2.bg-gray-100
-      (if can-edit
-        [:div
-         (ui/ui-cancel-button {:hx-get "/cancel-url"} "Cancel")
-         (when-not (string? (str id))
-           (ui/ui-delete-button {:hx-delete "/delete-url"} "Delete"))
-         (ui/ui-submit-button {} "Save")]
-        [:div
-         [:span.text-sm.pt-3.mr-4.italic.text-gray-500
-          (if (:LOCKED status)
-            "You cannot edit this form as the encounter is locked"
-            "You do not have permission to edit this form")]
-         (ui/ui-cancel-button {:hx-get "/close-url"} "Close")])])))
+;;
+;;
+;;
 
 (defn ui-form-unsupported
   ([]
@@ -315,22 +300,83 @@
    :form_ms_relapse      ui-form-ms-relapse
    :form_smoking_history ui-form-smoking-history})
 
+(defn request->form [request]
+  (get all-forms (keyword (get-in request [:path-params :form-type])) ui-form-unsupported))
+
+
+;;
+;;
+;;
+
+
+
+
+
+
+(defn action-config
+  [{:keys [method route path-params]}]
+  {method       (route/url-for route :path-params path-params)
+   :hx-push-url "true"
+   :hx-target   "body"})
+
+(defn ui-actions
+  "Form action buttons (Save, Cancel, Delete)"
+  ([]
+   [:form/id :form/status :form/actions :form/is_deleted
+    {:form/form_type [:form_type/nm]}
+    {:form/encounter [:t_encounter/id :t_encounter/is_deleted :t_encounter/is_locked
+                      {:t_encounter/patient [:t_patient/patient_identifier
+                                             :t_patient/permissions]}]}])
+  ([{:form/keys [id actions status encounter form_type] :as form}]
+   (clojure.pprint/pprint form)
+   (let [new-form? (string? (str id))
+         can-edit (and (:EDIT actions) (get all-forms (keyword (:form_type/nm form_type))))
+         {:t_encounter/keys [patient]} encounter
+         {:t_patient/keys [patient_identifier]} patient
+         encounter-id (:t_encounter/id encounter)
+         form-type-nm (:form_type/nm form_type)
+         path-params {:patient-identifier patient_identifier
+                      :encounter-id       encounter-id
+                      :form-type          form-type-nm
+                      :form-id            id}]
+     [:div.sm:flex.flex-row.sm:justify-end.mt-5.border.shadow-md.py-2.bg-gray-100
+      (if can-edit
+        [:div
+         (ui/ui-cancel-button {:onclick "history.back()"} "Cancel")
+         (when-not new-form?
+           (ui/ui-delete-button
+             (action-config {:method :hx-delete :route :patient/form-delete :path-params path-params})
+             "Delete"))
+         (ui/ui-submit-button
+           (action-config {:method :hx-post :route :patient/form-save :path-params path-params})
+           "Save and close")]
+        [:div
+         [:span.text-sm.pt-3.mr-4.italic.text-gray-500
+          (cond
+            (:LOCKED status)
+            "You cannot edit this form as the encounter is locked"
+            (:UNAUTHORIZED status)
+            "You do not have permission to edit this form"
+            :else "")]
+         (ui/ui-cancel-button {:onclick "history.back()"} "Close")])])))
+
 (defn ui-layout
   "Render layout for form contents."
   ([]
-   (into [:ui/csrf-token] (action-buttons)))
-  ([{:ui/keys [csrf-token] :as form-data} & content]
+   (pathom/merge-queries [:ui/csrf-token :form/id {:form/form_type [:form_type/nm]}] (ui-actions)))
+  ([{:ui/keys [csrf-token] :form/keys [id form_type] :as form-data} & content]
    [:div.bg-white.shadow.sm.rounded-lg
-    [:div.px-4.mt-2.text-gray-500
-     [:form {}
+    [:form {}
+     [:div.px-4.mt-2.text-gray-500
       [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
-      content]]
-    (action-buttons form-data)]))
+      [:input {:type "hidden" :name "form-data" :value (pr-str {:form/id id :form/form_type form_type})}]
+      content]
+     (ui-actions form-data)]]))
 
 (def form-handler
   (pathom/handler
     (fn [request]
-      (let [form (get all-forms (keyword (get-in request [:path-params :form-type])) ui-form-unsupported)
+      (let [form (request->form request)
             target (web/hx-target request)
             encounter-id (some-> request :path-params :encounter-id parse-long)
             form-query (pathom/merge-queries (form) (ui-form-user))
@@ -346,8 +392,7 @@
         (log/debug query)
         query))
     (fn [request {:ui/keys [current-form navbar current-patient] :as result}]
-      (clojure.pprint/pprint result)
-      (let [form (get all-forms (keyword (get-in request [:path-params :form-type])) ui-form-unsupported)
+      (let [form (request->form request)
             target (web/hx-target request)]
         (web/ok
           (if (or (nil? target) (= target "body"))
@@ -358,3 +403,61 @@
                                                     (ui-encounter-banner current-form)
                                                     (ui-layout current-form (form current-form))])})
             (web/render (ui-layout current-form (form current-form)))))))))
+
+(def form-save-handler
+  (pathom/handler
+    [:ui/csrf-token
+     {:ui/current-patient [:t_patient/patient_identifier :t_patient/permissions]}
+     {:ui/current-encounter [:t_encounter/id]}
+     {:ui/current-form [:form/id {:form/form_type [:form_type/nm]}]}]
+    (fn [{:keys [env form-params] :as request} {:ui/keys [current-patient current-encounter current-form]}]
+      (let [rsdb (:rsdb env)
+            form (request->form request)
+            form-id (:form/id current-form)
+            {:t_patient/keys [patient_identifier permissions]} current-patient
+            can-edit-patient? (get permissions :PATIENT_EDIT)
+            encounter-id (:t_encounter/id current-encounter)
+            on-save-url (route/url-for :patient/encounter
+                                       :path-params {:patient-identifier patient_identifier
+                                                     :encounter-id       encounter-id})]
+        (log/debug "save form" {:form-id form-id :encounter-id encounter-id :form form-params})
+        (cond
+          (not can-edit-patient?)
+          (web/forbidden "Not authorized to edit this patient")
+
+          :else
+          (do
+            (rsdb/save-form! rsdb )
+            (web/redirect-see-other on-save-url)))))))
+
+(def form-delete-handler
+  (pathom/handler
+    {}
+    [:ui/csrf-token
+     {:ui/current-patient [:t_patient/patient_identifier :t_patient/permissions]}
+     {:ui/current-encounter [:t_encounter/id]}
+     {:ui/current-form [:form/id]}]
+    (fn [request {:ui/keys [current-patient current-encounter current-form]}]
+      (let [rsdb (get-in request [:env :rsdb])
+            {form-id :form/id} current-form
+            {:t_patient/keys [patient_identifier permissions]} current-patient
+            can-edit-patient? (get permissions :PATIENT_EDIT)
+            encounter-id (:t_encounter/id current-encounter)]
+        (cond
+          (not can-edit-patient?)
+          (web/forbidden "Not authorized to edit this patient")
+
+          :else
+          (rsdb/delete-form! rsdb current-form)
+          #_(try
+              ;; Use pathom to delete the form
+              (let [result (pathom-env [{(list 'pc4.rsdb/delete-form! {:patient-identifier patient_identifier
+                                                                       :form               {:form/id form-id}})
+                                         [:form/id]}])]
+                (web/redirect-see-other
+                  (route/url-for :patient/encounter
+                                 :path-params {:patient-identifier patient_identifier
+                                               :encounter-id       encounter-id})))
+              (catch Exception e
+                (log/error e "Failed to delete form")
+                (web/server-error "Failed to delete form"))))))))

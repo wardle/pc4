@@ -48,9 +48,14 @@
 
 (pco/defresolver current-form
   [{:keys [request]} _]
-  {::pco/output [{:ui/current-form [:form/id]}]}
+  {::pco/output [{:ui/current-form
+                  [:form/id
+                   {:form/encounter [:t_encounter/id]}
+                   {:form/form_type [:form_type/nm]}]}]}
   {:ui/current-form
-   {:form/id (some-> request :path-params :form-id parse-long)}})
+   {:form/id        (some-> request :path-params :form-id parse-long)
+    :form/encounter {:t_encounter/id (some-> request :path-params :encounter-id parse-long)}
+    :form/form_type {:form_type/nm (get-in request [:path-params :form-type])}}})
 
 (pco/defresolver patient->best-hospital-crn
   [{rsdb :com.eldrix/rsdb} {current-project :ui/current-project, hospitals :t_patient/hospitals}]
@@ -175,16 +180,16 @@
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
         (let [encounters-view (keyword (get-in request [:params "view"] "notes"))]
-          {:items [{:content (web/render [:form {:hx-target "#list-encounters" 
-                                                 :hx-trigger "change"
-                                                 :hx-get     (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
+          {:items [{:content (web/render [:form {:hx-target   "#list-encounters"
+                                                 :hx-trigger  "change"
+                                                 :hx-get      (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
                                                  :hx-push-url "true"}
-                                          (ui/ui-select-button {:name "view" 
+                                          (ui/ui-select-button {:name        "view"
                                                                 :selected-id encounters-view
-                                                                :options [{:id :notes :text "Notes"}
-                                                                          {:id :users :text "Users"}
-                                                                          {:id :ninflamm :text "Neuroinflammatory"}
-                                                                          {:id :mnd :text "Motor neurone disease"}]})])}
+                                                                :options     [{:id :notes :text "Notes"}
+                                                                              {:id :users :text "Users"}
+                                                                              {:id :ninflamm :text "Neuroinflammatory"}
+                                                                              {:id :mnd :text "Motor neurone disease"}]})])}
                    {:text   "Add encounter..."
                     :hidden (not can-edit?)
                     :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
