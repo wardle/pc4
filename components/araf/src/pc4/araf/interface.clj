@@ -5,16 +5,20 @@
     [migratus.core :as migratus]
     [next.jdbc :as jdbc]
     [next.jdbc.connection :as connection]
+    [next.jdbc.specs]
     [pc4.araf.impl :as impl]
     [pc4.araf.qr :as qr]
-    [pc4.log.interface :as log])
-  (:import [com.zaxxer.hikari HikariDataSource]))
+    [pc4.log.interface :as log]
+    [pc4.nhs-number.interface :as nnn])
+  (:import [com.zaxxer.hikari HikariDataSource]
+           (java.time Duration Instant)))
 
 (def error-too-many-attempts ::error-too-many-attempts)
 (def error-no-matching-request ::error-no-matching-request)
 
-(s/def ::ds any?)
+(s/def ::ds :next.jdbc.specs/proto-connectable)
 (s/def ::patient-config (s/keys :req-un [::ds]))
+(s/def ::patient-svc (s/keys :req-un [::ds]))
 
 (defmethod ig/init-key ::patient
   [_ {:keys [ds] :as config}]
@@ -57,11 +61,21 @@
   []
   (impl/generate-token))
 
-(defn create-request
-  "Creates a new request with a generated token for the given NHS number and araf type."
-  [{:keys [ds]} nhs-number araf-type]
-  (impl/create-request ds nhs-number araf-type))
+(defn expiry
+  "Convenience function to return a [[java.time.Instant]] of now + duration"
+  ^Instant [^Duration duration]
+  (Instant/.plus (Instant/now) duration))
 
+
+(s/fdef create-request
+  :args (s/cat :svc ::patient-svc :nhs-number nnn/valid? :araf-type keyword? :expires inst?))
+(defn create-request
+  "Creates a new request with a generated token for the given NHS number, araf type, and expiry time."
+  [{:keys [ds]} nhs-number araf-type expires]
+  (impl/create-request ds nhs-number araf-type expires))
+
+(s/fdef generate-qr-code
+  :args (s/cat :base-url string? :access-key string? :nhs-number nnn/valid?))
 (defn generate-qr-code
   "Generates a QR code for the given base URL, access key, and NHS number.
    Returns a byte array of the PNG image."
@@ -70,27 +84,35 @@
   ([base-url access-key nhs-number options]
    (qr/generate base-url access-key nhs-number options)))
 
-(defn fetch-request
+(s/fdef fetch-request*
+  :args (s/cat :txn :next.jdbc.specs/transactable :access-key string? :nhs-number nnn/valid?))
+(defn fetch-request*
   "Checks if there have been too many failed attempts, then fetches request if allowed.
    Records the access attempt in the access log."
-  [{:keys [ds]} access-key nhs-number]
+  [txn access-key nhs-number]
   (when (and access-key nhs-number)
-    (jdbc/with-transaction [tx ds]
-      (if (impl/too-many-failed-attempts? tx nhs-number)
-        (do
-          (impl/record-access tx access-key nhs-number false)
-          {:error   error-too-many-attempts
-           :message "Too many failed access attempts. Please try again later."})
-        (let [request (impl/fetch-request tx access-key nhs-number)]
-          (impl/record-access tx access-key nhs-number (some? request))
-          (or request
-              {:error   error-no-matching-request
-               :message "No request found for the provided access key and NHS number."}))))))
+    (if (impl/too-many-failed-attempts? txn nhs-number)
+      (do
+        (impl/record-access txn access-key nhs-number false)
+        {:error   error-too-many-attempts
+         :message "Too many failed access attempts. Please try again later."})
+      (let [request (impl/fetch-request txn access-key nhs-number)]
+        (impl/record-access txn access-key nhs-number (some? request))
+        (or request
+            {:error   error-no-matching-request
+             :message "Invalid or expired access key or invalid NHS number"}))) ))
 
+(s/fdef fetch-request
+  :args (s/cat :svc ::patient-svc :access-key string? :nhs-number nnn/valid?))
+(defn fetch-request
+  "As [[fetch-request*]] but runs in a transaction."
+  [{:keys [ds]} access-key nhs-number]
+  (jdbc/with-transaction [txn ds]
+    (fetch-request* txn access-key nhs-number)))
 
 (comment
   (def ds {:dbtype "postgresql" :dbname "araf_remote"})
   (def conn (jdbc/get-connection ds))
-  (create-request {:ds ds} "1111111111" :valproate-female)
+  (create-request {:ds ds} "2222222222" :valproate-female (expiry (Duration/ofMinutes 1)))
   (impl/too-many-failed-attempts? conn "1111111111")
   (fetch-request {:ds ds} "5VRDZKKA" "1111111111"))

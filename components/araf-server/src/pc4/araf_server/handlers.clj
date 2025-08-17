@@ -2,31 +2,46 @@
   (:require
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
+    [io.pedestal.interceptor :as intc]
+    [pc4.araf.interface :as araf]
     [pc4.log.interface :as log]
     [pc4.nhs-number.interface :as nnn]
     [selmer.parser :as selmer])
   (:import [java.time LocalDate]
            [java.time.format DateTimeFormatter]))
 
+(defn env-interceptor
+  "Return an interceptor to inject the given env into the request."
+  [env]
+  (intc/interceptor
+    {:name  ::inject
+     :enter (fn [context] (assoc-in context [:request :env] env))}))
+
+(defn araf-svc
+  "Return the ARAF svc from the request."
+  [request]
+  (or (get-in request [:env :svc])
+      (throw (ex-info "missing araf svc in environment" (:env request)))))
+
 (defn ok [body]
   {:status  200
    :headers {"Content-Type" "text/html"}
    :body    body})
 
+(defn redirect [url]
+  {:status  303
+   :headers {"Location" url}})
+
 (defn welcome
-  [request {:keys [error nhs-number date-of-birth]}]
-  (let [submit-url (route/url-for :start)
-        csrf-token (csrf/existing-token request)
-        today (.format (LocalDate/now) DateTimeFormatter/ISO_LOCAL_DATE)
-        min-date (.format (.minusYears (LocalDate/now) 100) DateTimeFormatter/ISO_LOCAL_DATE)]
-    (ok (selmer/render-file "araf/templates/welcome.html" {:title "ARAF" 
-                                                           :url submit-url 
-                                                           :csrf-token csrf-token 
-                                                           :error error
-                                                           :nhs-number nhs-number
-                                                           :date-of-birth date-of-birth
-                                                           :min-date min-date
-                                                           :max-date today}))))
+  [request {:keys [error access-key nhs-number]}]
+  (let [submit-url (route/url-for :search)
+        csrf-token (csrf/existing-token request)]
+    (ok (selmer/render-file "araf/templates/welcome.html" {:title      "ARAF"
+                                                           :url        submit-url
+                                                           :csrf-token csrf-token
+                                                           :error      error
+                                                           :access-key access-key
+                                                           :nhs-number nhs-number}))))
 
 
 (defn welcome-handler
@@ -35,14 +50,27 @@
   [request]
   (welcome request {}))
 
-(defn start-handler
+(defn search-handler
   [{:keys [form-params] :as request}]
-  (let [{:keys [nhs-number date-of-birth]} form-params]
-    (log/debug "start" request)
-    (clojure.pprint/pprint form-params)
-    (log/debug "nhs number" (nnn/valid? (nnn/normalise nhs-number)))
-    (cond
-      (not (nnn/valid? (nnn/normalise nhs-number)))
-      (welcome request {:error "Invalid NHS number" :nhs-number nhs-number :date-of-birth date-of-birth})
-      :else
-      (welcome request {:error "Success"}))))
+  (let [{:keys [nhs-number access-key]} form-params
+        nnn (nnn/normalise nhs-number)]
+    (log/debug "search" form-params)
+    (if-not (nnn/valid? nnn)
+      (welcome request {:error "Invalid NHS number" :nhs-number (nnn/format-nnn nnn) :access-key access-key})
+      (let [{:keys [error message]}
+            (araf/fetch-request (araf-svc request) access-key (nnn/normalise nhs-number))]
+        (if error
+          (welcome request {:error message :nhs-number (nnn/format-nnn nnn) :access-key access-key})
+          (redirect (route/url-for :start :path-params {:access-key access-key :nhs-number nnn})))))))
+
+(defn start-handler
+  [{:keys [path-params] :as request}]
+  (let [{:keys [access-key nhs-number]} path-params
+        {:keys [error] :as araf-request}
+        (araf/fetch-request (araf-svc request) access-key (nnn/normalise nhs-number))]
+    (if error
+      (do
+        (log/warn "start handler; invalid request:" path-params)
+        (redirect (route/url-for :welcome)))
+      (ok
+        (str araf-request)))))

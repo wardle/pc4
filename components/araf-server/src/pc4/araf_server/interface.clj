@@ -8,6 +8,7 @@
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [pc4.araf-server.handlers :as h]
+    [pc4.araf.interface :as araf]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]
     [selmer.parser :as selmer]))
@@ -19,10 +20,11 @@
 
 (def routes
   #{["/" :get h/welcome-handler :route-name :welcome]
-    ["/" :post h/start-handler :route-name :start]})
+    ["/" :post h/search-handler :route-name :search]
+    ["/araf/:access-key/:nhs-number" :get h/start-handler :route-name :start]})
 
 (defn start
-  [{:keys [host port join? session-key]}]
+  [{:keys [host port env join? session-key]}]
   (-> {::http/host           host
        ::http/port           (or port 8080)
        ::http/routes         (route/routes-from routes)
@@ -37,7 +39,8 @@
       http/dev-interceptors
       (update ::http/interceptors conj
               (body-params/body-params)
-              (csrf/anti-forgery {:error-handler csrf-error-handler}))
+              (csrf/anti-forgery {:error-handler csrf-error-handler})
+              (h/env-interceptor env))
       http/create-server
       http/start))
 
@@ -45,11 +48,13 @@
 (s/def ::port (s/int-in 0 65535))
 (s/def ::cache? boolean?)
 (s/def ::session-key string?)
-(s/def ::config (s/keys :req-un [::host ::port]
+(s/def ::svc ::araf/patient-svc)
+(s/def ::env (s/keys :req-un [::svc]))
+(s/def ::config (s/keys :req-un [::env ::host ::port]
                         :opt-un [::cache? ::session-key]))
 
 (defmethod ig/init-key ::server
-  [_ {:keys [cache? session-key] :or {cache? true} :as config}]
+  [_ {:keys [cache? session-key env] :or {cache? true} :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid server configuration" (s/explain ::config config))))
   (log/info "starting araf server" (select-keys config [:host :port :cache?]))

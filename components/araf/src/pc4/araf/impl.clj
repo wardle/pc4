@@ -49,26 +49,30 @@
                                 :success    success}]})))
 
 (defn create-request
-  "Creates a new request with a generated token for the given NHS number and araf type."
-  [conn nhs-number araf-type]
+  "Creates a new request with a generated token for the given NHS number, araf type, and expiry time."
+  [conn nhs-number araf-type expires]
   (let [token (generate-token)
         request (jdbc/execute-one!
                   conn
                   (sql/format {:insert-into :request
                                :values      [{:token      token
                                               :nhs_number nhs-number
-                                              :araf_type  (name araf-type)}]})
+                                              :araf_type  (name araf-type)
+                                              :expires    expires}]})
                   {:return-keys true})]
     (update request :request/araf_type keyword)))
 
 (defn fetch-request
-  "Fetches a request from the database using access key and NHS number."
+  "Fetches a request from the database using access key and NHS number.
+   Only returns requests that have not expired."
   [conn access-key nhs-number]
-  (when-let [request (jdbc/execute-one!
-                       conn
-                       (sql/format {:select :* :from :request
-                                    :where  [:and
-                                             [:= :token access-key]
-                                             [:= :nhs_number nhs-number]]}))]
-    (update request :request/araf_type keyword)))
+  (let [now (Instant/now)]
+    (when-let [request (jdbc/execute-one!
+                         conn
+                         (sql/format {:select :* :from :request
+                                      :where  [:and
+                                               [:= :token access-key]
+                                               [:= :nhs_number nhs-number]
+                                               [:> :expires now]]}))]
+      (update request :request/araf_type keyword))))
 
