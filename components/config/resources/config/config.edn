@@ -189,4 +189,24 @@
                 :hermes #ig/ref :pc4.snomedct.interface/svc
                 :ods    #ig/ref :pc4.ods.interface/svc
                 :pathom #ig/ref :pc4.graph.interface/boundary-interface
-                :queue  #ig/ref :pc4.queue.interface/svc}}}
+                :queue  #ig/ref :pc4.queue.interface/svc}}
+
+
+ :pc4.araf.interface/patient
+ {:ds #profile {:dev {:dbtype          "postgresql"
+                      :dbname          "araf_remote"
+                      :maximumPoolSize 5
+                      :minimumIdle     5}}}
+
+ :pc4.araf.interface/clinician
+ {:rsdb #ig/ref :pc4.rsdb.interface/svc
+  :url  #profile {:dev "http://127.0.0.1:8081/araf/api"
+                  :cvx "https://patientcare.app/araf/api"}}
+
+ ;; ARAF (patient-facing) server
+ :pc4.araf-server.interface/server
+ {:port        #long #or [#env PORT 8081]
+  :host        "0.0.0.0"
+  :cache?      #profile {:default true :dev false}
+  :session-key #ref [:secrets :pc4 :session-key]
+  :env         {:svc #ig/ref :pc4.araf.interface/patient}}}

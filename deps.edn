@@ -7,6 +7,8 @@
   {:extra-paths ["development/src"]
    :extra-deps  {;; components:
 
+                 poly/araf                          {:local/root "components/araf"}
+                 poly/araf-server                   {:local/root "components/araf-server"}
                  poly/chart                         {:local/root "components/chart"}
                  poly/codelists                     {:local/root "components/codelists"}
                  poly/config                        {:local/root "components/config"}
@@ -77,7 +79,8 @@
   {:extra-deps {djblue/portal {:mvn/version "0.57.3"}}}
 
   :test
-  {:extra-paths ["components/chart/test"
+  {:extra-paths ["components/araf/test"
+                 "components/chart/test"
                  "components/lemtrada/test"
                  "components/rsdb/test"
                  "components/graph/test"

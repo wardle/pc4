@@ -1,0 +1,65 @@
+{% extends "araf/templates/page.html" %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+  <div class="max-w-md w-full space-y-8">
+    <div>
+      <h1 class="mt-6 text-center text-4xl font-extrabold text-gray-900">
+        Annual risk acknowledgement form
+      </h1>
+      <h2 class="mt-2 text-center text-xl text-blue-600 font-medium">
+        NHS Wales
+      </h2>
+    </div>
+    
+    {% if error %}
+    <div class="rounded-lg border border-red-200 bg-red-50 p-4 shadow-sm">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">
+            {{ error }}
+          </h3>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    
+    <form class="mt-8 space-y-6" action="{{ url }}" method="POST">
+      <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
+      <div class="rounded-md shadow-sm space-y-4">
+        <div>
+          <label for="access-key" class="block text-sm font-medium text-gray-700 mb-1">
+            Access Key
+          </label>
+          <input id="access-key" name="access-key" type="text" required 
+                 value="{{ access-key|default:"" }}"
+                 class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
+                 placeholder="Enter your access key">
+        </div>
+        
+        <div>
+          <label for="nhs-number" class="block text-sm font-medium text-gray-700 mb-1">
+            NHS Number
+          </label>
+          <input id="nhs-number" name="nhs-number" type="text" required 
+                 value="{{ nhs-number|default:"" }}"
+                 class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" 
+                 placeholder="123 456 7890">
+        </div>
+      </div>
+
+      <div>
+        <button type="submit" 
+                class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+          Continue
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

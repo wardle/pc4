@@ -1,0 +1,160 @@
+{% extends "araf/templates/page.html" %}
+
+{% block content %}
+<div class="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+            <!-- Header -->
+            <div class="bg-indigo-600 px-6 py-4">
+                <h1 class="text-xl font-semibold text-white">Annual Risk Acknowledgement Form for Female Patients</h1>
+                <p class="text-indigo-100 text-sm mt-1">VALPROATE HAS RISKS IN PREGNANCY</p>
+            </div>
+
+            <div class="p-6">
+                <!-- Form Header Section -->
+                <div class="mb-6 pb-4 border-b border-gray-200">
+                    <h2 class="text-lg font-bold text-gray-900 mb-2">Step 4: To be completed by the patient or responsible person</h2>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Completing this section of the form confirms that you, the patient (or your responsible person), 
+                        have discussed and acknowledge the risks of using valproate during pregnancy and the measures 
+                        needed to reduce the risk with your specialist prescriber.
+                    </p>
+                    <p class="text-sm text-gray-600">
+                        It is recommended that you keep a copy of this form which will also be added to your medical notes.
+                    </p>
+                </div>
+
+                <!-- Summary Table -->
+                <div class="mb-8">
+                    <div class="border border-gray-300 rounded-lg overflow-hidden">
+                        <div class="bg-gray-50 px-4 py-3 border-b border-gray-300">
+                            <div class="flex justify-between items-center">
+                                <h3 class="font-semibold text-gray-900">I have discussed the benefits and risks of valproate compared to other treatments with my specialist prescriber and I acknowledge that:</h3>
+                                <h3 class="font-semibold text-gray-900 text-sm">Initial to confirm you acknowledge each item</h3>
+                            </div>
+                        </div>
+                        
+                        <div class="divide-y divide-gray-200">
+                            {% for item in items %}
+                            <div class="px-4 py-3 flex justify-between items-start">
+                                <div class="flex-1 pr-4">
+                                    <p class="text-sm text-gray-900">{{ item.text|safe }}</p>
+                                </div>
+                                <div class="flex-shrink-0 w-16 text-center">
+                                    {% if item.acknowledged %}
+                                    <div class="inline-flex items-center justify-center w-8 h-8 bg-green-100 border border-green-300 rounded">
+                                        <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    {% else %}
+                                    <div class="inline-flex items-center justify-center w-8 h-8 bg-gray-100 border border-gray-300 rounded">
+                                        <span class="text-gray-400 text-xs">—</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Responsible Person Section -->
+                <div class="mb-8">
+                    <div class="border border-gray-300 rounded-lg overflow-hidden">
+                        <div class="px-4 py-3 border-b border-gray-300">
+                            <div class="flex justify-between">
+                                <span class="font-medium text-gray-900">Name of responsible person (if applicable):</span>
+                                <div class="w-64 border-b border-gray-400 text-center">
+                                    {% if responsible-person %}
+                                    <span class="text-gray-900">{{ responsible-person }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="px-4 py-3">
+                            <div class="flex justify-between">
+                                <span class="font-medium text-gray-900">Signature of patient (or responsible person):</span>
+                                <div class="flex space-x-4">
+                                    <div class="w-32 border-b border-gray-400"></div>
+                                    <span class="font-medium text-gray-900">Date:</span>
+                                    <div class="w-24 border-b border-gray-400"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Information Box -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-8">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-yellow-800">Additional Information</h3>
+                            <div class="mt-2 text-sm text-yellow-700">
+                                <p>More information can also be found online at <strong>www.medicines.org.uk</strong> by entering "valproate" 
+                                in the search box and then clicking on "Risk Materials" next to any of the medicines listed.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <form method="POST" action="{{ form-action }}">
+                    <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
+                    <input type="hidden" name="patient-id" value="{{ patient-id }}">
+                    <input type="hidden" name="responsible-person" value="{{ responsible-person }}">
+                    
+                    <!-- Hidden fields for all acknowledgements -->
+                    {% for item in items %}
+                    <input type="hidden" name="ack-{{ forloop.counter }}" value="{% if item.acknowledged %}true{% else %}false{% endif %}">
+                    {% endfor %}
+
+                    <div class="flex justify-between pt-6 border-t border-gray-200">
+                        <button type="submit" 
+                                name="action" 
+                                value="back"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            Back to Questions
+                        </button>
+
+                        <button type="submit" 
+                                name="action" 
+                                value="submit"
+                                hx-trigger="click"
+                                class="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 shadow-lg">
+                            Submit Acknowledgement Form
+                            <svg class="ml-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Completion Notice -->
+                <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-sm text-blue-800">
+                        <strong>After submission:</strong> This form will be saved to your medical records. 
+                        You will receive a copy for your records. Please ensure you understand all the 
+                        acknowledgements before submitting.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Information -->
+        <div class="mt-6 text-center">
+            <p class="text-xs text-gray-500">
+                {{ version }}
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,6 +1,7 @@
 {:deps {org.clojure/clojure {:mvn/version "1.12.0"}
 
         ;; components
+        poly/araf          {:local/root "../../components/araf"}
         poly/chart         {:local/root "../../components/chart"}
         poly/codelists     {:local/root "../../components/codelists"}
         poly/config        {:local/root "../../components/config"}

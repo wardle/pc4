@@ -1,0 +1,8 @@
+CREATE TABLE request (
+    id SERIAL PRIMARY KEY,
+    date_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    araf_type VARCHAR(255) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    nhs_number VARCHAR(10) NOT NULL,
+    data JSONB
+);
