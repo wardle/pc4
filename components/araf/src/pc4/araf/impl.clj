@@ -18,25 +18,35 @@
         n (count base32-chars)]
     (str/join (take 8 (repeatedly #(nth base32-chars (.nextInt rng n)))))))
 
+(defn sql-count-failed-attempts
+  [nhs-number from to]
+  {:select :%count.*
+   :from   :access
+   :where  [:and
+            [:= :nhs_number nhs-number]
+            [:= :success false]
+            [:> :date_time
+             [:coalesce
+              {:select :%max.date_time :from :access
+               :where  [:and
+                        [:= :nhs_number nhs-number]
+                        [:= :success true]
+                        [:>= :date_time from]]}
+              from]]
+            [:<= :date_time to]]})
+
 (defn too-many-failed-attempts?
-  "Checks if there have been too many failed attempts for an NHS number.
-   Multi-arity: 
-   - [conn nhs-number] uses defaults: 3 attempts, last 4 hours
-   - [conn nhs-number config] for testing with custom parameters"
+  "Checks if there have been too many failed attempts for an NHS number."
   ([conn nhs-number]
-   (let [now (Instant/now)
-         from (Instant/.minus now (Duration/ofHours 4))]
-     (too-many-failed-attempts? conn nhs-number {:max-attempts 3 :from from :to now})))
-  ([conn nhs-number {:keys [max-attempts from to]}]
-   (let [result (jdbc/execute-one!
-                  conn
-                  (sql/format {:select :%count.* :from :access
-                               :where  [:and
-                                        [:= :nhs_number nhs-number]
-                                        [:= :success false]
-                                        [:>= :date_time from]
-                                        [:<= :date_time to]]}))]
-     (>= (:count result) max-attempts))))
+   (too-many-failed-attempts?
+     conn nhs-number
+     {:max-attempts 3
+      :from         (Instant/.minus (Instant/now) (Duration/ofHours 4))
+      :to           (Instant/now)}))
+  ([conn nhs-number {:keys [max-attempts ^Instant from ^Instant to]}]
+   (let [{:keys [count]}
+         (jdbc/execute-one! conn (sql/format (sql-count-failed-attempts nhs-number from to)))]
+     (>= count max-attempts))))
 
 (defn record-access
   "Records an access attempt in the access table."

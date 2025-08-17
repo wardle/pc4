@@ -1,11 +1,15 @@
 (ns pc4.araf.interface-test
   (:require [clojure.java.io :as io]
+            [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest use-fixtures is testing]]
+            [com.eldrix.nhsnumber :as nnn]
             [integrant.core :as ig]
             [next.jdbc :as jdbc]
             [pc4.araf.interface :as araf])
   (:import (java.io File)
            (java.time Duration Instant)))
+
+(stest/instrument)
 
 (def ^:dynamic *service* nil)
 
@@ -30,7 +34,7 @@
 
 (deftest test-create-and-fetch-request
   (testing "create-request generates a request with token and araf-type"
-    (let [nhs-number "1234567890"
+    (let [nhs-number (nnn/random)
           araf-type :valproate
           expires (.plus (Instant/now) (Duration/ofDays 14))
           request (araf/create-request *service* nhs-number araf-type expires)]
@@ -45,7 +49,7 @@
           (is (= request fetched))))))
 
   (testing "fetch-request with invalid token returns error"
-    (let [result (araf/fetch-request* (:ds *service*) "INVALID1" "1234567890")]
+    (let [result (araf/fetch-request* (:ds *service*) "INVALID1" (nnn/random))]
       (is (= (:error result) araf/error-no-matching-request))))
 
   (testing "create-request generates unique tokens"
@@ -71,7 +75,7 @@
   (testing "generate-qr-code creates a QR code image file"
     (let [base-url "https://example.com/araf"
           access-key "TEST1234"
-          nhs-number "9876543210"
+          nhs-number "1111111111"
           qr-bytes (araf/generate-qr-code base-url access-key nhs-number)
           temp-file (File/createTempFile "qr-test-" ".png")]
       (is (some? qr-bytes))

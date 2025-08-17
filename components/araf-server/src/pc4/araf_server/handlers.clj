@@ -60,7 +60,9 @@
       (let [{:keys [error message]}
             (araf/fetch-request (araf-svc request) access-key (nnn/normalise nhs-number))]
         (if error
-          (welcome request {:error message :nhs-number (nnn/format-nnn nnn) :access-key access-key})
+          (do
+            (log/debug "failed to login" {:error error :message message})
+            (welcome request {:error message :nhs-number (nnn/format-nnn nnn) :access-key access-key}))
           (redirect (route/url-for :start :path-params {:access-key access-key :nhs-number nnn})))))))
 
 (defn start-handler
