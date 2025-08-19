@@ -50,11 +50,11 @@
 
 (defn record-access
   "Records an access attempt in the access table."
-  [conn token nhs-number success]
+  [conn nhs-number access-key success]
   (jdbc/execute-one!
     conn
     (sql/format {:insert-into :access
-                 :values      [{:token      token
+                 :values      [{:access_key access-key
                                 :nhs_number nhs-number
                                 :success    success}]})))
 
@@ -65,7 +65,7 @@
         request (jdbc/execute-one!
                   conn
                   (sql/format {:insert-into :request
-                               :values      [{:token      token
+                               :values      [{:access_key token
                                               :nhs_number nhs-number
                                               :araf_type  (name araf-type)
                                               :expires    expires}]})
@@ -75,13 +75,13 @@
 (defn fetch-request
   "Fetches a request from the database using access key and NHS number.
    Only returns requests that have not expired."
-  [conn access-key nhs-number]
+  [conn nhs-number access-key]
   (let [now (Instant/now)]
     (when-let [request (jdbc/execute-one!
                          conn
                          (sql/format {:select :* :from :request
                                       :where  [:and
-                                               [:= :token access-key]
+                                               [:= :access_key access-key]
                                                [:= :nhs_number nhs-number]
                                                [:> :expires now]]}))]
       (update request :request/araf_type keyword))))

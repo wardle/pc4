@@ -1,0 +1,15 @@
+{% for section in sections %}
+{% if section.type = "warning" %}
+{% with type=section.type title=section.title content=section.content %}
+{% include "araf/templates/v1/section-warning.html" %}
+{% endwith %}
+{% elif section.type = "info" %}
+{% with type=section.type title=section.title content=section.content %}
+{% include "araf/templates/v1/section-info.html" %}
+{% endwith %}
+{% elif section.type = "note" %}
+{% with type=section.type title=section.title content=section.content %}
+{% include "araf/templates/v1/section-note.html" %}
+{% endwith %}
+{% endif %}
+{% endfor %}

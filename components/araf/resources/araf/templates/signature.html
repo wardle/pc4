@@ -1,0 +1,176 @@
+<div class="mb-8">
+
+
+    <form>
+        <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
+        <input type="hidden" name="nhs-number" value="{{ nhs-number }}">
+        <input type="hidden" name="access-key" value="{{ access-key }}">
+        <input type="hidden" name="araf-type" value="{{ araf-type }}">
+        <input type="hidden" name="user" value="{{ user }}">
+        <input type="hidden" id="signature-data" name="signature" value="">
+
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Your Digital Signature</h2>
+        <p class="text-gray-600 mb-6">
+            By signing below, you confirm that you have read, understood, and acknowledge all the information presented
+            in this form.
+        </p>
+
+        <!-- Name Input for Non-Patient Users -->
+        {% if user = "other" %}
+        <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <label for="responsible" class="block text-sm font-medium text-gray-900 mb-2">
+                Your Name
+            </label>
+            <input type="text"
+                   id="responsible"
+                   name="responsible"
+                   value="{{ responsible }}"
+                   placeholder="Enter your full name"
+                   required
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+            <p class="mt-1 text-xs text-gray-600">As the responsible person completing this form on behalf of the
+                patient</p>
+        </div>
+        {% endif %}
+
+        <!-- Signature Canvas Container -->
+        <div class="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+            <canvas id="signature-pad"
+                    width="600"
+                    height="400"
+                    class="border border-gray-200 bg-white rounded cursor-crosshair w-full"
+                    style="touch-action: none;">
+            </canvas>
+
+            <!-- Signature Controls -->
+            <div class="flex justify-between items-center mt-4">
+                <button type="button"
+                        id="clear-signature"
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Clear
+                </button>
+                <span class="text-xs text-gray-500">Sign using your mouse or touch screen</span>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        {% if error %}
+        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                              clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-800">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Navigation Buttons -->
+        <div class="flex justify-between pt-6 border-t border-gray-200">
+            <button type="button"
+                    name="action"
+                    value="back"
+                    hx-post="{{ back-action }}"
+                    hx-target="#content"
+                    hx-swap="innerHTML"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back to start
+            </button>
+
+            <button type="button"
+                    id="submit-signature"
+                    name="action"
+                    value="submit"
+                    hx-post="{{ submit-action }}"
+                    hx-target="#content"
+                    hx-swap="innerHTML"
+                    disabled
+                    class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                Submit Form
+                <svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    // Load signature pad library if not already loaded
+    if (typeof SignaturePad === 'undefined') {
+        const script = document.createElement('script');
+        script.src = '/js/signature_pad-v4.1.7.umd.min.js';
+        script.onload = initSignaturePad;
+        document.head.appendChild(script);
+    } else {
+        initSignaturePad();
+    }
+
+    function initSignaturePad() {
+        const canvas = document.getElementById('signature-pad');
+        const clearButton = document.getElementById('clear-signature');
+        const submitButton = document.getElementById('submit-signature');
+        const signatureDataInput = document.getElementById('signature-data');
+
+        if (!canvas || !clearButton || !submitButton) return;
+
+        // Initialize signature pad
+        const signaturePad = new SignaturePad(canvas, {
+            backgroundColor: 'rgb(255, 255, 255)',
+            penColor: 'rgb(0, 0, 0)',
+            minWidth: 1,
+            maxWidth: 2.5,
+        });
+
+        // Enable submit button when signature is added
+        function checkSignature() {
+            if (signaturePad.isEmpty()) {
+                submitButton.disabled = true;
+                submitButton.classList.add('disabled:bg-gray-300', 'disabled:cursor-not-allowed');
+                submitButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
+            } else {
+                submitButton.disabled = false;
+                submitButton.classList.remove('disabled:bg-gray-300', 'disabled:cursor-not-allowed');
+                submitButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            }
+        }
+
+        // Listen for signature events
+        signaturePad.addEventListener('endStroke', checkSignature);
+
+        // Clear signature
+        clearButton.addEventListener('click', function() {
+            signaturePad.clear();
+            checkSignature();
+        });
+
+        // Before form submission, save signature data
+        submitButton.addEventListener('click', function() {
+            if (!signaturePad.isEmpty()) {
+                const dataURL = signaturePad.toDataURL('image/png');
+                signatureDataInput.value = dataURL;
+            }
+        });
+
+        // Handle canvas resize
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext('2d').scale(ratio, ratio);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+    }
+</script>

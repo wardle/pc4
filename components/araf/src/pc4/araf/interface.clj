@@ -6,6 +6,7 @@
     [next.jdbc :as jdbc]
     [next.jdbc.connection :as connection]
     [next.jdbc.specs]
+    [pc4.araf.forms :as forms]
     [pc4.araf.impl :as impl]
     [pc4.araf.qr :as qr]
     [pc4.log.interface :as log]
@@ -74,30 +75,32 @@
   [{:keys [ds]} nhs-number araf-type expires]
   (impl/create-request ds nhs-number araf-type expires))
 
+(s/def ::size pos-int?)
+
 (s/fdef generate-qr-code
-  :args (s/cat :base-url string? :access-key string? :nhs-number nnn/valid?))
+  :args (s/cat :base-url string? :nhs-number nnn/valid? :access-key string? :opts (s/? (s/keys :opt-un [::size]))))
 (defn generate-qr-code
   "Generates a QR code for the given base URL, access key, and NHS number.
    Returns a byte array of the PNG image."
-  ([base-url access-key nhs-number]
-   (qr/generate base-url access-key nhs-number))
-  ([base-url access-key nhs-number options]
-   (qr/generate base-url access-key nhs-number options)))
+  ([base-url nhs-number access-key]
+   (qr/generate base-url nhs-number access-key))
+  ([base-url nhs-number access-key options]
+   (qr/generate base-url nhs-number access-key options)))
 
 (s/fdef fetch-request*
-  :args (s/cat :txn :next.jdbc.specs/transactable :access-key string? :nhs-number nnn/valid?))
+  :args (s/cat :txn :next.jdbc.specs/transactable :nhs-number nnn/valid? :access-key string?))
 (defn fetch-request*
   "Checks if there have been too many failed attempts, then fetches request if allowed.
    Records the access attempt in the access log."
-  [txn access-key nhs-number]
-  (when (and access-key nhs-number)
+  [txn nhs-number access-key]
+  (when (and nhs-number access-key)
     (if (impl/too-many-failed-attempts? txn nhs-number)
       (do
-        (impl/record-access txn access-key nhs-number false)
+        (impl/record-access txn nhs-number access-key false)
         {:error   error-too-many-attempts
          :message "Too many failed access attempts. Please try again later."})
-      (let [request (impl/fetch-request txn access-key nhs-number)]
-        (impl/record-access txn access-key nhs-number (some? request))
+      (let [request (impl/fetch-request txn nhs-number access-key)]
+        (impl/record-access txn nhs-number access-key (some? request))
         (or request
             {:error   error-no-matching-request
              :message "Invalid or expired access key or invalid NHS number"}))) ))
@@ -106,13 +109,19 @@
   :args (s/cat :svc ::patient-svc :access-key string? :nhs-number nnn/valid?))
 (defn fetch-request
   "As [[fetch-request*]] but runs in a transaction."
-  [{:keys [ds]} access-key nhs-number]
+  [{:keys [ds]} nhs-number access-key]
   (jdbc/with-transaction [txn ds]
-    (fetch-request* txn access-key nhs-number)))
+    (fetch-request* txn nhs-number access-key)))
+
+(defn form-config
+  [araf-type]
+  (forms/form-config araf-type))
 
 (comment
   (def ds {:dbtype "postgresql" :dbname "araf_remote"})
   (def conn (jdbc/get-connection ds))
+  (create-request {:ds ds} "1111111111" :valproate-female (expiry (Duration/ofDays 1)))
   (create-request {:ds ds} "2222222222" :valproate-female (expiry (Duration/ofMinutes 1)))
+  (create-request {:ds ds} "1111111111" :valproate-female-na (expiry (Duration/ofDays 1)))
   (impl/too-many-failed-attempts? conn "1111111111")
   (fetch-request {:ds ds} "5VRDZKKA" "1111111111"))

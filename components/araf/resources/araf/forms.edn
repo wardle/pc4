@@ -1,12 +1,40 @@
-[{:version "v5.3"
+[{:araf-type :valproate-female-na
+  :version "v5.3"
   :date "2025-05-01"
-  :title "Annual Risk Acknowledgement Form for Female Patients - VALPROATE HAS RISKS IN PREGNANCY"
+  :template-path "araf/templates/v1"
+  :title "Annual Risk Acknowledgement Form for Female Patients"
+  :subtitle "VALPROATE HAS RISKS IN PREGNANCY"
   :document-ref "MAT-XU-2305459 (v2.0) May 2025"
-  :step 4
-  :step-title "To be completed by the patient or responsible person"
   :description "Completing this section of the form confirms that you, the patient (or your responsible person), have discussed and acknowledge the risks of using valproate during pregnancy and the measures needed to reduce the risk with your specialist prescriber."
   :note "It is recommended that you keep a copy of this form which will also be added to your medical notes."
   :info-url "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."
+  :introduction [{:type "warning"
+                  :title "Additional Information Available"
+                  :content "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."}]
+  :finish [{:type "warning"
+            :title "Additional Information"
+            :content "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."}]
+  :preamble "To be completed by the patient if they consider prevent - the valproate pregnancy prevention programme (PPP) does not apply\nto them"
+  :questions ["I confirm that I agree the risks of valproate and therefore prevent do not apply to me."]}
+ {:araf-type :valproate-female
+  :version "v5.3"
+  :date "2025-05-01"
+  :template-path "araf/templates/v1"
+  :title "Annual Risk Acknowledgement Form for Female Patients"
+  :subtitle "VALPROATE HAS RISKS IN PREGNANCY"
+  :document-ref "MAT-XU-2305459 (v2.0) May 2025"
+  :description "Completing this section of the form confirms that you, the patient (or your responsible person), have discussed and acknowledge the risks of using valproate during pregnancy and the measures needed to reduce the risk with your specialist prescriber."
+  :note "It is recommended that you keep a copy of this form which will also be added to your medical notes."
+  :info-url "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."
+  :introduction [{:type "warning"
+                  :title "Additional Information Available" 
+                  :content "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."}
+                 {:type "info"
+                  :title "What to Expect"
+                  :content "You will be presented with 10 statements about valproate risks and safety measures. Please read each statement carefully and confirm your acknowledgement before proceeding to the next."}]
+  :finish [{:type "warning"
+            :title "Additional Information"
+            :content "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."}]
   :preamble "I have discussed the benefits and risks of valproate compared to other treatments with my specialist prescriber and I acknowledge that:"
   :questions ["My medication should be reviewed regularly (at least once a year) and may need to be changed depending on my circumstances."
               

@@ -1,38 +1,26 @@
-{% extends "araf/templates/page.html" %}
-
-{% block content %}
-<div class="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
-    <div class="max-w-2xl mx-auto">
-        <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-            <!-- Header -->
-            <div class="bg-indigo-600 px-6 py-4">
-                <h1 class="text-xl font-semibold text-white">Annual Risk Acknowledgement Form for Female Patients</h1>
-                <p class="text-indigo-100 text-sm mt-1">VALPROATE HAS RISKS IN PREGNANCY</p>
-            </div>
-
-            <!-- Progress Bar -->
-            <div class="bg-gray-200 h-2">
-                <div class="bg-indigo-600 h-2 transition-all duration-300" 
-                     style="width: {% widthratio step total-steps 100 %}%"></div>
-            </div>
-
-            <div class="p-6">
+<!-- Progress Bar -->
+<div class="bg-gray-200 h-2 -mx-4 sm:-mx-6 mb-4">
+    <div class="bg-indigo-600 h-2 transition-all duration-300" 
+         style="width: {{ step }}/{{ total-steps }}%"></div>
+</div>
                 <!-- Progress Indicator -->
                 <div class="flex items-center justify-between mb-6">
-                    <span class="text-sm font-medium text-indigo-600">Question {{ step }} of {{ total-steps }}</span>
-                    <span class="text-sm text-gray-500">Step 4: Patient Acknowledgement</span>
+                    <span class="text-sm font-medium text-indigo-600">Question {{ step }} of {{ total }}</span>
                 </div>
 
-                <form method="POST" action="{{ form-action }}">
+                <form>
                     <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
-                    <input type="hidden" name="patient-id" value="{{ patient-id }}">
                     <input type="hidden" name="step" value="{{ step }}">
-                    
+                    <input type="hidden" name="nhs-number" value="{{ nhs-number }}">
+                    <input type="hidden" name="access-key" value="{{ access-key }}">
+                    <input type="hidden" name="araf-type" value="{{ araf-type }}">
+                    <input type="hidden" name="user" value="{{ user }}">
+
                     <!-- Question Content -->
                     <div class="mb-8">
-                        {% if step == 1 %}
+                        {% if step = 1 %}
                         <h2 class="text-lg font-semibold text-gray-900 mb-4">
-                            I have discussed the benefits and risks of valproate compared to other treatments with my specialist prescriber and I acknowledge that:
+                            {{ preamble }}
                         </h2>
                         {% endif %}
                         
@@ -47,23 +35,41 @@
                             <input type="checkbox" 
                                    id="acknowledge" 
                                    name="acknowledge" 
-                                   value="true"
-                                   {% if acknowledged %}checked{% endif %}
-                                   class="mt-1 h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                   required>
+                                   hx-validate="true"
+                                   required
+                                   class="mt-1 h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                             <label for="acknowledge" class="text-sm font-medium text-gray-900">
                                 I acknowledge and understand this information
-                                <span class="block text-xs text-gray-500 mt-1">Initial to confirm you acknowledge this item</span>
+                                <span class="block text-xs text-gray-500 mt-1">Tick to confirm you acknowledge this item</span>
                             </label>
                         </div>
                     </div>
 
+                    <!-- Error Message -->
+                    {% if error %}
+                    <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-800">{{ error }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Navigation Buttons -->
                     <div class="flex justify-between pt-6 border-t border-gray-200">
-                        {% if step > 1 %}
-                        <button type="submit" 
+                        {% if step > 0 %}
+                        <button id="previous"
                                 name="action" 
                                 value="previous"
+                                hx-post="{{ action }}"
+                                hx-target="#content"
+                                hx-swap="innerHTML"
                                 class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                             <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -74,27 +80,17 @@
                         <div></div>
                         {% endif %}
 
-                        <button type="submit" 
+                        <button id="next"
                                 name="action" 
                                 value="next"
+                                hx-post="{{ action }}"
+                                hx-target="#content"
+                                hx-swap="innerHTML"
                                 class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            {% if step == total-steps %}Review & Submit{% else %}Continue{% endif %}
+                            {% if step = total-steps %}Review & Submit{% else %}Continue{% endif %}
                             <svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                             </svg>
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- Footer Information -->
-        <div class="mt-6 text-center">
-            <p class="text-xs text-gray-500">
-                {{ version }} | 
-                It is recommended that you keep a copy of this form which will also be added to your medical notes.
-            </p>
-        </div>
-    </div>
-</div>
-{% endblock %}

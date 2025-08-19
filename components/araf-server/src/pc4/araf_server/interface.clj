@@ -19,9 +19,12 @@
   (assoc-in ctx [:response] {:status 403 :body "Forbidden; missing CSRF token in submission"}))
 
 (def routes
-  #{["/" :get h/welcome-handler :route-name :welcome]
-    ["/" :post h/search-handler :route-name :search]
-    ["/araf/:access-key/:nhs-number" :get h/start-handler :route-name :start]})
+  #{["/" :get h/home-handler :route-name :home]
+    ["/araf/welcome" :get h/welcome-handler :route-name :welcome]
+    ["/araf/welcome" :post h/search-handler :route-name :search]
+    ["/araf/form/:nhs-number/:access-key" :get h/intro-handler :route-name :introduction]
+    ["/araf/question" :post [(csrf/anti-forgery) h/question-handler] :route-name :question]
+    ["/araf/signature" :post [(csrf/anti-forgery) h/signature-handler] :route-name :signature]})
 
 (defn start
   [{:keys [host port env join? session-key]}]

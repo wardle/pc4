@@ -41,22 +41,22 @@
       (is (some? request))
       (is (= nhs-number (:request/nhs_number request)))
       (is (= araf-type (:request/araf_type request)))
-      (is (string? (:request/token request)))
-      (is (= 8 (count (:request/token request))))
+      (is (string? (:request/access_key request)))
+      (is (= 8 (count (:request/access_key request))))
       
       (testing "fetch-request retrieves the created request"
-        (let [fetched (araf/fetch-request* (:ds *service*) (:request/token request) nhs-number)]
+        (let [fetched (araf/fetch-request* (:ds *service*) nhs-number (:request/access_key request))]
           (is (= request fetched))))))
 
   (testing "fetch-request with invalid token returns error"
-    (let [result (araf/fetch-request* (:ds *service*) "INVALID1" (nnn/random))]
+    (let [result (araf/fetch-request* (:ds *service*) (nnn/random) "INVALID1")]
       (is (= (:error result) araf/error-no-matching-request))))
 
   (testing "create-request generates unique tokens"
     (let [nhs-number "1111111111"
           expires (Instant/.plus (Instant/now) (Duration/ofDays 14))
           requests (repeatedly 200 #(araf/create-request *service* nhs-number :valproate expires))
-          tokens (map :request/token requests)]
+          tokens (map :request/access_key requests)]
       (is (= 200 (count tokens)))
       (is (= (count tokens) (count (distinct tokens))))
       (is (every? #(= 8 (count %)) tokens)))))
@@ -68,15 +68,15 @@
           expires (Instant/.minus (Instant/now) (Duration/ofDays 1))
           request (araf/create-request *service* nhs-number araf-type expires)]
       (is (some? request))
-      (let [result (araf/fetch-request* (:ds *service*) (:request/token request) nhs-number)]
+      (let [result (araf/fetch-request* (:ds *service*) nhs-number (:request/access_key request))]
         (is (= (:error result) araf/error-no-matching-request))))))
 
 (deftest test-qr-code-generation
   (testing "generate-qr-code creates a QR code image file"
     (let [base-url "https://example.com/araf"
-          access-key "TEST1234"
           nhs-number "1111111111"
-          qr-bytes (araf/generate-qr-code base-url access-key nhs-number)
+          access-key "TEST1234"
+          qr-bytes (araf/generate-qr-code base-url nhs-number access-key)
           temp-file (File/createTempFile "qr-test-" ".png")]
       (is (some? qr-bytes))
       (is (> (count qr-bytes) 0))
