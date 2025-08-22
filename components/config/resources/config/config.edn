@@ -179,7 +179,7 @@
                     :pathom           #ig/ref :pc4.graph.interface/boundary-interface
                     :rsdb             #ig/ref :pc4.rsdb.interface/svc}}
 
- ;; HTTP server (htmx application)
+ ;; HTTP server (clinician facing htmx application)
  :pc4.http-server.interface/server
  {:port        #long #or [#env PORT 8080]
   :host        "0.0.0.0"
@@ -191,17 +191,20 @@
                 :pathom #ig/ref :pc4.graph.interface/boundary-interface
                 :queue  #ig/ref :pc4.queue.interface/svc}}
 
-
+ ;; ARAF (patient-facing) core service
  :pc4.araf.interface/patient
- {:ds #profile {:dev {:dbtype          "postgresql"
-                      :dbname          "araf_remote"
-                      :maximumPoolSize 5
-                      :minimumIdle     5}}}
+ {:ds     #profile {:dev {:dbtype          "postgresql"
+                          :dbname          "araf_remote"
+                          :maximumPoolSize 5
+                          :minimumIdle     5}}
+  :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF clinician service
 
+ ;; ARAF (clinician-facing) service
  :pc4.araf.interface/clinician
  {:rsdb #ig/ref :pc4.rsdb.interface/svc
   :url  #profile {:dev "http://127.0.0.1:8081/araf/api"
-                  :cvx "https://patientcare.app/araf/api"}}
+                  :cvx "https://patientcare.app/araf/api"}
+  :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF patient service
 
  ;; ARAF (patient-facing) server
  :pc4.araf-server.interface/server

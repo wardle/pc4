@@ -51,10 +51,6 @@
                 <!-- Start Button -->
                 <form>
                     <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
-                    <input type="hidden" name="nhs-number" value="{{ nhs-number }}">
-                    <input type="hidden" name="access-key" value="{{ access-key }}">
-                    <input type="hidden" name="araf-type" value="{{ araf-type }}">
-                    <input type="hidden" name="step" value="0">
 
                     <div class="w-full sm:flex sm:justify-center">
                         <button hx-post="{{ form-action }}"

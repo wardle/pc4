@@ -1,0 +1,12 @@
+{:deps    {org.clojure/clojure {:mvn/version "1.12.1"}
+           poly/araf           {:local/root "../../components/araf"}
+           poly/config         {:local/root "../../components/config"}
+           poly/log            {:local/root "../../components/log"}
+           poly/nhs-number     {:local/root "../../components/nhs-number"}
+
+           poly/araf-server    {:local/root "../../bases/araf-server"}}
+
+ :aliases {:test {:extra-paths []
+                  :extra-deps  {}}
+           :run  {:main-opts ["-m" "pc4.araf-server.main"]}}}
+

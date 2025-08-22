@@ -8,7 +8,6 @@
    :extra-deps  {;; components:
 
                  poly/araf                          {:local/root "components/araf"}
-                 poly/araf-server                   {:local/root "components/araf-server"}
                  poly/chart                         {:local/root "components/chart"}
                  poly/codelists                     {:local/root "components/codelists"}
                  poly/config                        {:local/root "components/config"}
@@ -38,11 +37,12 @@
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}
 
                  ;; bases:
+                 poly/araf-server                   {:local/root "bases/araf-server"}
                  poly/cli                           {:local/root "bases/cli"}
                  poly/server                        {:local/root "bases/server"}
 
                  ;; external dependencies:
-                 org.clojure/clojure                {:mvn/version "1.12.0"}
+                 org.clojure/clojure                {:mvn/version "1.12.1"}
                  integrant/integrant                {:mvn/version "0.13.1"}
                  integrant/repl                     {:mvn/version "0.4.0"}
                  io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}

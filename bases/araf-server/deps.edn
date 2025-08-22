@@ -1,0 +1,8 @@
+{:paths   ["src" "resources/araf-server"]
+ :deps    {org.clojure/data.json      {:mvn/version "2.5.1"}
+           integrant/integrant        {:mvn/version "0.13.1"}
+           io.pedestal/pedestal.jetty {:mvn/version "0.7.2"}
+           selmer/selmer              {:mvn/version "1.12.62"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps  {}}}}
+

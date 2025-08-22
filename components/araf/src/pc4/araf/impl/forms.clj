@@ -1,4 +1,4 @@
-(ns pc4.araf.forms
+(ns pc4.araf.impl.forms
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
@@ -8,11 +8,8 @@
 (defn load-forms-config
   "Loads and processes forms.edn, returning forms grouped by araf-type with latest first."
   []
-  (let [forms (edn/read-string (slurp (io/resource "araf/forms.edn")))
-        forms-with-dates (map #(update % :date (fn [date-str] 
-                                                  (LocalDate/parse date-str))) 
-                              forms)]
-    (->> forms-with-dates
+  (let [forms (edn/read-string (slurp (io/resource "araf/forms.edn")))]
+    (->> (map #(update % :date (fn [date-str] (LocalDate/parse date-str))) forms)
          (sort-by :date #(compare %2 %1))
          (group-by :araf-type))))
 
@@ -33,4 +30,5 @@
           first))))
 
 (comment
-  (latest-form-config :valproate-female))
+  (form-config :valproate/female-not-applicable)
+  (form-config :valproate/female))

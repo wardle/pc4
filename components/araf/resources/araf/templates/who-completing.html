@@ -14,18 +14,13 @@
 <!-- Form -->
 <form>
     <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
-    <input type="hidden" name="step" value="0">
-    <input type="hidden" name="nhs-number" value="{{ nhs-number }}">
-    <input type="hidden" name="access-key" value="{{ access-key }}">
-    <input type="hidden" name="araf-type" value="{{ araf-type }}">
 
     <!-- Selection Buttons -->
     <div class="space-y-4 mb-6">
         <button name="user"
                 value="patient"
-                hx-post="{{ action }}"
+                hx-post="{{ next-url }}"
                 hx-target="#content"
-                hx-vals='{"action": "next"}'
                 hx-swap="innerHTML"
                 class="w-full flex items-center p-6 bg-white border-2 border-gray-300 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors text-left">
             <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mr-4">
@@ -46,9 +41,8 @@
 
         <button name="user"
                 value="other"
-                hx-post="{{ action }}"
+                hx-post="{{ next-url }}"
                 hx-target="#content"
-                hx-vals='{"action": "next"}'
                 hx-swap="innerHTML"
                 class="w-full flex items-center p-6 bg-white border-2 border-gray-300 rounded-lg hover:border-amber-300 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors text-left">
             <div class="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mr-4">
@@ -72,7 +66,7 @@
     <div class="flex justify-start pt-6 border-t border-gray-200">
         <button name="action" 
                 value="previous"
-                hx-post="{{ action }}"
+                hx-post="{{ previous-url }}"
                 hx-target="#content"
                 hx-vals='{"action": "previous"}'
                 hx-swap="innerHTML"
@@ -80,7 +74,7 @@
             <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Introduction
+            Back
         </button>
     </div>
 </form>

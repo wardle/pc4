@@ -1,4 +1,4 @@
-[{:araf-type :valproate-female-na
+[{:araf-type :valproate-fna
   :version "v5.3"
   :date "2025-05-01"
   :template-path "araf/templates/v1"
@@ -16,7 +16,7 @@
             :content "More information can also be found online at www.medicines.org.uk by entering \"valproate\" in the search box and then clicking on \"Risk Materials\" next to any of the medicines listed."}]
   :preamble "To be completed by the patient if they consider prevent - the valproate pregnancy prevention programme (PPP) does not apply\nto them"
   :questions ["I confirm that I agree the risks of valproate and therefore prevent do not apply to me."]}
- {:araf-type :valproate-female
+ {:araf-type :valproate-f
   :version "v5.3"
   :date "2025-05-01"
   :template-path "araf/templates/v1"

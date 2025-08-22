@@ -1,17 +1,56 @@
 (ns pc4.araf-server.interface
   (:require
     [buddy.core.codecs :as codecs]
+    [clojure.data.json :as json]
     [clojure.spec.alpha :as s]
     [integrant.core :as ig]
     [io.pedestal.http :as http]
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
+    [io.pedestal.http.content-negotiation :as content-negotiation]
     [pc4.araf-server.handlers :as h]
     [pc4.araf.interface :as araf]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]
     [selmer.parser :as selmer]))
+
+(def supported-types ["application/edn" "application/json"])
+
+(def content-neg
+  (content-negotiation/negotiate-content supported-types))
+
+(defn accepted-type
+  [context]
+  (get-in context [:request :accept :field] "application/edn"))
+
+(defn transform-content
+  [body content-type]
+  (case content-type
+    "application/edn" (pr-str body)
+    "application/json" (json/write-str body)))
+
+(defn coerce-to
+  [response content-type]
+  (-> response
+      (update :body transform-content content-type)
+      (assoc-in [:headers "Content-Type"] content-type)))
+
+(def coerce-body
+  {:name ::coerce-body
+   :leave
+   (fn [context]
+     (if (nil? (get-in context [:response :headers "Content-Type"]))
+       (update context :response coerce-to (accepted-type context))
+       context))})
+
+(def entity-render
+  {:name :entity-render
+   :leave
+   (fn [context]
+     (if-let [item (:result context)]
+       (assoc context :response (h/ok item))
+       context))})
 
 (defn csrf-error-handler
   [ctx]
@@ -22,9 +61,12 @@
   #{["/" :get h/home-handler :route-name :home]
     ["/araf/welcome" :get h/welcome-handler :route-name :welcome]
     ["/araf/welcome" :post h/search-handler :route-name :search]
-    ["/araf/form/:nhs-number/:access-key" :get h/intro-handler :route-name :introduction]
-    ["/araf/question" :post [(csrf/anti-forgery) h/question-handler] :route-name :question]
-    ["/araf/signature" :post [(csrf/anti-forgery) h/signature-handler] :route-name :signature]})
+    ["/araf/form/:long-access-key" :get h/intro-handler :route-name :introduction]
+    ["/araf/form/:long-access-key/question/:step" :post [(csrf/anti-forgery) h/question-handler] :route-name :question]
+    ["/araf/form/:long-access-key/signature" :post [(csrf/anti-forgery) h/signature-handler] :route-name :signature]
+    ["/araf/api/request/:nhs-number/:access-key" :get [h/authenticate coerce-body content-neg entity-render h/api-get-request] :route-name :api-get-request]
+    ["/araf/api/request" :post [h/authenticate coerce-body content-neg entity-render h/api-create-request] :route-name :api-create-request]
+    ["/araf/api/responses" :get [h/authenticate coerce-body content-neg entity-render h/api-get-responses] :route-name :api-get-responses]})
 
 (defn start
   [{:keys [host port env join? session-key]}]

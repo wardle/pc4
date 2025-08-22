@@ -20,7 +20,10 @@
 
 (defmethod ig/init-key ::ops
   [_ ops]
-  (flatten ops))
+  (map
+    (fn [x]
+      (if (delay? x) (deref x) x))
+    (flatten ops)))
 
 (defmethod ig/init-key ::env
   [_ {:keys [ops] :as env}]

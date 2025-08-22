@@ -3,9 +3,7 @@
 
     <form>
         <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
-        <input type="hidden" name="nhs-number" value="{{ nhs-number }}">
-        <input type="hidden" name="access-key" value="{{ access-key }}">
-        <input type="hidden" name="araf-type" value="{{ araf-type }}">
+        <input type="hidden" name="long-access-key" value="{{ long-access-key }}">
         <input type="hidden" name="user" value="{{ user }}">
         <input type="hidden" id="signature-data" name="signature" value="">
 
@@ -83,7 +81,7 @@
                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                 </svg>
-                Back to start
+                Back
             </button>
 
             <button type="button"

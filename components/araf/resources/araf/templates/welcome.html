@@ -8,7 +8,7 @@
                 Annual risk acknowledgement form
             </h1>
             <h2 class="mt-2 text-center text-xl text-blue-600 font-medium">
-                NHS Wales
+                Patient<span class="text-blue-400">Care</span>
             </h2>
         </div>
 
@@ -39,6 +39,7 @@
                         NHS Number
                     </label>
                     <input id="nhs-number" name="nhs-number" type="text" required
+                           autofocus
                            value="{{ nhs-number|default:"" }}"
                     class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300
                     placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
@@ -50,8 +51,7 @@
                         Access Key
                     </label>
                     <input id="access-key" name="access-key" type="text" required
-                           value="{{ access-key|default:"" }}"
-                    class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300
+                           class="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300
                     placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500
                     focus:z-10 sm:text-sm"
                     placeholder="Enter your access key">

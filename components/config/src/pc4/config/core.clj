@@ -10,9 +10,10 @@
 
 (defmethod aero/reader 'clj/var
   [_ _ x]
-  (if-let [var (requiring-resolve x)]
-    (var-get var)
-    (throw (ex-info (str "unable to resolve: '" x "'; is var missing or does namespace fail to compile?") {:var x}))))
+  (delay
+    (if-let [var (requiring-resolve x)]
+      (var-get var)
+      (throw (ex-info (str "unable to resolve: '" x "'; is var missing or does namespace fail to compile?") {:var x})))))
 
 (defn ^:private config*
   "Reads configuration from the resources directory using the profile specified."
