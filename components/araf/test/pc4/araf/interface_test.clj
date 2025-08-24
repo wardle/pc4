@@ -92,7 +92,7 @@
   (testing "reject expired token"
     (let [svc {:secret "secret"}
           timestamp (Instant/parse "2025-01-01T12:00:00Z")
-          token (araf/generate-jwt svc timestamp)
+          token (araf/generate-jwt svc {:now timestamp})
           current-time (Instant/parse "2025-01-01T12:10:00Z")] ; 10 minutes later
       (is (not (araf/valid-jwt? svc token current-time)))))
 

@@ -6,7 +6,9 @@
 
            poly/araf-server    {:local/root "../../bases/araf-server"}}
 
- :aliases {:test {:extra-paths []
-                  :extra-deps  {}}
-           :run  {:main-opts ["-m" "pc4.araf-server.main"]}}}
+ :aliases {:test  {:extra-paths []
+                   :extra-deps  {}}
+           :run   {:main-opts ["-m" "pc4.araf-server.main"]}
+           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.5" :git/sha "2a21b7a"}}
+                   :ns-default build}}}
 

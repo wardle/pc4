@@ -20,10 +20,7 @@
 
 (defmethod ig/init-key ::ops
   [_ ops]
-  (map
-    (fn [x]
-      (if (delay? x) (deref x) x))
-    (flatten ops)))
+  (map force (flatten ops)))                                ;; force will deref a delay or nop if not
 
 (defmethod ig/init-key ::env
   [_ {:keys [ops] :as env}]

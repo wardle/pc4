@@ -8,65 +8,38 @@
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [io.pedestal.http.content-negotiation :as content-negotiation]
     [pc4.araf-server.handlers :as h]
     [pc4.araf.interface :as araf]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]
     [selmer.parser :as selmer]))
 
-(def supported-types ["application/edn" "application/json"])
-
-(def content-neg
-  (content-negotiation/negotiate-content supported-types))
-
-(defn accepted-type
-  [context]
-  (get-in context [:request :accept :field] "application/edn"))
-
-(defn transform-content
-  [body content-type]
-  (case content-type
-    "application/edn" (pr-str body)
-    "application/json" (json/write-str body)))
-
-(defn coerce-to
-  [response content-type]
-  (-> response
-      (update :body transform-content content-type)
-      (assoc-in [:headers "Content-Type"] content-type)))
-
-(def coerce-body
-  {:name ::coerce-body
+(def result->json
+  {:name :result->json
    :leave
-   (fn [context]
-     (if (nil? (get-in context [:response :headers "Content-Type"]))
-       (update context :response coerce-to (accepted-type context))
-       context))})
-
-(def entity-render
-  {:name :entity-render
-   :leave
-   (fn [context]
-     (if-let [item (:result context)]
-       (assoc context :response (h/ok item))
-       context))})
+   (fn [{:keys [result] :as ctx}]
+     (if result
+       (assoc ctx :response {:status 200
+                             :headers {"Content-Type" "application/json"}
+                             :body (json/write-str result)})
+       ctx))})
 
 (defn csrf-error-handler
   [ctx]
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
   (assoc-in ctx [:response] {:status 403 :body "Forbidden; missing CSRF token in submission"}))
 
+(def common [(csrf/anti-forgery {:error-handler csrf-error-handler})])
+(def common-api [h/authenticate result->json])
 (def routes
-  #{["/" :get h/home-handler :route-name :home]
-    ["/araf/welcome" :get h/welcome-handler :route-name :welcome]
-    ["/araf/welcome" :post h/search-handler :route-name :search]
-    ["/araf/form/:long-access-key" :get h/intro-handler :route-name :introduction]
-    ["/araf/form/:long-access-key/question/:step" :post [(csrf/anti-forgery) h/question-handler] :route-name :question]
-    ["/araf/form/:long-access-key/signature" :post [(csrf/anti-forgery) h/signature-handler] :route-name :signature]
-    ["/araf/api/request/:nhs-number/:access-key" :get [h/authenticate coerce-body content-neg entity-render h/api-get-request] :route-name :api-get-request]
-    ["/araf/api/request" :post [h/authenticate coerce-body content-neg entity-render h/api-create-request] :route-name :api-create-request]
-    ["/araf/api/responses" :get [h/authenticate coerce-body content-neg entity-render h/api-get-responses] :route-name :api-get-responses]})
+  #{["/" :get (conj common h/welcome-handler) :route-name :welcome]
+    ["/" :post (conj common h/search-handler) :route-name :search]
+    ["/araf/form/:long-access-key" :get (conj common h/intro-handler) :route-name :introduction]
+    ["/araf/form/:long-access-key/question/:step" :post (conj common h/question-handler) :route-name :question]
+    ["/araf/form/:long-access-key/signature" :post (conj common h/signature-handler) :route-name :signature]
+    ["/araf/api/request" :post [h/authenticate result->json h/api-create-request] :route-name :api/create-request]
+    ["/araf/api/request/:long-access-key" :get (conj common-api h/api-get-request)  :route-name :api/get-request]
+    ["/araf/api/responses" :get (conj common-api h/api-get-responses) :route-name :api/get-responses]})
 
 (defn start
   [{:keys [host port env join? session-key]}]
@@ -84,7 +57,6 @@
       http/dev-interceptors
       (update ::http/interceptors conj
               (body-params/body-params)
-              (csrf/anti-forgery {:error-handler csrf-error-handler})
               (h/env-interceptor env))
       http/create-server
       http/start))

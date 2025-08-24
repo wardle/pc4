@@ -1,6 +1,7 @@
 (ns pc4.araf.interface
   (:require
     [clojure.spec.alpha :as s]
+    [hato.client :as hc]
     [integrant.core :as ig]
     [migratus.core :as migratus]
     [next.jdbc :as jdbc]
@@ -37,6 +38,7 @@
     (when (seq pending)
       (log/info "performing pending migrations" pending)
       (migratus/migrate migration-config))
+    (db/test-date-time-handling ds)
     {:ds ds :secret secret}))
 
 (defmethod ig/halt-key! ::patient
@@ -47,14 +49,16 @@
 
 (s/def ::rsdb any?)
 (s/def ::url string?)
-(s/def ::clinician-config (s/keys :req-un [::rsdb ::url ::secret]))
-
+(s/def ::http-client-options map?)                          ;; see hato client documentation
+(s/def ::clinician-config (s/keys :req-un [::rsdb ::url ::secret ::http-client-options]))
+(s/def ::clinician-svc (s/keys :req-un [::rsdb ::url ::secret ::http-client]))
 (defmethod ig/init-key ::clinician
-  [_ {:keys [rsdb url] :as config}]
+  [_ {:keys [rsdb url http-client-options] :as config}]
   (when-not (s/valid? ::clinician-config config)
     (throw (ex-info "invalid araf clinician configuration" (s/explain-data ::clinician-config config))))
   (log/info "starting araf clinician service" {:url url})
-  config)
+  (-> config
+      (assoc :http-client (hc/build-http-client http-client-options))))
 
 (defmethod ig/halt-key! ::clinician
   [_ _service]
@@ -145,11 +149,14 @@
    (db/format-access-key s sep)))
 
 (defn generate-jwt
-  "Generate an authentication token."
+  "Generate an authentication token. Optionally takes configuration which can
+  include:
+  - :now            - [[java.time.Instant]] for 'now' - useful in testing
+  - :expiry-seconds - lifespan of the JWT in seconds"
   ([{:keys [secret]}]
    (token/gen-jwt secret))
-  ([{:keys [secret]} ^Instant timestamp]
-   (token/gen-jwt secret timestamp)))
+  ([{:keys [secret]} options]
+   (token/gen-jwt secret options)))
 
 (defn valid-jwt?
   "Authenticate a JWT using the service's secret."

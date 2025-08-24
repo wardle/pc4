@@ -11,3 +11,7 @@
     (ig/load-namespaces conf [::server/server])
     (ig/init conf [::server/server])))
 
+(defn -main [& args]
+  (let [profile (or (first args) "dev")]
+    (serve {:profile profile})))
+

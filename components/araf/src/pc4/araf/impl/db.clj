@@ -163,6 +163,19 @@
                {:builder-fn rs/as-unqualified-maps})
              (update :araf_type keyword)))))
 
+
+(defn test-date-time-handling
+  "Check that date time handling for JDBC is working as expected and returning
+  [[java.time.Instant]] and not [[javax.sql.Timestamp]]."
+  [ds]
+  (jdbc/with-transaction [txn ds {:rollback-only true}]
+    (let [exp (Instant/.plus (Instant/now) (Duration/ofDays 14))
+          {:keys [date_time expires] :as req} (create-request txn "1111111111" :valproate-f exp)]
+      (when-not (instance? Instant date_time)
+        (throw (ex-info "expected type of java.time.Instant" {:request req :class (class date_time)})))
+      (when-not (= exp expires)
+        (throw (ex-info "roundtrip for expiry invalid " {:request req :exp exp}))))))
+
 ;; Response specs
 (s/def ::request_id pos-int?)
 (s/def ::data (s/nilable map?))

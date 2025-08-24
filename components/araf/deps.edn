@@ -6,6 +6,7 @@
            com.google.zxing/javase          {:mvn/version "3.5.3"}
            com.github.seancorfield/honeysql {:mvn/version "2.7.1340"}
            com.zaxxer/HikariCP              {:mvn/version "5.1.0"}
+           hato/hato                        {:mvn/version "1.0.0"}
            migratus/migratus                {:mvn/version "1.6.4"}
            org.postgresql/postgresql         {:mvn/version "42.7.7"}}
  :aliases {:test {:extra-paths ["test"]

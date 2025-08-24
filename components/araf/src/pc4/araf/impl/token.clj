@@ -27,11 +27,11 @@
     (str/join (take 12 (repeatedly #(nth base32-chars (.nextInt rng n)))))))
 
 (defn gen-jwt
-  "Generate an authentication token with 5-minute expiry."
+  "Generate an authentication token with default 5-minute expiry."
   ([secret]
-   (gen-jwt secret (Instant/now)))
-  ([secret ^Instant timestamp]
-   (let [exp-time (Instant/.plusSeconds timestamp 300)] ; 5 minutes
+   (gen-jwt secret {:now (Instant/now) :expiry-seconds 300}))
+  ([secret {:keys [now expiry-seconds] :or {expiry-seconds 300}}]
+   (let [exp-time (Instant/.plusSeconds (or now (Instant/now)) expiry-seconds)] ; 5 minutes
      (jwt/sign {:exp (Instant/.getEpochSecond exp-time)} secret))))
 
 (defn valid-jwt?

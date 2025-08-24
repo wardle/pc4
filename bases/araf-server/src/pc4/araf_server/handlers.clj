@@ -32,6 +32,9 @@
   (or (get-in request [:env :svc])
       (throw (ex-info "missing araf svc in environment" (:env request)))))
 
+(defn csrf-token [request]
+  (get request csrf/anti-forgery-token))
+
 (defn url-for-search []
   (route/url-for :search))
 
@@ -78,15 +81,14 @@
 (defn welcome-page
   "Welcome page asking user to enter their NHS number and access key."
   [request {:keys [error nhs-number access-key]}]
-  (let [csrf-token (csrf/existing-token request)]
-    (ok (selmer/render-file
-          "araf/templates/welcome.html"
-          {:title      "ARAF"
-           :url        (url-for-search)
-           :csrf-token csrf-token
-           :error      error
-           :access-key access-key
-           :nhs-number nhs-number}))))
+  (ok (selmer/render-file
+        "araf/templates/welcome.html"
+        {:title      "ARAF"
+         :url        (url-for-search)
+         :csrf-token (csrf-token request)
+         :error      error
+         :access-key access-key
+         :nhs-number nhs-number})))
 
 (def home-handler
   {:enter
@@ -136,7 +138,6 @@
         {:keys [araf_type completed] :as araf-request} (araf/fetch-request (araf-svc request) long-access-key)
         config (araf/form-config araf_type)]
     (log/debug "intro" {:araf araf_type :form long-access-key})
-    (log/debug araf-request)
     (cond
       completed
       (ok (selmer/render-file "araf/templates/notice.html"
@@ -152,7 +153,7 @@
       (ok
         (selmer/render-file (str (:template-path config) "/intro.html")
                             (merge config
-                                   {:csrf-token      (csrf/existing-token request)
+                                   {:csrf-token      (csrf-token request)
                                     :form-action     (url-for-question long-access-key 0)
                                     :long-access-key long-access-key
                                     :araf-type       (name araf_type)})))
@@ -182,7 +183,7 @@
         step# (or (some-> step parse-long) 0)
         {:keys [template-path questions]} (araf/form-config (keyword araf_type))
         total (count questions)
-        params {:csrf-token   (csrf/existing-token request)
+        params {:csrf-token   (csrf-token request)
                 :step         step#
                 :questions    questions
                 :total        total
@@ -223,39 +224,34 @@
   [{:keys [form-params path-params] :as request}]
   (let [{:keys [long-access-key]} path-params
         {:keys [action user signature responsible]} form-params
-        csrf-token (csrf/existing-token request)
-        params {:csrf-token  csrf-token
+        params {:csrf-token  (csrf-token request)
                 :user        user
                 :responsible responsible
                 :action      (url-for-signature long-access-key)}
         [mime-type signature-bytes] (parse-data-uri signature)]
     (log/debug "signature" {:form long-access-key :action action :mime-type mime-type :has-signature (some? signature)})
     (cond
-      ;; Going back to questions
+      ;; back to questions
       (= action "back")
       (hx-redirect (url-for-introduction long-access-key))
 
+      ;; submitting but need name of responsible person and it is missing
       (and (= action "submit") (not= user "patient") (or (str/blank? responsible) (nil? signature)))
       (ok (selmer/render-file "araf/templates/signature.html"
                               (assoc params :error "You must include name of responsible person and signature.")))
 
-      (and (= action "submit") (nil? signature))
-      (ok (selmer/render-file "araf/templates/signature.html"
-                              (assoc params :error "You must include a signature.")))
-
-      ;; Form submission with name (when needed) and valid signature
-      (and (= action "submit") mime-type)
+      ;; form submission with name (when needed) and valid signature
+      (and (= action "submit") (some? signature-bytes) (not (str/blank? mime-type)))
       (do
-        (araf/submit-form! (araf-svc request) long-access-key
-                           {:signature signature-bytes :mime_type mime-type :name responsible})
-        (log/info "ARAF form completed and stored" {:long-access-key long-access-key :user user :responsible responsible})
+        (araf/submit-form! (araf-svc request) long-access-key {:signature signature-bytes :mime_type mime-type :name responsible})
+        (log/info "ARAF form saved" {:long-access-key long-access-key :user user :responsible responsible})
         (ok "Form submitted successfully! Thank you for completing the ARAF acknowledgement."))
 
-      ;; submission, but invalid signature
+      ;; submitting but no signature
       (= action "submit")
-      (ok (selmer/render-file "araf/templates/signature.html"
-                              (assoc params :error "Invalid signature format.")))
-      ;; Show signature page
+      (ok (selmer/render-file "araf/templates/signature.html" (assoc params :error "You must include a signature.")))
+
+      ;; show signature page
       :else
       (ok (selmer/render-file "araf/templates/signature.html" params)))))
 
@@ -280,31 +276,33 @@
 
 (def api-create-request
   (intc/interceptor
-    {:name  ::api-create-request
-     :enter (fn [ctx]
-              (let [{:keys [json-params] :as request} (:request ctx)
-                    {:keys [nhs-number araf-type expires]} json-params]
-                (if-not (and nhs-number araf-type expires)
-                  (assoc ctx :result {:status 400 :error "Missing required fields: nhs-number, araf-type, expires"})
-                  (let [nnn (nnn/normalise nhs-number)
-                        expires-instant (Instant/parse expires)]
-                    (if-not (nnn/valid? nnn)
-                      (assoc ctx :result {:status 400 :error "Invalid NHS number"})
-                      (let [araf-request (araf/create-request (araf-svc request) nnn (keyword araf-type) expires-instant)]
-                        (assoc ctx :result araf-request)))))))}))
+    {:name :api-create-request
+     :enter
+     (fn [{:keys [request] :as ctx}]
+       (let [params (:json-params request)
+             {:keys [nhs-number araf-type expires]} params]
+         (if-not (and nhs-number araf-type expires)
+           (assoc ctx :result {:status 400 :error "Missing required fields: nhs-number, araf-type, expires"})
+           (let [nnn (nnn/normalise nhs-number)
+                 expires-instant (Instant/parse expires)]
+             (if-not (nnn/valid? nnn)
+               (assoc ctx :result {:status 400 :error "Invalid NHS number"})
+               (let [araf-request (araf/create-request (araf-svc request) nnn (keyword araf-type) expires-instant)]
+                 (assoc ctx :result araf-request)))))))}))
 
 (def api-get-request
   (intc/interceptor
-    {:name  ::api-get-request
-     :enter (fn [ctx]
-              (let [{:keys [path-params] :as request} (:request ctx)
-                    {:keys [nhs-number access-key]} path-params]
-                (if-not (and nhs-number access-key)
-                  (assoc ctx :response {:status 400 :error "Missing nhs-number or access-key"})
-                  (let [result (araf/fetch-request (araf-svc request) nhs-number access-key)]
-                    (if (:error result)
-                      (assoc ctx :response {:status 404 :error (:message result)})
-                      (assoc ctx :result result))))))}))
+    {:name :api-create-request
+     :enter
+     (fn [{:keys [request] :as ctx}]
+       (let [params (:path-params request)
+             long-access-key (:long-access-key params)]
+         (if (str/blank? long-access-key)
+           (assoc ctx :response {:status 400 :body "Missing long-access-key"})
+           (let [result (araf/fetch-request (araf-svc request) long-access-key)]
+             (if (:error result)
+               (assoc ctx :response {:status 400 :body (:message result)})
+               (assoc ctx :result result))))))}))
 
 (def api-get-responses
   "API interceptor to get all responses from a given id."

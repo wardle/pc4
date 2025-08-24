@@ -20,3 +20,4 @@ output.css
 *.csv
 /problems.json
 /metadata.json
+/projects/araf-patient-server/target
