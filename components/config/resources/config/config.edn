@@ -194,9 +194,15 @@
  ;; ARAF (patient-facing) core service
  :pc4.araf.interface/patient
  {:ds     #profile {:dev {:dbtype          "postgresql"
-                          :dbname          "araf_remote"
+                          :dbname          "araf_patient"
                           :maximumPoolSize 5
-                          :minimumIdle     5}}
+                          :minimumIdle     5}
+                    :aws {:dbtype          "postgresql"
+                          :host            #ref [:secrets :pc4 :araf :db :host]
+                          :username        #ref [:secrets :pc4 :araf :db :username]
+                          :password        #ref [:secrets :pc4 :araf :db :password]
+                          :dbname          "araf_patient"
+                          :maximumPoolSize 5}}
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF clinician service
 
  ;; ARAF (clinician-facing) service
