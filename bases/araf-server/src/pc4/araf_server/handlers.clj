@@ -16,8 +16,6 @@
   "Parse data URI into [mime-type bytes].
    Currently expects format: data:image/png;base64,<base64-data>"
   [data-uri]
-  (when (and (not (str/blank? data-uri)) (.startsWith data-uri "data:image/png;base64,"))
-    ["image/png" (.decode (Base64/getDecoder) (.substring data-uri 22))]))
   (when (and (not (str/blank? data-uri)) (str/starts-with? data-uri "data:image/png;base64,"))
     ["image/png" (.decode (Base64/getDecoder) (subs data-uri 22))]))
 
@@ -40,7 +38,8 @@
 (defn url-for-search []
   (route/url-for :search))
 
-(defn url-for-question [long-access-key step]
+(defn url-for-question
+  [long-access-key step]
   (route/url-for :question :path-params {:long-access-key long-access-key :step step}))
 
 (defn url-for-welcome []
@@ -50,7 +49,8 @@
   [long-access-key]
   (route/url-for :introduction :path-params {:long-access-key long-access-key}))
 
-(defn url-for-signature [long-access-key]
+(defn url-for-signature
+  [long-access-key]
   (route/url-for :signature :path-params {:long-access-key long-access-key}))
 
 (defn ok [body]
@@ -92,22 +92,16 @@
          :access-key access-key
          :nhs-number nhs-number})))
 
-(def home-handler
-  {:enter
-   (fn [ctx]
-     (assoc ctx
-       :session {}
-       :response (redirect (url-for-welcome))))})
-
 (defn welcome-handler
   "Patient landing page when there is no direct link with an access key.
-  Patient has to enter their NHS number and date of birth to proceed."
+  Patient or responsible person has to enter their NHS number and date of birth to proceed."
   [request]
   (welcome-page request {}))
 
 (defn search-handler
   "HTTP POST handler taking form submission and redirecting to introduction
-  page, or returning same welcome page with an error if required."
+  page, or returning welcome page with an error if required. Nonsensical input
+  is screened out without hitting the database."
   [{:keys [form-params] :as request}]
   (let [{:keys [nhs-number access-key]} form-params
         nnn (nnn/normalise nhs-number)]
@@ -256,6 +250,10 @@
       ;; show signature page
       :else
       (ok (selmer/render-file "araf/templates/signature.html" params)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; API endpoints ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;
 ;; API Authentication
