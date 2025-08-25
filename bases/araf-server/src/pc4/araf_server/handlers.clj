@@ -18,6 +18,8 @@
   [data-uri]
   (when (and (not (str/blank? data-uri)) (.startsWith data-uri "data:image/png;base64,"))
     ["image/png" (.decode (Base64/getDecoder) (.substring data-uri 22))]))
+  (when (and (not (str/blank? data-uri)) (str/starts-with? data-uri "data:image/png;base64,"))
+    ["image/png" (.decode (Base64/getDecoder) (subs data-uri 22))]))
 
 (defn env-interceptor
   "Return an interceptor to inject the given env into the request."
