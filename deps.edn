@@ -42,41 +42,37 @@
                  poly/server                        {:local/root "bases/server"}
 
                  ;; external dependencies:
-                 org.clojure/clojure                {:mvn/version "1.12.1"}
-                 integrant/integrant                {:mvn/version "0.13.1"}
                  integrant/repl                     {:mvn/version "0.4.0"}
-                 io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}
-                 com.wsscode/pathom3                {:mvn/version "2025.01.16-alpha"}
-                 com.wsscode/pathom-viz-connector   {:mvn/version "2022.02.14"}}
+                 io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}}
    :jvm-opts    ["-Dio.pedestal.dev-mode=true"]}
 
   :nrepl
-  {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.0"}
-                cider/cider-nrepl {:mvn/version "0.50.2"}}
+  {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.1"}
+                cider/cider-nrepl {:mvn/version "0.57.0"}}
    :main-opts  ["--main" "nrepl.cmdline"
                 "--middleware" "[cider.nrepl/cider-middleware]"
                 "--interactive"]}
 
   :shadow
   {:extra-paths ["components/frontend/src"]
-   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.7.9"}
+   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.8.6"}
                  com.fulcrologic/guardrails               {:mvn/version "1.2.9"}
                  expound/expound                          {:mvn/version "0.9.0"}
                  lambdaisland/uri                         {:mvn/version "1.19.155"}
-                 org.clojure/clojurescript                {:mvn/version "1.11.132"}
+                 org.clojure/clojurescript                {:mvn/version "1.12.42"}
                  bidi/bidi                                {:mvn/version "2.1.6"}
                  binaryage/devtools                       {:mvn/version "1.0.7"}
-                 ch.qos.logback/logback-classic           {:mvn/version "1.5.8"}
+                 ch.qos.logback/logback-classic           {:mvn/version "1.5.18"}
                  clj-commons/pushy                        {:mvn/version "0.3.10"}
                  com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.3.0"}
+                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.2"}
                  fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
                  integrant/repl                           {:mvn/version "0.4.0"}
                  org.clojure/test.check                   {:mvn/version "1.1.1"}
-                 thheller/shadow-cljs                     {:mvn/version "2.28.14"}}}
+                 thheller/shadow-cljs                     {:mvn/version "3.1.8"}}}
 
   :portal
-  {:extra-deps {djblue/portal {:mvn/version "0.57.3"}}}
+  {:extra-deps {djblue/portal {:mvn/version "0.60.2"}}}
 
   :test
   {:extra-paths ["components/araf/test"
@@ -89,11 +85,11 @@
    :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
   :outdated
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1227"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
    :main-opts  ["-m" "antq.core"]}
 
   :upgrade
-  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.9.1227"}}
+  {:extra-deps {com.github.liquidz/antq {:mvn/version "2.11.1276"}}
    :main-opts  ["-m" "antq.core" "--upgrade"]}
 
   :check
@@ -112,4 +108,4 @@
 
   :poly
   {:main-opts  ["-m" "polylith.clj.core.poly-cli.core"]
-   :extra-deps {polylith/clj-poly {:mvn/version "0.2.21"}}}}}
+   :extra-deps {polylith/clj-poly {:mvn/version "0.2.22"}}}}}
