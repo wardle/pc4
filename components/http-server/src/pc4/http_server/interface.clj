@@ -182,7 +182,7 @@
     (ig/expand conf (ig/deprofile :dev))))
 
 (defn system []
-  (requiring-resolve 'integrant.repl.state/system))
+  (var-get (requiring-resolve 'integrant.repl.state/system)))
 
 (comment
   (require '[integrant.repl :as ig.repl])
