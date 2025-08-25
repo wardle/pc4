@@ -16,7 +16,7 @@
 
 (def test-db-connection-spec
   "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "araf_remote"})
+  {:dbtype "postgresql" :dbname "araf_patient"})
 
 (defn with-araf-service
   [f]
