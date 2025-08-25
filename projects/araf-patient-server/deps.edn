@@ -9,6 +9,6 @@
  :aliases {:test  {:extra-paths []
                    :extra-deps  {}}
            :run   {:main-opts ["-m" "pc4.araf-server.main"]}
-           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.5" :git/sha "2a21b7a"}}
+           :build {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.10" :git/sha "deedd623"}}
                    :ns-default build}}}
 
