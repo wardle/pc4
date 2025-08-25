@@ -87,19 +87,27 @@
   (log/info "stopping araf server" (select-keys service-map [::http/port ::http/type]))
   (http/stop service-map))
 
-(defn prep-system []
-  (let [get-conf (requiring-resolve 'pc4.config.interface/config)
-        conf (get-conf :dev)]
-    (ig/load-namespaces conf [::server])
-    (ig/expand conf (ig/deprofile :dev))))
+(defn prep-system
+  ([]
+   (prep-system :dev))
+  ([profile]
+   (fn []
+     (let [get-conf (requiring-resolve 'pc4.config.interface/config)
+           conf (get-conf profile)]
+       (ig/load-namespaces conf [::server])
+       (ig/expand conf (ig/deprofile profile))))))
 
 (defn system []
-  (requiring-resolve 'integrant.repl.state/system))
+  (var-get (requiring-resolve 'integrant.repl.state/system)))
 
 (comment
   (require '[integrant.repl :as ig.repl])
-  (ig.repl/set-prep! prep-system)
+  (ig.repl/set-prep! (prep-system :dev))
+  (ig.repl/set-prep! (prep-system :aws))
   (ig.repl/go [::server])
+  (keys (system))
+  (araf/create-request (:pc4.araf.interface/patient (system)) "1111111111" :valproate-f
+                       (java.time.Instant/.plus (java.time.Instant/now) (java.time.Duration/ofDays 14)))
   (ig.repl/halt)
   (pc4.config.interface/config :dev)
   (route/routes-from routes)
