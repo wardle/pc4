@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
  :deps {com.fulcrologic/fulcro               {:mvn/version "3.8.6"}
         com.wsscode/pathom3                  {:mvn/version "2025.01.16-alpha"}
-        org.jsoup/jsoup                      {:mvn/version "1.21.1"}
-        com.taoensso/timbre                  {:mvn/version "6.7.1"}}     ;; we override timbre as otherwise fulcro pulls in an older version
+        org.jsoup/jsoup                      {:mvn/version "1.21.2"}
+        com.taoensso/timbre                  {:mvn/version "6.8.0"}}     ;; we override timbre as otherwise fulcro pulls in an older version
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps  {}}}}
