@@ -5,8 +5,7 @@
   implementation. As such, these specifications tighten the more broad 
   general purpose specifications for use within pc4."
   (:require [clojure.spec.alpha :as s]
-            [clojure.core :as c]
-            [pc4.fhir.interface :as fhir])
+            [clojure.core :as c])
   (:import (java.time LocalDate LocalDateTime)))
 
 (def administrative-gender #{"male" "female" "other" "unknown"})
