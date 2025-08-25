@@ -4,4 +4,5 @@
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
  :aliases   {:test {:extra-paths ["test"]
-                    :extra-deps  {pc4/rsdb {:local/root "../rsdb"}}}}}
+                    :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}
+                                  pc4/rsdb               {:local/root "../rsdb"}}}}}
