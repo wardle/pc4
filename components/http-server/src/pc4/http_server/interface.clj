@@ -2,7 +2,6 @@
   (:require
     [buddy.core.codecs :as codecs]
     [clojure.spec.alpha :as s]
-    [integrant.repl :as ig.repl]
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.interceptor :as intc]
