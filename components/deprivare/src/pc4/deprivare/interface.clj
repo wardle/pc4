@@ -10,6 +10,7 @@
    [pc4.log.interface :as log]))
 
 (defmethod ig/init-key ::svc [_ {:keys [root f path]}]
+  (Class/forName "org.sqlite.JDBC")                         ;; force class initialisation
   (let [path' (or path (.getCanonicalPath (io/file root f)))]
     (log/info "opening deprivare index: " path')
     (deprivare/open path')))
