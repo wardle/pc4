@@ -12,6 +12,7 @@
     [pc4.rsdb.db :as db]
     [pc4.rsdb.encounters :as encounters]
     [pc4.rsdb.migrations :as migrations]
+    [pc4.rsdb.nform.api :as nf]
     [pc4.rsdb.forms :as forms]
     [pc4.rsdb.demographics :as demog]
     [pc4.rsdb.jobs]                                         ;; register queue job handlers
@@ -28,13 +29,14 @@
   (:import (com.zaxxer.hikari HikariDataSource)))
 
 (s/def ::conn :next.jdbc.specs/proto-connectable)
+(s/def ::form-store nf/form-store?)
 (s/def ::wales-nadex nadex/valid-service?)
 (s/def ::hermes any?)
 (s/def ::ods ods/valid-service?)
 (s/def ::legacy-global-pseudonym-salt string?)
 
 (s/def ::service-config
-  (s/keys :req-un [::conn ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
+  (s/keys :req-un [::conn ::form-store ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
 
 (defmethod ig/init-key ::conn
   [_ config]
@@ -47,10 +49,10 @@
   (when conn (.close conn)))
 
 (defmethod ig/init-key ::svc
-  [_ config]
+  [_ {:keys [conn] :as config}]
   (when-not (s/valid? ::service-config config)
     (throw (ex-info "invalid rsdb svc config" (s/explain-data ::service-config config))))
-  config)
+  (assoc config :form-store (nf/make-form-store conn)))
 
 (defn valid-service?
   [svc]
@@ -524,6 +526,23 @@
    (forms/forms-for-encounter conn encounter-id))
   ([{:keys [conn]} encounter-id opts]
    (forms/forms-for-encounter conn encounter-id opts)))
+
+
+;;
+;; new forms - upsert / fetch one / fetch multiple
+;;
+
+(defn upsert-form [{:keys [form-store]} form]
+  (nf/upsert! form-store form))
+
+(defn form [{:keys [form-store]} id]
+  (nf/form form-store id))
+
+(defn forms [{:keys [form-store]} params]
+  (nf/forms form-store params))
+
+
+
 
 ;;
 ;;
