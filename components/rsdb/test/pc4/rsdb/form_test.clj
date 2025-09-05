@@ -19,7 +19,10 @@
 
 (deftest summarise
   (let [forms (gen/sample (form/gen-form#) 10000)]
-    (is (not-any? str/blank? (map form/summary forms)))))
+    (doseq [form forms]
+      (let [summary (form/summary form)]
+        (is (not (str/blank? summary))
+            (str "Form summaries should never be blank strings:" (:form_type form)))))))
 
 (comment
   (gen/generate (form/gen-form#))
