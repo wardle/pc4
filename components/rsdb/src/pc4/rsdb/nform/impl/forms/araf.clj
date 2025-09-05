@@ -92,12 +92,17 @@
   [{:keys [confirm eligible]}]
   (if (and confirm eligible) "Countersigned" "Not countersigned"))
 
-
 (defmethod form/spec :araf-val-f-s4-acknowledgement/v2_0 [_]
-  (s/keys :req-un [:acknowledged :source]
-          :opt-un [:araf-request-id]))
+  (s/keys :req-un [::acknowledged ::source]
+          :opt-un [::araf-request-id]))
 
+(defmethod form/summary :araf-val-f-s4-acknowledgement/v2_0
+  [{:keys [acknowledged]}]
+  (if acknowledged "Acknowledged" "Not acknowledged"))
 
+(defmethod form/hydrate :araf-val-f-s4-acknowledgement/v2_0
+  [form]
+  (update form :source keyword))
 
 (def all-araf-forms
   #{:araf-val-f-s1-status/v2_0
