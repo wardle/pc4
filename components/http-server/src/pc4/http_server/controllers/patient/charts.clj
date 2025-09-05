@@ -1,7 +1,6 @@
 (ns pc4.http-server.controllers.patient.charts
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [io.pedestal.http.route :as route]
             [pc4.chart.interface :as chart]
             [pc4.http-server.web :as web]
             [pc4.log.interface :as log]
@@ -78,7 +77,7 @@
                                    {:t_encounter/form_edss [:t_form_edss/id :t_form_edss/score]}
                                    {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse]}]}]})
         results
-        (->> (cond->> (:t_patient/encounters patient)
+        (->> (cond->> (remove :t_encounter/is_deleted (:t_patient/encounters patient))
                       start-date# (remove #(.isBefore ^LocalDateTime (:t_encounter/date_time %) start-date#))
                       end-date# (remove #(.isAfter ^LocalDateTime (:t_encounter/date_time %) end-date#)))
              (map encounter->edss-chart-data))]
