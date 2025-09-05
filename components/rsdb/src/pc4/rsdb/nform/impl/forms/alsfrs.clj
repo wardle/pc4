@@ -155,12 +155,20 @@
   [{:keys [climbing_stairs cutting_food dressing_and_hygiene dyspnoea handwriting orthopnoea respiratory_insufficiency salivation speech swallowing turning_in_bed walking]}]
   (+ climbing_stairs dressing_and_hygiene cutting_food dyspnoea handwriting orthopnoea respiratory_insufficiency salivation speech swallowing turning_in_bed walking))
 
-(defmethod form/summary :alsfrs-r/v1
+(defmethod form/compute :alsfrs-r/v1
   [form]
   (let [bulbar (bulbar-score form)
         limb (limb-score form)
         respiratory (respiratory-score form)]
-    (str (+ bulbar limb respiratory) "/48 (bulbar: " bulbar "/12, limb: " limb "/24, resp: " respiratory "/12)")))
+    {:total       (+ bulbar limb respiratory)
+     :bulbar      bulbar
+     :limb        limb
+     :respiratory respiratory}))
+
+(defmethod form/summary :alsfrs-r/v1
+  [form]
+  (let [{:keys [total bulbar limb respiratory]} (form/compute form)]
+    (str total "/48 (bulbar: " bulbar "/12, limb: " limb "/24, resp: " respiratory "/12)")))
 
 (defmethod form/hydrate :alsfrs-r/v1
   [{:keys [cutting_food dyspneoa orthopneoa using_gastrostomy] :as form}]
