@@ -1,11 +1,11 @@
 (ns pc4.rsdb.nform.impl.forms.araf-test
-  (:require [clojure.test :refer :all]
-            [clojure.spec.alpha :as s]
-            [clojure.spec.gen.alpha :as gen]
-            [clojure.set :as set]
-            [pc4.rsdb.nform.impl.forms.araf :as araf]
-            [pc4.rsdb.nform.impl.form :as form])
-  (:import (java.time LocalDate LocalDateTime)))
+  (:require
+    [clojure.test :refer :all]
+    [clojure.spec.gen.alpha :as gen]
+    [clojure.set :as set]
+    [pc4.rsdb.nform.impl.forms.araf :as araf]
+    [pc4.rsdb.nform.impl.form :as form])
+  (:import (java.time LocalDate)))
 
 (defn- parse-date
   "Parses a date string into a LocalDateTime instance for testing."
@@ -105,19 +105,25 @@
 
    {:description "Scenario 10: Acknowledgement is expiring soon"
     :forms       [{:form_type :araf-val-f-s4-acknowledgement/v2_0, :date "2022-03-01", :acknowledged true}]
-    :checks      [{:on-date  "2023-02-15"
-                   :expected {:acknowledged {:status :expiring}
-                              :tasks        #{:status :treatment :countersignature :risks}}}]}
+    :checks      [{:on-date  "2022-05-01"
+                   :expected {:acknowledged {:acknowledged true :status :active}
+                              :tasks        #{:status :treatment :countersignature :risks}}}
+                  {:on-date  "2023-02-15"
+                   :expected {:acknowledged {:acknowledged true :status :expiring}
+                              :tasks        #{:status :treatment :countersignature :risks}}}
+                  {:on-date  "2023-03-02"
+                   :expected {:acknowledged {:acknowledged false :status :expired}
+                              :tasks        #{:status :treatment :countersignature :risks :acknowledgement}}}]}
 
    {:description "Scenario 11: Acknowledgement has expired"
     :forms       [{:form_type :araf-val-f-s4-acknowledgement/v2_0, :date "2022-01-01", :acknowledged true}]
     :checks      [{:on-date  "2023-02-01"
-                   :expected {:acknowledged {:status :expired}
-                              :tasks        #{:status}}}]}])
-
-;;;
-;;; Test Runner
-;;;
+                   :expected {:at-risk      true
+                              :excluded     false
+                              :treatment    false
+                              :countersign  false
+                              :acknowledged {:acknowledged false, :status       :expired}
+                              :tasks        #{:status :acknowledgement}}}]}])
 
 (defn- submap?
   "Is `m1` a submap of `m2`?"
@@ -141,7 +147,8 @@
 
 
 (comment
-  (def scenario (nth scenarios 6))
+  (run-tests)
+  (def scenario (nth scenarios 9))
   (def date (get-in scenario [:checks 0 :on-date]))
   (def expected (get-in scenario [:checks 0 :expected]))
   expected

@@ -172,7 +172,12 @@
          s2-countersig (most-recent :araf-val-f-s2-countersignature/v2_0 forms')
          s3-risks (most-recent :araf-val-f-s3-risks/v2_0 forms')
          s4-ack (most-recent :araf-val-f-s4-acknowledgement/v2_0 forms')
-         at-risk (not excluded)]
+         at-risk (not excluded)
+         ack (cond
+               (:acknowledged s4-ack) (datetime-status now (:date_time s4-ack))
+               (nil? s4-ack) :pending
+               (not (:acknowledged s4-ack)) :declined)
+         ack? (case ack (:active :expiring) true false)]
      {:at-risk      (not excluded)
       :status       (or (:status s1-status) :at-risk)       ;; at risk by default
       :excluded     (boolean excluded)
@@ -181,12 +186,8 @@
       :countersign  (boolean (when (and (:confirm s2-countersig) (:eligible s2-countersig))
                                {:signed true, :user (:user_fk s2-countersig)
                                 :date   (:date_time s2-countersig)}))
-      :acknowledged {:acknowledged (boolean (:acknowledged s4-ack))
-                     :date         (some-> s4-ack :date_time (LocalDateTime/.toLocalDate))
-                     :status       (cond
-                                     (:acknowledged s4-ack) (datetime-status now (:date_time s4-ack))
-                                     (nil? s4-ack) :pending
-                                     (not (:acknowledged s4-ack)) :declined)}
+      :acknowledged {:acknowledged ack?
+                     :status       ack}
       :forms        [s1-status s2-treatment s2-countersig s3-risks s4-ack]
       :tasks        (cond-> #{}
                       (nil? (:status s1-status))
@@ -197,7 +198,7 @@
                       (conj :countersignature)
                       (and at-risk (not (:all s3-risks)))
                       (conj :risks)
-                      (not (:acknowledged s4-ack))
+                      (not ack?)
                       (conj :acknowledgement))})))
 
 
