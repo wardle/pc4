@@ -55,10 +55,10 @@
    patient_fk
    encounter_fk
    user_fk
-   (write-json (dissoc form :id :form_type :patient_fk :encounter_fk :created :is_deleted :user_fk))])
+   (write-json (dissoc form :id :form_type :patient_fk :date_time :encounter_fk :created :is_deleted :user_fk))])
 
 (defn fetch-sql*
-  [{:keys [id form-type form-types patient-id is-deleted encounter-id encounter-ids]}]
+  [{:keys [id form-type form-types patient-id is-deleted encounter-id encounter-ids select]}]
   (cond-> (-> (h/select :t_nform/id :t_nform/created :t_nform/encounter_fk :t_nform/patient_fk
                         :t_nform/is_deleted :t_nform/user_fk :t_nform/form_type [[:raw "data::text"]])
               (h/from :t_nform))
@@ -70,11 +70,14 @@
     (h/where :in :form_type (map encode-form-type form-types))
     patient-id
     (h/where := :t_nform/patient_fk patient-id)
+    (:date-time select)
+    (h/select :t_encounter/date_time)
     (some? is-deleted)
-    (-> (h/left-join :t_encounter [:= :encounter_fk :t_encounter/id])
-        (h/where [(if is-deleted :or :and)
-                  [:= :t_nform/is_deleted is-deleted]
-                  [:= :t_encounter/is_deleted (str is-deleted)]]))
+    (h/where [(if is-deleted :or :and)
+              [:= :t_nform/is_deleted is-deleted]
+              [:= :t_encounter/is_deleted (str is-deleted)]])
+    (or (some? is-deleted) (:date-time select))
+    (h/left-join :t_encounter [:= :encounter_fk :t_encounter/id])
     encounter-id
     (h/where := :encounter_fk encounter-id)
     encounter-ids
@@ -83,15 +86,7 @@
 (s/fdef fetch-sql
   :args (s/cat :params ::p/fetch-params))
 (defn fetch-sql
-  "Return SQL to fetch form(s) meeting the criteria specified. Multiple criteria
-  can be specified.
-  - id            : a form with this identifier
-  - form-type     : forms of this type (keyword)
-  - form-types    : forms of these types (collection of keywords
-  - patient-id    : forms for this patient
-  - is-deleted    : boolean, return deleted (true), not deleted (false) or all forms (nil)
-  - encounter-id  : forms for this encounter
-  - encounter-ids : forms for these encounters"
+  "Return SQL to fetch form(s) meeting the criteria specified."
   [params]
   (sql/format (fetch-sql* params)))
 
@@ -119,4 +114,4 @@
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
   (def st (->NFFormStore conn))
   (p/form st #uuid "281b4ee6-9cfe-4e9e-84e3-52ba172ae46f")
-  (p/forms st {:encounter-id 17420 :is-deleted false}))
+  (p/forms st {:encounter-id 17420 :is-deleted false :select #{:date-time}}))

@@ -59,7 +59,7 @@
   (when form
     (let [[table pk] id]
       (cond-> (-> form
-                  (dissoc :id :form_type :created :patient_fk :summary)
+                  (dissoc :id :form_type :created :patient_fk :summary :date_time)
                   (assoc :date_created (or created (LocalDateTime/now)))
                   (update :is_deleted (fnil str false)))
         pk (assoc :id pk)))))
@@ -67,13 +67,15 @@
 (defn fetch-form-sql
   "Returns a vector representing a SQL statement and its parameters to fetch a
   form from the table specified."
-  [table pk]
+  [table pk select]
   (let [table-name (name table)]
     (sql/format
-      {:select    [(keyword table-name "*") :t_encounter/patient_fk]
-       :from      table
-       :left-join [:t_encounter [:= :t_encounter/id :encounter_fk]]
-       :where     [:= (keyword table-name "id") pk]})))
+      (cond-> {:select    [(keyword table-name "*") :t_encounter/patient_fk]
+               :from      table
+               :left-join [:t_encounter [:= :t_encounter/id :encounter_fk]]
+               :where     [:= (keyword table-name "id") pk]}
+        (:date-time select)
+        (h/select :t_encounter/date_time)))))
 
 (defn xf-filter-form-definition
   [{:keys [id form-type form-types]}]
@@ -97,7 +99,7 @@
 (defn tables-for-fetch
   "Given a set of fetch parameters, returns the tables to be queried. Returns
   all forms that use :wo as storage mechanism unless a form-type or form-types
-  are explicitly set."
+  explicitly set."
   [params]
   (into []
         (comp xf-wo-form-definitions (xf-filter-form-definition params) (map :table))
@@ -121,15 +123,17 @@
   "Generate a sequence of maps of :table and :sql-params to fetch against the specified criteria.
   NOTE: implementation of 'patient-pk' cannot occur here and instead users of
   this function must turn a patient-pk into a sequence of encounter-ids."
-  [{:keys [id form-type form-types is-deleted encounter-id encounter-ids] :as params}]
+  [{:keys [id form-type form-types is-deleted encounter-id encounter-ids select] :as params}]
   (let [tables (tables-for-fetch params)]
     (map (fn [table]
            {:table      table
             :sql-params (sql/format
                           (cond-> (-> (make-where-clauses table params)
-                                      (h/select (keyword (name table) "*") :t_encounter/patient_fk)
+                                      (h/select (keyword (name table) "*") :t_encounter/patient_fk )
                                       (h/from table :t_encounter)
-                                      (h/where := :encounter_fk :t_encounter/id))))})
+                                      (h/where := :encounter_fk :t_encounter/id))
+                            (:date-time select)
+                            (h/select :t_encounter/date_time)))})
          tables)))
 
 (comment
@@ -164,7 +168,7 @@
 (defn fetch-form
   [conn table pk]
   (let [form-definition (registry/form-definition-by-table table)]
-    (row->form form-definition (jdbc/execute-one! conn (fetch-form-sql table pk) jdbc-opts))))
+    (row->form form-definition (jdbc/execute-one! conn (fetch-form-sql table pk {}) jdbc-opts))))
 
 (defn insert-sql
   ([{:keys [form_type] :as form}]

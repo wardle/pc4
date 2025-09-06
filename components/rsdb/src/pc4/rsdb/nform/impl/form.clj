@@ -61,12 +61,14 @@
 (s/def ::nfid uuid?)
 (s/def ::id (s/nilable (s/or :nf ::nfid :wo (s/tuple ::table ::pk))))
 
-(s/def ::created
+(s/def ::local-date-time
   (s/with-gen
     #(instance? LocalDateTime %)
     #(gen/fmap (fn [days-ago]
                  (.minusDays (LocalDateTime/now) days-ago))
                (gen/choose 0 3650))))
+
+(s/def ::created ::local-date-time)
 
 (s/def ::is_deleted
   (s/with-gen boolean? #(gen/frequency [[9 (gen/return false)] [1 (gen/return true)]])))
