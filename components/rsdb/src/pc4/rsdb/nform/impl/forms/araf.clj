@@ -119,6 +119,8 @@
     :araf-val-f-s4-acknowledgement/v2_0})
 
 (defn fetch-form-params
+  "Generate 'fetch-params' for use with [[p/forms]] to fetch ARAF forms for the
+  patient specified."
   [patient-pk]
   {:patient-fk patient-pk
    :form-types all-araf-forms})
@@ -149,11 +151,11 @@
 (defn datetime-status
   [now date-time]
   (let [expired (LocalDateTime/.minusYears now 1)
-        expiring (LocalDateTime/.minusMonths now 1)]
+        expiring (LocalDateTime/.minusMonths now 11)]
     (cond
       (or (nil? date-time) (LocalDateTime/.isBefore date-time expired))
       :expired
-      (LocalDateTime/.isAfter date-time expiring)
+      (LocalDateTime/.isBefore date-time expiring)
       :expiring
       :else
       :active)))
@@ -172,7 +174,7 @@
          s4-ack (most-recent :araf-val-f-s4-acknowledgement/v2_0 forms')
          at-risk (not excluded)]
      {:at-risk      (not excluded)
-      :status       (:status s1-status)
+      :status       (or (:status s1-status) :at-risk)       ;; at risk by default
       :excluded     (boolean excluded)
       :status-text  (:text s1-status)
       :treatment    (boolean (:confirm s2-treatment))
@@ -186,7 +188,7 @@
                                      (nil? s4-ack) :pending
                                      (not (:acknowledged s4-ack)) :declined)}
       :forms        [s1-status s2-treatment s2-countersig s3-risks s4-ack]
-      :tasks        (cond-> []
+      :tasks        (cond-> #{}
                       (nil? (:status s1-status))
                       (conj :status)
                       (and at-risk (not (:confirm s2-treatment)))
