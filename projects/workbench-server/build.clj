@@ -1,83 +1,49 @@
 (ns build
-  (:require [clojure.edn :as edn]
-            [clojure.tools.build.api :as b]))
+  (:require [clojure.tools.build.api :as b]
+            [clojure.java.shell :refer [sh]]
+            [clojure.edn :as edn]))
 
-(def lib 'com.eldrix/pc4)
-(def version (format "1.1.%s" (b/git-count-revs nil)))
+(def uber-name 'workbench-server)
+(def version (let [{:keys [major minor]} (edn/read-string (slurp "../../version.edn"))]
+               (format "%d.%d.%s" major minor (b/git-count-revs nil))))
 (def class-dir "target/classes")
-(def basis (delay (b/create-basis {:project "deps.edn"})))
-(def jar-file (format "target/%s-lib-%s.jar" (name lib) version))
 (def uber-basis (delay (b/create-basis {:project "deps.edn" :aliases [:run]})))
-(def uber-file (format "target/%s-%s.jar" (name lib) version))
-
-(defn error [s]
-  (println "ERROR:" s)
-  (System/exit 1))
+(def uber-file (format "target/%s-%s.jar" (name uber-name) version))
 
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(defn jar [_]
-  (clean nil)
-  (println "** Building" jar-file)
-  (b/write-pom {:class-dir class-dir
-                :lib       lib
-                :version   version
-                :basis     @basis
-                :src-dirs  ["src"]
-                :scm       {:url                 "https://github.com/wardle/pc4"
-                            :tag                 (str "v" version)
-                            :connection          "scm:git:git://github.com/wardle/pc4.git"
-                            :developerConnection "scm:git:ssh://git@github.com/wardle/pc4.git"}})
-  (b/copy-dir {:src-dirs   ["src" "resources"]
-               :target-dir class-dir})
-  (b/jar {:class-dir class-dir
-          :jar-file  jar-file}))
-
-(defn install
-  "Installs pom and library jar in local maven repository"
-  [_]
-  (jar nil)
-  (println "** Installing :" lib version)
-  (b/install {:basis     @basis
-              :lib       lib
-              :class-dir class-dir
-              :version   version
-              :jar-file  jar-file}))
+(defn css [_]
+  (println "** Building CSS with Tailwind")
+  (let [result (sh "tailwindcss"
+                   "-o" "bases/workbench-server/resources/public/css/main.css"
+                   "--content" "components/**/resources/**/*.html,components/**/resources/**/*.clj,bases/workbench-server/src/**/*.clj"
+                   "--minify"
+                   :dir "../..")]
+    (when (not= 0 (:exit result))
+      (throw (ex-info "CSS build failed" result)))))
 
 (defn uber [{:keys [out] :or {out uber-file}}]
+  (println "**** Building uber" uber-file)
   (clean nil)
+  (css nil)
+  (println "** Compiling")
   (b/compile-clj {:basis        @uber-basis
-                  :ns-compile   ['pc4.server.core]
+                  :ns-compile   ['pc4.workbench-server.core]
                   :compile-opts {:elide-meta [:doc :added]}
                   :class-dir    class-dir})
-  (b/copy-file {:src (str "../../deps.edn")
-                :target (str class-dir "/deps.edn")})
-  (b/copy-file {:src    (str "../../components/config/resources/config/config.edn")
+  (println "** Copying files")
+  (b/copy-file {:src    "../../components/config/resources/config/config.edn"
                 :target (str class-dir "/config.edn")})
-  (b/copy-file {:src    (str "../../bases/server/resources/logback.xml")
+  (b/copy-file {:src    "../../bases/workbench-server/resources/logback.xml"
                 :target (str class-dir "/logback.xml")})
-  (b/copy-file {:src    (str "../../components/frontend/resources/public/css/output.css")
-                :target (str class-dir "/public/css/output.css")})
-  (b/copy-file {:src    (str "../../components/frontend/resources/public/js/compiled/manifest.edn")
-                :target (str class-dir "/public/js/compiled/manifest.edn")})
-  (let [manifest (edn/read-string (slurp "../../components/frontend/resources/public/js/compiled/manifest.edn"))
-        output-names (map :output-name manifest)] ;; get a list of all shadow cljs outputs
-    (if (pos-int? (count output-names))
-      (doseq [output-name output-names]
-        (println "Installing cljs frontend module:" output-name)
-        (b/copy-file {:src (str "../../components/frontend/resources/public/js/compiled/" output-name)
-                      :target (str class-dir "/public/js/compiled/" output-name)}))
-      (error "no shadow cljs outputs found")))
-  (b/copy-dir {:src-dirs   ["../../components/rsdb/resources/migrations"]
-               :target-dir (str class-dir "/migrations")})
-  (b/copy-dir {:src-dirs   ["../../bases/server/src"]
-               :target-dir class-dir})
+  (b/copy-dir {:src-dirs   ["../../bases/workbench-server/resources/public"]
+               :target-dir (str class-dir "/public")})
+  (println "** Generating uberfile")
   (b/uber {:class-dir class-dir
            :uber-file (str out)
            :basis     @uber-basis
-           :main      'pc4.server.core
+           :main      'pc4.workbench-server.core
            :exclude   [#"(?i)^META-INF/license/.*"
-                       #"^license/.*"]}))
-
-
+                       #"^license/.*"
+                       #"logback-test.xml"]}))

@@ -1,9 +1,11 @@
 (ns build
   (:require [clojure.tools.build.api :as b]
-            [clojure.java.shell :refer [sh]]))
+            [clojure.java.shell :refer [sh]]
+            [clojure.edn :as edn]))
 
 (def uber-name 'araf-server)
-(def version (format "1.1.%s" (b/git-count-revs nil)))
+(def version (let [{:keys [major minor]} (edn/read-string (slurp "../../version.edn"))]
+               (format "%d.%d.%s" major minor (b/git-count-revs nil))))
 (def class-dir "target/classes")
 (def uber-basis (delay (b/create-basis {:project "deps.edn" :aliases [:run]})))
 (def uber-file (format "target/%s-%s.jar" (name uber-name) version))
