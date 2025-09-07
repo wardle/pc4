@@ -1,7 +1,7 @@
 (ns pc4.araf.interface-test
   (:require [clojure.java.io :as io]
             [clojure.spec.test.alpha :as stest]
-            [clojure.test :refer [deftest use-fixtures is testing]]
+            [clojure.test :refer [deftest use-fixtures is run-tests testing]]
             [com.eldrix.nhsnumber :as nnn]
             [integrant.core :as ig]
             [next.jdbc :as jdbc]
@@ -99,3 +99,6 @@
   (testing "reject invalid token"
     (let [svc {:secret "secret"}]
       (is (not (araf/valid-jwt? svc "invalid-token"))))))
+
+(comment
+  (run-tests))
