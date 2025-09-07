@@ -3,7 +3,7 @@
             [clojure.java.shell :refer [sh]]))
 
 (def uber-name 'araf-patient-server)
-(def version (format "1.0.%s" (b/git-count-revs nil)))
+(def version (format "1.1.%s" (b/git-count-revs nil)))
 (def class-dir "target/classes")
 (def uber-basis (delay (b/create-basis {:project "deps.edn" :aliases [:run]})))
 (def uber-file (format "target/%s-%s.jar" (name uber-name) version))
