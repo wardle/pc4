@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  :deps {com.eldrix/nhs-number {:mvn/version "1.0.54"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}

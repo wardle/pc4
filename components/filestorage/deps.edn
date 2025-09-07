@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  :deps {software.amazon.awssdk/s3            {:mvn/version "2.33.4"}
         software.amazon.awssdk/apache-client {:mvn/version "2.33.4"}}
  :aliases {:test {:extra-paths ["test"]

@@ -1,4 +1,4 @@
-{:paths     ["src" "resources"]
+{:paths     ["src"]
  :deps      {org.jfree/jfreechart {:mvn/version "1.5.6"}}
  :mvn/repos {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
              "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}

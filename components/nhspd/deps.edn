@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  :deps {com.eldrix/nhspd                     {:mvn/version "2.0.75"}}
 
  :aliases {:test {:extra-paths ["test"]

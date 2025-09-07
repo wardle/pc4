@@ -1,4 +1,4 @@
-{:paths ["src" "resources"]
+{:paths ["src"]
  :deps {com.eldrix/dmd {:mvn/version "1.0.208"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {}}}}
