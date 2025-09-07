@@ -3,6 +3,13 @@
  {:requires  ([babashka.fs :as fs]
               [babashka.process :refer [sh]]
               [clojure.string :as str])
+  css
+  {:doc "Generate all CSS files for all bases"
+   :task (do
+           (shell {:dir "projects/workbench-server"}
+             "clojure" "-T:build" "css")
+           (shell {:dir "projects/araf-server"}
+             "clojure" "-T:build" "css"))}
 
   workbench-server
   {:doc "Build the workbench (clinician) server"

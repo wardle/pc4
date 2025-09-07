@@ -16,8 +16,8 @@
 (defn css [_]
   (println "** Building CSS with Tailwind")
   (let [result (sh "tailwindcss"
-                   "-o" "bases/araf-server/resources/public/css/araf-patient.css"
-                   "--content" "components/araf/resources/**/*.html,bases/araf-server/src/**/*.clj"
+                   "-o" "bases/araf-server/resources/public/css/araf.css"
+                   "--content" "components/araf/resources/**/*.html,components/araf/**/*.clj,bases/araf-server/src/**/*.clj"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))
@@ -33,18 +33,11 @@
                   :compile-opts {:elide-meta [:doc :added]}
                   :class-dir    class-dir})
   (println "** Copying files")
-  (b/copy-file {:src    "../../components/config/resources/config/config.edn"
-                :target (str class-dir "/config.edn")})
-  (b/copy-file {:src    "../../bases/araf-server/resources/logback.xml"
-                :target (str class-dir "/logback.xml")})
-  (b/copy-dir {:src-dirs   ["../../bases/araf-server/resources/public"]
-               :target-dir (str class-dir "/public")})
-  (b/copy-dir {:src-dirs   ["../../components/araf/resources/araf/migrations"]
-               :target-dir (str class-dir "/araf/migrations")})
-  (b/copy-dir {:src-dirs   ["../../components/araf/resources/araf/templates"]
-               :target-dir (str class-dir "/araf/templates")})
-  (b/copy-dir {:src-dirs   ["../../components/araf/resources/araf/forms"]
-               :target-dir (str class-dir "/araf/forms")})
+  (b/copy-dir {:src-dirs ["../../bases/araf-server/resources"
+                          "../../components/config/resources"
+                          "../../components/araf/resources"]
+               :target-dir class-dir
+               :ignores [#"logback-test\.xml"]})
   (println "** Generating uberfile")
   (b/uber {:class-dir class-dir
            :uber-file (str out)

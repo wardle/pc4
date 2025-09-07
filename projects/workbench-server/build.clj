@@ -16,8 +16,8 @@
 (defn css [_]
   (println "** Building CSS with Tailwind")
   (let [result (sh "tailwindcss"
-                   "-o" "bases/workbench-server/resources/public/css/main.css"
-                   "--content" "components/**/resources/**/*.html,components/**/resources/**/*.clj,bases/workbench-server/src/**/*.clj"
+                   "-o" "bases/workbench-server/resources/public/css/workbench.css"
+                   "--content" "components/**/resources/**/*.html,components/**/*.clj,bases/workbench-server/src/**/*.clj"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))
@@ -33,12 +33,13 @@
                   :compile-opts {:elide-meta [:doc :added]}
                   :class-dir    class-dir})
   (println "** Copying files")
-  (b/copy-file {:src    "../../components/config/resources/config/config.edn"
-                :target (str class-dir "/config.edn")})
-  (b/copy-file {:src    "../../bases/workbench-server/resources/logback.xml"
-                :target (str class-dir "/logback.xml")})
-  (b/copy-dir {:src-dirs   ["../../bases/workbench-server/resources/public"]
-               :target-dir (str class-dir "/public")})
+  (b/copy-dir {:src-dirs ["../../bases/workbench-server/resources"
+                          "../../components/araf/resources"
+                          "../../components/config/resources"
+                          "../../components/rsdb/resources"
+                          "../../components/http-server/resources"
+                          "../../components/report/resources"]
+               :target-dir class-dir})
   (println "** Generating uberfile")
   (b/uber {:class-dir class-dir
            :uber-file (str out)
