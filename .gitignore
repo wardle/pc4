@@ -22,3 +22,4 @@ output.css
 /metadata.json
 /projects/araf-server/target
 bases/workbench-server/resources/public/css/workbench.css
+bases/araf-server/resources/public/css/araf.css
