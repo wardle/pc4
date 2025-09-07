@@ -60,7 +60,11 @@
 
    {:description "Scenario 5: At-risk patient, all risks NOT explained"
     :forms       [{:form_type :araf-val-f-s1-status/v2_0, :date "2023-01-10", :status :at-risk}
-                  {:form_type :araf-val-f-s3-risks/v2_0, :date "2023-01-11", :all false}]
+                  {:form_type :araf-val-f-s3-risks/v2_0, :date "2023-01-11",
+                   :all false, :eligible true, :discussed false, :regular_review true,
+                   :serious_harm   true, :conditions true, :pregnancy_test false,
+                   :contraception  true, :referral true, :contact true,
+                   :risks_stopping true}]
     :checks      [{:on-date  "2023-01-12"
                    :expected {:at-risk true
                               :tasks   #{:treatment :countersignature :risks :acknowledgement}}}]}
@@ -145,9 +149,14 @@
             (is (submap? expected actual)
                 (str "check failed for date " on-date))))))))
 
+(deftest test-generated
+  (dotimes [_ 500]                                          ;; generate lots of forms and check status
+    (let [forms (gen/sample (araf/gen-araf-form-dt {:encounter_fk 1 :patient_fk 1}))]
+      (araf/status forms))))
 
 (comment
   (run-tests)
+  (gen/generate (araf/gen-araf-form-dt))
   (def scenario (nth scenarios 9))
   (def date (get-in scenario [:checks 0 :on-date]))
   (def expected (get-in scenario [:checks 0 :expected]))

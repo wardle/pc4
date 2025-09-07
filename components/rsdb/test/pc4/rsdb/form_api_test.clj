@@ -31,8 +31,10 @@
   (let [store (pc4.rsdb.nform.api/make-form-store *conn*)
         encounter-ids (map :t_encounter/id (rsdb/patient->encounters {:conn *conn*} 14032))
         form-gen (form/gen-form {:mode :insert, :using {:patient_fk   14032 :user_fk 1 :encounter_fk (rand-nth encounter-ids)}})
-        forms (map #(dissoc % :id) (gen/sample form-gen (* 500 (count registry/all-form-definitions))))]
-    (pprint/pprint (frequencies (map :form_type forms)))
+        forms (map #(dissoc % :id) (gen/sample form-gen (* 500 (count registry/all-form-definitions))))
+        generated-types (into #{} (map :form_type) forms)]
+    (is (= generated-types registry/all-form-types)
+        "Generative tests did not cover all known form types")
     (doseq [form forms]                                     ;; we generate ~500 per known form type
       (let [stored (pc4.rsdb.nform.api/upsert! store form)
             fetched1 (pc4.rsdb.nform.api/form store (:id stored))

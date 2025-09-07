@@ -141,24 +141,23 @@
     (= form-type form_type)))
 
 (defn most-recent
+  "Return the most recent form in 'forms' of type 'form-type'."
   [form-type forms]
   (->> forms
        (filter (form-of-type form-type))
        (sort-by :date_time #(compare %2 %1))
        (first)))
 
-
 (defn datetime-status
+  "Return a status keyword based on two [[java.time.LocalDateTime]] which will
+  be one of :expired, :expiring or :active."
   [now date-time]
   (let [expired (LocalDateTime/.minusYears now 1)
         expiring (LocalDateTime/.minusMonths now 11)]
     (cond
-      (or (nil? date-time) (LocalDateTime/.isBefore date-time expired))
-      :expired
-      (LocalDateTime/.isBefore date-time expiring)
-      :expiring
-      :else
-      :active)))
+      (or (nil? date-time) (LocalDateTime/.isBefore date-time expired)) :expired
+      (LocalDateTime/.isBefore date-time expiring) :expiring
+      :else :active)))
 
 (defn status
   "Given a sequence of ARAF forms for a given patient, determine the patient's
@@ -201,22 +200,31 @@
                       (not ack?)
                       (conj :acknowledgement))})))
 
+(defn gen-araf-form
+  "Returns a generator of ARAF forms. "
+  ([]
+   (gen-araf-form {}))
+  ([params]
+   (gen/bind
+     (gen/elements all-araf-forms)
+     (fn [form-type]
+       (form/gen-form (assoc-in params [:using :form_type] form-type))))))
 
-(defn gen-araf-form []
-  (gen/bind
-    (gen/elements all-araf-forms)
-    (fn [form-type]
-      (form/gen-form {:using {:form_type form-type}}))))
-
-(defn gen-araf-form-with-date-time []
-  (gen/fmap
-    (fn [[form date_time]]
-      (assoc form :date_time date_time))
-    (gen/tuple (gen-araf-form) (s/gen ::form/local-date-time))))
+(defn gen-araf-form-dt
+  "Returns a generator of ARAF forms that include an 'encounter' date_time."
+  ([]
+   (gen-araf-form-dt {}))
+  ([params]
+   (gen/fmap
+     (fn [[form date_time]]
+       (assoc form :date_time date_time))
+     (gen/tuple (gen-araf-form params)
+                (or (when-let [dt (get-in params [:using :date_time])] (gen/return dt))
+                    (s/gen ::form/local-date-time))))))
 
 (comment
   (require '[clojure.spec.gen.alpha :as gen])
-  (def forms (gen/sample (gen-araf-form-with-date-time) 3))
+  (def forms (gen/sample (gen-araf-form-dt) 3))
   forms
   (filter (form-of-type :araf-val-f-s4-acknowledgement/v2_0) forms)
   (most-recent :araf-val-f-s4-acknowledgement/v2_0 forms)
