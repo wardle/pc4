@@ -6,9 +6,10 @@
                         :auto-add false}
  :tag-patterns         {:stable  "stable-*"
                         :release "v[0-9]*"}
+ ;:test {:create-test-runner [org.corfield.external-test-runner.interface/create]}
+
  :projects             {"development"         {:alias "dev"}
-                        "pc4-server"          {:alias     "srv"
-                                               :necessary ["emailer" "frontend" "fulcro-server" "graph" "http-server"]}
+                        "pc4-server"          {:alias "srv"}
                         "pc4-frontend"        {:alias "fro"}
                         "pc4-cli"             {:alias "cli"}
                         "araf-patient-server" {:alias "araf"}}}
