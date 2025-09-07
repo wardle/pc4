@@ -75,13 +75,37 @@
   {:extra-deps {djblue/portal {:mvn/version "0.60.2"}}}
 
   :test
-  {:extra-paths ["components/araf/test"
+  {:extra-paths ["bases/araf-server/test"
+                 "bases/cli/test"
+                 "bases/server/test"
+                 "components/araf/test"
                  "components/chart/test"
-                 "components/lemtrada/test"
-                 "components/rsdb/test"
-                 "components/graph/test"
+                 "components/codelists/test"
+                 "components/config/test"
+                 "components/dates/test"
                  "components/deprivare/test"
-                 "bases/server/test"]
+                 "components/dmd/test"
+                 "components/emailer/test"
+                 "components/fhir/test"
+                 "components/filestorage/test"
+                 "components/fulcro-server/test"
+                 "components/graph/test"
+                 "components/http-server/test"
+                 "components/lemtrada/test"
+                 "components/log/test"
+                 "components/msbase/test"
+                 "components/nhs-number/test"
+                 "components/nhspd/test"
+                 "components/ods/test"
+                 "components/ods-weekly/test"
+                 "components/queue/test"
+                 "components/report/test"
+                 "components/rsdb/test"
+                 "components/snomedct/test"
+                 "components/wales-cav-pms/test"
+                 "components/wales-empi/test"
+                 "components/wales-nadex/test"
+                 "development/test"]
    :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
   :outdated
@@ -108,4 +132,8 @@
 
   :poly
   {:main-opts  ["-m" "polylith.clj.core.poly-cli.core"]
-   :extra-deps {polylith/clj-poly {:mvn/version "0.2.22"}}}}}
+   :extra-deps {polylith/clj-poly {:mvn/version "0.3.21-SNAPSHOT"}
+                io.github.seancorfield/polylith-external-test-runner
+                {:git/tag   "v0.6.1" :git/sha "d0f51c2"
+                 :deps/root "projects/runner"}}
+   :jvm-opts ["-Djava.awt.headless=true"]}}}

@@ -837,8 +837,8 @@
                   (next.jdbc.sql/insert! txn :t_medication med')))
         id' (:t_medication/id med'')
         events' (mapv #(unparse-medication-event id' %) events)]
-    (log/info "upserted medication" med'')
-    (log/info "upserting medication events" events')
+    (log/debug "upserted medication" med'')
+    (log/debug "upserting medication events" events')
     (assoc med'' :t_medication/events
                  (if (seq events')
                    (mapv db/parse-entity (next.jdbc.sql/insert-multi! txn :t_medication_event events' {:return-keys true}))
@@ -1227,7 +1227,7 @@
          :as                   encounter}]
   (when-not (s/valid? ::save-encounter encounter)
     (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
-  (log/info "saving encounter" {:encounter_id encounter-id :encounter encounter})
+  (log/debug "saving encounter" {:encounter_id encounter-id :encounter encounter})
   (db/execute-one! conn (sql/format (save-encounter-sql encounter)) {:return-keys true}))
 
 (defn delete-encounter!
@@ -1281,7 +1281,7 @@
         :t_death_certificate/keys [part1a part1b part1c part2]}]
   (let [patient-pk (or patient-pk (patient-identifier->pk txn patient-identifier))
         patient' (assoc patient :t_patient/id patient-pk)
-        _ (log/info "Fetching certificate " patient')
+        _ (log/debug "Fetching certificate " patient')
         existing-certificate (fetch-death-certificate txn patient')]
     (cond
       ;; if there's a date of death, and an existing certificate, update both

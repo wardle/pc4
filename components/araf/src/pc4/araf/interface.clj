@@ -29,21 +29,21 @@
   [_ {:keys [ds secret] :as config}]
   (when-not (s/valid? ::patient-config config)
     (throw (ex-info "invalid araf patient configuration" (s/explain-data ::patient-config config))))
-  (log/info "starting araf patient service" (select-keys ds [:dbname :maximumPoolSize]))
+  (log/debug "starting araf patient service" (select-keys ds [:dbname :maximumPoolSize]))
   (let [ds (connection/->pool HikariDataSource ds)
         migration-config {:store         :database
                           :migration-dir "araf/migrations"
                           :db            {:datasource ds}}
         pending (migratus/pending-list migration-config)]
     (when (seq pending)
-      (log/info "performing pending migrations" pending)
+      (log/debug "performing pending migrations" pending)
       (migratus/migrate migration-config))
-    (db/test-date-time-handling ds)
+    #_(db/test-date-time-handling ds)
     {:ds ds :secret secret}))
 
 (defmethod ig/halt-key! ::patient
   [_ {:keys [ds]}]
-  (log/info "stopping araf patient service")
+  (log/debug "stopping araf patient service")
   (when ds
     (.close ds)))
 
@@ -187,7 +187,7 @@
 (comment
   (def ds {:dbtype "postgresql" :dbname "araf_remote"})
   (def conn (jdbc/get-connection ds))
-  (create-request {:ds ds} "1111111111" :valproate-f (expiry (Duration/ofDays 1)))
+  (create-request {:ds ds} "1111111111" :valproate-f (expiry (Duration/ofDays 12)))
   (create-request {:ds ds} "2222222222" :valproate-f (expiry (Duration/ofMinutes 1)))
   (create-request {:ds ds} "1111111111" :valproate-fna (expiry (Duration/ofDays 1)))
   (db/too-many-failed-attempts? conn "1111111111")

@@ -36,7 +36,7 @@
 (s/def ::legacy-global-pseudonym-salt string?)
 
 (s/def ::service-config
-  (s/keys :req-un [::conn ::form-store ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
+  (s/keys :req-un [::conn ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
 
 (defmethod ig/init-key ::conn
   [_ config]

@@ -84,5 +84,5 @@
       (let [connect-env (requiring-resolve 'com.wsscode.pathom.viz.ws-connector.pathom3/connect-env)]
         (connect-env env (merge {:com.wsscode.pathom.viz.ws-connector.core/parser-id 'pc4} config))
         (log/info "connecting pathom-viz"))
-      (catch Exception _ (log/warn "unable to connect to pathom-viz as dependency not available in this build"))))
+      (catch Exception _ (log/info "unable to connect to pathom-viz as dependency not available in this build"))))
   (p.eql/boundary-interface env))

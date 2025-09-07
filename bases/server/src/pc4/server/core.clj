@@ -5,6 +5,8 @@
    [clojure.tools.cli :as cli]
    [integrant.core :as ig]
    [pc4.config.interface :as config]
+   [pc4.graph.interface]                                    ;; declare dependent component
+   [pc4.http-server.interface]                              ;; declare dependent component
    [pc4.log.interface :as log])
   (:gen-class))
 

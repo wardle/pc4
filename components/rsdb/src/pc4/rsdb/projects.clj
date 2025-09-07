@@ -154,7 +154,7 @@
                    :t_episode/referral_user_fk user-id
                    :t_episode/discharge_user_fk (when date_discharge user-id)}
                   episode)]
-    (log/info "writing episode" episode')
+    (log/debug "writing episode" episode')
     (if (tempid/tempid? (:t_episode/id episode'))
       (let [episode# (next.jdbc.sql/insert! conn :t_episode (dissoc episode' :t_episode/id))]
         (assoc episode# :tempids {(:t_episode/id episode') (:t_episode/id episode#)}))
@@ -578,7 +578,7 @@
   using that. Also, all patients need to be linked to a family, which seemed
   sensible at the time, and belies its genetic research database origins."
   [txn patient]
-  (log/info "Creating patient" patient)
+  (log/debug "Creating patient" patient)
   (let [{patient-id :nextval} (jdbc/execute-one! txn ["select nextval('t_patient_seq')"])
         {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
         patient' (assoc patient
@@ -745,9 +745,9 @@
                                           :t_patient/nhs_number              nhs-number
                                           :t_patient/stored_global_pseudonym (:global-pseudonym existing)
                                           :t_patient/status                  "PSEUDONYMOUS"})]
-        (log/info "created patient " patient)
+        (log/debug "created patient " patient)
         (let [episode (register-patient-project! txn project-id user-id patient :pseudonym (:project-pseudonym existing))]
-          (log/info "created episode for patient" episode))
+          (log/debug "created episode for patient" episode))
         (assoc patient
                :t_episode/project_fk project-id
                :t_episode/stored_pseudonym (:project-pseudonym existing))))))

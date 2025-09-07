@@ -138,7 +138,7 @@
   uses horizontal inheritance so that the identifiers are generated from a
   sequence from 't_result'."
   [conn table entity-name data]
-  (log/info "inserting result:" {:entity-name entity-name :data data})
+  (log/debug "inserting result:" {:entity-name entity-name :data data})
   (db/execute-one! conn (sql/format {:insert-into [table]
                                      ;; note as this table uses legacy WO horizontal inheritance, we use t_result_seq to generate identifiers manually.
                                      :values      [(merge {:id               {:select [[[:nextval "t_result_seq"]]]}
@@ -159,7 +159,7 @@
 (s/fdef -update-result!
   :args (s/cat :conn ::db/conn :table keyword? :result-id int? :data map?))
 (defn -update-result! [conn table result-id data]
-  (log/info "updating result" {:table table :data data})
+  (log/debug "updating result" {:table table :data data})
   (db/execute-one! conn (sql/format {:update [table]
                                      :where  [:= :id result-id]
                                      :set    data})
@@ -556,7 +556,7 @@
                                :infra_tentorial_lesions "NONE" ;; until full migration
                                :t2_hyperintense_lesions "NONE"
                                :summary (:t_result_mri_brain/multiple_sclerosis_summary annotation)))]
-    (log/info "Saving annotation for result " annotation')
+    (log/debug "Saving annotation for result " annotation')
     (jdbc/execute-one! txn (sql/format {:delete-from [:t_annotation_mri_brain_multiple_sclerosis_new]
                                         :where       [:= :result_fk result-id]}))
     (-insert-annotation! txn :t_annotation_mri_brain_multiple_sclerosis_new annotation')))
@@ -570,7 +570,7 @@
   "Customised save for MRI brain scan to include flattened annotation data. Should be performed in a transaction as
   the multiple operations executed here should succeed or fail as one."
   [txn result-type data]
-  (log/info "saving MRI brain:" data)
+  (log/debug "saving MRI brain:" data)
   (let [data' (select-keys data [:t_result_mri_brain/id :t_result_mri_brain/report
                                  :t_result_mri_brain/date :t_result_mri_brain/with_gadolinium
                                  :patient_fk :t_result_mri_brain/patient_fk

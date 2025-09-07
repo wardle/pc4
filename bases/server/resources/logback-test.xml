@@ -1,0 +1,19 @@
+<configuration>
+  <!-- This silences logback's own status messages -->
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener" />
+
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- A simpler pattern for tests -->
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Set the log level for your application's code -->
+  <logger name="pc4" level="WARN"/>
+
+  <!-- Set the root level to WARN to silence noisy libraries -->
+  <root level="WARN">
+    <appender-ref ref="STDOUT" />
+  </root>
+</configuration>
