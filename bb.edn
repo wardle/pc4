@@ -1,77 +1,17 @@
 ;; Deployment build file
-;; Note: generated build products are built using git describe
-;; This uses the last *annotated* tag - ie a tag with a commit message. 
 {:tasks
  {:requires  ([babashka.fs :as fs]
               [babashka.process :refer [sh]]
               [clojure.string :as str])
 
-  :init      (do
-               (def version (str "pc4-" (str/trim (:out (sh "git describe")))))
-               (def uber-filename (str version ".jar")))
+  workbench-server
+  {:doc "Build the workbench (clinician) server"
+   :task (shell {:dir "projects/workbench-server"}
+           "clojure" "-T:build" "uber")}
 
-  view-deps  {:doc  "View dependencies"
-              :task (shell "clj -X:deps tree")}
-
-  css        {:doc  "Build CSS for production"
-              :task (do (println "\n\n***** Building CSS")
-                        (shell "yarn tailwindcss -o resources/public/css/output.css --minify"))}
-
-  watch-css  {:doc  "Build CSS for development [and watch]"
-              :task (do (println "\n\n***** Watching and building CSS on demand")
-                        (shell "yarn tailwindcss -o resources/public/css/output.css --watch"))}
-
-  watch-cljs {:doc  "Compile cljs for development [and watch]"
-              :task (do (println "\n\n***** Running shadow-cljs")
-                        (shell "yarn shadow-cljs -A:dev watch main"))}
-
-  nrepl      {:doc  "Run a nREPL with cider middleware "
-              :task (do (println "\n\n***** Running nREPL with cider middleware")
-                        (shell "clj -M:dev:shadow:test:portal:nrepl"))}
-
-  serve      {:doc  "Run a development server. Note: it is usually to directly run from a REPL."
-              :task (do (println "\n\n***** Running development server")
-                        (shell "clj -X:run :profile :dev"))}
-
-  cljs       {:doc  "Compile cljs for production"
-              :task (do (println "\n\n***** Building pc4 front-end for production release")
-                        (shell "yarn shadow-cljs release main"))}
-
-  uber11     {:doc     "Create an uberjar, compiling with Java 11, for production"
-              :depends [css cljs]
-              :task    (let [java (-> (shell {:out :string} "/usr/libexec/java_home -F -v 11") :out)]
-                         (println "\n\n***** Creating uberjar with Java 11:" java)
-                         (shell {:extra-env {"JAVA_HOME" java}} "java" "-version")
-                         (shell {:dir "projects/pc4-server" :extra-env {"JAVA_HOME" java}} "clj" "-T:build" "uber" ":out" (str "../../" uber-filename)))}
-
-  uber21     {:doc     "Create an uberjar, compiling with Java 21, for production"
-              :depends [css cljs]
-              :task    (let [java (-> (shell {:out :string} "/usr/libexec/java_home -F -v 21") :out)]
-                         (println "\n\n***** Creating uberjar with Java 21:" java)
-                         (shell {:extra-env {"JAVA_HOME" java}} "java" "-version")
-                         (shell {:dir "projects/pc4-server" :extra-env {"JAVA_HOME" java}} "clj" "-T:build" "uber" ":out" (str "../../" uber-filename)))}
-
-  uber       {:doc     "Create an uberjar for production using current JDK"
-              :depends [css cljs]
-              :task    (do (println "\n\n***** Creating uberjar" uber-filename)
-                           (shell "java" "-version")
-                           (shell {:dir "projects/pc4-server"} "clj" "-T:build" "uber" ":out" (str "../../" uber-filename)))}
-
-  upload     {:doc  "Upload production artefact"
-              :task (do
-                      (println "\n\n***** Uploading to production server - https://patientcare.app")
-                      (sh "scp -i " (str (fs/home) "/.aws/LightsailDefaultKey-eu-west-2.pem") uber-filename "ec2-user@patientcare.app:"))}
-
-  pc4        {:doc     "Build and upload production artefact"
-              :depends [uber21]
-              :task    (do
-                         (println "\n\n***** Building and uploading for production")
-                         (run 'upload))}
-
-
-  araf-patient-server
+  araf-server
   {:doc "Build the araf patient server"
-   :task (shell {:dir "projects/araf-patient-server"}
+   :task (shell {:dir "projects/araf-server"}
            "clojure" "-T:build" "uber")}}}
 
 

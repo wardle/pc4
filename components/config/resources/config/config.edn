@@ -213,7 +213,7 @@
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF patient service
 
  ;; ARAF (patient-facing) server
- :pc4.araf-patient-server.interface/server
+ :pc4.araf-server.interface/server
  {:port        #long #or [#env PORT 8081]
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}

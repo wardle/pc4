@@ -17,8 +17,6 @@
                  poly/emailer                       {:local/root "components/emailer"}
                  poly/fhir                          {:local/root "components/fhir"}
                  poly/filestorage                   {:local/root "components/filestorage"}
-                 poly/frontend                      {:local/root "components/frontend"}
-                 poly/fulcro-server                 {:local/root "components/fulcro-server"}
                  poly/graph                         {:local/root "components/graph"}
                  poly/http-server                   {:local/root "components/http-server"}
                  poly/lemtrada                      {:local/root "components/lemtrada"}
@@ -37,9 +35,8 @@
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}
 
                  ;; bases:
-                 poly/araf-patient-server           {:local/root "bases/araf-patient-server"}
-                 poly/cli                           {:local/root "bases/cli"}
-                 poly/server                        {:local/root "bases/server"}
+                 poly/araf-server                   {:local/root "bases/araf-server"}
+                 poly/workbench-server              {:local/root "bases/workbench-server"}
 
                  ;; external dependencies:
                  integrant/repl                     {:mvn/version "0.4.0"}
@@ -53,31 +50,12 @@
                 "--middleware" "[cider.nrepl/cider-middleware]"
                 "--interactive"]}
 
-  :shadow
-  {:extra-paths ["components/frontend/src"]
-   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.8.6"}
-                 com.fulcrologic/guardrails               {:mvn/version "1.2.9"}
-                 expound/expound                          {:mvn/version "0.9.0"}
-                 lambdaisland/uri                         {:mvn/version "1.19.155"}
-                 org.clojure/clojurescript                {:mvn/version "1.12.42"}
-                 bidi/bidi                                {:mvn/version "2.1.6"}
-                 binaryage/devtools                       {:mvn/version "1.0.7"}
-                 ch.qos.logback/logback-classic           {:mvn/version "1.5.18"}
-                 clj-commons/pushy                        {:mvn/version "0.3.10"}
-                 com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
-                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.2"}
-                 fulcrologic/fulcro-spec                  {:mvn/version "3.1.12"}
-                 integrant/repl                           {:mvn/version "0.4.0"}
-                 org.clojure/test.check                   {:mvn/version "1.1.1"}
-                 thheller/shadow-cljs                     {:mvn/version "3.1.8"}}}
-
   :portal
   {:extra-deps {djblue/portal {:mvn/version "0.60.2"}}}
 
   :test
-  {:extra-paths ["bases/araf-patient-server/test"
-                 "bases/cli/test"
-                 "bases/server/test"
+  {:extra-paths ["bases/araf-server/test"
+                 "bases/workbench-server/test"
                  "components/araf/test"
                  "components/chart/test"
                  "components/codelists/test"
@@ -88,7 +66,6 @@
                  "components/emailer/test"
                  "components/fhir/test"
                  "components/filestorage/test"
-                 "components/fulcro-server/test"
                  "components/graph/test"
                  "components/http-server/test"
                  "components/lemtrada/test"
@@ -136,4 +113,4 @@
                 io.github.seancorfield/polylith-external-test-runner
                 {:git/tag   "v0.6.1" :git/sha "d0f51c2"
                  :deps/root "projects/runner"}}
-   :jvm-opts ["-Djava.awt.headless=true"]}}}
+   :jvm-opts   ["-Djava.awt.headless=true"]}}}

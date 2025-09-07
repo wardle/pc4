@@ -15,9 +15,9 @@ node_modules
 .shadow-cljs/
 *.zip
 output.css
-/projects/pc4-server/target/
+/projects/workbench-server/target/
 *.jar
 *.csv
 /problems.json
 /metadata.json
-/projects/araf-patient-server/target
+/projects/araf-server/target
