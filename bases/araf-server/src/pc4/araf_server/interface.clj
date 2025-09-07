@@ -93,10 +93,7 @@
    (prep-system :dev))
   ([profile]
    (fn []
-     (let [conf (config/config profile)
-           ;get-conf (requiring-resolve 'pc4.config.interface/config)
-           ;conf (get-conf profile)
-           ]
+     (let [conf (config/config profile)]
        (ig/load-namespaces conf [::server])
        (ig/expand conf (ig/deprofile profile))))))
 
