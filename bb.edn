@@ -66,7 +66,13 @@
               :depends [uber21]
               :task    (do
                          (println "\n\n***** Building and uploading for production")
-                         (run 'upload))}}}
+                         (run 'upload))}
+
+
+  araf-patient-server
+  {:doc "Build the araf patient server"
+   :task (shell {:dir "projects/araf-patient-server"}
+           "clojure" "-T:build" "uber")}}}
 
 
 

@@ -1,4 +1,4 @@
-(ns pc4.araf-server.handlers
+(ns pc4.araf-patient-server.handlers
   (:require
     [clojure.string :as str]
     [io.pedestal.http.csrf :as csrf]

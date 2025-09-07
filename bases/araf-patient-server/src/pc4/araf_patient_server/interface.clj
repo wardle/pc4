@@ -1,4 +1,4 @@
-(ns pc4.araf-server.interface
+(ns pc4.araf-patient-server.interface
   (:require
     [buddy.core.codecs :as codecs]
     [clojure.data.json :as json]
@@ -8,7 +8,7 @@
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [pc4.araf-server.handlers :as h]
+    [pc4.araf-patient-server.handlers :as h]
     [pc4.araf.interface :as araf]
     [pc4.log.interface :as log]
     [ring.middleware.session.cookie :as cookie]

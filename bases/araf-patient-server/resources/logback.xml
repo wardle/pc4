@@ -14,7 +14,6 @@
 
     <logger name="io.pedestal" level="warn"/>
     <logger name="pc4" level="debug"/>
-    <logger name="pc4.fulcro-server" level="debug"/>
     <logger name="com.eldrix" level="info"/>
     <logger name="org.eclipse.jetty.server.Server" level="info"/>
 

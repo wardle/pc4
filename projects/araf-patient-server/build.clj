@@ -14,9 +14,8 @@
 (defn css [_]
   (println "** Building CSS with Tailwind")
   (let [result (sh "yarn" "tailwindcss" 
-                   "-i" "components/frontend/resources/tailwind.css"
-                   "-o" "bases/araf-server/resources/public/css/araf-patient.css"
-                   "--content" "components/araf/resources/**/*.html,bases/araf-server/src/**/*.clj"
+                   "-o" "bases/araf-patient-server/resources/public/css/araf-patient.css"
+                   "--content" "components/araf/resources/**/*.html,bases/araf-patient-server/src/**/*.clj"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))
@@ -28,15 +27,15 @@
   (css nil)
   (println "** Compiling")
   (b/compile-clj {:basis        @uber-basis
-                  :ns-compile   ['pc4.araf-server.main]
+                  :ns-compile   ['pc4.araf-patient-server.main]
                   :compile-opts {:elide-meta [:doc :added]}
                   :class-dir    class-dir})
   (println "** Copying files")
   (b/copy-file {:src    "../../components/config/resources/config/config.edn"
                 :target (str class-dir "/config.edn")})
-  (b/copy-file {:src    "../../bases/araf-server/resources/logback.xml"
+  (b/copy-file {:src    "../../bases/araf-patient-server/resources/logback.xml"
                 :target (str class-dir "/logback.xml")})
-  (b/copy-dir {:src-dirs   ["../../bases/araf-server/resources/public"]
+  (b/copy-dir {:src-dirs   ["../../bases/araf-patient-server/resources/public"]
                :target-dir (str class-dir "/public")})
   (b/copy-dir {:src-dirs   ["../../components/araf/resources/araf/migrations"]
                :target-dir (str class-dir "/araf/migrations")})
@@ -48,6 +47,7 @@
   (b/uber {:class-dir class-dir
            :uber-file (str out)
            :basis     @uber-basis
-           :main      'pc4.araf-server.main
+           :main      'pc4.araf-patient-server.main
            :exclude   [#"(?i)^META-INF/license/.*"
-                       #"^license/.*"]}))
+                       #"^license/.*"
+                       #"logback-test.xml"]}))

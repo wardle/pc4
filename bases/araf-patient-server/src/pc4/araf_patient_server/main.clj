@@ -1,6 +1,6 @@
-(ns pc4.araf-server.main
+(ns pc4.araf-patient-server.main
   (:require [integrant.core :as ig]
-            [pc4.araf-server.interface :as server]
+            [pc4.araf-patient-server.interface :as server]
             [pc4.config.interface :as config]
             [pc4.log.interface :as log])
   (:gen-class))

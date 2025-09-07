@@ -37,7 +37,7 @@
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}
 
                  ;; bases:
-                 poly/araf-server                   {:local/root "bases/araf-server"}
+                 poly/araf-patient-server           {:local/root "bases/araf-patient-server"}
                  poly/cli                           {:local/root "bases/cli"}
                  poly/server                        {:local/root "bases/server"}
 
@@ -75,7 +75,7 @@
   {:extra-deps {djblue/portal {:mvn/version "0.60.2"}}}
 
   :test
-  {:extra-paths ["bases/araf-server/test"
+  {:extra-paths ["bases/araf-patient-server/test"
                  "bases/cli/test"
                  "bases/server/test"
                  "components/araf/test"
