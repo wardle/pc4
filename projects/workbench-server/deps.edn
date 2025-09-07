@@ -1,4 +1,4 @@
-{:deps {org.clojure/clojure   {:mvn/version "1.12.1"}
+{:deps {org.clojure/clojure   {:mvn/version "1.12.2"}
 
         ;; components
         poly/araf             {:local/root "../../components/araf"}
@@ -28,21 +28,21 @@
         poly/wales-nadex      {:local/root "../../components/wales-nadex"}
 
         ;; base components
-        poly/workbench-server {:local/root "../../bases/workbench-server"}}}
+        poly/workbench-server {:local/root "../../bases/workbench-server"}}
 
-:mvn/repos
-{"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
- "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
+ :mvn/repos
+ {"project-wonder" {:url "https://maven.wocommunity.org/content/repositories/releases/"}
+  "other"          {:url "https://maven.wocommunity.org/content/groups/public/"}}
 
-:aliases
-{:test
- {:extra-paths ["test"]
-  :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
+ :aliases
+ {:test
+  {:extra-paths ["test"]
+   :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
- :run
- {:main-opts ["-m" "pc4.server.core"]}
+  :run
+  {:main-opts ["-m" "pc4.server.core"]}
 
- :build
- {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.4" :git/sha "31388ff"}
-               slipset/deps-deploy           {:mvn/version "RELEASE"}}
-  :ns-default build}} }
+  :build
+  {:deps       {io.github.clojure/tools.build {:git/tag "v0.10.4" :git/sha "31388ff"}
+                slipset/deps-deploy           {:mvn/version "RELEASE"}}
+   :ns-default build}}}
