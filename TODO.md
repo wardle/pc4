@@ -4,8 +4,8 @@ Tasks that are currently my priority for this development cycle:
 
 ## Tasks prior to deployment to https://patientcare.app:
 
-* [ ] Migrate to htmx
-* [ ] Add asynchronous 'job' queue system backed by https://github.com/msolli/proletarian
+* [x] Migrate to htmx
+* [x] Add asynchronous 'job' queue system backed by https://github.com/msolli/proletarian
 * [ ] Add flexible dynamic form system driven by encounter template configurations for at least what is deployed already
 * [x] Need 'add form' functionality, which will need server-side involvement to autopopulate / initialise a form in context
 * [x] Add 'delete form' functionality to front-end
@@ -27,6 +27,7 @@ Tasks that are currently my priority for this development cycle:
 ## Tasks prior to staged / parallel deployment to https://patientcare.wales.nhs.uk:
 
 * [ ] Need to show and choose responsible user for each form
+* [ ] Open encounter in modal window for encounters view, to save needless requests for whole list
 * [ ] Allow users to add any form not already completed or available in the user interface - e.g. 'add form...' button to open search dialog
 * [ ] Allow patient search from top-level and simply open in context of intersection between user's default project and patient's projects
 * [ ] Allow quick switch between projects in top-level - e.g. setting user default and then when open a record either choose to register or choose to switch project context
