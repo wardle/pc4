@@ -27,7 +27,7 @@
 
 (defn ^:private encounter-report*
   [ctx]
-  (selmer/render-file "encounter-report.html" ctx))
+  (selmer/render-file "report/encounter-report.html" ctx))
 
 (defn gen-local-date []
   (gen/fmap (fn [days] (.minusDays (LocalDate/now) days))
@@ -138,8 +138,8 @@
 (comment
 
   (selmer.parser/cache-off!)
-  (io/resource "encounter-report.html")
-  (def s (selmer/render-file "encounter-report.html"
+  (io/resource "report/encounter-report.html")
+  (def s (selmer/render-file "report/encounter-report.html"
                              {}
                              :cache? false))
   (make-data-url (io/input-stream "http://images.metmuseum.org/CRDImages/ma/web-large/DP241865.jpg") "image/jpg")
