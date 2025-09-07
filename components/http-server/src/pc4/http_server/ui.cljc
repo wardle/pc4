@@ -132,7 +132,7 @@
 
 (rum/defc active-panel
   [{:keys [id title subtitle class]} & content]
-  [:div.bg-white.shadow-lg.sm:rounded-lg.border
+  [:div.bg-white.shadow-lg.sm:rounded-lg.border.border-gray-200
    (cond-> {}
      class (assoc :class class)
      id (assoc :id id))
@@ -299,7 +299,7 @@
   [:div.flex.flex-col
    [:div.-my-2.-mx-4.overflow-x-auto.sm:-mx-6.lg:-mx-8
     [:div.inline-block.min-w-full.py-2.align-middle.md:px-6.lg:px-8
-     [:div.overflow-hidden.shadow.ring-1.ring-black.ring-opacity-5.md:rounded-lg
+     [:div.overflow-hidden.shadow.border.border-gray-200.md:rounded-lg
       [:table.min-w-full.divide-y.divide-gray-200 content]]]]])
 
 (rum/defc ui-table-head [& content]

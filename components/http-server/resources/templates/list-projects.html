@@ -1,4 +1,4 @@
-<div class="border-solid border-gray-800 bg-gray-50 border rounded shadow-lg">
+<div class="border-solid border-gray-200 bg-gray-50 border rounded shadow-lg">
     <div class="bg-gray-800 text-white px-2 py-2 border-solid border-gray-800">
         My projects / services
     </div>
@@ -9,7 +9,7 @@
         </div>
         {% for project in projects.clinical %}
         <a href="{{project.url}}" class="cursor-default">
-            <div class="px-3 py-1 text-sm bg-yellow-50 hover:bg-yellow-100 border">
+            <div class="px-3 py-1 text-sm bg-yellow-50 hover:bg-yellow-100 border border-gray-200">
                 {{project.title}}
             </div>
         </a>
@@ -28,7 +28,7 @@
         </div>
         {% for project in projects.research %}
         <a href="{{project.url}}" class="cursor-default">
-            <div class="px-3 py-1 text-sm bg-pink-50 hover:bg-pink-100 border">
+            <div class="px-3 py-1 text-sm bg-pink-50 hover:bg-pink-100 border border-gray-200">
                 {{project.title}}
             </div>
         </a>

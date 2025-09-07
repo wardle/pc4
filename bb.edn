@@ -1,10 +1,10 @@
 ;; Deployment build file
 {:tasks
- {:requires  ([babashka.fs :as fs]
-              [babashka.process :refer [sh]]
-              [clojure.string :as str])
+ {:requires ([babashka.fs :as fs]
+             [babashka.process :refer [sh]]
+             [clojure.string :as str])
   css
-  {:doc "Generate all CSS files for all bases"
+  {:doc  "Generate all CSS files for all bases"
    :task (do
            (shell {:dir "projects/workbench-server"}
              "clojure" "-T:build" "css")
@@ -12,14 +12,18 @@
              "clojure" "-T:build" "css"))}
 
   workbench-server
-  {:doc "Build the workbench (clinician) server"
+  {:doc  "Build the workbench (clinician) server"
    :task (shell {:dir "projects/workbench-server"}
            "clojure" "-T:build" "uber")}
 
   araf-server
-  {:doc "Build the araf patient server"
+  {:doc  "Build the araf patient server"
    :task (shell {:dir "projects/araf-server"}
-           "clojure" "-T:build" "uber")}}}
+           "clojure" "-T:build" "uber")}
+
+  all
+  {:doc     "Build all products"
+   :depends [workbench-server araf-server]}}}
 
 
 
