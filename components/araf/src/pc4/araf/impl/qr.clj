@@ -1,6 +1,4 @@
 (ns pc4.araf.impl.qr
-  (:require [clojure.spec.alpha :as s]
-            [com.eldrix.nhsnumber :as nnn])
   (:import
     (java.io ByteArrayOutputStream)
     (com.google.zxing BarcodeFormat EncodeHintType)
