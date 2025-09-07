@@ -72,24 +72,9 @@
   conn
   (require '[clojure.spec.gen.alpha :as gen])
   (require '[clojure.spec.alpha :as s])
-  (gen/sample (form/gen-nform))
+  (gen/sample (form/gen-form))
   (require '[pc4.rsdb.migrations :as m])
   (m/migrate ds)
   (m/roll)
-  (s/explain ::form/nform (gen/generate (form/gen-nform)))
-  (insert ds (gen/generate (form/gen-nform)))
-  (form (make-form-store ds) #uuid "4cf9e4a0-1b01-4457-9a67-d1c7c8db54f9")
-  (form/insert-sql (gen/generate (form/gen-nform)))
-  (map form/insert-sql (gen/sample (form/gen-nform)))
-
-  (def form {:form_type         :relapse/v1,
-             :ms_disease_course :relapsing-with-sequelae,
-             :created           (java.time.LocalDateTime/now)
-             :is_deleted        false,
-             :in_relapse        false,
-             :id                nil,
-             :user_fk           1,
-             :patient_fk        14032,
-             :encounter_fk      43404})
-  (form-definition form)
-  )
+  (s/explain ::form/form (gen/generate (form/gen-form)))
+  (form (make-form-store ds) #uuid "4cf9e4a0-1b01-4457-9a67-d1c7c8db54f9"))
