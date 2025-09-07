@@ -66,7 +66,6 @@
              :to           (Instant/now)}))
   ([conn nhs-number {:keys [max-attempts ^Instant from ^Instant to]}]
    (let [failed-attempts (get-failed-attempts conn nhs-number from to)]
-     (clojure.pprint/pprint failed-attempts)
      (when (>= (count failed-attempts) max-attempts)
        (let [lockout-until (some-> failed-attempts first :date_time (Instant/.plus (lockout-duration)))
              dur (Duration/between (Instant/now) lockout-until)
