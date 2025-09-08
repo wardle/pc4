@@ -1298,6 +1298,7 @@
 (pco/defresolver user->latest-news
   [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
   {::pco/output [{:t_user/latest_news [:t_news/id
+                                       :t_news/date_time
                                        :t_news/title
                                        :t_news/body
                                        {:t_news/author [:t_user/id]}]}]}

@@ -21,7 +21,12 @@
 
 (pco/defresolver ui-latest-news
   [{:ui/keys [authenticated-user]}]
-  {::pco/input [{:ui/authenticated-user [:t_user/latest_news]}]}
+  {::pco/input [{:ui/authenticated-user
+                 [{:t_user/latest_news
+                   [:t_news/title
+                    :t_news/date_time
+                    :t_news/body
+                    {:t_news/author [:t_user/full_name]}]}]}]}
   {:ui/latest-news
    (map (fn [{:t_news/keys [title date_time body author]}]
           {:title title, :author (:t_user/full_name author), :date-time date_time, :body body})
