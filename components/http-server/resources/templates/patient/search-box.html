@@ -4,7 +4,7 @@
       {% if hx-target %} hx-target="{{hx-target}}" {% endif %}>
 
     <input type="hidden" name="__anti-forgery-token" value="{{csrf-token}}">
-    <div class="flex items-center rounded-md bg-white outline outline-1 -outline-offset-1 outline-gray-300 has-[input:focus-within]:outline has-[input:focus-within]:outline-2 has-[input:focus-within]:-outline-offset-2 has-[input:focus-within]:outline-indigo-600">
+    <div class="flex items-center rounded-md bg-white outline outline-1 -outline-offset-1 outline-gray-300 focus-within:outline focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-indigo-600">
         <div class="shrink-0 select-none text-base text-gray-500 sm:text-sm/6">
             <svg class="pointer-events-none col-start-1 row-start-1 ml-3 size-5 self-center text-gray-400"
                  viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
@@ -14,11 +14,11 @@
             </svg>
         </div>
         <input type="text" name="search" id="search"
-               class="block min-w-0 grow py-1.5 pl-1 pr-3 text-base text-gray-900 placeholder:text-gray-400 focus:outline focus:outline-0 sm:text-sm/6"
+               class="block min-w-0 grow py-1.5 pl-1 pr-3 text-base text-gray-900 placeholder:text-gray-400 outline-none border-0 bg-transparent focus:ring-0 focus:border-0 focus:outline-none sm:text-sm/6"
                autocomplete="off" placeholder="Search" autofocus>
         <div class="grid shrink-0 grid-cols-1 focus-within:relative">
             <select id="filter" name="filter"
-                    class="col-start-1 row-start-1 w-full appearance-none rounded-md py-1.5 pl-3 pr-7 text-base text-gray-500 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 text-xs/6">
+                    class="col-start-1 row-start-1 w-full appearance-none py-1.5 pl-3 pr-7 text-base text-gray-500 placeholder:text-gray-400 outline-none border-0 bg-transparent focus:ring-0 focus:border-0 focus:outline-none text-xs/6">
                 <option value="my" selected>My patients</option>
                 <option value="all">All patients</option>
             </select>
