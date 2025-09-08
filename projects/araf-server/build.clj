@@ -15,9 +15,10 @@
 
 (defn css [_]
   (println "** Building CSS with Tailwind")
-  (let [result (sh "tailwindcss"
+  (let [result (sh "npx" "tailwindcss"
+                   "-c" "projects/araf-server/tailwind.config.js"
+                   "-i" "projects/araf-server/tailwind.css"
                    "-o" "bases/araf-server/resources/public/css/araf.css"
-                   "--content" "components/araf/resources/**/*.html,components/araf/**/*.clj,bases/araf-server/src/**/*.clj"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))

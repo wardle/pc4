@@ -15,9 +15,10 @@
 
 (defn css [_]
   (println "** Building CSS with Tailwind")
-  (let [result (sh "tailwindcss"
+  (let [result (sh "npx" "tailwindcss"
+                   "-c" "projects/workbench-server/tailwind.config.js"
+                   "-i" "projects/workbench-server/tailwind.css"
                    "-o" "components/http-server/resources/public/css/workbench.css"
-                   "--content" "components/**/resources/**/*.html,components/http-server/**/*.clj,bases/workbench-server/src/**/*.clj"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))

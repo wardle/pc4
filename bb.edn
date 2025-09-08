@@ -11,6 +11,22 @@
            (shell {:dir "projects/araf-server"}
              "clojure" "-T:build" "css"))}
 
+  watch-css-workbench
+  {:doc  "Watch and rebuild workbench-server CSS on changes"
+   :task (shell "npx" "tailwindcss"
+           "-c" "projects/workbench-server/tailwind.config.js"
+           "-i" "projects/workbench-server/tailwind.css"
+           "-o" "components/http-server/resources/public/css/workbench.css"
+           "--watch")}
+
+  watch-css-araf
+  {:doc  "Watch and rebuild araf-server CSS on changes"  
+   :task (shell "npx" "tailwindcss"
+           "-c" "projects/araf-server/tailwind.config.js"
+           "-i" "projects/araf-server/tailwind.css"
+           "-o" "bases/araf-server/resources/public/css/araf.css"
+           "--watch")}
+
   workbench-server
   {:doc  "Build the workbench (clinician) server"
    :task (shell {:dir "projects/workbench-server"}
