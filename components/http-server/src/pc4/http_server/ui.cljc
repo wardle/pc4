@@ -331,13 +331,14 @@
 
 (rum/defc ui-simple-form-item
   [{:keys [for label sublabel]} & content]
-  [:div.sm:grid.sm:grid-cols-3.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-2
-   (when label
-     [:label.block.text-sm.font-medium.text-gray-700.sm:mt-px.sm:pt-2
-      (when for {:for for})
-      (when label label)
-      (when sublabel [:span.block.text-xs.font-medium.text-gray-400 sublabel])])
-   [:div.pt-2.sm:pt-0.sm:col-span-2 content]])
+  [:div {:class "sm:border-t sm:border-gray-200 sm:pt-5"}
+   [:div {:class "flex flex-col sm:flex-row"}
+    (when label
+      [:div {:class "w-full sm:w-1/3"}
+       [:label {:class "block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" :for for}
+        label
+        (when sublabel [:span {:class "block text-xs font-medium text-gray-400"} sublabel])]])
+    [:div {:class "w-full sm:w-2/3 pt-2 sm:pt-0"} content]]])
 
 (rum/defc ui-simple-form
   [& content]
