@@ -1,13 +1,13 @@
 (ns pc4.workbench-server.core
   (:require
-   [clojure.core.server]
-   [clojure.string :as str]
-   [clojure.tools.cli :as cli]
-   [integrant.core :as ig]
-   [pc4.config.interface :as config]
-   [pc4.graph.interface]                                    ;; declare dependent component
-   [pc4.http-server.interface]                              ;; declare dependent component
-   [pc4.log.interface :as log])
+    [clojure.core.server]
+    [clojure.string :as str]
+    [clojure.tools.cli :as cli]
+    [integrant.core :as ig]
+    [pc4.config.interface :as config]
+    [pc4.graph.interface]                                   ;; declare dependent component
+    [pc4.workbench.interface]                               ;; declare dependent component
+    [pc4.log.interface :as log])
   (:gen-class))
 
 (def supported-profiles #{"dev" "cvx" "pc4" "pc4-dev"})
@@ -64,10 +64,10 @@
 
 (defn serve2 [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
-  (log/info "starting pc4 http-server with profile" {:profile profile})
+  (log/info "starting pc4 workbench with profile" {:profile profile})
   (let [conf (config/config profile)]
-    (ig/load-namespaces conf [:pc4.http-server.interface/server])
-    (ig/init conf [:repl/server :pc4.http-server.interface/server])))
+    (ig/load-namespaces conf [:pc4.workbench.interface/server])
+    (ig/init conf [:repl/server :pc4.workbench.interface/server])))
 
 (defn migrate [{:keys [profile]}]
   (when-not profile (exit 1 "Missing profile"))
@@ -114,11 +114,11 @@
                  (and entity eql)
                  (pathom {:pathom/entity entity :pathom/eql eql}))]
     (assoc data
-           :result result
-           :success (= result expected)
-           :message (if (= result expected)
-                      (str "- " (format title-fmt title) " : success ")
-                      (str "- " (format title-fmt title) " : failure " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
+      :result result
+      :success (= result expected)
+      :message (if (= result expected)
+                 (str "- " (format title-fmt title) " : success ")
+                 (str "- " (format title-fmt title) " : failure " \newline "   |- expected: " expected ")\n   |- actual  : " result ")")))))
 
 (defn status [{:keys [profile]}]
   (when-not profile

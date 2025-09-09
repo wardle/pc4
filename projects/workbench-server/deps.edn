@@ -11,7 +11,6 @@
         poly/emailer          {:local/root "../../components/emailer"}
         poly/fhir             {:local/root "../../components/fhir"}
         poly/graph            {:local/root "../../components/graph"}
-        poly/http-server      {:local/root "../../components/http-server"}
         poly/lemtrada         {:local/root "../../components/lemtrada"}
         poly/log              {:local/root "../../components/log"}
         poly/msbase           {:local/root "../../components/msbase"}
@@ -26,6 +25,7 @@
         poly/wales-cav-pms    {:local/root "../../components/wales-cav-pms"}
         poly/wales-empi       {:local/root "../../components/wales-empi"}
         poly/wales-nadex      {:local/root "../../components/wales-nadex"}
+        poly/workbench        {:local/root "../../components/workbench"}
 
         ;; base components
         poly/workbench-server {:local/root "../../bases/workbench-server"}}
@@ -36,7 +36,7 @@
 
  :aliases
  {:test
-  {:extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
+  {:extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}}}
 
   :run
   {:main-opts ["-m" "pc4.server.core"]}

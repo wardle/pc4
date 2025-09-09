@@ -147,7 +147,7 @@
   #clj/var pc4.graph.users/all-resolvers
   #clj/var pc4.graph.patients/all-resolvers
   #clj/var pc4.msbase.interface/all-resolvers
-  #clj/var pc4.http-server.interface/all-resolvers]
+  #clj/var pc4.workbench.interface/all-resolvers]
 
  ;; pathom graph environment available to all resolvers
  :pc4.graph.interface/env
@@ -179,8 +179,8 @@
                     :pathom           #ig/ref :pc4.graph.interface/boundary-interface
                     :rsdb             #ig/ref :pc4.rsdb.interface/svc}}
 
- ;; HTTP server (clinician facing htmx application)
- :pc4.http-server.interface/server
+ ;; Workbench server (clinician facing htmx application)
+ :pc4.workbench.interface/server
  {:port        #long #or [#env PORT 8080]
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}

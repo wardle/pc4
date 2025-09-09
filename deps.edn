@@ -18,7 +18,6 @@
                  poly/fhir                          {:local/root "components/fhir"}
                  poly/filestorage                   {:local/root "components/filestorage"}
                  poly/graph                         {:local/root "components/graph"}
-                 poly/http-server                   {:local/root "components/http-server"}
                  poly/lemtrada                      {:local/root "components/lemtrada"}
                  poly/log                           {:local/root "components/log"}
                  poly/msbase                        {:local/root "components/msbase"}
@@ -33,6 +32,7 @@
                  poly/wales-cav-pms                 {:local/root "components/wales-cav-pms"}
                  poly/wales-empi                    {:local/root "components/wales-empi"}
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}
+                 poly/workbench                     {:local/root "components/workbench"}
 
                  ;; bases:
                  poly/araf-server                   {:local/root "bases/araf-server"}
@@ -67,7 +67,6 @@
                  "components/fhir/test"
                  "components/filestorage/test"
                  "components/graph/test"
-                 "components/http-server/test"
                  "components/lemtrada/test"
                  "components/log/test"
                  "components/msbase/test"
@@ -82,6 +81,7 @@
                  "components/wales-cav-pms/test"
                  "components/wales-empi/test"
                  "components/wales-nadex/test"
+                 "components/workbench/test"
                  "development/test"]
    :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
 

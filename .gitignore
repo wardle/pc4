@@ -10,7 +10,6 @@
 /data/
 .DS_Store
 pc4-server/.portal/intellij.edn
-/components/frontend/resources/public/js/compiled
 node_modules
 .shadow-cljs/
 *.zip
@@ -23,4 +22,4 @@ output.css
 /projects/araf-server/target
 bases/workbench-server/resources/public/css/workbench.css
 bases/araf-server/resources/public/css/araf.css
-components/http-server/resources/public/css/workbench.css
+components/workbench/resources/public/css/workbench.css

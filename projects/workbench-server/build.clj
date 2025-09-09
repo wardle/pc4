@@ -18,7 +18,7 @@
   (let [result (sh "npx" "tailwindcss"
                    "-c" "projects/workbench-server/tailwind.config.js"
                    "-i" "projects/workbench-server/tailwind.css"
-                   "-o" "components/http-server/resources/public/css/workbench.css"
+                   "-o" "components/workbench/resources/public/css/workbench.css"
                    "--minify"
                    :dir "../..")]
     (when (not= 0 (:exit result))
@@ -38,7 +38,7 @@
                           "../../components/araf/resources"
                           "../../components/config/resources"
                           "../../components/rsdb/resources"
-                          "../../components/http-server/resources"
+                          "../../components/workbench/resources"
                           "../../components/report/resources"]
                :target-dir class-dir})
   (println "** Generating uberfile")

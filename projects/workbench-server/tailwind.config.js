@@ -1,9 +1,9 @@
 module.exports = {
   content: [
-    './components/http-server/**/*.html',
-    './components/http-server/**/*.clj',
-    './components/http-server/**/*.cljc',
-    './components/http-server/**/*.cljs',
+    './components/workbench/**/*.html',
+    './components/workbench/**/*.clj',
+    './components/workbench/**/*.cljc',
+    './components/workbench/**/*.cljs',
     './bases/workbench-server/src/**/*.clj'
   ],
   theme: {
