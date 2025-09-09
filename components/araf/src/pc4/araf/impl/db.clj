@@ -16,6 +16,9 @@
 
 (next.jdbc.date-time/read-as-instant)
 
+(def error-too-many-attempts ::too-many-attempts)
+(def error-no-matching-request ::no-matching-request)
+
 (s/def ::conn :next.jdbc.specs/connectable)
 (s/def ::nhs-number nnn/valid?)
 (s/def ::long-access-key string?)
@@ -74,7 +77,7 @@
          {:exp lockout-until
           :s   (str (when (pos-int? hrs) (str hrs "h")) " " mins "m")})))))
 
-(s/fdef record-access
+(s/fdef record-access!
   :args (s/cat :conn :next.jdbc.specs/connectable
                :request (s/keys :req-un [::nhs-number (or ::long-access-key ::access-key)])
                :success boolean?))
@@ -109,24 +112,6 @@
       (assoc :completed false)
       (update :araf_type keyword)))
 
-(defn fetch-request-sql
-  "Generates SQL for fetching a request with completion status."
-  ([long-access-key now]
-   {:select [:* [[:exists {:select [1] :from [:response]
-                           :where  [:= :response.request_id :request.id]}] :completed]]
-    :from   [:request]
-    :where  [:and
-             [:= :long_access_key long-access-key]
-             [:> :expires now]]})
-  ([nhs-number access-key now]
-   {:select [:* [[:exists {:select [1] :from [:response]
-                           :where  [:= :response.request_id :request.id]}] :completed]]
-    :from   [:request]
-    :where  [:and
-             [:= :access_key access-key]
-             [:= :nhs_number nhs-number]
-             [:> :expires now]]}))
-
 (defn normalize-access-key
   [s]
   (when-not (str/blank? s)
@@ -144,23 +129,88 @@
   (normalize-access-key "123 \t bfg 433B"))
 
 
-(defn fetch-request
+(defn -select-request-sql
+  "Generates SQL for fetching a request with completion status."
+  ([long-access-key now]
+   {:select [:* [[:exists {:select [1] :from [:response]
+                           :where  [:= :response.request_id :request.id]}] :completed]]
+    :from   [:request]
+    :where  [:and
+             [:= :long_access_key long-access-key]
+             [:> :expires now]]})
+  ([nhs-number access-key now]
+   {:select [:* [[:exists {:select [1] :from [:response]
+                           :where  [:= :response.request_id :request.id]}] :completed]]
+    :from   [:request]
+    :where  [:and
+             [:= :access_key access-key]
+             [:= :nhs_number nhs-number]
+             [:> :expires now]]}))
+
+(defn -select-request
   "Fetches a request from the database using access key and NHS number.
    Only returns requests that have not expired. Includes derived completed status."
   ([conn long-access-key]
    (let [now (Instant/now)]
      (some-> (jdbc/execute-one!
                conn
-               (sql/format (fetch-request-sql long-access-key now))
+               (sql/format (-select-request-sql long-access-key now))
                {:builder-fn rs/as-unqualified-maps})
              (update :araf_type keyword))))
   ([conn nhs-number access-key]
    (let [now (Instant/now)]
      (some-> (jdbc/execute-one!
                conn
-               (sql/format (fetch-request-sql nhs-number (normalize-access-key access-key) now))
+               (sql/format (-select-request-sql nhs-number (normalize-access-key access-key) now))
                {:builder-fn rs/as-unqualified-maps})
              (update :araf_type keyword)))))
+
+(s/fdef fetch-request*
+  :args
+  (s/or :by-long-access-key
+        (s/cat :txn :next.jdbc.specs/transactable :long-access-key string?)
+        :by-nnn-and-access-key
+        (s/cat :txn :next.jdbc.specs/transactable :nhs-number nnn/valid? :access-key string?)))
+(defn fetch-request*
+  "Checks if there have been too many failed attempts, then fetches request if allowed.
+   Records the access attempt in the access log."
+  ([txn long-access-key]
+   (if-let [{:keys [nhs_number] :as request} (-select-request txn long-access-key)]
+     (do (record-access! txn {:nhs-number nhs_number :long-access-key long-access-key} true)
+         request)
+     {:error   error-no-matching-request
+      :message "Invalid access key"}))
+  ([txn nhs-number access-key]
+   (when (and nhs-number access-key)
+     (if-let [{:keys [exp s]} (lockout txn nhs-number)]
+       {:error         error-too-many-attempts
+        :message       (str "Too many failed access attempts. Try again in " s)
+        :lockout-until exp}
+       (let [request (-select-request txn nhs-number access-key)]
+         (record-access! txn {:nhs-number nhs-number :access-key access-key} (some? request))
+         (or request
+             {:error   error-no-matching-request
+              :message "Invalid or expired access key or invalid NHS number"}))))))
+
+(s/fdef fetch-request
+  :args (s/or :by-long-access-key
+              (s/cat :conn ::conn :long-access-key string?)
+              :by-nnn-and-access-key
+              (s/cat :conn ::conn :nhs-number nnn/valid? :access-key string?)))
+(defn fetch-request
+  "As [[fetch-request*]] but runs in a transaction."
+  ([conn long-access-key]
+   (jdbc/with-transaction [txn conn]
+     (fetch-request* txn long-access-key)))
+  ([conn nhs-number access-key]
+   (jdbc/with-transaction [txn conn]
+     (fetch-request* txn nhs-number access-key))))
+
+
+
+
+
+
 
 
 (defn test-date-time-handling
@@ -192,7 +242,22 @@
   "Inserts a new response record into the response table.
    Validates input data against spec before insertion."
   [conn response-data]
-  (jdbc-sql/insert! conn #_(jdbc/with-logging conn #(log/info %1 %2)) :response response-data {:builder-fn rs/as-unqualified-maps}))
+  (jdbc-sql/insert!
+    conn
+    #_(jdbc/with-logging conn #(log/info %1 %2))
+    :response response-data {:builder-fn rs/as-unqualified-maps}))
+
+(s/fdef submit-form!
+  :args (s/cat :conn ::conn :long-access-key string?))
+(defn submit-form!
+  "Completes a form by inserting a response for the given request.
+   Handles the transaction internally."
+  [conn long-access-key data]
+  (jdbc/with-transaction [txn conn]
+    (let [{:keys [id]} (fetch-request* txn long-access-key)]
+      (when-not id
+        (throw (ex-info "No valid request found" {:long-access-key long-access-key})))
+      (create-response txn (assoc data :request_id id)))))
 
 (s/fdef get-responses-from
   :args (s/cat :conn :next.jdbc.specs/connectable :id pos-int?))

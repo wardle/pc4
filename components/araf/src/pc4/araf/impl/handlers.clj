@@ -1,10 +1,12 @@
-(ns pc4.araf-server.handlers
+(ns pc4.araf.impl.handlers
   (:require
     [clojure.string :as str]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [io.pedestal.interceptor :as intc]
-    [pc4.araf.interface :as araf]
+    [pc4.araf.impl.db :as db]
+    [pc4.araf.impl.forms :as forms]
+    [pc4.araf.impl.token :as token]
     [pc4.log.interface :as log]
     [pc4.nhs-number.interface :as nnn]
     [selmer.parser :as selmer])
@@ -19,20 +21,19 @@
   (when (and (not (str/blank? data-uri)) (str/starts-with? data-uri "data:image/png;base64,"))
     ["image/png" (.decode (Base64/getDecoder) (subs data-uri 22))]))
 
-(defn env-interceptor
-  "Return an interceptor to inject the given env into the request."
-  [env]
-  (intc/interceptor
-    {:name  ::inject
-     :enter (fn [context] (assoc-in context [:request :env] env))}))
-
-(defn araf-svc
-  "Return the ARAF svc from the request."
+(defn araf-conn
+  "Return the ARAF database ds/connectable from the request."
   [request]
-  (or (get-in request [:env :svc])
-      (throw (ex-info "missing araf svc in environment" (:env request)))))
+  (or (get-in request [:env :ds])
+      (throw (ex-info "missing araf connection in environment" (:env request)))))
 
-(defn csrf-token [request]
+(defn araf-secret
+  [request]
+  (or (get-in request [:env :secret])
+      (throw (ex-info "missing araf server secret in environment" (:env request)))))
+
+(defn csrf-token
+  [request]
   (get request csrf/anti-forgery-token))
 
 (defn url-for-search []
@@ -115,7 +116,7 @@
 
       :else
       (let [{:keys [error message long_access_key] :as araf-request}
-            (araf/fetch-request (araf-svc request) nnn access-key)]
+            (db/fetch-request (araf-conn request) nnn access-key)]
         (log/debug "search result" araf-request)
         (if error
           (welcome-page request {:error message :nhs-number (nnn/format-nnn nnn)})
@@ -131,8 +132,8 @@
   prepare to start. This uses a long-access key from the URL path parameters."
   [{:keys [path-params] :as request}]
   (let [{:keys [long-access-key]} path-params
-        {:keys [araf_type completed] :as araf-request} (araf/fetch-request (araf-svc request) long-access-key)
-        config (araf/form-config araf_type)]
+        {:keys [araf_type completed] :as araf-request} (db/fetch-request (araf-conn request) long-access-key)
+        config (forms/form-config araf_type)]
     (log/debug "intro" {:araf araf_type :form long-access-key})
     (cond
       completed
@@ -174,10 +175,10 @@
 (defn question-handler
   [{:keys [form-params path-params] :as request}]
   (let [{:keys [long-access-key step]} path-params
-        {:keys [araf_type]} (araf/fetch-request (araf-svc request) long-access-key)
+        {:keys [araf_type]} (db/fetch-request (araf-conn request) long-access-key)
         {:keys [acknowledge action user]} form-params
         step# (or (some-> step parse-long) 0)
-        {:keys [template-path questions]} (araf/form-config (keyword araf_type))
+        {:keys [template-path questions]} (forms/form-config (keyword araf_type))
         total (count questions)
         params {:csrf-token   (csrf-token request)
                 :step         step#
@@ -239,7 +240,7 @@
       ;; form submission with name (when needed) and valid signature
       (and (= action "submit") (some? signature-bytes) (not (str/blank? mime-type)))
       (do
-        (araf/submit-form! (araf-svc request) long-access-key {:signature signature-bytes :mime_type mime-type :name responsible})
+        (db/submit-form! (araf-conn request) long-access-key {:signature signature-bytes :mime_type mime-type :name responsible})
         (log/info "ARAF form saved" {:long-access-key long-access-key :user user :responsible responsible})
         (ok "Form submitted successfully! Thank you for completing the ARAF acknowledgement."))
 
@@ -267,7 +268,7 @@
        (let [auth-header (get-in request [:headers "authorization"])]
          (if (and auth-header (str/starts-with? auth-header "Bearer "))
            (let [token (subs auth-header 7)]                ; Remove "Bearer "
-             (if (araf/valid-jwt? (araf-svc request) token)
+             (if (token/valid-jwt? (araf-secret request) token)
                ctx
                (assoc ctx :response {:status 401 :body {:error "Invalid or expired token"}})))
            (assoc ctx :response {:status 401 :body {:error "Missing Authorization header"}}))))}))
@@ -287,7 +288,7 @@
                  expires-instant (Instant/parse expires)]
              (if-not (nnn/valid? nnn)
                (assoc ctx :result {:status 400 :error "Invalid NHS number"})
-               (let [araf-request (araf/create-request (araf-svc request) nnn (keyword araf-type) expires-instant)]
+               (let [araf-request (db/create-request (araf-conn request) nnn (keyword araf-type) expires-instant)]
                  (assoc ctx :result araf-request)))))))}))
 
 (def api-get-request
@@ -299,7 +300,7 @@
              long-access-key (:long-access-key params)]
          (if (str/blank? long-access-key)
            (assoc ctx :response {:status 400 :body "Missing long-access-key"})
-           (let [result (araf/fetch-request (araf-svc request) long-access-key)]
+           (let [result (db/fetch-request (araf-conn request) long-access-key)]
              (if (:error result)
                (assoc ctx :response {:status 400 :body (:message result)})
                (assoc ctx :result result))))))}))
@@ -308,9 +309,9 @@
   "API interceptor to get all responses from a given id."
   (intc/interceptor
     {:name  ::api-get-responses
-     :enter (fn [ctx]
+     :enter (fn [{:keys [request] :as ctx}]
               (let [{:keys [from]} (get-in ctx [:request :query-params])
                     from-id (some-> from parse-long)]
                 (if from-id
-                  (assoc ctx :result (araf/get-responses-from (araf-svc (:request ctx)) from-id))
+                  (assoc ctx :result (db/get-responses-from (araf-conn request) from-id))
                   (assoc ctx :response {:status 400 :body "Missing or invalid 'from' parameter"}))))}))
