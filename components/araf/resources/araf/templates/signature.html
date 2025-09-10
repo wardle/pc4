@@ -37,7 +37,7 @@
                     width="600"
                     height="400"
                     class="border border-gray-200 bg-white rounded cursor-crosshair w-full"
-                    style="touch-action: none;">
+                    style="touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;">
             </canvas>
 
             <!-- Signature Controls -->
@@ -162,10 +162,36 @@
 
         // Handle canvas resize
         function resizeCanvas() {
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
-            canvas.height = canvas.offsetHeight * ratio;
-            canvas.getContext('2d').scale(ratio, ratio);
+            // Wait for next frame to ensure canvas is rendered
+            requestAnimationFrame(() => {
+                const rect = canvas.getBoundingClientRect();
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                
+                // Set actual size in memory (scaled up for high DPI)
+                canvas.width = rect.width * ratio;
+                canvas.height = rect.height * ratio;
+                
+                // Scale the drawing context back down
+                const ctx = canvas.getContext('2d');
+                ctx.scale(ratio, ratio);
+                
+                // Ensure SignaturePad recognizes the new dimensions
+                if (signaturePad) {
+                    signaturePad.clear();
+                    signaturePad.on();
+                }
+            });
+        }
+
+        // Add Android-specific touch handling
+        if (/Android/i.test(navigator.userAgent)) {
+            // Prevent default touch behaviors that can interfere
+            canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+            canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+            canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
+            
+            // Force canvas focus on touch
+            canvas.addEventListener('touchstart', () => canvas.focus());
         }
 
         window.addEventListener('resize', resizeCanvas);
