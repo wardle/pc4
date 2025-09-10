@@ -11,6 +11,8 @@
 
     <!-- Set the log level for your application's code -->
     <logger name="pc4" level="WARN"/>
+    <logger name="pc4.araf" level="WARN"/>
+    <logger name="pc4.araf-server" level="WARN"/>
 
     <!-- Set the root level to WARN to silence noisy libraries -->
     <root level="WARN">
