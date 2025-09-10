@@ -66,9 +66,9 @@
 
 (deftest test-qr-code-generation
   (testing "generate-qr-code creates a QR code image file"
-    (let [base-url "https://example.com/araf"
+    (let [base-url "https://araf.patientcare.app/araf/form/"
           long-access-key (token/gen-long-access-key)
-          qr-bytes (qr/generate base-url long-access-key)
+          qr-bytes (qr/generate (str base-url long-access-key))
           temp-file (File/createTempFile "qr-test-" ".png")]
       (is (some? qr-bytes))
       (is (> (count qr-bytes) 0))

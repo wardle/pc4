@@ -11,6 +11,7 @@
     [pc4.nhs-number.interface :as nnn]
     [selmer.parser :as selmer])
   (:import
+    (java.time.format DateTimeParseException)
     [java.util Base64]
     [java.time Instant]))
 
@@ -280,20 +281,21 @@
     {:name :api-create-request
      :enter
      (fn [{:keys [request] :as ctx}]
-       (let [params (:json-params request)
-             {:keys [nhs-number araf-type expires]} params]
+       (log/debug "api-create-request" (:json-params request))
+       (let [{:keys [nhs-number araf-type expires]} (:json-params request)]
          (if-not (and nhs-number araf-type expires)
            (assoc ctx :result {:status 400 :error "Missing required fields: nhs-number, araf-type, expires"})
            (let [nnn (nnn/normalise nhs-number)
-                 expires-instant (Instant/parse expires)]
-             (if-not (nnn/valid? nnn)
-               (assoc ctx :result {:status 400 :error "Invalid NHS number"})
+                 expires-instant (try (Instant/parse expires) (catch DateTimeParseException _ nil))]
+             (if (and (nnn/valid? nnn) expires-instant)
                (let [araf-request (db/create-request (araf-conn request) nnn (keyword araf-type) expires-instant)]
-                 (assoc ctx :result araf-request)))))))}))
+                 (log/debug "returning request" araf-request)
+                 (assoc ctx :result araf-request))
+               (assoc ctx :result {:status 400 :error "Invalid parameters"}))))))}))
 
 (def api-get-request
   (intc/interceptor
-    {:name :api-create-request
+    {:name :api-get-request
      :enter
      (fn [{:keys [request] :as ctx}]
        (let [params (:path-params request)
@@ -305,13 +307,4 @@
                (assoc ctx :response {:status 400 :body (:message result)})
                (assoc ctx :result result))))))}))
 
-(def api-get-responses
-  "API interceptor to get all responses from a given id."
-  (intc/interceptor
-    {:name  ::api-get-responses
-     :enter (fn [{:keys [request] :as ctx}]
-              (let [{:keys [from]} (get-in ctx [:request :query-params])
-                    from-id (some-> from parse-long)]
-                (if from-id
-                  (assoc ctx :result (db/get-responses-from (araf-conn request) from-id))
-                  (assoc ctx :response {:status 400 :body "Missing or invalid 'from' parameter"}))))}))
+

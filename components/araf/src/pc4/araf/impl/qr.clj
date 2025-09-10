@@ -6,15 +6,14 @@
     (com.google.zxing.qrcode QRCodeWriter)))
 
 (defn generate
-  "Generates a QR code for the given base URL and long access key.
+  "Generates a QR code for the given url
    Returns a byte array of the PNG image.
    Options:
    - :size - QR code size in pixels (default 250)"
-  ([base-url long-access-key]
-   (generate base-url long-access-key {}))
-  ([base-url long-access-key {:keys [size] :or {size 250}}]
-   (let [url (str base-url "/" long-access-key)
-         writer (QRCodeWriter.)
+  ([url]
+   (generate url {}))
+  ([url {:keys [size] :or {size 250}}]
+   (let [writer (QRCodeWriter.)
          bit-matrix (.encode writer url BarcodeFormat/QR_CODE size size)
          output-stream (ByteArrayOutputStream.)]
      (MatrixToImageWriter/writeToStream bit-matrix "PNG" output-stream)

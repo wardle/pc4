@@ -109,7 +109,7 @@
   "Creates a new request with generated access keys and the given NHS number, araf type, and expiry time."
   [conn nhs-number araf-type expires]
   (-> (next.jdbc.sql/insert! conn :request (create-request* nhs-number araf-type expires) {:builder-fn rs/as-unqualified-maps})
-      (assoc :completed false)
+      (assoc :completed false :status :pending)
       (update :araf_type keyword)))
 
 (defn normalize-access-key
@@ -147,6 +147,15 @@
              [:= :nhs_number nhs-number]
              [:> :expires now]]}))
 
+(defn status
+  "Determine the status of an ARAF request.
+  Returns one of: :pending, :acknowledged, :expired"
+  [{:keys [completed expires] :as _request}]
+  (cond
+    completed :acknowledged
+    (and expires (Instant/.isAfter (Instant/now) expires)) :expired
+    :else :pending))
+
 (defn -select-request
   "Fetches a request from the database using access key and NHS number.
    Only returns requests that have not expired. Includes derived completed status."
@@ -177,7 +186,7 @@
   ([txn long-access-key]
    (if-let [{:keys [nhs_number] :as request} (-select-request txn long-access-key)]
      (do (record-access! txn {:nhs-number nhs_number :long-access-key long-access-key} true)
-         request)
+         (assoc request :status (status request)))
      {:error   error-no-matching-request
       :message "Invalid access key"}))
   ([txn nhs-number access-key]
@@ -188,7 +197,7 @@
         :lockout-until exp}
        (let [request (-select-request txn nhs-number access-key)]
          (record-access! txn {:nhs-number nhs-number :access-key access-key} (some? request))
-         (or request
+         (or (when request (assoc request :status (status request)))
              {:error   error-no-matching-request
               :message "Invalid or expired access key or invalid NHS number"}))))))
 

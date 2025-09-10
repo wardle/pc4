@@ -1,7 +1,7 @@
 (ns pc4.araf.impl.server
   (:require [clojure.data.json :as json]
             [clojure.spec.alpha :as s]
-            [io.pedestal.http.body-params :as body-params]
+            [io.pedestal.http.body-params :as bp]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.interceptor :as intc]
             [pc4.log.interface :as log]
@@ -29,7 +29,7 @@
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
   (assoc-in ctx [:response] {:status 403 :body "Forbidden; missing CSRF token in submission"}))
 
-(def common-api [h/authenticate result->json])
+
 
 (s/def ::ds :next.jdbc.specs/proto-connectable)
 (s/def ::secret string?)
@@ -38,14 +38,13 @@
   :args (s/cat :svc (s/keys :req-un [::ds ::secret]) ))
 (defn routes
   [svc]
-  (let [common [(body-params/body-params)
-                (csrf/anti-forgery {:error-handler csrf-error-handler})
-                (env-interceptor svc)]]
-    #{["/" :get (conj common h/welcome-handler) :route-name :welcome]
-      ["/" :post (conj common h/search-handler) :route-name :search]
-      ["/araf/form/:long-access-key" :get (conj common h/intro-handler) :route-name :introduction]
-      ["/araf/form/:long-access-key/question/:step" :post (conj common h/question-handler) :route-name :question]
-      ["/araf/form/:long-access-key/signature" :post (conj common h/signature-handler) :route-name :signature]
-      ["/araf/api/request" :post [h/authenticate result->json h/api-create-request] :route-name :api/create-request]
-      ["/araf/api/request/:long-access-key" :get (conj common-api h/api-get-request) :route-name :api/get-request]
-      ["/araf/api/responses" :get (conj common-api h/api-get-responses) :route-name :api/get-responses]}))
+  (let [env-intc (env-interceptor svc)
+        web [(bp/body-params) (csrf/anti-forgery {:error-handler csrf-error-handler}) env-intc]
+        api [env-intc h/authenticate (bp/body-params) result->json]]
+    #{["/" :get (conj web h/welcome-handler) :route-name :welcome]
+      ["/" :post (conj web h/search-handler) :route-name :search]
+      ["/araf/form/:long-access-key" :get (conj web h/intro-handler) :route-name :introduction]
+      ["/araf/form/:long-access-key/question/:step" :post (conj web h/question-handler) :route-name :question]
+      ["/araf/form/:long-access-key/signature" :post (conj web h/signature-handler) :route-name :signature]
+      ["/araf/api/request" :post (conj api h/api-create-request) :route-name :api/create-request]
+      ["/araf/api/request/:long-access-key" :get (conj api h/api-get-request) :route-name :api/get-request]}))

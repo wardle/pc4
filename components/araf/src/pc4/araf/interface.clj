@@ -11,15 +11,15 @@
     [next.jdbc :as jdbc]
     [next.jdbc.connection :as connection]
     [next.jdbc.specs]
+    [pc4.araf.impl.client :as client]
     [pc4.araf.impl.db :as db]
     [pc4.araf.impl.qr :as qr]
     [pc4.araf.impl.server :as server]
+    [pc4.araf.impl.token :as token]
     [pc4.log.interface :as log]
     [pc4.nhs-number.interface :as nnn])
   (:import [com.zaxxer.hikari HikariDataSource]
            (java.time Duration Instant)))
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -85,6 +85,7 @@
   (db/too-many-failed-attempts? conn "1111111111")
   (db/fetch-request {:ds ds} "5VRDZKKA" "1111111111"))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; Clinician-facing ARAF API
@@ -92,13 +93,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(s/def ::rsdb any?)
 (s/def ::url string?)
 (s/def ::http-client-options map?)                          ;; see hato client documentation
-(s/def ::clinician-config (s/keys :req-un [::rsdb ::url ::secret ::http-client-options]))
-(s/def ::clinician-svc (s/keys :req-un [::rsdb ::url ::secret ::http-client]))
+(s/def ::http-client some?)
+(s/def ::clinician-config (s/keys :req-un [::url ::secret] :opt-un [::http-client-options]))
+(s/def ::clinician-svc (s/keys :req-un [::url ::secret ::http-client]))
+
 (defmethod ig/init-key ::clinician
-  [_ {:keys [_rsdb url http-client-options] :as config}]
+  [_ {:keys [url http-client-options] :as config}]
   (when-not (s/valid? ::clinician-config config)
     (throw (ex-info "invalid araf clinician configuration" (s/explain-data ::clinician-config config))))
   (log/info "starting araf clinician service" {:url url})
@@ -113,13 +115,39 @@
 (s/def ::size pos-int?)
 
 (s/fdef generate-qr-code
-  :args (s/cat :base-url string? :long-access-key string? :opts (s/? (s/keys :opt-un [::size]))))
+  :args (s/cat :svc ::clinician-svc :long-access-key string? :opts (s/? (s/keys :opt-un [::size]))))
 (defn generate-qr-code
   "Generates a QR code for the given base URL and long access key.
    Returns a byte array of the PNG image."
-  ([base-url long-access-key]
-   (qr/generate base-url long-access-key))
-  ([base-url long-access-key options]
-   (qr/generate base-url long-access-key options)))
+  ([svc long-access-key]
+   (generate-qr-code svc long-access-key {}))
+  ([{:keys [url]} long-access-key options]                  ;; TODO: could generate URL dynamically from routing table?
+   (qr/generate (str url "araf/form/" long-access-key) options)))
+
+(s/fdef send-create-request
+  :args (s/cat :svc ::clinician-svc :params ::client/create-request-params))
+(defn send-create-request
+  "Create an ARAF request via the clinician service (calls patient server API).
+  
+  Parameters:
+  - svc    : clinician service
+  - params : map with :nhs-number, :araf-type, :expires
+  
+  Returns the created request from the patient server."
+  [svc params]
+  (client/create-request svc params))
+
+(s/fdef send-get-request
+  :args (s/cat :svc ::clinician-svc :long-access-key ::client/long-access-key))
+(defn send-get-request
+  "Fetch an ARAF request via the clinician service (calls patient server API).
+  
+  Parameters:
+  - svc              : clinician service
+  - long-access-key  : the request's long access key
+  
+  Returns the request from the patient server."
+  [svc long-access-key]
+  (client/get-request svc long-access-key))
 
 

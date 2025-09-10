@@ -207,9 +207,8 @@
 
  ;; ARAF (clinician-facing) service
  :pc4.araf.interface/clinician
- {:rsdb   #ig/ref :pc4.rsdb.interface/svc
-  :url    #profile {:dev "http://127.0.0.1:8081/araf/api"
-                    :cvx "https://patientcare.app/araf/api"}
+ {:url    #profile {:dev "http://127.0.0.1:8081"
+                    :cvx "https://araf.patientcare.app"}
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF patient service
 
  ;; ARAF (patient-facing) server

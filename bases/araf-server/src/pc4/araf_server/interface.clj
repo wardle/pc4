@@ -44,7 +44,7 @@
   (when-not session-key
     (log/warn "no explicit session key in configuration; using randomly generated key which will cause problems on server restart"))
   (when-not cache?
-    (log/warn "template cache disabled for development - performance will be degraded")
+    (log/info "template cache disabled for development - performance will be degraded")
     (selmer/cache-off!))
   (start (assoc config :routes (route/routes-from (araf/server-routes svc)))))
 
