@@ -16,6 +16,7 @@
         poly/msbase           {:local/root "../../components/msbase"}
         poly/nhs-number       {:local/root "../../components/nhs-number"}
         poly/nhspd            {:local/root "../../components/nhspd"}
+        poly/notify           {:local/root "../../components/notify"}
         poly/ods              {:local/root "../../components/ods"}
         poly/ods-weekly       {:local/root "../../components/ods-weekly"}
         poly/queue            {:local/root "../../components/queue"}

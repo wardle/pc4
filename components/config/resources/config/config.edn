@@ -55,6 +55,10 @@
  {:root #ref [:pc4/root]
   :f    "nhspd-2025-05-22.db"}
 
+ :pc4.notify.interface/svc
+ {:api-key #profile {:dev     #ref [:secrets :uk.gov :notify :test :api-key]
+                     :default #ref [:secrets :uk.gov :notify :live :api-key]}}
+
  :pc4.ods.interface/svc
  {:root  #ref [:pc4/root]
   :f     "ods-2025-06-23.db"
@@ -68,6 +72,7 @@
  {:ds      #ig/ref :pc4.rsdb.interface/conn
   :env     {:rsdb          #ig/ref :pc4.rsdb.interface/svc
             :email         #ig/ref :pc4.emailer.interface/svc
+            :notify        #ig/ref :pc4.notify.interface/svc
             :wales-nadex   #ig/ref :pc4.wales-nadex.interface/svc
             :wales-empi    #ig/ref :pc4.wales-empi.interface/svc
             :wales-cav-pms #ig/ref :pc4.wales-cav-pms.interface/svc

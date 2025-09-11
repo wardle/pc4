@@ -22,6 +22,7 @@
                  poly/log                           {:local/root "components/log"}
                  poly/msbase                        {:local/root "components/msbase"}
                  poly/nhs-number                    {:local/root "components/nhs-number"}
+                 poly/notify                        {:local/root "components/notify"}
                  poly/nhspd                         {:local/root "components/nhspd"}
                  poly/ods                           {:local/root "components/ods"}
                  poly/ods-weekly                    {:local/root "components/ods-weekly"}
@@ -72,6 +73,7 @@
                  "components/msbase/test"
                  "components/nhs-number/test"
                  "components/nhspd/test"
+                 "components/notify/test"
                  "components/ods/test"
                  "components/ods-weekly/test"
                  "components/queue/test"
