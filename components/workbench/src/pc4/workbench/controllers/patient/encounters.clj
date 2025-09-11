@@ -301,8 +301,15 @@
                   (ui/ui-table-heading {} title)))
               (ui/ui-table-body
                 (for [encounter encounters]
+                (for [encounter encounters
+                      :let [{:t_encounter/keys [id] patient-identifier# :t_patient/patient_identifier} encounter]]
                   (ui/ui-table-row
-                    {}
+                    {:class "cursor-pointer hover:bg-gray-50"
+                     :hx-get (route/url-for :patient/encounter 
+                                            :path-params {:patient-identifier (or patient-identifier# patient_identifier)
+                                                          :encounter-id id})
+                     :hx-target "body"
+                     :hx-push-url "true"}
                     (for [{:keys [f f2] :or {f (constantly "")}} headings#]
                       (ui/ui-table-cell {} (cond
                                              f2 (f2 encounters-params encounter)

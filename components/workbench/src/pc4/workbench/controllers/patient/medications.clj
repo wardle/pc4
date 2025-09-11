@@ -285,7 +285,10 @@
        (->> medications
             (sort-by #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
             (map #(ui/ui-table-row
-                    {:class "hover:bg-gray-50"}
+                    {:class "cursor-pointer hover:bg-gray-50"
+                     :hx-get (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})
+                     :hx-target "body"
+                     :hx-push-url "true"}
                     (ui/ui-table-cell {}
                                       [:a {:href (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})}
                                        (get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term])])

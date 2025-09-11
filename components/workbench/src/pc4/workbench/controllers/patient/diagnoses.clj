@@ -27,7 +27,10 @@
        (->> diagnoses
             (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
             (map #(ui/ui-table-row
-                    {:class "hover:bg-gray-50"}
+                    {:class "cursor-pointer hover:bg-gray-50"
+                     :hx-get (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient-identifier :diagnosis-id (:t_diagnosis/id %)})
+                     :hx-target "body"
+                     :hx-push-url "true"}
                     (ui/ui-table-cell {}
                                       [:a {:href (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient-identifier :diagnosis-id (:t_diagnosis/id %)})}
                                        (get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term])])
