@@ -15,7 +15,6 @@
     [pc4.araf.impl.db :as db]
     [pc4.araf.impl.qr :as qr]
     [pc4.araf.impl.server :as server]
-    [pc4.araf.impl.token :as token]
     [pc4.log.interface :as log]
     [pc4.nhs-number.interface :as nnn])
   (:import [com.zaxxer.hikari HikariDataSource]
