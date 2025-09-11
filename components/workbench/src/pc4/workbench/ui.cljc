@@ -361,7 +361,7 @@
 (defn ui-local-date-accuracy
   "Simple pop-up to choose date accuracy."
   [{:keys [name disabled] :as opts} value]
-  [:select.appearance-none.italic.rounded-md.bg-white.text-gray-600.py-1.5.pl-3.pr-8.text-sm.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+  [:select.mt-2.appearance-none.italic.rounded-md.bg-white.text-gray-600.py-1.5.pl-3.pr-8.text-sm.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
    (cond-> opts
      disabled (assoc :class ["bg-gray-100" "text-gray-400"]))
    (for [{:keys [id text]}
