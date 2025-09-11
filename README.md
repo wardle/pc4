@@ -12,23 +12,19 @@ non-neurological disorders.
 Version 4 brings together a suite of loosely-coupled modules and a high
 degree of interoperability with other health and care systems. 
 
-It is a work-in-progress, but the many of the backend components are now complete. 
-The front-end applications are small and highly modular, while providing the 
-appearance of a single seamless system. The first applications will be broken-up
-and common functionality provided in client libraries.
+The suite of pc4 modules are used in two current product releases:
 
-As a result, this is still in an exploratory phase. The core API is a graph-like 
-API for read operations, with 'commands' (mutations) used for write operations. 
-
-Even though I expect many of the implementation details to change, the 
-basic principles will not.
+- pc4 workbench : a clinician facing web application 
+- pc4 araf      : a patient facing portal managing annual risk acknowledgement form workflows
 
 There is a high degree of separation between user-facing applications and 
 underlying data and computing services, with adoption of a range of 
 health and care technical standards.
 
-The applications simply ask for data in the structure and format that best suits their need, and the backend services provide those data. Many of the examples use HL7 FHIR data models at the moment, 
-but I have used the same approach to deliver the same data as openEHR archetypes.
+The applications simply ask for data in the structure and format that best suits
+their need, and the backend services provide those data. Many of the examples 
+use HL7 FHIR data models at the moment, but I have used the same approach to 
+deliver the same data as openEHR archetypes.
 
 * SNOMED CT as a *lingua franca*, as provided by [hermes](https://github.com/wardle/hermes).
 * Organisational and geographical data and computing services, as provided by [clods](https://github.com/wardle/clods)
@@ -52,12 +48,8 @@ lightweight, ephemeral and focused on workflow and process, providing multiple
   user centric views of the same data.
 * different semantics for reading data comparing to writing data; we read using a graph API across disparate federated datasets and write using an event model.
 
-
-The server provides a loose coupling of services under a single server, with
+The workbench provides a loose coupling of services under a single server, with
 a graph API provided by [pathom3](https://github.com/wilkerlucio/pathom3), composing multiple backend libraries.
-
-It is designed to support lightweight client applications which send declarative
-events via an endpoint `/api` once authenticated.
 
 It provides the following integrations:
 
@@ -81,13 +73,14 @@ reference model and then more dynamic aggregates of properties. I have worked
 on tooling to take other health and care standards such as HL7 FHIR and
 openEHR, to create a property-based abstraction. This is still in development.
 
-The services are loosely-coupled and configured by [resources/config.edn](resources/config.edn).
+The services are loosely-coupled and configured by [components/config/resources/config.edn](components/config/resources/config.edn).
 This essentially injects the dependencies of different subsystems making their
 services available in other modules via [integrant](https://github.com/weavejester/integrant).
 
 Secrets are expected to be in ~/.secrets.edn
 
-pc4 uses the polylith approach to structuring a codebase in which there are multiple components that are combined together via projects.
+pc4 uses the [polylith](https://polylith.gitbook.io/polylith) approach to structuring a codebase in which there are 
+multiple components that are combined into projects.
 
 
 # Running a server
