@@ -222,10 +222,11 @@
   [{:keys [form-params path-params] :as request}]
   (let [{:keys [long-access-key]} path-params
         {:keys [action user signature responsible]} form-params
-        params {:csrf-token  (csrf-token request)
-                :user        user
-                :responsible responsible
-                :action      (url-for-signature long-access-key)}
+        params {:csrf-token    (csrf-token request)
+                :user          user
+                :responsible   responsible
+                :back-action   (url-for-introduction long-access-key)
+                :submit-action (url-for-signature long-access-key)}
         [mime-type signature-bytes] (parse-data-uri signature)]
     (log/debug "signature" {:form long-access-key :action action :mime-type mime-type :has-signature (some? signature)})
     (cond
