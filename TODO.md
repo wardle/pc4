@@ -58,6 +58,7 @@ Tasks that are currently my priority for this development cycle:
 * [ ] Validate admission dates so date of admission equal to or before date of discharge
 * [x] Add resolver for a form by id, as when the front-end 'edit-form' is called, it performs a load which currently mainly fails but satisfied locally as already loaded. 
 * [x] Don't show body mass index when age < 18
+* [ ] Double click in SNOMED UI control to select and close edit-in-place
 * [ ] Allow entry of weight and height in other units in form_weight_height
 * [ ] Add default project configuration into top-level application configuration, and override (by merge) on per-project basis?
 * [ ] Add network connectivity error bar when offline
