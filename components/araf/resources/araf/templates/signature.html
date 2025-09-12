@@ -88,9 +88,6 @@
                     id="submit-signature"
                     name="action"
                     value="submit"
-                    hx-post="{{ submit-action }}"
-                    hx-target="#content"
-                    hx-swap="innerHTML"
                     disabled
                     class="inline-flex items-center px-6 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                 Submit Form
@@ -122,6 +119,24 @@
 
         if (!canvas || !clearButton || !submitButton) return;
 
+        // Set up canvas dimensions properly for mobile
+        function setupCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            
+            canvas.width = rect.width * ratio;
+            canvas.height = rect.height * ratio;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.scale(ratio, ratio);
+            
+            // Set CSS size to match actual displayed size
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+        }
+        
+        setupCanvas();
+        
         // Initialize signature pad
         const signaturePad = new SignaturePad(canvas, {
             backgroundColor: 'rgb(255, 255, 255)',
@@ -152,49 +167,42 @@
             checkSignature();
         });
 
-        // Before form submission, save signature data
-        submitButton.addEventListener('click', function() {
-            if (!signaturePad.isEmpty()) {
-                const dataURL = signaturePad.toDataURL('image/png');
-                signatureDataInput.value = dataURL;
-            }
+        // Add mobile touch handling
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        // Handle window resize to maintain canvas dimensions
+        window.addEventListener('resize', function() {
+            const imageData = signaturePad.toData();
+            setupCanvas();
+            signaturePad.clear();
+            signaturePad.fromData(imageData);
         });
 
-        // Handle canvas resize
-        function resizeCanvas() {
-            // Wait for next frame to ensure canvas is rendered
-            requestAnimationFrame(() => {
-                const rect = canvas.getBoundingClientRect();
-                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        // Handle form submission with HTMX API to ensure proper timing
+        submitButton.addEventListener('click', function() {
+            if (!signaturePad.isEmpty()) {
+                // Set signature data first
+                const dataURL = signaturePad.toDataURL('image/png');
+                signatureDataInput.value = dataURL;
                 
-                // Set actual size in memory (scaled up for high DPI)
-                canvas.width = rect.width * ratio;
-                canvas.height = rect.height * ratio;
-                
-                // Scale the drawing context back down
-                const ctx = canvas.getContext('2d');
-                ctx.scale(ratio, ratio);
-                
-                // Ensure SignaturePad recognizes the new dimensions
-                if (signaturePad) {
-                    signaturePad.clear();
-                    signaturePad.on();
-                }
-            });
-        }
-
-        // Add Android-specific touch handling
-        if (/Android/i.test(navigator.userAgent)) {
-            // Prevent default touch behaviors that can interfere
-            canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-            canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
-            canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
-            
-            // Force canvas focus on touch
-            canvas.addEventListener('touchstart', () => canvas.focus());
-        }
-
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+                // Then submit using HTMX API
+                const form = submitButton.closest('form');
+                htmx.ajax('POST', '{{ submit-action }}', {
+                    source: form,
+                    target: '#content',
+                    swap: 'innerHTML'
+                });
+            }
+        });
     }
 </script>
