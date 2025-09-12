@@ -244,7 +244,8 @@
       (do
         (db/submit-form! (araf-conn request) long-access-key {:signature signature-bytes :mime_type mime-type :name responsible})
         (log/info "ARAF form saved" {:long-access-key long-access-key :user user :responsible responsible})
-        (ok "Form submitted successfully! Thank you for completing the ARAF acknowledgement."))
+        (-> (ok "Form submitted successfully! Thank you for completing the ARAF acknowledgement.")
+            (update :headers assoc "HX-Push-Url" "false"))) ;; *DO NOT* update URL
 
       ;; submitting but no signature
       (= action "submit")
