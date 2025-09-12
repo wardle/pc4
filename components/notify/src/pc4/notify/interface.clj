@@ -27,6 +27,7 @@
   (require '[pc4.config.interface :as config])
   (config/config :dev)
   (def api-key (get-in (config/config :dev) [::svc :api-key]))
+  (def api-key (get-in (config/config :aws) [::svc :api-key]))
   api-key
   (def template-id "765ef309-74d0-43d8-80ea-1dbd9e92a3e8")
   (impl/send-sms api-key "07786000000" template-id {:sender "System Administrator"})
