@@ -2,9 +2,9 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [pc4.chart.interface :as chart]
-            [pc4.workbench.web :as web]
             [pc4.log.interface :as log]
-            [pc4.rsdb.interface :as rsdb])
+            [pc4.rsdb.interface :as rsdb]
+            [pc4.web.interface :as web])
   (:import (java.time LocalDate LocalDateTime)))
 
 (s/def ::date-str (s/and string? #(try (LocalDate/parse %) true (catch Exception _ false))))

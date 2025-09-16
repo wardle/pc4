@@ -21,7 +21,7 @@
             [pc4.nhs-number.interface :as nnn]
             [pc4.ods.interface :as clods]
             [pc4.rsdb.interface :as rsdb]
-            [pc4.snomedct.interface :as hermes])
+            [pc4.snomed.interface :as hermes])
   (:import (com.zaxxer.hikari HikariDataSource)
            (java.time LocalDateTime LocalDate)
            (java.util Locale)
@@ -85,8 +85,10 @@
 
 (pco/defresolver patient->permissions
   "Return authorization permissions for current user to access given patient."
-  [{authenticated-user :session/authenticated-user, rsdb :com.eldrix/rsdb}
-   {:t_patient/keys [patient_identifier break_glass]}]
+  [{rsdb :com.eldrix/rsdb}
+   {:session/keys [authenticated-user] :t_patient/keys [patient_identifier break_glass]}]
+  {:pco/input  [:session/authenticated-user :t_patient/patient_identifier :t_patient/break_glass]
+   :pco/output [:t_patient/permissions]}
   {:t_patient/permissions
    (cond
      ;; system user gets all known permissions
@@ -104,8 +106,7 @@
 
 (pco/defresolver project->permissions
   "Return authorization permissions for current user to access given project."
-  [{authenticated-user :session/authenticated-user}
-   {project-id :t_project/id}]
+  [{authenticated-user :session/authenticated-user project-id :t_project/id}]
   {:t_project/permissions
    (if (:t_role/is_system authenticated-user)
      rsdb/all-permissions
@@ -121,24 +122,6 @@
               (tap> {:op-name  op-name,
                      :resolver resolver, :env env, :inputs inputs})
               (resolve env inputs)))))
-
-(defn make-wrap-patient-authorize
-  "A transform to add authorization to a resolver for a patient. Defaults to
-  checking permission :PATIENT_VIEW."
-  ([] (make-wrap-patient-authorize {:permission :PATIENT_VIEW}))
-  ([{:keys [permission]}]
-   (fn [resolver]
-     (-> resolver
-         (update ::pco/input                                ;; add :t_patient/permissions into resolver inputs
-                 (fn [attrs]
-                   (vec (distinct (conj attrs :t_patient/permissions)))))
-         (update ::pco/resolve                              ;; wrap resolver to check permissions
-                 (fn [resolve]                              ;; old resolver
-                   (fn [env {:t_patient/keys [permissions] :as params}]
-                     (if (or (:disable-auth env) (and permissions (permissions permission)))
-                       (resolve env params)                 ;; new resolver calls old resolver if permitted
-                       (do (log/warn "unauthorized call to resolver" params)
-                           {:t_patient/authorization permissions})))))))))
 
 (def patient-properties
   [:t_patient/id
@@ -284,14 +267,12 @@
 
 (pco/defresolver patient->country-of-birth
   [{concept-id :t_patient/country_of_birth_concept_fk}]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/output    [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
+  {::pco/output [{:t_patient/country_of_birth [:info.snomed.Concept/id]}]}
   {:t_patient/country_of_birth (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->ethnic-origin
   [{concept-id :t_patient/ethnic_origin_concept_fk}]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/output    [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
+  {::pco/output [{:t_patient/ethnic_origin [:info.snomed.Concept/id]}]}
   {:t_patient/ethnic_origin (when concept-id {:info.snomed.Concept/id concept-id})})
 
 (pco/defresolver patient->racial-group
@@ -311,18 +292,13 @@
 
 (pco/defresolver patient->death_certificate
   [{rsdb :com.eldrix/rsdb} patient]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/input     [:t_patient/id]
-   ::pco/output    [:t_death_certificate/part1a             ;; flatten properties into top-level as this is a to-one relationship
-                    :t_death_certificate/part1b
-                    :t_death_certificate/part1c
-                    :t_death_certificate/part2
-                    {:t_patient/death_certificate [:t_death_certificate/part1a
-                                                   :t_death_certificate/part1b
-                                                   :t_death_certificate/part1c
-                                                   :t_death_certificate/part2]}]}
-  (let [certificate (rsdb/patient->death-certificate rsdb patient)]
-    (assoc certificate :t_patient/death_certificate certificate)))
+  {::pco/input  [:t_patient/id]
+   ::pco/output [{:t_patient/death_certificate
+                  [:t_death_certificate/part1a
+                   :t_death_certificate/part1b
+                   :t_death_certificate/part1c
+                   :t_death_certificate/part2]}]}
+  {:t_patient/death_certificate (rsdb/patient->death-certificate rsdb patient)})
 
 (def diagnosis-properties
   [:t_diagnosis/concept_fk
@@ -341,8 +317,7 @@
   "Returns diagnoses for a patient. Optionally takes a parameter:
   - :ecl - a SNOMED ECL used to constrain the list of diagnoses returned."
   [{hermes :com.eldrix/hermes, rsdb :com.eldrix/rsdb :as env} {patient-pk :t_patient/id}]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/output    [{:t_patient/diagnoses diagnosis-properties}]}
+  {::pco/output [{:t_patient/diagnoses diagnosis-properties}]}
   (let [diagnoses (rsdb/patient->diagnoses rsdb patient-pk)
 
         ecl (:ecl (pco/params env))
@@ -367,9 +342,8 @@
 
 (pco/defresolver patient->has-diagnosis
   [{hermes :com.eldrix/hermes, :as env} {diagnoses :t_patient/diagnoses}]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/input     [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
-   ::pco/output    [:t_patient/has_diagnosis]}
+  {::pco/input  [{:t_patient/diagnoses [:t_diagnosis/concept_fk :t_diagnosis/date_onset :t_diagnosis/date_to]}]
+   ::pco/output [:t_patient/has_diagnosis]}
   (let [params (pco/params env)
         ecl (or (:ecl params) (throw (ex-info "Missing mandatory parameter: ecl" env)))
         on-date (:on-date params)
@@ -384,14 +358,13 @@
 
 (pco/defresolver patient->summary-multiple-sclerosis        ;; this is misnamed, but belies the legacy system's origins.
   [{rsdb :com.eldrix/rsdb} {patient-identifier :t_patient/patient_identifier}]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/output    [{:t_patient/summary_multiple_sclerosis
-                     [:t_summary_multiple_sclerosis/id
-                      :t_summary_multiple_sclerosis/ms_diagnosis_fk
-                      {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
-                      {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
-                      :t_ms_diagnosis/id                    ; we flatten this to-one attribute
-                      :t_ms_diagnosis/name]}]}
+  {::pco/output [{:t_patient/summary_multiple_sclerosis
+                  [:t_summary_multiple_sclerosis/id
+                   :t_summary_multiple_sclerosis/ms_diagnosis_fk
+                   {:t_summary_multiple_sclerosis/patient [:t_patient/patient_identifier]}
+                   {:t_summary_multiple_sclerosis/ms_diagnosis [:t_ms_diagnosis/id :t_ms_diagnosis/name]}
+                   :t_ms_diagnosis/id                       ; we flatten this to-one attribute
+                   :t_ms_diagnosis/name]}]}
   (let [sms (rsdb/patient->summary-multiple-sclerosis rsdb patient-identifier)
         ms-diagnosis-id (:t_ms_diagnosis/id sms)]
     {:t_patient/summary_multiple_sclerosis
@@ -467,11 +440,10 @@
 
 (pco/defresolver patient->medications
   [{rsdb :com.eldrix/rsdb, hermes :com.eldrix/hermes, :as env} patient]
-  {::pco/transform (make-wrap-patient-authorize)
-   ::pco/input     [:t_patient/id]
-   ::pco/output    [{:t_patient/medications
-                     (into medication-properties
-                           [{:t_medication/events medication-event-properties}])}]}
+  {::pco/input  [:t_patient/id]
+   ::pco/output [{:t_patient/medications
+                  (into medication-properties
+                        [{:t_medication/events medication-event-properties}])}]}
   {:t_patient/medications
    (mapv #(-> %
               (assoc :t_medication/medication {:info.snomed.Concept/id (:t_medication/medication_concept_fk %)})

@@ -3,13 +3,13 @@
     [clojure.data.json :as json]
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.controllers.patient :as patient]
-    [pc4.workbench.controllers.snomed :as snomed]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
     [pc4.log.interface :as log]
-    [pc4.rsdb.interface :as rsdb])
+    [pc4.pathom-web.interface :as pw]
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.snomed-ui.interface :as snomed-ui]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]
+    [pc4.workbench.controllers.patient :as patient])
   (:import (java.time LocalDate)))
 
 (def medication-event-properties
@@ -52,7 +52,7 @@
     {}
     [:input {:type "hidden" :name (str "events[" id "][medication-event-id]") :value id}]
     [:input {:type "hidden" :name (str "events[" id "][idx]") :value idx}]
-    (snomed/ui-select-autocomplete
+    (snomed-ui/ui-select-snomed
       {:id               (str "events-" id "-event-concept")
        :disabled         (not can-edit)
        :selected-concept event_concept
@@ -89,14 +89,15 @@
          (when error
            (ui/box-error-message {:title "Invalid" :message "You have entered invalid data."}))
          (if id
-           [:input {:type "hidden" :name "medication-concept" :value (snomed/make-id+term medication_concept_fk term)}]
+           [:input {:type "hidden" :name "medication-concept" :value (snomed-ui/make-id+term medication_concept_fk term)}]
            (ui/ui-simple-form-item
              {:label "Medication:"}
-             (snomed/ui-select-autocomplete {:name             "medication-concept"
-                                             :placeholder      "Enter medication"
-                                             :ecl              "<10363601000001109"
-                                             :selected-concept medication
-                                             :common-concepts  common-medications})))
+             (snomed-ui/ui-select-snomed
+               {:name             "medication-concept"
+                :placeholder      "Enter medication"
+                :ecl              "<10363601000001109"
+                :selected-concept medication
+                :common-concepts  common-medications})))
          (ui/ui-simple-form-item
            {:label "Date from:"}
            [:div.mt-2.grid.grid-cols-1.md:grid-cols-2
@@ -105,15 +106,15 @@
          (ui/ui-simple-form-item
            {:label "Date to:"}
            [:div.mt-2.grid.grid-cols-1.md:grid-cols-2
-            [:div.col-span-1 (ui/ui-local-date {:name "date-to" 
-                                               :disabled (not can-edit) 
-                                               :max now 
-                                               :hx-trigger "change delay:1000ms, blur"
-                                               :hx-disabled-elt "this,#reason-for-stopping"
-                                               :hx-post url 
-                                               :hx-target "#edit-medication" 
-                                               :hx-swap "outerHTML" 
-                                               :hx-vals (web/write-hx-vals :action {:action :update-medication})} date_to)]
+            [:div.col-span-1 (ui/ui-local-date {:name            "date-to"
+                                                :disabled        (not can-edit)
+                                                :max             now
+                                                :hx-trigger      "change delay:1000ms, blur"
+                                                :hx-disabled-elt "this,#reason-for-stopping"
+                                                :hx-post         url
+                                                :hx-target       "#edit-medication"
+                                                :hx-swap         "outerHTML"
+                                                :hx-vals         (web/write-hx-vals :action {:action :update-medication})} date_to)]
             [:div.col-span-1 (ui/ui-local-date-accuracy {:name "date-to-accuracy" :disabled (not can-edit)} date_to_accuracy)]])
          (ui/ui-simple-form-item
            {:label "Reason for stopping:"}
@@ -125,13 +126,13 @@
                                                 (and date_to reason_for_stopping) reason_for_stopping
                                                 date_to :OTHER
                                                 :else :NOT_APPLICABLE)
-                                 :options     (let [pred (if date_to 
-                                                    #(not= :NOT_APPLICABLE (:id %))  ;; When date_to has a value, exclude NOT_APPLICABLE
-                                                    #(= :NOT_APPLICABLE (:id %)))    ;; When date_to is blank, only include NOT_APPLICABLE
-                                               options (->> reasons
-                                                            (map reason->option)
-                                                            (filter pred)
-                                                            (sort-by :text))]
+                                 :options     (let [pred (if date_to
+                                                           #(not= :NOT_APPLICABLE (:id %)) ;; When date_to has a value, exclude NOT_APPLICABLE
+                                                           #(= :NOT_APPLICABLE (:id %))) ;; When date_to is blank, only include NOT_APPLICABLE
+                                                    options (->> reasons
+                                                                 (map reason->option)
+                                                                 (filter pred)
+                                                                 (sort-by :text))]
                                                 options)}))
          (ui/ui-simple-form-item
            {:label "Notes"}
@@ -153,19 +154,19 @@
               :hx-vals   (web/write-hx-vals :action {:action :add-event})}
              "Add event")
            (ui/ui-delete-button
-             {:disabled (or (not can-edit) (= id "new") (nil? id))
-              :hx-delete (when (and id can-edit (not= id "new"))
-                           (route/url-for :patient/delete-medication 
-                                         :path-params {:patient-identifier patient_fk
-                                                       :medication-id id}))
+             {:disabled   (or (not can-edit) (= id "new") (nil? id))
+              :hx-delete  (when (and id can-edit (not= id "new"))
+                            (route/url-for :patient/delete-medication
+                                           :path-params {:patient-identifier patient_fk
+                                                         :medication-id      id}))
               :hx-headers (json/write-str {"X-CSRF-Token" csrf-token})
-              :hx-params "none"
+              :hx-params  "none"
               :hx-confirm "Are you sure you want to delete this medication?"
-              :hx-target "body"}
+              :hx-target  "body"}
              "Delete")))])))
 
 (def edit-medication-handler
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      :ui/patient-page
      {:ui/current-patient
@@ -180,11 +181,11 @@
             medication-id (:t_medication/id current-medication)]
         (if (or (nil? medication-id) (= (:t_patient/id current-patient) (:t_medication/patient_fk current-medication)))
           (web/ok
-            (web/render-file
+            (ui/render-file
               "templates/patient/base.html"
               (assoc patient-page
                 :content
-                (web/render
+                (ui/render
                   (ui-edit-medication (assoc current-medication :t_medication/patient_fk (:t_patient/id current-patient))
                                       {:csrf-token         csrf-token
                                        :can-edit           (:PATIENT_EDIT (:t_patient/permissions current-patient))
@@ -202,7 +203,7 @@
 
 (defn parse-medication-event-from-form
   [{:strs [medication-event-id event-concept severity description-of-reaction]}]
-  (let [[event-concept-id term] (some-> event-concept snomed/parse-id+term)]
+  (let [[event-concept-id term] (some-> event-concept snomed-ui/parse-id+term)]
     {:t_medication_event/id                      (safe-parse-id-or-tempid medication-event-id)
      :t_medication_event/event_concept_fk        event-concept-id
      :t_medication_event/event_concept           (when event-concept-id {:info.snomed.Concept/id event-concept-id
@@ -216,7 +217,7 @@
    {:strs [medication-id more-information events
            date-to medication-concept date-to-accuracy date-from date-from-accuracy reason-for-stopping]}]
   (let [medication-id (some-> medication-id parse-long)
-        [medication-concept-id term] (some-> medication-concept snomed/parse-id+term)]
+        [medication-concept-id term] (some-> medication-concept snomed-ui/parse-id+term)]
     (cond-> {:t_medication/patient_fk            patient-pk
              :t_medication/more_information      more-information
              :t_medication/events                (mapv parse-medication-event-from-form (sort-by #(some-> (get % "idx") parse-long) (vals events)))
@@ -265,7 +266,7 @@
           (do (rsdb/upsert-medication! rsdb medication)
               (web/hx-redirect (route/url-for :patient/medications))) ;; TODO: implement return-url parameter
           (web/ok
-            (web/render
+            (ui/render
               (ui-edit-medication medication
                                   {:csrf-token         csrf-token
                                    :can-edit           (:PATIENT_EDIT (:t_patient/permissions current-patient))
@@ -285,9 +286,9 @@
        (->> medications
             (sort-by #(get-in % [:t_medication/medication :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
             (map #(ui/ui-table-row
-                    {:class "cursor-pointer hover:bg-gray-50"
-                     :hx-get (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})
-                     :hx-target "body"
+                    {:class       "cursor-pointer hover:bg-gray-50"
+                     :hx-get      (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})
+                     :hx-target   "body"
                      :hx-push-url "true"}
                     (ui/ui-table-cell {}
                                       [:a {:href (route/url-for :patient/edit-medication :path-params {:patient-identifier patient-identifier :medication-id (:t_medication/id %)})}
@@ -296,7 +297,7 @@
                     (ui/ui-table-cell {} (str (:t_medication/date_to %))))))))])
 
 (def medications-handler
-  (pathom/handler
+  (pw/handler
     {:menu :medications}
     [:ui/patient-page
      {:ui/current-patient
@@ -311,11 +312,11 @@
             active-medications (filter #(nil? (:t_medication/date_to %)) medications)
             inactive-medications (filter #(some? (:t_medication/date_to %)) medications)] ;; TODO: fix 'active' derivation
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/base.html"
             (assoc patient-page
               :content
-              (web/render
+              (ui/render
                 [:div
                  [:div (medications-table "Active medications" patient_identifier active-medications)]
                  (when (seq inactive-medications)

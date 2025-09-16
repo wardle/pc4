@@ -4,14 +4,15 @@
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [lambdaisland.uri :as uri]
-    [pc4.workbench.web :as web]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb]))
 
 (defn login [request]
   (let [redirect-url (get-in request [:params :redirect-url])]
     (web/ok
-      (web/render-file "templates/login-page.html"
+      (ui/render-file "templates/login-page.html"
                        {:title        "Login"
                         :action       (route/url-for :user/login!)
                         :csrf-token   (csrf/existing-token request)
@@ -39,7 +40,7 @@
     (log/info "login attempt by user '" username "' with redirect to" redirect-url)
     (if-not user
       (web/ok
-        (web/render-file "templates/login-page.html"
+        (ui/render-file "templates/login-page.html"
                          {:title        "Login"
                           :action       (route/url-for :user/login!)
                           :csrf-token   (csrf/existing-token request)

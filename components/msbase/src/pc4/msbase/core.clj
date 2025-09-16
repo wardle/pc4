@@ -7,7 +7,7 @@
             [com.wsscode.pathom3.connect.operation :as pco]
             [pc4.config.interface :as config]
             [pc4.log.interface :as log]
-            [pc4.snomedct.interface :as hermes]
+            [pc4.snomed.interface :as hermes]
             [pc4.rsdb.interface :as rsdb])
   (:import (java.time Instant)
            (java.time.format DateTimeFormatter)
@@ -164,7 +164,7 @@
     {;;derive onset date from first event, or if missing, date of onset in diagnoses list
      :org.msbase.msDiagnosis/onsetDate
      (format-iso-date
-      (or (:t_ms_event/date (first events)) (first (sort (map :t_diagnosis/date_onset diagnoses')))))
+       (or (:t_ms_event/date (first events)) (first (sort (map :t_diagnosis/date_onset diagnoses')))))
      ;; derive the diagnosis from the first recorded date of diagnosis of MS or subtype
      :org.msbase.msDiagnosis/diagDate
      (format-iso-date (first (sort (map :t_diagnosis/date_diagnosis diagnoses'))))
@@ -406,14 +406,14 @@
 
 (defn cns-imaging-result?
   [{entity-name :t_result_type/result_entity_name
-    spine-type :t_result_mri_spine/type}]
+    spine-type  :t_result_mri_spine/type}]
   (or
-   (= entity-name "ResultMriBrain")
-   (and (= entity-name "ResultMriSpine")
-        (or (= spine-type "CERVICAL_AND_THORACIC")
-            (= spine-type "CERVICAL")
-            (= spine-type "WHOLE_SPINE")
-            (= spine-type "THORACIC")))))
+    (= entity-name "ResultMriBrain")
+    (and (= entity-name "ResultMriSpine")
+         (or (= spine-type "CERVICAL_AND_THORACIC")
+             (= spine-type "CERVICAL")
+             (= spine-type "WHOLE_SPINE")
+             (= spine-type "THORACIC")))))
 
 (pco/defresolver magnetic-resonance-imaging-results
   [{results :t_patient/results}]
@@ -689,7 +689,7 @@
   ;; TODO: don't use private fn in pc4.rsdb.users 
   (def pathom-env {:session/authenticated-user
                    (assoc (rsdb/user-by-username rsdb "system")
-                          :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
+                     :t_user/active_roles (pc4.rsdb.users/active-roles-by-project-id (:conn rsdb) "system"))
                    :session/authorization-manager (rsdb/username->authorization-manager rsdb "system")})
   (def pathom (partial (:pc4.graph.interface/boundary-interface system) pathom-env))
   (def patient-ids (lemtrada/patient-identifiers lemtrada-env :cambridge))

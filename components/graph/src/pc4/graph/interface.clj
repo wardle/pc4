@@ -16,7 +16,7 @@
     [pc4.graph.users]
     [pc4.graph.patients]
     [pc4.msbase.interface]
-    [pc4.snomedct.interface]))
+    [pc4.snomed.interface]))
 
 (defmethod ig/init-key ::ops
   [_ ops]

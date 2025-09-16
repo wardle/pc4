@@ -19,7 +19,7 @@
            :pc4     "/var/pc4/"}
 
  :pc4.codelists.interface/svc
- {:hermes #ig/ref :pc4.snomedct.interface/svc
+ {:hermes #ig/ref :pc4.snomed.interface/svc
   :dmd    #ig/ref :pc4.dmd.interface/svc}
 
  :pc4.deprivare.interface/svc
@@ -42,7 +42,7 @@
            :cvx     {:host "cavmail.cymru.nhs.uk"}}
 
  :pc4.lemtrada.interface/env
- {:hermes    #ig/ref :pc4.snomedct.interface/svc
+ {:hermes    #ig/ref :pc4.snomed.interface/svc
   :cavpms    #ig/ref :pc4.wales-cav-pms.interface/svc
   :clods     #ig/ref :pc4.ods.interface/svc
   :codelists #ig/ref :pc4.codelists.interface/svc
@@ -63,6 +63,9 @@
  {:root  #ref [:pc4/root]
   :f     "ods-2025-06-23.db"
   :nhspd #ig/ref :pc4.nhspd.interface/svc}
+
+ :pc4.ods-ui.interface/svc
+ {:ods #ig/ref :pc4.ods.interface/svc}
 
  :pc4.ods-weekly.interface/svc
  {:root #ref [:pc4/root]
@@ -104,14 +107,17 @@
  {:conn                         #ig/ref :pc4.rsdb.interface/conn
   :email                        #ig/ref :pc4.emailer.interface/svc
   :wales-nadex                  #ig/ref :pc4.wales-nadex.interface/svc
-  :hermes                       #ig/ref :pc4.snomedct.interface/svc
+  :hermes                       #ig/ref :pc4.snomed.interface/svc
   :ods                          #ig/ref :pc4.ods.interface/svc
   :legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
- :pc4.snomedct.interface/svc
+ :pc4.snomed.interface/svc
  {:root           #ref [:pc4/root]
   :f              "snomed-2025-07-09.db"
   :default-locale "en-GB"}
+
+ :pc4.snomed-ui.interface/svc
+ {:hermes #ig/ref :pc4.snomed.interface/svc}
 
  :pc4.wales-cav-pms.interface/svc
  #profile {:cvx     {:username    #ref [:secrets :wales :cav :pms :username]
@@ -127,7 +133,7 @@
            :default nil}
 
  :pc4.wales-nadex.interface/svc
- {:hermes #ig/ref :pc4.snomedct.interface/svc
+ {:hermes #ig/ref :pc4.snomed.interface/svc
   :conn   #profile {:cvx     {:hosts                   ["7A4BVSRVDOM0001.cymru.nhs.uk" ;; we use a failover list of hosts
                                                         "7A4BVSRVDOM0002.cymru.nhs.uk"
                                                         "7A4BVSRVDOM0003.cymru.nhs.uk"]
@@ -137,7 +143,7 @@
                               :follow-referrals?       true
                               :default-bind-username   #ref [:secrets :nadex-bind-username]
                               :default-bind-password   #ref [:secrets :nadex-bind-password]
-                              :hermes                  #ig/ref :pc4.snomedct.interface/svc}
+                              :hermes                  #ig/ref :pc4.snomed.interface/svc}
                     :default {}}}
 
  ;; operations / resolvers for pathom graph
@@ -161,7 +167,7 @@
   :com.eldrix.odsweekly.graph/svc #ig/ref :pc4.ods-weekly.interface/svc
   :com.eldrix.dmd.graph/store     #ig/ref :pc4.dmd.interface/svc
   :com.eldrix.deprivare.graph/svc #ig/ref :pc4.deprivare.interface/svc
-  :com.eldrix/hermes              #ig/ref :pc4.snomedct.interface/svc
+  :com.eldrix/hermes              #ig/ref :pc4.snomed.interface/svc
   :com.eldrix/nhspd               #ig/ref :pc4.nhspd.interface/svc
   :com.eldrix/rsdb                #ig/ref :pc4.rsdb.interface/svc
   :wales.nhs.cavuhb/pms           #ig/ref :pc4.wales-cav-pms.interface/svc
@@ -172,31 +178,21 @@
  {:connect-viz #profile {:default false, :dev true}
   :env         #ig/ref :pc4.graph.interface/env}
 
- ;; HTTP server for Fulcro front-end
- :pc4.fulcro-server.interface/server
- {:port            #long #or [#env PORT 8080]
-  :allowed-origins "*"
-  :host            "0.0.0.0"
-  :join?           #profile {:default false, :cvx false, :pc4 false}
-  :session-key     #ref [:secrets :pc4 :session-key]
-  :cljs-manifest   "public/js/compiled/manifest.edn"
-  :env             {:use-tailwind-cdn #profile {:default false, :dev true}
-                    :pathom           #ig/ref :pc4.graph.interface/boundary-interface
-                    :rsdb             #ig/ref :pc4.rsdb.interface/svc}}
-
  ;; Workbench server (clinician facing htmx application)
  :pc4.workbench.interface/server
  {:port        #long #or [#env PORT 8080]
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}
   :session-key #ref [:secrets :pc4 :session-key]
-  :env         {:rsdb   #ig/ref :pc4.rsdb.interface/svc
-                :hermes #ig/ref :pc4.snomedct.interface/svc
-                :ods    #ig/ref :pc4.ods.interface/svc
-                :pathom #ig/ref :pc4.graph.interface/boundary-interface
-                :queue  #ig/ref :pc4.queue.interface/svc}}
+  :env         {:rsdb     #ig/ref :pc4.rsdb.interface/svc
+                :hermes   #ig/ref :pc4.snomed.interface/svc
+                :ods      #ig/ref :pc4.ods.interface/svc
+                :odsui    #ig/ref :pc4.ods-ui.interface/svc
+                :pathom   #ig/ref :pc4.graph.interface/boundary-interface
+                :queue    #ig/ref :pc4.queue.interface/svc
+                :snomedui #ig/ref :pc4.snomed-ui.interface/svc}}
 
- ;; ARAF (patient-facing) core service
+ ;; ARAF (patient-facing) data service
  :pc4.araf.interface/patient
  {:ds     #profile {:dev {:dbtype          "postgresql"
                           :dbname          "araf_patient"
@@ -210,7 +206,7 @@
                           :maximumPoolSize 5}}
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF clinician service
 
- ;; ARAF (clinician-facing) service
+ ;; ARAF (clinician-facing) service - acts as a client to araf server
  :pc4.araf.interface/clinician
  {:url    #profile {:dev "http://127.0.0.1:8081"
                     :cvx "https://araf.patientcare.app"}

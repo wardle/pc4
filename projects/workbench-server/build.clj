@@ -38,6 +38,7 @@
                           "../../components/araf/resources"
                           "../../components/config/resources"
                           "../../components/rsdb/resources"
+                          "../../components/ui-core/resources"
                           "../../components/workbench/resources"
                           "../../components/report/resources"]
                :target-dir class-dir})

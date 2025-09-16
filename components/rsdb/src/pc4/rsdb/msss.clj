@@ -22,7 +22,7 @@
    [next.jdbc :as jdbc]
    [next.jdbc.result-set :as rs]
    [next.jdbc.specs]
-   [pc4.snomedct.interface :as hermes]))
+   [pc4.snomed.interface :as hermes]))
 
 (declare fetch-msss-sqlvec) ;; hugsql automatically defines a function to generate the SQL
 

@@ -4,11 +4,9 @@
   This API automatically manages legacy forms and makes them available
   seamlessly via a modern API."
   (:require
-    [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [next.jdbc :as jdbc]
     [next.jdbc.specs]
-    [pc4.log.interface :as log]
     [pc4.rsdb.nform.impl.form :as form]
     [pc4.rsdb.nform.impl.forms.all]
     [pc4.rsdb.nform.impl.registry :as registry]

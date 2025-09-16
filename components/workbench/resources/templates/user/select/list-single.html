@@ -7,7 +7,7 @@
      hx-target="#{{target}}">
     {% if user.user-id = selected.user-id %}
     <div class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-500 text-white w-7 h-7 flex items-center justify-center rounded-full">
-        {% include "templates/ui/icon-selected.html" %}
+        {% include "ui-core/templates/icon-selected.html" %}
     </div>
     {% endif %}
     <div class="font-medium mb-1">{{user.full-name}}</div>

@@ -4,7 +4,7 @@
    [clojure.string :as str]
    [pc4.fhir.interface]
    [pc4.wales-nadex.spec :as nspec]
-   [pc4.snomedct.interface :as hermes]))
+   [pc4.snomed.interface :as hermes]))
 
 (def regulator->fhir-systems
   {"GMC" "https://fhir.hl7.org.uk/Id/gmc-number"

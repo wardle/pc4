@@ -1,30 +1,7 @@
-(ns pc4.workbench.web
+(ns pc4.web.core
   (:require
     [clojure.data.json :as json]
-    [clojure.edn :as edn]
-    [clojure.string :as str]
-    [rum.core :as rum]
-    [selmer.parser :as selmer])
-  (:import (org.jsoup Jsoup)))
-
-(defn render
-  "Render the markup 'src' using rum. This is designed only for server-side
-  rendering and omits all React affordances. Uses rum.
-  - src - HTML as Clojure data (aka hiccup)."
-  [src]
-  (rum/render-static-markup src))
-
-(defn render-file
-  "Render the context-map using the template from the filename or URL specified.
-  Uses selmer."
-  [filename-or-url context-map]
-  (selmer/render-file filename-or-url context-map))
-
-(defn html->text
-  "Convert a string containing HTML to plain text."
-  [^String html]
-  (when-not (str/blank? html)
-    (.text (Jsoup/parse html))))
+    [clojure.edn :as edn]))
 
 (defn ok
   [content]
@@ -32,11 +9,9 @@
    :headers {"Content-Type" "text/html"}
    :body    content})
 
-(defn page
-  "Convenience function to generate a response with a page containing the static
-  markup."
-  [{:keys [title]} src]
-  (ok (render-file "templates/page.html" {:title title, :body (render src)})))
+(def empty-success-response
+  {:status  200
+   :headers {"content-type" "text/plain"}})
 
 (def empty-success-response
   {:status  200

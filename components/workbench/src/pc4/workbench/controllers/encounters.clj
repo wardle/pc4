@@ -3,8 +3,8 @@
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]
     [pc4.nhs-number.interface :as nnn]
     [pc4.rsdb.interface :as rsdb])
   (:import [java.time LocalDate]))
@@ -56,7 +56,7 @@
     :f     :t_encounter_template/title}
    {:id    :notes
     :title "Notes"
-    :f     (fn [{:t_encounter/keys [notes]}] (web/html->text notes))}
+    :f     (fn [{:t_encounter/keys [notes]}] (ui/html->text notes))}
    {:id    :patient
     :title "Patient"
     :f     (fn [{:t_patient/keys [title first_names last_name]}] (str last_name ", " first_names (when-not (str/blank? title) (str " (" title ")"))))}
@@ -134,7 +134,7 @@
         encounters (when (seq parsed-params) (rsdb/list-encounters rsdb parsed-params))
         headings# (headings parsed-params)]
     (-> (web/ok
-          (web/render
+          (ui/render
             (ui/ui-table
               (ui/ui-table-head
                 (for [{:keys [title]} headings#]

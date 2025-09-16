@@ -22,7 +22,7 @@
     [pc4.rsdb.projects :as projects]
     [pc4.rsdb.results :as results]
     [pc4.rsdb.users :as users]
-    [pc4.snomedct.interface :as hermes]
+    [pc4.snomed.interface :as hermes]
     [pc4.wales-nadex.interface :as nadex]
     [next.jdbc.connection :as connection]
     [next.jdbc.specs])
@@ -516,12 +516,12 @@
 ;; forms
 ;;
 
-(def edss-score->score forms/edss-score->score)
+(def ^:deprecated edss-score->score forms/edss-score->score)
 
-(defn encounter-id->forms-and-form-types [{:keys [conn]} encounter-id]
+(defn ^:deprecated encounter-id->forms-and-form-types [{:keys [conn]} encounter-id]
   (forms/forms-and-form-types-in-encounter conn encounter-id))
 
-(defn encounter-id->forms
+(defn ^:deprecated encounter-id->forms
   ([{:keys [conn]} encounter-id]
    (forms/forms-for-encounter conn encounter-id))
   ([{:keys [conn]} encounter-id opts]

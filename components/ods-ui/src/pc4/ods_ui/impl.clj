@@ -1,4 +1,4 @@
-(ns pc4.workbench.controllers.select-org
+(ns pc4.ods-ui.impl
   "Organisation selection controller with dropdown and modal search interface.
   Provides single organisation selection using the ODS (Organisation Data Service)
   with configurable display fields and search filtering."
@@ -6,13 +6,28 @@
     [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [clojure.string :as str]
+    [com.wsscode.pathom3.connect.indexes :as pci]
+    [com.wsscode.pathom3.interface.eql :as p.eql]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
+    [io.pedestal.interceptor :as intc]
+    [pc4.ui-core.interface :as ui]
     [pc4.log.interface :as log]
-    [pc4.ods.interface :as ods]))
+    [pc4.ods.interface :as ods]
+    [pc4.web.interface :as web]))
+
+(defn make-env-intc
+  "The handlers all expect 'ods' and 'pathom' to be in the http request.
+  - ods    : an ODS service (see pc4.pds.interface/svc).
+  We create a Pathom environment, add the ODS graph resolvers and then create
+  a boundary interface from it that will resolve EQL queries."
+  [ods]
+  (let [env (-> {:com.eldrix.clods.graph/svc ods}
+                (pci/register ods/graph-resolvers))
+        pathom (p.eql/boundary-interface env)]
+    (intc/interceptor
+      {:name  ::inject-env
+       :enter (fn [ctx] (update-in ctx [:request] assoc :ods ods :pathom pathom))})))
 
 ;; Specs for configuration validation
 (s/def ::id string?)
@@ -69,13 +84,14 @@
 
 
 (defn fetch-org
-  [env request org-code]
-  (pathom/process env request
-                  {:pathom/entity {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id org-code}
-                   :pathom/eql    [:org.hl7.fhir.Organization/name
-                                   :org.hl7.fhir.Organization/address
-                                   :org.hl7.fhir.Organization/identifier
-                                   :org.hl7.fhir.Organization/active]}))
+  "Fetch organization by code using pathom process function."
+  [{:keys [pathom] :as request} org-code]
+  (pathom request
+          {:pathom/entity {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id org-code}
+           :pathom/eql    [:org.hl7.fhir.Organization/name
+                           :org.hl7.fhir.Organization/address
+                           :org.hl7.fhir.Organization/identifier
+                           :org.hl7.fhir.Organization/active]}))
 (defn format-org-display
   "Formats a FHIR Organisation for display based on configured display fields."
   [{:org.hl7.fhir.Organization/keys [name active identifier address] :as fhir-org} fields]
@@ -93,21 +109,20 @@
 
 (defn fetch-common-orgs
   "Resolves a collection of org codes to FHIR Organisation objects."
-  [env request org-codes]
+  [request org-codes]
   (->> org-codes
-       (map #(fetch-org env request %))
+       (map #(fetch-org request %))
        (remove nil?)))
 
 (defn do-search
   "Search for organisations using the ODS service and convert to FHIR format."
-  [env request params]
-  (get (pathom/process
-         env request
-         [{(list 'uk.nhs.ord/search params)
-           [:org.hl7.fhir.Organization/name
-            :org.hl7.fhir.Organization/active
-            :org.hl7.fhir.Organization/identifier
-            :org.hl7.fhir.Organization/address]}])
+  [{:keys [pathom] :as request} params]
+  (get (pathom request
+               [{(list 'uk.nhs.ord/search params)
+                 [:org.hl7.fhir.Organization/name
+                  :org.hl7.fhir.Organization/active
+                  :org.hl7.fhir.Organization/identifier
+                  :org.hl7.fhir.Organization/address]}])
        'uk.nhs.ord/search))
 
 (defn make-context
@@ -130,25 +145,21 @@
    [:div
     {:dangerouslySetInnerHTML
      {:__html
-      (web/render-file template (make-context config request))}}]))
+      (ui/render-file template (make-context config request))}}]))
 
 (defn ui-select-org
-  "An organisation selection control. Displays current selection and allows
-  'click to edit' functionality with a modal dialog. When collapsed, it is
-  essentially a hidden INPUT element with name 'name' and value as a data
-  representation of a HL7 FHIR Organisation.
-  
+  "Create a UI component for organization selection.
+
   Parameters:
-  - :id          - Control identifier
-  - :name        - Form field name
-  - :disabled    - Whether control is disabled
-  - :selected    - Currently selected FHIR Organisation object
-  - :placeholder - Placeholder text when no selection
-  - :label       - Control label and modal title
-  - :roles       - ODS roles to filter by (required)
-  - :common-orgs - Collection of org codes for initial dropdown
-  - :fields      - Set of fields to display (default #{:name})
-  - :active      - Whether to include only active orgs (default true)
+  - :id/:name    - Component identifier
+  - :label       - Label text for the component
+  - :roles       - Organization roles to filter by
+  - :selected    - Currently selected organization
+  - :disabled    - Whether component is disabled
+  - :required    - Whether selection is required
+  - :common-orgs - List of common organizations to show
+  - :fields      - Display fields (:name, :address, :code, :primary-role)
+  - :active      - Whether to show only active organizations
   - :postcode    - Postcode for location-based search
   - :range       - Search radius in metres
   - :limit       - Maximum search results (default 100)
@@ -165,14 +176,14 @@
 
 (defn org-select-handler
   "HTTP handler for organisation selection actions."
-  [{:keys [env form-params] :as request}]
+  [{:keys [form-params] :as request}]
   (let [{:keys [target label required selected common-orgs fields active postcode range limit initial-search?] :as config} (web/read-hx-vals :data form-params)
         trigger (web/hx-trigger request)
         org-code (when (and trigger (not= "cancel" trigger) (not= "clear" trigger)) trigger)
         modal-action {:hx-post (route/url-for :org/select), :hx-target (str "#" target)
                       :hx-vals (web/write-hx-vals :data config)}]
     (web/ok
-      (web/render
+      (ui/render
         (cond
           ;; user has cancelled, just show control, closing modal dialog
           (= "cancel" trigger)
@@ -184,7 +195,7 @@
 
           ;; user has selected an organisation
           (and org-code (string? org-code))
-          (if-let [fhir-org (fetch-org env request org-code)]
+          (if-let [fhir-org (fetch-org request org-code)]
             (ui-select-org (assoc config :selected fhir-org))
             (do
               (log/warn "Organisation not found" {:org-code org-code})
@@ -206,9 +217,8 @@
 
 (defn org-search-handler
   "HTTP handler for organisation search operations from the form."
-  [{:keys [env form-params] :as request}]
-  (let [ods (:ods env)
-        {:keys [allow-unfiltered common-orgs fields range roles] :as config} (web/read-hx-vals :data form-params)
+  [{:keys [form-params ods] :as request}]
+  (let [{:keys [allow-unfiltered common-orgs fields range roles] :as config} (web/read-hx-vals :data form-params)
         search-text (some-> (:s form-params) str/trim (minimum-chars 3))
         postcode (some-> (:postcode form-params) str/trim (minimum-chars 2))
         {:keys [OSNRTH1M OSEAST1M] :as coords} (when postcode (ods/os-grid-reference ods postcode))
@@ -236,15 +246,15 @@
                      range-km (assoc-in [:from-location :range] (* range-km 1000)))})
         _ (log/info "org search" {:config config :postcode postcode :range-km range-km :limit limit :sort-by sort-by-fn})
         orgs# (when-not error
-                (->> (if (seq orgs) orgs (do-search env request search))
+                (->> (if (seq orgs) orgs (do-search request search))
                      (map #(format-org-display % fields))
                      (sort-by sort-by-fn)))]
     (log/info "result" result)
     (web/ok
-      (web/render-file "templates/org/select/list-orgs.html"
-                       (-> (make-context config request)
-                           (assoc :organisations orgs#
-                                  :search-performed filtered?
-                                  :error error
-                                  :sort-by (name sort-by-fn)
-                                  :range range-km))))))
+      (ui/render-file "templates/org/select/list-orgs.html"
+                      (-> (make-context config request)
+                          (assoc :organisations orgs#
+                                 :search-performed filtered?
+                                 :error error
+                                 :sort-by (name sort-by-fn)
+                                 :range range-km))))))

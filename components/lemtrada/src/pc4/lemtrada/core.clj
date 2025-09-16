@@ -24,7 +24,7 @@
    [pc4.log.interface :as log]
    [pc4.lemtrada.spec :as lspec]
    [pc4.rsdb.interface :as rsdb]
-   [pc4.snomedct.interface :as hermes])
+   [pc4.snomed.interface :as hermes])
 
   (:import (java.time LocalDate LocalDateTime Period)
            (java.time.temporal ChronoUnit Temporal)

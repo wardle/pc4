@@ -1,11 +1,19 @@
-(ns pc4.workbench.controllers.snomed
+(ns pc4.snomed-ui.impl
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
+    [io.pedestal.interceptor :as intc]
+    [pc4.ui-core.interface :as ui]
     [pc4.log.interface :as log]
-    [pc4.snomedct.interface :as sct]))
+    [pc4.snomed.interface :as sct]
+    [pc4.web.interface :as web]))
+
+(defn make-svc-intc
+  "Interceptor to inject 'hermes' svc into the request."
+  [svc]
+  (intc/interceptor
+    {:name ::inject-svc
+     :enter (fn [ctx] (assoc-in ctx [:request :hermes] svc))}))
 
 (defn make-config
   [{:keys [id disabled name placeholder selected-concept common-concepts ecl max-hits size] :as params}]
@@ -103,9 +111,6 @@
    (ui/ui-spinner {:id spinner-id})])
 
 (defn ui-select-autocomplete
-  "HTML select/autocomplete user interface control. This can be dropped into any
-  form and allows the user to select from common concepts if provided, or choose
-  to search using an autocompletion textfield. "
   [{:keys [id name disabled selected-concept common-concepts ecl size max-hits placeholder] :as params}]
   (let [config (make-config params)]
     (when (= name "concept-id")
@@ -122,7 +127,7 @@
         config (web/read-hx-vals :data form-params)]
     (log/debug "trigger" (web/hx-trigger request) "concept id: " concept-id "preferred " preferred)
     (web/ok
-      (web/render
+      (ui/render
         (ui-select-autocomplete*
           (if save?
             (assoc config :selected-concept {:info.snomed.Concept/id concept-id
@@ -131,56 +136,58 @@
             config))))))
 
 (defn autocomplete-results-handler
-  [{:keys [form-params env]}]
-  (log/debug "autocomplete-results" form-params)
-  (let [hermes (:hermes env)
-        {:keys [search-id ecl max-hits selected-id spinner-id size close-action] :as config} (web/read-hx-vals :data form-params)
-        s (get form-params (keyword search-id))             ;; our data tells us the name of the form value to use
-        results (when-not (str/blank? s) (sct/search hermes {:s s :constraint ecl :max-hits max-hits :fuzzy 0 :fallback-fuzzy 2}))
-        default-result (first results)]
-    (log/debug "autocomplete-results" {:s s :ecl ecl :max-hits max-hits})
-    (web/ok
-      (web/render
-        [:div.mt-2.grid.grid-cols-1
-         (if (seq results)
-           [:select {:hx-post      (route/url-for :snomed/autocomplete-selected-result)
-                     :hx-vals      (web/write-hx-vals :data config)
-                     :hx-trigger   "change,load"
-                     :hx-indicator (str "#" spinner-id)
-                     :hx-target    (str "#" selected-id)
-                     :name         "concept-id"
-                     :size         (or size 5)}
-            (for [result results]
-                  [:option (cond-> {:value (.-conceptId result)}
-                             (= result default-result) (assoc :selected true)) ;; always select first option by default
-                   (let [term (.-term result), preferred-term (.-preferredTerm result)]
-                     (if (= term preferred-term)
-                       term
-                       (str term " (" preferred-term ")")))])]
-           (ui/ui-button close-action "Cancel"))
-         [:div {:id selected-id}]]))))
+  [hermes]
+  (fn
+    [{:keys [form-params]}]
+    (log/debug "autocomplete-results" form-params)
+    (let [{:keys [search-id ecl max-hits selected-id spinner-id size close-action] :as config} (web/read-hx-vals :data form-params)
+          s (get form-params (keyword search-id))           ;; our data tells us the name of the form value to use
+          results (when-not (str/blank? s) (sct/search hermes {:s s :constraint ecl :max-hits max-hits :fuzzy 0 :fallback-fuzzy 2}))
+          default-result (first results)]
+      (log/debug "autocomplete-results" {:s s :ecl ecl :max-hits max-hits})
+      (web/ok
+        (ui/render
+          [:div.mt-2.grid.grid-cols-1
+           (if (seq results)
+             [:select {:hx-post      (route/url-for :snomed/autocomplete-selected-result)
+                       :hx-vals      (web/write-hx-vals :data config)
+                       :hx-trigger   "change,load"
+                       :hx-indicator (str "#" spinner-id)
+                       :hx-target    (str "#" selected-id)
+                       :name         "concept-id"
+                       :size         (or size 5)}
+              (for [result results]
+                [:option (cond-> {:value (.-conceptId result)}
+                           (= result default-result) (assoc :selected true)) ;; always select first option by default
+                 (let [term (.-term result), preferred-term (.-preferredTerm result)]
+                   (if (= term preferred-term)
+                     term
+                     (str term " (" preferred-term ")")))])]
+             (ui/ui-button close-action "Cancel"))
+           [:div {:id selected-id}]])))))
 
 (defn autocomplete-selected-result-handler
-  [{:keys [form-params env]}]
-  (let [hermes (:hermes env)
-        concept-id (some-> (:concept-id form-params) parse-long)
-        lang-refset-ids (sct/match-locale hermes "en-GB")   ;; TODO: use user's chosen locale
-        preferred (when concept-id (:term (sct/preferred-synonym* hermes concept-id lang-refset-ids)))
-        synonyms (when concept-id (sct/synonyms hermes concept-id lang-refset-ids))
-        {:keys [id close-action] :as config} (web/read-hx-vals :data form-params)]
-    (log/debug "inspect result" concept-id " " preferred)
-    (web/ok
-      (web/render
-        (when concept-id
-          [:div.grid.grid-cols-1.border-2.shadow-inner.p-4
-           [:input {:type "hidden" :name "preferred-synonym" :value preferred}] ;; smuggle synonym so can be used for selected concept
-           [:div.col-span-1
-            [:span.font-bold preferred]]
-           [:div.col-span-1.text-gray-600.text-sm.italic.pl-4
-            [:ul
-             (for [{:keys [term]} (sort-by :term synonyms)
-                   :when (not= term preferred)]
-               [:li term])]]
-           [:div.col-span-1.m-2
-            (ui/ui-button (assoc close-action :id (str id "-save")) "Save") ;; add id for trigger for save
-            (ui/ui-button close-action "Cancel")]])))))
+  [hermes]
+  (fn
+    [{:keys [form-params]}]
+    (let [concept-id (some-> (:concept-id form-params) parse-long)
+          lang-refset-ids (sct/match-locale hermes "en-GB") ;; TODO: use user's chosen locale
+          preferred (when concept-id (:term (sct/preferred-synonym* hermes concept-id lang-refset-ids)))
+          synonyms (when concept-id (sct/synonyms hermes concept-id lang-refset-ids))
+          {:keys [id close-action] :as config} (web/read-hx-vals :data form-params)]
+      (log/debug "inspect result" concept-id " " preferred)
+      (web/ok
+        (ui/render
+          (when concept-id
+            [:div.grid.grid-cols-1.border-2.shadow-inner.p-4
+             [:input {:type "hidden" :name "preferred-synonym" :value preferred}] ;; smuggle synonym so can be used for selected concept
+             [:div.col-span-1
+              [:span.font-bold preferred]]
+             [:div.col-span-1.text-gray-600.text-sm.italic.pl-4
+              [:ul
+               (for [{:keys [term]} (sort-by :term synonyms)
+                     :when (not= term preferred)]
+                 [:li term])]]
+             [:div.col-span-1.m-2
+              (ui/ui-button (assoc close-action :id (str id "-save")) "Save") ;; add id for trigger for save
+              (ui/ui-button close-action "Cancel")]]))))))

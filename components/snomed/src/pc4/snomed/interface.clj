@@ -1,4 +1,4 @@
-(ns pc4.snomedct.interface
+(ns pc4.snomed.interface
   "Component to provide SNOMED terminology API. 
   This is a very simple wrapper around Hermes but this could be replaced 
   with a version that calls an external service instead."

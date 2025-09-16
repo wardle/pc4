@@ -2,8 +2,9 @@
   (:require
     [com.wsscode.pathom3.connect.operation :as pco]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as p]
-    [pc4.workbench.web :as web]))
+    [pc4.pathom-web.interface :as pw]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]))
 
 (defn ui-project
   [{:t_project/keys [id title]}]
@@ -35,11 +36,11 @@
 (def resolvers [ui-projects ui-latest-news])
 
 (def home-page
-  (p/handler
+  (pw/handler
     [:ui/projects :ui/latest-news :ui/navbar :ui/csrf-token]
     (fn [_ {:ui/keys [projects latest-news navbar csrf-token]}]
       (web/ok
-        (web/render-file
+        (ui/render-file
           "templates/home-page.html"
           {:navbar      navbar
            :csrf-token  csrf-token

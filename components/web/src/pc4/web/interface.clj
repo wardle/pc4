@@ -1,0 +1,22 @@
+(ns pc4.web.interface
+  "Public interface for web component providing HTTP response helpers and HTMX utilities."
+  (:require [pc4.web.core :as core]))
+
+(def ok core/ok)
+(def empty-success-response core/empty-success-response)
+(def moved-permanently core/moved-permanently)
+(def redirect-found core/redirect-found)
+(def redirect-see-other core/redirect-see-other)
+(def hx-redirect core/hx-redirect)
+(def hx-location core/hx-location)
+(def bad-request core/bad-request)
+(def forbidden core/forbidden)
+(def not-found core/not-found)
+(def server-error core/server-error)
+(def no-content core/no-content)
+(def htmx-request? core/htmx-request?)
+(def hx-target core/hx-target)
+(def hx-trigger core/hx-trigger)
+(def hx-trigger-name core/hx-trigger-name)
+(def write-hx-vals core/write-hx-vals)
+(def read-hx-vals core/read-hx-vals)

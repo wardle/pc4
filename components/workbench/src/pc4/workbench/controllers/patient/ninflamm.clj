@@ -4,11 +4,12 @@
     [clojure.string :as str]
     [clojure.spec.alpha :as s]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.web :as web]
-    [pc4.workbench.ui :as ui]
+    [pc4.pathom-web.interface :as pw]
+    [pc4.web.interface :as web]
+    [pc4.ui-core.interface :as ui]
     [pc4.log.interface :as log]
-    [pc4.rsdb.interface :as rsdb])
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.workbench.controllers.patient :as patient])
   (:import (java.time LocalDate)))
 
 (def ms-event-properties
@@ -251,7 +252,7 @@
               "Cancel")
             (when (and id can-edit)
               (ui/ui-delete-button
-                {:hx-delete  (route/url-for :patient/delete-ms-event :path-params {:patient-identifier patient-identifier :ms-event-id        id})
+                {:hx-delete  (route/url-for :patient/delete-ms-event :path-params {:patient-identifier patient-identifier :ms-event-id id})
                  :hx-headers (json/write-str {"X-CSRF-Token" csrf-token})
                  :hx-params  nil
                  :hx-confirm "Are you sure you wish to delete this event?"}
@@ -259,7 +260,7 @@
 
 ;; Handler for editing MS event
 (def edit-ms-event-handler
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      :ui/patient-page
      :com.eldrix.rsdb/all-ms-event-types
@@ -282,11 +283,11 @@
                 (= (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis)
                    (:t_ms_event/summary_multiple_sclerosis_fk current-ms-event))) ;; existing event for this patient
           (web/ok
-            (web/render-file
+            (ui/render-file
               "templates/patient/base.html"
               (assoc patient-page
                 :content
-                (web/render
+                (ui/render
                   (ui-edit-ms-event
                     (if (not is-new?)
                       current-ms-event
@@ -301,7 +302,7 @@
           (web/forbidden "Not authorized"))))))
 
 (def save-ms-event-handler
-  (pathom/handler
+  (pw/handler
     [{:ui/current-patient
       [:t_patient/id
        :t_patient/patient_identifier
@@ -325,15 +326,16 @@
             neuroinflammatory-url (route/url-for :patient/neuroinflammatory :path-params {:patient-identifier patient_identifier})
             ;; a partial page response just rendering our form
             response
-            (fn [params] (web/ok
-                           (web/render
-                             (ui-edit-ms-event
-                               (assoc data :t_patient/date_birth date_birth)
-                               (merge {:patient-identifier patient_identifier
-                                       :can-edit           can-edit
-                                       :all-ms-event-types all-ms-event-types
-                                       :csrf-token         csrf-token}
-                                      params)))))]
+            (fn [params]
+              (web/ok
+                (ui/render
+                  (ui-edit-ms-event
+                    (assoc data :t_patient/date_birth date_birth)
+                    (merge {:patient-identifier patient_identifier
+                            :can-edit           can-edit
+                            :all-ms-event-types all-ms-event-types
+                            :csrf-token         csrf-token}
+                           params)))))]
         (log/debug "save-ms-event" data)
         (cond
           ;; no permission to edit => should not happen so simply return an error
@@ -353,7 +355,7 @@
           (response {}))))))
 
 (def delete-ms-event-handler
-  (pathom/handler
+  (pw/handler
     [{:ui/current-patient [:t_patient/patient_identifier :t_patient/permissions]}
      {:ui/current-ms-event [:t_ms_event/id]}]
     (fn [{:keys [env]} {:ui/keys [current-patient current-ms-event]}]
@@ -399,7 +401,7 @@
               :hx-target     "#ms-diagnosis-selection"})])))))
 
 (def save-ms-diagnosis-handler
-  (pathom/handler
+  (pw/handler
     [{:ui/current-patient
       [:t_patient/id
        :t_patient/patient_identifier
@@ -430,7 +432,7 @@
 
 ;; Main handler for the neuroinflammatory page
 (def neuroinflammatory-handler
-  (pathom/handler
+  (pw/handler
     {:menu :relapses}
     [:ui/csrf-token
      :ui/patient-page
@@ -452,11 +454,11 @@
             show-ms? (and has-summary? (not= not-ms-diagnosis (:t_summary_multiple_sclerosis/ms_diagnosis summary_multiple_sclerosis)))
             can-edit (boolean (:PATIENT_EDIT permissions))]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/base.html"
             (assoc patient-page
               :content
-              (web/render
+              (ui/render
                 [:div
                  ;; Display MS diagnosis selection
                  (ui-ms-diagnosis-selection summary_multiple_sclerosis
@@ -473,11 +475,11 @@
                        :message [:ul
                                  (for [error (:t_summary_multiple_sclerosis/event_ordering_errors summary_multiple_sclerosis)]
                                    [:li error])]})])
-                  (ui/ui-modal {:id "edss-chart"
-                                :hidden? true
-                                :size :xl
-                                :cancel {:onClick "htmx.addClass(htmx.find(\"#edss-chart\"), \"hidden\");"}}
-                               [:img {:src (route/url-for :patient/chart :query-params {:type "edss" :width 1600 :height 800})}])
+                 (ui/ui-modal {:id      "edss-chart"
+                               :hidden? true
+                               :size    :xl
+                               :cancel  {:onClick "htmx.addClass(htmx.find(\"#edss-chart\"), \"hidden\");"}}
+                              [:img {:src (route/url-for :patient/chart :query-params {:type "edss" :width 1600 :height 800})}])
                  ;; Display MS events if any and applicable
                  (when show-ms?
                    [:div

@@ -3,10 +3,10 @@
             [clojure.string :as str]
             [io.pedestal.http.csrf :as csrf]
             [io.pedestal.http.route :as route]
-            [pc4.workbench.controllers.snomed :as snomed]
-            [pc4.workbench.pathom :as pathom]
-            [pc4.workbench.ui :as ui]
-            [pc4.workbench.web :as web]
+            [pc4.pathom-web.interface :as pw]
+            [pc4.snomed-ui.interface :as snomed-ui]
+            [pc4.web.interface :as web]
+            [pc4.ui-core.interface :as ui]
             [pc4.log.interface :as log]
             [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDate)))
@@ -27,9 +27,9 @@
        (->> diagnoses
             (sort-by #(get-in % [:t_diagnosis/diagnosis :info.snomed.Concept/preferredDescription :info.snomed.Description/term]))
             (map #(ui/ui-table-row
-                    {:class "cursor-pointer hover:bg-gray-50"
-                     :hx-get (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient-identifier :diagnosis-id (:t_diagnosis/id %)})
-                     :hx-target "body"
+                    {:class       "cursor-pointer hover:bg-gray-50"
+                     :hx-get      (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient-identifier :diagnosis-id (:t_diagnosis/id %)})
+                     :hx-target   "body"
                      :hx-push-url "true"}
                     (ui/ui-table-cell {}
                                       [:a {:href (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient-identifier :diagnosis-id (:t_diagnosis/id %)})}
@@ -40,7 +40,7 @@
                     (ui/ui-table-cell {} (str/replace (str (:t_diagnosis/status %)) #"_" " ")))))))])
 
 (def diagnoses-handler
-  (pathom/handler
+  (pw/handler
     {:menu :diagnoses}
     [:ui/patient-page
      {:ui/current-patient
@@ -53,11 +53,11 @@
             active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/base.html"
             (assoc patient-page
               :content
-              (web/render
+              (ui/render
                 [:div
                  [:div (diagnoses-table "Active diagnoses" patient_identifier active-diagnoses)]
                  (when (seq inactive-diagnoses) [:div.pt-4 (diagnoses-table "Inactive diagnoses" patient_identifier inactive-diagnoses)])]))))))))
@@ -83,11 +83,11 @@
            [:input {:type "hidden" :name "diagnosis-concept-id" :value concept_fk}]
            (ui/ui-simple-form-item
              {:label "Diagnosis"}
-             (snomed/ui-select-autocomplete {:name             "diagnosis-concept-id"
-                                             :placeholder      "Enter diagnosis"
-                                             :ecl              "<404684003|Clinical finding|"
-                                             :selected-concept diagnosis
-                                             :common-concepts  common-diagnoses})))
+             (snomed-ui/ui-select-snomed {:name             "diagnosis-concept-id"
+                                          :placeholder      "Enter diagnosis"
+                                          :ecl              "<404684003|Clinical finding|"
+                                          :selected-concept diagnosis
+                                          :common-concepts  common-diagnoses})))
          (ui/ui-simple-form-item
            {:label "Date of onset"}
            (ui/ui-local-date {:name "date-onset" :disabled (not can-edit) :max now} date_onset))
@@ -97,9 +97,9 @@
              {:name "date-diagnosis" :disabled (not can-edit) :max now} date_diagnosis))
          (ui/ui-simple-form-item
            {:label "Date to"}
-           (ui/ui-local-date {:name    "date-to" :disabled (not can-edit) :max now :hx-trigger "change delay:1000ms, blur"
+           (ui/ui-local-date {:name            "date-to" :disabled (not can-edit) :max now :hx-trigger "change delay:1000ms, blur"
                               :hx-disabled-elt "this,#status"
-                              :hx-post url :hx-target "#edit-diagnosis" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"} date_to))
+                              :hx-post         url :hx-target "#edit-diagnosis" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"} date_to))
          (ui/ui-simple-form-item
            {:label "Status"}
            (ui/ui-select-button {:name        "status"
@@ -160,7 +160,7 @@
 (defn parse-save-diagnosis-params
   [{patient-pk :t_patient/id :as patient} request]
   (let [form-params (:form-params request)
-        [concept-id term] (some-> form-params :diagnosis-concept-id snomed/parse-id+term)
+        [concept-id term] (some-> form-params :diagnosis-concept-id snomed-ui/parse-id+term)
         diagnosis-id (some-> form-params :diagnosis-id parse-long)]
     (cond-> {:t_diagnosis/patient_fk       (or (some-> form-params :patient-pk parse-long) patient-pk)
              :t_diagnosis/concept_fk       concept-id
@@ -180,7 +180,7 @@
   fragment for form validation.
   - on-cancel-url : URL to redirect if cancel
   - on-save-url   : URL to redirect after save"
-  (pathom/handler
+  (pw/handler
     [{:ui/current-patient [:t_patient/id :t_patient/patient_identifier
                            :t_patient/date_birth :t_patient/date_death]}
      {:ui/authenticated-user [(list :t_user/common_concepts {:ecl "<404684003|Clinical finding|" :accept-language "en-GB"})]}]
@@ -203,14 +203,14 @@
               (rsdb/create-diagnosis! rsdb current-patient data))
             (web/hx-redirect (route/url-for :patient/diagnoses)))
           :else                                             ;; just updating in place
-          (web/ok (web/render (ui-edit-diagnosis {:csrf-token       (csrf/existing-token request)
-                                                  :can-edit         true ;; by definition, we can edit. Permissions will also be checked on submit however
-                                                  :error            (and (nil? trigger) (not valid?))
-                                                  :diagnosis        data
-                                                  :common-diagnoses common-diagnoses}))))))))
+          (web/ok (ui/render (ui-edit-diagnosis {:csrf-token       (csrf/existing-token request)
+                                                 :can-edit         true ;; by definition, we can edit. Permissions will also be checked on submit however
+                                                 :error            (and (nil? trigger) (not valid?))
+                                                 :diagnosis        data
+                                                 :common-diagnoses common-diagnoses}))))))))
 
 (def edit-diagnosis-handler
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      :ui/patient-page
      {:ui/current-patient
@@ -223,11 +223,11 @@
             diagnosis-id (:t_diagnosis/id current-diagnosis)]
         (if (or (nil? diagnosis-id) (= (:t_patient/id current-patient) (:t_diagnosis/patient_fk current-diagnosis))) ;; check diagnosis is for same patient
           (web/ok                                           ;; render a whole page
-            (web/render-file
+            (ui/render-file
               "templates/patient/base.html"
               (assoc patient-page
                 :content
-                (web/render
+                (ui/render
                   (ui-edit-diagnosis
                     {:csrf-token       csrf-token
                      :can-edit         (:PATIENT_EDIT (:t_patient/permissions current-patient))

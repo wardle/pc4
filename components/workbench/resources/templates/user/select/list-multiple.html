@@ -14,7 +14,7 @@
                  name="{{user.action}}">
                 <button type="button"
                         class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-red-500 border-none text-white cursor-pointer w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-red-600 hover:scale-110">
-                    {% include "templates/ui/icon-remove.html" %}
+                    {% include "ui-core/templates/icon-remove.html" %}
                 </button>
                 <div class="font-medium mb-1">{{user.full-name}}</div>
                 <div class="text-gray-600 text-sm">{{user.job-title}}</div>
@@ -37,7 +37,7 @@
              name="{{user.action}}">
             <button type="button"
                     class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-green-500 border-none text-white cursor-pointer w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-green-600 hover:scale-110">
-                {% include "templates/ui/icon-add.html" %}
+                {% include "ui-core/templates/icon-add.html" %}
             </button>
             <div class="font-medium mb-1">{{user.full-name}}</div>
             <div class="text-gray-600 text-sm">{{user.job-title}}</div>

@@ -7,13 +7,12 @@
     [edn-query-language.core :as eql]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as p]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.web :as web]
-    [pc4.workbench.ui :as ui]
     [pc4.log.interface :as log]
+    [pc4.pathom-web.interface :as pw]
     [pc4.rsdb.interface :as rsdb]
-    [pc4.snomedct.interface :as snomedct]))
+    [pc4.snomed.interface :as snomed]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]))
 
 (pco/defresolver current-patient
   [{:keys [request]} _]
@@ -116,9 +115,9 @@
         csrf-token (csrf/existing-token request)
         can-edit? (permissions :PATIENT_EDIT)
         diagnosis-ids (set (map :t_diagnosis/concept_fk (filter rsdb/diagnosis-active? diagnoses)))
-        ninflamm (snomedct/intersect-ecl hermes diagnosis-ids "<<39367000")
-        epilepsy (snomedct/intersect-ecl hermes diagnosis-ids "<<128613002")
-        mnd (snomedct/intersect-ecl hermes diagnosis-ids "<<37340000")]
+        ninflamm (snomed/intersect-ecl hermes diagnosis-ids "<<39367000")
+        epilepsy (snomed/intersect-ecl hermes diagnosis-ids "<<128613002")
+        mnd (snomed/intersect-ecl hermes diagnosis-ids "<<37340000")]
     {:ui/patient-menu
      {:selected selected
       :items    [{:id   :home
@@ -179,20 +178,19 @@
                   :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
         :encounters
         (let [encounters-view (keyword (get-in request [:params "view"] "notes"))]
-          {:items [{:content (web/render [:form {:hx-target   "#list-encounters"
-                                                 :hx-trigger  "change"
-                                                 :hx-get      (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
-                                                 :hx-push-url "true"}
-                                          (ui/ui-select-button {:name        "view"
-                                                                :selected-id encounters-view
-                                                                :options     [{:id :notes :text "Notes"}
-                                                                              {:id :users :text "Users"}
-                                                                              {:id :ninflamm :text "Neuroinflammatory"}
-                                                                              {:id :mnd :text "Motor neurone disease"}]})])}
+          {:items [{:content (ui/render [:form {:hx-target   "#list-encounters"
+                                                :hx-trigger  "change"
+                                                :hx-get      (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
+                                                :hx-push-url "true"}
+                                         (ui/ui-select-button {:name        "view"
+                                                               :selected-id encounters-view
+                                                               :options     [{:id :notes :text "Notes"}
+                                                                             {:id :users :text "Users"}
+                                                                             {:id :ninflamm :text "Neuroinflammatory"}
+                                                                             {:id :mnd :text "Motor neurone disease"}]})])}
                    {:text   "Add encounter..."
                     :hidden (not can-edit?)
-                    :url    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier
-                                                                            :encounter-id       "new"})}]})
+                    :url    (route/url-for :patient/add-encounter :path-params {:patient-identifier patient_identifier})}]})
         {:items []})}}))
 
 (pco/defresolver patient-page
@@ -320,18 +318,18 @@
 
       (= found :none)
       (web/ok
-        (web/render [:div (ui/box-error-message {:title   "Patient search"
-                                                 :message (if (pos-int? n-fallback)
-                                                            (str "No patients found registered to your services, but " n-fallback " patient(s) available if you search using 'all patients'.")
-                                                            "No patients found.")})]))
+        (ui/render [:div (ui/box-error-message {:title   "Patient search"
+                                                :message (if (pos-int? n-fallback)
+                                                           (str "No patients found registered to your services, but " n-fallback " patient(s) available if you search using 'all patients'.")
+                                                           "No patients found.")})]))
 
       (= found :too-many)                                   ;; too many results -> return nothing
       (web/ok
-        (web/render [:div (ui/box-error-message {:title "Patient search" :message "Too many results. Please use more specific search terms."})]))
+        (ui/render [:div (ui/box-error-message {:title "Patient search" :message "Too many results. Please use more specific search terms."})]))
 
       :else
       (web/ok
-        (web/render-file
+        (ui/render-file
           "templates/patient/search-results.html"
           {:patients            (map patient->result patients)
            :fallback-search-url (when (and (= mode :my) (pos-int? n-fallback)) (route/url-for :patient/search))})))))
@@ -368,28 +366,29 @@
 (defn not-authorized-handler
   [request]
   (web/ok
-    (web/render [:div (ui/box-error-message {:title "Not authorised" :message "You are not authorised to perform this action."})])))
+    (ui/render [:div (ui/box-error-message {:title "Not authorised" :message "You are not authorised to perform this action."})])))
 
 (def ^:private editable-patient-query
   [{:ui/current-patient [:t_patient/permissions]}])
 
 (defn editable-handler
-  "Like pathom/handler but checks that current user has permission to edit
+  "Like p/handler but checks that current user has permission to edit
   current patient."
   ([query f]
    (editable-handler {} query f))
   ([env query f]
-   (pathom/handler env
-                   (fn wrapped-query [request]
-                     (eql/merge-queries editable-patient-query (if (fn? query) (query request) query)))
-                   (fn wrapped-handler [request {:ui/keys [current-patient] :as result}]
-                     (let [permissions (:t_patient/permissions current-patient)]
-                       (if (permissions :PATIENT_EDIT)
-                         (f request result)
-                         (not-authorized-handler request)))))))
+   (pw/handler
+     env
+     (fn wrapped-query [request]
+       (eql/merge-queries editable-patient-query (if (fn? query) (query request) query)))
+     (fn wrapped-handler [request {:ui/keys [current-patient] :as result}]
+       (let [permissions (:t_patient/permissions current-patient)]
+         (if (permissions :PATIENT_EDIT)
+           (f request result)
+           (not-authorized-handler request)))))))
 
 (def home
-  (pathom/handler
+  (pw/handler
     {:menu :home}
     [:ui/patient-page
      {:ui/current-patient
@@ -412,7 +411,7 @@
              :uk.nhs.cfh.isb1505/keys [display-age]}
             current-patient]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/home-page.html"
             (assoc patient-page
               :demographics {:title "Demographics"
@@ -428,7 +427,7 @@
 
 (def expanded-banner
   "The content of the extended banner; shown when the user clicks the banner"
-  (p/handler
+  (pw/handler
     [{:ui/current-patient [:t_patient/patient_identifier
                            {:t_patient/address [:t_address/address1 :t_address/address2
                                                 :t_address/address3 :t_address/address4
@@ -439,10 +438,10 @@
     (fn [_ {:ui/keys [current-patient]}]
       (clojure.pprint/pprint current-patient)
       (web/ok
-        (web/render-file "templates/patient/expanded-banner.html" {})))))
+        (ui/render-file "templates/patient/expanded-banner.html" {})))))
 
 (def break-glass
-  (p/handler
+  (pw/handler
     [:ui/csrf-token
      :ui/patient-page
      {:ui/current-patient [:t_patient/suggested_registrations
@@ -451,7 +450,7 @@
     (fn [{:keys [flash] :as request} {:ui/keys [csrf-token patient-page current-patient]}]
       (let [patient-identifier (:t_patient/patient_identifier current-patient)]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/break-glass-page.html"
             (assoc patient-page
               :csrf-token csrf-token
@@ -501,7 +500,7 @@
   "A HTTP POST to register a given patient to a project. We check that the user
   is permitted to register patients to the given project and then redirect to
   the original requested URL."
-  (p/handler
+  (pw/handler
     [:ui/authorization-manager :params/register-to-project]
     (fn
       [request {:ui/keys [authorization-manager] :params/keys [register-to-project]}]
@@ -522,7 +521,6 @@
           :else                                             ;; user not authorized
           (web/forbidden "You do not have permission"))))))
 
-
 (defn documents [request])
 
 (defn results [request])
@@ -532,7 +530,6 @@
 (defn alerts [request])
 
 (defn family [request])
-
 
 (defn motorneurone [request])
 

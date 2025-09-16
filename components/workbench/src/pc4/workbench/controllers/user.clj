@@ -3,17 +3,20 @@
     [com.wsscode.pathom3.connect.operation :as pco]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.web :as web]
+    [pc4.pathom-web.interface :as pw]
+    [pc4.ui-core.interface :as ui]
     [pc4.log.interface :as log]
-    [pc4.rsdb.interface :as rsdb])
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.web.interface :as web])
   (:import (java.time LocalDateTime ZoneOffset)
            (java.time.format DateTimeFormatter)))
 
 (pco/defresolver authenticated-user
   [{:keys [request] :as env} _]
-  {::pco/output [{:ui/authenticated-user [:t_user/id]}]}
-  {:ui/authenticated-user (get-in request [:session :authenticated-user])})
+  {::pco/output [{:ui/authenticated-user [:t_user/id]}
+                 {:session/authenticated-user [:t_user/id]}]}
+  {:ui/authenticated-user (get-in request [:session :authenticated-user])
+   :session/authenticated-user (get-in request [:session :authenticated-user])})
 
 (pco/defresolver authorization-manager
   [{:keys [request]} _]
@@ -78,7 +81,7 @@
 
 (def change-password
   "Handler for the change password page."
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      {:ui/authenticated-user [:t_user/id :t_user/authentication_method]}]
     (fn [request {:ui/keys [csrf-token authenticated-user]}]
@@ -88,18 +91,18 @@
             action (route/url-for :user/process-change-password! :path-params {:user-id user-id})
             render-page (fn [params]
                           (web/ok
-                            (web/render-file "templates/change-password.html"
-                                             (merge {:title "Change Password"
-                                                    :csrf-token csrf-token
+                            (ui/render-file "templates/change-password.html"
+                                            (merge {:title                 "Change Password"
+                                                    :csrf-token            csrf-token
                                                     :authentication-method user-auth-method
-                                                    :action action}
+                                                    :action                action}
                                                    params))))]
         (log/info "change password page" {:user-id user-id :auth-method user-auth-method})
         (render-page {})))))
 
 (def process-change-password
   "Process the change password form submission."
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      {:ui/authenticated-user [:t_user/id :t_user/authentication_method]}]
     (fn [{:keys [env form-params path-params] :as request} {:ui/keys [csrf-token authenticated-user]}]
@@ -114,10 +117,10 @@
             action (route/url-for :user/process-change-password! :path-params {:user-id user-id})
             render-page (fn [params]
                           (web/ok
-                            (web/render-file "templates/change-password.html"
-                                             (merge {:title "Change Password"
-                                                    :csrf-token csrf-token
-                                                    :action action
+                            (ui/render-file "templates/change-password.html"
+                                            (merge {:title                 "Change Password"
+                                                    :csrf-token            csrf-token
+                                                    :action                action
                                                     :authentication-method user-auth-method}
                                                    params))))]
         ;; Safety check - users can only change their own password unless they're admins

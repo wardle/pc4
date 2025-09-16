@@ -18,11 +18,16 @@
         poly/nhspd            {:local/root "../../components/nhspd"}
         poly/notify           {:local/root "../../components/notify"}
         poly/ods              {:local/root "../../components/ods"}
+        poly/ods-ui           {:local/root "../../components/ods-ui"}
         poly/ods-weekly       {:local/root "../../components/ods-weekly"}
+        poly/pathom-web       {:local/root "../../components/pathom-web"}
         poly/queue            {:local/root "../../components/queue"}
         poly/report           {:local/root "../../components/report"}
         poly/rsdb             {:local/root "../../components/rsdb"}
-        poly/snomedct         {:local/root "../../components/snomedct"}
+        poly/snomed           {:local/root "../../components/snomed"}
+        poly/snomed-ui        {:local/root "../../components/snomed-ui"}
+        poly/ui-core          {:local/root "../../components/ui-core"}
+        poly/web              {:local/root "../../components/web"}
         poly/wales-cav-pms    {:local/root "../../components/wales-cav-pms"}
         poly/wales-empi       {:local/root "../../components/wales-empi"}
         poly/wales-nadex      {:local/root "../../components/wales-nadex"}

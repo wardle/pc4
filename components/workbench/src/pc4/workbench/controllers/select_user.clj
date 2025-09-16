@@ -9,11 +9,10 @@
     [clojure.string :as str]
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
-    [pc4.log.interface :as log]))
-
+    [pc4.log.interface :as log]
+    [pc4.pathom-web.interface :as pw]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]))
 
 (s/def ::id string?)
 (s/def ::name string?)
@@ -67,26 +66,15 @@
    [:div
     {:dangerouslySetInnerHTML
      {:__html
-      (web/render-file template (make-context config request))}}]))
+      (ui/render-file template (make-context config request))}}]))
 
 (defn ui-select-user
-  "A 'user selection control'. Displays current selection and allows 'click to
-  edit' functionality with a modal dialog.
-  Parameters:
-  - :id
-  - :name
-  - :disabled
-  - :multiple
-  - :selected
-  - :placeholder
-  - :label"
   [params]
   (log/debug "rendering display:" params)
   (let [config (make-config params)]
     (render* "templates/user/select/display.html" config)))
 
 (defn ui-select-users
-  "Same as [[ui-select-user]] but for selecting multiple users."
   [params]
   (ui-select-user (assoc params :multiple true)))
 
@@ -112,7 +100,7 @@
     (log/debug "user-select-handler" {:trigger trigger :user-id user-id :config config})
     (clojure.pprint/pprint form-params)
     (web/ok
-      (web/render
+      (ui/render
         (cond
           ;; user has cancelled, just show control, essentially closing modal dialog
           (= "cancel" trigger)
@@ -124,7 +112,7 @@
 
           ;; user has selected an item -> return to rendering selected items with no modal dialog
           (and user-id (not multiple))
-          (ui-select-user (assoc config :selected (make-user (pathom/process env request (user-query user-id)))))
+          (ui-select-user (assoc config :selected (make-user (pw/process env request (user-query user-id)))))
 
           (= "save" trigger)
           (ui-select-user (assoc config :selected (some-> (get form-params (keyword selected-key)) edn/read-string)))
@@ -158,14 +146,14 @@
 (defn search-colleagues
   [env request user]
   (:t_user/colleagues
-    (pathom/process env request
+    (pw/process env request
                     {:pathom/entity user
                      :pathom/eql    [{:t_user/colleagues user-properties}]})))
 
 (defn search-all-users
   [env request s]
   (when-not (str/blank? s)
-    (get (pathom/process env request
+    (get (pw/process env request
                          [{(list 'pc4.rsdb/search-users {:s s :limit 500})
                            user-properties}])
          'pc4.rsdb/search-users)))
@@ -218,12 +206,12 @@
               selected-ids (into #{} (map :user-id) selected-users)
               ;; when in 'multiple mode', filter out selected users from available list
               users (remove #(selected-ids (:user-id %)) all-available-users)]
-          (web/render-file "templates/user/select/list-multiple.html"
-                           (assoc base-context
-                             :selected (map #(add-user-action % :remove) selected-users)
-                             :selected-data (pr-str selected-users)
-                             :users (map #(add-user-action % :add) users))))
-        (web/render-file "templates/user/select/list-single.html"
-                         (assoc base-context
-                           :selected selected
-                           :users (map #(add-user-action % :add) all-available-users)))))))
+          (ui/render-file "templates/user/select/list-multiple.html"
+                          (assoc base-context
+                            :selected (map #(add-user-action % :remove) selected-users)
+                            :selected-data (pr-str selected-users)
+                            :users (map #(add-user-action % :add) users))))
+        (ui/render-file "templates/user/select/list-single.html"
+                        (assoc base-context
+                          :selected selected
+                          :users (map #(add-user-action % :add) all-available-users)))))))

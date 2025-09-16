@@ -3,9 +3,9 @@
     [clojure.string :as str]
     [com.wsscode.pathom3.connect.operation :as pco]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as p]
-    [pc4.workbench.web :as web]
-    [pc4.workbench.ui :as ui]
+    [pc4.pathom-web.interface :as pw]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]
     [pc4.log.interface :as log]
     [pc4.rsdb.interface :as rsdb]))
 
@@ -63,7 +63,7 @@
                   :home
                   {:items [{:text "Edit project"}]}
                   :team
-                  {:items [{:content (web/render (user-filter-select-button))}]}
+                  {:items [{:content (ui/render (user-filter-select-button))}]}
                   nil)}}))
 
 
@@ -91,7 +91,7 @@
         (ui/ui-submit-button {:disabled disabled} "Search »")]])))
 
 (def find-patient
-  (p/handler
+  (pw/handler
     [:ui/navbar
      {:ui/current-project [:t_project/id :t_project/pseudonymous (list :ui/project-menu {:selected :find-patient})]}
      :ui/csrf-token
@@ -105,18 +105,18 @@
           (web/redirect-see-other (route/url-for :patient/home :params {:patient-identifier patient-identifier}))
           :else
           (web/ok
-            (web/render-file
+            (ui/render-file
               "templates/project/find-patient-page.html"
               {:title      "Find patient"
                :navbar     navbar
                :menu       (:ui/project-menu current-project)
-               :find-by-id (web/render
+               :find-by-id (ui/render
                              (search-by-patient-identifier-panel
                                {:project current-project :csrf-token csrf-token
                                 :user authenticated-user}))})))))))
 
 (comment
-  (web/render (ui/active-panel {:title "hi there" :class "wibble woobble"})))
+  (ui/render (ui/active-panel {:title "hi there" :class "wibble woobble"})))
 
 
 
@@ -141,7 +141,7 @@
 
 
 (def team
-  (p/handler
+  (pw/handler
     (fn [request]
       (let [user-filter (str/lower-case (get-in request [:params :user-filter] "active"))]
         [{:ui/current-project
@@ -158,10 +158,10 @@
           ;; if we are only updating team list, just render that fragment
           "team-list"
           (web/ok
-            (web/render-file "templates/project/team-list.html" {:team users}))
+            (ui/render-file "templates/project/team-list.html" {:team users}))
           ;; otherwise, render whole page...
           (web/ok
-            (web/render-file
+            (ui/render-file
               "templates/project/team-page.html"
               {:navbar navbar
                :menu   (:ui/project-menu current-project)
@@ -209,7 +209,7 @@
        (when pseudonymous
          " (pseudonymous)")))
 (def home
-  (p/handler
+  (pw/handler
     [:ui/navbar
      {:ui/current-project
       [(list :ui/project-menu {::selected :home})
@@ -228,7 +228,7 @@
                               inclusion_criteria exclusion_criteria count_registered_patients
                               count_pending_referrals count_discharged_episodes]} current-project]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/project/home-page.html"
             {:navbar  navbar
              :menu    (:ui/project-menu current-project)

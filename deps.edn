@@ -8,6 +8,7 @@
    :extra-deps  {;; components:
 
                  poly/araf                          {:local/root "components/araf"}
+                 poly/araf-manager                  {:local/root "components/araf-manager"}
                  poly/chart                         {:local/root "components/chart"}
                  poly/codelists                     {:local/root "components/codelists"}
                  poly/config                        {:local/root "components/config"}
@@ -25,14 +26,19 @@
                  poly/notify                        {:local/root "components/notify"}
                  poly/nhspd                         {:local/root "components/nhspd"}
                  poly/ods                           {:local/root "components/ods"}
+                 poly/ods-ui                        {:local/root "components/ods-ui"}
                  poly/ods-weekly                    {:local/root "components/ods-weekly"}
+                 poly/pathom-web                    {:local/root "components/pathom-web"}
                  poly/queue                         {:local/root "components/queue"}
                  poly/report                        {:local/root "components/report"}
                  poly/rsdb                          {:local/root "components/rsdb"}
-                 poly/snomedct                      {:local/root "components/snomedct"}
+                 poly/snomed                        {:local/root "components/snomed"}
+                 poly/snomed-ui                     {:local/root "components/snomed-ui"}
+                 poly/ui-core                       {:local/root "components/ui-core"}
                  poly/wales-cav-pms                 {:local/root "components/wales-cav-pms"}
                  poly/wales-empi                    {:local/root "components/wales-empi"}
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}
+                 poly/web                           {:local/root "components/web"}
                  poly/workbench                     {:local/root "components/workbench"}
 
                  ;; bases:
@@ -79,7 +85,7 @@
                  "components/queue/test"
                  "components/report/test"
                  "components/rsdb/test"
-                 "components/snomedct/test"
+                 "components/snomed/test"
                  "components/wales-cav-pms/test"
                  "components/wales-empi/test"
                  "components/wales-nadex/test"
@@ -111,7 +117,7 @@
 
   :poly
   {:main-opts  ["-m" "polylith.clj.core.poly-cli.core"]
-   :extra-deps {polylith/clj-poly {:mvn/version "0.3.21-SNAPSHOT"}
+   :extra-deps {polylith/clj-poly {:mvn/version "0.2.22"}
                 io.github.seancorfield/polylith-external-test-runner
                 {:git/tag   "v0.6.1" :git/sha "d0f51c2"
                  :deps/root "projects/runner"}}

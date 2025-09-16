@@ -13,11 +13,11 @@
     [edn-query-language.core :as eql]
     [io.pedestal.http.route :as route]
     [pc4.log.interface :as log]
-    [pc4.workbench.controllers.select-user :as select-user]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
-    [pc4.rsdb.interface :as rsdb])
+    [pc4.pathom-web.interface :as pw]
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web]
+    [pc4.workbench.controllers.select-user :as select-user])
   (:import (java.time LocalDateTime)))
 
 (s/def ::request map?)
@@ -154,18 +154,18 @@
             (println "edss form" form-data)
             (ui/ui-simple-form
               (ui/ui-simple-form-item {:label "Responsible user"}
-                (view ui-form-user form-data))
+                                      (view ui-form-user form-data))
               (ui/ui-simple-form-item {}
-                [:div.w-screen.p-4
-                 [:div.sm:columns-2
-                  (ui/ui-radio-button
-                    {:name     "#edss_score"
-                     :disabled (not (:EDIT actions))
-                     :value-id (some-> edss_score name)
-                     :options  (map (fn [{:keys [id score description]}]
-                                      {:id   id
-                                       :text (edss-score-display {:score score :description description})})
-                                    edss-scores)})]])))})
+                                      [:div.w-screen.p-4
+                                       [:div.sm:columns-2
+                                        (ui/ui-radio-button
+                                          {:name     "#edss_score"
+                                           :disabled (not (:EDIT actions))
+                                           :value-id (some-> edss_score name)
+                                           :options  (map (fn [{:keys [id score description]}]
+                                                            {:id   id
+                                                             :text (edss-score-display {:score score :description description})})
+                                                          edss-scores)})]])))})
 
 (defn ui-form-ms-relapse
   "MS relapse form with checkbox and dropdowns"
@@ -360,9 +360,9 @@
      (ui/ui-simple-form-title
        {:title (:form_type/title form_type)})
      (ui/ui-simple-form-item {:label "Warning:"}
-       "Sorry, but this form is not yet supported in pc4.")
+                             "Sorry, but this form is not yet supported in pc4.")
      (ui/ui-simple-form-item {}
-       summary_result))))
+                             summary_result))))
 
 (def all-forms
   {:form_edss            ui-form-edss
@@ -433,7 +433,7 @@
 (defn ui-layout
   "Render layout for form contents."
   ([]
-   (pathom/merge-queries [:ui/csrf-token :form/id {:form/form_type [:form_type/nm]}] (ui-actions)))
+   (pw/merge-queries [:ui/csrf-token :form/id {:form/form_type [:form_type/nm]}] (ui-actions)))
   ([{:ui/keys [csrf-token] :as form-data} & content]
    [:div.bg-white.shadow.sm.rounded-lg
     [:form {}
@@ -444,17 +444,17 @@
      (ui-actions form-data)]]))
 
 (def form-handler
-  (pathom/handler
+  (pw/handler
     (fn [request]
       (let [form (request->form request)
             target (web/hx-target request)
             encounter-id (some-> request :path-params :encounter-id parse-long)
-            form-query (pathom/merge-queries (query form request) (query ui-form-user request))
+            form-query (pw/merge-queries (query form request) (query ui-form-user request))
             query
             ;; return a query (hinted with current encounter) and requirements for form +/- layout / banner / navbar etc.
             (if (or (nil? target) (= target "body"))
               [{(list :ui/current-form {:encounter-id encounter-id})
-                (pathom/merge-queries form-query (ui-encounter-banner) (ui-layout))}
+                (pw/merge-queries form-query (ui-encounter-banner) (ui-layout))}
                :ui/navbar
                {:ui/current-patient [:ui/patient-banner]}]
               [{(list :ui/current-form {:encounter-id encounter-id})
@@ -466,16 +466,16 @@
             target (web/hx-target request)]
         (web/ok
           (if (or (nil? target) (= target "body"))
-            (web/render-file "templates/patient/base.html"
-                             {:navbar  navbar
-                              :banner  (:ui/patient-banner current-patient)
-                              :content (web/render [:div
-                                                    (ui-encounter-banner current-form)
-                                                    (ui-layout current-form (view form current-form))])})
-            (web/render (ui-layout current-form (view form current-form)))))))))
+            (ui/render-file "templates/patient/base.html"
+                            {:navbar  navbar
+                             :banner  (:ui/patient-banner current-patient)
+                             :content (ui/render [:div
+                                                  (ui-encounter-banner current-form)
+                                                  (ui-layout current-form (view form current-form))])})
+            (ui/render (ui-layout current-form (view form current-form)))))))))
 
 (def form-save-handler
-  (pathom/handler
+  (pw/handler
     [:ui/csrf-token
      {:ui/current-patient [:t_patient/patient_identifier :t_patient/permissions]}
      {:ui/current-encounter [:t_encounter/id]}
@@ -507,7 +507,7 @@
             (web/redirect-see-other on-save-url)))))))
 
 (def form-delete-handler
-  (pathom/handler
+  (pw/handler
     {}
     [:ui/csrf-token
      {:ui/current-patient [:t_patient/patient_identifier :t_patient/permissions]}
@@ -530,10 +530,10 @@
               (let [result (pathom-env [{(list 'pc4.rsdb/delete-form! {:patient-identifier patient_identifier
                                                                        :form               {:form/id form-id}})
                                          [:form/id]}])]
-                (web/redirect-see-other
+                (ui/redirect-see-other
                   (route/url-for :patient/encounter
                                  :path-params {:patient-identifier patient_identifier
                                                :encounter-id       encounter-id})))
               (catch Exception e
                 (log/error e "Failed to delete form")
-                (web/server-error "Failed to delete form"))))))))
+                (ui/server-error "Failed to delete form"))))))))

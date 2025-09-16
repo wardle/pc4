@@ -2,11 +2,11 @@
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.workbench.pathom :as pathom]
-    [pc4.workbench.ui :as ui]
-    [pc4.workbench.web :as web]
     [pc4.nhs-number.interface :as nnn]
-    [pc4.rsdb.interface :as rsdb])
+    [pc4.pathom-web.interface :as pw]
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.ui-core.interface :as ui]
+    [pc4.web.interface :as web])
   (:import [java.time LocalDate]))
 
 (defn safe-parse-local-date [s]
@@ -55,7 +55,7 @@
     :f     :t_encounter_template/title}
    {:id    :notes
     :title "Notes"
-    :f     (fn [{:t_encounter/keys [notes]}] (web/html->text notes))}
+    :f     (fn [{:t_encounter/keys [notes]}] (ui/html->text notes))}
    {:id    :patient
     :title "Patient"
     :f     (fn [{:t_patient/keys [title first_names last_name]}] (str last_name ", " first_names (when-not (str/blank? title) (str " (" title ")"))))}
@@ -131,7 +131,7 @@
 
 
 (def encounter-handler
-  (pathom/handler
+  (pw/handler
     {:menu :encounters}
     [:ui/csrf-token
      :ui/navbar
@@ -168,11 +168,11 @@
             can-edit-patient? (get permissions :PATIENT_EDIT)
             can-edit-encounter? (and can-edit-patient? (not is_locked))]
         (web/ok
-          (web/render-file
+          (ui/render-file
             "templates/patient/base.html"
             {:navbar  navbar
              :banner  (:ui/patient-banner current-patient)
-             :content (web/render
+             :content (ui/render
                         [:div.grid.grid-cols-1.sm:grid-cols-6
                          ;; Left sidebar with encounter info and actions
                          [:div.col-span-1.p-2.space-y-2
@@ -276,7 +276,7 @@
                               {:dangerouslySetInnerHTML {:__html (or notes "")}}]]]]]])}))))))
 
 (def encounters-handler
-  (pathom/handler
+  (pw/handler
     {:menu :encounters}
     [:ui/csrf-token
      :ui/patient-page
@@ -300,7 +300,6 @@
                 (for [{:keys [title]} headings#]
                   (ui/ui-table-heading {} title)))
               (ui/ui-table-body
-                (for [encounter encounters]
                 (for [encounter encounters
                       :let [{:t_encounter/keys [id] patient-identifier# :t_patient/patient_identifier} encounter]]
                   (ui/ui-table-row
@@ -317,15 +316,15 @@
                                              :else "")))))))]
         (web/ok
           (if (= (web/hx-target request) "list-encounters")
-            (web/render response)
-            (web/render-file
+            (ui/render response)
+            (ui/render-file
               "templates/patient/base.html"
               (assoc patient-page
                 :content
-                (web/render [:div {:id "list-encounters"} response])))))))))
+                (ui/render [:div {:id "list-encounters"} response])))))))))
 
 (def encounter-lock-handler
-  (pathom/handler
+  (pw/handler
     {}
     [:ui/csrf-token
      {:ui/current-encounter
@@ -355,4 +354,34 @@
               (rsdb/lock-encounter! rsdb id)
               (rsdb/unlock-encounter! rsdb id))
             (web/redirect-see-other success-url)))))))
+
+(def add-encounter-handler
+  (pw/handler
+    {:menu :encounters}
+    [:ui/csrf-token
+     :ui/navbar
+     {:ui/current-patient
+      [:ui/patient-banner
+       :t_patient/permissions]}
+     {:ui/current-project
+      [:t_project/id
+       :t_project/title]}]
+    (fn [request {:ui/keys [csrf-token navbar current-patient current-project]}]
+      (let [{:t_patient/keys [permissions]} current-patient
+            can-edit-patient? (get permissions :PATIENT_EDIT)]
+        (cond
+          (not can-edit-patient?)
+          (web/forbidden "Not authorized to edit this patient")
+          
+          :else
+          (web/ok
+            (ui/render-file
+              "templates/patient/base.html"
+              {:navbar  navbar
+               :banner  (:ui/patient-banner current-patient)
+               :content (ui/render
+                          [:div
+                           [:h1 "Add New Encounter"]
+                           [:p "Project: " (:t_project/title current-project)]
+                           [:p "Add encounter form will be implemented here"]])})))))))
 
