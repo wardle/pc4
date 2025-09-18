@@ -8,7 +8,7 @@
    :extra-deps  {;; components:
 
                  poly/araf                          {:local/root "components/araf"}
-                 poly/araf-manager                  {:local/root "components/araf-manager"}
+                 poly/arafc                         {:local/root "components/arafc"}
                  poly/chart                         {:local/root "components/chart"}
                  poly/codelists                     {:local/root "components/codelists"}
                  poly/config                        {:local/root "components/config"}
@@ -32,6 +32,7 @@
                  poly/queue                         {:local/root "components/queue"}
                  poly/report                        {:local/root "components/report"}
                  poly/rsdb                          {:local/root "components/rsdb"}
+                 poly/rsdb-db                       {:local/root "components/rsdb-db"}
                  poly/snomed                        {:local/root "components/snomed"}
                  poly/snomed-ui                     {:local/root "components/snomed-ui"}
                  poly/ui-core                       {:local/root "components/ui-core"}
@@ -42,28 +43,29 @@
                  poly/workbench                     {:local/root "components/workbench"}
 
                  ;; bases:
+                 poly/araf-manager                  {:local/root "bases/araf-manager"}
                  poly/araf-server                   {:local/root "bases/araf-server"}
                  poly/workbench-server              {:local/root "bases/workbench-server"}
 
                  ;; external dependencies:
-                 integrant/repl                     {:mvn/version "0.4.0"}
+                 integrant/repl                     {:mvn/version "0.5.0"}
                  io.github.clj-kondo/config-rum-rum {:mvn/version "1.0.0"}}
    :jvm-opts    ["-Dio.pedestal.dev-mode=true"]}
 
   :nrepl
-  {:extra-deps {nrepl/nrepl       {:mvn/version "1.3.1"}
+  {:extra-deps {nrepl/nrepl       {:mvn/version "1.4.0"}
                 cider/cider-nrepl {:mvn/version "0.57.0"}}
    :main-opts  ["--main" "nrepl.cmdline"
                 "--middleware" "[cider.nrepl/cider-middleware]"
                 "--interactive"]}
 
   :portal
-  {:extra-deps {djblue/portal {:mvn/version "0.60.2"}}}
+  {:extra-deps {djblue/portal {:mvn/version "0.61.0"}}}
 
   :test
   {:extra-paths ["bases/araf-server/test"
                  "bases/workbench-server/test"
-                 "components/araf/test"
+                 "components/arafc/test"
                  "components/chart/test"
                  "components/codelists/test"
                  "components/config/test"

@@ -1,4 +1,4 @@
-(ns pc4.araf.impl.qr
+(ns pc4.arafc.impl.qr
   (:import
     (java.io ByteArrayOutputStream)
     (com.google.zxing BarcodeFormat EncodeHintType)

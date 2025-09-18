@@ -215,13 +215,6 @@
    (jdbc/with-transaction [txn conn]
      (fetch-request* txn nhs-number access-key))))
 
-
-
-
-
-
-
-
 (defn test-date-time-handling
   "Check that date time handling for JDBC is working as expected and returning
   [[java.time.Instant]] and not [[javax.sql.Timestamp]]."

@@ -4,11 +4,8 @@
             [clojure.test :refer [deftest use-fixtures is run-tests testing]]
             [com.eldrix.nhsnumber :as nnn]
             [next.jdbc :as jdbc]
-            [pc4.araf.impl.db :as db]
-            [pc4.araf.impl.token :as token]
-            [pc4.araf.impl.qr :as qr])
-  (:import (java.io File)
-           (java.time Duration Instant)))
+            [pc4.araf.impl.db :as db])
+  (:import (java.time Duration Instant)))
 
 (stest/instrument)
 
@@ -64,18 +61,6 @@
       (let [result (db/fetch-request* *conn* nhs-number access_key)]
         (is (= (:error result) db/error-no-matching-request))))))
 
-(deftest test-qr-code-generation
-  (testing "generate-qr-code creates a QR code image file"
-    (let [base-url "https://araf.patientcare.app/araf/form/"
-          long-access-key (token/gen-long-access-key)
-          qr-bytes (qr/generate (str base-url long-access-key))
-          temp-file (File/createTempFile "qr-test-" ".png")]
-      (is (some? qr-bytes))
-      (is (> (count qr-bytes) 0))
-      (io/copy qr-bytes temp-file)
-      (is (.exists temp-file))
-      (is (> (.length temp-file) 0))
-      (println "QR code written to:" (.getAbsolutePath temp-file)))))
 
 (comment
   (run-tests))

@@ -193,7 +193,7 @@
                 :snomedui #ig/ref :pc4.snomed-ui.interface/svc}}
 
  ;; ARAF (patient-facing) data service
- :pc4.araf.interface/patient
+ :pc4.araf.interface/svc
  {:ds     #profile {:dev {:dbtype          "postgresql"
                           :dbname          "araf_patient"
                           :maximumPoolSize 5
@@ -207,7 +207,7 @@
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF clinician service
 
  ;; ARAF (clinician-facing) service - acts as a client to araf server
- :pc4.araf.interface/clinician
+ :pc4.arafc.interface/svc
  {:url    #profile {:dev "http://127.0.0.1:8081"
                     :cvx "https://araf.patientcare.app"}
   :secret #ref [:secrets :pc4 :araf :secret]}               ;; note shared secret with ARAF patient service
@@ -218,4 +218,4 @@
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}
   :session-key #ref [:secrets :pc4 :session-key]
-  :svc         #ig/ref :pc4.araf.interface/patient}}
+  :svc         #ig/ref :pc4.araf.interface/svc}}

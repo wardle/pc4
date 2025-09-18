@@ -1,0 +1,8 @@
+{:paths   ["src" "resources"]
+ :deps    {buddy/buddy-core        {:mvn/version "1.12.0-430"}
+           buddy/buddy-sign        {:mvn/version "3.6.1-359"}
+           com.google.zxing/core   {:mvn/version "3.5.3"}
+           com.google.zxing/javase {:mvn/version "3.5.3"}
+           hato/hato               {:mvn/version "1.0.0"}}
+ :aliases {:test {:extra-paths ["test"]
+                  :extra-deps  {}}}}

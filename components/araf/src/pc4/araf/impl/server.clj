@@ -1,11 +1,12 @@
 (ns pc4.araf.impl.server
-  (:require [clojure.data.json :as json]
-            [clojure.spec.alpha :as s]
-            [io.pedestal.http.body-params :as bp]
-            [io.pedestal.http.csrf :as csrf]
-            [io.pedestal.interceptor :as intc]
-            [pc4.log.interface :as log]
-            [pc4.araf.impl.handlers :as h]))
+  (:require
+    [clojure.data.json :as json]
+    [clojure.spec.alpha :as s]
+    [io.pedestal.http.body-params :as bp]
+    [io.pedestal.http.csrf :as csrf]
+    [io.pedestal.interceptor :as intc]
+    [pc4.log.interface :as log]
+    [pc4.araf.impl.handlers :as h]))
 
 (defn env-interceptor
   "Return an interceptor to inject the given env into the request."
@@ -35,7 +36,7 @@
 (s/def ::secret string?)
 
 (s/fdef routes
-  :args (s/cat :svc (s/keys :req-un [::ds ::secret]) ))
+  :args (s/cat :svc (s/keys :req-un [::ds ::secret])))
 (defn routes
   [svc]
   (let [env-intc (env-interceptor svc)

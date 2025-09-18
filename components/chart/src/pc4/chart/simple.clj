@@ -32,7 +32,7 @@
   [data date-fn value-fn series-name]
   (let [series (TimeSeries. series-name)]
     (doseq [item data]
-      (let [date (date-fn item)
+      (let [date ^LocalDate (date-fn item)
             value (value-fn item)]
         (when (and date value)
           ;; Convert LocalDate to Day for JFreeChart

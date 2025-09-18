@@ -138,30 +138,33 @@
     (log/debug "intro" {:araf araf_type :form long-access-key})
     (cond
       completed
-      (ok (selmer/render-file "araf/templates/notice.html"
-                              {:success     true
-                               :title       "Form Already Completed"
-                               :description "This form has already been completed and submitted. If you need to make changes or have questions, please contact your healthcare provider."
-                               :sections    [{:title "What happens next?"
-                                              :items ["Your completed form will be automatically recorded in your medical notes"
-                                                      "Your specialist prescriber will review your acknowledgements"
-                                                      "Contact your healthcare provider if you have any concerns"]}]}))
+      (ok (selmer/render-file
+            "araf/templates/notice.html"
+            {:success     true
+             :title       "Form Already Completed"
+             :description "This form has already been completed and submitted. If you need to make changes or have questions, please contact your healthcare provider."
+             :sections    [{:title "What happens next?"
+                            :items ["Your completed form will be automatically recorded in your medical notes"
+                                    "Your specialist prescriber will review your acknowledgements"
+                                    "Contact your healthcare provider if you have any concerns"]}]}))
 
       config
       (ok
-        (selmer/render-file (str (:template-path config) "/intro.html")
-                            (merge config
-                                   {:csrf-token      (csrf-token request)
-                                    :form-action     (url-for-question long-access-key 0)
-                                    :long-access-key long-access-key
-                                    :araf-type       (name araf_type)})))
+        (selmer/render-file
+          (str (:template-path config) "/intro.html")
+          (merge config
+                 {:csrf-token      (csrf-token request)
+                  :form-action     (url-for-question long-access-key 0)
+                  :long-access-key long-access-key
+                  :araf-type       (name araf_type)})))
       :else
-      (ok (selmer/render-file "araf/templates/notice.html"
-                              {:title       "Form expired"
-                               :description "This form has expired or does not exist. Please contact your healthcare provider."
-                               :sections    [{:title "What can I do next?"
-                                              :items ["For your security, acknowledgment forms have a fixed expiry date"
-                                                      "Your healthcare provider can request another form on your behalf"]}]})))))
+      (ok (selmer/render-file
+            "araf/templates/notice.html"
+            {:title       "Form expired"
+             :description "This form has expired or does not exist. Please contact your healthcare provider."
+             :sections    [{:title "What can I do next?"
+                            :items ["For your security, acknowledgment forms have a fixed expiry date"
+                                    "Your healthcare provider can request another form on your behalf"]}]})))))
 
 ;;
 ;; Question

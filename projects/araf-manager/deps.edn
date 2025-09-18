@@ -1,0 +1,6 @@
+{:deps {org.clojure/clojure {:mvn/version "1.12.2"}
+        poly/araf-manager {:local/root "../bases/araf-manager"}}
+
+ :aliases {:test {:extra-paths []
+                  :extra-deps  {}}}}
+

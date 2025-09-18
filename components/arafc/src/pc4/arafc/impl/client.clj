@@ -1,8 +1,8 @@
-(ns pc4.araf.impl.client
-  (:require [hato.client :as hc]
-            [pc4.araf.impl.token :as token]
-            [clojure.spec.alpha :as s]
-            [clojure.data.json :as json])
+(ns pc4.arafc.impl.client
+  (:require [clojure.spec.alpha :as s]
+            [clojure.data.json :as json]
+            [hato.client :as hc]
+            [pc4.arafc.impl.token :as token])
   (:import [java.time Instant]))
 
 (s/def ::url string?)
