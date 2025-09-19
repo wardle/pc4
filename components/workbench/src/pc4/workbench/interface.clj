@@ -4,12 +4,17 @@
     [clojure.set :as set]
     [clojure.spec.alpha :as s]
     [integrant.core :as ig]
+    [io.pedestal.connector :as conn]
     [io.pedestal.http.body-params :as body-params]
     [io.pedestal.http.csrf :as csrf]
+    [io.pedestal.http.jetty :as jetty]
+    [io.pedestal.http.ring-middlewares :as ring-middlewares]
     [io.pedestal.interceptor :as intc]
-    [io.pedestal.http :as http]
     [io.pedestal.http.ring-middlewares :as ring]
     [io.pedestal.http.route :as route]
+    [io.pedestal.http.secure-headers :as secure-headers]
+    [io.pedestal.service.interceptors :as interceptors]
+    [io.pedestal.service.resources :as resources]
     [pc4.log.interface :as log]
     [pc4.ods.interface :as clods]
     [pc4.ods-ui.interface :as odsui]
@@ -121,24 +126,28 @@
 
 (defn start
   [{:keys [env session-key host port join? routes]}]
-  (-> {::http/host           host
-       ::http/port           (or port 8080)
-       ::http/routes         (route/routes-from routes)
-       ::http/type           :jetty
-       ::http/join?          join?
-       ::http/resource-path  "/public"
-       ::http/enable-session {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
-                              :cookie-name  "pc4-session"
-                              :cookie-attrs {:same-site :strict}}
-       ::http/secure-headers {:content-security-policy-settings {:object-src "none"}}}
-      http/default-interceptors
-      http/dev-interceptors
-      (update ::http/interceptors conj
-              (body-params/body-params)
-              (csrf/anti-forgery {:error-handler csrf-error-handler})
-              (env-interceptor env))
-      http/create-server
-      http/start))
+  (-> (conn/default-connector-map host port)
+      (conn/optionally-with-dev-mode-interceptors)
+      (conn/with-interceptors
+        [interceptors/log-request
+         interceptors/not-found
+         (ring-middlewares/session
+           {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
+            :cookie-name  "pc4-session"
+            :cookie-attrs {:same-site :strict}})
+         (ring-middlewares/flash)
+         (ring-middlewares/content-type)
+         route/query-params
+         (body-params/body-params)
+         (csrf/anti-forgery {:error-handler csrf-error-handler})
+         (secure-headers/secure-headers
+           {:content-security-policy-settings "object-src 'none';"})
+         (env-interceptor env)])
+      (conn/with-routes
+        routes
+        (resources/resource-routes {:resource-root "public"}))
+      (jetty/create-connector nil)
+      (conn/start!)))
 
 (s/def ::hermes any?)
 (s/def ::rsdb any?)
@@ -167,9 +176,9 @@
   (start (assoc config :routes (routes env))))
 
 (defmethod ig/halt-key! ::server
-  [_ service-map]
-  (log/info "stopping http server" (select-keys service-map [::http/port ::http/type]))
-  (http/stop service-map))
+  [_ conn]
+  (log/info "stopping http server" conn)
+  (conn/stop! conn))
 
 (def all-resolvers
   [pc4.pathom-web.interface/all-resolvers
