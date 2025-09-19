@@ -218,4 +218,12 @@
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}
   :session-key #ref [:secrets :pc4 :session-key]
-  :svc         #ig/ref :pc4.araf.interface/svc}}
+  :svc         #ig/ref :pc4.araf.interface/svc}
+
+ ;; ARAF manager - clinician / administration facing server
+ :pc4.araf-manager.interface/server
+ {:port        #long #or [#env PORT 8082]
+  :host        "0.0.0.0"
+  :session-key #ref [:secrets :pc4 :session-key]
+  :env         {:arafc #ig/ref :pc4.arafc.interface/svc
+                :rsdb  #ig/ref :pc4.rsdb.interface/svc}}}
