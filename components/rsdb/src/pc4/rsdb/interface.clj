@@ -543,6 +543,12 @@
 
 
 
+(defn araf-status
+  [svc patient-pk]
+  (let [forms (forms svc {:patient-pk patient-pk
+                          :is_deleted false
+                          :form-types araf/all-araf-forms})]
+    (araf/status forms)))
 
 ;;
 ;;
