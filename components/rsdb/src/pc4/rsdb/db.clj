@@ -296,6 +296,14 @@
 ;; t_user
 ;;
 (s/def :t_user/id int?)
+(s/def :t_user/title string?)
+(s/def :t_user/first_names string?)
+(s/def :t_user/last_name string?)
+(s/def :t_user/email string?)
+(s/def :t_user/custom_initials (s/nilable string?))
+(s/def :t_user/postnomial (s/nilable string?))
+(s/def :t_user/professional_registration (s/nilable string?))
+(s/def :t_user/professional_registration_authority_fk (s/nilable pos-int?))
 
 ;;
 ;; t_smoking_history  [[ this is misnamed ]]
