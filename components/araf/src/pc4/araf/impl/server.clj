@@ -40,8 +40,8 @@
 (defn routes
   [svc]
   (let [env-intc (env-interceptor svc)
-        web [(bp/body-params) (csrf/anti-forgery {:error-handler csrf-error-handler}) env-intc]
-        api [env-intc h/authenticate (bp/body-params) result->json]]
+        web [(csrf/anti-forgery {:error-handler csrf-error-handler}) env-intc]
+        api [env-intc h/authenticate result->json]]
     #{["/" :get (conj web h/welcome-handler) :route-name :welcome]
       ["/" :post (conj web h/search-handler) :route-name :search]
       ["/araf/form/:long-access-key" :get (conj web h/intro-handler) :route-name :introduction]

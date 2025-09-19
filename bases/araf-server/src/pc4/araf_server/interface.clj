@@ -32,6 +32,7 @@
             :cookie-attrs {:same-site :strict}})
          (ring-middlewares/content-type)
          route/query-params
+         (body-params/body-params)
          (secure-headers/secure-headers
            {:content-security-policy-settings "object-src 'none';"})])
       (conn/with-routes
