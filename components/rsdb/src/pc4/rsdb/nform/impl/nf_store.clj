@@ -58,7 +58,7 @@
    (write-json (dissoc form :id :form_type :patient_fk :date_time :encounter_fk :created :is_deleted :user_fk))])
 
 (defn fetch-sql*
-  [{:keys [id form-type form-types patient-id is-deleted encounter-id encounter-ids select]}]
+  [{:keys [id form-type form-types patient-pk is-deleted encounter-id encounter-ids select]}]
   (cond-> (-> (h/select :t_nform/id :t_nform/created :t_nform/encounter_fk :t_nform/patient_fk
                         :t_nform/is_deleted :t_nform/user_fk :t_nform/form_type [[:raw "data::text"]])
               (h/from :t_nform))
@@ -68,8 +68,8 @@
     (h/where := :form_type (encode-form-type form-type))
     form-types
     (h/where :in :form_type (map encode-form-type form-types))
-    patient-id
-    (h/where := :t_nform/patient_fk patient-id)
+    patient-pk
+    (h/where := :t_nform/patient_fk patient-pk)
     (:date-time select)
     (h/select :t_encounter/date_time)
     (some? is-deleted)

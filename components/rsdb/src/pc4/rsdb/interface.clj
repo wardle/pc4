@@ -539,6 +539,18 @@
   (nf/form form-store id))
 
 (defn forms [{:keys [form-store]} params]
+(defn forms
+  "Fetch all forms matching the parameters specified.
+  - :id           - form identifier
+  - :patient-pk   - patient pk
+  - :encounter-id - encounter id
+  - :encounter-ids
+  - :form-type    - forms of this type
+  - :form-types   - forms of these type
+  - :is-deleted   - whether to include deleted forms (true, false or nil)
+  - :select       - optional data to return
+                    |- :date-time  - include encounter date time"
+  [{:keys [form-store]} params]
   (nf/forms form-store params))
 
 

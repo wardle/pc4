@@ -6,14 +6,14 @@
 (s/def ::id (s/or :uuid uuid? :wo (s/tuple ::table ::form-pk)))
 (s/def ::encounter-id int?)
 (s/def ::encounter-ids (s/every int? :min-count 1))
-(s/def ::patient-id int?)
+(s/def ::patient-pk int?)
 (s/def ::form-type keyword?)
 (s/def ::form-types (s/coll-of ::form-type))
 (s/def ::is-deleted (s/nilable boolean?))
-(s/def ::include (s/every #{:encounter-date-time}))
+(s/def ::select (s/every #{:date-time}))
 (s/def ::fetch-params
-  (s/keys :req-un [(or ::id ::patient-id ::encounter-id ::encounter-ids)]
-          :opt-un [::form-type ::form-types ::is-deleted ::include]))
+  (s/keys :req-un [(or ::id ::patient-pk ::encounter-id ::encounter-ids)]
+          :opt-un [::form-type ::form-types ::is-deleted ::select]))
 
 (def fetch-params-spec
   (s/get-spec ::fetch-params))
