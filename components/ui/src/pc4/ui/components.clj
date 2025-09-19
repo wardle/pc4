@@ -206,12 +206,15 @@
   [:div.mt-2
    (when label
      (ui-label {:for (or id name) :label label}))
-   (when (or (not disabled) local-date)
-     [:input (merge opts
-                    {:name  (or name id)
-                     :id    (or id name)
-                     :type  "date"
-                     :value (str local-date)})])])
+   [:input (merge opts
+                  {:name  (or name id)
+                   :id    (or id name)
+                   :type  "date"
+                   :value (str local-date)
+                   :class (into ["p-2" "shadow" "sm-focus" "ring-indigo-500" "border" "focus:border-indigo-500" "block" "w-full" "sm:text-sm" "border-gray-300" "rounded-md"]
+                                (if disabled
+                                  ["text-gray-500" "bg-gray-50" "italic"]
+                                  ["text-gray-700" "bg-white"]))})]])
 
 (rum/defc ui-local-date-accuracy
   [{:keys [name disabled] :as opts} value]

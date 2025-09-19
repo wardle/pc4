@@ -187,7 +187,6 @@
           (when error
             (ui/box-error-message {:title "Error" :message error}))
 
-          ;; Date field
           (ui/ui-simple-form-item
             {:label "Date"}
             (ui/ui-local-date
@@ -198,7 +197,6 @@
                :hx-post  url :hx-target "#edit-ms-event" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"}
               date))
 
-          ;; Type field
           (ui/ui-simple-form-item
             {:label "Type"}
             (ui/ui-select-button
@@ -210,7 +208,6 @@
                                     :text (str abbreviation ": " name)})
                                  (sort-by :t_ms_event_type/id all-ms-event-types))}))
 
-          ;; Impact field
           (ui/ui-simple-form-item
             {:label "Impact"}
             (ui/ui-select-button
@@ -219,7 +216,6 @@
                :selected-id impact
                :options     (map (fn [impact] {:id impact :text impact}) impact-choices)}))
 
-          ;; Sites checkboxes
           (ui/ui-simple-form-item
             {:label "Site(s) affected" :sublabel "Record when appropriate"})
           [:div.grid.grid-cols-1.sm:grid-cols-2.md:grid-cols-3.lg:grid-cols-4.gap-2.text-sm
@@ -231,8 +227,13 @@
                 :type     "checkbox"
                 :checked  (get ms-event k)
                 :disabled (not can-edit)
+                :class    (into ["focus:ring-indigo-500" "h-4" "w-4" "text-indigo-600" "border-gray-300" "rounded"]
+                                (if (not can-edit)
+                                  ["bg-gray-100" "opacity-50" "cursor-not-allowed"]
+                                  ["bg-white" "cursor-pointer"]))
                 :hx-post  url :hx-target "#edit-ms-event" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"}]
-              [:label {:for (name k)} title]])]
+              [:label {:for   (name k)
+                       :class (if (not can-edit) "text-gray-500 cursor-not-allowed" "text-gray-900 cursor-pointer")} title]])]
 
           ;; Notes field
           (ui/ui-simple-form-item
