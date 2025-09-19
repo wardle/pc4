@@ -7,7 +7,7 @@
     [pc4.pathom-web.interface :as pw]
     [pc4.rsdb.interface :as rsdb]
     [pc4.snomed-ui.interface :as snomed-ui]
-    [pc4.ui-core.interface :as ui]
+    [pc4.ui.interface :as ui]
     [pc4.web.interface :as web]
     [pc4.workbench.controllers.patient :as patient])
   (:import (java.time LocalDate)))

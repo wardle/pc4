@@ -3,7 +3,7 @@
   (:require
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
-    [pc4.ui-core.interface :as ui]
+    [pc4.ui.interface :as ui]
     [pc4.web.interface :as web]
     [pc4.nhs-number.interface :as nnn]
     [pc4.rsdb.interface :as rsdb])

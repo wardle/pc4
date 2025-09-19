@@ -11,7 +11,7 @@
     [io.pedestal.http.csrf :as csrf]
     [io.pedestal.http.route :as route]
     [io.pedestal.interceptor :as intc]
-    [pc4.ui-core.interface :as ui]
+    [pc4.ui.interface :as ui]
     [pc4.log.interface :as log]
     [pc4.ods.interface :as ods]
     [pc4.web.interface :as web]))

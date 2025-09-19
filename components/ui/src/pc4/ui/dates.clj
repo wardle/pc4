@@ -1,4 +1,4 @@
-(ns pc4.ui-core.dates
+(ns pc4.ui.dates
   (:import (java.time LocalDate)
            (java.time.format DateTimeFormatter)))
 

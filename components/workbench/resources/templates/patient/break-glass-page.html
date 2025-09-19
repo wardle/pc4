@@ -29,7 +29,7 @@
         {% if error %}
             <div class="p-2">
                 {% with message=error %}
-                {% include "ui-core/templates/box-error-message.html" with title="Error: " %}
+                {% include "ui/templates/box-error-message.html" with title="Error: " %}
                 {% endwith %}
             </div>
         {% endif %}
@@ -58,11 +58,11 @@
                             Choose service/project to which this patient should be registered:
                         </label>
                         {% with options=suggested-registrations %}
-                        {% include "ui-core/templates/select-button.html" with id="project-id" %}
+                        {% include "ui/templates/select-button.html" with id="project-id" %}
                         {% endwith %}
                     </p>
                     <p class="mt-2">
-                        {% include "ui-core/templates/button.html" with title="Register »" %}
+                        {% include "ui/templates/button.html" with title="Register »" %}
                     </p>
                 </div>
             </form>
@@ -82,7 +82,7 @@
                     Break-glass events are logged and checked, and last only for the session.
                 </p>
                 <p>
-                    {% include "ui-core/templates/textarea.html" with rows="2" label="Please explain why break-glass access is needed:" id="explanation" name="explanation" %}
+                    {% include "ui/templates/textarea.html" with rows="2" label="Please explain why break-glass access is needed:" id="explanation" name="explanation" %}
                 </p>
 
                 <label class="block text-sm font-medium text-gray-700 mt-2 pt-2">
@@ -90,11 +90,11 @@
                 </label>
                 <p>
                     {% with options=break-glass.administrators %}
-                    {% include "ui-core/templates/select-button.html" with id="administrator" %}
+                    {% include "ui/templates/select-button.html" with id="administrator" %}
                     {% endwith %}
                 </p>
                 <p class="mt-2">
-                    {% include "ui-core/templates/button.html" with title="Break-glass »" %}
+                    {% include "ui/templates/button.html" with title="Break-glass »" %}
                 </p>
             </div>
             </form>

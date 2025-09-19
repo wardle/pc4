@@ -8,7 +8,7 @@
 <div id="org-results">
     {% if error %}
     {% with message=error %}
-        {% include "ui-core/templates/box-error-message.html" %}
+        {% include "ui/templates/box-error-message.html" %}
     {% endwith %}
     {% endif %}
 
@@ -28,7 +28,7 @@
                  id="{{org.code}}">
                 {% if org.code = selected-org.code %}
                 <div class="absolute top-1/2 right-4 transform -translate-y-1/2 bg-gray-500 text-white w-7 h-7 flex items-center justify-center rounded-full">
-                    {% include "ui-core/templates/icon-selected.html" %}
+                    {% include "ui/templates/icon-selected.html" %}
                 </div>
                 {% endif %}
 

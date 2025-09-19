@@ -1,4 +1,4 @@
-(ns pc4.ui-core.components
+(ns pc4.ui.components
   (:require [clojure.string :as str]
             [rum.core :as rum]))
 

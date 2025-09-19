@@ -1,10 +1,10 @@
-(ns pc4.ui-core.interface
-  "Public interface for ui-core component providing reusable UI components and utilities."
+(ns pc4.ui.interface
+  "Public interface for ui component providing reusable UI components and utilities."
   (:require [clojure.string :as str]
-            [pc4.ui-core.icons :as icons]
-            [pc4.ui-core.dates :as dates]
-            [pc4.ui-core.render :as render]
-            [pc4.ui-core.components :as components]
+            [pc4.ui.icons :as icons]
+            [pc4.ui.dates :as dates]
+            [pc4.ui.render :as render]
+            [pc4.ui.components :as components]
             [rum.core :as rum])
   (:import (java.time LocalDate)))
 
@@ -178,3 +178,12 @@
   "Radio button group component"
   [opts]
   (components/ui-radio-button opts))
+
+;;
+;;
+;;
+
+(defn login-page
+  [params]
+  (render/render-file "ui/templates/pages/login-page.html" params))
+

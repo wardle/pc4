@@ -15,7 +15,7 @@
     [pc4.log.interface :as log]
     [pc4.pathom-web.interface :as pw]
     [pc4.rsdb.interface :as rsdb]
-    [pc4.ui-core.interface :as ui]
+    [pc4.ui.interface :as ui]
     [pc4.web.interface :as web]
     [pc4.workbench.controllers.select-user :as select-user])
   (:import (java.time LocalDateTime)))
