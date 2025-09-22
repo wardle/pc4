@@ -11,7 +11,7 @@
             [io.pedestal.log :as log]
             [io.pedestal.service.interceptors :as interceptors]
             [io.pedestal.service.resources :as resources]
-            [pc4.arafc.impl.routes :as routes]
+            [pc4.arafc.interface :as arafc]
             [pc4.config.interface :as config]
             [ring.middleware.session.cookie :as cookie]))
 
@@ -51,7 +51,7 @@
            {:content-security-policy-settings "object-src 'none';"})
          (inject-env env)])
       (conn/with-routes
-        (routes/routes)
+        (arafc/routes)
         (resources/resource-routes {:resource-root "public"}))
       (jetty/create-connector nil)
       (conn/start!)))

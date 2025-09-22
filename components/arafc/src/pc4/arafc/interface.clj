@@ -10,6 +10,7 @@
     [hato.client :as hc]
     [integrant.core :as ig]
     [pc4.arafc.impl.client :as client]
+    [pc4.arafc.impl.routes :as routes]
     [pc4.arafc.impl.qr :as qr]
     [pc4.log.interface :as log]))
 
@@ -70,3 +71,4 @@
   (client/get-request svc long-access-key))
 
 
+(def routes routes/routes)
