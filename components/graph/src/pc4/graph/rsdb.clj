@@ -28,6 +28,15 @@
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)))
 
+(defn authorization-manager [env]
+  (get-in env [:request :authorization-manager]))
+
+(defn authenticated-user [env]
+  (get-in env [:request :session :authenticated-user]))
+
+(defn session [env]
+  (get-in env [:request :session]))
+
 (s/def :uk.gov.ons.nhspd/PCD2 string?)
 ;;
 ;;
@@ -80,29 +89,30 @@
   (Jsoup/clean html (Safelist.)))
 
 (pco/defresolver patient->break-glass
-  [{session :session} {:t_patient/keys [patient_identifier]}]
-  {:t_patient/break_glass (= patient_identifier (:break-glass session))})
+  [env {:t_patient/keys [patient_identifier]}]
+  {:t_patient/break_glass (= patient_identifier (:break-glass (session env)))})
 
 (pco/defresolver patient->permissions
   "Return authorization permissions for current user to access given patient."
   [{rsdb :com.eldrix/rsdb}
-   {:session/keys [authenticated-user] :t_patient/keys [patient_identifier break_glass]}]
-  {:pco/input  [:session/authenticated-user :t_patient/patient_identifier :t_patient/break_glass]
+   {:t_patient/keys [patient_identifier break_glass] :as env}]
+  {:pco/input  [:t_patient/patient_identifier :t_patient/break_glass]
    :pco/output [:t_patient/permissions]}
   {:t_patient/permissions
-   (cond
-     ;; system user gets all known permissions
-     (:t_role/is_system authenticated-user)
-     rsdb/all-permissions
-     ;; break-glass provides only "limited user" access
-     break_glass
-     (:LIMITED_USER rsdb/permission-sets)
-     ;; otherwise, generate permissions based on intersection of patient and user
-     :else
-     (let [patient-active-project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)
-           roles-by-project-id (:t_user/active_roles authenticated-user) ; a map of project-id to PermissionSets for that project
-           roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
-       (rsdb/expand-permission-sets roles)))})
+   (let [user (authenticated-user env)]
+     (cond
+       ;; system user gets all known permissions
+       (:t_role/is_system user)
+       rsdb/all-permissions
+       ;; break-glass provides only "limited user" access
+       break_glass
+       (:LIMITED_USER rsdb/permission-sets)
+       ;; otherwise, generate permissions based on intersection of patient and user
+       :else
+       (let [patient-active-project-ids (rsdb/patient->active-project-identifiers rsdb patient_identifier)
+             roles-by-project-id (:t_user/active_roles user) ; a map of project-id to PermissionSets for that project
+             roles (reduce-kv (fn [acc _ v] (into acc v)) #{} (select-keys roles-by-project-id patient-active-project-ids))]
+         (rsdb/expand-permission-sets roles))))})
 
 (pco/defresolver project->permissions
   "Return authorization permissions for current user to access given project."
@@ -586,15 +596,21 @@
        (throw (ex-info "invalid 'mode' for t_patient/pending_referrals" (pco/params env)))))})
 
 (pco/defresolver patient->suggested-registrations
-  "Return suggested registrations given the patient and current user. This
-  could make suggestions based on current diagnoses and treatments, and project
+  "Return suggested registrations given the patient and user.
+  Parameters:
+  - :user - a map that must include :t_user/username for user
+
+  If user is omitted, the 'current' user will be used.
+  This could make suggestions based on current diagnoses and treatments, and project
   configurations. Such additional functionality will be made available via
   parameters."
-  [{rsdb :com.eldrix/rsdb, user :session/authenticated-user, :as env} patient]
+  [{rsdb :com.eldrix/rsdb :as env} patient]
   {::pco/input  [:t_patient/patient_identifier]
    ::pco/output [{:t_patient/suggested_registrations [:t_project/id :t_project/title]}]}
   {:t_patient/suggested_registrations
-   (rsdb/suggested-registrations rsdb user patient)})
+   (if-let [user (or (:user (pco/params env)) (authenticated-user env))]
+     (rsdb/suggested-registrations rsdb user patient)
+     (throw (ex-info "missing user for suggested-registrations" patient)))})
 
 (pco/defresolver patient->administrators
   "Return administrators linked to the projects to which this patient is linked."
@@ -1308,21 +1324,20 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
-  [{rsdb    :com.eldrix/rsdb
-    manager :session/authorization-manager
-    user    :session/authenticated-user}
-   {:keys [project-id nhs-number] :as params}]
+  [{rsdb    :com.eldrix/rsdb :as env} {:keys [project-id nhs-number] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/project_fk]}
   (log/info "register patient:" {:params params})
-  (if-not (and manager (rsdb/authorized? manager #{project-id} :PATIENT_REGISTER))
-    (throw (ex-info "Not authorized" {}))
-    (let [user-id (:t_user/id user)]
-      (if (s/valid? ::register-patient params)
-        (rsdb/register-patient! rsdb project-id user-id params)
-        (do (log/error "invalid call" (s/explain-data ::register-patient params))
-            (throw (ex-info "invalid NHS number" {:nnn nhs-number})))))))
+  (let [manager (authorization-manager env)
+        user (authenticated-user env)]
+    (if-not (and manager (rsdb/authorized? manager #{project-id} :PATIENT_REGISTER))
+      (throw (ex-info "Not authorized" {}))
+      (let [user-id (:t_user/id user)]
+        (if (s/valid? ::register-patient params)
+          (rsdb/register-patient! rsdb project-id user-id params)
+          (do (log/error "invalid call" (s/explain-data ::register-patient params))
+              (throw (ex-info "invalid NHS number" {:nnn nhs-number}))))))))
 
 (comment
   (s/explain-data ::register-patient {:user-id    1
