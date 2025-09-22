@@ -68,7 +68,8 @@
   (let [{:t_diagnosis/keys [id patient_fk concept_fk date_onset date_diagnosis date_to diagnosis status full_description]} diagnosis
         url (route/url-for :patient/save-diagnosis)
         term (get-in diagnosis [:info.snomed.Concept/preferredDescription :info.snomed.Description/term])
-        now (str (LocalDate/now))]
+        now (str (LocalDate/now))
+        disabled (not can-edit)]
     (ui/active-panel
       {:id    "edit-diagnosis"
        :title (if id term "Add diagnosis")}
@@ -84,26 +85,30 @@
            (ui/ui-simple-form-item
              {:label "Diagnosis"}
              (snomed-ui/ui-select-snomed {:name             "diagnosis-concept-id"
+                                          :disabled         disabled
                                           :placeholder      "Enter diagnosis"
                                           :ecl              "<404684003|Clinical finding|"
                                           :selected-concept diagnosis
                                           :common-concepts  common-diagnoses})))
          (ui/ui-simple-form-item
            {:label "Date of onset"}
-           (ui/ui-local-date {:name "date-onset" :disabled (not can-edit) :max now} date_onset))
+           (ui/ui-local-date {:name "date-onset" :disabled disabled :max now} date_onset))
          (ui/ui-simple-form-item
            {:label "Date of diagnosis"}
            (ui/ui-local-date
-             {:name "date-diagnosis" :disabled (not can-edit) :max now} date_diagnosis))
+             {:name "date-diagnosis" :disabled disabled :max now} date_diagnosis))
          (ui/ui-simple-form-item
            {:label "Date to"}
-           (ui/ui-local-date {:name            "date-to" :disabled (not can-edit) :max now :hx-trigger "change delay:1000ms, blur"
+           (ui/ui-local-date {:name            "date-to"
+                              :disabled        disabled
+                              :max             now
+                              :hx-trigger      "change delay:1000ms, blur"
                               :hx-disabled-elt "this,#status"
                               :hx-post         url :hx-target "#edit-diagnosis" :hx-swap "outerHTML" :hx-vals "{\"partial\":true}"} date_to))
          (ui/ui-simple-form-item
            {:label "Status"}
            (ui/ui-select-button {:name        "status"
-                                 :disabled    (not can-edit)
+                                 :disabled    disabled
                                  :selected-id status
                                  :options     (if date_to [{:id "INACTIVE_REVISED" :text "Inactive - revised"}
                                                            {:id "INACTIVE_RESOLVED" :text "Inactive - resolved"}
@@ -111,12 +116,12 @@
                                                           [{:id "ACTIVE" :text "Active"}])}))
          (ui/ui-simple-form-item
            {:label "Notes"}
-           (ui/ui-textarea {:name "full-description" :disabled (not can-edit)} full_description))
+           (ui/ui-textarea {:name "full-description" :disabled disabled} full_description))
          (when (and id can-edit)
            [:p.text-sm.font-medium.leading-6.text-gray-600
             "To delete a diagnosis, record a 'to' date and update the status as appropriate."])
          (ui/ui-action-bar
-           (ui/ui-submit-button {:disabled (not can-edit)} "Save")))])))
+           (ui/ui-submit-button {:disabled disabled} "Save")))])))
 
 (def diagnosis-properties
   [:t_diagnosis/id :t_diagnosis/patient_fk
