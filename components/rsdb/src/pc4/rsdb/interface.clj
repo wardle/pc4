@@ -18,6 +18,7 @@
     [pc4.rsdb.jobs]                                         ;; register queue job handlers
     [pc4.rsdb.messages :as messages]
     [pc4.rsdb.msss :as msss]
+    [pc4.rsdb.nform.impl.forms.araf :as araf]
     [pc4.rsdb.patients :as patients]
     [pc4.rsdb.projects :as projects]
     [pc4.rsdb.results :as results]
@@ -71,19 +72,19 @@
     (log/info "performing database migrations..." {:pending pending})
     (migrations/migrate conn)))
 
-(defn execute!              ;;; TODO: remove
+(defn execute!                                              ;;; TODO: remove
   [{:keys [conn]} sql]
   (db/execute! conn sql))
 
-(defn execute-one!          ;;; TODO: remove
+(defn execute-one!                                          ;;; TODO: remove
   [{:keys [conn]} sql]
   (db/execute! conn sql))
 
-(defn plan!                 ;;; TODO: remove
+(defn plan!                                                 ;;; TODO: remove
   [{:keys [conn]} sql]
   (jdbc/plan conn sql))
 
-(defn select!               ;;; TODO: remove
+(defn select!                                               ;;; TODO: remove
   [{:keys [conn]} cols sql]
   (plan/select! conn cols sql))
 
@@ -247,7 +248,7 @@
 (defn register-user-to-project! [{:keys [conn]} params]
   (users/register-user-to-project conn params))
 
-(defn reset-password! [{:keys [conn]} user]  ;;TODO: standardise to user id or username
+(defn reset-password! [{:keys [conn]} user]                 ;;TODO: standardise to user id or username
   (users/reset-password! conn user))
 
 (defn set-must-change-password! [{:keys [conn]} username]
@@ -380,7 +381,7 @@
 
 (defn list-encounters
   [{:keys [conn]} params]
-    (jdbc/execute! conn (sql/format (encounters/q-encounters params))))
+  (jdbc/execute! conn (sql/format (encounters/q-encounters params))))
 
 (defn patient->encounters [{:keys [conn]} patient-pk]
   (patients/patient->encounters conn patient-pk))
@@ -406,7 +407,7 @@
     (->> (projects-with-permission roles :PATIENT_REGISTER)
          (filter :t_project/active?)                        ;; only return currently active projects
          (remove #(project-ids (:t_project/id %)))          ;; remove any projects to which patient already registered
-         (map #(select-keys % [:t_project/id :t_project/title])))))  ;; only return data relating to projects
+         (map #(select-keys % [:t_project/id :t_project/title]))))) ;; only return data relating to projects
 
 (defn register-patient!
   [{:keys [conn]} project-id user-id patient]
@@ -538,7 +539,6 @@
 (defn form [{:keys [form-store]} id]
   (nf/form form-store id))
 
-(defn forms [{:keys [form-store]} params]
 (defn forms
   "Fetch all forms matching the parameters specified.
   - :id           - form identifier
@@ -552,8 +552,6 @@
                     |- :date-time  - include encounter date time"
   [{:keys [form-store]} params]
   (nf/forms form-store params))
-
-
 
 (defn araf-status
   [svc patient-pk]
