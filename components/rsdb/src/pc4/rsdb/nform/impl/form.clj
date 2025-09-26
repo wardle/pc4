@@ -18,7 +18,9 @@
   :form_type)
 
 (defmulti dehydrate
-  "Transform a form for storage in its store."
+  "Transform a form for storage in its store. Forms that use nfstore do not need
+  to manually convert keyword values into strings as writing out these to JSON
+  automatically converts them to strings."
   :form_type)
 
 (defmulti compute
@@ -38,7 +40,7 @@
 (defmethod summary :default [form] "")
 (defmethod hydrate :default [form] form)
 (defmethod dehydrate :default [form] form)
-(defmethod init :default [form] form)
+(defmethod init :default [_ form _] form)
 (defmethod compute :default [form] nil)
 
 ;;
@@ -65,8 +67,8 @@
   (s/with-gen
     #(instance? LocalDateTime %)
     #(gen/fmap (fn [days-ago]
-                 (.minusDays (LocalDateTime/now) days-ago))
-               (gen/choose 0 3650))))
+                 (.minusSeconds (LocalDateTime/now) days-ago))
+               (gen/choose 0 (* 10 365 24 60 60)))))
 
 (s/def ::created ::local-date-time)
 
