@@ -279,15 +279,15 @@
   (let [mode (if (= "my" filter) :my :all)
         order-by (when-not (str/blank? sorting) (mapv keyword (str/split sorting #"\"")))
         project-ids (when (= "my" filter) (keys (:t_user/active_roles authenticated-user))) ;; when 'my' projects, limit to active projects of user
-        n-results (:count (first (rsdb/patient-search rsdb (assoc search-opts :s s :project-ids project-ids :query {:select [[[:count :t_patient/id]]] :from :t_patient}))))
+        n-results (:count (first (rsdb/patients rsdb (assoc search-opts :s s :project-ids project-ids :query {:select [[[:count :t_patient/id]]] :from :t_patient}))))
         too-many? (> n-results 1000)
-        results (when-not too-many? (rsdb/patient-search rsdb (assoc search-opts :s s, :ods ods,
+        results (when-not too-many? (rsdb/patients rsdb (assoc search-opts :s s, :ods ods,
                                                                                  :hospital-identifier "7A4BV" ;; return CRNs in context of this org
                                                                                  :project-ids project-ids,
                                                                                  :order-by (or order-by [:name :asc]))))
         n-results (count results)
         n-fallback-results (when (and (not too-many?) (empty? results) (= "my" filter))
-                             (:count (first (rsdb/patient-search rsdb (assoc search-opts :s s :query {:select [[[:count :t_patient/id]]] :from :t_patient})))))]
+                             (:count (first (rsdb/patients rsdb (assoc search-opts :s s :query {:select [[[:count :t_patient/id]]] :from :t_patient})))))]
     (merge {:mode mode :s s}
            (cond
              (= 1 n-results)                                ;; one single result
@@ -373,7 +373,8 @@
 
 (defn editable-handler
   "Like p/handler but checks that current user has permission to edit
-  current patient."
+  current patient. This is particularly useful to guard any HTTP PUT or POST handlers
+  and guarantee that the request will be rejected."
   ([query f]
    (editable-handler {} query f))
   ([env query f]

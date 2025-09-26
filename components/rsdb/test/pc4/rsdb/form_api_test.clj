@@ -42,7 +42,7 @@
             fetched2 (pc4.rsdb.nform.api/form store (:id saved))]
         (is (set/subset? (set stored) (set fetched1))
             "Fetched form after save should have same data as that saved")
-        (is (= fetched1 saved fetched2)
+        (is (= stored fetched1 saved fetched2)
             "Fetching and re-saving and fetching should give same result")))))
 
 (comment

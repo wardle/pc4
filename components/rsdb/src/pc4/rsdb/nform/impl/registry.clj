@@ -36,7 +36,7 @@
     :table  :t_form_alsfrs
     :entity "FormALSFRS"}
 
-   {:id    :araf-val-f-s1-status/v2_0
+   {:id    :araf-val-f-s1-evaluation/v2_0
     :title "Valproate Annual Risk Acknowledgement (female) - Step 1: Status"
     :store :nf}
 
@@ -52,8 +52,12 @@
     :title "Valproate Annual Risk Acknowledgement (female) - Step 2: Countersignature"
     :store :nf}
 
+   {:id    :araf-val-f-s4-request-acknowledgement/v2_0
+    :title "Valproate Annual Risk Acknowledgement (female) - Step 4: Request for acknowledgement"
+    :store :nf}
+
    {:id    :araf-val-f-s4-acknowledgement/v2_0
-    :title "Valroate Annual Risk Acknowledgement (female) - Step 4: Acknowledgement"
+    :title "Valproate Annual Risk Acknowledgement (female) - Step 4: Acknowledgement"
     :store :nf}
 
    {:id     :edss/v1

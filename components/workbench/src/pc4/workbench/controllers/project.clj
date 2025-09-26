@@ -39,6 +39,9 @@
       :items    [{:id   :home
                   :url  (route/url-for :project/home :path-params {:project-id id})
                   :text "Home"}
+                 {:id   :patients
+                  :url  (route/url-for :project/patients :path-params {:project-id id})
+                  :text "Patients"}
                  {:id   :find-patient
                   :url  (route/url-for :project/find-patient :path-params {:project-id id})
                   :text "Find patient"}
@@ -50,9 +53,6 @@
                   :url    (route/url-for :project/today :path-params {:project-id id})
                   :text   "Today"
                   :hidden (not active?)}
-                 {:id   :patients
-                  :url  (route/url-for :project/patients :path-params {:project-id id})
-                  :text "Patients"}
                  {:id   :encounters
                   :url  (route/url-for :project/encounters :path-params {:project-id id})
                   :text "Encounters"}

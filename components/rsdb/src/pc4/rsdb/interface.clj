@@ -267,7 +267,7 @@
 
 ;; patients
 
-(defn patient-search
+(defn patients
   [{:keys [conn]} params]
   (patients/search conn params))
 
@@ -553,12 +553,34 @@
   [{:keys [form-store]} params]
   (nf/forms form-store params))
 
-(defn araf-status
-  [svc patient-pk]
+(s/fdef araf-outcome
+  :args (s/cat :svc ::svc :programme ::araf/programme :patient-pk :t_patient/id))
+(defn araf-outcome
+  [svc programme patient-pk]
   (let [forms (forms svc {:patient-pk patient-pk
-                          :is_deleted false
-                          :form-types araf/all-araf-forms})]
-    (araf/status forms)))
+                          :is-deleted false
+                          :form-types (araf/forms-for-programme programme)})]
+    (araf/outcome programme forms {})))
+
+(s/fdef araf-programme-outcome
+  :args (s/cat :svc ::svc :programme ::araf/programme :project-id :t_project/id))
+(defn araf-programme-outcome
+  "Return a sequence of patients in the given project with outcome information in the given 'programme'.
+  For example,
+  ```
+  (araf-programme-outcome rsdb :valproate-f 15)
+  =>
+  [{:t_patient/patient_identifier ...
+   :valproate-f {:excluded :permanent, :completed true, :expires nil}}
+   ... ]
+  ```"
+  [rsdb programme project-id]
+  (->> (patients rsdb {:query {:select [:*] :from :t_patient}
+                            :address? true
+                            :hospital-identifier true
+                            :project-ids [project-id]})
+       (map (fn [{patient-pk :t_patient/id, :as pt}]
+              (assoc pt programme (araf-outcome rsdb programme patient-pk))))))
 
 ;;
 ;;
