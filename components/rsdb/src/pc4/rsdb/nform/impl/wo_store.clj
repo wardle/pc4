@@ -27,7 +27,6 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [next.jdbc.specs]
-            [pc4.log.interface :as log]
             [pc4.rsdb.nform.impl.form :as form]
             [pc4.rsdb.nform.impl.registry :as registry]
             [pc4.rsdb.nform.impl.protocols :as p])
