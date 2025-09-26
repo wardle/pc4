@@ -1,10 +1,11 @@
 (ns pc4.rsdb.pagination
   (:require
-    [clojure.java.jdbc :as jdbc]
     [honey.sql :as sql]
     [honey.sql.helpers :as h]
     [clojure.edn :as edn]
-    [clojure.spec.alpha :as s])
+    [clojure.spec.alpha :as s]
+    [next.jdbc :as jdbc]
+    [next.jdbc.result-set :as rs])
   (:import (java.util Base64)))
 
 (s/def ::column-name keyword?)
@@ -226,6 +227,9 @@
     - cursor - a cursor returned from a prior call to paginated-results or nil
     - limit  - page size, default 200
 
+  Options are ALSO passed unchanged to next.jdbc/execute! so one can use options
+  such as {:builder-fn rs/as-as-unqualified-maps} should they be required.
+
   The query passed in, and the query passed to 'execute-fn' should be Clojure
   data structures that can be formatted into a SQL statement and values by
   HoneySQL.
@@ -234,5 +238,14 @@
   is advised to use a primary key as the final sort e.g. [... [:id :asc]]."
   [conn query sort-columns options]
   (paginated-results
-    (fn [q] (jdbc/execute! conn (sql/format q)))
+    (fn [q] (jdbc/execute! conn (sql/format q) options))
     query sort-columns options))
+
+(comment
+  (def conn (jdbc/get-connection "jdbc:postgresql:rsdb"))
+  (def opts {:limit 2, :builder-fn rs/as-unqualified-maps})
+  (execute-paginated! conn {:select :id :from :t_patient} [[:id :asc]] opts)
+  (execute-paginated! conn {:select :id :from :t_patient} [[:id :asc]]
+                      (assoc opts :cursor "ezppZCAxMH0="))
+  (execute-paginated! conn {:select :id :from :t_patient} [[:id :asc]]
+                      (assoc opts :cursor "ezppZCAyMH0=")) )
