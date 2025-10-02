@@ -795,6 +795,11 @@
                                     :t_project_user/active?]}]}
   {:t_project/users (rsdb/project->users rsdb id (pco/params env))})
 
+(pco/defresolver project->patients
+  [{rsdb :com.eldrix/rsdb} {id :t_project/id}]
+  {::pco/output [{:t_project/patients [:t_patient/id]}]}
+  {:t_project/patients (rsdb/patients rsdb {:project-ids #{id}})})
+
 (def encounter-properties
   [:t_encounter/id
    :t_encounter/patient_fk
@@ -1938,6 +1943,7 @@
    project->count_discharged_episodes
    project->all-children
    project->all-parents
+   project->patients
    patient->encounters
    encounter-by-id
    encounter->patient
