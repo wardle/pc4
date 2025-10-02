@@ -29,7 +29,7 @@
      content]]])
 
 (rum/defc ui-modal
-  [{:keys [id hidden? title actions cancel size] :or {size :large, cancel :cancel}} & content]
+  [{:keys [id hidden? title actions left-content cancel size] :or {size :large, cancel :cancel}} & content]
   [:div.fixed.z-10.inset-0.overflow-y-auto
    (cond-> {:id id :role "dialog" :aria-modal "true" :aria-labelledby (str id "-title")}
      (or (nil? hidden?) hidden?) (assoc :class "hidden"))
@@ -61,22 +61,26 @@
 
      [:div.mt-4 content]
 
-     (when (seq actions)
-       [:div.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
-        (for [{:keys [id title role disabled? hidden?] :as action} actions
-              :when (and action (not hidden?))]
-          [:button
-           (cond-> {:id    id
-                    :type  "button"
-                    :class (str "w-full inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm "
-                                (case role
-                                  :primary "border-transparent text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
-                                  :danger "border-transparent text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
-                                  "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500")
-                                (when disabled? " opacity-50 cursor-not-allowed"))}
-             disabled? (assoc :disabled "disabled")
-             :else (merge (select-keys action (filter #(str/starts-with? (name %) "hx-") (keys action)))))
-           title])])]]])
+     (when (or left-content (seq actions))
+       [:div.mt-5.sm:mt-4.sm:flex.sm:justify-between.sm:items-center
+        (when left-content
+          [:div.flex.items-center.gap-3 left-content])
+        (when (seq actions)
+          [:div.mt-2.flex.flex-row-reverse.gap-3
+           (for [{:keys [id title role disabled? hidden?] :as action} actions
+                 :when (and action (not hidden?))]
+             [:button
+              (cond-> {:id    id
+                       :type  "button"
+                       :class (str "inline-flex justify-center rounded-md border shadow-sm px-4 py-2 text-base font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 sm:text-sm "
+                                   (case role
+                                     :primary "border-transparent text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
+                                     :danger "border-transparent text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                                     "bg-white border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-blue-500")
+                                   (when disabled? " opacity-50 cursor-not-allowed"))}
+                disabled? (assoc :disabled "disabled")
+                :else (merge (select-keys action (filter #(str/starts-with? (name %) "hx-") (keys action)))))
+              title])])])]]])
 
 (rum/defc ui-label [{:keys [for label]}]
   [:label.block.text-sm.font-medium.text-gray-600 {:for for} label])
@@ -127,7 +131,7 @@
     [:div
      (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
      [:div.mt-2.grid.grid-cols-1
-      [:select.col-start-1.row-start-1.w-full.appearance-none.rounded-md.bg-white.py-1.5.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+      [:select.col-start-1.row-start-1.w-full.appearance-none.bg-none.rounded-md.bg-white.py-2.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
        (cond-> {:name  (or name id), :id (or id name)
                 :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
          disabled (assoc :disabled "disabled")
@@ -247,7 +251,7 @@
 
 (rum/defc ui-button
   [{:keys [disabled] :as params} content]
-  [:button.w-full.inline-flex.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:w-auto.sm:text-sm
+  [:button.w-full.inline-flex.items-center.justify-center.rounded-md.border.shadow-sm.px-4.py-2.text-base.font-medium.focus:outline-none.focus:ring-2.focus:ring-offset-2.focus:ring-red-500.sm:w-auto.sm:text-sm
    (merge {:type  "button"
            :class (if disabled "opacity-50" "cursor-pointer")}
           params)
