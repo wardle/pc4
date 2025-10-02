@@ -13,6 +13,7 @@
                  poly/codelists                     {:local/root "components/codelists"}
                  poly/config                        {:local/root "components/config"}
                  poly/dates                         {:local/root "components/dates"}
+                 poly/demographic                   {:local/root "components/demographic"}
                  poly/deprivare                     {:local/root "components/deprivare"}
                  poly/dmd                           {:local/root "components/dmd"}
                  poly/emailer                       {:local/root "components/emailer"}

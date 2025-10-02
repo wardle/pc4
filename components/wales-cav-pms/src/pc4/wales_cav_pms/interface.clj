@@ -11,5 +11,10 @@
 (defn fetch-patient-by-nnn [svc nnn]
   (cavpms/fetch-patient-by-nnn svc nnn))
 
+(defn patient->fhir
+  "Returns a FHIR representation of CAV PMS patient data"
+  [cavpt]
+  (cavpms/patient->fhir cavpt))
+
 (defn fetch-admissions [svc patient]
   (cavpms/fetch-admissions svc patient))
