@@ -54,7 +54,8 @@
   "Fetch forms by parameters specified"
   [st {:keys [id encounter-id encounter-ids patient-pk] :as params}]
   (when-not (s/valid? ::p/fetch-params params)
-    (throw (ex-info "invalid form store fetch params" (s/explain-data ::p/fetch-params params))))
+    (throw (ex-info (str "invalid form store fetch params" (s/explain-str ::p/fetch-params params))
+                    (s/explain-data ::p/fetch-params params))))
   (map form/hydrate (p/forms st params)))
 
 (defn form-definition
