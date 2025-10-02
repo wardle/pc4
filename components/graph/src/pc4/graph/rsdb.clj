@@ -1319,6 +1319,7 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
+  [{rsdb :com.eldrix/rsdb :as env} {:keys [project-id nhs-number] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/project_fk]}
