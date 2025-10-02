@@ -113,7 +113,7 @@
 (defn ^:private local-msss-data
   "Read local MSSS data from the classpath."
   [n]
-  (clojure.edn/read-string (slurp (io/resource n))))
+  (edn/read-string (slurp (io/resource n))))
 
 (s/fdef msss-lookup
   :args (s/cat :params ::params)
