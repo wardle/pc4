@@ -36,6 +36,10 @@
     :table  :t_form_alsfrs
     :entity "FormALSFRS"}
 
+   {:id    :araf-val-f-on-hold/v1
+    :title "Valproate Annual Risk Acknowledgement (female) - on hold"
+    :store :nf}
+
    {:id    :araf-val-f-s1-evaluation/v2_0
     :title "Valproate Annual Risk Acknowledgement (female) - Step 1: Status"
     :store :nf}

@@ -19,6 +19,7 @@
     [pc4.rsdb.messages :as messages]
     [pc4.rsdb.msss :as msss]
     [pc4.rsdb.nform.impl.forms.araf :as araf]
+    [pc4.rsdb.nform.impl.registry :as registry]
     [pc4.rsdb.patients :as patients]
     [pc4.rsdb.projects :as projects]
     [pc4.rsdb.results :as results]
@@ -556,11 +557,31 @@
 (s/fdef araf-outcome
   :args (s/cat :svc ::svc :programme ::araf/programme :patient-pk :t_patient/id))
 (defn araf-outcome
+  "Return 'outcome' summary for the specified patient within the given ARAF
+  programme."
   [svc programme patient-pk]
   (let [forms (forms svc {:patient-pk patient-pk
                           :is-deleted false
                           :form-types (araf/forms-for-programme programme)})]
     (araf/outcome programme forms {})))
+
+(s/fdef araf-outcome-with-forms
+  :args (s/cat :svc ::svc :programme ::araf/programme :patient-pk :t_patient/id))
+(defn araf-outcome-with-forms
+  "Return the 'outcome' summary, the forms used to compute it, and available forms
+  for the specified patient within the given ARAF programme.
+  Returns a map with :outcome, :forms, and :available keys."
+  [svc programme patient-pk]
+  (let [form-types (araf/forms-for-programme programme)
+        forms (forms svc {:patient-pk  patient-pk
+                          :is-deleted  false
+                          :select      #{:date-time}
+                          :form-types  form-types})
+        outcome (araf/outcome programme forms {})
+        available (map registry/form-definition-by-form-type form-types)]
+    {:outcome outcome
+     :forms   forms
+     :available available}))
 
 (s/fdef araf-programme-outcome
   :args (s/cat :svc ::svc :programme ::araf/programme :project-id :t_project/id))

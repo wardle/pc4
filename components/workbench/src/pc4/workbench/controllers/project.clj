@@ -7,18 +7,10 @@
     [pc4.ui.interface :as ui]
     [pc4.web.interface :as web]
     [pc4.log.interface :as log]
-    [pc4.rsdb.interface :as rsdb]))
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.workbench.controllers.project.araf :as project-araf]))
 
-(defn user-filter-select-button []
-  (ui/ui-select-button
-    {:id          "user-filter"
-     :selected-id "active"
-     :hx-get      (route/url-for :project/team)
-     :hx-target   "#team-list"
-     :hx-swap     "outerHTML"
-     :options     [{:id "active" :text "Active"}
-                   {:id "inactive" :text "Inactive"}
-                   {:id "all" :text "All users"}]}))
+
 
 (pco/defresolver current-project
   [{:keys [request] :as env} _]
@@ -29,7 +21,7 @@
       :t_project/title (get-in request [:session :project :title])})}) ;; save a refetch for the title as it is in session
 
 (pco/defresolver project-menu
-  [env {:t_project/keys [id name title pseudonymous active?] :as project}]
+  [env {:t_project/keys [id name title home_page pseudonymous active?] :as project}]
   {::pco/input  [:t_project/id :t_project/title :t_project/pseudonymous :t_project/active?]
    ::pco/output [:ui/project-menu]}
   (let [selected (get (pco/params env) :selected :home)]
@@ -39,6 +31,14 @@
       :items    [{:id   :home
                   :url  (route/url-for :project/home :path-params {:project-id id})
                   :text "Home"}
+                 {:id     :araf
+                  :url    (route/url-for :project/araf :path-params {:project-id id})
+                  :text   "Today"
+                  :hidden (nil? (project-araf/project-programme id))}
+                 {:id     :today
+                  :url    (route/url-for :project/today :path-params {:project-id id})
+                  :text   "Today"
+                  :hidden (or (not active?) (some? (project-araf/project-programme id)))}
                  {:id   :patients
                   :url  (route/url-for :project/patients :path-params {:project-id id})
                   :text "Patients"}
@@ -49,22 +49,12 @@
                   :url    (route/url-for :project/register-patient :path-params {:project-id id})
                   :text   "Register patient"
                   :hidden (not active?)}
-                 {:id     :today
-                  :url    (route/url-for :project/today :path-params {:project-id id})
-                  :text   "Today"
-                  :hidden (not active?)}
                  {:id   :encounters
                   :url  (route/url-for :project/encounters :path-params {:project-id id})
                   :text "Encounters"}
                  {:id   :team
                   :url  (route/url-for :project/team :path-params {:project-id id})
-                  :text "Team"}]
-      :submenu  (case selected
-                  :home
-                  {:items [{:text "Edit project"}]}
-                  :team
-                  {:items [{:content (ui/render (user-filter-select-button))}]}
-                  nil)}}))
+                  :text "Team"}]}}))
 
 
 
@@ -129,6 +119,19 @@
 
 (defn encounters [request])
 
+
+
+(defn user-filter-select-button []
+  (ui/ui-select-button
+    {:id          "user-filter"
+     :selected-id "active"
+     :hx-get      (route/url-for :project/team)
+     :hx-target   "#team-list"
+     :hx-swap     "outerHTML"
+     :options     [{:id "active" :text "Active"}
+                   {:id "inactive" :text "Inactive"}
+                   {:id "all" :text "All users"}]}))
+
 (defn user->team-item [{:t_user/keys [id username photo_fk roles] :as user}]
   (let [user' (rsdb/user->display-names user)]
     {:title     (:t_user/full_name user')
@@ -163,10 +166,11 @@
           (web/ok
             (ui/render-file
               "templates/project/team-page.html"
-              {:navbar navbar
-               :menu   (:ui/project-menu current-project)
-               :title  "Team"
-               :team   users})))))))
+              {:navbar  navbar
+               :menu    (assoc (:ui/project-menu current-project)
+                          :submenu {:items [{:content (ui/render (user-filter-select-button))}]})
+               :title   "Team"
+               :team    users})))))))
 
 
 
@@ -212,7 +216,7 @@
   (pw/handler
     [:ui/navbar
      {:ui/current-project
-      [(list :ui/project-menu {::selected :home})
+      [(list :ui/project-menu {:selected :home})
        :t_project/type :t_project/pseudonymous
        :t_project/title :t_project/long_description
        {:t_project/administrator_user [:t_user/full_name]}
@@ -231,7 +235,8 @@
           (ui/render-file
             "templates/project/home-page.html"
             {:navbar  navbar
-             :menu    (:ui/project-menu current-project)
+             :menu    (assoc (:ui/project-menu current-project)
+                        :submenu {:items [{:text "Edit project"}]})
              :title   title
              :project {:title       title
                        :tint-class  (case (:t_project/type current-project) :NHS "bg-yellow-100" :RESEARCH "bg-pink-100" "bg-gray-100")

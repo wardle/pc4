@@ -1,0 +1,169 @@
+{% extends "templates/page.html" %}
+
+{% block header %}
+{% include "templates/navbar.html" %}
+{% endblock %}
+
+{% block content %}
+<div>
+    <div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4 bg-gray-50">
+        <div class="col-span-1 md:mr-2">
+            {% include "ui/templates/vertical-navigation.html" %}
+        </div>
+        <div class="col-span-3">
+            {% include "ui/templates/spinner.html" with id="araf-spinner" %}
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">
+                        {{ title }}
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Showing {{ patient-count }} patient{{ patient-count|pluralize }}
+                    </p>
+                </div>
+
+                {% if patients %}
+                <div class="overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200 table-fixed">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                {% for header in sort-headers %}
+                                {% ifequal header.label "Patient" %}
+                                <th scope="col" class="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    hx-get="{{ header.url }}"
+                                    hx-target="body"
+                                    hx-indicator="#araf-spinner">
+                                    {{ header.label }}
+                                    {% if header.active %}
+                                        {% ifequal header.direction "asc" %}↑{% else %}↓{% endifequal %}
+                                    {% endif %}
+                                </th>
+                                <th scope="col" class="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    NHS Number
+                                </th>
+                                {% endifequal %}
+                                {% ifequal header.label "Date of Birth" %}
+                                <th scope="col" class="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    hx-get="{{ header.url }}"
+                                    hx-target="body"
+                                    hx-indicator="#araf-spinner">
+                                    {{ header.label }}
+                                    {% if header.active %}
+                                        {% ifequal header.direction "asc" %}↑{% else %}↓{% endifequal %}
+                                    {% endif %}
+                                </th>
+                                {% endifequal %}
+                                {% ifequal header.label "Status" %}
+                                <th scope="col" class="w-40 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    hx-get="{{ header.url }}"
+                                    hx-target="body"
+                                    hx-indicator="#araf-spinner">
+                                    {{ header.label }}
+                                    {% if header.active %}
+                                        {% ifequal header.direction "asc" %}↑{% else %}↓{% endifequal %}
+                                    {% endif %}
+                                </th>
+                                {% endifequal %}
+                                {% ifequal header.label "Expiry" %}
+                                <th scope="col" class="w-32 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                                    hx-get="{{ header.url }}"
+                                    hx-target="body"
+                                    hx-indicator="#araf-spinner">
+                                    {{ header.label }}
+                                    {% if header.active %}
+                                        {% ifequal header.direction "asc" %}↑{% else %}↓{% endifequal %}
+                                    {% endif %}
+                                </th>
+                                <th scope="col" class="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Outstanding Tasks
+                                </th>
+                                {% endifequal %}
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for patient in patients %}
+                            <tr class="hover:bg-gray-50 cursor-pointer"
+                                hx-get="/project/{{ project-id }}/araf/{{ patient.patient-id }}/outcome"
+                                hx-target="#araf-outcome-content"
+                                hx-swap="outerHTML show:top">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {{ patient.name }}
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        ID: {{ patient.patient-id }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        {{ patient.nhs-number|format-nhs-number }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">
+                                        {{ patient.dob-str }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                        {% ifequal patient.category-label "Completed" %}bg-green-100 text-green-800
+                                        {% endifequal %}
+                                        {% ifequal patient.category-label "Due to expire" %}bg-yellow-100 text-yellow-800
+                                        {% endifequal %}
+                                        {% ifequal patient.category-label "On hold" %}bg-blue-100 text-blue-800
+                                        {% endifequal %}
+                                        {% ifequal patient.category-label "Excluded (permanent)" %}bg-gray-100 text-gray-800
+                                        {% endifequal %}
+                                        {% ifequal patient.category-label "Excluded (temporary)" %}bg-gray-100 text-gray-800
+                                        {% endifequal %}
+                                        {% ifequal patient.category-label "Outstanding tasks" %}bg-red-100 text-red-800
+                                        {% endifequal %}">
+                                        {{ patient.category-label }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {% if patient.expiry-str %}
+                                        {{ patient.expiry-str }}
+                                    {% else %}
+                                        <span class="text-gray-400">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4">
+                                    {% if patient.outstanding-tasks %}
+                                        <div class="flex flex-wrap gap-1">
+                                            {% for task in patient.outstanding-tasks %}
+                                            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 cursor-default"
+                                                  title="{{ task.label }}">
+                                                {{ task.id|upper }}
+                                            </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-green-600 text-sm">✓ All complete</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="px-6 py-8 text-center text-gray-500">
+                    <p>No patients found in this category.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal container for patient outcome dialog -->
+<div id="araf-outcome-modal">
+    <div id="araf-outcome-content"></div>
+</div>
+
+{% endblock %}
+
+{% block footer %}
+{% endblock %}

@@ -5,20 +5,23 @@
 {% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4 bg-gray-50">
-    <div class="col-span-1 md:mr-2">
-        {% include "ui/templates/vertical-navigation.html" %}
-    </div>
-    <div class="col-span-3">
-        {% with title=project.title
-                tint-class=project.tint-class
-                subtitle-html=project.description
-                items=project.items
-                long-items=project.long-items %}
-            {% include "ui/templates/two-column-card.html" %}
-        {% endwith %}
+<div>
+    <div class="grid grid-cols-1 md:grid-cols-4 md:gap-4 m-4 bg-gray-50">
+        <div class="col-span-1 md:mr-2">
+            {% include "ui/templates/vertical-navigation.html" %}
+        </div>
+        <div class="col-span-3">
+            {% with title=project.title
+                    tint-class=project.tint-class
+                    subtitle-html=project.description
+                    items=project.items
+                    long-items=project.long-items %}
+                {% include "ui/templates/two-column-card.html" %}
+            {% endwith %}
+        </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block footer %}

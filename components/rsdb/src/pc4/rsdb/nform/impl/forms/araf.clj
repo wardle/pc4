@@ -4,7 +4,8 @@
     [clojure.spec.alpha :as s]
     [clojure.spec.gen.alpha :as gen]
     [pc4.rsdb.nform.impl.form :as form])
-  (:import (java.time LocalDateTime Period)))
+  (:import (java.time LocalDateTime Period)
+           (java.time.format DateTimeFormatter)))
 
 (s/def ::nilable-local-date-time
   (s/with-gen
@@ -40,13 +41,34 @@
 (s/def ::excluded (s/nilable #{:temporary :permanent}))     ;; patient excluded?
 (s/def ::completed boolean?)                                ;; has all paperwork been completed?
 (s/def ::expiry ::nilable-local-date-time)                  ;; when does paperwork expire?
+(s/def ::on-hold ::form/local-date-time)
 (s/def ::task (s/tuple keyword? boolean?))
 (s/def ::tasks (s/coll-of ::task))
 (s/def ::outcome
-  (s/keys :req-un [::excluded ::completed ::expiry]
+  (s/keys :req-un [::excluded ::completed ::expiry ::on-hold]
           :opt-un [::tasks]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ARAF VALPROATE FEMALE ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defmethod form/spec :araf-val-f-on-hold/v1
+  [_]
+  (s/keys :req-un [::until]))
+
+(defmethod form/hydrate :araf-val-f-on-hold/v1
+  [form]
+  (update form :until #(some-> % LocalDateTime/parse)))
+
+(defmethod form/summary :araf-val-f-on-hold/v1
+  [{:keys [until]}]
+  (if until
+    (str "On hold until: " (DateTimeFormatter/.format DateTimeFormatter/ISO_LOCAL_DATE until))
+    ""))
+
+(defmethod form/dehydrate :araf-val-f-on-hold/v1
+  [form]
+  (update form :until #(some-> % str)))
+
 ;;
 ;; STEP 1 - evaluate 'prevent' programme :araf-val-f-s1-evaluate/v1
 ;;
@@ -166,13 +188,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def programmes
+  "ARAF programme definitions with explicitly ordered form lists.
+  The order of forms determines display order in UI dropdowns."
   {:valproate-f
-   {:forms #{:araf-val-f-s1-evaluation/v2_0
-             :araf-val-f-s2-treatment-decision/v2_0
-             :araf-val-f-s2-countersignature/v2_0
-             :araf-val-f-s3-risks/v2_0
-             :araf-val-f-s4-request-acknowledgement/v2_0
-             :araf-val-f-s4-acknowledgement/v2_0}}})
+   {:forms [:araf-val-f-s1-evaluation/v2_0
+            :araf-val-f-s2-treatment-decision/v2_0
+            :araf-val-f-s2-countersignature/v2_0
+            :araf-val-f-s3-risks/v2_0
+            :araf-val-f-s4-request-acknowledgement/v2_0
+            :araf-val-f-s4-acknowledgement/v2_0
+            :araf-val-f-on-hold/v1]}})
 
 (def all-araf-forms
   (->> (vals programmes) (mapcat :forms) (into #{})))
@@ -201,21 +226,32 @@
   (->> forms
        (filter (form-of-type form-type))
        (sort-by :date_time #(compare %2 %1))
-       (first)))
+       first))
 
+(defn latest
+  [date-times]
+  (->> date-times
+       (remove nil?)
+       (sort #(compare %2 %1))
+       first))
+
+(comment
+  (latest [nil nil])
+  (latest [(LocalDate/of 2022 1 1) nil (LocalDate/of 2023 1 1)]))
 
 (defmulti outcome
   "Given a 'programme', a sequence of ARAF forms for a single patient, and an options map, determine the patient's
   outcome on the [[java.time.LocalDateTime]] 'now' or now, by default."
   (fn [programme forms opts] programme))
 
-
 ;; outcome for the 'valproate female' ARAF programme
 (defmethod outcome :valproate-f
   [_ forms {:keys [now]}]
   (let [now (or now (LocalDateTime/now))
         forms' (filter (form-before-date now) forms)
-        {:keys [excluded status] :as s1-evaluation} (most-recent :araf-val-f-s1-evaluation/v2_0 forms')
+        {:keys [until]} (most-recent :araf-val-f-on-hold/v1 forms')
+        {:keys [excluded status review-dt] :as s1-evaluation} (most-recent :araf-val-f-s1-evaluation/v2_0 forms')
+        on-hold (latest [until review-dt])                  ;; on hold until either review date, or explicit on-hold
         permanent (= :permanent status)
         s2-treatment (most-recent :araf-val-f-s2-treatment-decision/v2_0 forms')
         s2-countersig (most-recent :araf-val-f-s2-countersignature/v2_0 forms')
@@ -235,6 +271,7 @@
     {:excluded  (when excluded (if (= :permanent status) :permanent :temporary))
      :completed completed
      :expiry    (when (and (not permanent) completed) (or expiry (:review-dt s1-evaluation)))
+     :on-hold   on-hold
      :tasks     [[:s1 (some? s1-evaluation)]
                  [:s2 (boolean (and (:confirm s2-treatment) (:confirm s2-countersig) (:eligible s2-countersig)))]
                  [:s3 (boolean (:all s3-risks))]
