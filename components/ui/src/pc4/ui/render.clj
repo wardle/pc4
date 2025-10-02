@@ -2,8 +2,12 @@
   (:require
     [clojure.string :as str]
     [rum.core :as rum]
-    [selmer.parser :as selmer])
+    [selmer.parser :as selmer]
+    [pc4.nhs-number.interface :as nnn])
   (:import (org.jsoup Jsoup)))
+
+;; Register custom Selmer filters
+(selmer/add-filter! :format-nhs-number (fn [nhs-number] (nnn/format-nnn nhs-number)))
 
 (defn render
   "Render the markup 'src' using rum. This is designed only for server-side
