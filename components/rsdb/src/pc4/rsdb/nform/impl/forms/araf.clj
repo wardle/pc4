@@ -28,6 +28,7 @@
 (s/def ::pregnancy_test boolean?)
 (s/def ::status #{:at-risk :pre-menarche :permanent :other})
 (s/def ::review-dt ::form/local-date-time)
+(s/def ::until ::form/local-date-time)
 (s/def ::text (s/nilable string?))
 (s/def ::acknowledged boolean?)
 (s/def ::method #{:web :paper})
@@ -41,7 +42,7 @@
 (s/def ::excluded (s/nilable #{:temporary :permanent}))     ;; patient excluded?
 (s/def ::completed boolean?)                                ;; has all paperwork been completed?
 (s/def ::expiry ::nilable-local-date-time)                  ;; when does paperwork expire?
-(s/def ::on-hold ::form/local-date-time)
+(s/def ::on-hold ::nilable-local-date-time)
 (s/def ::task (s/tuple keyword? boolean?))
 (s/def ::tasks (s/coll-of ::task))
 (s/def ::outcome
