@@ -638,23 +638,10 @@
                   :t_episode/project {:t_project/id (:t_episode/project_fk result)}
                   :t_episode/patient {:t_patient/id (:t_episode/patient_fk result)})))
 
-(def project-properties
-  [:t_project/id :t_project/name :t_project/title
-   :t_project/long_description
-   :t_project/type :t_project/date_from :t_project/date_to
-   :t_project/exclusion_criteria :t_project/inclusion_criteria
-   :t_project/address1 :t_project/address2 :t_project/address3
-   :t_project/address4 :t_project/postcode
-   :t_project/parent_project_fk
-   :t_project/virtual :t_project/can_own_equipment
-   :t_project/specialty_concept_fk
-   :t_project/care_plan_information
-   :t_project/is_private])
-
 (pco/defresolver episode->project
-  [{rsdb :com.eldrix/rsdb} {project-id :t_episode/project_fk}]
-  {::pco/output [{:t_episode/project project-properties}]}
-  {:t_episode/project (rsdb/project-by-id rsdb project-id)})
+  [{project-id :t_episode/project_fk}]
+  {:t_episode/project {:t_project/id project-id}})
+
 (pco/defresolver episode->patient
   [{patient-pk :t_episode/patient_fk}]
   {:t_episode/patient {:t_patient/id patient-pk}})
@@ -665,30 +652,33 @@
 
 (pco/defresolver project-by-identifier
   [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
-  {::pco/output [:t_project/id :t_project/name
-                 :t_project/title :t_project/long_description
-                 :t_project/type
-                 :t_project/date_from :t_project/date_to
-                 :t_project/exclusion_criteria :t_project/inclusion_criteria
-                 {:t_project/administrator_user [:t_user/id]}
-                 :t_project/address1 :t_project/address2
-                 :t_project/address3 :t_project/address4
-                 :t_project/postcode
-                 :t_project/ethics
-                 {:t_project/parent_project [:t_project/id]}
-                 :t_project/virtual :t_project/pseudonymous
-                 :t_project/can_own_equipment
-                 :t_project/specialty_concept_fk
-                 :t_project/advertise_to_all
-                 :t_project/care_plan_information
-                 :t_project/is_private]}
-  (when-let [p (rsdb/project-by-id rsdb project-id)]
-    (-> p
-        (assoc :t_project/administrator_user
-               (when-let [admin-user-id (:t_project/administrator_user_fk p)] {:t_user/id admin-user-id}))
-        (assoc :t_project/parent_project
-               (when-let [parent-project-id (:t_project/parent_project_fk p)]
-                 {:t_project/id parent-project-id})))))
+  {::pco/output
+   [:t_project/id :t_project/name
+    :t_project/title :t_project/long_description
+    :t_project/type :t_project/home_page
+    :t_project/date_from :t_project/date_to
+    :t_project/exclusion_criteria :t_project/inclusion_criteria
+    :t_project/address1 :t_project/address2
+    :t_project/address3 :t_project/address4
+    :t_project/postcode
+    :t_project/ethics
+    {:t_project/parent_project [:t_project/id]}
+    :t_project/virtual :t_project/pseudonymous
+    :t_project/can_own_equipment
+    :t_project/specialty_concept_fk
+    {:t_project/specialty_concept [:info.snomed.Concept/id]}
+    :t_project/advertise_to_all
+    :t_project/care_plan_information
+    :t_project/is_private]}
+  (when-let [{:t_project/keys [administrator_user_fk parent_project_fk specialty_concept_fk] :as p}
+             (rsdb/project-by-id rsdb project-id)]
+    (assoc p
+      :t_project/administrator_user
+      (when administrator_user_fk {:t_user/id administrator_user_fk})
+      :t_project/parent_project
+      (when parent_project_fk {:t_project/id parent_project_fk})
+      :t_project/specialty_concept
+      (when specialty_concept_fk {:info.snomed.Concept/id specialty_concept_fk}))))
 
 (pco/defresolver project->count_registered_patients         ;; TODO: should include child projects?
   [{rsdb :com.eldrix/rsdb} {project-id :t_project/id}]
@@ -1324,7 +1314,6 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
-  [{rsdb    :com.eldrix/rsdb :as env} {:keys [project-id nhs-number] :as params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/project_fk]}
