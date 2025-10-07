@@ -194,7 +194,7 @@
   (let [get-conf (requiring-resolve 'pc4.config.interface/config)
         conf (get-conf :dev)]
     (ig/load-namespaces conf [::server])
-    (ig/expand conf (ig/deprofile :dev))))
+    (ig/expand conf (ig/deprofile [:dev]))))
 
 (defn system []
   (var-get (requiring-resolve 'integrant.repl.state/system)))
