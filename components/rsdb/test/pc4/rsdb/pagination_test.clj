@@ -1,9 +1,9 @@
 (ns pc4.rsdb.pagination-test
   (:require [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
+            [pc4.rsdb.helper :as helper]
             [pc4.rsdb.pagination :as p]
             [clojure.test :refer [deftest testing is]]
-            [clojure.spec.alpha :as s]
             [clojure.test.check.generators :as gen]))
 
 
@@ -156,20 +156,20 @@
       (is (= [] (:results result)))
       (is (nil? (:next-cursor result))))))
 
-(deftest execute-paginated-integration-test
+(deftest ^:live execute-paginated-integration-test
   (testing "execute-paginated! with generated test data"
-    (let [conn (jdbc/get-connection "jdbc:postgresql:rsdb")
+    (let [ds (helper/get-dev-datasource)
           query {:select [:*] :from [[[:generate_series 1 100] :id]]}
           sort-columns [[:id :asc]]
           opts {:limit 10 :builder-fn rs/as-unqualified-maps}
 
-          page1 (p/execute-paginated! conn query sort-columns opts)]
+          page1 (p/execute-paginated! ds query sort-columns opts)]
 
       (is (= 10 (count (:results page1))))
       (is (= (range 1 11) (map :id (:results page1))))
       (is (some? (:next-cursor page1)))
 
-      (let [page2 (p/execute-paginated! conn query sort-columns
+      (let [page2 (p/execute-paginated! ds query sort-columns
                                         (assoc opts :cursor (:next-cursor page1)))]
         (is (= 10 (count (:results page2))))
         (is (= (range 11 21) (map :id (:results page2))))))))

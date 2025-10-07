@@ -4,6 +4,7 @@
             [clojure.spec.test.alpha :as stest]
             [clojure.spec.gen.alpha :as gen]
             [next.jdbc :as jdbc]
+            [pc4.rsdb.helper :as helper]
             [pc4.rsdb.projects :as projects]
             [pc4.rsdb.results :as results :refer [parse-count-lesions parse-change-lesions]])
   (:import (java.time LocalDate)
@@ -13,13 +14,9 @@
 (def ^:dynamic *conn* nil)
 (def ^:dynamic *patient* nil)
 
-(def test-db-connection-spec
-  "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "rsdb"})
-
 (defn with-patient
   [f]
-  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
+  (with-open [conn (jdbc/get-connection (helper/get-dev-datasource))]
     (jdbc/with-transaction [txn conn {:rollback-only true :isolation :serializable}]
       (if-let [patient (projects/create-patient! txn {:t_patient/sex         "MALE"
                                                       :t_patient/date_birth  (LocalDate/of 1980 1 1)
@@ -75,7 +72,7 @@
           :t_result_mri_brain/change_t2_hyperintense                         "+2"
           :t_result_mri_brain/has_gad_enhancing_lesions                      nil})))
 
-(deftest save-mri-brain-with-annotations
+(deftest ^:live save-mri-brain-with-annotations
   (let [conn *conn*
         patient *patient*]
     (let [date (LocalDate/of 2020 1 1)
@@ -97,7 +94,7 @@
       (is (= (:t_result_mri_brain/report data) (:t_result_mri_brain/report result) (:t_result_mri_brain/report fetched)))
       (is (= (:t_result_mri_brain/total_t2_hyperintense data) (:t_result_mri_brain/total_t2_hyperintense result) (:t_result_mri_brain/total_t2_hyperintense fetched))))))
 
-(deftest save-mri-brain-without-annotations
+(deftest ^:live save-mri-brain-without-annotations
   (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
@@ -108,7 +105,7 @@
                                         :t_result_mri_brain/user_fk         1
                                         :t_result_mri_brain/patient_fk      (:t_patient/id patient)})])))
 
-(deftest save-and-update-brain
+(deftest ^:live save-and-update-brain
   (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
@@ -123,7 +120,7 @@
       (is (= (:t_result/id updated) (:t_result/id result)))
       (is (= (:t_result_mri_brain/id updated) (:t_result_mri_brain/id result))))))
 
-(deftest save-full-blood-count
+(deftest ^:live save-full-blood-count
   (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 4)
@@ -135,7 +132,7 @@
     (is (= 24 (:t_result_type/id fetched)))
     (is (= "ResultFullBloodCount" (:t_result_type/result_entity_name fetched)))))
 
-(deftest save-and-update-ecg
+(deftest ^:live save-and-update-ecg
   (let [conn *conn*
         patient *patient*]
     (let [result (results/save-result! conn
@@ -149,7 +146,7 @@
       (is (= (:t_result/id updated) (:t_result/id result)))
       (is (= (:t_result_ecg/id updated) (:t_result_ecg/id result))))))
 
-(deftest invalid-mri-brain-annotations
+(deftest ^:live invalid-mri-brain-annotations
   (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 6)
@@ -179,7 +176,7 @@
                                                                        :t_result_mri_brain/change_t2_hyperintense      "+2"
                                                                        :t_result_mri_brain/multiple_sclerosis_summary  "TYPICAL"}))))))
 
-(deftest ^:live save-thyroid-function
+(deftest ^:live ^:live save-thyroid-function
   (let [conn *conn*
         patient *patient*
         date (LocalDate/of 2020 1 7)

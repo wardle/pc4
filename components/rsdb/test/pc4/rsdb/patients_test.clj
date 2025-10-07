@@ -6,6 +6,7 @@
             [next.jdbc :as jdbc]
             [next.jdbc.sql :as sql]
             [pc4.rsdb.forms :as forms]
+            [pc4.rsdb.helper :as helper]
             [pc4.rsdb.patients :as patients]
             [pc4.rsdb.projects :as projects])
   (:import (java.time LocalDate)))
@@ -14,17 +15,13 @@
 (def ^:dynamic *conn* nil)
 (def ^:dynamic *patient* nil)
 
-(def test-db-connection-spec
-  "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "rsdb"})
-
 (def patient
   {:salt       "1" :user-id 1 :project-id 1
    :nhs-number "9999999999" :sex :MALE :date-birth (LocalDate/of 1980 1 1)})
 
 (defn with-patient
   [f]
-  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
+  (with-open [conn (jdbc/get-connection (helper/get-dev-datasource))]
     (jdbc/with-transaction [txn conn {:rollback-only true :isolation :serializable}]
       (let [patient (projects/register-legacy-pseudonymous-patient txn patient)]
         (binding [*conn* txn
@@ -33,10 +30,10 @@
 
 (use-fixtures :each with-patient)
 
-(deftest test-patient
+(deftest ^:live test-patient
   (is (= (:t_patient/nhs_number *patient*) (:nhs-number patient))))
 
-(deftest test-create-medication
+(deftest ^:live test-create-medication
   (let [med (patients/upsert-medication! *conn* {:t_medication/patient_fk            (:t_patient/id *patient*)
                                                  :t_medication/medication_concept_fk 774459007 ;; alemtuzumab
                                                  :t_medication/as_required           true
@@ -54,7 +51,7 @@
       (patients/delete-medication! *conn* med')
       (is (empty? (patients/fetch-medications *conn* *patient*))))))
 
-(deftest test-medication-with-events
+(deftest ^:live test-medication-with-events
   (let [events [{:t_medication_event/type             :ADVERSE_EVENT
                  :t_medication_event/event_concept_fk 19307009}
                 {:t_medication_event/type     :INFUSION_REACTION
@@ -90,7 +87,7 @@
       (patients/delete-medication! *conn* med4)
       (is (= 0 (count (patients/fetch-medications-and-events *conn* *patient*)))))))
 
-(deftest test-encounter-forms
+(deftest ^:live test-encounter-forms
   (let [patient
         *patient*
         ;; create a suitable encounter template for our test
@@ -215,7 +212,7 @@
        {:duplicates duplicated-form-types
         :completed  completed-forms})))
 
-(deftest test-all-forms
+(deftest ^:live test-all-forms
   (let [patient
         *patient*
         ;; create a suitable encounter template for our test
@@ -249,7 +246,7 @@
 
     #_(clojure.pprint/pprint afs)))
 
-(deftest test-search
+(deftest ^:live test-search
   (let [patient *patient*
         conn *conn*
         patient-pk (:t_patient/id patient)
@@ -264,6 +261,66 @@
     (is (= 1 (:count (first (patients/search conn (assoc opts :s "duck" :project-ids [1] :query {:select :%count.* :from :t_patient}))))))
     (is (= 0 (:count (first (patients/search conn (assoc opts :s "duck" :project-ids [5] :query {:select :%count.* :from :t_patient}))))))
     (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "duck" :address? true))))))))
+
+(deftest test-authority->provider-lookup
+  (is (= {:provider-id :wales-empi
+          :system      "https://fhir.nhs.uk/Id/nhs-number"
+          :value       "1111111111"}
+         (patients/authority->provider-lookup
+          {:t_patient/authoritative_demographics :EMPI
+           :t_patient/nhs_number                 "1111111111"
+           :t_patient/patient_hospitals          []}))
+      "EMPI authority should use NHS number")
+
+  (is (= {:provider-id :wales-cav-pms
+          :system      "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+          :value       "A999998"}
+         (patients/authority->provider-lookup
+          {:t_patient/authoritative_demographics :CAVUHB
+           :t_patient/nhs_number                 "1111111111"
+           :t_patient/patient_hospitals          [{:t_patient_hospital/authoritative      true
+                                                    :t_patient_hospital/patient_identifier "A999998"
+                                                    :t_patient_hospital/hospital_fk        "RWMBV"}]}))
+      "CAVUHB authority should use authoritative CRN when available")
+
+  (is (= {:provider-id :wales-cav-pms
+          :system      "https://fhir.nhs.uk/Id/nhs-number"
+          :value       "1111111111"}
+         (patients/authority->provider-lookup
+          {:t_patient/authoritative_demographics :CAVUHB
+           :t_patient/nhs_number                 "1111111111"
+           :t_patient/patient_hospitals          [{:t_patient_hospital/authoritative      false
+                                                    :t_patient_hospital/patient_identifier "A999998"
+                                                    :t_patient_hospital/hospital_fk        "RWMBV"}]}))
+      "CAVUHB authority should fall back to NHS number if no authoritative CRN")
+
+  (is (nil? (patients/authority->provider-lookup
+             {:t_patient/authoritative_demographics :CAVUHB
+              :t_patient/nhs_number                 nil
+              :t_patient/patient_hospitals          [{:t_patient_hospital/authoritative      false
+                                                       :t_patient_hospital/patient_identifier "A999998"
+                                                       :t_patient_hospital/hospital_fk        "RWMBV"}]}))
+      "CAVUHB authority should return nil if no authoritative CRN and no NHS number")
+
+  (is (nil? (patients/authority->provider-lookup
+             {:t_patient/authoritative_demographics :LOCAL
+              :t_patient/nhs_number                 "1111111111"
+              :t_patient/patient_hospitals          []}))
+      "LOCAL authority should return nil")
+
+  (is (nil? (patients/authority->provider-lookup
+             {:t_patient/authoritative_demographics :EMPI
+              :t_patient/nhs_number                 nil
+              :t_patient/patient_hospitals          []}))
+      "EMPI authority should return nil if no NHS number")
+
+  (is (nil? (patients/authority->provider-lookup
+             {:t_patient/authoritative_demographics :ABUHB
+              :t_patient/nhs_number                 "1111111111"
+              :t_patient/patient_hospitals          [{:t_patient_hospital/authoritative      true
+                                                       :t_patient_hospital/patient_identifier "X123456"
+                                                       :t_patient_hospital/hospital_fk        "RVFAR"}]}))
+      "Unsupported authority (ABUHB) should return nil"))
 
 (comment
   (def encounter-id 1))

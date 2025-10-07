@@ -13,21 +13,16 @@
 (stest/instrument)
 (def ^:dynamic *conn* nil)
 
-(def test-db-connection-spec
-  "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "rsdb"})
-
 (defn with-conn
   [f]
-  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
-    (jdbc/with-transaction
-      [txn conn {:rollback-only true :isolation :serializable}]
+  (let [ds (pc4.rsdb.helper/get-dev-datasource)]
+    (jdbc/with-transaction [txn ds {:rollback-only true :isolation :serializable}]
       (binding [*conn* txn]
         (f)))))
 
 (use-fixtures :each with-conn)
 
-(deftest test-stores
+(deftest ^:live test-stores
   (let [store (pc4.rsdb.nform.api/make-form-store *conn*)
         encounter-ids (map :t_encounter/id (rsdb/patient->encounters {:conn *conn*} 14032))
         form-gen (form/gen-form {:mode :insert, :using {:patient_fk   14032 :user_fk 1 :encounter_fk (rand-nth encounter-ids)}})

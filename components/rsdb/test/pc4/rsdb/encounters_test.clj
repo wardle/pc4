@@ -4,15 +4,16 @@
     [clojure.spec.alpha :as s]
     [honey.sql :as sql]
     [next.jdbc :as jdbc]
-    [pc4.rsdb.encounters :as encounters] ))
+    [pc4.rsdb.encounters :as encounters]
+    [pc4.rsdb.helper :as helper]))
 
-(deftest sql-execution-test
+(deftest ^:live sql-execution-test
   (testing "All generated parameter combinations produce executable SQL"
-    (let [conn (jdbc/get-connection "jdbc:postgresql:rsdb")
+    (let [ds (helper/get-dev-datasource)
           exercises (s/exercise-fn `encounters/q-encounters 100)]
       (doseq [[[params] query] exercises]
         (try
-          (jdbc/execute! conn (sql/format query))
+          (jdbc/execute! ds (sql/format query))
           (is true)
           (catch Exception e
             (is false (str "SQL execution failed for params: " params 

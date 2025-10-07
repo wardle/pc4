@@ -2,6 +2,7 @@
   (:require [clojure.spec.test.alpha :as stest]
             [clojure.test :refer [deftest use-fixtures is]]
             [next.jdbc :as jdbc]
+            [pc4.rsdb.helper :as helper]
             [pc4.rsdb.projects :as projects])
   (:import (java.time LocalDate)))
 
@@ -9,24 +10,20 @@
 (def ^:dynamic *conn* nil)
 (def ^:dynamic *patient* nil)
 
-(def test-db-connection-spec
-  "Database connection specification for tests."
-  {:dbtype "postgresql" :dbname "rsdb"})
-
 (defn with-conn
   [f]
-  (with-open [conn (jdbc/get-connection test-db-connection-spec)]
+  (with-open [conn (jdbc/get-connection (helper/get-dev-datasource))]
     (jdbc/with-transaction [txn conn {:rollback-only true :isolation :serializable}]
       (binding [*conn* txn]
         (f)))))
 
 (use-fixtures :each with-conn)
 
-(deftest fetch-project
+(deftest ^:live fetch-project
   (let [project (projects/project-with-name *conn* "LEGACYMS")]
     (is (= "LEGACYMS" (:t_project/name project)))))
 
-(deftest register-legacy-pseudonymous-patient
+(deftest ^:live register-legacy-pseudonymous-patient
   (let [pt {:salt "1" :user-id 1 :project-id 1
             :nhs-number "9999999999" :sex :MALE :date-birth (LocalDate/of 1980 1 1)}
         pt1 (projects/register-legacy-pseudonymous-patient *conn* pt)
