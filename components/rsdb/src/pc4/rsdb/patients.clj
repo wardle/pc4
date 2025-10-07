@@ -11,10 +11,12 @@
     [next.jdbc :as jdbc]
     [next.jdbc.plan :as plan]
     [next.jdbc.sql]
+    [pc4.demographic.interface :as demographic]
     [pc4.nhs-number.interface :as nhs-number]
     [pc4.ods.interface :as clods]
     [pc4.ods.interface :as ods]
     [pc4.rsdb.db :as db]
+    [pc4.rsdb.demographics :as demographics]
     [pc4.rsdb.projects :as projects]
     [pc4.rsdb.users :as users])
   (:import (java.time LocalDate LocalDateTime)
@@ -1312,6 +1314,214 @@
           (jdbc/execute-one! txn (sql/format {:delete-from [:t_death_certificate]
                                               :where       [:= :t_death_certificate/patient_fk patient-pk]}))
           (dissoc patient' :t_patient/death_certificate)))))
+
+(defn authority->provider-lookup
+  "Map patient's authoritative demographics configuration to demographic service provider lookup.
+
+  Returns a map with :provider-id, :system, and :value for querying the demographic service,
+  or nil if patient has no external demographic authority.
+
+  Parameters:
+  - patient: map with :t_patient/authoritative_demographics, :t_patient/nhs_number, :t_patient/patient_hospitals
+
+  Returns:
+  - {:provider-id :wales-empi, :system \"https://fhir.nhs.uk/Id/nhs-number\", :value \"1111111111\"}
+  - {:provider-id :wales-cav-pms, :system \"https://fhir.cavuhb.nhs.wales/Id/pas-identifier\", :value \"A999998\"}
+  - nil (for :LOCAL or unsupported authorities)"
+  [{:t_patient/keys [authoritative_demographics nhs_number patient_hospitals]}]
+  (case authoritative_demographics
+    :EMPI
+    (when nhs_number
+      {:provider-id :wales-empi
+       :system      "https://fhir.nhs.uk/Id/nhs-number"
+       :value       nhs_number})
+
+    :CAVUHB
+    (let [cav-hospital-fk "RWMBV"  ;; Cardiff and Vale UHB hospital identifier
+          cav-ph (first (filter (fn [{:t_patient_hospital/keys [authoritative hospital_fk]}]
+                                  (and authoritative (= cav-hospital-fk hospital_fk)))
+                                patient_hospitals))]
+      (cond
+        ;; If we have an authoritative CAV CRN, use that
+        cav-ph
+        {:provider-id :wales-cav-pms
+         :system      "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+         :value       (:t_patient_hospital/patient_identifier cav-ph)}
+
+        ;; Otherwise, if we have NHS number, use that
+        nhs_number
+        {:provider-id :wales-cav-pms
+         :system      "https://fhir.nhs.uk/Id/nhs-number"
+         :value       nhs_number}))
+
+    ;; :LOCAL or any other authority -> no external provider
+    nil))
+
+(defn fetch-patient-for-update
+  "Fetch patient with all data required for demographic update.
+   Returns patient map with :t_patient/addresses, :t_patient/telephones, :t_patient/patient_hospitals."
+  [conn patient-pk]
+  (assoc (db/execute-one! conn (sql/format {:select :* :from :t_patient :where [:= :id patient-pk]}))
+         :t_patient/addresses (db/execute! conn (sql/format {:select :* :from :t_address :where [:= :patient_fk patient-pk]}))
+         :t_patient/telephones (db/execute! conn (sql/format {:select :* :from :t_patient_telephone :where [:= :patient_fk patient-pk]}))
+         :t_patient/patient_hospitals (db/execute! conn (sql/format {:select :* :from :t_patient_hospital :where [:= :patient_fk patient-pk]}))))
+
+(defn update-patient-from-authority!
+  "Update patient demographics from their configured external authority.
+
+   Fetches patient data from the external demographic provider specified by the patient's
+   :t_patient/authoritative_demographics configuration, then updates the local database
+   with the latest information.
+
+   Parameters:
+   - conn: database connection
+   - demographic-svc: demographic service
+   - patient-pk: patient primary key
+
+   Returns:
+   - Updated patient map if successful
+   - nil if patient has no external authority or authority returns no data
+
+   Throws:
+   - ex-info if multiple patients returned from external provider
+   - ex-info if invalid data encountered"
+  [conn demographic-svc patient-pk]
+  (let [patient (fetch-patient-for-update conn patient-pk)
+        {:keys [provider-id system value]} (authority->provider-lookup patient)]
+
+    (if-not (and provider-id system value)
+      ;; No external authority configured
+      (do (log/debug "No external demographic authority configured" {:patient-pk patient-pk})
+          nil)
+
+      ;; Query external demographic service
+      (let [fhir-patients (demographic/patients-by-identifier
+                           demographic-svc system value {:provider-id provider-id})]
+        (cond
+          ;; No patient found from external provider
+          (nil? fhir-patients)
+          (do (log/warn "No patient found from external demographic provider"
+                        {:patient-pk patient-pk :provider-id provider-id :system system :value value})
+              nil)
+
+          ;; Multiple patients returned - should not happen with specific identifiers
+          (> (count fhir-patients) 1)
+          (throw (ex-info "Multiple patients returned from external demographic provider"
+                         {:patient-pk patient-pk
+                          :provider-id provider-id
+                          :system system
+                          :value value
+                          :count (count fhir-patients)}))
+
+          ;; Single patient found - proceed with update
+          :else
+          (let [fhir-patient (first fhir-patients)
+                sql-stmts (demographics/update-patient-from-fhir-sql patient fhir-patient)]
+            (when (seq sql-stmts)
+              (jdbc/with-transaction [txn conn]
+                (doseq [stmt sql-stmts]
+                  (db/execute! txn (sql/format stmt)))
+                ;; Update last updated timestamp
+                (db/execute! txn (sql/format {:update :t_patient
+                                              :set {:authoritative_last_updated (LocalDateTime/now)}
+                                              :where [:= :id patient-pk]}))
+                ;; Return updated patient
+                (fetch-patient-for-update txn patient-pk)))))))))
+
+(s/fdef create-patient-from-fhir!
+  :args (s/cat :txn ::db/repeatable-read-txn :fhir-patient :org.hl7.fhir/Patient))
+(defn create-patient-from-fhir!
+  "Create a new patient from FHIR Patient data.
+
+   This orchestrates the full patient creation sequence:
+   1. Fetch sequence values for patient and family IDs
+   2. Insert family record
+   3. Insert patient record
+   4. Insert related records (identifiers, telephones, addresses)
+
+   Parameters:
+   - txn: database connection in a repeatable read transaction
+   - fhir-patient: FHIR Patient structure
+
+   Returns:
+   The patient primary key
+
+   Throws:
+   - ex-info if not in repeatable read transaction
+   - ex-info if FHIR patient data is invalid"
+  [txn fhir-patient]
+  (when-not (db/repeatable-read-txn? txn)
+    (throw (ex-info "create-patient-from-fhir! must be performed within a repeatable read transaction" {})))
+  (when-not (s/valid? :org.hl7.fhir/Patient fhir-patient)
+    (throw (ex-info "Invalid FHIR patient data" (s/explain-data :org.hl7.fhir/Patient fhir-patient))))
+  ;; Step 1: Fetch sequences
+  (let [{:keys [patient_id family_id]} (db/execute-one! txn (sql/format (demographics/fetch-patient-sequences-sql)))]
+    ;; Step 2: Insert family
+    (db/execute! txn (sql/format (demographics/insert-family-sql family_id)))
+    ;; Step 3: Insert patient
+    (db/execute-one! txn (sql/format (demographics/insert-patient-sql patient_id family_id fhir-patient)))
+    ;; Step 4: Insert related records
+    (let [identifiers-sql (demographics/insert-patient-identifiers-sql patient_id fhir-patient)
+          telephones-sql (demographics/insert-patient-telephones-sql patient_id fhir-patient)
+          addresses-sql (demographics/insert-patient-addresses-sql patient_id fhir-patient)]
+      (doseq [stmt (concat identifiers-sql telephones-sql addresses-sql)]
+        (db/execute! txn (sql/format stmt))))
+    ;; Return patient primary key
+    patient_id))
+
+(s/fdef upsert-patient-from-fhir!
+  :args (s/cat :txn ::db/serializable-txn :fhir-patient :org.hl7.fhir/Patient))
+(defn upsert-patient-from-fhir!
+  "Create or update a patient from FHIR Patient data.
+
+   Tries to find an existing patient by identifiers (NHS number or hospital CRNs).
+   If exactly one match is found, updates the existing patient.
+   If no match is found, creates a new patient.
+   If multiple matches are found, throws an error.
+
+   Parameters:
+   - txn: database connection in a serializable transaction
+   - fhir-patient: FHIR Patient structure
+
+   Returns:
+   A map with:
+   - :patient-id - the patient primary key
+   - :created? - true if patient was created, false if updated
+
+   Throws:
+   - if not in serializable transaction
+   - if FHIR patient data is invalid
+   - if multiple patients match the identifiers"
+  [txn fhir-patient]
+  (when-not (db/serializable-txn? txn)
+    (throw (ex-info "upsert-patient-from-fhir! must be performed within a serializable transaction" {})))
+  (when-not (s/valid? :org.hl7.fhir/Patient fhir-patient)
+    (throw (ex-info "Invalid FHIR patient data" (s/explain-data :org.hl7.fhir/Patient fhir-patient))))
+
+  (let [matches (demographics/exact-match-by-identifier txn fhir-patient)]
+    (cond
+      ;; No existing patient found - create new
+      (empty? matches)
+      {:patient-id (create-patient-from-fhir! txn fhir-patient)
+       :created? true}
+
+      ;; Exactly one patient found - update
+      (= 1 (count matches))
+      (let [patient-pk (first matches)
+            patient (fetch-patient-for-update txn patient-pk)
+            sql-stmts (demographics/update-patient-from-fhir-sql patient fhir-patient)]
+        (when (seq sql-stmts)
+          (doseq [stmt sql-stmts]
+            (db/execute! txn (sql/format stmt))))
+        {:patient-id patient-pk
+         :created? false})
+
+      ;; Multiple patients found - ambiguous
+      :else
+      (throw (ex-info "Multiple patients match the given identifiers"
+                     {:fhir-patient fhir-patient
+                      :matching-patient-ids matches
+                      :count (count matches)})))))
 
 (comment
   (patient-identifier-for-ms-event conn 7563)

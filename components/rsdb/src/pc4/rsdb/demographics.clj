@@ -1,21 +1,30 @@
 (ns pc4.rsdb.demographics
-  "Update a patient record from external authoritative sources. The code here is
-  loosely based on legacy rsdb: https://github.com/wardle/rsdb/blob/master/RSNews/src/main/java/com/eldrix/rsdb/patient/PatientRegister.java
+  "Pure FHIR ↔ SQL transformation for patient demographic data.
 
-  The public API consists of
+  This namespace provides functions to:
+  - Generate SQL to create or update patient records from FHIR Patient structures
+  - Detect duplicate patients by identifier or demographic matching
+  - Transform between FHIR and database representations
 
-  - update-patient
-  This takes a database connection, a function that acts as a demographic
-  authority and existing patient data. There is no guarantee that the record
-  will be updated, as that depends on the patient's authoritative demographic
-  configuration, local system configuration and network connectivity."
+  All functions are pure - they generate SQL as data structures without executing
+  queries or calling external services. Service orchestration belongs in higher layers.
+
+  Public API:
+  - exact-match-by-identifier - find duplicates by NHS number or hospital CRN
+  - exact-match-on-demography - find duplicates by name, DOB, gender, address
+  - update-patient-from-fhir-sql - generate SQL to update existing patient from FHIR
+  - fetch-patient-sequences-sql - generate SQL to fetch patient and family sequence values
+  - insert-family-sql - generate SQL to insert family record
+  - insert-patient-sql - generate SQL to insert patient record (requires sequence values)
+  - insert-patient-identifiers-sql - generate SQL to insert hospital identifiers
+  - insert-patient-telephones-sql - generate SQL to insert telephone numbers
+  - insert-patient-addresses-sql - generate SQL to insert addresses"
   (:require
    [clojure.set :as set]
    [clojure.spec.alpha :as s]
    [clojure.string :as str]
    [pc4.fhir.interface :as fhir]
    [pc4.nhspd.interface :as postcode]
-   [pc4.rsdb.db :as db]
    [honey.sql :as sql]
    [next.jdbc :as jdbc])
   (:import
@@ -239,13 +248,11 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(s/fdef update-patient-sql
-  :args (s/cat :existing-patient (s/keys :req [:t_patient/id]) :fhir-patient :org.hl7.fhir/Patient))
-(defn ^:private update-patient-sql
-  "Generate SQL as data structures to update :t_patient based on
-  `fhir-patient`."
-  [{patient-pk :t_patient/id} fhir-patient]
-  (let [human-name (first (:org.hl7.fhir.Patient/name fhir-patient))
+(defn ^:private fhir-patient->t_patient-values
+  "Extract database values from a FHIR Patient structure.
+   Returns a map suitable for INSERT or UPDATE of t_patient table."
+  [fhir-patient]
+  (let [human-name (fhir/best-human-name (:org.hl7.fhir.Patient/name fhir-patient))
         birth-date (let [dob (:org.hl7.fhir.Patient/birthDate fhir-patient)]
                      (cond (instance? LocalDate dob) dob
                            (instance? LocalDateTime dob) (.toLocalDate ^LocalDateTime dob)))
@@ -256,26 +263,33 @@
         nhs-number (:org.hl7.fhir.Identifier/value (first (filter #(= "https://fhir.nhs.uk/Id/nhs-number" (:org.hl7.fhir.Identifier/system %)) (:org.hl7.fhir.Patient/identifier fhir-patient))))
         email (:org.hl7.fhir.ContactPoint/value (first (filter #(= "email" (:org.hl7.fhir.ContactPoint/system %)) (:org.hl7.fhir.Patient/telecom fhir-patient))))
         surgery-id (first (fhir/gp-surgery-identifiers fhir-patient))
-        gp-id (first (fhir/general-practitioner-identifiers fhir-patient))
-        set-map (cond-> {:sex                 (fhir-gender->rsdb-sex (:org.hl7.fhir.Patient/gender fhir-patient))
-                         :date_birth          birth-date
-                         :date_death          date-death
-                         :date_death_accuracy death-accuracy}
-                  human-name
-                  (assoc :first_names (str/join " " (:org.hl7.fhir.HumanName/given human-name))
-                         :last_name (:org.hl7.fhir.HumanName/family human-name)
-                         :title (str/join " " (:org.hl7.fhir.HumanName/prefix human-name)))
-                  nhs-number
-                  (assoc :nhs_number nhs-number)
-                  email
-                  (assoc :email email)
-                  surgery-id
-                  (assoc :surgery_fk (:org.hl7.fhir.Identifier/value surgery-id))
-                  gp-id
-                  (assoc :general_practitioner_fk (:org.hl7.fhir.Identifier/value gp-id)))]
-    [{:update :t_patient
-      :set    set-map
-      :where  [:= :id patient-pk]}]))
+        gp-id (first (fhir/general-practitioner-identifiers fhir-patient))]
+    (cond-> {:sex                 (fhir-gender->rsdb-sex (:org.hl7.fhir.Patient/gender fhir-patient))
+             :date_birth          birth-date
+             :date_death          date-death
+             :date_death_accuracy death-accuracy}
+      human-name
+      (assoc :first_names (str/join " " (:org.hl7.fhir.HumanName/given human-name))
+             :last_name (:org.hl7.fhir.HumanName/family human-name)
+             :title (str/join " " (:org.hl7.fhir.HumanName/prefix human-name)))
+      nhs-number
+      (assoc :nhs_number nhs-number)
+      email
+      (assoc :email email)
+      surgery-id
+      (assoc :surgery_fk (:org.hl7.fhir.Identifier/value surgery-id))
+      gp-id
+      (assoc :general_practitioner_fk (:org.hl7.fhir.Identifier/value gp-id)))))
+
+(s/fdef update-patient-sql
+  :args (s/cat :existing-patient (s/keys :req [:t_patient/id]) :fhir-patient :org.hl7.fhir/Patient))
+(defn ^:private update-patient-sql
+  "Generate SQL as data structures to update :t_patient based on
+  `fhir-patient`."
+  [{patient-pk :t_patient/id} fhir-patient]
+  [{:update :t_patient
+    :set    (fhir-patient->t_patient-values fhir-patient)
+    :where  [:= :id patient-pk]}])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -331,14 +345,29 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(s/fdef update-patient-from-external-sql
+(s/fdef update-patient-from-fhir-sql
   :args (s/cat :existing-patient (s/keys :req [:t_patient/id :t_patient/addresses
                                                :t_patient/telephones :t_patient/patient_hospitals])
                :fhir-patient :org.hl7.fhir/Patient))
-(defn ^:private update-patient-from-external-sql
-  "Generate SQL as Clojure data structures to update a patient based on data
-  from an external authority as pc4 FHIR data structures."
+(defn update-patient-from-fhir-sql
+  "Generate SQL as Clojure data structures to update a patient based on FHIR Patient data.
+
+  Returns a sequence of SQL statements (as Honey SQL data structures) to update:
+  - Core patient record (t_patient)
+  - Hospital identifiers (t_patient_hospital)
+  - Telephone numbers (t_patient_telephone)
+  - Addresses (t_address)
+
+  Parameters:
+  - existing-patient: map with :t_patient/id, :t_patient/addresses, :t_patient/telephones, :t_patient/patient_hospitals
+  - fhir-patient: FHIR Patient structure
+
+  Throws exception if inputs are invalid."
   [{patient-pk :t_patient/id, :t_patient/keys [addresses telephones patient_hospitals] :as patient} fhir-patient]
+  (when-not (s/valid? (s/keys :req [:t_patient/id :t_patient/addresses :t_patient/telephones :t_patient/patient_hospitals]) patient)
+    (throw (ex-info "Invalid patient data" (s/explain-data (s/keys :req [:t_patient/id :t_patient/addresses :t_patient/telephones :t_patient/patient_hospitals]) patient))))
+  (when-not (s/valid? :org.hl7.fhir/Patient fhir-patient)
+    (throw (ex-info "Invalid FHIR patient data" (s/explain-data :org.hl7.fhir/Patient fhir-patient))))
   (concat (update-patient-sql patient fhir-patient)
           (update-patient-identifiers-sql patient patient_hospitals fhir-patient)
           (update-patient-telephones-sql patient telephones fhir-patient)
@@ -367,140 +396,121 @@
     (boolean (seq (set/intersection ids-1 ids-2)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def ^:private patient-to-update-spec
-  (s/keys :req [:t_patient/id :t_patient/authoritative_demographics :t_patient/nhs_number]
-          :opt [:t_patient/patient_hospitals]))
-
-(defn ^:private update-patient-from-external-sql*
-  "Return a sequence of SQL statements (as Clojure data) to update patient data
-  based on data derived from an external authority.
-  Essentially the same as `update-patient-from-external-sql but with added
-  validation and additional options (e.g. `update-last-updated` and `match`."
-  [{patient-pk :t_patient/id :as patient} fhir-patient
-   {:keys [update-last-updated match] :or {update-last-updated true, match true}}]
-  (when-not (s/valid? patient-to-update-spec patient)
-    (throw (ex-info "invalid patient data" (s/explain-data patient-to-update-spec patient))))
-  (when-not (s/valid? :org.hl7.fhir/Patient fhir-patient)
-    (throw (ex-info "invalid patient data" (s/explain-data :org.hl7.fhir/Patient fhir-patient))))
-  (when (and match (not (matching-patient-identifiers? patient fhir-patient)))
-    (throw (ex-info "unable to update existing patient: no matching identifier"
-                    {:patient patient, :external (:org.hl7.fhir.Patient/identifier fhir-patient)})))
-  (cond-> (update-patient-from-external-sql patient fhir-patient)
-    update-last-updated
-    (conj {:update :t_patient :where [:= :id patient-pk]
-           :set    {:authoritative_last_updated (LocalDateTime/now)}})))
-
+;; INSERT functions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmulti demographic-authority
-  "For a given patient, return a map of :authority and :identifier that can be
-  used to fetch authoritative demographics. Identifier is a FHIR identifier.
-  This currently uses a model of demographic authorities as per legacy RSDB,
-  duplicating its functionality. This could potentially switch to using
-  different logic in the future. Not all patients have a demographic authority;
-  those patients are managed locally."
-  :t_patient/authoritative_demographics)
+(defn fetch-patient-sequences-sql
+  "Generate SQL to fetch next sequence values for patient and family.
+   Returns SQL that when executed will return a map with :patient_id and :family_id."
+  []
+  {:select [[[:nextval [:inline "t_patient_seq"]] :patient_id]
+            [[:nextval [:inline "t_family_seq"]] :family_id]]})
 
-(defmethod demographic-authority :EMPI
-  [{:t_patient/keys [nhs_number]}]
-  (when nhs_number
-    {:authority  :EMPI
-     :identifier {:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-                  :org.hl7.fhir.Identifier/value  nhs_number}}))
+(defn insert-family-sql
+  "Generate SQL to insert a family record.
+   Parameters:
+   - family-id: the family primary key (from sequence)"
+  [family-id]
+  {:insert-into :t_family
+   :values      [{:t_family/id                family-id
+                  :t_family/family_identifier (str family-id)}]})
 
-(defmethod demographic-authority :CAVUHB
-  [{:t_patient/keys [nhs_number patient_hospitals]}]
-  (let [cav-hospital-fk (get identifier-system->legacy-hospital "https://fhir.cavuhb.nhs.wales/Id/pas-identifier")
-        cav-ph (first (filter (fn [{:t_patient_hospital/keys [authoritative hospital_fk]}]
-                                (and authoritative (= cav-hospital-fk hospital_fk))) patient_hospitals))]
-    (cond
-      ;; if we have an authoritative CAV CRN, resolve against CAV as authority using that
-      cav-ph
-      {:authority  :CAVUHB
-       :identifier {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-                    :org.hl7.fhir.Identifier/value  (:t_patient_hospital/patient_identifier cav-ph)}}
-      ;; if not, and we have NHS number, resolve against CAV as authority using that
-      nhs_number
-      {:authority  :CAVUHB
-       :identifier {:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-                    :org.hl7.fhir.Identifier/value  nhs_number}})))
+(s/fdef insert-patient-sql
+  :args (s/cat :patient-id int? :family-id int? :fhir-patient :org.hl7.fhir/Patient))
+(defn insert-patient-sql
+  "Generate SQL to insert a new patient record from FHIR Patient data.
 
-(defmethod demographic-authority :default
-  [_]
-  nil)
+   Parameters:
+   - patient-id: the patient primary key (from sequence)
+   - family-id: the family primary key (from sequence)
+   - fhir-patient: FHIR Patient structure
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   Returns INSERT statement with RETURNING clause for the patient id.
 
-(defn ^:private fetch-from-authority
-  "Call demographic service if an authority can be identified, or returns nil
-  - demographic-service : a fn that takes an authority and FHIR identifier
-                          returning a FHIR representation of patient data
-  - patient             : existing patient data."
-  [demographic-service patient]
-  (when-let [{:keys [authority identifier]} (demographic-authority patient)]
-    (demographic-service authority identifier)))
+   Note: This replicates the legacy rsdb behavior where:
+   - patient_identifier defaults to the primary key value
+   - every patient must belong to a family (legacy genetic database requirement)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   Usage:
+   ```clojure
+   ;; 1. Fetch sequences
+   (let [{:keys [patient_id family_id]} (jdbc/execute-one! conn (sql/format (fetch-patient-sequences-sql)))
+         ;; 2. Insert family
+         _ (jdbc/execute! conn (sql/format (insert-family-sql family_id)))
+         ;; 3. Insert patient
+         result (jdbc/execute-one! conn (sql/format (insert-patient-sql patient_id family_id fhir-patient)))]
+     ...)
+   ```"
+  [patient-id family-id fhir-patient]
+  (let [patient-values (fhir-patient->t_patient-values fhir-patient)]
+    {:insert-into :t_patient
+     :values      [(assoc patient-values
+                          :t_patient/id patient-id
+                          :t_patient/patient_identifier patient-id
+                          :t_patient/family_fk family-id)]
+     :returning   [:id]}))
 
-(defn ^:private fetch-patient-for-update
-  [txn patient-pk]
-  (assoc (db/execute-one! txn (sql/format {:select :* :from :t_patient :where [:= :id patient-pk]}))
-         :t_patient/addresses (db/execute! txn (sql/format {:select :* :from :t_address :where [:= :patient_fk patient-pk]}))
-         :t_patient/telephones (db/execute! txn (sql/format {:select :* :from :t_patient_telephone :where [:= :patient_fk patient-pk]}))
-         :t_patient/patient_hospitals (db/execute! txn (sql/format {:select :* :from :t_patient_hospital :where [:= :patient_fk patient-pk]}))))
+(s/fdef insert-patient-identifiers-sql
+  :args (s/cat :patient-pk int? :fhir-patient :org.hl7.fhir/Patient))
+(defn insert-patient-identifiers-sql
+  "Generate SQL to insert hospital identifiers for a new patient.
+   Parameters:
+   - patient-pk: patient primary key
+   - fhir-patient: FHIR Patient structure"
+  [patient-pk fhir-patient]
+  (let [identifiers (:org.hl7.fhir.Patient/identifier fhir-patient)
+        to-insert (into [] (comp
+                            (filter #(supported-identifiers (:org.hl7.fhir.Identifier/system %)))
+                            (map #(vector patient-pk
+                                          (identifier-system->legacy-hospital (:org.hl7.fhir.Identifier/system %))
+                                          (:org.hl7.fhir.Identifier/value %))))
+                        identifiers)]
+    (when (seq to-insert)
+      [{:insert-into :t_patient_hospital
+        :columns     [:patient_fk :hospital_fk :patient_identifier]
+        :values      to-insert}])))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Public API
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(s/fdef insert-patient-telephones-sql
+  :args (s/cat :patient-pk int? :fhir-patient :org.hl7.fhir/Patient))
+(defn insert-patient-telephones-sql
+  "Generate SQL to insert telephone numbers for a new patient.
+   Parameters:
+   - patient-pk: patient primary key
+   - fhir-patient: FHIR Patient structure"
+  [patient-pk fhir-patient]
+  (let [telephones (->> (:org.hl7.fhir.Patient/telecom fhir-patient)
+                        (filter #(= "phone" (:org.hl7.fhir.ContactPoint/system %))))]
+    (when (seq telephones)
+      [{:insert-into :t_patient_telephone
+        :columns     [:patient_fk :telephone :description]
+        :values      (mapv #(vector patient-pk
+                                    (:org.hl7.fhir.ContactPoint/value %)
+                                    (:org.hl7.fhir.ContactPoint/system %))
+                           telephones)}])))
 
-(s/fdef update-patient
-  :args (s/cat :conn any? :demographic-service fn?, :patient map? :opts (s/? map?)))
-(defn update-patient
-  "Returns a sequence of Clojure data structures representing the SQL necessary
-  to update the given patient using data from an  external authority. The
-  authority is determined automatically, and when available, used to update
-  the patient. Returns nil if no update possible.
-
-  Parameters:
-  - conn : a database connection; needed only if refetch needed so can be nil
-  - demographic-service : a function that, given an authority and identifier can
-                          return a FHIR representation of patient data, or nil
-  - patient : existing patient data - including
-       - :t_patient/id
-       - :t_patient/authoritative_demographics
-       - :t_patient/nhs_number
-       - :t_patient/patient_hospitals
-       - :t_patient/addresses
-       - :t_patient/telephones
-     If the existing patient data is insufficient, a refetch will be performed
-  - opts : options map, including:
-      - :refetch : force a refetch patient data prior to update
-      - :match   : check that at least one identifier matches, default true"
-  ([conn demographic-service patient]
-   (update-patient conn demographic-service patient {}))
-  ([conn demographic-service {patient-pk :t_patient/id, :as patient} {:keys [refetch] :or {refetch false} :as opts}]
-   (let [patient'
-         (cond
-           ;; refresh patient data before updating if requested
-           refetch (fetch-patient-for-update conn patient-pk)
-           ;; if the caller has provided only patient-pk, fetch required data
-           (and patient-pk (= 1 (count patient))) (fetch-patient-for-update conn patient-pk)
-           ;; if the caller knows what they are doing, use that data
-           (s/valid? patient-to-update-spec patient) patient
-           :else
-           (throw (ex-info "Invalid patient data; provide either only primary key or valid data"
-                           (s/explain-data patient-to-update-spec patient))))]
-     (when-let [fhir-patient (fetch-from-authority demographic-service patient')]
-       (update-patient-from-external-sql* patient' fhir-patient opts)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(s/fdef insert-patient-addresses-sql
+  :args (s/cat :patient-pk int? :fhir-patient :org.hl7.fhir/Patient))
+(defn insert-patient-addresses-sql
+  "Generate SQL to insert addresses for a new patient.
+   Parameters:
+   - patient-pk: patient primary key
+   - fhir-patient: FHIR Patient structure"
+  [patient-pk fhir-patient]
+  (let [addresses (map fhir-address->t_address (:org.hl7.fhir.Patient/address fhir-patient))]
+    (when (seq addresses)
+      [{:insert-into :t_address
+        :values      (mapv #(assoc % :patient_fk patient-pk :ignore_invalid_address true) addresses)}])))
 
 (comment
   (def conn (jdbc/get-connection {:dbtype "postgresql" :dbname "rsdb"}))
 
-  (update-patient
-   nil
+  (update-patient-sql
+    {:t_patient/id                         1
+     :t_patient/nhs_number                 "1111111111"
+     :t_patient/authoritative_demographics :EMPI
+     :t_patient/patient_hospitals          []
+     :t_patient/addresses                  []
+     :t_patient/telephones                 []}
    (fn [auth identifier]
      {:org.hl7.fhir.Patient/gender              "female"
       :org.hl7.fhir.Patient/address             []
@@ -515,13 +525,7 @@
       :org.hl7.fhir.Patient/active              true
       :org.hl7.fhir.Patient/birthDate           (LocalDate/of 1990 1 1)
       :org.hl7.fhir.Patient/identifier          [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-                                                  :org.hl7.fhir.Identifier/value  "1111111111"}]})
-   {:t_patient/id                         1
-    :t_patient/nhs_number                 "1111111111"
-    :t_patient/authoritative_demographics :EMPI
-    :t_patient/patient_hospitals          []
-    :t_patient/addresses                  []
-    :t_patient/telephones                 []})
+                                                  :org.hl7.fhir.Identifier/value  "1111111111"}]}))
 
   (fetch-patient-for-update conn 1001)
   (require '[com.eldrix.concierge.wales.empi :as empi])

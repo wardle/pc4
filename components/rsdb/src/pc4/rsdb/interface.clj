@@ -35,10 +35,11 @@
 (s/def ::wales-nadex nadex/valid-service?)
 (s/def ::hermes any?)
 (s/def ::ods ods/valid-service?)
+(s/def ::demographic any?)
 (s/def ::legacy-global-pseudonym-salt string?)
 
 (s/def ::service-config
-  (s/keys :req-un [::conn ::wales-nadex ::hermes ::ods ::legacy-global-pseudonym-salt]))
+  (s/keys :req-un [::conn ::wales-nadex ::hermes ::ods ::demographic ::legacy-global-pseudonym-salt]))
 
 (defmethod ig/init-key ::conn
   [_ config]
@@ -440,11 +441,17 @@
 (defn exact-match-on-demography [{:keys [conn]} fhir-patient]
   (demog/exact-match-on-demography conn fhir-patient))
 
-(defn update-patient
-  ([{:keys [conn]} demographic-service patient]
-   (demog/update-patient conn demographic-service patient))
-  ([{:keys [conn]} demographic-service patient opts]
-   (demog/update-patient conn demographic-service patient opts)))
+;; demographic updates
+(defn update-patient-from-authority! [{:keys [conn demographic]} patient-pk]
+  (patients/update-patient-from-authority! conn demographic patient-pk))
+
+(defn create-patient-from-fhir! [{:keys [conn]} fhir-patient]
+  (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+    (patients/create-patient-from-fhir! txn fhir-patient)))
+
+(defn upsert-patient-from-fhir! [{:keys [conn]} fhir-patient]
+  (jdbc/with-transaction [txn conn {:isolation :serializable}]
+    (patients/upsert-patient-from-fhir! txn fhir-patient)))
 
 (defn patient->results [{:keys [conn]} patient-identifier]
   (results/results-for-patient conn patient-identifier))

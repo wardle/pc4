@@ -1,14 +1,36 @@
 (ns pc4.demographic.interface
   "A demographic service is an opaque provider of demographic information. "
-  (:require [integrant.core :as ig]
+  (:require [clojure.spec.alpha :as s]
+            [integrant.core :as ig]
             [pc4.demographic.synthetic :as synth]
             [pc4.demographic.protos :as p]
             [pc4.wales-cav-pms.interface :as cavpms]
             [pc4.wales-empi.interface :as empi]
             [pc4.log.interface :as log]))
 
+;; Configuration specs
+(s/def ::system string?)
+(s/def ::id keyword?)
+(s/def ::title string?)
+(s/def ::svc #(satisfies? p/PatientsByIdentifier %))
+(s/def ::systems (s/coll-of ::system :kind set? :min-count 1))
+(s/def ::remote boolean?)
+
+(s/def ::provider
+  (s/keys :req-un [::id ::title ::svc]
+          :opt-un [::systems ::remote]))
+
+(s/def ::providers
+  (s/coll-of ::provider :kind vector? :min-count 1))
+
+(s/def ::config
+  (s/keys :req-un [::providers]))
+
 (defmethod ig/init-key ::svc
   [_ {:keys [providers] :as config}]
+  (when-not (s/valid? ::config config)
+    (throw (ex-info "Invalid demographic service configuration"
+                    (s/explain-data ::config config))))
   (log/info "creating demographic service with " (count providers) " providers")
   config)
 

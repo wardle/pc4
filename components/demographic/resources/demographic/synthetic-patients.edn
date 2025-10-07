@@ -1,172 +1,422 @@
-;; Synthetic FHIR Patient data for development and testing
-;; Dates are stored as strings and parsed to java.time.LocalDate when loaded
+;; Synthetic FHIR Patient data with versioned demographics
+;; Each patient has multiple versions to test create/update workflows
+;; Structure: [{:versions {1 {:fhir {...} :db {...}} 2 {:fhir {...} :db {...}} ...}}]
+;; Dates in FHIR are strings (parsed to LocalDate when loaded)
+;; :db maps show expected database state after processing that version's :fhir
 
-[{:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "1111111111"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999998"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Smith"
-    :org.hl7.fhir.HumanName/given  ["John" "Michael"]
-    :org.hl7.fhir.HumanName/prefix ["Mr"]}]
-  :org.hl7.fhir.Patient/gender    "male"
-  :org.hl7.fhir.Patient/birthDate "1975-03-15"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["123 Test Street"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 1AA"}]}
+[;; Patient 1: John Smith - demonstrates title change, address move, phone addition
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "1111111111"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999998"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Smith"
+               :org.hl7.fhir.HumanName/given  ["John" "Michael"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1975-03-15"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["123 Test Street"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 1AA"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "John Michael"
+            :last_name   "Smith"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "1111111111"
+            :date_birth  "1975-03-15"
+            :addresses   [{:address1 "123 Test Street"
+                           :address2 "Cardiff"
+                           :address3 ""
+                           :address4 "GB"
+                           :postcode_raw "CF99 1AA"}]
+            :telephones  []
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999998"}]}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "2222222222"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999997"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Jones"
-    :org.hl7.fhir.HumanName/given  ["Sarah" "Elizabeth"]
-    :org.hl7.fhir.HumanName/prefix ["Mrs"]}]
-  :org.hl7.fhir.Patient/gender    "female"
-  :org.hl7.fhir.Patient/birthDate "1982-07-22"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["456 Sample Avenue"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 2BB"}]}
+   2 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "1111111111"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999998"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Smith"
+               :org.hl7.fhir.HumanName/given  ["John" "Michael"]
+               :org.hl7.fhir.HumanName/prefix ["Dr"]}]  ; Changed: Mr → Dr
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1975-03-15"
+             :org.hl7.fhir.Patient/telecom
+             [{:org.hl7.fhir.ContactPoint/system "phone"            ; Added phone
+               :org.hl7.fhir.ContactPoint/value  "02920 123456"
+               :org.hl7.fhir.ContactPoint/use    "home"}]
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["456 New Street"]  ; Changed address
+               :org.hl7.fhir.Address/city       "Newport"           ; Changed city
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "NP20 1AA"}]        ; Changed postcode
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "John Michael"
+            :last_name   "Smith"
+            :title       "Dr"
+            :sex         :MALE
+            :nhs_number  "1111111111"
+            :date_birth  "1975-03-15"
+            :addresses   [{:address1 "456 New Street"
+                           :address2 "Newport"
+                           :address3 ""
+                           :address4 "GB"
+                           :postcode_raw "NP20 1AA"}]
+            :telephones  [{:telephone "02920 123456" :description "phone"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999998"}]}}}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "3333333333"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999996"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Williams"
-    :org.hl7.fhir.HumanName/given  ["David" "Gareth"]
-    :org.hl7.fhir.HumanName/prefix ["Mr"]}]
-  :org.hl7.fhir.Patient/gender    "male"
-  :org.hl7.fhir.Patient/birthDate "1968-11-30"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["789 Demo Lane"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 3CC"}]}
+ ;; Patient 2: Sarah Jones - demonstrates email addition
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "2222222222"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999997"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Jones"
+               :org.hl7.fhir.HumanName/given  ["Sarah" "Elizabeth"]
+               :org.hl7.fhir.HumanName/prefix ["Mrs"]}]
+             :org.hl7.fhir.Patient/gender    "female"
+             :org.hl7.fhir.Patient/birthDate "1982-07-22"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["456 Sample Avenue"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 2BB"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Sarah Elizabeth"
+            :last_name   "Jones"
+            :title       "Mrs"
+            :sex         :FEMALE
+            :nhs_number  "2222222222"
+            :date_birth  "1982-07-22"
+            :email       nil
+            :addresses   [{:address1     "456 Sample Avenue"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 2BB"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999997"}]}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "4444444444"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999995"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Evans"
-    :org.hl7.fhir.HumanName/given  ["Margaret" "Ann"]
-    :org.hl7.fhir.HumanName/prefix ["Dr"]}]
-  :org.hl7.fhir.Patient/gender    "female"
-  :org.hl7.fhir.Patient/birthDate "1990-05-18"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["101 Example Road"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 4DD"}]}
+   2 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "2222222222"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999997"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Jones"
+               :org.hl7.fhir.HumanName/given  ["Sarah" "Elizabeth"]
+               :org.hl7.fhir.HumanName/prefix ["Mrs"]}]
+             :org.hl7.fhir.Patient/gender    "female"
+             :org.hl7.fhir.Patient/birthDate "1982-07-22"
+             :org.hl7.fhir.Patient/telecom
+             [{:org.hl7.fhir.ContactPoint/system "email"
+               :org.hl7.fhir.ContactPoint/value  "sarah.jones@example.com"
+               :org.hl7.fhir.ContactPoint/use    "home"}]
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["456 Sample Avenue"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 2BB"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Sarah Elizabeth"
+            :last_name   "Jones"
+            :title       "Mrs"
+            :sex         :FEMALE
+            :nhs_number  "2222222222"
+            :date_birth  "1982-07-22"
+            :email       "sarah.jones@example.com"  ; Added
+            :addresses   [{:address1     "456 Sample Avenue"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 2BB"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999997"}]}}}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "5555555555"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999994"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Davies"
-    :org.hl7.fhir.HumanName/given  ["Thomas" "Hywel"]
-    :org.hl7.fhir.HumanName/prefix ["Mr"]}]
-  :org.hl7.fhir.Patient/gender    "male"
-  :org.hl7.fhir.Patient/birthDate "1955-09-08"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["202 Placeholder Close"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 5EE"}]}
+ ;; Patient 3: David Williams - demonstrates additional identifier and address with dates
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "3333333333"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999996"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Williams"
+               :org.hl7.fhir.HumanName/given  ["David" "Gareth"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1968-11-30"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["789 Demo Lane"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 3CC"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "David Gareth"
+            :last_name   "Williams"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "3333333333"
+            :date_birth  "1968-11-30"
+            :addresses   [{:address1     "789 Demo Lane"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 3CC"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999996"}]}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "6666666666"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999993"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Roberts"
-    :org.hl7.fhir.HumanName/given  ["Emma" "Jane"]
-    :org.hl7.fhir.HumanName/prefix ["Ms"]}]
-  :org.hl7.fhir.Patient/gender    "female"
-  :org.hl7.fhir.Patient/birthDate "1998-02-14"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["303 Mock Street"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 6FF"}]}
+   2 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "3333333333"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999996"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "X123456"}]  ; Added CTM identifier
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Williams"
+               :org.hl7.fhir.HumanName/given  ["David" "Gareth" "Owen"]  ; Added third name
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1968-11-30"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["789 Demo Lane"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 3CC"
+               :org.hl7.fhir.Address/period     {:org.hl7.fhir.Period/start "2020-01-01"}}]  ; Added date
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "David Gareth Owen"  ; Updated
+            :last_name   "Williams"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "3333333333"
+            :date_birth  "1968-11-30"
+            :addresses   [{:address1     "789 Demo Lane"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 3CC"
+                           :date_from    "2020-01-01"
+                           :date_to      nil}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999996"}
+                          {:hospital_fk "RYLB3" :patient_identifier "X123456"}]}}  ; Added
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "7777777777"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999992"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Lewis"
-    :org.hl7.fhir.HumanName/given  ["Christopher" "Paul"]
-    :org.hl7.fhir.HumanName/prefix ["Mr"]}]
-  :org.hl7.fhir.Patient/gender    "male"
-  :org.hl7.fhir.Patient/birthDate "1972-12-25"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["404 Fictional Avenue"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 7GG"}]}
+   3 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "3333333333"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999996"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "X123456"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Williams"
+               :org.hl7.fhir.HumanName/given  ["David" "Gareth" "Owen"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1968-11-30"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["100 New Address"]  ; Moved
+               :org.hl7.fhir.Address/city       "Swansea"             ; New city
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "SA1 1AA"
+               :org.hl7.fhir.Address/period     {:org.hl7.fhir.Period/start "2023-06-01"}}]  ; New address with date
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "David Gareth Owen"
+            :last_name   "Williams"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "3333333333"
+            :date_birth  "1968-11-30"
+            :addresses   [{:address1     "789 Demo Lane"  ; Old address truncated
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 3CC"
+                           :date_from    "2020-01-01"
+                           :date_to      "2023-06-01"}     ; Truncated
+                          {:address1     "100 New Address"  ; New address
+                           :address2     "Swansea"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "SA1 1AA"
+                           :date_from    "2023-06-01"
+                           :date_to      nil}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999996"}
+                          {:hospital_fk "RYLB3" :patient_identifier "X123456"}]}}}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "8888888888"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999991"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Hughes"
-    :org.hl7.fhir.HumanName/given  ["Rachel" "Louise"]
-    :org.hl7.fhir.HumanName/prefix ["Mrs"]}]
-  :org.hl7.fhir.Patient/gender    "female"
-  :org.hl7.fhir.Patient/birthDate "1987-04-12"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["505 Dummy Terrace"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 8HH"}]}
+ ;; Patient 4: Margaret Evans - demonstrates deceased status
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "4444444444"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999995"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Evans"
+               :org.hl7.fhir.HumanName/given  ["Margaret" "Ann"]
+               :org.hl7.fhir.HumanName/prefix ["Dr"]}]
+             :org.hl7.fhir.Patient/gender    "female"
+             :org.hl7.fhir.Patient/birthDate "1990-05-18"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["101 Example Road"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 4DD"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Margaret Ann"
+            :last_name   "Evans"
+            :title       "Dr"
+            :sex         :FEMALE
+            :nhs_number  "4444444444"
+            :date_birth  "1990-05-18"
+            :date_death  nil
+            :addresses   [{:address1     "101 Example Road"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 4DD"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999995"}]}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "9999999999"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999990"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Morgan"
-    :org.hl7.fhir.HumanName/given  ["James" "Owen"]
-    :org.hl7.fhir.HumanName/prefix ["Mr"]}]
-  :org.hl7.fhir.Patient/gender    "male"
-  :org.hl7.fhir.Patient/birthDate "2001-06-30"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["606 Synthetic Boulevard"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 9JJ"}]}
+   2 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "4444444444"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999995"}]
+             :org.hl7.fhir.Patient/active false  ; Changed to false when deceased
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Evans"
+               :org.hl7.fhir.HumanName/given  ["Margaret" "Ann"]
+               :org.hl7.fhir.HumanName/prefix ["Dr"]}]
+             :org.hl7.fhir.Patient/gender    "female"
+             :org.hl7.fhir.Patient/birthDate "1990-05-18"
+             :org.hl7.fhir.Patient/deceased   "2024-03-15"  ; Marked as deceased
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["101 Example Road"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 4DD"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names      "Margaret Ann"
+            :last_name        "Evans"
+            :title            "Dr"
+            :sex              :FEMALE
+            :nhs_number       "4444444444"
+            :date_birth       "1990-05-18"
+            :date_death       "2024-03-15"  ; Updated
+            :date_death_accuracy "DAY"
+            :addresses        [{:address1     "101 Example Road"
+                                :address2     "Cardiff"
+                                :address3     ""
+                                :address4     "GB"
+                                :postcode_raw "CF99 4DD"}]
+            :hospitals        [{:hospital_fk "RWMBV" :patient_identifier "A999995"}]}}}}
 
- {:org.hl7.fhir.Patient/identifier
-  [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
-    :org.hl7.fhir.Identifier/value  "1010101010"}
-   {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-    :org.hl7.fhir.Identifier/value  "A999989"}]
-  :org.hl7.fhir.Patient/name
-  [{:org.hl7.fhir.HumanName/use    "usual"
-    :org.hl7.fhir.HumanName/family "Patel"
-    :org.hl7.fhir.HumanName/given  ["Priya" "Anjali"]
-    :org.hl7.fhir.HumanName/prefix ["Dr"]}]
-  :org.hl7.fhir.Patient/gender    "female"
-  :org.hl7.fhir.Patient/birthDate "1985-10-05"
-  :org.hl7.fhir.Patient/address
-  [{:org.hl7.fhir.Address/line       ["707 Testing Way"]
-    :org.hl7.fhir.Address/city       "Cardiff"
-    :org.hl7.fhir.Address/postalCode "CF99 0KK"}]}]
+ ;; Patient 5: Thomas Davies - unchanged across versions (for testing no-op updates)
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "5555555555"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999994"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Davies"
+               :org.hl7.fhir.HumanName/given  ["Thomas" "Hywel"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1955-09-08"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["202 Placeholder Close"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 5EE"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Thomas Hywel"
+            :last_name   "Davies"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "5555555555"
+            :date_birth  "1955-09-08"
+            :addresses   [{:address1     "202 Placeholder Close"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 5EE"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999994"}]}}
+
+   2 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "5555555555"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A999994"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Davies"
+               :org.hl7.fhir.HumanName/given  ["Thomas" "Hywel"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1955-09-08"
+             :org.hl7.fhir.Patient/telecom []
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["202 Placeholder Close"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF99 5EE"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Thomas Hywel"
+            :last_name   "Davies"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "5555555555"
+            :date_birth  "1955-09-08"
+            :addresses   [{:address1     "202 Placeholder Close"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF99 5EE"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999994"}]}}}}]

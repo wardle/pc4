@@ -151,6 +151,7 @@
   :wales-nadex                  #ig/ref :pc4.wales-nadex.interface/svc
   :hermes                       #ig/ref :pc4.snomed.interface/svc
   :ods                          #ig/ref :pc4.ods.interface/svc
+  :demographic                  #ig/ref :pc4.demographic.interface/svc
   :legacy-global-pseudonym-salt #ref [:secrets :pc4 :legacy-global-pseudonym-salt]}
 
  :pc4.snomed.interface/svc
