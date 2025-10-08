@@ -31,18 +31,18 @@
 
  [:pc4.demographic.interface/fake-service :demographic/cavpms]
  {:title "Fake CAVPMS service"
-  :conn #ig/ref :pc4.rsdb.interface/conn}
+  :conn  #ig/ref :pc4.rsdb.interface/conn}
 
  [:pc4.demographic.interface/fake-service :demographic/empi]
  {:title "Fake NHS Wales eMPI service"
-  :conn #ig/ref :pc4.rsdb.interface/conn}
+  :conn  #ig/ref :pc4.rsdb.interface/conn}
 
  :pc4.demographic.interface/svc
  {:providers #profile {:dev [{:id      :wales-cav-pms
                               :title   "Synthetic CAVUHB PMS"
                               :svc     #ig/ref [:pc4.demographic.interface/fake-service :demographic/cavpms]
-                              :systems #{"https://fhir.nhs.uk/Id/nhs-number"
-                                         "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"}}
+                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
+                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}
                              {:id    :wales-empi
                               :title "Synthetic NHS Wales eMPI"
                               :svc   #ig/ref [:pc4.demographic.interface/fake-service :demographic/empi]}]
@@ -50,19 +50,18 @@
                               :remote  true
                               :title   "Cardiff and Vale Patient Management System (PMS)"
                               :svc     #ig/ref :pc4.demographic.interface/wales-cav-pms-service
-                              :systems #{"https://fhir.nhs.uk/Id/nhs-number"
-                                         "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"}}
+                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
+                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}
                              {:id      :wales-empi
                               :remote  true
                               :title   "NHS Wales' Enterprise Master Patient Index (eMPI)"
                               :svc     #ig/ref :pc4.demographic.interface/wales-empi-service
-                              :systems #{"https://fhir.nhs.uk/Id/nhs-number"
-                                         "https://fhir.nhs.wales/Id/empi-number"
-                                         "https://fhir.abuhb.nhs.wales/Id/pas-identifier"
-                                         "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
-                                         "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
-                                         "https://fhir.hduhb.nhs.wales/Id/pas-identifier"
-                                         "https://fhir.sbuhb.nhs.wales/Id/pas-identifier"}}]}}
+                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
+                                        "https://fhir.abuhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.hduhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.sbuhb.nhs.wales/Id/pas-identifier"]}]}}
 
  :pc4.deprivare.interface/svc
  {:root #ref [:pc4/root]
@@ -227,13 +226,14 @@
   :host        "0.0.0.0"
   :cache?      #profile {:default true :dev false}
   :session-key #ref [:secrets :pc4 :session-key]
-  :env         {:rsdb     #ig/ref :pc4.rsdb.interface/svc
-                :hermes   #ig/ref :pc4.snomed.interface/svc
-                :ods      #ig/ref :pc4.ods.interface/svc
-                :odsui    #ig/ref :pc4.ods-ui.interface/svc
-                :pathom   #ig/ref :pc4.graph.interface/boundary-interface
-                :queue    #ig/ref :pc4.queue.interface/svc
-                :snomedui #ig/ref :pc4.snomed-ui.interface/svc}}
+  :env         {:rsdb        #ig/ref :pc4.rsdb.interface/svc
+                :demographic #ig/ref :pc4.demographic.interface/svc
+                :hermes      #ig/ref :pc4.snomed.interface/svc
+                :ods         #ig/ref :pc4.ods.interface/svc
+                :odsui       #ig/ref :pc4.ods-ui.interface/svc
+                :pathom      #ig/ref :pc4.graph.interface/boundary-interface
+                :queue       #ig/ref :pc4.queue.interface/svc
+                :snomedui    #ig/ref :pc4.snomed-ui.interface/svc}}
 
  ;; ARAF (patient-facing) data service
  :pc4.araf.interface/svc
