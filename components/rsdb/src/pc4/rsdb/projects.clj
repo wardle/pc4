@@ -19,6 +19,7 @@
    [pc4.log.interface :as log]
    [pc4.nhs-number.interface :as nhs-number]
    [pc4.rsdb.db :as db]
+   [pc4.rsdb.demographics :as demog]
    [honey.sql :as sql]
    [next.jdbc :as jdbc]
    [next.jdbc.plan]
@@ -422,6 +423,7 @@
                                      :from   :t_patient
                                      :where  [:= :nhs_number nnn]})))
 
+
 (defn fetch-episode [conn episode-id]
   (db/execute! conn (sql/format {:select [:*] :from :t_episode :where [:= :id episode-id]})))
 
@@ -579,15 +581,12 @@
   sensible at the time, and belies its genetic research database origins."
   [txn patient]
   (log/debug "Creating patient" patient)
-  (let [{patient-id :nextval} (jdbc/execute-one! txn ["select nextval('t_patient_seq')"])
-        {family-id :nextval} (jdbc/execute-one! txn ["select nextval('t_family_seq')"])
+  (let [{:keys [patient_id family_id]} (db/execute-one! txn (sql/format (demog/fetch-patient-sequences-sql)))
         patient' (assoc patient
-                        :t_patient/id patient-id
-                        :t_patient/patient_identifier patient-id
-                        :t_patient/family_fk family-id)]
-    (jdbc/execute-one! txn (sql/format {:insert-into [:t_family]
-                                        :values      [{:t_family/family_identifier (str family-id)
-                                                       :t_family/id                family-id}]}))
+                        :t_patient/id patient_id
+                        :t_patient/patient_identifier patient_id
+                        :t_patient/family_fk family_id)]
+    (db/execute! txn (sql/format (demog/insert-family-sql family_id)))
     (db/execute-one! txn
                      (sql/format {:insert-into [:t_patient]
                                   :values      [patient']})
