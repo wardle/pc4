@@ -24,8 +24,9 @@
 
 (defn ^:private remove-non-namespaced-keys [m]
   (reduce-kv
-   (fn [acc k v] (if (and (keyword? k) (namespace k)) (assoc acc k v) acc))
-   {} m))
+    (fn [acc k v]
+      (if (and (keyword? k) (nil? (namespace k))) acc (assoc acc k v)))
+    {} m))
 
 (defn config
   [profile]
