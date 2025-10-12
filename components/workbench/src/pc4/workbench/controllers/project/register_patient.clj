@@ -1,13 +1,9 @@
 (ns pc4.workbench.controllers.project.register-patient
-  "Patient registration workflow controllers.
-
-  Thin HTTP layer that delegates to rsdb for all business logic and database operations."
+  "Patient registration workflow controllers."
   (:require
-    [clojure.edn :as edn]
     [clojure.string :as str]
     [com.eldrix.nhsnumber :as nnn]
     [io.pedestal.http.route :as route]
-    [next.jdbc :as jdbc]
     [pc4.demographic.interface :as demographic]
     [pc4.fhir.interface :as fhir]
     [pc4.log.interface :as log]
@@ -28,13 +24,13 @@
                                  (instance? java.time.LocalDateTime deceased) [(.toLocalDate deceased) true]
                                  (true? deceased) [nil true]
                                  :else [nil false])]
-    {:name human-name-text
-     :gender gender
-     :date-birth birthDate
-     :nhs-number (nnn/format-nnn nhs-number)
-     :address address-text
-     :deceased deceased?
-     :date-death date-death
+    {:name         human-name-text
+     :gender       gender
+     :date-birth   birthDate
+     :nhs-number   (nnn/format-nnn nhs-number)
+     :address      address-text
+     :deceased     deceased?
+     :date-death   date-death
      :pseudonymous false}))
 
 (def register-patient-form
@@ -73,7 +69,7 @@
 
   Returns HTMX fragment with search results."
   (pw/handler
-    [{:ui/current-project [:t_project/id]}
+    [{:ui/current-project [:t_project/id :t_project/title]}
      :ui/csrf-token]
     (fn [request {:ui/keys [current-project csrf-token]}]
       (let [rsdb-svc (get-in request [:env :rsdb])
@@ -81,7 +77,7 @@
             project-id (get-in current-project [:t_project/id])
             provider-system-id (get-in request [:params "provider-system-id"])
             {:keys [provider-id system]} (demographic/parse-provider-system-id provider-system-id)
-
+            {:keys [title]} (demographic/provider-by-id demographic-svc provider-id)
             value (some-> (get-in request [:params "value"]) (clojure.string/replace #"\s" ""))
             patient {:org.hl7.fhir.Patient/identifier
                      [{:org.hl7.fhir.Identifier/system system
@@ -90,20 +86,40 @@
             n-local-pks (count local-pks)]
         (web/ok
           (cond
+            ;; multiple matches - show an error condition
             (> n-local-pks 1)
             (ui/render [:div [:h3 "Multiple matches"] [:pre local-pks]])
+
+            ;; single local match - render banner and actions
             (= n-local-pks 1)
             (let [patient-pk (first local-pks)
-                  result (pw/process (get-in request [:env])  request
-                                     [{:t_patient/patient_identifier patient-pk}
-                                      :ui/patient-banner])
-                  banner (get-in result [{:t_patient/patient_identifier patient-pk} :ui/patient-banner])]
-              (ui/render-file "templates/project/register-patient-found-local.html"
-                              {:banner banner
-                               :patient-pk patient-pk
-                               :csrf-token csrf-token
-                               :register-url (route/url-for :project/register-patient-action
-                                                            :path-params {:project-id project-id})}))
+                  patient-ident [:t_patient/id patient-pk]
+                  result (pw/process {} request
+                                     [{patient-ident [:t_patient/patient_identifier
+                                                      :ui/patient-banner
+                                                      (list :t_patient/episodes {:t_project/id     project-id
+                                                                                :t_episode/status :registered})]}])
+                  banner (get-in result [patient-ident :ui/patient-banner])
+                  patient-identifier (get-in result [patient-ident :t_patient/patient_identifier])
+                  already-registered (seq (get-in result [patient-ident :t_patient/episodes]))]
+              (let [project-title (:t_project/title current-project)
+                    status-message (when already-registered
+                                     (str "This patient is already registered to '" project-title "'."))]
+                (ui/render-file "templates/project/register-patient-found.html"
+                                {:banner                    banner
+                                 :register-url              (route/url-for :project/register-patient-action
+                                                                             :path-params {:project-id project-id})
+                                 :csrf-token                csrf-token
+                                 :patient-pk                patient-pk
+                                 :view-url                  (route/url-for :patient/home
+                                                                             :path-params {:patient-identifier patient-identifier})
+                                 :success-message           nil
+                                 :status-message            status-message
+                                 :show-register-form        (not already-registered)
+                                 :register-label            "Register"
+                                 :show-register-and-view-form (not already-registered)
+                                 :register-and-view-label   "Register and view patient record >"
+                                 :view-link-label           "View patient record >"})))
             :else
             (let [fhir-patients (demographic/patients-by-identifier demographic-svc system value {:provider-id provider-id})
                   n-remote (count fhir-patients)
@@ -114,9 +130,83 @@
                 (ui/render [:div [:h3 "Multiple external" fhir-patients]
                             [:h3 "Matches:" matches]])
                 (zero? n-remote)
-                (ui/render-file "templates/project/register-patient-not-found.html"
-                                {:search-value value})
+                (ui/render-file "ui/templates/box-info-message.html"
+                                {:title   "Patient Not Found"
+                                 :message (str "<p>No patient found matching \"<strong class='text-gray-900'>" value "</strong>\" in the local database or " title ".</p>"
+                                               "<p class='mt-2'>Please check the identifier and try again, or contact support if you believe this patient should exist.</p>")})
                 :else
                 (ui/render [:div
                             [:h3 "Single external patient:" (first fhir-patients)]
                             [:h3 "Matches:" matches]])))))))))
+
+(def register-patient-action
+  "Register a patient to the project.
+
+  POST params:
+  - patient-pk: internal patient primary key
+  - open-record: if 'true', redirect to patient record after registration"
+  (pw/handler
+    [{:ui/current-project [:t_project/id :t_project/title]}
+     :ui/csrf-token]
+    (fn [request {:ui/keys [current-project csrf-token]}]
+      (let [rsdb-svc (get-in request [:env :rsdb])
+            project-id (get-in current-project [:t_project/id])
+            project-title (:t_project/title current-project)
+            user-id (get-in request [:session :authenticated-user :t_user/id])
+            patient-pk (some-> (get-in request [:params "patient-pk"]) parse-long)
+            open-record? (= "true" (get-in request [:params "open-record"]))]
+        (cond
+          (nil? patient-pk)
+          (web/bad-request "patient-pk is required")
+
+          (nil? user-id)
+          (web/forbidden "User not authenticated")
+
+          :else
+          (let [patient-ident [:t_patient/id patient-pk]
+                query [{patient-ident [:t_patient/patient_identifier
+                                       :ui/patient-banner
+                                       (list :t_patient/episodes {:t_project/id     project-id
+                                                                  :t_episode/status :registered})]}]
+                initial (pw/process {} request query)
+                patient-identifier (get-in initial [patient-ident :t_patient/patient_identifier])
+                banner (get-in initial [patient-ident :ui/patient-banner])
+                episodes (get-in initial [patient-ident :t_patient/episodes])
+                already-registered (seq episodes)
+                newly-registered?
+                (when-not already-registered
+                  (log/info "Registering patient to project"
+                            {:patient-id patient-pk :project-id project-id :user-id user-id})
+                  (rsdb/register-patient-project! rsdb-svc project-id user-id {:t_patient/id patient-pk})
+                  true)
+                refreshed (if newly-registered?
+                            (pw/process {} request query)
+                            initial)
+                banner* (get-in refreshed [patient-ident :ui/patient-banner])
+                registered (seq (get-in refreshed [patient-ident :t_patient/episodes]))
+                show-register-form (not registered)
+                show-register-and-view-form show-register-form
+                show-already-registered? (and registered (not newly-registered?))
+                status-message (when show-already-registered?
+                                 (str "This patient is already registered to '" project-title "'."))
+                view-url (route/url-for :patient/home
+                                        :path-params {:patient-identifier patient-identifier})
+                register-url (route/url-for :project/register-patient-action
+                                            :path-params {:project-id project-id})
+                success-message (when newly-registered? "Patient successfully registered to project")]
+            (if open-record?
+              (web/hx-redirect view-url)
+              (web/ok
+                (ui/render-file "templates/project/register-patient-found.html"
+                                {:banner                    (or banner* banner)
+                                 :register-url              register-url
+                                 :csrf-token                csrf-token
+                                 :patient-pk                patient-pk
+                                 :view-url                  view-url
+                                 :success-message           success-message
+                                 :status-message            status-message
+                                 :show-register-form        show-register-form
+                                 :register-label            "Register"
+                                 :show-register-and-view-form show-register-and-view-form
+                                 :register-and-view-label   "Register and view patient record >"
+                                 :view-link-label           "View patient record >"})))))))))
