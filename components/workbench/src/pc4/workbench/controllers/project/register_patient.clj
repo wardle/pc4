@@ -3,15 +3,39 @@
 
   Thin HTTP layer that delegates to rsdb for all business logic and database operations."
   (:require
-   [clojure.edn :as edn]
-   [io.pedestal.http.route :as route]
-   [next.jdbc :as jdbc]
-   [pc4.demographic.interface :as demographic]
-   [pc4.log.interface :as log]
-   [pc4.pathom-web.interface :as pw]
-   [pc4.rsdb.interface :as rsdb]
-   [pc4.ui.interface :as ui]
-   [pc4.web.interface :as web]))
+    [clojure.edn :as edn]
+    [clojure.string :as str]
+    [com.eldrix.nhsnumber :as nnn]
+    [io.pedestal.http.route :as route]
+    [next.jdbc :as jdbc]
+    [pc4.demographic.interface :as demographic]
+    [pc4.fhir.interface :as fhir]
+    [pc4.log.interface :as log]
+    [pc4.pathom-web.interface :as pw]
+    [pc4.rsdb.interface :as rsdb]
+    [pc4.ui.interface :as ui]
+    [pc4.web.interface :as web]))
+
+(defn fhir-patient->banner
+  "Convert FHIR Patient data to banner template format."
+  [{:org.hl7.fhir.Patient/keys [name gender birthDate identifier address deceased]}]
+  (let [{human-name-text :org.hl7.fhir.HumanName/text} (fhir/human-name-text (fhir/best-human-name name))
+        {nhs-number :org.hl7.fhir.Identifier/value} (fhir/best-identifier "https://fhir.nhs.uk/Id/nhs-number" identifier)
+        {:org.hl7.fhir.Address/keys [line city postalCode]} (fhir/best-address address)
+        address-text (str/join ", " (remove str/blank? (concat line [city postalCode])))
+        [date-death deceased?] (cond
+                                 (instance? java.time.LocalDate deceased) [deceased true]
+                                 (instance? java.time.LocalDateTime deceased) [(.toLocalDate deceased) true]
+                                 (true? deceased) [nil true]
+                                 :else [nil false])]
+    {:name human-name-text
+     :gender gender
+     :date-birth birthDate
+     :nhs-number (nnn/format-nnn nhs-number)
+     :address address-text
+     :deceased deceased?
+     :date-death date-death
+     :pseudonymous false}))
 
 (def register-patient-form
   "Display patient registration form.
@@ -22,23 +46,23 @@
   - Value input field
   - Search button with HTMX"
   (pw/handler
-   [:ui/navbar
-    {:ui/current-project [:t_project/id (list :ui/project-menu {:selected :register-patient})]}
-    :ui/csrf-token]
-   (fn [request {:ui/keys [navbar current-project csrf-token]}]
-     (let [project-id (get-in current-project [:t_project/id])
-           demographic-svc (get-in request [:env :demographic])
-           providers (demographic/available-providers demographic-svc)]
-       (web/ok
-        (ui/render-file
-         "templates/project/register-patient-page.html"
-         {:title      "Register Patient"
-          :project-id project-id
-          :navbar     navbar
-          :menu       (:ui/project-menu current-project)
-          :csrf-token csrf-token
-          :providers  providers
-          :search-url (route/url-for :project/register-patient-search :path-params {:project-id project-id})}))))))
+    [:ui/navbar
+     {:ui/current-project [:t_project/id (list :ui/project-menu {:selected :register-patient})]}
+     :ui/csrf-token]
+    (fn [request {:ui/keys [navbar current-project csrf-token]}]
+      (let [project-id (get-in current-project [:t_project/id])
+            demographic-svc (get-in request [:env :demographic])
+            providers (demographic/available-providers demographic-svc)]
+        (web/ok
+          (ui/render-file
+            "templates/project/register-patient-page.html"
+            {:title      "Register Patient"
+             :project-id project-id
+             :navbar     navbar
+             :menu       (:ui/project-menu current-project)
+             :csrf-token csrf-token
+             :providers  providers
+             :search-url (route/url-for :project/register-patient-search :path-params {:project-id project-id})}))))))
 
 (def search-patient
   "Search for patient by identifier (local database first, then external providers).
@@ -49,26 +73,50 @@
 
   Returns HTMX fragment with search results."
   (pw/handler
-   [{:ui/current-project [:t_project/id]}
-    :ui/csrf-token]
-   (fn [request {:ui/keys [current-project csrf-token]}]
-     (let [rsdb-svc (get-in request [:env :rsdb])
-           demographic-svc (get-in request [:env :demographic])
-           project-id (get-in current-project [:t_project/id])
-           provider-system-id (get-in request [:params "provider-system-id"])
-           {:keys [provider-id system]} (demographic/parse-provider-system-id provider-system-id)
-           value (some-> (get-in request [:params "value"]) (clojure.string/replace #"\s" ""))
-           patient {:org.hl7.fhir.Patient/identifier
-                    [{:org.hl7.fhir.Identifier/system system
-                      :org.hl7.fhir.Identifier/value value}]}
-           local-pks (rsdb/exact-match-by-identifier rsdb-svc patient)
-           n-local-pks (count local-pks)]
-       (web/ok
-         (cond
-           (> n-local-pks 1)
-           (ui/render [:div [:h3 "Multiple matches"] local-pks])
-           (= n-local-pks 1)
-           (ui/render [:div [:h3 "Single existing match" (first local-pks)]])
-           :else
-           (let [fhir-patients (demographic/patients-by-identifier demographic-svc system value {:provider-id provider-id})]
-             (ui/render [:div [:h3 "External patients:" fhir-patients]]))))))))
+    [{:ui/current-project [:t_project/id]}
+     :ui/csrf-token]
+    (fn [request {:ui/keys [current-project csrf-token]}]
+      (let [rsdb-svc (get-in request [:env :rsdb])
+            demographic-svc (get-in request [:env :demographic])
+            project-id (get-in current-project [:t_project/id])
+            provider-system-id (get-in request [:params "provider-system-id"])
+            {:keys [provider-id system]} (demographic/parse-provider-system-id provider-system-id)
+
+            value (some-> (get-in request [:params "value"]) (clojure.string/replace #"\s" ""))
+            patient {:org.hl7.fhir.Patient/identifier
+                     [{:org.hl7.fhir.Identifier/system system
+                       :org.hl7.fhir.Identifier/value  value}]}
+            local-pks (rsdb/exact-match-by-identifier rsdb-svc patient)
+            n-local-pks (count local-pks)]
+        (web/ok
+          (cond
+            (> n-local-pks 1)
+            (ui/render [:div [:h3 "Multiple matches"] [:pre local-pks]])
+            (= n-local-pks 1)
+            (let [patient-pk (first local-pks)
+                  result (pw/process (get-in request [:env])  request
+                                     [{:t_patient/patient_identifier patient-pk}
+                                      :ui/patient-banner])
+                  banner (get-in result [{:t_patient/patient_identifier patient-pk} :ui/patient-banner])]
+              (ui/render-file "templates/project/register-patient-found-local.html"
+                              {:banner banner
+                               :patient-pk patient-pk
+                               :csrf-token csrf-token
+                               :register-url (route/url-for :project/register-patient-action
+                                                            :path-params {:project-id project-id})}))
+            :else
+            (let [fhir-patients (demographic/patients-by-identifier demographic-svc system value {:provider-id provider-id})
+                  n-remote (count fhir-patients)
+                  matches (into (set (mapcat #(rsdb/exact-match-by-identifier rsdb-svc %) fhir-patients))
+                                (mapcat #(rsdb/exact-match-on-demography rsdb-svc %) fhir-patients))]
+              (cond
+                (> n-remote 1)
+                (ui/render [:div [:h3 "Multiple external" fhir-patients]
+                            [:h3 "Matches:" matches]])
+                (zero? n-remote)
+                (ui/render-file "templates/project/register-patient-not-found.html"
+                                {:search-value value})
+                :else
+                (ui/render [:div
+                            [:h3 "Single external patient:" (first fhir-patients)]
+                            [:h3 "Matches:" matches]])))))))))

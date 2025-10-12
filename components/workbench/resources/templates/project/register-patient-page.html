@@ -35,12 +35,12 @@
                                     class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                                 {% for provider in providers|sort-by:title %}
                                 <optgroup label="{{ provider.title }}">
-                                    {% if provider.systems %}
+                                    {% if provider.systems|not-empty %}
                                         {% for system in provider.systems %}
                                         <option value="{{ system.id }}">{{ system.title }}</option>
                                         {% endfor %}
                                     {% else %}
-                                        <option value="{{ provider.id }}">{{ provider.title }}</option>
+                                        <option value="{{ provider.id|name }}">{{ provider.title }}</option>
                                     {% endif %}
                                 </optgroup>
                                 {% endfor %}

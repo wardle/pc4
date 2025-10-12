@@ -110,9 +110,6 @@
 
 
 
-(defn register-patient
-  [request])
-
 (defn today-wizard [request])
 
 (defn patients [request])
