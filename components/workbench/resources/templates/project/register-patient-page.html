@@ -37,7 +37,7 @@
                                 <optgroup label="{{ provider.title }}">
                                     {% if provider.systems|not-empty %}
                                         {% for system in provider.systems %}
-                                        <option value="{{ system.id }}">{{ system.title }}</option>
+                                        <option value="{{ system.id }}">{{ provider.title }} - {{ system.title }}</option>
                                         {% endfor %}
                                     {% else %}
                                         <option value="{{ provider.id|name }}">{{ provider.title }}</option>

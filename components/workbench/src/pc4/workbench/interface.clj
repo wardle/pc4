@@ -69,6 +69,7 @@
       ["/project/:project-id/today" :get [login/authenticated project/update-session project/today-wizard] :route-name :project/today]
       ["/project/:project-id/register-patient" :get [login/authenticated project/update-session register-patient/register-patient-form] :route-name :project/register-patient]
       ["/project/:project-id/register-patient/search" :post [login/authenticated register-patient/search-patient] :route-name :project/register-patient-search]
+      ["/project/:project-id/register-patient/action" :post [login/authenticated register-patient/register-patient-action] :route-name :project/register-patient-action]
       ["/project/:project-id/patients" :get [login/authenticated project/update-session project/patients] :route-name :project/patients]
       ["/project/:project-id/encounters" :get [login/authenticated project/update-session project/encounters] :route-name :project/encounters]
       ["/patient/:patient-identifier/home" :get [login/authenticated patient/authorized patient/home] :route-name :patient/home]
