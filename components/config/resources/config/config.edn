@@ -41,19 +41,19 @@
  {:providers #profile {:dev [{:id      :wales-cav-pms
                               :title   "Synthetic CAVUHB PMS"
                               :svc     #ig/ref [:pc4.demographic.interface/fake-service :demographic/cavpms]
-                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
-                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}
-                             {:id    :wales-empi
-                              :title "Synthetic NHS Wales eMPI"
-                              :svc   #ig/ref [:pc4.demographic.interface/fake-service :demographic/empi]
+                              :systems ["https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.nhs.uk/Id/nhs-number"]}
+                             {:id      :wales-empi
+                              :title   "Synthetic NHS Wales eMPI"
+                              :svc     #ig/ref [:pc4.demographic.interface/fake-service :demographic/empi]
                               :systems ["https://fhir.nhs.uk/Id/nhs-number"
                                         "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}]
                        :cvx [{:id      :wales-cav-pms
                               :remote  true
                               :title   "Cardiff and Vale Patient Management System (PMS)"
                               :svc     #ig/ref :pc4.demographic.interface/wales-cav-pms-service
-                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
-                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}
+                              :systems ["https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+                                        "https://fhir.nhs.uk/Id/nhs-number"]}
                              {:id      :wales-empi
                               :remote  true
                               :title   "NHS Wales' Enterprise Master Patient Index (eMPI)"
