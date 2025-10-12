@@ -5,10 +5,12 @@
   implementation. As such, these specifications tighten the more broad 
   general purpose specifications for use within pc4."
   (:require [clojure.spec.alpha :as s]
-            [clojure.core :as c])
+            [clojure.core :as c]
+            [clojure.string :as str])
   (:import (java.time LocalDate LocalDateTime)))
 
 (def administrative-gender #{"male" "female" "other" "unknown"})
+(def address-use #{"home" "work" "temp" "old" "billing"})
 (def contact-point-system #{"phone" "fax" "email" "pager" "url" "sms" "other"})
 (def contact-point-use #{"home" "work" "temp" "old" "mobile"})
 (def human-name-use #{"anonymous" "maiden" "nickname" "official" "old" "temp" "usual"})
@@ -78,18 +80,21 @@
                 :org.hl7.fhir.HumanName/prefix]
           :opt [:org.hl7.fhir.HumanName/suffix]))
 
+(s/def :org.hl7.fhir.Address/use address-use)
 (s/def :org.hl7.fhir.Address/line (s/coll-of string?))
 (s/def :org.hl7.fhir.Address/city (s/nilable string?))
 (s/def :org.hl7.fhir.Address/district (s/nilable string?))
 (s/def :org.hl7.fhir.Address/country (s/nilable string?))
 (s/def :org.hl7.fhir.Address/postalCode (s/nilable string?))
+(s/def :org.hl7.fhir.Address/period :org.hl7.fhir/Period)
 (s/def :org.hl7.fhir/Address
   (s/keys :req [:org.hl7.fhir.Address/line
-                :org.hl7.fhir.Address/city
+                :org.hl7.fhir.Address/postalCode]
+          :opt [:org.hl7.fhir.Address/city
                 :org.hl7.fhir.Address/district
                 :org.hl7.fhir.Address/country
-                :org.hl7.fhir.Address/postalCode]
-          :opt [:org.hl7.fhir.Address/period]))
+                :org.hl7.fhir.Address/use
+                :org.hl7.fhir.Address/period]))
 
 (s/def :org.hl7.fhir.ContactPoint/value string?)
 (s/def :org.hl7.fhir.ContactPoint/system contact-point-system)
@@ -175,33 +180,47 @@
         value#  :org.hl7.fhir.Identifier/value
         use#    :org.hl7.fhir.Identifier/use}]
     (and
-     (or (nil? system) (= system system#))
-     (or (nil? value)  (= value value#))
-     (or (nil? use)    (= use use#)))))
+      (or (nil? system) (= system system#))
+      (or (nil? value) (= value value#))
+      (or (nil? use) (= use use#)))))
 
 (defn match-human-name
   [& {:keys [use family]}]
-  (fn [{use# :org.hl7.fhir.HumanName/use
+  (fn [{use#    :org.hl7.fhir.HumanName/use
         family# :org.hl7.fhir.HumanName/family}]
     (and
-     (= use use#)
-     (or (nil? family) (.equalsIgnoreCase family family#)))))
+      (= use use#)
+      (or (nil? family) (.equalsIgnoreCase family family#)))))
+
+(defn best-match*
+  "Determine the 'best' match based on the sequence of predicates specified.
+  Each predicate will be tried in turn so predicates should be ordered in
+  terms of specificity. Returns nil if no predicates match.
+
+  Examples:
+  ```
+  (best-match* [(match-identifier :use \"official\")] ids)
+  (best-match* [pred1 pred2] coll)
+  ```"
+  [preds coll]
+  (some (fn [pred]
+          (when-let [matched (seq (filter pred coll))]
+            (first matched)))
+        preds))
 
 (defn best-match
-  "Determine the 'best' match based on the sequence of predicates specified. 
-  For example, if ids is a sequence of FHIR structures:
+  "Determine the 'best' match based on the sequence of predicates specified.
+  Each predicate will be tried in turn so predicates should be ordered in
+  terms of specificity. Returns first item in coll if no predicates match.
+
+  Examples:
   ```
-  (best-match [(match-identifier :usage \"official\")] ids)
-  ```
-  will return the first official identifier, but if there is none, will
-  fallback to returning the first identifier. Each predicate will be 
-  tried in turn so predicates should be ordered in terms of specificity."
-  ([preds coll]
-   (if-let [pred (first preds)]
-     (if-let [matched (seq (filter pred coll))]
-       (first matched)
-       (recur (rest preds) coll))
-     (first coll))))
+  (best-match [(match-identifier :use \"official\")] ids)
+  (best-match [pred1 pred2] coll)
+  ```"
+  [preds coll]
+  (or (best-match* preds coll)
+      (first coll)))
 
 (defn by-period
   "A Comparator of FHIR Period to return in descending order. 
@@ -233,8 +252,8 @@
    (let [start# (or start LocalDate/MIN)
          end# (or end LocalDate/MAX)]
      (and
-      (or (.isAfter on-date start#) (.isEqual on-date start#))
-      (.isBefore on-date end#)))))
+       (or (.isAfter on-date start#) (.isEqual on-date start#))
+       (.isBefore on-date end#)))))
 
 (defn valid-by-period?
   "Test the validity of structure 'x' by testing the validity of the 
@@ -249,19 +268,19 @@
    (valid-identifiers system (LocalDate/now) identifiers))
   ([system on-date identifiers]
    (->> identifiers
-        (filter #(= system (:org.hl7.fhir.Identifier/system %)))                                       ;; limit by system
+        (filter #(= system (:org.hl7.fhir.Identifier/system %))) ;; limit by system
         (filter (valid-by-period? :org.hl7.fhir.Identifier/period on-date))
-        (sort (by-periods :org.hl7.fhir.Identifier/period)))))  ;; limit to valid identifiers
+        (sort (by-periods :org.hl7.fhir.Identifier/period))))) ;; limit to valid identifiers
 
 (defn best-identifier
   ([system identifiers]
    (best-identifier system (LocalDate/now) identifiers))
   ([system on-date identifiers]
-   (best-match   ;; loop to find 'best' match using these ordered predicates...
-    [(match-identifier :use "official")
-     (match-identifier :use "usual")
-     (match-identifier :use "secondary")]
-    (valid-identifiers system on-date identifiers))))
+   (best-match
+     [(match-identifier :use "official")
+      (match-identifier :use "usual")
+      (match-identifier :use "secondary")]
+     (valid-identifiers system on-date identifiers))))
 
 (defn best-human-name
   "Returns the 'best' human name from a collection. They are filtered to remove
@@ -270,29 +289,127 @@
    (best-human-name (LocalDate/now) human-names))
   ([on-date human-names]
    (->> human-names
-        (filter (valid-by-period? :org.hl7.fhir.HumanName/period on-date))  ;; limit to valid names
-        (sort (by-periods :org.hl7.fhir.HumanName/period))                                              ;; sort by validity (period) 
-        (best-match                                                ;; now look to find 'best' match using these ordered predicates
-         [(match-human-name :use "official")
-          (match-human-name :use "usual")
-          (match-human-name :use "old")
-          (match-human-name :use "maiden")])))
+        (filter (valid-by-period? :org.hl7.fhir.HumanName/period on-date))
+        (sort (by-periods :org.hl7.fhir.HumanName/period))
+        (best-match
+          [(match-human-name :use "official")
+           (match-human-name :use "usual")
+           (match-human-name :use "old")
+           (match-human-name :use "maiden")])))
   ([on-date name-use human-names]
    (->> human-names
         (filter (valid-by-period? :org.hl7.fhir.HumanName/period on-date))
         (sort (by-periods :org.hl7.fhir.HumanName/period))
         (best-match [(match-human-name :use name-use)]))))
 
+(defn human-name-text
+  "Returns a human name with :org.hl7.fhir.HumanName/text added if not present or blank.
+
+  Options:
+  - :format - :isb1506 (default, 'SURNAME, first names (Title)') or :natural ('Mr John Smith')"
+  ([human-name]
+   (human-name-text human-name {}))
+  ([{:org.hl7.fhir.HumanName/keys [family given prefix] :as human-name}
+    {:keys [format] :or {format :isb1506}}]
+   (update human-name :org.hl7.fhir.HumanName/text
+           (fn [nm]
+             (if (str/blank? nm)
+               (str/trim
+                 (case format
+                   :isb1506
+                   (str (str/upper-case (or family ""))
+                        ", " (str/join " " given)
+                        (when (seq prefix)
+                          (str " (" (str/join " " (map str/capitalize prefix)) ")")))
+                   :natural
+                   (str (str/join " " prefix) " "
+                        (str/join " " given) " "
+                        family)))
+               nm)))))
+
+(defn match-address
+  "Returns a predicate function that matches an address by use."
+  [& {:keys [use]}]
+  (fn [{use# :org.hl7.fhir.Address/use}]
+    (= use use#)))
+
+(defn- temp-address-within-3-months?
+  "Check if address is temporary and within 3 months of its business-effective from date."
+  [on-date addr]
+  (and (= "temp" (:org.hl7.fhir.Address/use addr))
+       (when-let [start (get-in addr [:org.hl7.fhir.Address/period :org.hl7.fhir.Period/start])]
+         (.isBefore (.minusMonths on-date 3) start))))
+
+(defn best-address
+  "Returns the 'best' address from a collection.
+
+  Options:
+  - :on - LocalDate to check validity (default: today)
+  - :priority - keyword for predefined ruleset or sequence of predicates
+  - :priority-fn - function taking (valid-addresses on-date) for full control
+
+  Predefined rulesets:
+  - :home-first (default) - home > work > temp > old > billing
+  - :home-only - only home addresses
+  - :correspondence - NHS Notify letter rules (temp within 3mo > billing > home)
+
+  Examples:
+  ```
+  (best-address {} addresses)
+  (best-address {:on (LocalDate/of 2024 1 1)} addresses)
+  (best-address {:priority :home-only} addresses)
+  (best-address {:priority :correspondence} addresses)
+  (best-address {:priority [(match-address :use \"work\")
+                            (match-address :use \"home\")]} addresses)
+  (best-address {:priority-fn my-custom-fn} addresses)
+  ```"
+  ([addresses]
+   (best-address {} addresses))
+  ([{:keys [on priority priority-fn]
+     :or {on (LocalDate/now)
+          priority :home-first}} addresses]
+   (let [valid-addrs (->> addresses
+                          (filter (valid-by-period? :org.hl7.fhir.Address/period on))
+                          (sort (by-periods :org.hl7.fhir.Address/period)))]
+     (cond
+       priority-fn
+       (priority-fn valid-addrs on)
+
+       (= priority :home-first)
+       (best-match
+         [(match-address :use "home")
+          (match-address :use "work")
+          (match-address :use "temp")
+          (match-address :use "old")
+          (match-address :use "billing")]
+         valid-addrs)
+
+       (= priority :home-only)
+       (first (filter (match-address :use "home") valid-addrs))
+
+       (= priority :correspondence)
+       (best-match*
+         [#(temp-address-within-3-months? on %)
+          (match-address :use "billing")
+          (match-address :use "home")]
+         valid-addrs)
+
+       (sequential? priority)
+       (best-match* priority valid-addrs)
+
+       :else
+       (throw (ex-info "Invalid priority option" {:priority priority}))))))
+
 (defn by-contact-point-rank-and-period
-  [{rank1 :org.hl7.fhir.ContactPoint/rank
+  [{rank1   :org.hl7.fhir.ContactPoint/rank
     period1 :org.hl7.fhir.ContactPoint/period}
-   {rank2 :org.hl7.fhir.ContactPoint/rank
+   {rank2   :org.hl7.fhir.ContactPoint/rank
     period2 :org.hl7.fhir.ContactPoint/period}]
   (compare [rank1
             (or (:org.hl7.fhir.Period/end period2) LocalDate/MAX)
             (or (:org.hl7.fhir.Period/start period2) LocalDate/MIN)]
            [rank2
-            (or  (:org.hl7.fhir.Period/end period1) LocalDate/MAX)
+            (or (:org.hl7.fhir.Period/end period1) LocalDate/MAX)
             (or (:org.hl7.fhir.Period/start period1) LocalDate/MIN)]))
 
 (defn valid-contact-points
