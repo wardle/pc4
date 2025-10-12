@@ -574,11 +574,12 @@
   [{rsdb :com.eldrix/rsdb, :as env} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/episodes episode-properties}]}
   {:t_patient/episodes
-   (let [project-id-or-ids (:t_project/id (pco/params env))]
-     (->> (rsdb/patient->episodes rsdb patient-pk project-id-or-ids)
-          (mapv #(assoc % :t_episode/status (rsdb/episode-status %)
-                          :t_episode/project {:t_project/id (:t_episode/project_fk %)}
-                          :t_episode/patient {:t_patient/id patient-pk}))))})
+   (let [{:t_project/keys [id] :t_episode/keys [status]} (pco/params env)]
+     (cond->> (->> (rsdb/patient->episodes rsdb patient-pk id)
+                   (mapv #(assoc % :t_episode/status (rsdb/episode-status %)
+                                   :t_episode/project {:t_project/id (:t_episode/project_fk %)}
+                                   :t_episode/patient {:t_patient/id patient-pk})))
+       status (filter #(= status (:t_episode/status %)))))})
 
 (pco/defresolver patient->pending-referrals
   "Return pending referrals - either all (`:all`) or only those to which the current user
