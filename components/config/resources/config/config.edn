@@ -45,7 +45,9 @@
                                         "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}
                              {:id    :wales-empi
                               :title "Synthetic NHS Wales eMPI"
-                              :svc   #ig/ref [:pc4.demographic.interface/fake-service :demographic/empi]}]
+                              :svc   #ig/ref [:pc4.demographic.interface/fake-service :demographic/empi]
+                              :systems ["https://fhir.nhs.uk/Id/nhs-number"
+                                        "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"]}]
                        :cvx [{:id      :wales-cav-pms
                               :remote  true
                               :title   "Cardiff and Vale Patient Management System (PMS)"

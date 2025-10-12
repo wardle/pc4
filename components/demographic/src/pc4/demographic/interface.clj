@@ -2,6 +2,7 @@
   "A demographic service is an opaque provider of demographic information. "
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
+            [com.eldrix.nhsnumber :as nnn]
             [integrant.core :as ig]
             [pc4.demographic.synthetic :as synth]
             [pc4.demographic.protos :as p]
@@ -18,8 +19,8 @@
 (s/def ::remote boolean?)
 
 (s/def ::provider
-  (s/keys :req-un [::id ::title ::svc]
-          :opt-un [::systems ::remote]))
+  (s/keys :req-un [::id ::title ::svc ::systems]
+          :opt-un [::remote]))
 
 (s/def ::providers
   (s/coll-of ::provider))
@@ -100,22 +101,35 @@
   [_ {:keys [conn]}]
   (synth/make-synthetic-provider))
 
-(def fhir-identifier-system-labels
-  "Map of FHIR identifier system URIs to human-readable labels for display in UI."
-  {"https://fhir.nhs.uk/Id/nhs-number"               "NHS Number"
-   "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "CRN (Cardiff and Vale)"
-   "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier" "CRN (Cwm Taf Morgannwg)"
-   "https://fhir.abuhb.nhs.wales/Id/pas-identifier"  "CRN (Aneurin Bevan)"
-   "https://fhir.sbuhb.nhs.wales/Id/pas-identifier"  "CRN (Swansea Bay)"
-   "https://fhir.hduhb.nhs.wales/Id/pas-identifier"  "CRN (Hywel Dda)"
-   "https://fhir.bcuhb.nhs.wales/Id/pas-identifier"  "CRN (Betsi Cadwaladr)"
-   "https://fhir.powys.nhs.wales/Id/pas-identifier"  "CRN (Powys)"
-   "https://fhir.nhs.wales/Id/empi-number"           "NHS Wales eMPI Number"})
+(def known-systems
+  [{:url    "https://fhir.nhs.uk/Id/nhs-number"
+    :title  "NHS Number"}
+   {:url   "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Cardiff and Vale)"}
+   {:url   "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Cwm Taf Morgannwg)"}
+   {:url   "https://fhir.abuhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Aneurin Bevan)"}
+   {:url   "https://fhir.sbuhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Swansea Bay)"}
+   {:url   "https://fhir.hduhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Hywel Dda)"}
+   {:url   "https://fhir.bcuhb.nhs.wales/Id/pas-identifier"
+    :title "CRN (Betsi Cadwaladr)"}
+   {:url   "https://fhir.powys.nhs.wales/Id/pas-identifier"
+    :title "CRN (Powys)"}
+   {:url   "https://fhir.nhs.wales/Id/empi-number"
+    :title "NHS Wales eMPI Number"}])
 
-(defn make-system [{:keys [id]} url]
-  {:id    (str (name id) "|" url)
-   :url   url
-   :title (get fhir-identifier-system-labels url)})
+(def url->system
+  (reduce (fn [acc {:keys [url] :as system}]
+            (assoc acc url system)) {} known-systems))
+
+(defn make-system
+  [{:keys [id] :as provider} url]
+  (if-let [system (url->system url)]
+    (assoc system :id (str (name id) "|" url))
+    (throw (ex-info (str "no system found for url: " url) {:provider provider :url url}))))
 
 (defn available-providers
   "Return the list of configured external demographic providers.
@@ -127,7 +141,7 @@
   - :id      - provider identifier keyword (e.g., :wales-cav-pms)
   - :title   - human-readable provider name
   - :svc     - the provider service implementation
-  - :systems - a sequence of systems (:id :title :url); can be nil
+  - :systems - a sequence of systems (:id :title :url)
   - :remote  - boolean indicating if this is a remote service
 
   Example:
@@ -137,8 +151,13 @@
   [{:id :wales-cav-pms
     :title \"Synthetic CAVUHB PMS\"
     :svc #<..>
-    :systems [{:url \"https://fhir.nhs.uk/Id/nhs-number\", :title \"NHS Number\"}
-              {:url \"https://fhir.cavuhb.nhs.wales/Id/pas-identifier\", :title \"CRN (Cardiff and Vale)\"}]}
+    :systems [{:id \"wales-cav-pms|https://fhir.nhs.uk/Id/nhs-number\"
+               :url \"https://fhir.nhs.uk/Id/nhs-number\"
+               :title \"NHS Number\"
+               :valid? #<..>}
+              {:id \"wales-cav-pms|https://fhir.cavuhb.nhs.wales/Id/pas-identifier\"
+               :url \"https://fhir.cavuhb.nhs.wales/Id/pas-identifier\"
+               :title \"CRN (Cardiff and Vale)\"}]}
     {:id :wales-empi
      :title \"Synthetic NHS Wales eMPI\"
      :svc #<..>
