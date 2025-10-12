@@ -184,6 +184,11 @@
     (cond-> {:provider-id (keyword provider-id)}
       system (assoc :system system))))
 
+(defn provider-by-id
+  "Return the provider with the given id, or nil if not found."
+  [{:keys [providers]} provider-id]
+  (some #(when (= provider-id (:id %)) %) providers))
+
 (comment
   (parse-provider-system-id "floo")
   (require '[pc4.config.interface :as config])
