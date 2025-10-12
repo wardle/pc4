@@ -85,8 +85,8 @@
   (ig.repl/go [::server])
   (keys (system))
   (def svc (:pc4.araf.interface/svc (system)))
-  (araf/create-request svc "1111111111" :valproate-f (arafp/expiry (java.time.Duration/ofDays 14)))
-  (araf/create-request svc "2222222222" :valproate-fna (arafp/expiry (java.time.Duration/ofDays 14)))
+  (araf/create-request svc "1111111111" :valproate-f (araf/expiry (java.time.Duration/ofDays 14)))
+  (araf/create-request svc "2222222222" :valproate-fna (araf/expiry (java.time.Duration/ofDays 14)))
   (ig.repl/halt)
   (pc4.config.interface/config :dev))
 
