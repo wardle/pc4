@@ -94,8 +94,8 @@
 
 (pco/defresolver patient->permissions
   "Return authorization permissions for current user to access given patient."
-  [{rsdb :com.eldrix/rsdb}
-   {:t_patient/keys [patient_identifier break_glass] :as env}]
+  [{rsdb :com.eldrix/rsdb :as env}
+   {:t_patient/keys [patient_identifier break_glass]}]
   {:pco/input  [:t_patient/patient_identifier :t_patient/break_glass]
    :pco/output [:t_patient/permissions]}
   {:t_patient/permissions
