@@ -3,5 +3,5 @@
         rum/rum                             {:mvn/version "0.12.11"}
         selmer/selmer                       {:mvn/version "1.12.62"}}
 
- :aliases {:test {:extra-paths ["test"]
+ :aliases {:test {:extra-paths ["test" "test/resources"]
                   :extra-deps  {}}}}
