@@ -25,7 +25,7 @@
                        (update ctx :request assoc :ods ods :pathom pathom))})}))
 
 (s/def ::routes-params
-  (s/keys ::opt-un [::interceptors]))
+  (s/keys :opt-un [::interceptors]))
 
 (defn routes
   "Return the routes to support the ODS user interface."
