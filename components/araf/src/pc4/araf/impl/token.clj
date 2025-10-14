@@ -45,6 +45,6 @@
 
 (comment
   (gen-access-key)
-  (bytes->hex (gen-long-access-key))
+  (codecs/bytes->hex (gen-long-access-key))
   (valid-jwt? "secret" (gen-jwt "secret"))
   (gen-jwt "M5EB6WAD"))
