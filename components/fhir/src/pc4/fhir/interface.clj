@@ -56,7 +56,7 @@
 (s/def :org.hl7.fhir.Period/start (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir.Period/end (s/nilable #(instance? LocalDate %)))
 (s/def :org.hl7.fhir/Period
-  (s/keys :req [:org.hl7.fhir.Period/start :org.hl7.fhir.Period/end]))
+  (s/keys :opt [:org.hl7.fhir.Period/start :org.hl7.fhir.Period/end]))
 
 (s/def :org.hl7.fhir.Identifier/system string?)
 (s/def :org.hl7.fhir.Identifier/value string?)
