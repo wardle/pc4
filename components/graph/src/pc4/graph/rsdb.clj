@@ -657,13 +657,14 @@
    [:t_project/id :t_project/name
     :t_project/title :t_project/long_description
     :t_project/type :t_project/home_page
+    {:t_project/administrator_user [:t_user/id]}
     :t_project/date_from :t_project/date_to
     :t_project/exclusion_criteria :t_project/inclusion_criteria
     :t_project/address1 :t_project/address2
     :t_project/address3 :t_project/address4
     :t_project/postcode
     :t_project/ethics
-    {:t_project/parent_project [:t_project/id]}
+    {:t_project/parent [:t_project/id]}
     :t_project/virtual :t_project/pseudonymous
     :t_project/can_own_equipment
     :t_project/specialty_concept_fk
@@ -676,7 +677,7 @@
     (assoc p
       :t_project/administrator_user
       (when administrator_user_fk {:t_user/id administrator_user_fk})
-      :t_project/parent_project
+      :t_project/parent
       (when parent_project_fk {:t_project/id parent_project_fk})
       :t_project/specialty_concept
       (when specialty_concept_fk {:info.snomed.Concept/id specialty_concept_fk}))))
