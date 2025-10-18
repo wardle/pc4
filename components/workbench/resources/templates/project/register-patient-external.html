@@ -1,28 +1,22 @@
 <div id="search-results" class="space-y-4">
     {% if success-message %}
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
-        {{ success-message }}
-    </div>
+    {% include "ui/templates/alerts/success.html" with message=success-message %}
     {% endif %}
 
     {% if status-message %}
-    <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
-        {{ status-message }}
-    </div>
+    {% include "ui/templates/alerts/info.html" with message=status-message %}
     {% elif all provider-title duplicate-banners|empty? %}
-    <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
-        Patient found via {{ provider-title }}. Review the details before registering.
-    </div>
+    {% include "ui/templates/alerts/info.html" with message="Patient found via "|add:provider-title|add:". Review the details before registering." %}
     {% endif %}
 
     {% include "templates/patient/banner.html" %}
 
     {% if duplicate-banners|not-empty %}
-    <div class="bg-red-50 border border-red-400 rounded-md px-4 py-3 space-y-3">
-        <h3 class="text-sm font-semibold text-red-900">
+    <div class="bg-red-50 border border-red-200 rounded-md px-4 py-3 space-y-3" role="alert">
+        <h3 class="text-base font-semibold text-red-900 mb-2">
             Cannot register - matching patient(s) found
         </h3>
-        <p class="text-xs text-red-700">
+        <p class="text-sm text-red-700">
             This patient already exists in the system. Use the link below to view their record.
         </p>
         {% for duplicate in duplicate-banners %}
@@ -40,9 +34,7 @@
     {% endif %}
 
     {% if error-message %}
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
-        {{ error-message }}
-    </div>
+    {% include "ui/templates/alerts/error.html" with message=error-message %}
     {% endif %}
 
     {% if all register-url duplicate-banners|empty? %}

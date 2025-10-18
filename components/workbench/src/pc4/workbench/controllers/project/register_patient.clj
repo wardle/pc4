@@ -188,10 +188,10 @@
                  :status-message status-message}))
 
             :local-multiple
-            (ui/render [:div.bg-yellow-50.border.border-yellow-200.rounded-md.px-4.py-3
-                        [:h3.text-sm.font-semibold.text-yellow-900 "Multiple matches found"]
-                        [:p.text-xs.text-yellow-700 "Multiple patients match this identifier. Please contact support to resolve this issue."]
-                        [:pre.text-xs.mt-2.text-yellow-800 (pr-str (:patient-pks result))]])
+            (ui/render (ui/alert-warning
+                         {:title   "Multiple matches found"
+                          :message (str "Multiple patients match this identifier. Please contact support to resolve this issue. Patient IDs: "
+                                        (pr-str (:patient-pks result)))}))
 
             :external-match
             (let [{:keys [fhir-patient provider-id provider-title system value duplicate-ids]} result
@@ -210,9 +210,9 @@
                  :duplicate-ids  duplicate-ids}))
 
             :external-multiple
-            (ui/render [:div.bg-red-50.border.border-red-200.rounded-md.px-4.py-3
-                        [:h3.text-sm.font-semibold.text-red-900 "Multiple patients returned"]
-                        [:p.text-xs.text-red-700 "The external provider returned multiple patients. This should not happen. Please contact support."]])
+            (ui/render (ui/alert-error
+                         {:title   "Multiple patients returned"
+                          :message "The external provider returned multiple patients. This should not happen. Please contact support."}))
 
             :not-found
             (let [{:keys [value provider-title]} result]
@@ -221,9 +221,9 @@
                                :provider-title provider-title}))
 
             ;; Default case - should not happen
-            (ui/render [:div.bg-red-50.border.border-red-200.rounded-md.px-4.py-3
-                        [:h3.text-sm.font-semibold.text-red-900 "Unexpected Error"]
-                        [:p.text-xs.text-red-700 (str "Unexpected outcome: " (:outcome result))]])))))))
+            (ui/render (ui/alert-error
+                         {:title   "Unexpected Error"
+                          :message (str "Unexpected outcome: " (:outcome result))}))))))))
 
 (def register-internal-patient-action
   "Register an existing internal patient to the project.
@@ -357,9 +357,9 @@
               ;; Multiple patients found
               (> n-remote 1)
               (web/ok
-                (ui/render [:div.bg-red-50.border.border-red-200.rounded-md.px-4.py-3
-                            [:h3.text-sm.font-semibold.text-red-900 "Multiple patients returned"]
-                            [:p.text-xs.text-red-700 "The external provider returned multiple patients. This should not happen. Please contact support."]]))
+                (ui/render (ui/alert-error
+                             {:title   "Multiple patients returned"
+                              :message "The external provider returned multiple patients. This should not happen. Please contact support."})))
 
               ;; Single patient - check for duplicates and register
               :else

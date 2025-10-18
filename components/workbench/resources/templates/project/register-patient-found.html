@@ -1,8 +1,6 @@
 <div id="search-results" class="space-y-4">
     {% if success-message %}
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
-        {{ success-message }}
-    </div>
+    {% include "ui/templates/alerts/success.html" with message=success-message %}
     {% endif %}
 
     {% include "templates/patient/banner.html" %}
