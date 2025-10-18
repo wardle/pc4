@@ -29,47 +29,8 @@
         (sort (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))) ops)))
   (-> env
       (dissoc :pathom/ops)
-      (assoc ::p.error/lenient-mode? true
-             :com.wsscode.pathom3.format.eql/map-select-include #{:tempids}) ;; always include request for tempids
-      (pci/register ops)
-
-      ;; add plugin to handle resolver errors
-      (p.plugin/register
-        {::p.plugin/id `handle-resolver-err
-         ::pcr/wrap-resolver-error
-         (fn [_]
-           (fn [_env node error]
-             (when (instance? Throwable error)
-               (.printStackTrace ^Throwable error))
-             (log/error "pathom resolver error" {:node node :error error})))})
-
-      ;; add plugin to handle mutation errors
-      (p.plugin/register
-        {::p.plugin/id `handle-mutation-err
-         ::pcr/wrap-mutate
-         (fn [mutate]
-           (fn [env params]
-             (try
-               (mutate env params)
-               (catch Throwable err
-                 (.printStackTrace err)
-                 {::pcr/mutation-error (ex-message err)}))))})
-
-      ;; add plugin to process query parameters from query for Fulcro clients
-      (p.plugin/register
-        {::p.plugin/id `query-params->env
-         ::p.eql/wrap-process-ast
-         (fn [process]
-           (fn [env ast]
-             (let [children (:children ast)
-                   query-params (reduce
-                                  (fn [qps {:keys [type params]}]
-                                    (cond-> qps
-                                      (and (not= :call type) (seq params)) (merge params)))
-                                  {}
-                                  children)
-                   env (assoc env :query-params query-params)]
-               (process env ast))))})))
+      (assoc ::p.error/lenient-mode? false)
+      (pci/register ops)))
 
 (s/def ::connect-viz boolean?)
 (s/def ::env map?)
