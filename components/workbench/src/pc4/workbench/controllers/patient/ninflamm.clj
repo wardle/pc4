@@ -457,35 +457,42 @@
         (web/ok
           (ui/render-file
             "templates/patient/base.html"
-            (assoc patient-page
-              :content
-              (ui/render
-                [:div
-                 ;; Display MS diagnosis selection
-                 (ui-ms-diagnosis-selection summary_multiple_sclerosis
-                                            {:all-ms-diagnoses   all-ms-diagnoses
-                                             :patient-identifier patient_identifier
-                                             :can-edit           can-edit
-                                             :csrf-token         csrf-token})
+            (-> patient-page
+                (assoc-in [:menu :submenu] {:items [{:text   "Add disease event..."
+                                                      :hidden (not can-edit)
+                                                      :url    (route/url-for :patient/edit-ms-event :path-params {:patient-identifier patient_identifier
+                                                                                                                  :ms-event-id        "new"})}
+                                                     {:text    "EDSS chart "
+                                                      :hidden  false
+                                                      :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]})
+                (assoc :content
+                       (ui/render
+                         [:div
+                          ;; Display MS diagnosis selection
+                          (ui-ms-diagnosis-selection summary_multiple_sclerosis
+                                                     {:all-ms-diagnoses   all-ms-diagnoses
+                                                      :patient-identifier patient_identifier
+                                                      :can-edit           can-edit
+                                                      :csrf-token         csrf-token})
 
-                 ;; Display ordering errors if any
-                 (when (and show-ms? (seq (:t_summary_multiple_sclerosis/event_ordering_errors summary_multiple_sclerosis)))
-                   [:div.pb-4
-                    (ui/box-error-message
-                      {:title   "Warning: invalid disease relapses and events"
-                       :message [:ul
-                                 (for [error (:t_summary_multiple_sclerosis/event_ordering_errors summary_multiple_sclerosis)]
-                                   [:li error])]})])
-                 (ui/ui-modal {:id      "edss-chart"
-                               :hidden? true
-                               :size    :xl
-                               :cancel  {:onClick "htmx.addClass(htmx.find(\"#edss-chart\"), \"hidden\");"}}
-                              [:img {:src (route/url-for :patient/chart :query-params {:type "edss" :width 1600 :height 800})}])
-                 ;; Display MS events if any and applicable
-                 (when show-ms?
-                   [:div
-                    (if (seq (:t_summary_multiple_sclerosis/events summary_multiple_sclerosis))
-                      (ui-ms-events-table (:t_summary_multiple_sclerosis/events summary_multiple_sclerosis)
-                                          {:patient-identifier patient_identifier
-                                           :can-edit           can-edit})
-                      [:div.text-center.py-4.text-gray-500 "No disease events recorded"])])]))))))))
+                          ;; Display ordering errors if any
+                          (when (and show-ms? (seq (:t_summary_multiple_sclerosis/event_ordering_errors summary_multiple_sclerosis)))
+                            [:div.pb-4
+                             (ui/box-error-message
+                               {:title   "Warning: invalid disease relapses and events"
+                                :message [:ul
+                                          (for [error (:t_summary_multiple_sclerosis/event_ordering_errors summary_multiple_sclerosis)]
+                                            [:li error])]})])
+                          (ui/ui-modal {:id      "edss-chart"
+                                        :hidden? true
+                                        :size    :xl
+                                        :cancel  {:onClick "htmx.addClass(htmx.find(\"#edss-chart\"), \"hidden\");"}}
+                                       [:img {:src (route/url-for :patient/chart :query-params {:type "edss" :width 1600 :height 800})}])
+                          ;; Display MS events if any and applicable
+                          (when show-ms?
+                            [:div
+                             (if (seq (:t_summary_multiple_sclerosis/events summary_multiple_sclerosis))
+                               (ui-ms-events-table (:t_summary_multiple_sclerosis/events summary_multiple_sclerosis)
+                                                   {:patient-identifier patient_identifier
+                                                    :can-edit           can-edit})
+                               [:div.text-center.py-4.text-gray-500 "No disease events recorded"])])])))))))))

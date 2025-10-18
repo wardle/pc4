@@ -107,13 +107,11 @@
          (dissoc :nhs-number :gender)))})
 
 (pco/defresolver patient-menu
-  [{:keys [request menu] :com.eldrix/keys [hermes] :as env}
+  [{:keys [menu] :com.eldrix/keys [hermes] :as env}
    {:t_patient/keys [patient_identifier diagnoses permissions] :as patient}]
   {::pco/input  [:t_patient/patient_identifier :t_patient/diagnoses :t_patient/permissions]
    ::pco/output [:ui/patient-menu]}
   (let [selected menu
-        csrf-token (csrf/existing-token request)
-        can-edit? (permissions :PATIENT_EDIT)
         diagnosis-ids (set (map :t_diagnosis/concept_fk (filter rsdb/diagnosis-active? diagnoses)))
         ninflamm (snomed/intersect-ecl hermes diagnosis-ids "<<39367000")
         epilepsy (snomed/intersect-ecl hermes diagnosis-ids "<<128613002")
@@ -155,43 +153,7 @@
                   :text "Admissions"}
                  {:id   :research
                   :url  (route/url-for :patient/diagnoses :path-params {:patient-identifier patient_identifier})
-                  :text "Research"}]
-      :submenu
-      (case selected
-        :diagnoses
-        {:items [{:text   "Add diagnosis..."
-                  :hidden (not can-edit?)
-                  :url    (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient_identifier
-                                                                               :diagnosis-id       "new"})}]}
-        :medications
-        {:items [{:text   "Add medication..."
-                  :hidden (not can-edit?)
-                  :url    (route/url-for :patient/edit-medication :path-params {:patient-identifier patient_identifier
-                                                                                :medication-id      "new"})}]}
-        :relapses
-        {:items [{:text   "Add disease event..."
-                  :hidden (not can-edit?)
-                  :url    (route/url-for :patient/edit-ms-event :path-params {:patient-identifier patient_identifier
-                                                                              :ms-event-id        "new"})}
-                 {:text    "EDSS chart "
-                  :hidden  false
-                  :onClick "htmx.removeClass(htmx.find(\"#edss-chart\"), \"hidden\");"}]}
-        :encounters
-        (let [encounters-view (keyword (get-in request [:params "view"] "notes"))]
-          {:items [{:content (ui/render [:form {:hx-target   "#list-encounters"
-                                                :hx-trigger  "change"
-                                                :hx-get      (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
-                                                :hx-push-url "true"}
-                                         (ui/ui-select-button {:name        "view"
-                                                               :selected-id encounters-view
-                                                               :options     [{:id :notes :text "Notes"}
-                                                                             {:id :users :text "Users"}
-                                                                             {:id :ninflamm :text "Neuroinflammatory"}
-                                                                             {:id :mnd :text "Motor neurone disease"}]})])}
-                   {:text   "Add encounter..."
-                    :hidden (not can-edit?)
-                    :url    (route/url-for :patient/add-encounter :path-params {:patient-identifier patient_identifier})}]})
-        {:items []})}}))
+                  :text "Research"}]}}))
 
 (pco/defresolver patient-page
   "Return data for a full patient page including main patient menu"
@@ -394,6 +356,7 @@
     [:ui/patient-page
      {:ui/current-patient
       [:t_patient/patient_identifier
+       :t_patient/permissions
        :t_patient/first_names
        :t_patient/title
        :t_patient/last_name
@@ -407,24 +370,25 @@
                                       :t_death_certificate/part1c
                                       :t_death_certificate/part2]}]}]
     (fn [_ {:ui/keys [patient-page current-patient]}]
-      (let [{:t_patient/keys          [title first_names last_name date_birth date_death]
+      (if-let [{:t_patient/keys          [patient_identifier permissions title first_names last_name date_birth date_death]
              :uk.nhs.cfh.isb1504/keys [nhs-number]
              :uk.nhs.cfh.isb1505/keys [display-age]}
             current-patient]
         (web/ok
           (ui/render-file
             "templates/patient/home-page.html"
-            (assoc patient-page
-              :demographics {:title "Demographics"
-                             :items [{:title "First names" :body first_names}
-                                     {:title "Last name" :body last_name}
-                                     {:title "Title" :body title}
-                                     {:title "NHS Number" :body nhs-number}
-                                     {:title "Date of birth" :body (str date_birth)}
-                                     (if date_death {:title "Date of death"
-                                                     :body  (str date_death)}
-                                                    {:title "Current age"
-                                                     :body  display-age})]})))))))
+            (-> patient-page
+                (assoc :demographics {:title "Demographics"
+                                      :items [{:title "First names" :body first_names}
+                                              {:title "Last name" :body last_name}
+                                              {:title "Title" :body title}
+                                              {:title "NHS Number" :body nhs-number}
+                                              {:title "Date of birth" :body (str date_birth)}
+                                              (if date_death {:title "Date of death"
+                                                              :body  (str date_death)}
+                                                             {:title "Current age"
+                                                              :body  display-age})]}))))
+        (web/not-found "Patient not found")))))
 
 (def expanded-banner
   "The content of the extended banner; shown when the user clicks the banner"

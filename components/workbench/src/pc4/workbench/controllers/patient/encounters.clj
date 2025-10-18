@@ -285,7 +285,7 @@
        :t_patient/permissions]}]
     (fn [request {:ui/keys [csrf-token patient-page current-patient]}]
       (let [{:t_patient/keys [patient_identifier permissions]} current-patient
-            can-edit? (get-in permissions [:PATIENT_EDIT])
+            can-edit? (permissions :PATIENT_EDIT)
             view (keyword (get-in request [:query-params :view] "notes"))
             rsdb (get-in request [:env :rsdb])
             encounters-params {:patient-identifier patient_identifier
@@ -303,11 +303,11 @@
                 (for [encounter encounters
                       :let [{:t_encounter/keys [id] patient-identifier# :t_patient/patient_identifier} encounter]]
                   (ui/ui-table-row
-                    {:class "cursor-pointer hover:bg-gray-50"
-                     :hx-get (route/url-for :patient/encounter 
-                                            :path-params {:patient-identifier (or patient-identifier# patient_identifier)
-                                                          :encounter-id id})
-                     :hx-target "body"
+                    {:class       "cursor-pointer hover:bg-gray-50"
+                     :hx-get      (route/url-for :patient/encounter
+                                                 :path-params {:patient-identifier (or patient-identifier# patient_identifier)
+                                                               :encounter-id       id})
+                     :hx-target   "body"
                      :hx-push-url "true"}
                     (for [{:keys [f f2] :or {f (constantly "")}} headings#]
                       (ui/ui-table-cell {} (cond
@@ -319,9 +319,22 @@
             (ui/render response)
             (ui/render-file
               "templates/patient/base.html"
-              (assoc patient-page
-                :content
-                (ui/render [:div {:id "list-encounters"} response])))))))))
+              (-> patient-page
+                  (assoc-in [:menu :submenu] {:items [{:content (ui/render [:form {:hx-target   "#list-encounters"
+                                                                                   :hx-trigger  "change"
+                                                                                   :hx-get      (route/url-for :patient/encounters :path-params {:patient-identifier patient_identifier})
+                                                                                   :hx-push-url "true"}
+                                                                            (ui/ui-select-button {:name        "view"
+                                                                                                  :selected-id view
+                                                                                                  :options     [{:id :notes :text "Notes"}
+                                                                                                                {:id :users :text "Users"}
+                                                                                                                {:id :ninflamm :text "Neuroinflammatory"}
+                                                                                                                {:id :mnd :text "Motor neurone disease"}]})])}
+                                                      {:text   "Add encounter..."
+                                                       :hidden (not can-edit?)
+                                                       :url    (route/url-for :patient/add-encounter :path-params {:patient-identifier patient_identifier})}]})
+                  (assoc :content
+                         (ui/render [:div {:id "list-encounters"} response]))))))))))
 
 (def encounter-lock-handler
   (pw/handler
@@ -372,7 +385,7 @@
         (cond
           (not can-edit-patient?)
           (web/forbidden "Not authorized to edit this patient")
-          
+
           :else
           (web/ok
             (ui/render-file

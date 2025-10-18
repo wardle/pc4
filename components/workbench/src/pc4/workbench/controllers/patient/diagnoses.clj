@@ -45,22 +45,28 @@
     [:ui/patient-page
      {:ui/current-patient
       [:t_patient/patient_identifier
+       :t_patient/permissions
        {:t_patient/diagnoses [:t_diagnosis/id :t_diagnosis/date_diagnosis :t_diagnosis/date_onset :t_diagnosis/date_to
                               :t_diagnosis/status {:t_diagnosis/diagnosis
                                                    [{:info.snomed.Concept/preferredDescription [:info.snomed.Description/term]}]}]}]}]
     (fn [_ {:ui/keys [patient-page current-patient]}]
-      (let [{:t_patient/keys [patient_identifier diagnoses]} current-patient
+      (let [{:t_patient/keys [patient_identifier permissions diagnoses]} current-patient
+            can-edit? (permissions :PATIENT_EDIT)
             active-diagnoses (filter #(= "ACTIVE" (:t_diagnosis/status %)) diagnoses)
             inactive-diagnoses (filter #(not= "ACTIVE" (:t_diagnosis/status %)) diagnoses)]
         (web/ok
           (ui/render-file
             "templates/patient/base.html"
-            (assoc patient-page
-              :content
-              (ui/render
-                [:div
-                 [:div (diagnoses-table "Active diagnoses" patient_identifier active-diagnoses)]
-                 (when (seq inactive-diagnoses) [:div.pt-4 (diagnoses-table "Inactive diagnoses" patient_identifier inactive-diagnoses)])]))))))))
+            (-> patient-page
+                (assoc-in [:menu :submenu] {:items [{:text   "Add diagnosis..."
+                                                     :hidden (not can-edit?)
+                                                     :url    (route/url-for :patient/edit-diagnosis :path-params {:patient-identifier patient_identifier
+                                                                                                                  :diagnosis-id       "new"})}]})
+                (assoc :content
+                       (ui/render
+                         [:div
+                          [:div (diagnoses-table "Active diagnoses" patient_identifier active-diagnoses)]
+                          (when (seq inactive-diagnoses) [:div.pt-4 (diagnoses-table "Inactive diagnoses" patient_identifier inactive-diagnoses)])])))))))))
 
 
 (defn ui-edit-diagnosis

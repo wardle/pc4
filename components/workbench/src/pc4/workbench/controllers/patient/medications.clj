@@ -302,26 +302,32 @@
     [:ui/patient-page
      {:ui/current-patient
       [:t_patient/patient_identifier
+       :t_patient/permissions
        {:t_patient/medications
         [:t_medication/id
          {:t_medication/medication [{(list :info.snomed.Concept/preferredDescription {:accept-language "en-nhs-dmd"})
                                      [:info.snomed.Description/term]}]}
          :t_medication/date_from :t_medication/date_to]}]}]
     (fn [_ {:ui/keys [patient-page current-patient]}]
-      (let [{:t_patient/keys [patient_identifier medications]} current-patient
+      (let [{:t_patient/keys [patient_identifier permissions medications]} current-patient
+            can-edit? (permissions :PATIENT_EDIT)
             active-medications (filter #(nil? (:t_medication/date_to %)) medications)
             inactive-medications (filter #(some? (:t_medication/date_to %)) medications)] ;; TODO: fix 'active' derivation
         (web/ok
           (ui/render-file
             "templates/patient/base.html"
-            (assoc patient-page
-              :content
-              (ui/render
-                [:div
-                 [:div (medications-table "Active medications" patient_identifier active-medications)]
-                 (when (seq inactive-medications)
-                   [:div.pt-4
-                    [:div (medications-table "Inactive medications" patient_identifier inactive-medications)]])]))))))))
+            (-> patient-page
+                (assoc-in [:menu :submenu] {:items [{:text   "Add medication..."
+                                                      :hidden (not can-edit?)
+                                                      :url    (route/url-for :patient/edit-medication :path-params {:patient-identifier patient_identifier
+                                                                                                                    :medication-id      "new"})}]})
+                (assoc :content
+                       (ui/render
+                         [:div
+                          [:div (medications-table "Active medications" patient_identifier active-medications)]
+                          (when (seq inactive-medications)
+                            [:div.pt-4
+                             [:div (medications-table "Inactive medications" patient_identifier inactive-medications)]])])))))))))
 
 (def delete-medication-handler
   "Handler to delete a medication"
