@@ -5,7 +5,7 @@
     [clojure.spec.test.alpha :as stest]
     [clojure.test :refer [deftest is]]
     [pc4.report.interface :as report])
-  (:import (java.io File)))
+  (:import (java.io ByteArrayOutputStream File)))
 
 (stest/instrument)
 
@@ -21,8 +21,8 @@
         (is (< 0 (count stamped-pdf-bytes)))))))
 
 (defn load-test-image []
-  (with-open [in (io/input-stream (io/resource "report/test-image.png"))
-              baos (java.io.ByteArrayOutputStream.)]
+  (with-open [in (io/input-stream (io/resource "test-image.png"))
+              baos (ByteArrayOutputStream.)]
     (io/copy in baos)
     (.toByteArray baos)))
 
