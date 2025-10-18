@@ -419,4 +419,87 @@
                            :address3     ""
                            :address4     "GB"
                            :postcode_raw "CF99 5EE"}]
-            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999994"}]}}}}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A999994"}]}}}}
+
+ ;; Patient 6A & 6B: Edge case - TWO DIFFERENT patients with the SAME NHS number
+ ;; This tests the rare but real scenario where eMPI returns multiple patients
+
+ ;; Patient 6A: Emily Roberts - first patient with duplicate NHS number
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "9948749804"}
+              {:org.hl7.fhir.Identifier/system "https://fhir.cavuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "A888881"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Roberts"
+               :org.hl7.fhir.HumanName/given  ["Emily" "Jane"]
+               :org.hl7.fhir.HumanName/prefix ["Ms"]}]
+             :org.hl7.fhir.Patient/gender    "female"
+             :org.hl7.fhir.Patient/birthDate "1988-04-12"
+             :org.hl7.fhir.Patient/telecom
+             [{:org.hl7.fhir.ContactPoint/system "phone"
+               :org.hl7.fhir.ContactPoint/value  "02920 555111"
+               :org.hl7.fhir.ContactPoint/use    "home"}]
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["15 Park Avenue"]
+               :org.hl7.fhir.Address/city       "Cardiff"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF10 3AB"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Emily Jane"
+            :last_name   "Roberts"
+            :title       "Ms"
+            :sex         :FEMALE
+            :nhs_number  "9948749804"
+            :date_birth  "1988-04-12"
+            :addresses   [{:address1     "15 Park Avenue"
+                           :address2     "Cardiff"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF10 3AB"}]
+            :telephones  [{:telephone "02920 555111" :description "phone"}]
+            :hospitals   [{:hospital_fk "RWMBV" :patient_identifier "A888881"}]}}}}
+
+ ;; Patient 6B: Robert Edwards - second patient with SAME NHS number
+ {:versions
+  {1 {:fhir {:org.hl7.fhir.Patient/identifier
+             [{:org.hl7.fhir.Identifier/system "https://fhir.nhs.uk/Id/nhs-number"
+               :org.hl7.fhir.Identifier/value  "9948749804"}  ; Same NHS number!
+              {:org.hl7.fhir.Identifier/system "https://fhir.ctmuhb.nhs.wales/Id/pas-identifier"
+               :org.hl7.fhir.Identifier/value  "X777772"}]
+             :org.hl7.fhir.Patient/active true
+             :org.hl7.fhir.Patient/name
+             [{:org.hl7.fhir.HumanName/use    "usual"
+               :org.hl7.fhir.HumanName/family "Edwards"
+               :org.hl7.fhir.HumanName/given  ["Robert" "James"]
+               :org.hl7.fhir.HumanName/prefix ["Mr"]}]
+             :org.hl7.fhir.Patient/gender    "male"
+             :org.hl7.fhir.Patient/birthDate "1992-11-25"
+             :org.hl7.fhir.Patient/telecom
+             [{:org.hl7.fhir.ContactPoint/system "phone"
+               :org.hl7.fhir.ContactPoint/value  "029 2055 6222"
+               :org.hl7.fhir.ContactPoint/use    "mobile"}]
+             :org.hl7.fhir.Patient/address
+             [{:org.hl7.fhir.Address/line       ["42 High Street"]
+               :org.hl7.fhir.Address/city       "Pontypridd"
+               :org.hl7.fhir.Address/district   ""
+               :org.hl7.fhir.Address/country    "GB"
+               :org.hl7.fhir.Address/postalCode "CF37 1DL"}]
+             :org.hl7.fhir.Patient/generalPractitioner []}
+      :db  {:first_names "Robert James"
+            :last_name   "Edwards"
+            :title       "Mr"
+            :sex         :MALE
+            :nhs_number  "9948749804"
+            :date_birth  "1992-11-25"
+            :addresses   [{:address1     "42 High Street"
+                           :address2     "Pontypridd"
+                           :address3     ""
+                           :address4     "GB"
+                           :postcode_raw "CF37 1DL"}]
+            :telephones  [{:telephone "029 2055 6222" :description "phone"}]
+            :hospitals   [{:hospital_fk "RYLB3" :patient_identifier "X777772"}]}}}}]

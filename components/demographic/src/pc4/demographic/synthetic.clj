@@ -78,8 +78,9 @@
 
   Returns: implementation of PatientsByIdentifier that returns :fhir data.
 
-  The provider searches through all patient data and returns FHIR patients
-  that match the system/value at the specified version.
+  The provider searches through all patient data and returns ALL FHIR patients
+  that match the system/value at the specified version. This correctly handles
+  the edge case where multiple patients share the same identifier.
 
   Useful for testing demographic create/update workflows."
   [& {:keys [v] :or {v 1}}]
@@ -87,8 +88,15 @@
     (reify p/PatientsByIdentifier
       (fetch [_ system value]
         (log/debug "synthetic patients-by-identifier" {:system system :value value :version v})
-        (when-let [version-data (find-patient-by-identifier patients v system value)]
-          [(:fhir version-data)])))))
+        (->> patients
+             (keep (fn [{:keys [versions]}] (get versions v)))  ; extract version v data from each patient
+             (map :fhir)  ; extract FHIR patient data
+             (filter (fn [fhir-patient]  ; filter by matching identifier
+                       (let [identifiers (:org.hl7.fhir.Patient/identifier fhir-patient)]
+                         (some #(and (= system (:org.hl7.fhir.Identifier/system %))
+                                     (= value (:org.hl7.fhir.Identifier/value %)))
+                               identifiers))))
+             seq)))))
 
 (defn get-expected-db-data
   "Get expected database state for a patient at a specific version.

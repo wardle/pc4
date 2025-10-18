@@ -201,5 +201,13 @@
 
     (testing "Unknown system returns nil"
       (let [result (p/fetch provider "https://fhir.unknown.system/Id/foo" "1111111111")]
-        (is (nil? result))))))
+        (is (nil? result))))
+
+    (testing "Multiple patients with same NHS number are all returned"
+      (let [result (p/fetch provider "https://fhir.nhs.uk/Id/nhs-number" "9948749804")]
+        (is (seq result))
+        (is (= 2 (count result)) "Should return both patients with duplicate NHS number")
+        (is (= #{"Roberts" "Edwards"}
+               (set (map #(get-in % [:org.hl7.fhir.Patient/name 0 :org.hl7.fhir.HumanName/family]) result)))
+            "Should include both Roberts and Edwards")))))
 

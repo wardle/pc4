@@ -83,18 +83,23 @@
 
         ;; Create provider for v1 and fetch
         prov-v1 (synth/make-synthetic-provider :v v1)
-        fhir-v1 (first (p/fetch prov-v1 system value))
+        results (p/fetch prov-v1 system value)]
 
-        ;; Create patient
-        patient-pk (patients/create-patient-from-fhir! txn fhir-v1)
+    ;; Skip patients with duplicate identifiers (e.g., duplicate NHS numbers)
+    ;; Those are for testing the multiple-results edge case, not normal workflow
+    (when (= 1 (count results))
+      (let [fhir-v1 (first results)
 
-        ;; Verify v1 state
-        expected-v1 (get-in versions [v1 :db])]
+            ;; Create patient
+            patient-pk (patients/create-patient-from-fhir! txn fhir-v1)
 
-    (verify-patient-state txn patient-pk expected-v1 (str value " v" v1))
+            ;; Verify v1 state
+            expected-v1 (get-in versions [v1 :db])]
 
-    ;; Update through remaining versions
-    (doseq [version (rest sorted-versions)]
+        (verify-patient-state txn patient-pk expected-v1 (str value " v" v1))
+
+        ;; Update through remaining versions
+        (doseq [version (rest sorted-versions)]
       (let [prov (synth/make-synthetic-provider :v version)
             fhir (first (p/fetch prov system value))
             expected (get-in versions [version :db])
@@ -103,7 +108,7 @@
 
         (doseq [stmt update-sql]
           (jdbc/execute! txn (sql/format stmt)))
-        (verify-patient-state txn patient-pk expected (str value " v" version))))))
+        (verify-patient-state txn patient-pk expected (str value " v" version))))))))
 
 (deftest ^:live test-all-synthetic-patients
   (testing "Process all patients through all versions from synthetic-patients.edn"
