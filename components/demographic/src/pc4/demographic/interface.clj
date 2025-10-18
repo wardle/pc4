@@ -64,11 +64,12 @@
    (patients-by-identifier svc system value {}))
   ([{:keys [providers]} system value {:keys [provider-id only-single-match ask-all-systems]}]
    (log/debug "patients-by-identifier" {:provider-id provider-id :system system :value value})
-   (let [by-provider-id (if provider-id (fn [{:keys [id]}] (= id provider-id)) (constantly true))
+   (let [normalized-value (some-> value (str/replace #"\s" "") str/upper-case)
+         by-provider-id (if provider-id (fn [{:keys [id]}] (= id provider-id)) (constantly true))
          by-system (if ask-all-systems (constantly true) (fn [{:keys [systems]}] (or (not systems) (some #{system} systems))))]
      (loop [providers (filter #(and (by-provider-id %) (by-system %)) providers)]
        (when-let [provider (first providers)]
-         (if-let [patients (seq (p/fetch (:svc provider) system value))]
+         (if-let [patients (seq (p/fetch (:svc provider) system normalized-value))]
            (if only-single-match
              (if (= 1 (count patients))
                (first patients)
