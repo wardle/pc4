@@ -6,6 +6,7 @@
     [integrant.core :as ig]
     [next.jdbc :as jdbc]
     [next.jdbc.plan :as plan]
+    [pc4.demographic.interface :as demographic]
     [pc4.log.interface :as log]
     [pc4.ods.interface :as ods]
     [pc4.rsdb.auth :as auth]
@@ -429,17 +430,122 @@
   (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
     (projects/register-patient-project! txn project-id user-id patient)))
 
-(defn update-legacy-pseudonymous-patient!
-  [{:keys [conn legacy-global-pseudonym-salt]} patient-pk data]
-  (jdbc/with-transaction [txn conn {:isolation :serializable}]
-    (projects/update-legacy-pseudonymous-patient! txn legacy-global-pseudonym-salt patient-pk data)))
-
 ;; demographic matching
 (defn exact-match-by-identifier [{:keys [conn]} fhir-patient]
   (demog/exact-match-by-identifier conn fhir-patient))
 
 (defn exact-match-on-demography [{:keys [conn]} fhir-patient]
   (demog/exact-match-on-demography conn fhir-patient))
+
+(defn project-patient-search
+  "Search for a patient by identifier for project registration.
+
+  Parameters:
+  - :system - identifier system
+  - :value - identifier value
+  - :project-id - project context
+  - :provider-id - (optional) external provider to search if not found locally
+
+  Returns:
+  - :outcome - :local-match | :local-multiple | :external-match | :external-multiple | :not-found
+  - :patient-pk - when single local match
+  - :patient-identifier - when single local match
+  - :banner - when single local match
+  - :already-registered? - when single local match
+  - :fhir-patient - when external match
+  - :provider-id - when external match or not found
+  - :provider-title - when external match or not found
+  - :system - when external match or not found
+  - :value - when external match or not found
+  - :duplicate-ids - when external match (may be empty)
+  - :fhir-patients - when multiple external matches
+  - :patient-pks - when multiple local matches"
+  [{:keys [conn] :as svc} demographic-svc {:keys [system value project-id provider-id]}]
+  (let [search-patient {:org.hl7.fhir.Patient/identifier
+                        [{:org.hl7.fhir.Identifier/system system
+                          :org.hl7.fhir.Identifier/value  value}]}
+        local-matches (exact-match-by-identifier svc search-patient)]
+    (cond
+      (> (count local-matches) 1)
+      {:outcome :local-multiple :patient-pks local-matches}
+
+      (= (count local-matches) 1)
+      (let [patient-pk (first local-matches)
+            patient-identifier (patients/pk->identifier conn patient-pk)
+            episodes (projects/episodes-for-patient-in-project conn {:t_patient/id patient-pk} project-id)
+            already-registered? (some #(= :registered (projects/episode-status %)) episodes)]
+        {:outcome :local-match
+         :patient-pk patient-pk
+         :patient-identifier patient-identifier
+         :already-registered? already-registered?})
+
+      provider-id
+      (let [provider (demographic/provider-by-id demographic-svc provider-id)
+            provider-title (:title provider)
+            fhir-patients (demographic/patients-by-identifier demographic-svc system value {:provider-id provider-id})
+            n-results (count fhir-patients)]
+        (cond
+          (zero? n-results)
+          {:outcome :not-found
+           :provider-id provider-id
+           :provider-title provider-title
+           :value value}
+
+          (> n-results 1)
+          {:outcome :external-multiple
+           :fhir-patients fhir-patients
+           :provider-id provider-id
+           :provider-title provider-title
+           :system system
+           :value value}
+
+          :else
+          (let [fhir-patient (first fhir-patients)
+                exact-by-identifier (or (exact-match-by-identifier svc fhir-patient) #{})
+                exact-by-demography (or (exact-match-on-demography svc fhir-patient) #{})
+                duplicate-ids (into exact-by-identifier exact-by-demography)]
+            {:outcome :external-match
+             :fhir-patient fhir-patient
+             :provider-id provider-id
+             :provider-title provider-title
+             :system system
+             :value value
+             :duplicate-ids duplicate-ids})))
+
+      :else
+      {:outcome :not-found :value value})))
+
+(defn project-patient-register
+  "Register a patient to a project.
+
+  Takes either an existing patient-pk or FHIR patient data.
+  If FHIR data provided, upserts patient first.
+
+  Parameters:
+  - :patient-pk - (optional) existing patient primary key
+  - :fhir-patient - (optional) FHIR patient data to upsert
+  - :project-id - project identifier
+  - :user-id - user performing registration
+
+  Returns patient primary key."
+  [{:keys [conn] :as svc} {:keys [patient-pk fhir-patient project-id user-id] :as params}]
+  (cond
+    patient-pk
+    (do
+      (register-patient-project! svc project-id user-id {:t_patient/id patient-pk})
+      patient-pk)
+    fhir-patient
+    (jdbc/with-transaction [txn conn {:isolation :repeatable-read}]
+      (let [{:keys [patient-pk]} (patients/create-patient-from-fhir! txn fhir-patient)]
+        (projects/register-patient-project! txn project-id user-id {:t_patient/id patient-pk})
+        patient-pk))
+    :else
+    (throw (ex-info "must specify either patient-pk or fhir-patient" params ))))
+
+(defn update-legacy-pseudonymous-patient!
+  [{:keys [conn legacy-global-pseudonym-salt]} patient-pk data]
+  (jdbc/with-transaction [txn conn {:isolation :serializable}]
+    (projects/update-legacy-pseudonymous-patient! txn legacy-global-pseudonym-salt patient-pk data)))
 
 ;; demographic updates
 (defn update-patient-from-authority! [{:keys [conn demographic]} patient-pk]

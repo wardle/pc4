@@ -69,7 +69,8 @@
       ["/project/:project-id/today" :get [login/authenticated project/update-session project/today-wizard] :route-name :project/today]
       ["/project/:project-id/register-patient" :get [login/authenticated project/update-session register-patient/register-patient-form] :route-name :project/register-patient]
       ["/project/:project-id/register-patient/search" :post [login/authenticated register-patient/search-patient] :route-name :project/register-patient-search]
-      ["/project/:project-id/register-patient/action" :post [login/authenticated register-patient/register-patient-action] :route-name :project/register-patient-action]
+      ["/project/:project-id/register-patient/internal" :post [login/authenticated register-patient/register-internal-patient-action] :route-name :project/register-internal-patient-action]
+      ["/project/:project-id/register-patient/external" :post [login/authenticated register-patient/register-external-patient-action] :route-name :project/register-external-patient-action]
       ["/project/:project-id/patients" :get [login/authenticated project/update-session project/patients] :route-name :project/patients]
       ["/project/:project-id/encounters" :get [login/authenticated project/update-session project/encounters] :route-name :project/encounters]
       ["/patient/:patient-identifier/home" :get [login/authenticated patient/authorized patient/home] :route-name :patient/home]
@@ -138,20 +139,21 @@
         [interceptors/log-request
          interceptors/not-found
          (ring-middlewares/session
-           {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
-            :cookie-name  "pc4-session"
-            :cookie-attrs {:same-site :strict}})
+          {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
+           :cookie-name  "pc4-session"
+           :cookie-attrs {:same-site :strict}})
          (ring-middlewares/flash)
          (ring-middlewares/content-type)
          route/query-params
          (body-params/body-params)
          (csrf/anti-forgery {:error-handler csrf-error-handler})
          (secure-headers/secure-headers
-           {:content-security-policy-settings "object-src 'none';"})
+          {:content-security-policy-settings "object-src 'none';"})
          (env-interceptor env)])
       (conn/with-routes
         routes
         (resources/resource-routes {:resource-root "public"}))
+      (assoc :join? join?)
       (jetty/create-connector nil)
       (conn/start!)))
 

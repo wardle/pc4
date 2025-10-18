@@ -1,0 +1,82 @@
+<div id="search-results" class="space-y-4">
+    {% if success-message %}
+    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">
+        {{ success-message }}
+    </div>
+    {% endif %}
+
+    {% if status-message %}
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+        {{ status-message }}
+    </div>
+    {% elif all provider-title duplicate-banners|empty? %}
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded">
+        Patient found via {{ provider-title }}. Review the details before registering.
+    </div>
+    {% endif %}
+
+    {% include "templates/patient/banner.html" %}
+
+    {% if duplicate-banners|not-empty %}
+    <div class="bg-red-50 border border-red-400 rounded-md px-4 py-3 space-y-3">
+        <h3 class="text-sm font-semibold text-red-900">
+            Cannot register - matching patient(s) found
+        </h3>
+        <p class="text-xs text-red-700">
+            This patient already exists in the system. Use the link below to view their record.
+        </p>
+        {% for duplicate in duplicate-banners %}
+        <div class="border border-red-200 rounded-md bg-white px-3 py-3 space-y-2">
+            {% include "templates/patient/banner.html" with banner=duplicate.banner %}
+            <div class="flex items-center justify-between text-sm text-gray-600">
+                <span>Patient ID <span class="font-mono">{{ duplicate.patient-identifier }}</span></span>
+                <a href="{{ duplicate.url }}" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                    View patient record &gt;
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if error-message %}
+    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+        {{ error-message }}
+    </div>
+    {% endif %}
+
+    {% if all register-url duplicate-banners|empty? %}
+    <form hx-post="{{ register-url }}"
+          hx-target="#search-results"
+          hx-swap="outerHTML"
+          class="bg-white shadow-sm border border-gray-200 rounded-md px-4 py-4 space-y-4">
+        <input type="hidden" name="__anti-forgery-token" value="{{ csrf-token }}">
+        <input type="hidden" name="external-provider-id" value="{{ provider-id }}">
+        <input type="hidden" name="external-system" value="{{ system }}">
+        <input type="hidden" name="external-value" value="{{ value }}">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
+            <button type="submit"
+                    name="open-record"
+                    value="false"
+                    class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700">
+                Register patient
+            </button>
+            <button type="submit"
+                    name="open-record"
+                    value="true"
+                    class="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                Register and view patient record &gt;
+            </button>
+        </div>
+    </form>
+    {% endif %}
+
+    {% if success-message %}
+    <div class="bg-white shadow-sm border border-gray-200 rounded-md px-4 py-3 flex items-center justify-end">
+        <a href="{{ view-url }}"
+           class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+            View patient record &gt;
+        </a>
+    </div>
+    {% endif %}
+</div>

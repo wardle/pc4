@@ -1485,7 +1485,7 @@
 
    Returns:
    A map with:
-   - :patient-id - the patient primary key
+   - :patient-pk - the patient primary key
    - :created? - true if patient was created, false if updated
 
    Throws:
@@ -1502,7 +1502,7 @@
     (cond
       ;; No existing patient found - create new
       (empty? matches)
-      {:patient-id (create-patient-from-fhir! txn fhir-patient)
+      {:patient-pk (create-patient-from-fhir! txn fhir-patient)
        :created? true}
 
       ;; Exactly one patient found - update
@@ -1513,7 +1513,7 @@
         (when (seq sql-stmts)
           (doseq [stmt sql-stmts]
             (db/execute! txn (sql/format stmt))))
-        {:patient-id patient-pk
+        {:patient-pk patient-pk
          :created? false})
 
       ;; Multiple patients found - ambiguous

@@ -11,7 +11,7 @@
         <div class="flex items-center text-sm md:text-base text-gray-600 md:flex-1">
             {% if status-message %}
             <span class="leading-snug italic">{{ status-message }}</span>
-            {% elif show-register-form %}
+            {% elif register-url %}
             <form hx-post="{{ register-url }}"
                   hx-target="#search-results"
                   hx-swap="outerHTML"
@@ -20,7 +20,7 @@
                 <input type="hidden" name="patient-pk" value="{{ patient-pk }}">
                 <button type="submit"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700">
-                    {{ register-label|default:"Register" }}
+                    Register
                 </button>
             </form>
             {% else %}
@@ -28,7 +28,7 @@
             {% endif %}
         </div>
         <div class="flex items-center md:flex-shrink-0 md:justify-end">
-            {% if show-register-and-view-form %}
+            {% if register-url %}
             <form hx-post="{{ register-url }}"
                   hx-target="#search-results"
                   hx-swap="outerHTML"
@@ -38,13 +38,13 @@
                 <input type="hidden" name="open-record" value="true">
                 <button type="submit"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-                    {{ register-and-view-label|default:"Register and view patient record >" }}
+                    Register and view patient record &gt;
                 </button>
             </form>
             {% else %}
             <a href="{{ view-url }}"
                class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
-                {{ view-link-label|default:"View patient record >" }}
+                View patient record &gt;
             </a>
             {% endif %}
         </div>
