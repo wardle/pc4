@@ -15,6 +15,58 @@
      (when title [:span.strong.font-bold.mr-4 title])
      [:span.block.sm:inline message]]))
 
+(rum/defc ui-alert-error
+  "Display an error alert with consistent styling.
+
+  Parameters:
+  - title: Optional heading text
+  - message: Main message text (required)"
+  [{:keys [title message]}]
+  [:div.bg-red-50.border.border-red-200.rounded-md.px-4.py-3
+   {:role "alert"}
+   (when title
+     [:h3.text-base.font-semibold.text-red-900.mb-2 title])
+   [:p.text-sm.text-red-700 message]])
+
+(rum/defc ui-alert-warning
+  "Display a warning alert with consistent styling.
+
+  Parameters:
+  - title: Optional heading text
+  - message: Main message text (required)"
+  [{:keys [title message]}]
+  [:div.bg-yellow-50.border.border-yellow-200.rounded-md.px-4.py-3
+   {:role "alert"}
+   (when title
+     [:h3.text-base.font-semibold.text-yellow-900.mb-2 title])
+   [:p.text-sm.text-yellow-700 message]])
+
+(rum/defc ui-alert-info
+  "Display an informational alert with consistent styling.
+
+  Parameters:
+  - title: Optional heading text
+  - message: Main message text (required)"
+  [{:keys [title message]}]
+  [:div.bg-blue-50.border.border-blue-200.rounded-md.px-4.py-3
+   {:role "alert"}
+   (when title
+     [:h3.text-base.font-semibold.text-blue-900.mb-2 title])
+   [:p.text-sm.text-blue-700 message]])
+
+(rum/defc ui-alert-success
+  "Display a success alert with consistent styling.
+
+  Parameters:
+  - title: Optional heading text
+  - message: Main message text (required)"
+  [{:keys [title message]}]
+  [:div.bg-green-50.border.border-green-200.rounded-md.px-4.py-3
+   {:role "alert"}
+   (when title
+     [:h3.text-base.font-semibold.text-green-900.mb-2 title])
+   [:p.text-sm.text-green-700 message]])
+
 (rum/defc active-panel
   [{:keys [id title subtitle class]} & content]
   [:div.bg-white.shadow-lg.sm:rounded-lg.border.border-gray-200

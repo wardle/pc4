@@ -45,6 +45,26 @@
   [opts]
   (components/box-error-message opts))
 
+(defn alert-error
+  "Display an error alert with consistent styling."
+  [opts]
+  (components/ui-alert-error opts))
+
+(defn alert-warning
+  "Display a warning alert with consistent styling."
+  [opts]
+  (components/ui-alert-warning opts))
+
+(defn alert-info
+  "Display an informational alert with consistent styling."
+  [opts]
+  (components/ui-alert-info opts))
+
+(defn alert-success
+  "Display a success alert with consistent styling."
+  [opts]
+  (components/ui-alert-success opts))
+
 (defn active-panel
   [opts & content]
   (apply components/active-panel opts content))
