@@ -3,7 +3,6 @@
   (:refer-clojure :exclude [format])
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [com.eldrix.nhsnumber :as nnn]
             [integrant.core :as ig]
             [pc4.demographic.identifier :as identifier]
             [pc4.demographic.synthetic :as synth]
