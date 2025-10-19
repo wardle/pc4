@@ -1,9 +1,11 @@
 (ns pc4.demographic.interface
   "A demographic service is an opaque provider of demographic information. "
+  (:refer-clojure :exclude [format])
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
             [com.eldrix.nhsnumber :as nnn]
             [integrant.core :as ig]
+            [pc4.demographic.identifier :as identifier]
             [pc4.demographic.synthetic :as synth]
             [pc4.demographic.protos :as p]
             [pc4.wales-cav-pms.interface :as cavpms]
@@ -36,6 +38,21 @@
   (log/info "creating demographic service with " (count providers) " providers")
   config)
 
+(defn normalize
+  "Normalize an identifier value for the given system."
+  [system value]
+  (identifier/normalize system value))
+
+(defn validate
+  "Validate an identifier value for the given system. Returns true if valid, false otherwise."
+  [system value]
+  (identifier/validate system value))
+
+(defn format
+  "Format an identifier value for display."
+  [system value]
+  (identifier/format system value))
+
 (defn patients-by-identifier
   "Fetch patients matching the system and value specified. Will throw an exception if 'only-single-match' specified and
   there are multiple matches. It is almost always better to display multiple matches to the user, but
@@ -64,7 +81,7 @@
    (patients-by-identifier svc system value {}))
   ([{:keys [providers]} system value {:keys [provider-id only-single-match ask-all-systems]}]
    (log/debug "patients-by-identifier" {:provider-id provider-id :system system :value value})
-   (let [normalized-value (some-> value (str/replace #"\s" "") str/upper-case)
+   (let [normalized-value (normalize system value)
          by-provider-id (if provider-id (fn [{:keys [id]}] (= id provider-id)) (constantly true))
          by-system (if ask-all-systems (constantly true) (fn [{:keys [systems]}] (or (not systems) (some #{system} systems))))]
      (loop [providers (filter #(and (by-provider-id %) (by-system %)) providers)]

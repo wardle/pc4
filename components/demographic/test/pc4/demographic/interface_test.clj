@@ -211,3 +211,38 @@
                (set (map #(get-in % [:org.hl7.fhir.Patient/name 0 :org.hl7.fhir.HumanName/family]) result)))
             "Should include both Roberts and Edwards")))))
 
+(deftest test-normalize-identifier
+  (testing "Default normalization strips whitespace and uppercases"
+    (is (= "A123456" (demographic/normalize "https://fhir.unknown.system/Id/foo" " a123456 ")))
+    (is (= "TEST123" (demographic/normalize "https://fhir.unknown.system/Id/foo" "test 123"))))
+
+  (testing "NHS number normalization delegates to nhs-number component"
+    (is (= "1111111111" (demographic/normalize "https://fhir.nhs.uk/Id/nhs-number" "111 111 1111")))
+    (is (= "1111111111" (demographic/normalize "https://fhir.nhs.uk/Id/nhs-number" "111-111-1111")))))
+
+(deftest test-validate-identifier
+  (testing "Default validation accepts any value"
+    (is (true? (demographic/validate "https://fhir.unknown.system/Id/foo" "anything")))
+    (is (true? (demographic/validate "https://fhir.nhs.wales/Id/empi-number" "12345"))))
+
+  (testing "NHS number validation"
+    (is (true? (demographic/validate "https://fhir.nhs.uk/Id/nhs-number" "1111111111")))
+    (is (false? (demographic/validate "https://fhir.nhs.uk/Id/nhs-number" "1234567890")))
+    (is (false? (demographic/validate "https://fhir.nhs.uk/Id/nhs-number" "invalid"))))
+
+  (testing "CAV CRN validation"
+    (is (true? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "A123456")))
+    (is (true? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "Z999999")))
+    (is (true? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "A123456X")))
+    (is (false? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "123456")))
+    (is (false? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "A12345")))
+    (is (false? (demographic/validate "https://fhir.cavuhb.nhs.wales/Id/pas-identifier" "AA123456")))))
+
+(deftest test-format-identifier
+  (testing "Default formatting returns value unchanged"
+    (is (= "A123456" (demographic/format "https://fhir.unknown.system/Id/foo" "A123456")))
+    (is (= "12345" (demographic/format "https://fhir.nhs.wales/Id/empi-number" "12345"))))
+
+  (testing "NHS number formatting adds spaces"
+    (is (= "111 111 1111" (demographic/format "https://fhir.nhs.uk/Id/nhs-number" "1111111111")))))
+

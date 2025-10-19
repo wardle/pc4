@@ -159,14 +159,16 @@
             project-title (:t_project/title current-project)
             provider-system-id (get-in request [:params "provider-system-id"])
             {:keys [provider-id system]} (demographic/parse-provider-system-id provider-system-id)
-            value (some-> (get-in request [:params "value"]) (str/replace #"\s" ""))
-            result (rsdb/project-patient-search rsdb-svc demographic-svc
-                                                {:system      system
-                                                 :value       value
-                                                 :project-id  project-id
-                                                 :provider-id provider-id})]
-        (web/ok
-          (case (:outcome result)
+            value (demographic/normalize system (get-in request [:params "value"]))]
+        (if (or (str/blank? value) (not (demographic/validate system value)))
+          (web/ok (ui/render (ui/alert-error {:title "Invalid identifier" :message "Please check the format of the identifier and try again."})))
+          (let [result (rsdb/project-patient-search rsdb-svc demographic-svc
+                                                    {:system      system
+                                                     :value       value
+                                                     :project-id  project-id
+                                                     :provider-id provider-id})]
+            (web/ok
+              (case (:outcome result)
             :local-match
             (let [{:keys [patient-pk patient-identifier already-registered?]} result
                   patient-ident [:t_patient/id patient-pk]
@@ -223,7 +225,7 @@
             ;; Default case - should not happen
             (ui/render (ui/alert-error
                          {:title   "Unexpected Error"
-                          :message (str "Unexpected outcome: " (:outcome result))}))))))))
+                          :message (str "Unexpected outcome: " (:outcome result))}))))))))))
 
 (def register-internal-patient-action
   "Register an existing internal patient to the project.
@@ -325,7 +327,7 @@
             user-id (get-in request [:session :authenticated-user :t_user/id])
             external-provider-id (some-> (get-in request [:params "external-provider-id"]) not-empty keyword)
             external-system (some-> (get-in request [:params "external-system"]) str/trim)
-            external-value (some-> (get-in request [:params "external-value"]) (str/replace #"\s" ""))
+            external-value (demographic/normalize external-system (get-in request [:params "external-value"]))
             open-record? (= "true" (get-in request [:params "open-record"]))
             register-url (route/url-for :project/register-external-patient-action
                                         :path-params {:project-id project-id})]
@@ -336,8 +338,9 @@
 
           (or (nil? external-provider-id)
               (str/blank? external-system)
-              (str/blank? external-value))
-          (web/bad-request "external-provider-id, external-system, and external-value are required")
+              (str/blank? external-value)
+              (not (demographic/validate external-system external-value)))
+          (web/ok (ui/render (ui/alert-error {:title "Invalid parameters" :message "Please check that all fields are filled in correctly and the identifier format is valid."})))
 
           :else
           (let [provider (demographic/provider-by-id demographic-svc external-provider-id)
