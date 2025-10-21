@@ -1,5 +1,8 @@
 (ns pc4.pathom-web.impl
-  (:require [edn-query-language.core :as eql]))
+  (:require [edn-query-language.core :as eql]
+            [pc4.log.interface :as log]
+            [pc4.pathom-web.error :as error]
+            [pc4.web.interface :as web]))
 
 (def ^:dynamic *boundary-interface* (comp :pathom :env))
 
@@ -23,6 +26,7 @@
                    (throw (ex-info "missing pathom boundary interface in request" {:f       *boundary-interface*
                                                                                    :request request})))]
     (let [result (pathom (assoc env :request request) query)]
+      (log/info "process:" result)
       (when (:com.wsscode.pathom3.connect.runner/attribute-errors result)
         (clojure.pprint/pprint result))
       result)))
@@ -34,7 +38,10 @@
    (let [query-fn (if (fn? query) query (constantly query))]
      (fn handler*
        ([request]
-        (handler* request (process env request (query-fn request))))
+        (let [result (process env request (query-fn request))]
+          (if (error/pathom-error? result)
+            (web/ok (error/render-pathom-error result))
+            (handler* request result))))
        ([request output]
         (f request output))))))
 

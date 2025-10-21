@@ -5,9 +5,7 @@
   taking the http request and the result of the query."
   (:require [com.wsscode.pathom3.connect.operation :as pco]
             [edn-query-language.core :as eql]
-            [pc4.pathom-web.impl :as impl]
-            [pc4.rsdb.interface :as rsdb]
-            [pc4.web.interface :as web]))
+            [pc4.pathom-web.impl :as impl]))
 
 (defn set-boundary-interface!
   "Set a function to use to get to the boundary interface in the pathom
