@@ -114,7 +114,8 @@
      [:div.mt-4 content]
 
      (when (or left-content (seq actions))
-       [:div.mt-5.sm:mt-4.sm:flex.sm:justify-between.sm:items-center
+       [:div.mt-5.sm:mt-4.sm:flex.sm:items-center
+        {:class (if left-content "sm:justify-between" "sm:justify-end")}
         (when left-content
           [:div.flex.items-center.gap-3 left-content])
         (when (seq actions)
@@ -249,7 +250,7 @@
        [:label {:class "block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2" :for for}
         label
         (when sublabel [:span {:class "block text-xs font-medium text-gray-400"} sublabel])]])
-    [:div {:class "w-full sm:w-2/3 pt-2 sm:pt-0"} content]]])
+    [:div {:class "w-full sm:w-2/3 pt-2"} content]]])
 
 (rum/defc ui-simple-form
   [& content]
