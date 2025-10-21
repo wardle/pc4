@@ -24,13 +24,15 @@
   [{:keys [request]} _]
   {::pco/output [{:ui/current-diagnosis [:t_diagnosis/id]}]}
   {:ui/current-diagnosis
-   {:t_diagnosis/id (some-> (get-in request [:path-params :diagnosis-id]) parse-long)}})
+   (when-let [diagnosis-id (some-> (get-in request [:path-params :diagnosis-id]) parse-long)]
+     {:t_diagnosis/id diagnosis-id})})
 
 (pco/defresolver current-medication
   [{:keys [request]} _]
   {::pco/output [{:ui/current-medication [:t_medication/id]}]}
   {:ui/current-medication
-   {:t_medication/id (some-> (get-in request [:path-params :medication-id]) parse-long)}})
+   (when-let [medication-id (some-> (get-in request [:path-params :medication-id]) parse-long)]
+     {:t_medication/id medication-id})})
 
 (pco/defresolver current-ms-event
   [{:keys [request]} _]
@@ -149,10 +151,10 @@
                   :url  (route/url-for :patient/results :path-params {:patient-identifier patient_identifier})
                   :text "Results"}
                  {:id   :admissions
-                  :url  (route/url-for :patient/diagnoses :path-params {:patient-identifier patient_identifier})
+                  :url  (route/url-for :patient/admissions :path-params {:patient-identifier patient_identifier})
                   :text "Admissions"}
                  {:id   :research
-                  :url  (route/url-for :patient/diagnoses :path-params {:patient-identifier patient_identifier})
+                  :url  (route/url-for :patient/research :path-params {:patient-identifier patient_identifier})
                   :text "Research"}]}}))
 
 (pco/defresolver patient-page
