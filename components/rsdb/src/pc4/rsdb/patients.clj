@@ -371,6 +371,12 @@
     (:t_patient_hospital/patient_identifier
       (or (first authoritative) (last (sort-by :t_patient_hospital/id patient-hospitals))))))
 
+(defn patient-pk->professionals
+  [conn patient-pk]
+  (db/execute! conn (sql/format {:select [:*]
+                                 :from   [:t_patient_professional]
+                                 :where  [:= :patient_fk patient-pk]})))
+
 (defn best-patient-crn-fn
   "Returns a function that can 'choose' the best CRN from a sequence of
   t_patient_hospital. This is useful in contexts in which we 'know' the current

@@ -298,6 +298,9 @@
 (defn patient-pk->hospitals [{:keys [conn]} patient-pk]
   (patients/patient-pk->hospitals conn patient-pk))
 
+(defn patient-pk->professionals [{:keys [conn]} patient-pk]
+  (patients/patient-pk->professionals conn patient-pk))
+
 (defn patient-pk->crn-for-org
   [{:keys [conn ods]} patient-pk org-id]
   (patients/patient-pk->crn-for-org conn patient-pk ods org-id))
