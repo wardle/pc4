@@ -9,7 +9,7 @@
            com.zaxxer/HikariCP               {:mvn/version "7.0.2"}
            hato/hato                         {:mvn/version "1.0.0"}
            migratus/migratus                 {:mvn/version "1.6.4"}
-           org.postgresql/postgresql         {:mvn/version "42.7.7"}}
+           org.postgresql/postgresql         {:mvn/version "42.7.8"}}
  :aliases {:test {:extra-paths ["test"]
-                  :extra-deps  {integrant/integrant {:mvn/version "1.0.0"}}}}}
+                  :extra-deps  {integrant/integrant {:mvn/version "1.0.1"}}}}}
 

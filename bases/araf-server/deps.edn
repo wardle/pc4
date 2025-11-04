@@ -1,8 +1,8 @@
 {:paths   ["src" "resources"]
  :deps    {org.clojure/data.json      {:mvn/version "2.5.1"}
-           integrant/integrant        {:mvn/version "1.0.0"}
-           io.pedestal/pedestal.jetty {:mvn/version "0.8.0-rc-3"}
-           selmer/selmer              {:mvn/version "1.12.62"}}
+           integrant/integrant        {:mvn/version "1.0.1"}
+           io.pedestal/pedestal.jetty {:mvn/version "0.8.1"}
+           selmer/selmer              {:mvn/version "1.12.67"}}
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps  {}}}}
 

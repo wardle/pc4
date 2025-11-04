@@ -1,5 +1,6 @@
 {
   "name": "pc4",
+  "workspaces": [],
   "private": true,
   "devDependencies": {
     "tailwindcss": "^3.4.3"
