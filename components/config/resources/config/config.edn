@@ -157,7 +157,7 @@
 
  :pc4.snomed.interface/svc
  {:root           #ref [:pc4/root]
-  :f              "snomed-2025-07-09.db"
+  :f              "snomed-2025-09-24.db"
   :default-locale "en-GB"}
 
  :pc4.snomed-ui.interface/svc
