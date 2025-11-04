@@ -11,10 +11,6 @@
     [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDateTime Period)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Project to ARAF programme mapping
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (def project-programme-configs
   "Vector of maps defining project->programme mappings.
   Each map contains :project-id, :programme (keyword), and :title (menu title).
@@ -36,10 +32,6 @@
   "Returns the menu title for the given project-id, or nil if not configured."
   [project-id]
   (:title (get project-programmes project-id)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Patient categorization logic
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn categorize-patient
   "Categorize a patient based on their ARAF outcome.
@@ -86,10 +78,6 @@
     :s4 "Step 4: Acknowledgement"
     (str task-kw)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Patient display helpers
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defn patient->display-name
   "Extract display name from patient."
   [{:t_patient/keys [first_names last_name]}]
@@ -105,10 +93,6 @@
   [expiry]
   (when expiry
     (str (.format expiry (java.time.format.DateTimeFormatter/ofPattern "dd MMM yyyy")))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; View helpers
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn category-label
   "Get display label for a category."
@@ -168,10 +152,6 @@
                                 :label (task-label task-kw)})
                              tasks)}))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Patient outcome modal
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defn outcome->summary
   "Transform an ARAF outcome into display data for the modal."
   [outcome]
@@ -211,8 +191,7 @@
          "Add Form")])))
 
 (defn patient-outcome-modal
-  "Render ARAF outcome modal dialog using Rum components."
-  [{:keys [banner outcome forms programme-title can-edit available]}]
+  [{:keys [banner patient-url outcome forms programme-title can-edit available]}]
   (ui/render
     (ui/ui-modal
       {:id      "araf-outcome-content"
@@ -223,7 +202,13 @@
        :actions [{:id          :cancel
                   :title       "Close"
                   :role        :secondary
-                  :hx-on:click "htmx.find('#araf-outcome-content').setAttribute('hidden', '')"}]}
+                  :hx-on:click "htmx.find('#araf-outcome-content').setAttribute('hidden', '')"}
+                 {:id          :view-patient
+                  :title       "View Patient Record »"
+                  :role        :secondary
+                  :hx-get      patient-url
+                  :hx-target   "body"
+                  :hx-push-url "true"}]}
 
       ;; Patient banner section
       [:div.mb-6
@@ -286,10 +271,6 @@
                [:td.px-4.py-2.text-sm (name (:t_form/form_type form))]])]]]
          [:p.text-gray-500.text-sm "No forms recorded."])])))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Sorting
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defn sort-patients
   "Sort patient items by the specified column and direction."
   [patients sort-col sort-dir]
@@ -332,11 +313,12 @@
 (def patient-outcome
   "Handler for patient ARAF outcome modal."
   (pw/handler
-    [{:ui/current-patient [:t_patient/id :ui/patient-banner]}
+    [{:ui/current-patient [:t_patient/id :t_patient/patient_identifier :ui/patient-banner]}
      {:ui/current-project [:t_project/id :t_project/permissions]}]
     (fn [request {:ui/keys [current-patient current-project] :as result}]
       (let [project-id (:t_project/id current-project)
             patient-pk (or (:t_patient/id current-patient) (throw (ex-info "no patient id for current patient" result)))
+            patient-identifier (:t_patient/patient_identifier current-patient)
             rsdb (get-in request [:env :rsdb])
             programme (project-programme project-id)
             programme-title (programme-menu-title project-id)
@@ -347,6 +329,7 @@
         (web/ok
           (patient-outcome-modal
             {:banner          (:ui/patient-banner current-patient)
+             :patient-url     (route/url-for :patient/home :path-params {:patient-identifier patient-identifier})
              :outcome         outcome
              :forms           sorted-forms
              :programme-title programme-title
