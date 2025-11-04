@@ -10,5 +10,4 @@
 
  :projects             {"development"      {:alias "dev"}
                         "workbench-server" {:alias "wb"}
-                        "araf-server"      {:alias "arf"}
-                        "araf-manager"     {:alias "arm"}}}
+                        "araf-server"      {:alias "arf"}}}

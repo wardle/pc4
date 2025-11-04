@@ -5,8 +5,9 @@
  :aliases
  {:dev
   {:extra-paths ["development/src"]
-   :extra-deps  {;; components:
+   :extra-deps  {org.clojure/clojure {:mvn/version "1.12.3"}
 
+                 ;; components:
                  poly/araf                          {:local/root "components/araf"}
                  poly/arafc                         {:local/root "components/arafc"}
                  poly/chart                         {:local/root "components/chart"}
@@ -43,7 +44,6 @@
                  poly/workbench                     {:local/root "components/workbench"}
 
                  ;; bases:
-                 poly/araf-manager                  {:local/root "bases/araf-manager"}
                  poly/araf-server                   {:local/root "bases/araf-server"}
                  poly/workbench-server              {:local/root "bases/workbench-server"}
 
