@@ -230,6 +230,10 @@
   [{:keys [conn]} username]
   (users/common-concepts conn username))
 
+(defn user->hospitals
+  [{:keys [conn]} user-id]
+  (users/user->hospitals conn user-id))
+
 (defn user->latest-news
   [{:keys [conn]} username]
   (users/fetch-latest-news conn username))
@@ -861,6 +865,13 @@
   [{:keys [conn]} encounter]
   (forms/save-encounter-and-forms! conn encounter))
 
+(defn save-encounter!
+  "Save an encounter. Creates a new encounter if no :t_encounter/id is provided,
+  otherwise updates existing encounter. Automatically sets lock_date_time to 12 hours
+  from encounter date_time on creation."
+  [{:keys [conn]} encounter]
+  (patients/save-encounter! conn encounter))
+
 (defn delete-episode!
   [{:keys [conn]} episode-id]
   (projects/delete-episode! conn episode-id))
@@ -873,6 +884,9 @@
 
 (defn lock-encounter! [{:keys [conn]} encounter-id]
   (patients/lock-encounter! conn encounter-id))
+
+(defn set-encounter-users! [{:keys [conn]} encounter-id user-ids]
+  (patients/set-encounter-users! conn encounter-id user-ids))
 
 (defn create-form! [{:keys [conn]} params]
   (forms/create-form! conn params))

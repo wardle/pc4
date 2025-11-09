@@ -225,9 +225,7 @@
   (db/execute-one! conn (fetch-project-sql project-id)))
 
 (defn project->encounter-templates [conn project-id]
-  (db/execute! conn (sql/format {:select [:id :encounter_type_fk :is_deleted :title]
-                                 :from   [:t_encounter_template]
-                                 :where  [:= :project_fk project-id]})))
+  (db/execute! conn (sql/format {:select :* :from :t_encounter_template :where [:= :project_fk project-id]})))
 
 ;; (into #{} (map :t_patient/patient_identifier)
 ;        (jdbc/plan conn (sql/format consented-patients-sql {:params {:consent-form-ids consent-form-ids
@@ -240,6 +238,26 @@
   [conn project-id]
   (into #{} (comp (map :default_hospital_fk) (remove nil?))
         (jdbc/plan conn ["select distinct(default_hospital_fk) from t_encounter_template where project_fk=?" project-id])))
+
+(defn project->hospitals
+  "Return a set of hospital org codes associated with a project via the
+  t_project_hospital join table."
+  [conn project-id]
+  (into #{} (map :hospitalhospitalidentifier)
+        (jdbc/plan conn (sql/format {:select :hospitalhospitalidentifier
+                                     :from   :t_project_hospital
+                                     :where  [:= :projectid project-id]}))))
+
+(defn projects->hospitals
+  "Return a set of hospital org codes associated with the given projects via
+  the t_project_hospital join table. More efficient than calling
+  project->hospitals repeatedly."
+  [conn project-ids]
+  (when (seq project-ids)
+    (into #{} (map :hospitalhospitalidentifier)
+          (jdbc/plan conn (sql/format {:select-distinct :hospitalhospitalidentifier
+                                       :from            :t_project_hospital
+                                       :where           [:in :projectid project-ids]})))))
 
 (defn common-concepts
   "Return a set of common concept ids for the project(s) and its ancestors."

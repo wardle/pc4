@@ -57,6 +57,7 @@
 (def os-grid-reference clods/os-grid-reference)
 (def parse-org-id clods/parse-org-id)
 (def equivalent-org-codes clods/equivalent-org-codes)
+(def org-code->active-successors clods/org-code->active-successors)
 (def related-org-codes clods/related-org-codes)
 
 (defn graph-resolvers

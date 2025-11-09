@@ -579,7 +579,7 @@
                    (mapv #(assoc % :t_episode/status (rsdb/episode-status %)
                                    :t_episode/project {:t_project/id (:t_episode/project_fk %)}
                                    :t_episode/patient {:t_patient/id patient-pk})))
-       status (filter #(= status (:t_episode/status %)))))})
+              status (filter #(= status (:t_episode/status %)))))})
 
 (pco/defresolver patient->pending-referrals
   "Return pending referrals - either all (`:all`) or only those to which the current user
@@ -727,13 +727,23 @@
                                                   :t_encounter_template/encounter_type_fk
                                                   :t_encounter_template/is_deleted
                                                   :t_encounter_template/title
+                                                  :t_encounter_template/default_duration_minutes
+                                                  :t_encounter_template/can_change_hospital
+                                                  :t_encounter_template/can_change_consultant
+                                                  {:t_encounter_template/default_hospital [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}
+                                                  {:t_encounter_template/default_consultant [:t_user/id]}
                                                   :t_encounter_type/id
                                                   {:t_encounter_template/encounter_type [:t_encounter_type/id]}]}]}
   {:t_project/encounter_templates
    (->> (rsdb/project->encounter-templates rsdb project-id)
-        (map #(let [encounter-type-id (:t_encounter_template/encounter_type_fk %)]
-                (assoc % :t_encounter_type/id encounter-type-id
-                         :t_encounter_template/encounter_type {:t_encounter_type/id encounter-type-id}))))})
+        (map (fn [{:t_encounter_template/keys [encounter_type_fk default_hospital_fk default_consultant_fk] :as template}]
+               (cond-> (assoc template
+                         :t_encounter_type/id encounter_type_fk
+                         :t_encounter_template/encounter_type {:t_encounter_type/id encounter_type_fk})
+                 default_hospital_fk
+                 (assoc :t_encounter_template/default_hospital {:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id default_hospital_fk})
+                 default_consultant_fk
+                 (assoc :t_encounter_template/default_consultant {:t_user/id default_consultant_fk})))))})
 
 (pco/defresolver project->parent
   [{parent-id :t_project/parent_project_fk}]
@@ -813,7 +823,9 @@
    :t_encounter/hospital_fk
    :t_encounter/ward
    :t_encounter/episode_fk
+   {:t_encounter/episode [:t_episode/id]}
    :t_encounter/consultant_user_fk
+   {:t_encounter/consultant_user [:t_user/id]}
    :t_encounter/encounter_template_fk
    :t_encounter/notes
    :t_encounter/ward
@@ -823,13 +835,23 @@
   [{:t_encounter/keys [lock_date_time]}]
   (and lock_date_time (.isAfter (LocalDateTime/now) lock_date_time)))
 
+(defn normalise-encounter
+  [{:t_encounter/keys [is_deleted consultant_user_fk episode_fk encounter_template_fk] :as encounter}]
+  (assoc encounter
+    :t_encounter/active (not is_deleted)
+    :t_encounter/is_locked (encounter-locked? encounter)
+    :t_encounter/episode (when episode_fk {:t_episode/id episode_fk})
+    :t_encounter/consultant_user (when consultant_user_fk {:t_user/id consultant_user_fk})))
+
 (pco/defresolver patient->encounters
   [{rsdb :com.eldrix/rsdb} {patient-pk :t_patient/id}]
   {::pco/output [{:t_patient/encounters encounter-properties}]}
-  {:t_patient/encounters (->> (rsdb/patient->encounters rsdb patient-pk)
-                              (mapv #(assoc %
-                                       :t_encounter/active (not (:t_encounter/is_deleted %))
-                                       :t_encounter/is_locked (encounter-locked? %))))})
+  {:t_patient/encounters (mapv normalise-encounter (rsdb/patient->encounters rsdb patient-pk))})
+
+(pco/defresolver encounter-by-id
+  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
+  {::pco/output encounter-properties}
+  (some->> (rsdb/encounter-by-id rsdb encounter-id) normalise-encounter))
 
 (pco/defresolver patient->paged-encounters
   "A resolver for pages of encounters."
@@ -855,14 +877,6 @@
    (when patient-identifier
      (vec (rsdb/patient->results rsdb patient-identifier)))})
 
-(pco/defresolver encounter-by-id
-  [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
-  {::pco/output encounter-properties}
-  (let [{:t_encounter/keys [is_deleted] :as encounter}
-        (rsdb/encounter-by-id rsdb encounter-id)]
-    (assoc encounter
-      :t_encounter/active (not is_deleted)
-      :t_encounter/is_locked (encounter-locked? encounter))))
 
 (pco/defresolver encounter->patient
   [{:t_encounter/keys [patient_fk]}]
@@ -904,6 +918,7 @@
   [{rsdb :com.eldrix/rsdb} encounters]
   {::pco/input  [:t_encounter/encounter_template_fk]
    ::pco/output [{:t_encounter/encounter_template [:t_encounter_template/id
+                                                   :t_encounter_template/title
                                                    :t_encounter_template/project_fk
                                                    :t_encounter_template/encounter_type_fk]}]
    ::pco/batch? true}
@@ -1230,6 +1245,14 @@
   [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
   {::pco/output [{:t_user/active_projects [:t_project/id]}]}
   {:t_user/active_projects (filterv rsdb/project->active? (rsdb/user->projects rsdb username))})
+
+(pco/defresolver user->hospitals
+  [{rsdb :com.eldrix/rsdb, ods-svc :com.eldrix.clods.graph/svc} {user-id :t_user/id}]
+  {::pco/output [{:t_user/hospitals [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
+  (let [db-codes (rsdb/user->hospitals rsdb user-id)
+        active-codes (into #{} (mapcat #(clods/org-code->active-successors ods-svc % {:as :codes})) db-codes)]
+    {:t_user/hospitals
+     (mapv #(hash-map :urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id %) active-codes)}))
 
 (pco/defresolver user->colleagues
   [{rsdb :com.eldrix/rsdb} {username :t_user/username}]
@@ -1979,6 +2002,7 @@
    user->full-name
    user->initials
    user->active-projects
+   user->hospitals
    user->colleagues
    user->roles
    user->common-concepts

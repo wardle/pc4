@@ -233,17 +233,17 @@
         (cond
           (and postcode (not coords))
           {:error "Invalid postcode"}
+          (and (not filtered?) (seq common-orgs))
+          {:orgs common-orgs}
           (and (not allow-unfiltered) (not filtered?))
           {:error "Enter search term(s)"}
-          (and (not filtered?) allow-unfiltered (seq common-orgs))
-          {:orgs common-orgs}
           (and postcode (not range-km))
           {:error "You must enter a range"}
           :else
           {:search (cond-> {:roles roles}
                      search-text (assoc :s search-text)
                      coords (assoc :from-location {:oseast1m OSEAST1M :osnrth1m OSNRTH1M})
-                     range-km (assoc-in [:from-location :range] (* range-km 1000)))})
+                     (and coords range-km) (assoc-in [:from-location :range] (* range-km 1000)))})
         _ (log/info "org search" {:config config :postcode postcode :range-km range-km :limit limit :sort-by sort-by-fn})
         orgs# (when-not error
                 (->> (if (seq orgs) orgs (do-search request search))

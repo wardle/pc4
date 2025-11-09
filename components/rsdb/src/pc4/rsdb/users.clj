@@ -207,6 +207,13 @@
   (let [project-ids (active-project-ids conn user-id {:only-active-projects? true})]
     (projects/common-concepts conn project-ids)))
 
+(defn user->hospitals
+  "Return a set of hospital org codes representing the union of hospitals
+  from all of the user's active projects."
+  [conn user-id]
+  (let [project-ids (active-project-ids conn user-id {:only-active-projects? true})]
+    (projects/projects->hospitals conn project-ids)))
+
 (defn all-projects-and-children-identifiers
   "Returns identifiers for all projects to which user is registered, together
   with any sub-projects. In general, "
