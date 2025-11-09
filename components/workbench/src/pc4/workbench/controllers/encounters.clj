@@ -9,7 +9,6 @@
     [pc4.rsdb.interface :as rsdb])
   (:import [java.time LocalDate]))
 
-;; List encounters functionality
 (defn safe-parse-local-date [s]
   (when-not (str/blank? s) (LocalDate/parse s)))
 

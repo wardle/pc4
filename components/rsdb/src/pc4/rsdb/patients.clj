@@ -1196,43 +1196,48 @@
                                  {:return-keys true}))))))
 
 (s/def ::save-encounter (s/keys :req [:t_encounter/date_time
-                                      :t_encounter/patient_fk
+                                      (or :t_encounter/patient_fk
+                                          :t_patient/patient_identifier)
                                       :t_encounter/encounter_template_fk]
                                 :opt [:t_encounter/id
                                       :t_encounter/episode_fk]))
 (defn save-encounter-sql
-  [{:t_encounter/keys [id encounter_template_fk patient_fk episode_fk date_time notes]
+  [{:t_encounter/keys [id encounter_template_fk patient_fk episode_fk date_time notes duration_minutes consultant_user_fk hospital_fk ward]
     :t_patient/keys   [patient_identifier] :as encounter}]
   (when-not (s/valid? ::save-encounter encounter)
     (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
   (if id
     {:update [:t_encounter]
      :where  [:= :id id]
-     :set    {:encounter_template_fk encounter_template_fk
-              :date_time             date_time
-              :notes                 notes
-              :episode_fk            episode_fk}}
+     :set    (cond-> {:encounter_template_fk encounter_template_fk
+                      :date_time             date_time
+                      :notes                 notes
+                      :episode_fk            episode_fk}
+            duration_minutes (assoc :duration_minutes duration_minutes)
+            consultant_user_fk (assoc :consultant_user_fk consultant_user_fk)
+            hospital_fk (assoc :hospital_fk hospital_fk)
+            ward (assoc :ward ward))}
     {:insert-into [:t_encounter]
-     :values      [{:date_time             date_time
-                    :notes                 notes
-                    :encounter_template_fk encounter_template_fk
-                    :patient_fk            (or patient_fk {:select :t_patient/id
-                                                           :from   [:t_patient]
-                                                           :where  [:= :t_patient/patient_identifier patient_identifier]})
-                    :episode_fk            episode_fk}]}))
+     :values      [(cond-> {:date_time             date_time
+                            :notes                 notes
+                            :encounter_template_fk encounter_template_fk
+                            :patient_fk            (or patient_fk {:select :t_patient/id
+                                                                   :from   [:t_patient]
+                                                                   :where  [:= :t_patient/patient_identifier patient_identifier]})
+                            :episode_fk            episode_fk
+                            :lock_date_time        [:raw (str "'" date_time "'::timestamp + interval '12 hours'")]}
+                     duration_minutes (assoc :duration_minutes duration_minutes)
+                     consultant_user_fk (assoc :consultant_user_fk consultant_user_fk)
+                     hospital_fk (assoc :hospital_fk hospital_fk)
+                     ward (assoc :ward ward))]}))
 
 (s/fdef save-encounter!
   :args (s/cat :conn ::db/conn :encounter ::save-encounter))
 (defn save-encounter!
   "Save an encounter. If there is no :t_encounter/id then a new encounter will
-  be created.
-  TODO: set encounter lock time on creation or edit...."
-  [conn {encounter-id          :t_encounter/id
-         encounter-template-id :t_encounter/encounter_template_fk
-         episode-id            :t_encounter/episode_fk
-         patient-identifier    :t_patient/patient_identifier
-         date-time             :t_encounter/date_time
-         :as                   encounter}]
+  be created. When creating, lock_date_time is automatically set to 12 hours
+  from the encounter date_time."
+  [conn {encounter-id  :t_encounter/id :as encounter}]
   (when-not (s/valid? ::save-encounter encounter)
     (throw (ex-info "Invalid save encounter" (s/explain-data ::save-encounter encounter))))
   (log/debug "saving encounter" {:encounter_id encounter-id :encounter encounter})
@@ -1258,6 +1263,22 @@
                                      :where  [:= :id encounter-id]
                                      :set    {:t_encounter/lock_date_time (java.time.LocalDateTime/now)}})
                    {:return-keys true}))
+
+(defn set-encounter-users!
+  "Set the users for an encounter. Deletes existing users and inserts new ones.
+  user-ids is a sequence of user IDs."
+  [conn encounter-id user-ids]
+  (jdbc/with-transaction [tx conn]
+    ;; Delete existing users
+    (db/execute! tx (sql/format {:delete-from [:t_encounter_user]
+                                 :where       [:= :encounterid encounter-id]}))
+    ;; Insert new users
+    (when (seq user-ids)
+      (db/execute! tx (sql/format {:insert-into [:t_encounter_user]
+                                   :values      (mapv (fn [user-id]
+                                                       {:encounterid encounter-id
+                                                        :userid      user-id})
+                                                     user-ids)})))))
 
 (s/fdef set-date-death
   :args (s/cat :conn ::db/conn :patient (s/keys :req [(or :t_patient/id :t_patient/patient_identifier) :t_patient/date_death])))

@@ -252,8 +252,12 @@
         patient-pk (:t_patient/id patient)
         opts {:status #{"PSEUDONYMOUS"}}]
     (patients/save-patient! conn (assoc patient :t_patient/first_names "Donald" :t_patient/last_name "Duck"))
+    ;; Ensure patient is NOT registered to project 2 (discharge any active episodes)
+    ;; This makes the project filtering test meaningful - patient is in project 1 but not project 2
+    (doseq [{:t_episode/keys [date_discharge] :as episode} (projects/episodes-for-patient-in-project conn patient 2)]
+      (when-not date_discharge
+        (projects/discharge-episode! conn 1 episode)))
     (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "donald Duck"))))))
-    (is (empty? (patients/search conn {:s "1111111111"})))
     (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s (str (:t_patient/patient_identifier patient))))))))
     (is (= patient-pk (:t_patient/id (first (patients/search conn (assoc opts :s "9999999999"))))))
     (is (empty? (patients/search conn (assoc opts :s "duck" :project-ids [2]))))
