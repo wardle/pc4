@@ -168,6 +168,11 @@
   [opts local-date]
   (components/ui-local-date opts local-date))
 
+(defn ui-local-date-time
+  "DateTime input using HTML5 datetime-local control."
+  [opts local-date-time]
+  (components/ui-local-date-time opts local-date-time))
+
 (defn ui-local-date-accuracy
   "Simple pop-up to choose date accuracy."
   [opts value]
@@ -176,6 +181,16 @@
 (defn ui-textarea
   [opts value]
   (components/ui-textarea opts value))
+
+(defn ui-rich-text-script
+  "Include once per page that uses ui-rich-text. Loads Quill editor library."
+  []
+  (components/ui-rich-text-script))
+
+(defn ui-rich-text
+  "Rich text editor using Quill. Must include ui-rich-text-script on the page."
+  [opts value]
+  (components/ui-rich-text opts value))
 
 (defn ui-button
   [opts content]

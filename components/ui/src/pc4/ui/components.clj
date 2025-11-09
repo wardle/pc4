@@ -183,7 +183,7 @@
   (let [options# (if no-selection-string (into [{:id nil :text no-selection-string}] options) options)]
     [:div
      (when label [:label.block.font-medium.text-gray-900 {:for id :class "text-sm/6"} label])
-     [:div.mt-2.grid.grid-cols-1
+     [:div.grid.grid-cols-1
       [:select.col-start-1.row-start-1.w-full.appearance-none.bg-none.rounded-md.bg-white.py-2.pl-3.pr-8.text-base.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
        (cond-> {:name  (or name id), :id (or id name)
                 :class (if disabled ["bg-gray-100" "text-gray-600"] ["bg-white" "text-gray-800"])}
@@ -235,7 +235,7 @@
 
 (rum/defc ui-simple-form-title [{:keys [title subtitle]}]
   [:div.sm:grid.flex.flex-row.sm:gap-4.sm:items-start.sm:border-t.sm:border-gray-200.sm:pt-5
-   [:div.mt-1.sm:mt-0.sm:col-span-2
+   [:div.sm:col-span-2
     [:div.w-full.rounded-md.shadow-sm
      (when subtitle
        [:h4.text-xs.italic.font-light.text-gray-600 subtitle])
@@ -260,7 +260,7 @@
 
 (rum/defc ui-local-date
   [{:keys [id name label disabled] :as opts} local-date]
-  [:div.mt-2
+  [:div
    (when label
      (ui-label {:for (or id name) :label label}))
    [:input (merge opts
@@ -273,9 +273,27 @@
                                   ["text-gray-500" "bg-gray-50" "italic"]
                                   ["text-gray-700" "bg-white"]))})]])
 
+(rum/defc ui-local-date-time
+  "DateTime input component using HTML5 datetime-local input.
+  Accepts and displays a LocalDateTime value."
+  [{:keys [id name label disabled] :as opts} local-date-time]
+  [:div
+   (when label
+     (ui-label {:for (or id name) :label label}))
+   [:input (merge opts
+                  {:name  (or name id)
+                   :id    (or id name)
+                   :type  "datetime-local"
+                   :value (when local-date-time
+                            (str (.truncatedTo local-date-time java.time.temporal.ChronoUnit/SECONDS)))
+                   :class (into ["p-2" "shadow" "sm-focus" "ring-indigo-500" "border" "focus:border-indigo-500" "block" "w-full" "sm:text-sm" "border-gray-300" "rounded-md"]
+                                (if disabled
+                                  ["text-gray-500" "bg-gray-50" "italic"]
+                                  ["text-gray-700" "bg-white"]))})]])
+
 (rum/defc ui-local-date-accuracy
   [{:keys [name disabled] :as opts} value]
-  [:select.mt-2.appearance-none.italic.rounded-md.bg-white.text-gray-600.py-1.5.pl-3.pr-8.text-sm.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
+  [:select.appearance-none.italic.rounded-md.bg-white.text-gray-600.py-1.5.pl-3.pr-8.text-sm.outline.outline-1.-outline-offset-1.outline-gray-300.focus:outline.focus:outline-2.focus:-outline-offset-2.focus:outline-indigo-600
    (cond-> opts
      disabled (assoc :class ["bg-gray-100" "text-gray-400"]))
    (for [{:keys [id text]}
@@ -354,4 +372,45 @@
      [:label.ms-2.text-sm.font-medium.text-gray-900
       {:for id'}
       (display-key option)]]))
+
+(rum/defc ui-rich-text-script
+  "Include this component ONCE per page that uses ui-rich-text components.
+  This loads the Quill library and initializes all editors with class 'quill-editor'.
+  Automatically handles HTMX content swaps by listening to htmx:afterSwap events.
+
+  Usage:
+  In your handler, include this component at the top level of your content:
+  [:div
+   (ui/ui-rich-text-script)
+   ;; ... rest of your content including ui-rich-text components
+  ]"
+  []
+  [:div
+   [:link {:rel "stylesheet" :href "/css/quill-2.0.3.snow.css"}]
+   [:script {:src "/js/quill-2.0.3/quill-2.0.3.min.js"}]
+   [:script {:type "text/javascript"
+             :dangerouslySetInnerHTML {:__html "window.initializeQuillEditors = function(target) { var root = target || document; root.querySelectorAll('.quill-editor').forEach(function(editorDiv) { if (!editorDiv.querySelector('.ql-editor')) { var textarea = editorDiv.nextElementSibling; var quill = new Quill(editorDiv, { theme: 'snow', modules: { toolbar: [[ { 'header': [1, 2, 3, 4, 5, 6, false] }], ['bold', 'italic', 'underline', 'strike'], ['link'], [{ 'list': 'ordered'}, { 'list': 'bullet' }], [{ 'align': [] }]] } }); if (textarea.value) { quill.root.innerHTML = textarea.value; } quill.on('text-change', function() { textarea.value = quill.root.innerHTML; }); editorDiv.closest('form').addEventListener('submit', function() { textarea.value = quill.root.innerHTML; }); } }); }; document.addEventListener('DOMContentLoaded', function() { window.initializeQuillEditors(); }); htmx.onLoad(function(target) { window.initializeQuillEditors(target); });"}}]])
+
+(rum/defc ui-rich-text
+  "Rich text editor component using Quill.
+
+  IMPORTANT: You must include (ui/ui-rich-text-script) once per page that uses this component.
+
+  Options:
+  - id: Element ID (required)
+  - name: Form field name
+  - disabled: Whether the field is disabled
+  - rows: Number of visible rows (default 10, affects editor height)"
+  [{:keys [id name disabled rows] :or {rows 10}} content]
+  (let [editor-height (str (* rows 1.5) "em")]
+    [:div
+     [:div {:id (str id "-editor")
+            :class "quill-editor"
+            :style {:height editor-height
+                    :border "1px solid #d1d5db"
+                    :border-radius "0.375rem"}}]
+     [:textarea {:id id
+                 :name (or name id)
+                 :style {:display "none"}}
+      content]]))
 
