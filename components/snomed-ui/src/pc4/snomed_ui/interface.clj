@@ -6,17 +6,14 @@
 
 (s/def ::hermes some?)
 (s/def ::config (s/keys :req-un [::hermes]))
-(s/def ::intc intc/interceptor?)
-(s/def ::svc (s/keys :req-un [::hermes ::intc]))
+(s/def ::svc (s/keys :req-un [::hermes]))
 
 (defmethod ig/init-key ::svc
   [_ {:keys [hermes] :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid snomedui configuration" (s/explain-data ::config config))))
-  {:hermes hermes
-   :intc   (impl/make-svc-intc hermes)})
+  config)
 
-(s/def ::interceptor intc/valid-interceptor?)
 (s/def ::interceptors (s/coll-of ::interceptor :kind vector?))
 (s/def ::params (s/keys :opt-un [::interceptors]))
 
@@ -29,12 +26,12 @@
   - interceptors - a vector of interceptors to be prefixed, optional."
   ([svc]
    (routes svc {}))
-  ([{:keys [intc] :as svc} {:keys [interceptors]}]
+  ([{:keys [hermes] :as svc} {:keys [interceptors]}]
    (when-not (s/valid? ::svc svc)
      (throw (ex-info "invalid hermes-ui service:" (s/explain-data ::svc svc))))
-   #{["/ui/snomed/autocomplete" :post (conj interceptors intc impl/autocomplete-handler) :route-name :snomed/autocomplete]
-     ["/ui/snomed/autocomplete-results" :post (conj interceptors intc impl/autocomplete-results-handler) :route-name :snomed/autocomplete-results]
-     ["/ui/snomed/autocomplete-selected-result" :post (conj interceptors intc impl/autocomplete-selected-result-handler) :route-name :snomed/autocomplete-selected-result]}))
+   #{["/ui/snomed/autocomplete" :post (conj interceptors impl/autocomplete-handler) :route-name :snomed/autocomplete]
+     ["/ui/snomed/autocomplete-results" :post (conj interceptors (impl/autocomplete-results-handler hermes)) :route-name :snomed/autocomplete-results]
+     ["/ui/snomed/autocomplete-selected-result" :post (conj interceptors (impl/autocomplete-selected-result-handler hermes)) :route-name :snomed/autocomplete-selected-result]}))
 
 (defn ui-select-snomed
   "SNOMED CT concept selection control. Provides HTML select/autocomplete UI

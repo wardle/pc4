@@ -5,6 +5,7 @@
     [com.wsscode.pathom3.interface.eql :as p.eql]
     [integrant.core :as ig]
     [io.pedestal.interceptor :as intc]
+    [pc4.log.interface :as log]
     [pc4.ods.interface :as ods]
     [pc4.ods-ui.impl :as impl]))
 
@@ -16,13 +17,17 @@
   [_ {:keys [ods] :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid ods-ui config" (s/explain-data ::config config))))
-  (let [env (-> (pci/register (map force (flatten (ods/graph-resolvers))))
-                (assoc :com.eldrix.clods.graph/svc ods))
-        pathom (p.eql/boundary-interface env)]
-    {:intc (intc/interceptor
-             {:name  ::inject-env
-              :enter (fn [ctx]
-                       (update ctx :request assoc :ods ods :pathom pathom))})}))
+  (let [resolvers (map force (flatten @(ods/graph-resolvers)))]
+    (when (zero? (count resolvers))
+      (throw (ex-info "No ODS resolvers registered! This will cause searches to fail."
+                      {:resolvers-fn (ods/graph-resolvers)})))
+    (let [env (-> (pci/register resolvers)
+                  (assoc :com.eldrix.clods.graph/svc ods))
+          pathom (p.eql/boundary-interface env)]
+      {:intc (intc/interceptor
+               {:name  ::inject-env
+                :enter (fn [ctx]
+                         (update ctx :request assoc :ods ods :pathom pathom))})})))
 
 (s/def ::routes-params
   (s/keys :opt-un [::interceptors]))
