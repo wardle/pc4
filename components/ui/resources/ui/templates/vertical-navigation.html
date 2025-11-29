@@ -57,6 +57,7 @@
                     {% elif item.hx-get %}
                     <a class="group flex items-center rounded-full bg-blue-50 border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600 cursor-pointer"
                         hx-get="{{ item.hx-get }}"
+                        {% if item.hx-vals %}hx-vals="{{ item.hx-vals }}"{% endif %}
                         {% if item.hx-target %}hx-target="{{ item.hx-target }}"{% endif %}
                         {% if item.hx-swap %}hx-swap="{{ item.hx-swap }}"{% endif %}
                         {% if item.hx-push-url %}hx-push-url="{{ item.hx-push-url }}"{% endif %}>
@@ -65,6 +66,7 @@
                     {% elif item.hx-post %}
                     <a class="group flex items-center rounded-full bg-blue-50 border border-gray-200 px-3 py-1 text-sm font-light text-gray-600 hover:bg-blue-100 hover:text-blue-600 cursor-pointer"
                         hx-post="{{ item.hx-post }}"
+                        {% if item.hx-vals %}hx-vals="{{ item.hx-vals }}"{% endif %}
                         {% if item.hx-target %}hx-target="{{ item.hx-target }}"{% endif %}
                         {% if item.hx-swap %}hx-swap="{{ item.hx-swap }}"{% endif %}
                         {% if item.hx-push-url %}hx-push-url="{{ item.hx-push-url }}"{% endif %}>
