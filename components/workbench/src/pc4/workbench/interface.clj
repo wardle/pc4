@@ -19,7 +19,7 @@
     [pc4.ods.interface :as clods]
     [pc4.ods-ui.interface :as odsui]
     [pc4.snomed-ui.interface :as snomedui]
-    [pc4.workbench.controllers.encounters :as encounters]
+    [pc4.workbench.controllers.list-encounters :as list-encounters]
     [pc4.workbench.controllers.home :as home]
     [pc4.workbench.controllers.login :as login]
     [pc4.workbench.controllers.patient :as patient]
@@ -48,9 +48,28 @@
    :enter (fn [ctx] (tap> {:on-enter ctx}) ctx)
    :leave (fn [ctx] (tap> {:on-leave ctx}) ctx)})
 
+(defn workbench
+  [request]
+  (let [csrf-token (csrf/existing-token request)]
+    (web/ok
+      (pc4.ui.render/render
+        [:html {:lang "en"}
+         [:head
+          [:meta {:charset "UTF-8"}]
+          [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
+          [:link {:href "/css/output.css" :rel "stylesheet" :type "text/css"}]
+          [:script
+           {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
+          [:title "pc4"]]
+         [:body
+          [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
+          [:div#root]
+          [:script {:src "/js/main.js"}]]]))))
+
 (defn routes [{:keys [odsui snomedui]}]
   (set/union
-    #{["/" :get [login/authenticated project/update-session home/home-page] :route-name :home]
+    #{["/wb" :get workbench :route-name :workbench]
+      ["/" :get [login/authenticated project/update-session home/home-page] :route-name :home]
       ["/login" :get login/login :route-name :user/login]
       ["/login" :post login/do-login :route-name :user/login!]
       ["/logout" :post login/logout :route-name :user/logout!]
@@ -81,11 +100,10 @@
       ["/patient/:patient-identifier/break-glass" :get [login/authenticated patient/break-glass] :route-name :patient/break-glass]
       ["/patient/:patient-identifier/break-glass" :post [login/authenticated patient/do-break-glass] :route-name :patient/do-break-glass]
       ["/patient/:patient-identifier/encounters" :get [login/authenticated patient/authorized patient-encounters/encounters-handler] :route-name :patient/encounters]
-      ["/patient/:patient-identifier/encounter-create" :get [login/authenticated patient/authorized patient-encounters/create-encounter-handler] :route-name :encounter/create]
-      ["/patient/:patient-identifier/encounter-create" :post [login/authenticated patient/authorized patient-encounters/post-create-encounter-handler] :route-name :encounter/save-new]
+      ["/patient/:patient-identifier/encounter/create" :post [login/authenticated patient/authorized patient-encounters/create-encounter-handler] :route-name :encounter/create]
+      ["/patient/:patient-identifier/encounter/save" :post [login/authenticated patient/authorized patient-encounters/save-encounter-handler] :route-name :encounter/save]
       ["/patient/:patient-identifier/encounter/:encounter-id" :get [login/authenticated patient/authorized patient-encounters/encounter-handler] :route-name :patient/encounter]
-      ["/patient/:patient-identifier/encounter/:encounter-id/save" :post [login/authenticated patient/authorized patient-encounters/save-encounter-handler] :route-name :encounter/update]
-      ["/patient/:patient-identifier/encounter/:encounter-id/edit" :get [login/authenticated patient/authorized patient-encounters/encounter-edit-handler] :route-name :encounter/edit]
+      ["/patient/:patient-identifier/encounter/:encounter-id/edit" :get [login/authenticated patient/authorized patient-encounters/edit-encounter-handler] :route-name :encounter/edit]
       ["/patient/:patient-identifier/encounter/:encounter-id/lock" :post [login/authenticated patient/authorized patient-encounters/encounter-lock-handler] :route-name :encounter/lock]
       ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :get [login/authenticated patient/authorized patient-forms/form-handler] :route-name :patient/form]
       ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :post [login/authenticated patient/authorized patient-forms/form-save-handler] :route-name :patient/form-save]
@@ -119,7 +137,7 @@
       ["/patient/:patient-identifier/motorneurone" :get [login/authenticated patient/authorized patient/motorneurone] :route-name :patient/motorneurone]
       ["/patient/:patient-identifier/epilepsy" :get [login/authenticated patient/authorized patient/epilepsy] :route-name :patient/epilepsy]
       ["/ui/patient/search" :post [login/authenticated patient/search] :route-name :patient/search]
-      ["/ui/list-encounters" :post [login/authenticated encounters/list-encounters-handler] :route-name :ui/list-encounters]
+      ["/ui/list-encounters" :post [login/authenticated list-encounters/list-encounters-handler] :route-name :ui/list-encounters]
       ["/ui/user/select" :post [login/authenticated select-user/user-select-handler] :route-name :user/select]
       ["/ui/user/search" :post [login/authenticated select-user/user-search-handler] :route-name :user/search]
       ["/test/user-select" :get [login/authenticated test-select-user/test-user-select-handler] :route-name :test/user-select]
@@ -140,24 +158,46 @@
   (log/error "missing CSRF token in request" (get-in ctx [:request :uri]))
   (web/redirect-see-other "/"))
 
+(def error-interceptor
+  "Show an error page if there is an error."
+  (intc/interceptor
+    {:name ::error
+     :error
+     (fn [ctx err]                                          ;; err is a wrapped ex-info with pedestal data giving context of where exception was thrown
+       (let [dev-mode? io.pedestal.environment/dev-mode?
+             error-id (random-uuid)
+             ex (ex-cause err)
+             stack-trace (with-out-str (clojure.stacktrace/print-stack-trace ex))]
+         (log/error error-id (select-keys (ex-data err) [:execution-id :stage :interceptor :exception-type]))
+         (when-not dev-mode? (log/error stack-trace))       ;; print out stack trace when not in development mode
+         (assoc ctx :response
+                    (-> (web/ok (pc4.ui.render/render-file "templates/error.html"
+                                                           {:error-id    error-id
+                                                            :dev-mode?   dev-mode?
+                                                            :url         (route/url-for :home)
+                                                            :exception   ex
+                                                            :stack-trace stack-trace}))
+                        (web/with-hx-retarget "#body")))))}))
+
 (defn start
   [{:keys [env session-key host port join? routes]}]
   (-> (conn/default-connector-map host port)
       (conn/optionally-with-dev-mode-interceptors)
       (conn/with-interceptors
-        [interceptors/log-request
+        [error-interceptor
+         interceptors/log-request
          interceptors/not-found
          (ring-middlewares/session
-          {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
-           :cookie-name  "pc4-session"
-           :cookie-attrs {:same-site :strict}})
+           {:store        (cookie/cookie-store (when session-key {:key (codecs/hex->bytes session-key)}))
+            :cookie-name  "pc4-session"
+            :cookie-attrs {:same-site :strict}})
          (ring-middlewares/flash)
          (ring-middlewares/content-type)
          route/query-params
          (body-params/body-params)
          (csrf/anti-forgery {:error-handler csrf-error-handler})
          (secure-headers/secure-headers
-          {:content-security-policy-settings "object-src 'none';"})
+           {:content-security-policy-settings "object-src 'none';"})
          (env-interceptor env)])
       (conn/with-routes
         routes
