@@ -61,6 +61,18 @@
    {:status  200
     :headers {"HX-Location" (merge opts {"path" path})}}))
 
+(defn with-hx-retarget
+  "Supplements a response with a new header 'HX-Retarget' which should be a CSS
+  selector that updates the target of the content update to a different element
+  on the page.
+  For example, this will make the returned content update the element '#body'.
+  ```
+  (-> (web/ok ...)
+      (web/with-hx-retarget \"#body\"))
+  ```"
+  [response retarget]
+  (assoc-in response [:headers "HX-Retarget"] retarget))
+
 (defn bad-request
   "The HTTP 400 Bad Request client error response status code indicates that the
   server would not process the request due to something the server considered to
