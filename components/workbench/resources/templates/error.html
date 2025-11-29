@@ -1,0 +1,77 @@
+{% extends "templates/page.html" %}
+
+{% block content %}
+<div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+  <div class="sm:mx-auto sm:w-full sm:max-w-2xl">
+    <div class="bg-white shadow-lg sm:rounded-lg border border-gray-200">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="mb-4">
+          <h1 class="text-2xl font-bold text-gray-900">
+            Internal Server Error
+          </h1>
+        </div>
+
+        <p class="text-sm text-gray-700">
+          An unexpected error has occurred while processing your request.
+          Please try again later or contact support if the problem persists.
+        </p>
+
+        {% if error-id %}
+        <div class="mt-4">
+          <p class="text-sm font-medium text-gray-700 mb-2">Error Reference:</p>
+          <div class="flex items-center gap-2">
+            <code class="inline-block bg-gray-100 border border-gray-300 rounded px-3 py-1 text-sm font-mono text-gray-800">{{error-id}}</code>
+            <button onclick="navigator.clipboard.writeText('{{error-id}}')"
+                    class="inline-flex items-center rounded-md p-1 text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    title="Copy error ID">
+              <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="mt-5">
+          <a href="{{url}}"
+             class="inline-flex justify-center rounded-md px-3 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            Home
+          </a>
+        </div>
+      </div>
+    </div>
+
+    {% if dev-mode? %}
+    <div class="mt-6 space-y-4">
+      {% if exception %}
+      <div class="bg-white shadow-lg sm:rounded-lg border border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-base font-semibold text-gray-900 mb-3">Exception</h3>
+          <div class="bg-red-50 border border-red-200 rounded-md px-4 py-3 mb-4">
+            <p class="text-sm font-mono text-red-800 break-all">{{exception}}</p>
+          </div>
+          {% if stack-trace %}
+          <details class="cursor-pointer">
+            <summary class="text-base font-semibold text-gray-900 hover:text-gray-700 select-none">
+              Stack Trace (click to expand)
+            </summary>
+            <pre class="mt-4 bg-gray-50 border border-gray-200 rounded-md px-4 py-3 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap break-all">{{stack-trace}}</pre>
+          </details>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if ex-data %}
+      <div class="bg-white shadow-lg sm:rounded-lg border border-gray-200">
+        <div class="px-4 py-5 sm:p-6">
+          <h3 class="text-base font-semibold text-gray-900 mb-3">Exception Data</h3>
+          <pre class="bg-gray-50 border border-gray-200 rounded-md px-4 py-3 text-xs text-gray-800 overflow-x-auto">{{ex-data}}</pre>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
