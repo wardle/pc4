@@ -26,7 +26,7 @@
                    (throw (ex-info "missing pathom boundary interface in request" {:f       *boundary-interface*
                                                                                    :request request})))]
     (let [result (pathom (assoc env :request request) query)]
-      (log/info "process:" result)
+      (log/trace "process:" result)
       (when (:com.wsscode.pathom3.connect.runner/attribute-errors result)
         (clojure.pprint/pprint result))
       result)))
