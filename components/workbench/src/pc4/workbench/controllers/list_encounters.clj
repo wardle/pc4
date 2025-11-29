@@ -1,4 +1,4 @@
-(ns pc4.workbench.controllers.encounters
+(ns pc4.workbench.controllers.list-encounters
   "Encounter management controllers."
   (:require
     [clojure.string :as str]
