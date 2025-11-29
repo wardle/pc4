@@ -34,7 +34,7 @@
         tx (:tx error-data)
         unreachable-attrs (format-unreachable-attributes unreachable-paths unreachable-details)]
     (selmer/render-file
-      "templates/pathom-error.html"
+      "pathom-web/templates/pathom-error.html"
       {:error-message error-msg
        :unreachable-attrs (seq unreachable-attrs)
        :error-path (when path (str/join " → " (map str path)))
