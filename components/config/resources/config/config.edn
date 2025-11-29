@@ -105,7 +105,8 @@
  :pc4.ods.interface/svc
  {:root  #ref [:pc4/root]
   :f     "ods-2025-06-23.db"
-  :nhspd #ig/ref :pc4.nhspd.interface/svc}
+  :nhspd #ig/ref :pc4.nhspd.interface/svc
+  :pool  true}
 
  :pc4.ods-ui.interface/svc
  {:ods #ig/ref :pc4.ods.interface/svc}

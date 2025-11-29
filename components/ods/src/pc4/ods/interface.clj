@@ -11,15 +11,17 @@
 (s/def ::f string?)
 (s/def ::root string?)
 (s/def ::nhspd some?)
-(s/def ::config (s/keys :req-un [(or ::path (and ::root ::f)) ::nhspd]))
+(s/def ::pool (s/or :boolean boolean? :map map?))
+(s/def ::config (s/keys :req-un [(or ::path (and ::root ::f)) ::nhspd]
+                        :opt-un [::pool]))
 
 (defmethod ig/init-key ::svc
-  [_ {:keys [root f path nhspd] :as config}]
+  [_ {:keys [root f path nhspd pool] :as config}]
   (when-not (s/valid? ::config config)
     (throw (ex-info "invalid ods configuration" (s/explain-data ::config config))))
   (let [path' (or path (.getCanonicalPath (io/file root f)))]
     (log/info "opening ODS index (clods) from " path')
-    (clods/open-index {:f path' :nhspd nhspd})))
+    (clods/open-index {:f path' :nhspd nhspd :pool pool})))
 
 (defmethod ig/halt-key! ::svc
   [_ clods]
@@ -58,6 +60,8 @@
 (def parse-org-id clods/parse-org-id)
 (def equivalent-org-codes clods/equivalent-org-codes)
 (def org-code->active-successors clods/org-code->active-successors)
+(def org-codes->active-successors clods/org-codes->active-successors)
+(def fetch-orgs clods/fetch-orgs)
 (def related-org-codes clods/related-org-codes)
 
 (defn graph-resolvers
