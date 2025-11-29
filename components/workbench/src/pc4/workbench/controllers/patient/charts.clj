@@ -93,7 +93,6 @@
                                           [{:t_summary_multiple_sclerosis/events
                                             [:t_ms_event/id :t_ms_event/date :t_ms_event/type :t_ms_event/is_relapse :t_ms_event_type/abbreviation]}]}]})]
     (reduce (fn [acc {:t_ms_event/keys [id date type is_relapse] :t_ms_event_type/keys [abbreviation] :as event}]
-              (println event)
               (if is_relapse
                 (conj acc {:id id, :date date, :type type, :abbreviation abbreviation})
                 acc))
@@ -105,19 +104,31 @@
    {:id 2 :date (LocalDate/of 2020 1 1) :edss 1.0}
    {:id 3 :date (LocalDate/of 2024 1 1) :edss 1.5}])
 
-(defn make-edss
-  [{:keys [pathom] :as env} patient-identifier {:keys [start-date end-date width height] :as opts}]
-  (clojure.pprint/pprint {:env env})
-  (clojure.pprint/pprint (fetch-edss-results pathom patient-identifier {}))
-  (chart/create-edss-timeline-chart
-    {:edss-scores   (fetch-edss-results pathom patient-identifier {})
-     :ms-events     (fetch-ms-events pathom patient-identifier)
-     :ms-onset-date (LocalDate/of 2010 3 1)
-     :msss-data     (rsdb/msss-lookup {:type :roxburgh})
-     :start-date    (parse-date start-date)
-     :end-date      (parse-date end-date)
-     :width         (or (safe-parse-long width) default-chart-width)
-     :height        (or (safe-parse-long height) default-chart-height)}))
+(defn make-edss                                             ;; TODO: add whether in relapse or not to each EDSS result
+  [{:keys [pathom rsdb] :as env} patient-identifier {:keys [start-date end-date width height] :as opts}]
+  (let [patient-pk (rsdb/patient-identifier->pk rsdb patient-identifier)
+        relapse-dates (reduce (fn [acc {:keys [date_time in_relapse]}]
+                                (if in_relapse (conj acc (LocalDateTime/.toLocalDate date_time)) acc))
+                              #{} (rsdb/forms rsdb {:patient-pk patient-pk :form-type :relapse/v1 :select #{:date-time} :is-deleted false}))
+        forms (->> (rsdb/forms rsdb {:patient-pk patient-pk
+                                     :form-types [:edss/v1] :select #{:date-time}
+                                     :is-deleted false})
+                   (map (fn [{:keys [date_time edss] :as form}]
+                          (let [date (LocalDateTime/.toLocalDate date_time)]
+                            (assoc form :date date
+                                        :in-relapse? (relapse-dates date)
+                                        :edss (parse-double edss))))))]
+    (log/debug "relapses" relapse-dates)
+    (log/debug "edss results:" forms)
+    (chart/create-edss-timeline-chart
+      {:edss-scores   forms
+       :ms-events     (fetch-ms-events pathom patient-identifier)
+       :ms-onset-date (LocalDate/of 2010 3 1)
+       :msss-data     (rsdb/msss-lookup {:type :roxburgh})
+       :start-date    (parse-date start-date)
+       :end-date      (parse-date end-date)
+       :width         (or (safe-parse-long width) default-chart-width)
+       :height        (or (safe-parse-long height) default-chart-height)})))
 
 (defn make-medication
   "Create a medication chart for a patient"
