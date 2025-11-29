@@ -1,11 +1,5 @@
 <div id="{{target}}">
-    {% if multiple %}
-        {% for user in selected %}
-        <input type="hidden" name="{{name}}" value="{{user.user-id}}">
-        {% endfor %}
-    {% else %}
-        <input type="hidden" name="{{name}}" value="{{selected.user-id}}">
-    {% endif %}
+    <input type="hidden" name="{{name}}" value="{{selected}}">
     
     {% if disabled %}
         <div class="border border-gray-300 px-4 py-2 rounded bg-gray-100 cursor-not-allowed opacity-70">
