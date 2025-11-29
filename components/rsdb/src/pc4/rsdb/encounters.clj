@@ -225,7 +225,8 @@
   Encounters are ordered by date_time descending."
   [{:keys [view] :or {view :notes} :as params}]
   (when-not (s/valid? ::params params)
-    (throw (ex-info "invalid parameters" (s/explain-data ::params params))))
+    (throw (ex-info (str "invalid parameters" (s/explain-str ::params params))
+                    (s/explain-data ::params params))))
   (case view
     :notes (q-encounters-base (assoc params :with-notes true))
     :users (q-encounters-users params)
