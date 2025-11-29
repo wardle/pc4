@@ -24,7 +24,7 @@
 
 (defmethod ig/init-key ::env
   [_ {:keys [ops] :as env}]
-  (log/info "creating pathom registry" {:n-operations (count ops)})
+  (log/info "creating pathom registry" {:n-operations (count (flatten ops))})
   (run! #(log/trace "op: " %)
         (sort (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))) ops)))
   (-> env
