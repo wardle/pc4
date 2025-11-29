@@ -120,7 +120,7 @@
 
 (defn encounter-sidebar
   [{:keys [csrf-token encounter-id patient-identifier date-time
-           title subtitle users is-deleted is-locked lock-date-time
+           title subtitle responsible-user users is-deleted is-locked lock-date-time
            can-edit? can-unlock?]}]
   [:div.col-span-1.p-2.space-y-2
    [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-gray-300.shadow-sm.text-sm.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
@@ -134,12 +134,14 @@
       [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center
        subtitle]
       [:div.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
-       title]])
+       title]
+      (when responsible-user
+        [:div.text-sm.text-gray-600.italic.text-center.pb-4
+         responsible-user])])
 
    (when (seq users)
      [:div.shadow.bg-gray-50.p-2
-      [:div.text-xs.font-semibold.text-gray-500.uppercase.mb-1 "Users"]
-      [:ul.text-sm.text-gray-700
+      [:ul.text-sm.text-gray-700.text-center
        (for [{:t_user/keys [id full_name initials]} (sort-by (juxt :t_user/last_name :t_user/first_names) users)]
          [:li {:key id}
           [:span.hidden.sm:inline full_name]
@@ -195,6 +197,7 @@
        :t_encounter/notes
        {:t_encounter/encounter_template
         [:t_encounter_template/title {:t_encounter_template/project [:t_project/id :t_project/title]}]}
+       {:t_encounter/consultant_user [:t_user/full_name]}
        {:t_encounter/users [:t_user/id :t_user/first_names :t_user/last_name :t_user/full_name :t_user/initials]}
        {:t_encounter/completed_forms
         [:form/id :form/form_type
@@ -206,7 +209,7 @@
         [:t_patient/patient_identifier :t_patient/permissions]}]}]
     (fn [request {:ui/keys [csrf-token navbar current-patient current-encounter]}]
       (let [{:t_encounter/keys [id date_time is_deleted is_locked lock_date_time hospital_crn notes
-                                encounter_template users completed_forms available_form_types patient]} current-encounter
+                                encounter_template consultant_user users completed_forms available_form_types patient]} current-encounter
             {:t_encounter_template/keys [title project]} encounter_template
             project-title (:t_project/title project)
             {:t_patient/keys [patient_identifier permissions]} patient
@@ -234,6 +237,7 @@
                                               :lock-date-time     lock_date_time
                                               :title              title
                                               :subtitle           project-title
+                                              :responsible-user   (:t_user/full_name consultant_user)
                                               :users              users
                                               :can-edit?          can-edit-encounter?
                                               :can-unlock?        can-edit-patient?})
@@ -277,7 +281,9 @@
                             [:div.px-4.py-5.sm:p-6
                              [:h3.text-lg.leading-6.font-medium.text-gray-900
                               (if can-edit-encounter?
-                                [:a.cursor-pointer.text-blue-500.underline "Notes"]
+                                [:a.cursor-pointer.text-blue-500.underline
+                                 {:onclick "htmx.removeClass(htmx.find('#edit-encounter'), 'hidden');"}
+                                 "Notes"]
                                 "Notes")]
                              [:div.mt-2.text-sm.text-gray-500
                               {:id "notes-content"}
@@ -386,15 +392,15 @@
   (let [{saved-encounter-id :t_encounter/id}
         (rsdb/save-encounter!
           rsdb
-          (cond-> {:t_patient/patient_identifier      patient-identifier
-                   :t_encounter/encounter_template_fk encounter-template-id
-                   :t_encounter/date_time             date-time
-                   :t_encounter/notes                 notes
-                   :t_encounter/duration_minutes      duration-minutes
-                   :t_encounter/consultant_user_fk    (:user-id consultant-user)
-                   :t_encounter/hospital_fk           (-> hospital :org.hl7.fhir.Organization/identifier first :org.hl7.fhir.Identifier/value)
-                   :t_encounter/ward                  ward}
-            encounter-id (assoc :t_encounter/id encounter-id)))]
+          (cond-> {:t_patient/patient_identifier   patient-identifier
+                   :t_encounter/date_time          date-time
+                   :t_encounter/notes              notes
+                   :t_encounter/duration_minutes   duration-minutes
+                   :t_encounter/consultant_user_fk (:user-id consultant-user)
+                   :t_encounter/hospital_fk        (-> hospital :org.hl7.fhir.Organization/identifier first :org.hl7.fhir.Identifier/value)
+                   :t_encounter/ward               ward}
+            encounter-id (assoc :t_encounter/id encounter-id)
+            encounter-template-id (assoc :t_encounter/encounter_template_fk encounter-template-id)))]
     (when-let [user-ids (set (map :user-id encounter-users))]
       (rsdb/set-encounter-users! rsdb saved-encounter-id user-ids))
     saved-encounter-id))
@@ -409,12 +415,15 @@
 (defn ui-modal-edit-encounter
   "Modal dialog for entering or editing encounter details."
   [{:keys [mode hidden? csrf-token can-edit save-url cancel-action
-           encounter encounter-template-id project-title encounter-template-title
+           encounter encounter-template
            consultant-user hospital-org encounter-users common-hospitals]}]
   (let [new? (= mode :create)
         modal-id (if new? :create-encounter :edit-encounter)
         form-id (if new? "new-encounter-form" "edit-encounter-form")
         {:t_encounter/keys [id date_time duration_minutes notes ward]} encounter
+        {encounter-template-id            :t_encounter_template/id
+         encounter-template-title         :t_encounter_template/title
+         {project-title :t_project/title} :t_encounter_template/project} encounter-template
         disabled (not can-edit)]
     (ui/ui-modal
       {:id      modal-id
@@ -433,7 +442,7 @@
        [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
        (when id
          [:input {:type "hidden" :name "encounter-id" :value id}])
-       (when (and new? encounter-template-id)
+       (when encounter-template-id
          [:input {:type "hidden" :name "encounter-template-id" :value encounter-template-id}])
 
        (ui/ui-simple-form
@@ -548,19 +557,19 @@
             (web/ok
               (ui/render
                 (ui-modal-edit-encounter
-                  {:mode                     :create
-                   :hidden?                  false
-                   :csrf-token               csrf-token
-                   :can-edit                 can-edit-patient?
-                   :save-url                 save-url
-                   :cancel-action            {:hx-post   create-url
-                                              :hx-vals   (str "{\"__anti-forgery-token\":\"" csrf-token "\"}")
-                                              :hx-target "#create-encounter"
-                                              :hx-swap   "outerHTML"}
-                   :encounter-template-id    encounter-template-id
-                   :project-title            project-title
-                   :encounter-template-title template-title
-                   :common-hospitals         (:t_user/hospitals authenticated-user)})))))))))
+                  {:mode               :create
+                   :hidden?            false
+                   :csrf-token         csrf-token
+                   :can-edit           can-edit-patient?
+                   :save-url           save-url
+                   :cancel-action      {:hx-post   create-url
+                                        :hx-vals   (str "{\"__anti-forgery-token\":\"" csrf-token "\"}")
+                                        :hx-target "#create-encounter"
+                                        :hx-swap   "outerHTML"}
+                   :encounter-template {:t_encounter_template/id      encounter-template-id
+                                        :t_encounter_template/title   template-title
+                                        :t_encounter_template/project {:t_project/title project-title}}
+                   :common-hospitals   (:t_user/hospitals authenticated-user)})))))))))
 
 
 (def edit-encounter-handler
@@ -597,13 +606,11 @@
                              :t_encounter/is_locked]}]
     (fn [request {:ui/keys [csrf-token current-patient authenticated-user current-encounter]}]
       (let [{:t_patient/keys [patient_identifier permissions]} current-patient
-            {:t_encounter/keys [id is_locked encounter_template consultant_user hospital users
-                                date_time duration_minutes notes ward]} current-encounter
+            {encounter-id      :t_encounter/id
+             :t_encounter/keys [is_locked encounter_template consultant_user hospital users]} current-encounter
             can-edit-patient? (get permissions :PATIENT_EDIT)
-            project-title (get-in encounter_template [:t_encounter_template/project :t_project/title])
-            encounter-template-title (get-in encounter_template [:t_encounter_template/title])
             edit-url (route/url-for :encounter/edit :path-params {:patient-identifier patient_identifier
-                                                                  :encounter-id       id})
+                                                                  :encounter-id       encounter-id})
             save-url (route/url-for :encounter/save :path-params {:patient-identifier patient_identifier})]
         (cond
           (not can-edit-patient?)
@@ -616,21 +623,20 @@
           (web/ok
             (ui/render
               (ui-modal-edit-encounter
-                {:mode                     :edit
-                 :hidden?                  true
-                 :csrf-token               csrf-token
-                 :can-edit                 can-edit-patient?
-                 :save-url                 save-url
-                 :cancel-action            {:hx-get    edit-url
-                                            :hx-target "#edit-encounter"
-                                            :hx-swap   "outerHTML"}
-                 :encounter                current-encounter
-                 :project-title            project-title
-                 :encounter-template-title encounter-template-title
-                 :consultant-user          (some-> consultant_user format-user)
-                 :hospital-org             hospital
-                 :encounter-users          (mapv format-user users)
-                 :common-hospitals         (:t_user/hospitals authenticated-user)}))))))))
+                {:mode               :edit
+                 :hidden?            true
+                 :csrf-token         csrf-token
+                 :can-edit           can-edit-patient?
+                 :save-url           save-url
+                 :cancel-action      {:hx-get    edit-url
+                                      :hx-target "#edit-encounter"
+                                      :hx-swap   "outerHTML"}
+                 :encounter          current-encounter
+                 :encounter-template encounter_template
+                 :consultant-user    (some-> consultant_user format-user)
+                 :hospital-org       hospital
+                 :encounter-users    (mapv format-user users)
+                 :common-hospitals   (:t_user/hospitals authenticated-user)}))))))))
 
 (def save-encounter-handler
   "POST handler for saving encounters - handles both create and update.
