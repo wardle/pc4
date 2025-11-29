@@ -9,6 +9,7 @@
 (def redirect-see-other core/redirect-see-other)
 (def hx-redirect core/hx-redirect)
 (def hx-location core/hx-location)
+(def with-hx-retarget core/with-hx-retarget)
 (def bad-request core/bad-request)
 (def forbidden core/forbidden)
 (def not-found core/not-found)
