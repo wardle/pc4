@@ -1,6 +1,8 @@
 (ns pc4.ui.components
   (:require [clojure.string :as str]
-            [rum.core :as rum]))
+            [rum.core :as rum])
+  (:import (java.time LocalDateTime)
+           (java.time.temporal ChronoUnit)))
 
 
 (rum/defc badge
@@ -284,8 +286,7 @@
                   {:name  (or name id)
                    :id    (or id name)
                    :type  "datetime-local"
-                   :value (when local-date-time
-                            (str (.truncatedTo local-date-time java.time.temporal.ChronoUnit/SECONDS)))
+                   :value (when local-date-time (str (LocalDateTime/.truncatedTo local-date-time ChronoUnit/SECONDS)))
                    :class (into ["p-2" "shadow" "sm-focus" "ring-indigo-500" "border" "focus:border-indigo-500" "block" "w-full" "sm:text-sm" "border-gray-300" "rounded-md"]
                                 (if disabled
                                   ["text-gray-500" "bg-gray-50" "italic"]
