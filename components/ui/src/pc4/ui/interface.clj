@@ -144,9 +144,7 @@
   [& content]
   (apply components/ui-table-body content))
 
-(defn ui-table-row
-  [opts & content]
-  (apply components/ui-table-row opts content))
+(def ui-table-row components/ui-table-row)
 
 (defn ui-table-cell
   [opts & content]
