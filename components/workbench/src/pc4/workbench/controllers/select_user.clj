@@ -33,7 +33,7 @@
   [{component-name :name, :keys [id label placeholder multiple selected disabled required only-responsible], :as params}]
   (when-not (s/valid? ::params params)
     (log/error "invalid parameters" (s/explain-data ::params params))
-    (throw (ex-info "invalid parameters" (s/explain-data ::params params))))
+    (throw (ex-info (str "invalid parameters" (s/explain-str ::params params)) (s/explain-data ::params params))))
   (let [id# (or id component-name (throw (ex-info "invalid parameters: must specify id or name" params)))]
     {:id               id#
      :label            label
