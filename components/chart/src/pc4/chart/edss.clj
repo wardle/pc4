@@ -120,10 +120,8 @@
    Returns a vector of prepared scores for efficient indexed access."
   [scores]
   (->> scores
-       (map (fn [score]
-              (update score :date normalize-date)))
-       (filter (fn [score]
-                 (and (:date score) (:edss score))))
+       (map (fn [score] (update score :date normalize-date)))
+       (filter (fn [score] (and (:date score) (:edss score))))
        (sort-by :date)
        (vec)))
 
