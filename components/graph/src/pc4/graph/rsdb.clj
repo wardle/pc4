@@ -1250,7 +1250,7 @@
   [{rsdb :com.eldrix/rsdb, ods-svc :com.eldrix.clods.graph/svc} {user-id :t_user/id}]
   {::pco/output [{:t_user/hospitals [:urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id]}]}
   (let [db-codes (rsdb/user->hospitals rsdb user-id)
-        active-codes (into #{} (mapcat #(clods/org-code->active-successors ods-svc % {:as :codes})) db-codes)]
+        active-codes (clods/org-codes->active-successors ods-svc db-codes {:as :codes})]
     {:t_user/hospitals
      (mapv #(hash-map :urn:oid:2.16.840.1.113883.2.1.3.2.4.18.48/id %) active-codes)}))
 
