@@ -1250,6 +1250,13 @@
                                      :set    {:t_encounter/is_deleted "true"}})
                    {:return-keys true}))
 
+(defn undelete-encounter!
+  [conn encounter-id]
+  (db/execute-one! conn (sql/format {:update [:t_encounter]
+                                     :where  [:= :id encounter-id]
+                                     :set    {:t_encounter/is_deleted "false"}})
+                   {:return-keys true}))
+
 (defn unlock-encounter!
   [conn encounter-id]
   (db/execute-one! conn (sql/format {:update [:t_encounter]
