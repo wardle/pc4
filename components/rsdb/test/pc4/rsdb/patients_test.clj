@@ -7,6 +7,8 @@
             [next.jdbc.sql :as sql]
             [pc4.rsdb.forms :as forms]
             [pc4.rsdb.helper :as helper]
+            [pc4.rsdb.interface :as rsdb]
+            [pc4.rsdb.nform.api :as nf]
             [pc4.rsdb.patients :as patients]
             [pc4.rsdb.projects :as projects])
   (:import (java.time LocalDate)))
@@ -325,6 +327,97 @@
                                                        :t_patient_hospital/patient_identifier "X123456"
                                                        :t_patient_hospital/hospital_fk        "RVFAR"}]}))
       "Unsupported authority (ABUHB) should return nil"))
+
+(deftest ^:live test-forms-and-form-types-in-encounter
+  (let [patient *patient*
+        form-store (nf/make-form-store *conn*)
+        svc {:conn *conn* :form-store form-store}
+
+        ;; create an encounter template for our test
+        {encounter-template-id :t_encounter_template/id}
+        (sql/insert! *conn* :t_encounter_template
+                     {:encounter_type_fk 1, :title "Test encounter", :register_to_project_for_weeks -1})
+
+        ;; create a single encounter to which we'll add some forms
+        {encounter-id :t_encounter/id}
+        (patients/save-encounter! *conn*
+                                  {:t_encounter/patient_fk            (:t_patient/id patient)
+                                   :t_encounter/encounter_template_fk encounter-template-id
+                                   :t_encounter/date_time             (java.time.LocalDateTime/now)
+                                   :t_encounter/notes                 "Notes"})
+
+        ;; get available and completed form types for newly created encounter - should be none!
+        result1
+        (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+
+    ;; there should be no forms available or completed at this point
+    (is (= 0 (count (:available-form-types result1))))
+    (is (= 0 (count (:optional-form-types result1))))
+    (is (= 0 (count (:mandatory-form-types result1))))
+    (is (= 0 (count (:existing-form-types result1))))
+    (is (= 0 (count (:completed-forms result1))))
+    (is (= 0 (count (:deleted-forms result1))))
+
+    ;; add short form EDSS (form-type-id=2) to encounter template as 'available'
+    (sql/insert! *conn* :t_encounter_template__form_type
+                 {:encountertemplateid encounter-template-id
+                  :formtypeid          2
+                  :status              "AVAILABLE"})
+
+    ;; check that short form EDSS is available within encounter
+    (let [result2 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+      (clojure.pprint/pprint result2)
+      (is (= 1 (count (:available-form-types result2))))
+      (is (= :edss/v1 (-> result2 :available-form-types first :id))))
+
+    ;; add an EDSS result using the new forms API
+    ;; Note: new API uses hydrated values like "1.0" not database values like "SCORE1_0"
+    (let [saved-edss (nf/upsert! form-store
+                                 {:form_type    :edss/v1
+                                  :encounter_fk encounter-id
+                                  :patient_fk   (:t_patient/id patient)
+                                  :user_fk      1
+                                  :is_deleted   false
+                                  :edss         "1.0"})
+
+          ;; get form types now we have created a form
+          result3 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+
+      ;; should now have one existing form type as we have one completed form
+      (is (= 0 (count (:available-form-types result3))) "EDSS should no longer be available (already completed)")
+      (is (= 1 (count (:existing-form-types result3))))
+      (is (= 1 (count (:completed-forms result3))))
+      (is (= 0 (count (:deleted-forms result3))))
+      (is (= :edss/v1 (first (:existing-form-types result3))))
+
+      ;; the completed form should have correct data
+      (let [returned-form (first (:completed-forms result3))]
+        (is (= :edss/v1 (:form_type returned-form)))
+        (is (= "1.0" (:edss returned-form))))
+
+      ;; update the form
+      (let [updated-edss (nf/upsert! form-store (assoc saved-edss :edss "2.0"))
+            result4 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+        (is (= "2.0" (:edss updated-edss)))
+        (is (= 1 (count (:completed-forms result4))))
+        (is (= "2.0" (-> result4 :completed-forms first :edss))))
+
+      ;; delete the form
+      (let [deleted-edss (nf/upsert! form-store (assoc saved-edss :is_deleted true))
+            result5 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+        (is (= true (:is_deleted deleted-edss)))
+        (is (= 1 (count (:available-form-types result5))) "EDSS should be available again")
+        (is (= 0 (count (:completed-forms result5))))
+        (is (= 1 (count (:deleted-forms result5))))
+        (is (= :edss/v1 (-> result5 :deleted-forms first :form_type))))
+
+      ;; undelete the form
+      (let [undeleted-edss (nf/upsert! form-store (assoc saved-edss :is_deleted false))
+            result6 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
+        (is (= false (:is_deleted undeleted-edss)))
+        (is (= 0 (count (:available-form-types result6))))
+        (is (= 1 (count (:completed-forms result6))))
+        (is (= 0 (count (:deleted-forms result6))))))))
 
 (comment
   (def encounter-id 1))
