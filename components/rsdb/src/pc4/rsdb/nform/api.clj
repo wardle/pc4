@@ -58,10 +58,34 @@
                     (s/explain-data ::p/fetch-params params))))
   (map form/hydrate (p/forms st params)))
 
+(defn delete!
+  "Delete a form by setting is_deleted to true. Returns the updated form."
+  [st id]
+  (if-let [f (form st id)]
+    (upsert! st (assoc f :is_deleted true))
+    (throw (ex-info "form not found" {:id id}))))
+
+(defn undelete!
+  "Undelete a form by setting is_deleted to false. Returns the updated form."
+  [st id]
+  (if-let [f (form st id)]
+    (upsert! st (assoc f :is_deleted false))
+    (throw (ex-info "form not found" {:id id}))))
+
 (defn form-definition
-  "Return the form definition for the given form."
+  "Return form definition for a given form."
   [{:keys [form_type]}]
   (registry/form-definition-by-form-type form_type))
+
+(defn form-definition-by-form-type
+  "Return the form definition for the given form type. e.g. :edss/v1 -> { ... }"
+  [form_type]
+  (registry/form-definition-by-form-type form_type))
+
+(defn form-definition-by-table
+  "Return a form definition given a table e.g. :t_form_edss -> {... }"
+  [table]
+  (registry/form-definition-by-table table))
 
 (comment
   (def ds (jdbc/get-datasource {:dbtype "postgresql" :dbname "rsdb"}))

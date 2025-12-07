@@ -27,6 +27,7 @@
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs]
             [next.jdbc.specs]
+            [pc4.log.interface :as log]
             [pc4.rsdb.nform.impl.form :as form]
             [pc4.rsdb.nform.impl.registry :as registry]
             [pc4.rsdb.nform.impl.protocols :as p])
@@ -128,7 +129,7 @@
            {:table      table
             :sql-params (sql/format
                           (cond-> (-> (make-where-clauses table params)
-                                      (h/select (keyword (name table) "*") :t_encounter/patient_fk )
+                                      (h/select (keyword (name table) "*") :t_encounter/patient_fk)
                                       (h/from table :t_encounter)
                                       (h/where := :encounter_fk :t_encounter/id))
                             (:date-time select)
@@ -166,8 +167,10 @@
 
 (defn fetch-form
   [conn table pk]
-  (let [form-definition (registry/form-definition-by-table table)]
-    (row->form form-definition (jdbc/execute-one! conn (fetch-form-sql table pk {}) jdbc-opts))))
+  (let [form-definition (registry/form-definition-by-table table)
+        sql-params (fetch-form-sql table pk {})]
+    (log/trace sql-params)
+    (row->form form-definition (jdbc/execute-one! conn sql-params jdbc-opts))))
 
 (defn insert-sql
   ([{:keys [form_type] :as form}]
@@ -218,9 +221,10 @@
     (let [params' (with-encounters-ids-for-patient-pk conn params)
           queries (fetch-forms-sql params')]
       (mapcat (fn [{:keys [table sql-params]}]
-                (println "query " sql-params)
+                (log/trace sql-params)
                 (map #(row->form (registry/form-definition-by-table table) %)
-                     (jdbc/execute! conn sql-params jdbc-opts))) queries))))
+                     (jdbc/execute! conn sql-params jdbc-opts)))
+              queries))))
 
 (comment
   (require '[next.jdbc.date-time])
