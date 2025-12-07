@@ -29,7 +29,7 @@
         (sort (map (fn [r] (str (get-in r [:config :com.wsscode.pathom3.connect.operation/op-name]))) ops)))
   (-> env
       (dissoc :pathom/ops)
-      (assoc ::p.error/lenient-mode? false)
+      (assoc ::p.error/lenient-mode? true)
       (pci/register ops)))
 
 (s/def ::connect-viz boolean?)
