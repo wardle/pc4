@@ -119,102 +119,149 @@
 
 
 (defn encounter-sidebar
-  [{:keys [csrf-token encounter-id patient-identifier date-time
-           title subtitle responsible-user users is-deleted is-locked lock-date-time
-           can-edit? can-unlock?]}]
-  [:div.col-span-1.p-2.space-y-2
-   [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-gray-300.shadow-sm.text-sm.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
-    {:onclick "history.back()"}
-    "Back"]
+  "Sidebar for encounter view. Call with no args to get query, or with data to render."
+  ([]
+   [:ui/csrf-token
+    {:ui/current-encounter
+     [:t_encounter/id :t_encounter/date_time :t_encounter/is_deleted :t_encounter/is_locked :t_encounter/lock_date_time
+      {:t_encounter/encounter_template
+       [:t_encounter_template/title {:t_encounter_template/project [:t_project/title]}]}
+      {:t_encounter/consultant_user [:t_user/full_name]}
+      {:t_encounter/users [:t_user/id :t_user/first_names :t_user/last_name :t_user/full_name :t_user/initials]}
+      {:t_encounter/deleted_forms [:form/id]}
+      {:t_encounter/patient [:t_patient/patient_identifier :t_patient/permissions]}]}])
+  ([{:ui/keys [csrf-token current-encounter]} form-filter]
+   (let [{:t_encounter/keys [id date_time is_deleted is_locked lock_date_time
+                             encounter_template consultant_user users deleted_forms patient]} current-encounter
+         {:t_encounter_template/keys [title project]} encounter_template
+         project-title (:t_project/title project)
+         responsible-user (:t_user/full_name consultant_user)
+         {:t_patient/keys [patient_identifier permissions]} patient
+         can-edit-patient? (:PATIENT_EDIT permissions)
+         can-edit-encounter? (and can-edit-patient? (not is_locked))
+         has-deleted-forms? (seq deleted_forms)]
+     [:div.col-span-1.p-2.space-y-2
+      [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-gray-300.shadow-sm.text-sm.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+       {:onclick "history.back()"}
+       "Back"]
 
-   (when (and date-time title)
-     [:div.shadow.bg-gray-50
-      [:div.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
-       (ui/format-date-time date-time)]
-      [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center
-       subtitle]
-      [:div.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
-       title]
-      (when responsible-user
-        [:div.text-sm.text-gray-600.italic.text-center.pb-4
-         responsible-user])])
+      (when (and date_time title)
+        [:div.shadow.bg-gray-50
+         [:div.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
+          (ui/format-date-time date_time)]
+         [:div.text-sm.p-2.pt-4.text-gray-600.italic.text-center
+          project-title]
+         [:div.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
+          title]
+         (when responsible-user
+           [:div.text-sm.text-gray-600.italic.text-center.pb-4
+            responsible-user])])
 
-   (when (seq users)
-     [:div.shadow.bg-gray-50.p-2
-      [:ul.text-sm.text-gray-700.text-center
-       (for [{:t_user/keys [id full_name initials]} (sort-by (juxt :t_user/last_name :t_user/first_names) users)]
-         [:li {:key id}
-          [:span.hidden.sm:inline full_name]
-          [:span.sm:hidden {:title full_name} initials]])]])
+      (when (seq users)
+        [:div.shadow.bg-gray-50.p-2
+         [:ul.text-sm.text-gray-700.text-center
+          (for [{:t_user/keys [id full_name initials]} (sort-by (juxt :t_user/last_name :t_user/first_names) users)]
+            [:li {:key id}
+             [:span.hidden.sm:inline full_name]
+             [:span.sm:hidden {:title full_name} initials]])]])
 
-   (when is-deleted
-     [:div.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
-      "Warning: this encounter has been deleted"])
-
-   (when (and (not is-deleted) (not is-locked) can-edit?)
-     [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600.hover:bg-blue-700
-      {:onclick "htmx.removeClass(htmx.find('#edit-encounter'), 'hidden');"}
-      "Edit"])
-
-   (when (or is-locked lock-date-time can-edit?)
-     [:div.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
-      (if is-locked
-        [:div.grid.grid-cols-1.gap-2
-         "This encounter has been locked against editing"
-         (when (and (not is-deleted) can-unlock?)
-           [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
-            {:hx-post     (route/url-for :encounter/lock :path-params {:patient-identifier patient-identifier :encounter-id encounter-id})
-             :hx-vals     (str "{\"lock\":\"false\",\"__anti-forgery-token\":\"" csrf-token "\"}")
+      (when is_deleted
+        [:div.mt-4.text-center.bg-red-100.p-4.border.border-red-600.rounded
+         [:div.font-bold "Warning: this encounter has been deleted"]
+         (when can-edit-patient?
+           [:button.mt-2.w-full.inline-flex.justify-center.py-1.px-2.border.border-red-300.shadow-sm.text-xs.font-medium.rounded-md.text-red-700.bg-white.hover:bg-red-50
+            {:hx-post     (route/url-for :encounter/delete :path-params {:patient-identifier patient_identifier :encounter-id id})
+             :hx-vals     (str "{\"delete\":\"false\",\"__anti-forgery-token\":\"" csrf-token "\"}")
              :hx-push-url "false"
              :hx-target   "body"
              :hx-swap     "innerHTML"}
-            "Unlock"])]
-        [:div.grid.grid-cols-1.gap-2
-         (when lock-date-time
-           [:span "This encounter will lock at " [:br] (ui/format-date-time lock-date-time)])
-         (when can-unlock?
-           [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
-            {:hx-post     (route/url-for :encounter/lock :path-params {:patient-identifier patient-identifier :encounter-id encounter-id})
-             :hx-vals     (str "{\"lock\":\"true\",\"__anti-forgery-token\":\"" csrf-token "\"}")
-             :hx-push-url "false"
-             :hx-target   "body"
-             :hx-swap     "innerHTML"}
-            "Lock encounter now"])])])])
+            "Restore encounter"])])
+
+      (when (and (not is_deleted) (not is_locked) can-edit-encounter?)
+        [:button.w-full.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600.hover:bg-blue-700
+         {:onclick "htmx.removeClass(htmx.find('#edit-encounter'), 'hidden');"}
+         "Edit"])
+
+      (when (and (not is_deleted) (or is_locked lock_date_time can-edit-encounter?))
+        [:div.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded
+         (if is_locked
+           [:div.grid.grid-cols-1.gap-2
+            "This encounter has been locked against editing"
+            (when can-edit-patient?
+              [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+               {:hx-post     (route/url-for :encounter/lock :path-params {:patient-identifier patient_identifier :encounter-id id})
+                :hx-vals     (str "{\"lock\":\"false\",\"__anti-forgery-token\":\"" csrf-token "\"}")
+                :hx-push-url "false"
+                :hx-target   "body"
+                :hx-swap     "innerHTML"}
+               "Unlock"])]
+           [:div.grid.grid-cols-1.gap-2
+            (when lock_date_time
+              [:span "This encounter will lock at " [:br] (ui/format-date-time lock_date_time)])
+            (when can-edit-patient?
+              [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+               {:hx-post     (route/url-for :encounter/lock :path-params {:patient-identifier patient_identifier :encounter-id id})
+                :hx-vals     (str "{\"lock\":\"true\",\"__anti-forgery-token\":\"" csrf-token "\"}")
+                :hx-push-url "false"
+                :hx-target   "body"
+                :hx-swap     "innerHTML"}
+               "Lock encounter now"])
+            (when can-edit-patient?
+              [:button.w-full.inline-flex.justify-center.py-1.px-2.border.border-red-300.shadow-sm.text-xs.font-medium.rounded-md.text-red-700.bg-white.hover:bg-red-50
+               {:hx-post     (route/url-for :encounter/delete :path-params {:patient-identifier patient_identifier :encounter-id id})
+                :hx-vals     (str "{\"delete\":\"true\",\"__anti-forgery-token\":\"" csrf-token "\"}")
+                :hx-push-url "false"
+                :hx-target   "body"
+                :hx-swap     "innerHTML"}
+               "Delete encounter"])])])
+
+      (when has-deleted-forms?
+        [:div.mt-4
+         [:select.w-full.text-xs.text-gray-600.text-center.border-gray-300.rounded-md.shadow-sm
+          {:name      "form-filter"
+           :hx-get    (route/url-for :patient/encounter :path-params {:patient-identifier patient_identifier :encounter-id id})
+           :hx-target "body"
+           :hx-swap   "innerHTML"}
+          [:option {:value "active" :selected (not= form-filter "deleted")} "Active forms"]
+          [:option {:value "deleted" :selected (= form-filter "deleted")} "Deleted forms"]]])])))
+
+(defn route-for-form
+  [patient-identifier encounter-id {:form/keys [id]}]
+  (let [[form-type form-id]
+        (if (vector? id)
+          (let [[form-type form-id] id]
+            [(name form-type) form-id])
+          ["nf" id])]
+    (route/url-for :patient/form
+                   :path-params {:patient-identifier patient-identifier
+                                 :encounter-id       encounter-id
+                                 :form-type          form-type
+                                 :form-id            form-id})))
 
 (def encounter-handler
   "Inspect an encounter, displaying core data and forms."
   (pw/handler
-    [:ui/csrf-token
-     :ui/navbar
-     {:ui/current-patient [:ui/patient-banner]}
-     {:ui/current-encounter
-      [:t_encounter/id
-       :t_encounter/date_time
-       :t_encounter/is_deleted
-       :t_encounter/is_locked
-       :t_encounter/lock_date_time
-       :t_encounter/hospital_crn
-       :t_encounter/notes
-       {:t_encounter/encounter_template
-        [:t_encounter_template/title {:t_encounter_template/project [:t_project/id :t_project/title]}]}
-       {:t_encounter/consultant_user [:t_user/full_name]}
-       {:t_encounter/users [:t_user/id :t_user/first_names :t_user/last_name :t_user/full_name :t_user/initials]}
-       {:t_encounter/completed_forms
-        [:form/id :form/form_type
-         :form/summary_result
-         {:form/user [:t_user/id :t_user/full_name :t_user/initials]}]}
-       {:t_encounter/available_form_types
-        [:form_type/id :form_type/nm :form_type/title]}
-       {:t_encounter/patient
-        [:t_patient/patient_identifier :t_patient/permissions]}]}]
-    (fn [request {:ui/keys [csrf-token navbar current-patient current-encounter]}]
-      (let [{:t_encounter/keys [id date_time is_deleted is_locked lock_date_time hospital_crn notes
-                                encounter_template consultant_user users completed_forms available_form_types patient]} current-encounter
-            {:t_encounter_template/keys [title project]} encounter_template
-            project-title (:t_project/title project)
+    (pw/merge-queries
+      (encounter-sidebar)
+      [:ui/navbar
+       {:ui/current-patient [:ui/patient-banner]}
+       {:ui/current-encounter
+        [:t_encounter/notes
+         {:t_encounter/completed_forms
+          [:form/id :form/form_type :form/definition :form/summary
+           {:form/user [:t_user/id :t_user/full_name :t_user/initials]}]}
+         {:t_encounter/deleted_forms
+          [:form/id :form/form_type :form/definition :form/summary
+           {:form/user [:t_user/id :t_user/full_name :t_user/initials]}]}
+         :t_encounter/available_form_types]}])
+    (fn [request {:ui/keys [navbar current-patient current-encounter] :as result}]
+      (let [form-filter (get-in request [:query-params :form-filter])
+            {:t_encounter/keys [id is_locked notes completed_forms deleted_forms available_form_types patient]} current-encounter
             {:t_patient/keys [patient_identifier permissions]} patient
-            can-edit-patient? (get permissions :PATIENT_EDIT)
-            can-edit-encounter? (and can-edit-patient? (not is_locked))]
+            can-edit-patient? (:PATIENT_EDIT permissions)
+            can-edit-encounter? (and can-edit-patient? (not is_locked))
+            display-forms (if (= form-filter "deleted") deleted_forms completed_forms)
+            showing-deleted? (= form-filter "deleted")]
         (web/ok
           (ui/render-file
             "templates/patient/base.html"
@@ -229,47 +276,36 @@
                                   :hx-trigger "load"
                                   :hx-swap    "outerHTML"}])
                          [:div.grid.grid-cols-1.sm:grid-cols-6
-                          (encounter-sidebar {:patient-identifier patient_identifier
-                                              :encounter-id       id
-                                              :csrf-token         csrf-token
-                                              :date-time          date_time
-                                              :is-locked          is_locked
-                                              :lock-date-time     lock_date_time
-                                              :title              title
-                                              :subtitle           project-title
-                                              :responsible-user   (:t_user/full_name consultant_user)
-                                              :users              users
-                                              :can-edit?          can-edit-encounter?
-                                              :can-unlock?        can-edit-patient?})
+                          (encounter-sidebar result form-filter)
                           [:div.col-span-1.lg:col-span-5.pt-2
                            {:id "main-content"}
                            ;; Forms table
                            (ui/ui-table
                              (ui/ui-table-head
                                (ui/ui-table-row {}
-                                                (ui/ui-table-heading {} "Form")
+                                                (ui/ui-table-heading {} (if showing-deleted? "Deleted Form" "Form"))
                                                 (ui/ui-table-heading {} "Result")
                                                 (ui/ui-table-heading {} "User")))
                              (ui/ui-table-body
-                               ;; Completed forms
-                               (for [{form-id :form/id :form/keys [form_type summary_result user]} completed_forms
-                                     :let [{:form_type/keys [nm title]} form_type]]
+                               ;; Forms (completed or deleted depending on filter)
+                               (for [{:form/keys [definition summary user] :as form} display-forms
+                                     :let [{:keys [title]} definition]]
                                  (ui/ui-table-row
-                                   {:class "cursor-pointer hover:bg-gray-200"}
+                                   {:class (if showing-deleted?
+                                             "cursor-pointer hover:bg-red-100 bg-red-50"
+                                             "cursor-pointer hover:bg-gray-200")}
                                    (ui/ui-table-cell
-                                     [:a {:href (route/url-for :patient/form :path-params {:patient-identifier patient_identifier
-                                                                                           :encounter-id       id
-                                                                                           :form-type          nm
-                                                                                           :form-id            form-id})}
-                                      [:span.text-blue-500.underline title]])
-                                   (ui/ui-table-cell {} summary_result)
+                                     [:a {:href  (route-for-form patient_identifier id form)
+                                          :class (if showing-deleted? "text-red-600 underline" "text-blue-500 underline")}
+                                      title])
+                                   (ui/ui-table-cell {} summary)
                                    (ui/ui-table-cell {}
                                                      [:span.hidden.lg:block (:t_user/full_name user)]
                                                      [:span.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)])))
 
-                               ;; Available forms to add (if can edit)
-                               (when can-edit-encounter?
-                                 (for [{:form_type/keys [id nm title]} available_form_types]
+                               ;; Available forms to add (if can edit and not showing deleted)
+                               (when (and can-edit-encounter? (not showing-deleted?))
+                                 (for [{:keys [id title]} (sort-by :title available_form_types)]
                                    (ui/ui-table-row
                                      {:class "italic cursor-pointer hover:bg-gray-200"}
                                      (ui/ui-table-cell {} [:span title])
@@ -314,8 +350,9 @@
                   [:menu :submenu :items]
                   [{:content (ui/render [:form {:hx-target  "#list-encounters"
                                                 :hx-trigger "change"
-                                                :hx-vals    hx-vals
                                                 :hx-post    (route/url-for :ui/list-encounters)}
+                                         [:input {:type "hidden" :name "patient-identifier" :value patient_identifier}]
+                                         [:input {:type "hidden" :name "__anti-forgery-token" :value csrf-token}]
                                          (ui/ui-select-button {:name    "view"
                                                                :options [{:id :notes :text "Notes"}
                                                                          {:id :users :text "Users"}
@@ -371,6 +408,44 @@
               (or success-url
                   (route/url-for :patient/encounter
                                  :path-params {:patient-identifier patient_identifier :encounter-id id})))))))))
+
+(def encounter-delete-handler
+  (pw/handler
+    {}
+    [:ui/csrf-token
+     {:ui/current-encounter
+      [:t_encounter/id
+       :t_encounter/is_locked
+       {:t_encounter/patient [:t_patient/patient_identifier
+                              :t_patient/permissions]}]}]
+    (fn [request {:ui/keys [current-encounter]}]
+      (let [rsdb (get-in request [:env :rsdb])
+            {:t_encounter/keys [id is_locked patient]} current-encounter
+            {:t_patient/keys [patient_identifier permissions]} patient
+            can-edit-patient? (get permissions :PATIENT_EDIT)
+            {:keys [delete]} (:form-params request)]
+        (cond
+          (not can-edit-patient?)
+          (web/forbidden "Not authorized to edit this patient")
+
+          (str/blank? delete)
+          (web/bad-request "Missing 'delete' parameter")
+
+          (and (parse-boolean delete) is_locked)
+          (web/forbidden "Cannot delete a locked encounter")
+
+          :else
+          (if (parse-boolean delete)
+            (do
+              (rsdb/delete-encounter! rsdb id)
+              (web/hx-redirect
+                (route/url-for :patient/encounters
+                               :path-params {:patient-identifier patient_identifier})))
+            (do
+              (rsdb/undelete-encounter! rsdb id)
+              (web/hx-redirect
+                (route/url-for :patient/encounter
+                               :path-params {:patient-identifier patient_identifier :encounter-id id})))))))))
 
 (defn parse-encounter-form-params
   "Parse encounter form parameters. Parses EDN structures and type conversions."
@@ -434,8 +509,7 @@
                   :title      (if new? "Create" "Save")
                   :role       :primary
                   :hx-post    save-url
-                  :hx-include (str "#" form-id)
-                  :hx-target  "body"}
+                  :hx-include (str "#" form-id)}
                  (merge {:id :cancel :title "Cancel"} cancel-action)]}
       (ui/ui-rich-text-script)
       [:form {:id form-id}
@@ -680,7 +754,7 @@
                    :encounter-users       (:encounter-users parsed)
                    :ward                  (:ward parsed)
                    :notes                 (:notes parsed)})]
-            (web/redirect-see-other
+            (web/hx-redirect
               (route/url-for :patient/encounter
                              :path-params {:patient-identifier patient_identifier
                                            :encounter-id       saved-encounter-id}))))))))

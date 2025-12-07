@@ -48,14 +48,14 @@
 
 (pco/defresolver current-form
   [{:keys [request]} _]
-  {::pco/output [{:ui/current-form
-                  [:form/id
-                   {:form/encounter [:t_encounter/id]}
-                   {:form/form_type [:form_type/nm]}]}]}
+  {::pco/output [{:ui/current-form [:form/id]}]}
   {:ui/current-form
-   {:form/id        (some-> request :path-params :form-id parse-long)
-    :form/encounter {:t_encounter/id (some-> request :path-params :encounter-id parse-long)}
-    :form/form_type {:form_type/nm (get-in request [:path-params :form-type])}}})
+   {:form/id
+    (let [form-type (get-in request [:path-params :form-type])
+          form-id (get-in request [:path-params :form-id])]
+      (if (= "nf" form-type)
+        form-id
+        [(keyword form-type) (parse-long form-id)]))}})
 
 (pco/defresolver patient->best-hospital-crn
   [{rsdb :com.eldrix/rsdb} {current-project :ui/current-project, hospitals :t_patient/hospitals}]

@@ -48,28 +48,9 @@
    :enter (fn [ctx] (tap> {:on-enter ctx}) ctx)
    :leave (fn [ctx] (tap> {:on-leave ctx}) ctx)})
 
-(defn workbench
-  [request]
-  (let [csrf-token (csrf/existing-token request)]
-    (web/ok
-      (pc4.ui.render/render
-        [:html {:lang "en"}
-         [:head
-          [:meta {:charset "UTF-8"}]
-          [:meta {:name "viewport" :content "width=device-width,initial-scale=1.0"}]
-          [:link {:href "/css/output.css" :rel "stylesheet" :type "text/css"}]
-          [:script
-           {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
-          [:title "pc4"]]
-         [:body
-          [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
-          [:div#root]
-          [:script {:src "/js/main.js"}]]]))))
-
 (defn routes [{:keys [odsui snomedui]}]
   (set/union
-    #{["/wb" :get workbench :route-name :workbench]
-      ["/" :get [login/authenticated project/update-session home/home-page] :route-name :home]
+    #{["/" :get [login/authenticated project/update-session home/home-page] :route-name :home]
       ["/login" :get login/login :route-name :user/login]
       ["/login" :post login/do-login :route-name :user/login!]
       ["/logout" :post login/logout :route-name :user/logout!]
@@ -105,9 +86,10 @@
       ["/patient/:patient-identifier/encounter/:encounter-id" :get [login/authenticated patient/authorized patient-encounters/encounter-handler] :route-name :patient/encounter]
       ["/patient/:patient-identifier/encounter/:encounter-id/edit" :get [login/authenticated patient/authorized patient-encounters/edit-encounter-handler] :route-name :encounter/edit]
       ["/patient/:patient-identifier/encounter/:encounter-id/lock" :post [login/authenticated patient/authorized patient-encounters/encounter-lock-handler] :route-name :encounter/lock]
+      ["/patient/:patient-identifier/encounter/:encounter-id/delete" :post [login/authenticated patient/authorized patient-encounters/encounter-delete-handler] :route-name :encounter/delete]
       ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :get [login/authenticated patient/authorized patient-forms/form-handler] :route-name :patient/form]
       ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :post [login/authenticated patient/authorized patient-forms/form-save-handler] :route-name :patient/form-save]
-      ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id" :delete [login/authenticated patient/authorized patient-forms/form-delete-handler] :route-name :patient/form-delete]
+      ["/patient/:patient-identifier/encounter/:encounter-id/form/:form-type/:form-id/delete" :post [login/authenticated patient/authorized patient-forms/form-delete-handler] :route-name :patient/form-delete]
       ["/patient/:patient-identifier/nhs" :get [login/authenticated patient/authorized patient/nhs] :route-name :patient/nhs]
       ["/patient/:patient-identifier/projects" :get [login/authenticated patient/authorized patient/projects] :route-name :patient/projects]
       ["/patient/:patient-identifier/admissions" :get [login/authenticated patient/authorized patient-admissions/admissions-handler] :route-name :patient/admissions]
