@@ -11,10 +11,8 @@
             [clojure.tools.logging.readable :as log]
             [com.fulcrologic.fulcro.algorithms.tempid :as tempid]
             [com.fulcrologic.fulcro.server.api-middleware :as api-middleware]
-            [com.wsscode.pathom3.connect.indexes :as pci]
             [com.wsscode.pathom3.connect.built-in.resolvers :as pbir]
             [com.wsscode.pathom3.connect.operation :as pco]
-            [com.wsscode.pathom3.interface.eql :as p.eql]
             [pc4.dates.interface :as dates]
             [pc4.nhs-number.interface :as nhs-number]
             [pc4.nhspd.interface :as nhspd]
@@ -22,8 +20,7 @@
             [pc4.ods.interface :as clods]
             [pc4.rsdb.interface :as rsdb]
             [pc4.snomed.interface :as hermes])
-  (:import (com.zaxxer.hikari HikariDataSource)
-           (java.time LocalDateTime LocalDate)
+  (:import (java.time LocalDateTime LocalDate)
            (java.util Locale)
            (org.jsoup Jsoup)
            (org.jsoup.safety Safelist)))
@@ -1019,11 +1016,29 @@
                                                      :t_smoking_history/status]}]}
   {:t_encounter/form_smoking_history (rsdb/encounter-id->form-smoking-history rsdb encounter-id)})
 
-(defn form-assoc-context
-  [{:form/keys [encounter_fk user_fk] :as form}]
-  (assoc form
-    :form/encounter {:t_encounter/id encounter_fk}
-    :form/user {:t_user/id user_fk}))
+(defn normalize-form
+  "Normalizes a form, adding a 'form' namespace, adding nested encounter and form structures."
+  [{:keys [encounter_fk user_fk] :as form}]
+  (when form
+    (assoc (reduce-kv (fn [acc k v]
+                        (if (namespace k) (assoc acc k v)
+                                          (assoc acc (keyword "form" (name k)) v)))
+                      {} form)
+      :form/encounter {:t_encounter/id encounter_fk}
+      :form/user {:t_user/id user_fk}
+      :form/summary (rsdb/form-summary form)
+      :form/definition (rsdb/form-definition form))))
+
+(def form-properties
+  [:form/id
+   :form/type
+   :form/definition
+   :form/is_deleted
+   :form/user_fk
+   :form/encounter_fk
+   :form/summary
+   {:form/user [:t_user/id]}
+   {:form/encounter [:t_encounter/id]}])
 
 (pco/defresolver encounter->forms
   [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
@@ -1033,48 +1048,33 @@
     :t_encounter/mandatory_form_types
     :t_encounter/existing_form_types
     :t_encounter/duplicated_form_types
-    {:t_encounter/completed_forms
-     [:form/id
-      :form/user_fk
-      :form/encounter_fk
-      :form/summary_result
-      {:form/user [:t_user/id]}
-      {:form/encounter [:t_encounter/id]}]}
-    {:t_encounter/deleted_forms
-     [:form/id
-      :form/user_fk
-      :form/encounter_fk
-      :form/summary_result
-      {:form/user [:t_user/id]}
-      {:form/encounter [:t_encounter/id]}]}]}
+    {:t_encounter/completed_forms form-properties}
+    {:t_encounter/deleted_forms form-properties}]}
   (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms duplicated-form-types deleted-forms]}
-        (rsdb/encounter-id->forms-and-form-types rsdb encounter-id)]
-    {:t_encounter/available_form_types  (or available-form-types [])
-     :t_encounter/optional_form_types   (or optional-form-types [])
-     :t_encounter/mandatory_form_types  (or mandatory-form-types [])
-     :t_encounter/existing_form_types   (or existing-form-types [])
-     :t_encounter/completed_forms       (map form-assoc-context completed-forms)
-     :t_encounter/duplicated_form_types (or duplicated-form-types [])
-     :t_encounter/deleted_forms         (map form-assoc-context deleted-forms)}))
+        (rsdb/forms-and-form-types-in-encounter rsdb encounter-id)]
+    {:t_encounter/available_form_types  available-form-types
+     :t_encounter/optional_form_types   optional-form-types
+     :t_encounter/mandatory_form_types  mandatory-form-types
+     :t_encounter/existing_form_types   existing-form-types
+     :t_encounter/completed_forms       (mapv normalize-form completed-forms)
+     :t_encounter/duplicated_form_types duplicated-form-types
+     :t_encounter/deleted_forms         (mapv normalize-form deleted-forms)}))
 
 (pco/defresolver form-by-id
   [{rsdb :com.eldrix/rsdb :as env} {form-id :form/id}]
-  {::pco/output [:form/id
-                 :form/is_deleted
-                 :form/user_fk
-                 :form/encounter_fk
-                 :form/summary_result
-                 {:form/user [:t_user/id]}
-                 {:form/encounter [:t_encounter/id]}]}
-  (if-let [encounter-id (get-in env [:query-params :encounter-id])]
-    (let [forms (rsdb/encounter-id->forms rsdb encounter-id {:include-deleted true})
-          by-id (reduce (fn [acc {:form/keys [id] :as form}] (assoc acc id form)) {} forms)
-          form (get by-id form-id)]
-      (log/debug "form by id:" {:encounter-id encounter-id :form-id form-id :result form})
-      (form-assoc-context form))
-    (do
-      (log/error "Missing hint on parameters" (:query-params env))
-      (throw (ex-info "Missing hint on parameters for form. Specify :encounter-id in load parameters" (:query-params env))))))
+  {::pco/output form-properties}
+  (when-let [form (rsdb/form rsdb form-id)]
+    (log/info "form-by-id" form)
+    (normalize-form form))                                  ;; add namespaces to keys
+  #_(if-let [encounter-id (get-in env [:query-params :encounter-id])]
+      (let [forms (rsdb/encounter-id->forms rsdb encounter-id {:include-deleted true})
+            by-id (reduce (fn [acc {:form/keys [id] :as form}] (assoc acc id form)) {} forms)
+            form (get by-id form-id)]
+        (log/debug "form by id:" {:encounter-id encounter-id :form-id form-id :result form})
+        (form-assoc-context form))
+      (do
+        (log/error "Missing hint on parameters" (:query-params env))
+        (throw (ex-info "Missing hint on parameters for form. Specify :encounter-id in load parameters" (:query-params env))))))
 
 (pco/defresolver form->status
   [_ {:form/keys [is_deleted encounter]}]
@@ -1727,21 +1727,6 @@
       (assoc form' :tempids {(:form/id form) (:form/id form')}))
     (rsdb/save-form! rsdb form)))
 
-(pco/defmutation delete-form!
-  [{rsdb :com.eldrix/rsdb :as env}
-   {:keys [patient-identifier form] :as params}]
-  {::pco/op-name 'pc4.rsdb/delete-form}
-  (log/info "delete form" params) (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (rsdb/delete-form! rsdb form))
-
-(pco/defmutation undelete-form!
-  [{rsdb :com.eldrix/rsdb :as env}
-   {:keys [patient-identifier form] :as params}]
-  {::pco/op-name 'pc4.rsdb/undelete-form!}
-  (log/info "undelete form" params)
-  (guard-can-for-patient? env patient-identifier :PATIENT_EDIT)
-  (rsdb/undelete-form! rsdb form))
-
 (pco/defmutation save-result!
   [{rsdb                 :com.eldrix/rsdb
     manager              :session/authorization-manager
@@ -2040,8 +2025,6 @@
    ;; forms
    create-form!
    save-form!
-   delete-form!
-   undelete-form!
    ;; results
    save-result!
    delete-result!
