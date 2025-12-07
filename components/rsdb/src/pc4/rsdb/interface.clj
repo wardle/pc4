@@ -485,9 +485,9 @@
             patient-identifier (patients/pk->identifier conn patient-pk)
             episodes (projects/episodes-for-patient-in-project conn {:t_patient/id patient-pk} project-id)
             already-registered? (some #(= :registered (projects/episode-status %)) episodes)]
-        {:outcome :local-match
-         :patient-pk patient-pk
-         :patient-identifier patient-identifier
+        {:outcome             :local-match
+         :patient-pk          patient-pk
+         :patient-identifier  patient-identifier
          :already-registered? already-registered?})
 
       provider-id
@@ -497,31 +497,31 @@
             n-results (count fhir-patients)]
         (cond
           (zero? n-results)
-          {:outcome :not-found
-           :provider-id provider-id
+          {:outcome        :not-found
+           :provider-id    provider-id
            :provider-title provider-title
-           :value value}
+           :value          value}
 
           (> n-results 1)
-          {:outcome :external-multiple
-           :fhir-patients fhir-patients
-           :provider-id provider-id
+          {:outcome        :external-multiple
+           :fhir-patients  fhir-patients
+           :provider-id    provider-id
            :provider-title provider-title
-           :system system
-           :value value}
+           :system         system
+           :value          value}
 
           :else
           (let [fhir-patient (first fhir-patients)
                 exact-by-identifier (or (exact-match-by-identifier svc fhir-patient) #{})
                 exact-by-demography (or (exact-match-on-demography svc fhir-patient) #{})
                 duplicate-ids (into exact-by-identifier exact-by-demography)]
-            {:outcome :external-match
-             :fhir-patient fhir-patient
-             :provider-id provider-id
+            {:outcome        :external-match
+             :fhir-patient   fhir-patient
+             :provider-id    provider-id
              :provider-title provider-title
-             :system system
-             :value value
-             :duplicate-ids duplicate-ids})))
+             :system         system
+             :value          value
+             :duplicate-ids  duplicate-ids})))
 
       :else
       {:outcome :not-found :value value})))
@@ -551,7 +551,7 @@
         (projects/register-patient-project! txn project-id user-id {:t_patient/id patient-pk})
         patient-pk))
     :else
-    (throw (ex-info "must specify either patient-pk or fhir-patient" params ))))
+    (throw (ex-info "must specify either patient-pk or fhir-patient" params))))
 
 (defn update-legacy-pseudonymous-patient!
   [{:keys [conn legacy-global-pseudonym-salt]} patient-pk data]
@@ -653,6 +653,74 @@
   ([{:keys [conn]} encounter-id opts]
    (forms/forms-for-encounter conn encounter-id opts)))
 
+;;
+;; New forms-and-form-types-in-encounter using modern forms API
+;;
+
+(def ^:private form-type-id->form-definition
+  "Map from legacy integer form-type-id to a form definition.
+  Combines legacy forms metadata with modern form_type from registry."
+  (reduce-kv (fn [acc form-type-id {:keys [table-kw title] :as form-type}]
+               (assoc acc form-type-id (or (nf/form-definition-by-table table-kw) form-type)))
+             {} forms/form-type-by-id))
+
+(def ^:private multiple-form-types
+  "Set of form_type keywords that allow multiple forms per encounter."
+  (->> registry/all-form-definitions
+       (filter :multiple)
+       (map :id)
+       set))
+
+(defn ^:private form-types-for-encounter#
+  "Return available form types for an encounter based on its template.
+  Returns a map of status keyword (:available, :optional, :mandatory) to
+  sequences of form definitions."
+  [conn encounter-id]
+  (update-vals (forms/form-types-for-encounter conn encounter-id)
+               (fn [form-types]
+                 (map (fn [{:form_type/keys [id ordering]}]
+                         (when-let [form-def (get form-type-id->form-definition id)]
+                           (assoc form-def :ordering ordering)))
+                       form-types))))
+
+(defn ^:private duplicated-form-types#
+  "Returns form types that have duplicate forms within an encounter
+  but should only have one per encounter."
+  [forms]
+  (reduce-kv (fn [acc form-type forms']
+               (if (and (not (multiple-form-types form-type)) (> (count forms') 1))
+                 (conj acc form-type)
+                 acc))
+             #{} (group-by :form_type forms)))
+
+(defn forms-and-form-types-in-encounter
+  "For a given encounter, returns forms already completed and available form types.
+
+  Uses the new forms API for form data. Returns a map with:
+  - :available-form-types  - form definitions available per template (not yet completed)
+  - :optional-form-types   - optional form definitions per template
+  - :mandatory-form-types  - mandatory form definitions per template
+  - :existing-form-types   - form types already recorded (as form_type keywords)
+  - :completed-forms       - completed forms (new API format)
+  - :duplicated-form-types - form types with duplicates (should be one per encounter)
+  - :deleted-forms         - deleted forms (new API format)"
+  [{:keys [conn form-store]} encounter-id]
+  (let [;; fetch all forms for encounter, including deleted
+        all-forms (nf/forms form-store {:encounter-id encounter-id})
+        ;; partition into completed and deleted
+        completed (remove :is_deleted all-forms)
+        deleted (filter :is_deleted all-forms)
+        ;; get set of form_type keywords for completed forms
+        completed-types (into #{} (map :form_type) completed)
+        ;; get available form types from encounter template, grouped by status
+        {:keys [available optional mandatory]} (form-types-for-encounter# conn encounter-id)]
+    {:available-form-types  (remove #(completed-types (:id %)) available)
+     :optional-form-types   (remove #(completed-types (:id %)) optional)
+     :mandatory-form-types  (remove #(completed-types (:id %)) mandatory)
+     :existing-form-types   (sort completed-types)
+     :completed-forms       (sort-by :form_type completed)
+     :duplicated-form-types (duplicated-form-types# completed)
+     :deleted-forms         (sort-by :form_type deleted)}))
 
 ;;
 ;; new forms - upsert / fetch one / fetch multiple
@@ -678,6 +746,12 @@
   [{:keys [form-store]} params]
   (nf/forms form-store params))
 
+(defn form-summary [form]
+  (pc4.rsdb.nform.impl.form/summary form))
+
+(defn form-definition [form]
+  (nf/form-definition form))
+
 (s/fdef araf-outcome
   :args (s/cat :svc ::svc :programme ::araf/programme :patient-pk :t_patient/id))
 (defn araf-outcome
@@ -697,14 +771,14 @@
   Returns a map with :outcome, :forms, and :available keys."
   [svc programme patient-pk]
   (let [form-types (araf/forms-for-programme programme)
-        forms (forms svc {:patient-pk  patient-pk
-                          :is-deleted  false
-                          :select      #{:date-time}
-                          :form-types  form-types})
+        forms (forms svc {:patient-pk patient-pk
+                          :is-deleted false
+                          :select     #{:date-time}
+                          :form-types form-types})
         outcome (araf/outcome programme forms {})
         available (map registry/form-definition-by-form-type form-types)]
-    {:outcome outcome
-     :forms   forms
+    {:outcome   outcome
+     :forms     forms
      :available available}))
 
 (s/fdef araf-programme-outcome
@@ -720,10 +794,10 @@
    ... ]
   ```"
   [rsdb programme project-id]
-  (->> (patients rsdb {:query {:select [:*] :from :t_patient}
-                            :address? true
-                            :hospital-identifier true
-                            :project-ids [project-id]})
+  (->> (patients rsdb {:query               {:select [:*] :from :t_patient}
+                       :address?            true
+                       :hospital-identifier true
+                       :project-ids         [project-id]})
        (map (fn [{patient-pk :t_patient/id, :as pt}]
               (assoc pt programme (araf-outcome rsdb programme patient-pk))))))
 
@@ -883,6 +957,9 @@
 (defn delete-encounter! [{:keys [conn]} encounter-id]
   (patients/delete-encounter! conn encounter-id))
 
+(defn undelete-encounter! [{:keys [conn]} encounter-id]
+  (patients/undelete-encounter! conn encounter-id))
+
 (defn unlock-encounter! [{:keys [conn]} encounter-id]
   (patients/unlock-encounter! conn encounter-id))
 
@@ -900,11 +977,15 @@
   (jdbc/with-transaction [txn conn]
     (forms/save-form! txn form)))
 
-(defn delete-form! [{:keys [conn]} form]
-  (forms/delete-form! conn form))
+(defn delete-form!
+  "Delete a form by id. The form parameter should contain :form/id."
+  [{:keys [form-store]} {:form/keys [id]}]
+  (nf/delete! form-store id))
 
-(defn undelete-form! [{:keys [conn]} form]
-  (forms/undelete-form! conn form))
+(defn undelete-form!
+  "Undelete a form by id. The form parameter should contain :form/id."
+  [{:keys [form-store]} {:form/keys [id]}]
+  (nf/undelete! form-store id))
 
 (def result-type-by-entity-name results/result-type-by-entity-name)
 
