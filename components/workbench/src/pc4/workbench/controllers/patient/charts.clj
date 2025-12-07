@@ -58,33 +58,6 @@
                  :end-date   date_to
                  :daily-dose (rsdb/calculate-total-daily-dose med)})))))
 
-(defn encounter->edss-chart-data
-  [{:t_encounter/keys [^LocalDateTime date_time form_edss form_ms_relapse]}]
-  {:id          (:t_form_edss/id form_edss)
-   :date        (.toLocalDate date_time)
-   :edss        (some-> form_edss :t_form_edss/score parse-double)
-   :in-relapse? (:t_form_ms_relapse/in_relapse form_ms_relapse)})
-
-(defn fetch-edss-results
-  [pathom patient-identifier {:keys [^LocalDate start-date ^LocalDate end-date]}]
-  (let [start-date# (when start-date (.atStartOfDay start-date))
-        end-date# (when end-date (.atStartOfDay end-date))
-        {:t_patient/keys [date_death] :as patient}
-        (pathom {:pathom/entity {:t_patient/patient_identifier patient-identifier}
-                 :pathom/eql    [:t_patient/date_death
-                                 {:t_patient/encounters
-                                  [:t_encounter/id :t_encounter/date_time :t_encounter/is_deleted
-                                   {:t_encounter/form_edss [:t_form_edss/id :t_form_edss/score]}
-                                   {:t_encounter/form_ms_relapse [:t_form_ms_relapse/in_relapse]}]}]})
-        results
-        (->> (cond->> (remove :t_encounter/is_deleted (:t_patient/encounters patient))
-                      start-date# (remove #(.isBefore ^LocalDateTime (:t_encounter/date_time %) start-date#))
-                      end-date# (remove #(.isAfter ^LocalDateTime (:t_encounter/date_time %) end-date#)))
-             (map encounter->edss-chart-data))]
-    (if date_death                                          ;; impute EDSS 10 on date of death, if patient deceased
-      (conj results {:date date_death :edss 10})
-      results)))
-
 (defn fetch-ms-events
   [pathom patient-identifier]
   (let [patient (pathom {:disable-auth true}
@@ -104,7 +77,7 @@
    {:id 2 :date (LocalDate/of 2020 1 1) :edss 1.0}
    {:id 3 :date (LocalDate/of 2024 1 1) :edss 1.5}])
 
-(defn make-edss                                             ;; TODO: add whether in relapse or not to each EDSS result
+(defn make-edss
   [{:keys [pathom rsdb] :as env} patient-identifier {:keys [start-date end-date width height] :as opts}]
   (let [patient-pk (rsdb/patient-identifier->pk rsdb patient-identifier)
         relapse-dates (reduce (fn [acc {:keys [date_time in_relapse]}]
