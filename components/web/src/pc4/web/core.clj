@@ -142,4 +142,9 @@
   (str (json/write-str {k (pr-str x)})))
 
 (defn read-hx-vals [k x]
-  (edn/read-string (get x k)))
+  (let [v (get x k)]
+    (when (vector? v)
+      (throw (ex-info (str "read-hx-vals: expected string for key " k " but got a vector. "
+                           "This usually means multiple form fields have the same name.")
+                      {:key k :value v})))
+    (edn/read-string v)))

@@ -86,7 +86,7 @@
            (assoc ctx :response (web/redirect-see-other (route/url-for :user/login :query-params query-params)))))))
    :leave
    (fn [ctx]                                                ;; ensure response is not cached
-     (update-in ctx [:response :headers] assoc "Cache-Control" "no-store"))})
+     (update-in ctx [:response :headers] assoc "Cache-Control" "no-cache, no-store"))})
 
 (defn logout
   [_request]

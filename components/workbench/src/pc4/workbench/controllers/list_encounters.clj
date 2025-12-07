@@ -81,7 +81,7 @@
     :title "ALSFRS"
     :f     (constantly "")}
    {:id    :in-relapse
-    :title "In relapse"
+    :title "Relapse?"
     :f     :t_form_ms_relapse/in_relapse}
    {:id    :weight
     :title "Weight/height"
