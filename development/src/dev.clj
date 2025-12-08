@@ -28,3 +28,10 @@
   (def rsdb (:pc4.rsdb.interface/svc (system)))
   (ig.repl/halt)
   (pc4.config.interface/config :dev))
+
+(comment
+  ;; start the Fulcro server and serve the ClojureScript frontend
+  (require '[integrant.repl :as ig.repl])
+  (ig.repl/set-prep! (prep-system :dev [:pc4.fulcro-server.interface/server]))
+  (ig.repl/go [:pc4.fulcro-server.interface/server])
+  )
