@@ -5,7 +5,7 @@
  :aliases
  {:dev
   {:extra-paths ["development/src"]
-   :extra-deps  {org.clojure/clojure {:mvn/version "1.12.3"}
+   :extra-deps  {org.clojure/clojure                {:mvn/version "1.12.3"}
 
                  ;; components:
                  poly/araf                          {:local/root "components/araf"}
@@ -20,6 +20,8 @@
                  poly/emailer                       {:local/root "components/emailer"}
                  poly/fhir                          {:local/root "components/fhir"}
                  poly/filestorage                   {:local/root "components/filestorage"}
+                 poly/frontend                      {:local/root "components/frontend"}
+                 poly/fulcro-server                 {:local/root "components/fulcro-server"}
                  poly/graph                         {:local/root "components/graph"}
                  poly/lemtrada                      {:local/root "components/lemtrada"}
                  poly/log                           {:local/root "components/log"}
@@ -59,6 +61,25 @@
                 "--middleware" "[cider.nrepl/cider-middleware]"
                 "--interactive"]}
 
+  :shadow
+  {:extra-paths ["components/frontend/src"]
+   :extra-deps  {com.fulcrologic/fulcro                   {:mvn/version "3.8.6"}
+                 com.fulcrologic/fulcro-inspect           {:mvn/version "1.0.5"}
+                 com.fulcrologic/guardrails               {:mvn/version "1.2.11"}
+                 expound/expound                          {:mvn/version "0.9.0"}
+                 lambdaisland/uri                         {:mvn/version "1.19.155"}
+                 org.clojure/clojurescript                {:mvn/version "1.12.42"}
+                 bidi/bidi                                {:mvn/version "2.1.6"}
+                 binaryage/devtools                       {:mvn/version "1.0.7"}
+                 ch.qos.logback/logback-classic           {:mvn/version "1.5.21"}
+                 clj-commons/pushy                        {:mvn/version "0.3.10"}
+                 com.wsscode/pathom-viz-connector         {:mvn/version "2022.02.14"}
+                 com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.6.2"}
+                 fulcrologic/fulcro-spec                  {:mvn/version "3.1.16"}
+                 integrant/repl                           {:mvn/version "0.5.0"}
+                 org.clojure/test.check                   {:mvn/version "1.1.1"}
+                 thheller/shadow-cljs                     {:mvn/version "3.2.1"}}}
+
   :portal
   {:extra-deps {djblue/portal {:mvn/version "0.61.0"}}}
 
@@ -75,6 +96,7 @@
                  "components/emailer/test"
                  "components/fhir/test"
                  "components/filestorage/test"
+                 "components/fulcro-server/test"
                  "components/graph/test"
                  "components/lemtrada/test"
                  "components/log/test"

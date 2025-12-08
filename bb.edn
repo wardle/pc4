@@ -20,12 +20,22 @@
            "--watch")}
 
   watch-css-araf
-  {:doc  "Watch and rebuild araf-server CSS on changes"  
+  {:doc  "Watch and rebuild araf-server CSS on changes"
    :task (shell "npx" "tailwindcss"
            "-c" "projects/araf-server/tailwind.config.js"
            "-i" "projects/araf-server/tailwind.css"
            "-o" "bases/araf-server/resources/public/css/araf.css"
            "--watch")}
+
+  watch-cljs
+  {:doc  "Compile cljs for development [and watch]"
+   :task (do (println "\n\n***** Running shadow-cljs")
+             (shell "yarn shadow-cljs -A:dev watch main"))}
+
+  cljs
+  {:doc  "Compile cljs for production"
+   :task (do (println "\n\n***** Building pc4 front-end for production release")
+             (shell "yarn shadow-cljs release main"))}
 
   workbench-server
   {:doc  "Build the workbench (clinician) server"

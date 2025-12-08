@@ -1,6 +1,7 @@
 (ns pc4.graph.interface
   (:require
     [clojure.spec.alpha :as s]
+    [com.wsscode.pathom3.connect.built-in.plugins :as pbip]
     [com.wsscode.pathom3.connect.indexes :as pci]
     [com.wsscode.pathom3.error :as p.error]
     [com.wsscode.pathom3.interface.eql :as p.eql]
@@ -30,7 +31,8 @@
   (-> env
       (dissoc :pathom/ops)
       (assoc ::p.error/lenient-mode? true)
-      (pci/register ops)))
+      (pci/register ops)
+      (p.plugin/register pbip/mutation-resolve-params)))
 
 (s/def ::connect-viz boolean?)
 (s/def ::env map?)

@@ -40,14 +40,6 @@
                                    (fn [response]
                                      (assoc response :session (dissoc session :authenticated-user :break-glass)))))
 
-(pco/defresolver authenticated-user
-  "Returns the authenticated user based on parameters in the environment"
-  [{user :authenticated-user} _]
-  {::pco/output [{:session/authenticated-user [:system :value
-                                               (pco/? :t_user/id)
-                                               (pco/? :t_user/username)]}]}
-  {:session/authenticated-user user})
-
 (def regulator->namespace
   {"GMC"  :uk.org.hl7.fhir.id/gmc-number
    "GPhC" :uk.org.hl7.fhir.id/gphc-number
@@ -123,7 +115,6 @@
   [ping-operation
    perform-login
    logout
-   authenticated-user
    (pbir/equivalence-resolver :urn:oid:2.5.4/telephoneNumber :urn:oid:2.5.4.20)
    (pbir/equivalence-resolver :urn:oid:2.5.4/surname :urn:oid:2.5.4.4)
    (pbir/equivalence-resolver :urn:oid:2.5.4/givenName :urn:oid:2.5.4.42)

@@ -1,0 +1,17 @@
+{:deps   {:aliases [:dev :shadow]}
+ :nrepl  {:port 9000}
+ :builds {:main {:target            :browser
+                 :output-dir        "components/frontend/resources/public/js/compiled"
+                 :asset-path        "/js/main"
+                 :compiler-options  {:warnings {:fn-deprecated false}}
+
+                 :modules           {:main {:init-fn pc4.client/init}}
+                 :module-hash-names true
+
+                 ;; guardrails checks only during dev
+                 :dev               {:compiler-options
+                                     {:external-config {:guardrails {}}}}
+
+                 :devtools          {:after-load pc4.client/refresh
+                                     :preloads   [com.fulcrologic.devtools.chrome-preload]}
+                 :release           {}}}}

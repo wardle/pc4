@@ -223,6 +223,37 @@
  {:connect-viz #profile {:default false, :dev true}
   :env         #ig/ref :pc4.graph.interface/env}
 
+ ;; Fulcro server - serves a JavaScript front-end
+ ;; This server creates its own pathom environment with auth resolvers specific
+ ;; to how it manages sessions (separate from workbench server).
+ :pc4.fulcro-server.interface/server
+ {:port            #long #or [#env PORT 8080]
+  :allowed-origins "*"
+  :host            "0.0.0.0"
+  :join?           #profile {:default false, :cvx false, :pc4 false}
+  :session-key     #ref [:secrets :pc4 :session-key]
+  :cljs-manifest   "public/js/compiled/manifest.edn"
+  :env             {:use-tailwind-cdn #profile {:default false, :dev true}
+                    :rsdb             #ig/ref :pc4.rsdb.interface/svc
+                    :pathom           {:ops [#clj/var com.eldrix.clods.graph/all-resolvers
+                                             #clj/var com.eldrix.odsweekly.graph/all-resolvers
+                                             #ig/ref :pc4.deprivare.interface/ops
+                                             #clj/var com.eldrix.dmd.graph/all-resolvers
+                                             #clj/var pc4.graph.rsdb/all-resolvers
+                                             #clj/var com.eldrix.hermes.graph/all-resolvers
+                                             #clj/var pc4.graph.users/all-resolvers
+                                             #clj/var pc4.graph.patients/all-resolvers
+                                             #clj/var pc4.msbase.interface/all-resolvers]
+                                       :env {:com.eldrix.clods.graph/svc     #ig/ref :pc4.ods.interface/svc
+                                             :com.eldrix.odsweekly.graph/svc #ig/ref :pc4.ods-weekly.interface/svc
+                                             :com.eldrix.dmd.graph/store     #ig/ref :pc4.dmd.interface/svc
+                                             :com.eldrix.deprivare.graph/svc #ig/ref :pc4.deprivare.interface/svc
+                                             :com.eldrix/hermes              #ig/ref :pc4.snomed.interface/svc
+                                             :com.eldrix/nhspd               #ig/ref :pc4.nhspd.interface/svc
+                                             :com.eldrix/rsdb                #ig/ref :pc4.rsdb.interface/svc
+                                             :wales.nhs.cavuhb/pms           #ig/ref :pc4.wales-cav-pms.interface/svc
+                                             :wales.nhs/empi                 #ig/ref :pc4.wales-empi.interface/svc}}}}}
+
  ;; Workbench server (clinician facing htmx application)
  :pc4.workbench.interface/server
  {:port        #long #or [#env PORT 8080]
