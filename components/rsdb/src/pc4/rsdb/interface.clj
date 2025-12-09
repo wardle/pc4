@@ -723,7 +723,7 @@
      :existing-form-types   (sort completed-types)
      :completed-forms       completed
      :duplicated-form-types (duplicated-form-types# completed)
-     :deleted-forms         :form_type}))
+     :deleted-forms         deleted}))
 
 ;;
 ;; new forms - upsert / fetch one / fetch multiple
