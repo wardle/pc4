@@ -79,7 +79,7 @@
 
 (def ui-home-page (comp/factory HomePage))
 
-(defrouter MainRouter [this props]
+(defrouter MainRouter [this {:keys [current-state] :as props}]
   {:router-targets
    [HomePage
     pc4.ui.patients/PatientDemographics

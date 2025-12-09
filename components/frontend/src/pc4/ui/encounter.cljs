@@ -45,56 +45,6 @@
    (println "edit encounter " params)
    (swap! state cancel-edit-core-encounter* encounter-id)))
 
-(defsc Layout
-  [this {:keys [banner encounter menu]}]
-  (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time hospital_crn encounter_template]} encounter
-        {:t_encounter_template/keys [title project]} encounter_template
-        {project-title :t_project/title} project
-        {:t_patient/keys [patient_identifier permissions]} patient]
-    (comp/fragment
-     (patients/ui-patient-banner banner {:hospital-identifier hospital_crn})
-     (div :.grid.grid-cols-1.lg:grid-cols-6.gap-x-2.relative.pr-2
-          (div :.col-span-1.p-2.space-y-2
-               (ui/ui-menu-button {:onClick #(.back js/history)} "Back")
-
-               (when (and date_time encounter_template)
-                 (div :.shadow.bg-gray-50
-                      (div :.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
-                           (str (ui/format-week-day date_time) " " (ui/format-date-time date_time)))
-                      (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
-                           project-title)
-                      (div :.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
-                           title)))
-               (when is_deleted
-                 (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
-                      "Warning: this encounter has been deleted"))
-               (when (and (not is_deleted) (not is_locked) (permissions :PATIENT_EDIT))
-                 (ui/ui-menu-button {:onClick #(do (println "edit encounter")
-                                                   (comp/transact! this [(edit-core-encounter {:encounter-id id})]))} "Edit"))
-               (when (or is_locked lock_date_time (and is_locked (permissions :PATIENT_EDIT)))
-                 (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
-                      (if is_locked
-                        (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
-                             (when (and (not is_deleted) (permissions :PATIENT_EDIT))
-                               (ui/ui-menu-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
-                                                                                         {:t_encounter/id id
-                                                                                          :t_patient/patient_identifier patient_identifier})])}
-                                                  "Unlock")))
-                        (div :.grid.grid-cols-1.gap-2
-                             (when lock_date_time
-                               (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))
-                             (when (permissions :PATIENT_EDIT)
-                               (ui/ui-menu-button {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
-                                                                                         {:t_encounter/id id
-                                                                                          :t_patient/patient_identifier patient_identifier})])}
-                                                  "Lock encounter now"))))))
-
-               menu)
-          (div :.col-span-1.lg:col-span-5.pt-2
-               (comp/children this))))))
-
-(def ui-layout (comp/factory Layout))
-
 (defsc Project [this params]
   {:ident :t_project/id
    :query [:t_project/id :t_project/title]})
@@ -108,6 +58,91 @@
 (defsc User [this params]
   {:ident :t_user/id
    :query [:t_user/id :t_user/full_name :t_user/initials]})
+
+(defsc ConsultantUser
+  "Component for displaying the consultant/responsible user in the encounter sidebar."
+  [this {:t_user/keys [full_name]}]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/full_name]}
+  (when full_name
+    (div :.text-sm.text-gray-600.italic.text-center.pb-4
+         full_name)))
+
+(def ui-consultant-user (comp/factory ConsultantUser {:keyfn :t_user/id}))
+
+(defsc EncounterUserListItem
+  "Component for displaying a user in the encounter users list."
+  [this {:t_user/keys [id full_name initials]}]
+  {:ident :t_user/id
+   :query [:t_user/id :t_user/full_name :t_user/initials]}
+  (dom/li {:key id}
+          (dom/span :.hidden.sm:inline full_name)
+          (dom/span :.sm:hidden {:title full_name} initials)))
+
+(def ui-encounter-user-list-item (comp/factory EncounterUserListItem {:keyfn :t_user/id}))
+
+(defsc Layout
+  [this {:keys [banner encounter menu]}]
+  (let [{:t_encounter/keys [id patient date_time is_deleted is_locked lock_date_time hospital_crn
+                            encounter_template consultant_user users]} encounter
+        {:t_encounter_template/keys [title project]} encounter_template
+        {project-title :t_project/title} project
+        {:t_patient/keys [patient_identifier permissions]} patient]
+    (comp/fragment
+     (patients/ui-patient-banner banner {:hospital-identifier hospital_crn})
+     (div :.flex.flex-col.md:flex-row.gap-x-4.mx-4.mb-2
+          (div :.w-full.md:w-64.md:shrink-0.p-2.space-y-2
+               (dom/button :.w-full.inline-flex.justify-center.py-2.px-4.border.border-gray-300.shadow-sm.text-sm.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                           {:onClick #(.back js/history)}
+                           "Back")
+
+               (when (and date_time encounter_template)
+                 (div :.shadow.bg-gray-50
+                      (div :.font-semibold.bg-gray-200.text-center.italic.text-gray-600.pt-2.pb-2
+                           (ui/format-date-time date_time))
+                      (div :.text-sm.p-2.pt-4.text-gray-600.italic.text-center {:style {:textWrap "pretty"}}
+                           project-title)
+                      (div :.font-bold.text-lg.min-w-min.pt-0.text-center.pb-4
+                           title)
+                      (when consultant_user
+                        (ui-consultant-user consultant_user))))
+
+               (when (seq users)
+                 (div :.shadow.bg-gray-50.p-2
+                      (dom/ul :.text-sm.text-gray-700.text-center
+                              (map ui-encounter-user-list-item users))))
+               (when is_deleted
+                 (div :.mt-4.font-bold.text-center.bg-red-100.p-4.border.border-red-600.rounded
+                      "Warning: this encounter has been deleted"))
+               (when (and (not is_deleted) (not is_locked) (permissions :PATIENT_EDIT))
+                 (dom/button :.w-full.inline-flex.justify-center.py-2.px-4.border.border-transparent.shadow-sm.text-sm.font-medium.rounded-md.text-white.bg-blue-600.hover:bg-blue-700
+                             {:onClick #(comp/transact! this [(edit-core-encounter {:encounter-id id})])}
+                             "Edit"))
+               (when (or is_locked lock_date_time (and is_locked (permissions :PATIENT_EDIT)))
+                 (div :.mt-2.italic.text-sm.text-center.bg-gray-100.p-2.border.border-gray-200.shadow.rounded {:style {:textWrap "pretty"}}
+                      (if is_locked
+                        (div :.grid.grid-cols-1.gap-2 "This encounter has been locked against editing"
+                             (when (and (not is_deleted) (permissions :PATIENT_EDIT))
+                               (dom/button :.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                                           {:onClick #(comp/transact! this [(list 'pc4.rsdb/unlock-encounter
+                                                                                  {:t_encounter/id id
+                                                                                   :t_patient/patient_identifier patient_identifier})])}
+                                           "Unlock")))
+                        (div :.grid.grid-cols-1.gap-2
+                             (when lock_date_time
+                               (dom/span "This encounter will lock at " (dom/br) (ui/format-date-time lock_date_time)))
+                             (when (permissions :PATIENT_EDIT)
+                               (dom/button :.w-full.inline-flex.justify-center.py-1.px-2.border.border-gray-300.shadow-sm.text-xs.font-medium.rounded-md.text-gray-700.bg-white.hover:bg-gray-50
+                                           {:onClick #(comp/transact! this [(list 'pc4.rsdb/lock-encounter
+                                                                                  {:t_encounter/id id
+                                                                                   :t_patient/patient_identifier patient_identifier})])}
+                                           "Lock encounter now"))))))
+
+               menu)
+          (div :.flex-1.pt-2
+               (comp/children this))))))
+
+(def ui-layout (comp/factory Layout))
 
 (defsc Encounter [this params]
   {:ident :t_encounter/id
@@ -124,14 +159,13 @@
 
 (defsc Form [this params]
   {:ident :form/id
-   :query (fn []
-            [:form/id
-             '*
-             :form/form_type
-             :form/is_deleted
-             :form/summary_result
-             {:form/user (comp/get-query User)}
-             {:form/encounter (comp/get-query Encounter)}])})
+   :query [:form/id
+           :form/type
+           :form/definition
+           :form/is_deleted
+           :form/summary
+           {:form/user (comp/get-query User)}
+           {:form/encounter (comp/get-query Encounter)}]})
 
 (def form-types
   {"form_edss"            forms/EditFormEdss
@@ -182,13 +216,14 @@
                      :t_encounter/lock_date_time
                      :t_encounter/is_locked
                      :t_encounter/notes
-                     {:t_encounter/users (comp/get-query User)}
+                     {:t_encounter/consultant_user (comp/get-query ConsultantUser)}
+                     {:t_encounter/users (comp/get-query EncounterUserListItem)}
                      {:t_encounter/completed_forms (comp/get-query Form)}
                      {:t_encounter/deleted_forms (comp/get-query Form)}
-                     {:t_encounter/available_form_types (comp/get-query FormType)}
-                     {:t_encounter/mandatory_form_types (comp/get-query FormType)}  ;; TODO: show mandatory form types as inline forms?
-                     {:t_encounter/optional_form_types (comp/get-query FormType)}   ;; TODO: add quick list in a drop down for optional forms (takes one extra click to get)
-                     {:t_encounter/duplicated_form_types (comp/get-query Form)}
+                     :t_encounter/available_form_types
+                     :t_encounter/mandatory_form_types
+                     :t_encounter/optional_form_types
+                     :t_encounter/duplicated_form_types
                      {:t_encounter/encounter_template (comp/get-query EncounterTemplate)}
                      {:t_encounter/patient (comp/get-query EncounterPatient)}
                      :ui/editing-core?
@@ -213,6 +248,9 @@
         permissions (:t_patient/permissions patient)
         can-edit-patient? (when permissions (permissions :PATIENT_EDIT))   ;; TODO: also take into account lock date time client side in order to autolock if time elapses
         can-edit-encounter? (and can-edit-patient? (not is_locked))]  ;; TODO: or, keep checking server - e.g. another user may lock - or better handle of concurrent access through ws
+    (println "DEBUG: completed_forms:" (pr-str completed_forms))
+    (println "DEBUG: available_form_types:" (pr-str available_form_types))
+    (println "DEBUG: first completed form keys:" (when (seq completed_forms) (keys (first completed_forms))))
     (cond
       (= :loading (:status loading-marker))
       (ui/ui-loading-screen {:dim false})
@@ -246,35 +284,35 @@
            (ui/ui-table-heading {} "User")))
          (ui/ui-table-body
           {}
-          (for [{:form/keys [id form_type summary_result user] :as form} completed_forms
-                :let [form-type-name (:form_type/nm form_type)
-                      supported (supported-form-types form-type-name)  ;; do we support viewing/editing this form yet?
-                      title (:form_type/title form_type)]]
-            (do (println "form" {:id id :form_type form_type :supported? supported})
-                (ui/ui-table-row
-                 {:key id
-                  :onClick (when supported #(comp/transact! this [(route/route-to {:handler ::route/form
-                                                                                   :params {:encounter-id encounter-id
-                                                                                            :form-type-name form-type-name
-                                                                                            :form/id (forms/form-id->str id)}})]))
-                  :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
-                 (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
-                 (ui/ui-table-cell {} summary_result)
-                 (ui/ui-table-cell
-                  {}
-                  (dom/span :.hidden.lg:block (:t_user/full_name user))
-                  (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user))))))
-          (when can-edit-encounter?      ;; TODO: also offer to show other available forms?
-            (for [{:form_type/keys [id nm title] :as form-type} available_form_types
-                  :let [supported (supported-form-types nm)]]
+          (for [{:form/keys [id type definition summary user] :as form} completed_forms
+                :let [_ (println "DEBUG: form keys:" (keys form) "type:" type "definition:" definition)
+                      form-type-name (when type (name type))
+                      supported (supported-form-types form-type-name)
+                      title (:title definition)]]
+            (ui/ui-table-row
+             {:key id
+              :onClick (when supported #(comp/transact! this [(route/route-to {:handler ::route/form
+                                                                               :params {:encounter-id encounter-id
+                                                                                        :form-type-name form-type-name
+                                                                                        :form/id (forms/form-id->str id)}})]))
+              :classes (if supported ["cursor-pointer" "hover:bg-gray-200"] ["cursor-not-allowed"])}
+             (ui/ui-table-cell {} (dom/span {:classes ["text-blue-500" "underline"]} title))
+             (ui/ui-table-cell {} summary)
+             (ui/ui-table-cell
+              {}
+              (dom/span :.hidden.lg:block (:t_user/full_name user))
+              (dom/span :.block.lg:hidden {:title (:t_user/full_name user)} (:t_user/initials user)))))
+          (when can-edit-encounter?
+            (for [{:keys [id title] :as form-type} available_form_types
+                  :let [form-type-name (name id)
+                        supported (supported-form-types form-type-name)]]
               (ui/ui-table-row
-               {:onClick (when supported #(do (println "add form " form-type)
-                                              (comp/transact! this [(list 'pc4.rsdb/create-form {:patient-identifier patient-identifier
-                                                                                                 :encounter-id       encounter-id
-                                                                                                 :form-type-name     nm
-                                                                                                 :component-class    (get form-types nm)
-                                                                                                 :form-type-id       id
-                                                                                                 :on-success-tx      []})])))
+               {:onClick (when supported #(comp/transact! this [(list 'pc4.rsdb/create-form {:patient-identifier patient-identifier
+                                                                                             :encounter-id       encounter-id
+                                                                                             :form-type-name     form-type-name
+                                                                                             :component-class    (get form-types form-type-name)
+                                                                                             :form-type-id       id
+                                                                                             :on-success-tx      []})]))
                 :classes (if supported ["italic" "cursor-pointer" "hover:bg-gray-200"] ["italic" "cursor-not-allowed"])}
                (ui/ui-table-cell {} (dom/span title))
                (ui/ui-table-cell {} (dom/span "Pending"))

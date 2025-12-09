@@ -659,9 +659,12 @@
 
 (def ^:private form-type-id->form-definition
   "Map from legacy integer form-type-id to a form definition.
-  Combines legacy forms metadata with modern form_type from registry."
-  (reduce-kv (fn [acc form-type-id {:keys [table-kw title] :as form-type}]
-               (assoc acc form-type-id (or (nf/form-definition-by-table table-kw) form-type)))
+  Combines legacy forms metadata with modern form_type from registry.
+  If no modern definition exists, adds :id from :nspace for consistency."
+  (reduce-kv (fn [acc form-type-id {:keys [table-kw nspace] :as form-type}]
+               (assoc acc form-type-id
+                      (or (nf/form-definition-by-table table-kw)
+                          (assoc form-type :id nspace))))
              {} forms/form-type-by-id))
 
 (def ^:private multiple-form-types
@@ -718,9 +721,9 @@
      :optional-form-types   (remove #(completed-types (:id %)) optional)
      :mandatory-form-types  (remove #(completed-types (:id %)) mandatory)
      :existing-form-types   (sort completed-types)
-     :completed-forms       (sort-by :form_type completed)
+     :completed-forms       completed
      :duplicated-form-types (duplicated-form-types# completed)
-     :deleted-forms         (sort-by :form_type deleted)}))
+     :deleted-forms         :form_type}))
 
 ;;
 ;; new forms - upsert / fetch one / fetch multiple

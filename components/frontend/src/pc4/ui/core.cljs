@@ -374,7 +374,7 @@
 (defsc UITitle [this {:keys [key title subtitle]}]
   (let [content (comp/children this)]
     (dom/div
-     :.sm:flex.sm:items-center.p-4 {:key key}
+     :.sm:flex.sm:items-center.pt-4 {:key key}
      (dom/div
       :.sm:flex-auto
       (dom/h1 :.text-xl.font-semibold.text-gray-900 title)
@@ -624,14 +624,14 @@
                  :when (and id (not hidden))]
              (if (= selected-id id)
                (if sub
-                 (dom/a :.mt-1.border.border-green-100.bg-green-300.text-gray-800.group.flex.items-center.rounded-md.px-3.py-1.text-xs.italic
+                 (dom/a :.mt-1.border.border-teal-100.bg-teal-200.text-gray-800.group.flex.items-center.rounded-md.px-3.py-1.text-xs.italic
                         {:key id, :aria-current "page"}
                         (dom/span :.px-2 icon) content)
                  (dom/a :.mt-1.border.border-green-100.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
                         {:key id, :aria-current "page"}
                         (dom/span :.span.pr-2 icon) content))
                (if sub
-                 (dom/a :.mt-1.cursor-pointer.text-gray-500.border.border-transparent.hover:bg-gray-50.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-3.py-1.text-xs.italic
+                 (dom/a :.mt-1.cursor-pointer.text-gray-600.border.border-teal-100.bg-teal-50.hover:bg-teal-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-3.py-1.text-xs.italic
                         {:key id, :onClick onClick}
                         (dom/span :.px-2 icon) content)
                  (dom/a :.mt-1.cursor-pointer.text-gray-600.border.border-green-100.bg-green-50.hover:bg-green-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.font-medium
@@ -654,13 +654,13 @@
              :when id]
          (cond
            (= selected-id id)
-           (dom/a :.bg-green-300.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
+           (dom/a :.bg-teal-200.text-gray-900.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
                   {:key id, :aria-current "page"}
                   (dom/span :.span.pr-2 icon) content)
            (not onClick)
            (div (dom/span :.span.pr-2 icon) content)
            :else
-           (dom/a :.cursor-pointer.text-gray-600.border.border-purple-100.bg-purple-50.hover:bg-purple-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
+           (dom/a :.cursor-pointer.text-gray-600.border.border-teal-100.bg-teal-50.hover:bg-teal-100.hover:text-gray-900.font-bold.group.flex.items-center.rounded-md.px-2.py-2.text-sm.sm:text-xs.font-medium
                   {:key id, :onClick onClick}
                   (dom/span :.pr-2 icon) content)))))
 

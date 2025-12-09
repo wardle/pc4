@@ -1,13 +1,13 @@
 (ns pc4.users
   (:require
-   [clojure.string :as str]
-   [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
-   [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
-   [com.fulcrologic.fulcro.dom.events :as evt]
-   [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
-   [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
-   [pc4.route :as route]
-   [taoensso.timbre :as log]))
+    [clojure.string :as str]
+    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
+    [com.fulcrologic.fulcro.dom :as dom :refer [div span li p]]
+    [com.fulcrologic.fulcro.dom.events :as evt]
+    [com.fulcrologic.fulcro.mutations :as m :refer [defmutation]]
+    [com.fulcrologic.fulcro.routing.dynamic-routing :as dr]
+    [pc4.route :as route]
+    [taoensso.timbre :as log]))
 
 (defn update-login-state*
   [state {:keys [error loading]}]
@@ -32,7 +32,10 @@
              (let [user-id (get-in result [:body 'pc4.users/perform-login :t_user/id])]
                (log/debug "response from remote: " result)
                (swap! state update-login-state* {:error (when-not user-id "Invalid username or password") :loading false})
-               #_(dr/change-route! app ["home"])))
+               (when user-id
+                 (if-let [matched (route/match-route (.-pathname js/location))]
+                   (route/dispatch-route matched)
+                   (dr/change-route! app ["home"])))))
   (error-action [{:keys [state] :as env}]
                 (swap! state #(-> %
                                   (assoc-in [:component/id :login :ui/loading?] false)
@@ -43,7 +46,7 @@
   Used to transition from loading spinner to login/main UI."
   [_]
   (action [{:keys [state]}]
-    (swap! state assoc :ui/session-checked? true)))
+          (swap! state assoc :ui/session-checked? true)))
 
 (defmutation logout
   [{:keys [message]}]
@@ -51,8 +54,8 @@
              (js/console.log "Performing logout action" message)
              (swap! state (fn [s]
                             (cond-> (assoc s :session/authenticated-user {})
-                              message
-                              (assoc-in [:component/id :login :ui/error] message))))
+                                    message
+                                    (assoc-in [:component/id :login :ui/error] message))))
              (route/route-to! ::route/home)
              #_(dr/change-route! app ["login"])
              (.reload js/window.location true))

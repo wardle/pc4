@@ -184,6 +184,8 @@
                           (comp/fragment
                            (when (:t_diagnosis/id editing-diagnosis)
                              (pc4.ui.diagnoses/ui-edit-diagnosis editing-diagnosis))
+                           (when (empty? diagnoses)
+                             (dom/p :.text-gray-500.italic "No recorded diagnoses."))
                            (when (seq active-diagnoses)
                              (diagnoses-table {:title     "Active diagnoses"
                                                :diagnoses active-diagnoses

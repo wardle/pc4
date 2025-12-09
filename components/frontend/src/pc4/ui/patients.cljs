@@ -147,17 +147,17 @@
 (def ui-patient-banner (comp/computed-factory PatientBanner))
 
 (defsc PatientMenu
-  [this {:t_patient/keys [patient_identifier permissions summary_multiple_sclerosis]
+  [this {:t_patient/keys [patient_identifier permissions]
          :>/keys [ninflamm]
          :ui/keys [current-project]}
    {:keys [selected-id sub-menu]}]
   {:ident :t_patient/patient_identifier
    :query [:t_patient/patient_identifier :t_patient/permissions
-           {:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id]}
            {[:ui/current-project '_] [:t_project/id]}
-           {:>/ninflamm [(list :t_patient/has_diagnosis {:ecl "<<39367000"})]}]}
+           {:>/ninflamm [{:t_patient/summary_multiple_sclerosis [:t_summary_multiple_sclerosis/id]}
+                         (list :t_patient/has_diagnosis {:ecl "<<39367000"})]}]}
   (let [show-ninflamm? (or (:t_patient/has_diagnosis ninflamm)
-                           (:t_summary_multiple_sclerosis/id summary_multiple_sclerosis))]
+                           (get-in ninflamm [:t_patient/summary_multiple_sclerosis :t_summary_multiple_sclerosis/id]))]
     (cond
       (permissions :PATIENT_VIEW)
       (ui/ui-vertical-navigation2
