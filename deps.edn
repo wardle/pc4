@@ -38,7 +38,7 @@
                  poly/rsdb                          {:local/root "components/rsdb"}
                  poly/snomed                        {:local/root "components/snomed"}
                  poly/snomed-ui                     {:local/root "components/snomed-ui"}
-                 poly/ui                            {:local/root "components/ui"}
+                 poly/common-ui                     {:local/root "components/common-ui"}
                  poly/wales-cav-pms                 {:local/root "components/wales-cav-pms"}
                  poly/wales-empi                    {:local/root "components/wales-empi"}
                  poly/wales-nadex                   {:local/root "components/wales-nadex"}

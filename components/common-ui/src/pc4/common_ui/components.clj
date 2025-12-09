@@ -1,4 +1,4 @@
-(ns pc4.ui.components
+(ns pc4.common-ui.components
   (:require [clojure.string :as str]
             [rum.core :as rum])
   (:import (java.time LocalDateTime)

@@ -11,7 +11,7 @@
     [pc4.pathom-web.interface :as pw]
     [pc4.rsdb.interface :as rsdb]
     [pc4.snomed.interface :as snomed]
-    [pc4.ui.interface :as ui]
+    [pc4.common-ui.interface :as ui]
     [pc4.web.interface :as web]))
 
 (pco/defresolver current-patient

@@ -1,4 +1,4 @@
-(ns pc4.ui.icons
+(ns pc4.common-ui.icons
   (:require [rum.core :as rum]))
 
 (rum/defc icon-home []

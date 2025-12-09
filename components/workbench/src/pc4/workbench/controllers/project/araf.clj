@@ -6,7 +6,7 @@
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
     [pc4.pathom-web.interface :as pw]
-    [pc4.ui.interface :as ui]
+    [pc4.common-ui.interface :as ui]
     [pc4.web.interface :as web]
     [pc4.rsdb.interface :as rsdb])
   (:import (java.time LocalDateTime Period)))

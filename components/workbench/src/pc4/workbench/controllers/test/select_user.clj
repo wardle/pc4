@@ -1,7 +1,7 @@
 (ns pc4.workbench.controllers.test.select-user
   "Test page for demonstrating user selection components."
   (:require
-    [pc4.ui.interface :as ui]
+    [pc4.common-ui.interface :as ui]
     [pc4.pathom-web.interface :as pw]
     [pc4.web.interface :as web]
     [pc4.workbench.controllers.select-user :as select-user]))

@@ -11,7 +11,7 @@
     [io.pedestal.http.route :as route]
     [pc4.log.interface :as log]
     [pc4.pathom-web.interface :as pw]
-    [pc4.ui.interface :as ui]
+    [pc4.common-ui.interface :as ui]
     [pc4.web.interface :as web]))
 
 (s/def ::id string?)

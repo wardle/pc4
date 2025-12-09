@@ -153,7 +153,7 @@
          (log/error error-id (select-keys (ex-data err) [:execution-id :stage :interceptor :exception-type]))
          (when-not dev-mode? (log/error stack-trace))       ;; print out stack trace when not in development mode
          (assoc ctx :response
-                    (-> (web/ok (pc4.ui.render/render-file "templates/error.html"
+                    (-> (web/ok (pc4.common-ui.render/render-file "templates/error.html"
                                                            {:error-id    error-id
                                                             :dev-mode?   dev-mode?
                                                             :url         (route/url-for :home)

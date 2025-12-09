@@ -3,7 +3,7 @@
     [clojure.string :as str]
     [io.pedestal.http.route :as route]
     [io.pedestal.interceptor :as intc]
-    [pc4.ui.interface :as ui]
+    [pc4.common-ui.interface :as ui]
     [pc4.log.interface :as log]
     [pc4.snomed.interface :as sct]
     [pc4.web.interface :as web]))

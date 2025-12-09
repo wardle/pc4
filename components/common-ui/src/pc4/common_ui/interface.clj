@@ -1,10 +1,10 @@
-(ns pc4.ui.interface
-  "Public interface for ui component providing reusable UI components and utilities."
+(ns pc4.common-ui.interface
+  "Public interface for common-ui component providing reusable UI components and utilities."
   (:require [clojure.string :as str]
-            [pc4.ui.icons :as icons]
-            [pc4.ui.dates :as dates]
-            [pc4.ui.render :as render]
-            [pc4.ui.components :as components]
+            [pc4.common-ui.icons :as icons]
+            [pc4.common-ui.dates :as dates]
+            [pc4.common-ui.render :as render]
+            [pc4.common-ui.components :as components]
             [rum.core :as rum])
   (:import (java.time LocalDate)))
 

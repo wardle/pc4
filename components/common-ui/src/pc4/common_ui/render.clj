@@ -1,4 +1,4 @@
-(ns pc4.ui.render
+(ns pc4.common-ui.render
   (:require
     [clojure.string :as str]
     [rum.core :as rum]
