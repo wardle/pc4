@@ -74,7 +74,71 @@
     :title  "Neuroinflammatory relapse and disease course"
     :store  :wo
     :table  :t_form_ms_relapse
-    :entity "FormMsRelapse"}])
+    :entity "FormMsRelapse"}
+
+   {:id     :soap/v1
+    :title  "SOAP"
+    :store  :wo
+    :table  :t_form_soap
+    :entity "FormSoap"}
+
+   {:id     :weight-height/v1
+    :title  "Weight and height"
+    :store  :wo
+    :table  :t_form_weight_height
+    :entity "FormWeightHeight"}
+
+   {:id     :smoking-history/v1
+    :title  "Smoking history"
+    :store  :wo
+    :table  :t_smoking_history
+    :entity "FormSmokingHistory"}
+
+   {:id     :icars/v1
+    :title  "ICARS"
+    :store  :wo
+    :table  :t_form_icars
+    :entity "FormIcars"}
+
+   {:id     :mmse/v1
+    :title  "MMSE"
+    :store  :wo
+    :table  :t_form_mmse
+    :entity "FormMmse"}
+
+   {:id     :moca/v1
+    :title  "MOCA"
+    :store  :wo
+    :table  :t_form_moca
+    :entity "FormMoca"}
+
+   {:id     :ace-r/v1
+    :title  "ACE-R"
+    :store  :wo
+    :table  :t_form_ace_r
+    :entity "FormAceR"}
+
+   {:id     :sara/v1
+    :title  "SARA"
+    :store  :nf}
+
+   {:id     :nine-hole-peg/v1
+    :title  "Nine-hole peg test"
+    :store  :wo
+    :table  :t_form_nine_hole_peg
+    :entity "FormNineHolePeg"}
+
+   {:id     :timed-walk/v1
+    :title  "Timed walk"
+    :store  :wo
+    :table  :t_form_timed_walk
+    :entity "FormTimedWalk"}
+
+   {:id     :walking-distance/v1
+    :title  "Walking distance"
+    :store  :wo
+    :table  :t_form_walking_distance
+    :entity "FormWalkingDistance"}])
 
 (def all-form-types
   "A set of form type identifiers"
