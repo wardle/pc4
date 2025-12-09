@@ -1,5 +1,4 @@
-{:paths
- ["resources"]
+{:paths ["src" "resources"]
 
  :deps {}}
 
