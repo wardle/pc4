@@ -88,6 +88,7 @@
     (if use-tailwind-cdn
       [:script {:src "https://cdn.tailwindcss.com"}]
       [:link {:href "/css/output.css" :rel "stylesheet" :type "text/css"}])
+    [:link {:href "/css/quill.snow.css" :rel "stylesheet" :type "text/css"}]
     [:script
      {:dangerouslySetInnerHTML {:__html (str "var pc4_network_csrf_token = '" csrf-token "';")}}]
     [:title (or title "pc4")]]
