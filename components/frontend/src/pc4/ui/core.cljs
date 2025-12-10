@@ -2,12 +2,14 @@
   "Stateless UI components."
   (:require
    [clojure.string :as str]
+   [com.fulcrologic.fulcro.algorithms.react-interop :as interop]
    [com.fulcrologic.fulcro.components :as comp :refer [defsc]]
    [com.fulcrologic.fulcro.dom :as dom :refer [a button div img path span svg nav]]
    [com.fulcrologic.fulcro.dom.inputs]
    [com.fulcrologic.fulcro.dom.events :as evt]
    [goog.string :as gstr]
-   [taoensso.timbre :as log])
+   [taoensso.timbre :as log]
+   ["react-quill" :as ReactQuill])
   (:import [goog.date Date DateTime]))
 
 (def months-en
@@ -776,3 +778,37 @@
               title))
 
 (def ui-active-panel-button (comp/factory ActivePanelButton))
+
+(def ^:private raw-quill-editor
+  "Factory for the ReactQuill component."
+  (interop/react-factory ReactQuill))
+
+(defn ui-edit-html
+  "Rich text HTML editor using Quill.
+
+  Parameters:
+  - id          : Element ID (optional)
+  - value       : Current HTML content (string)
+  - disabled    : Whether editing is disabled (default false)
+  - onChange    : Callback function receiving new HTML value
+  - placeholder : Placeholder text when empty
+  - rows        : Number of rows affecting editor height (default 5)"
+  [{:keys [id value disabled placeholder rows onChange]
+    :or {rows 5}}]
+  (let [editor-height (str (* rows 1.5) "em")
+        modules #js {:toolbar #js [#js [#js {:header #js [1 2 3 false]}]
+                                   #js ["bold" "italic" "underline" "strike"]
+                                   #js ["link"]
+                                   #js [#js {:list "ordered"} #js {:list "bullet"}]
+                                   #js ["clean"]]}]
+    (raw-quill-editor
+      {:id          id
+       :value       (or value "")
+       :readOnly    (boolean disabled)
+       :placeholder placeholder
+       :modules     modules
+       :theme       "snow"
+       :style       #js {:minHeight editor-height}
+       :onChange    (fn [content]
+                      (when onChange
+                        (onChange content)))})))
