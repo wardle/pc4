@@ -30,11 +30,12 @@
 (s/def ::form-definition (s/multi-spec form-def-spec :store))
 
 (def all-form-definitions
-  [{:id     :alsfrs-r/v1
-    :title  "ALSFRS-R"
-    :store  :wo
-    :table  :t_form_alsfrs
-    :entity "FormALSFRS"}
+  [{:id             :alsfrs-r/v1
+    :t_form_type/id 35
+    :title          "ALSFRS-R"
+    :store          :wo
+    :table          :t_form_alsfrs
+    :entity         "FormALSFRS"}
 
    {:id    :araf-val-f-on-hold/v1
     :title "Valproate Annual Risk Acknowledgement (female) - on hold"
@@ -64,81 +65,93 @@
     :title "Valproate Annual Risk Acknowledgement (female) - Step 4: Acknowledgement"
     :store :nf}
 
-   {:id     :edss/v1
-    :title  "Expanded Disability Status Score (EDSS)"
-    :store  :wo
-    :table  :t_form_edss
-    :entity "FormEdss"}
+   {:id             :edss/v1
+    :t_form_type/id 2
+    :title          "Expanded Disability Status Score (EDSS)"
+    :store          :wo
+    :table          :t_form_edss
+    :entity         "FormEdss"}
 
-   {:id     :relapse/v1
-    :title  "Neuroinflammatory relapse and disease course"
-    :store  :wo
-    :table  :t_form_ms_relapse
-    :entity "FormMsRelapse"}
+   {:id             :relapse/v1
+    :t_form_type/id 9
+    :title          "Neuroinflammatory relapse and disease course"
+    :store          :wo
+    :table          :t_form_ms_relapse
+    :entity         "FormMsRelapse"}
 
-   {:id     :soap/v1
-    :title  "SOAP"
-    :store  :wo
-    :table  :t_form_soap
-    :entity "FormSoap"}
+   {:id             :soap/v1
+    :t_form_type/id 13
+    :title          "SOAP"
+    :store          :wo
+    :table          :t_form_soap
+    :entity         "FormSoap"}
 
-   {:id     :weight-height/v1
-    :title  "Weight and height"
-    :store  :wo
-    :table  :t_form_weight_height
-    :entity "FormWeightHeight"}
+   {:id             :weight-height/v1
+    :t_form_type/id 29
+    :title          "Weight and height"
+    :store          :wo
+    :table          :t_form_weight_height
+    :entity         "FormWeightHeight"}
 
-   {:id     :smoking-history/v1
-    :title  "Smoking history"
-    :store  :wo
-    :table  :t_smoking_history
-    :entity "FormSmokingHistory"}
+   {:id             :smoking-history/v1
+    :t_form_type/id 37
+    :title          "Smoking history"
+    :store          :wo
+    :table          :t_smoking_history
+    :entity         "FormSmokingHistory"}
 
-   {:id     :icars/v1
-    :title  "ICARS"
-    :store  :wo
-    :table  :t_form_icars
-    :entity "FormIcars"}
+   {:id             :icars/v1
+    :t_form_type/id 6
+    :title          "ICARS"
+    :store          :wo
+    :table          :t_form_icars
+    :entity         "FormIcars"}
 
-   {:id     :mmse/v1
-    :title  "MMSE"
-    :store  :wo
-    :table  :t_form_mmse
-    :entity "FormMmse"}
+   {:id             :mmse/v1
+    :t_form_type/id 7
+    :title          "MMSE"
+    :store          :wo
+    :table          :t_form_mmse
+    :entity         "FormMmse"}
 
-   {:id     :moca/v1
-    :title  "MOCA"
-    :store  :wo
-    :table  :t_form_moca
-    :entity "FormMoca"}
+   {:id             :moca/v1
+    :t_form_type/id 55
+    :title          "MOCA"
+    :store          :wo
+    :table          :t_form_moca
+    :entity         "FormMoca"}
 
-   {:id     :ace-r/v1
-    :title  "ACE-R"
-    :store  :wo
-    :table  :t_form_ace_r
-    :entity "FormAceR"}
+   {:id             :ace-r/v1
+    :t_form_type/id 1
+    :title          "ACE-R"
+    :store          :wo
+    :table          :t_form_ace_r
+    :entity         "FormAceR"}
 
-   {:id     :sara/v1
-    :title  "SARA"
-    :store  :nf}
+   {:id    :sara/v1
+    :title "SARA"
+    :store :nf}
 
-   {:id     :nine-hole-peg/v1
-    :title  "Nine-hole peg test"
-    :store  :wo
-    :table  :t_form_nine_hole_peg
-    :entity "FormNineHolePeg"}
+   {:id             :nine-hole-peg/v1
+    :t_form_type/id 10
+    :title          "Nine-hole peg test"
+    :store          :wo
+    :table          :t_form_nine_hole_peg
+    :entity         "FormNineHolePeg"}
 
-   {:id     :timed-walk/v1
-    :title  "Timed walk"
-    :store  :wo
-    :table  :t_form_timed_walk
-    :entity "FormTimedWalk"}
+   {:id             :timed-walk/v1
+    :t_form_type/id 12
+    :title          "Timed walk"
+    :store          :wo
+    :table          :t_form_timed_walk
+    :entity         "FormTimedWalk"}
 
-   {:id     :walking-distance/v1
-    :title  "Walking distance"
-    :store  :wo
-    :table  :t_form_walking_distance
-    :entity "FormWalkingDistance"}])
+   {:id             :walking-distance/v1
+    :t_form_type/id 38
+    :title          "Walking distance"
+    :store          :wo
+    :table          :t_form_walking_distance
+    :entity         "FormWalkingDistance"}])
 
 (def all-form-types
   "A set of form type identifiers"
@@ -162,7 +175,11 @@
     :wo (gen/tuple (gen/return table) (gen/fmap (comp inc abs) (gen/large-integer)))))
 
 (def form-definition-by-form-type
-  "Map of form-type id to form definition"
+  "Map of form-type id to form definition
+  e.g.
+  (form-definition-by-form-type :walking-distance/v1)
+  =>
+  {:id :walking-distance/v1 ...}"
   (reduce (fn [acc {:keys [id] :as form-def}]
             (assoc acc id form-def))
           {} all-form-definitions))
@@ -170,6 +187,11 @@
 (def form-definition-by-table
   (reduce (fn [acc {:keys [table] :as form-def}]
             (if table (assoc acc table form-def) acc))
+          {} all-form-definitions))
+
+(def form-definition-by-legacy-form-type-id
+  (reduce (fn [acc {:t_form_type/keys [id] :as form-def}]
+            (if id (assoc acc id form-def) acc))
           {} all-form-definitions))
 
 (comment

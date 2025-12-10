@@ -87,7 +87,7 @@
   "Return authorization permissions for current user to access given patient."
   [{rsdb :com.eldrix/rsdb}
    {:t_patient/keys [patient_identifier break_glass]
-    :session/keys [authenticated-user]}]
+    :session/keys   [authenticated-user]}]
   {::pco/input  [:t_patient/patient_identifier :t_patient/break_glass
                  {:session/authenticated-user [:t_role/is_system :t_user/active_roles]}]
    ::pco/output [:t_patient/permissions]}
@@ -1018,6 +1018,13 @@
                                                      :t_smoking_history/status]}]}
   {:t_encounter/form_smoking_history (rsdb/encounter-id->form-smoking-history rsdb encounter-id)})
 
+
+(defn normalize-form-definition
+  [{:keys [id title multiple]}]
+  {:form_definition/id       id
+   :form_definition/title    title
+   :form_definition/multiple multiple})
+
 (defn normalize-form
   "Normalizes a form, adding a 'form' namespace, adding nested encounter and form structures."
   [{:keys [encounter_fk user_fk] :as form}]
@@ -1029,12 +1036,17 @@
       :form/encounter {:t_encounter/id encounter_fk}
       :form/user {:t_user/id user_fk}
       :form/summary (rsdb/form-summary form)
-      :form/definition (rsdb/form-definition form))))
+      :form/definition (normalize-form-definition (rsdb/form-definition form)))))
+
+(def form-definition-properties
+  [:form_definition/id
+   :form_definition/title
+   :form_definition/multiple])
 
 (def form-properties
   [:form/id
    :form/type
-   :form/definition
+   {:form/definition form-definition-properties}
    :form/is_deleted
    :form/user_fk
    :form/encounter_fk
@@ -1045,22 +1057,21 @@
 (pco/defresolver encounter->forms
   [{rsdb :com.eldrix/rsdb} {encounter-id :t_encounter/id}]
   {::pco/output
-   [:t_encounter/available_form_types
-    :t_encounter/optional_form_types
-    :t_encounter/mandatory_form_types
-    :t_encounter/existing_form_types
-    :t_encounter/duplicated_form_types
+   [{:t_encounter/available_form_types form-definition-properties}
+    {:t_encounter/optional_form_types form-definition-properties}
+    {:t_encounter/mandatory_form_types form-definition-properties}
+    :t_encounter/duplicated_form_type_ids
     {:t_encounter/completed_forms form-properties}
     {:t_encounter/deleted_forms form-properties}]}
-  (let [{:keys [available-form-types optional-form-types mandatory-form-types existing-form-types completed-forms duplicated-form-types deleted-forms]}
+  (let [{:keys [available-form-types optional-form-types mandatory-form-types completed-forms duplicated-form-types deleted-forms] :as forms}
         (rsdb/forms-and-form-types-in-encounter rsdb encounter-id)]
-    {:t_encounter/available_form_types  available-form-types
-     :t_encounter/optional_form_types   optional-form-types
-     :t_encounter/mandatory_form_types  mandatory-form-types
-     :t_encounter/existing_form_types   existing-form-types
-     :t_encounter/completed_forms       (mapv normalize-form completed-forms)
-     :t_encounter/duplicated_form_types duplicated-form-types
-     :t_encounter/deleted_forms         (mapv normalize-form deleted-forms)}))
+    (log/debug "forms for encounter" {:encounter-id encounter-id :forms forms})
+    {:t_encounter/available_form_types     (mapv normalize-form-definition available-form-types)
+     :t_encounter/optional_form_types      (mapv normalize-form-definition optional-form-types)
+     :t_encounter/mandatory_form_types     (mapv normalize-form-definition mandatory-form-types)
+     :t_encounter/completed_forms          (mapv normalize-form completed-forms)
+     :t_encounter/duplicated_form_types    (mapv normalize-form-definition duplicated-form-types)
+     :t_encounter/deleted_forms            (mapv normalize-form deleted-forms)}))
 
 (pco/defresolver form-by-id
   [{rsdb :com.eldrix/rsdb :as env} {form-id :form/id}]
@@ -1346,11 +1357,11 @@
 
 (pco/defmutation register-patient!
   "Register a patient using NHS number."
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [project-id nhs-number]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/register-patient
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/project_fk]}
@@ -1378,11 +1389,11 @@
   future.
   TODO: switch to more pluggable and routine coercion of data, rather than
   managing by hand."
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [project-id nhs-number date-birth]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/register-patient-by-pseudonym
    ::pco/output  [:t_patient/patient_identifier
                   :t_episode/stored_pseudonym
@@ -1470,11 +1481,11 @@
                                                                           :permission permission})))))
 
 (pco/defmutation register-patient-to-project!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [patient project-id]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/register-patient-to-project}
   (when (or (not (s/valid? (s/keys :req [:t_patient/id :t_patient/patient_identifier]) patient)) (not (int? project-id)))
     (throw (ex-info "invalid call" params)))
@@ -1485,10 +1496,10 @@
   "Break glass operation - registers the given patient to the break-glass.
   TODO: should send a message to appropriate users
   TODO: should be recorded in new project-based audit trail / comms / events list"
-  [{session :session
+  [{session            :session
     authenticated-user :session/authenticated-user}
    {:keys [patient-identifier]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/break-glass}
   (when-not patient-identifier
     (throw (ex-info "invalid params" params)))
@@ -1515,12 +1526,12 @@
     ordered-diagnostic-dates?))
 
 (pco/defmutation save-diagnosis!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:t_patient/keys [patient_identifier]
-    diagnosis-id :t_diagnosis/id
-    :as params}]
+    diagnosis-id    :t_diagnosis/id
+    :as             params}]
   {::pco/op-name 'pc4.rsdb/save-diagnosis}
   (let [user-id (:t_user/id authenticated-user)]
     (log/info "save diagnosis request: " params "user: " user-id)
@@ -1546,13 +1557,13 @@
                 :t_medication/reason_for_stopping
                 :t_medication/events]))
 (pco/defmutation save-medication!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
-   {patient-id :t_patient/patient_identifier
+    authenticated-user    :session/authenticated-user}
+   {patient-id    :t_patient/patient_identifier
     medication-id :t_medication/id
-    patient-pk :t_medication/patient_fk
-    :as params}]
+    patient-pk    :t_medication/patient_fk
+    :as           params}]
   {::pco/op-name 'pc4.rsdb/save-medication}
   (log/info "save medication request: " params "user: " authenticated-user)
   (let [create? (tempid/tempid? medication-id)
@@ -1577,11 +1588,11 @@
     :t_medication/id : (mandatory) - the identifier for the medication
     :t_medication/patient_fk
     :t_patient/patient_identifier "
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager}
    {patient-id :t_patient/patient_identifier
     patient-pk :t_medication/patient_fk
-    :as params}]
+    :as        params}]
   {::pco/op-name 'pc4.rsdb/delete-medication}
   (log/info "delete medication request" params)
   (if-not (s/valid? ::delete-medication params)
@@ -1595,11 +1606,11 @@
                 :t_patient/patient_identifier]))
 
 (pco/defmutation save-patient-ms-diagnosis!                 ;; TODO: could update main diagnostic list...
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/save-ms-diagnosis}
   (let [user-id (:t_user/id authenticated-user)]
     (log/info "save ms diagnosis:" params " user:" user-id)
@@ -1615,12 +1626,12 @@
                 :uk.gov.ons.nhspd/PCD2]))
 
 (pco/defmutation save-pseudonymous-patient-postal-code!
-  [{rsdb :com.eldrix/rsdb
-    ods  :com.eldrix.clods.graph/svc
+  [{rsdb               :com.eldrix/rsdb
+    ods                :com.eldrix.clods.graph/svc
     authenticated-user :session/authenticated-user}
    {patient-identifier :t_patient/patient_identifier
     postcode           :uk.gov.ons.nhspd/PCD2
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/save-pseudonymous-patient-postal-code}
   (log/info "saving pseudonymous postal code" {:params params :ods ods :user authenticated-user})
   (if-not (s/valid? ::save-pseudonymous-postal-code params)
@@ -1635,11 +1646,11 @@
           :opt [:t_ms_event/notes]))
 
 (pco/defmutation save-ms-event!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:t_ms_event/keys [id]
-    :as params}]
+    :as              params}]
   {::pco/op-name 'pc4.rsdb/save-ms-event}
   (log/info "save ms event request: " params "user: " authenticated-user)
   (if-not (s/valid? ::save-ms-event (dissoc params :t_ms_event/id))
@@ -1668,11 +1679,11 @@
                 :t_ms_event/id]))
 
 (pco/defmutation delete-ms-event!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {ms-event-id :t_ms_event/id
-    :as params}]
+    :as         params}]
   {::pco/op-name 'pc4.rsdb/delete-ms-event}
   (let [user-id (:t_user/id authenticated-user)]
     (log/info "delete ms event:" params " user:" user-id)
@@ -1693,9 +1704,9 @@
                 :t_encounter/episode_fk]))
 
 (pco/defmutation save-encounter!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    params]
   {::pco/op-name 'pc4.rsdb/save-encounter}
   (let [user-id (:t_user/id authenticated-user)]
@@ -1714,12 +1725,12 @@
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/delete-encounter}
   (log/info "delete encounter:" encounter-id " user:" authenticated-user)
   (if-not (s/valid? ::delete-encounter params)
@@ -1731,12 +1742,12 @@
 (s/def ::unlock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation unlock-encounter!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/unlock-encounter}
   (log/info "unlock encounter:" encounter-id " user:" authenticated-user)
   (if-not (s/valid? ::unlock-encounter params)
@@ -1748,12 +1759,12 @@
 (s/def ::lock-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 
 (pco/defmutation lock-encounter!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {encounter-id       :t_encounter/id
     patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/lock-encounter}
   (log/info "lock encounter:" encounter-id " user:" authenticated-user)
   (if-not (s/valid? ::lock-encounter params)
@@ -1764,9 +1775,9 @@
 
 (pco/defmutation create-form!
   "Create a new form within an encounter for a patient of the specified type"
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [patient-identifier encounter-id form-type-id]}]
   {::pco/op-name 'pc4.rsdb/create-form}
   (let [user-id (:t_user/id authenticated-user)]
@@ -1781,10 +1792,10 @@
   "Save a form. Parameters are a map with
   - patient-identifier : the patient identifier
   - form               : the form to save"
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager}
    {:keys [patient-identifier form]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/save-form}
   (log/info "save form" params)
   (guard-can-for-patient? rsdb authorization-manager patient-identifier :PATIENT_EDIT)
@@ -1794,11 +1805,11 @@
     (rsdb/save-form! rsdb form)))
 
 (pco/defmutation save-result!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [patient-identifier result]
-    :as params}]
+    :as   params}]
   {::pco/op-name 'pc4.rsdb/save-result}
   (let [user-id (:t_user/id authenticated-user)]
     (log/info "save result request: " params "user: " user-id)
@@ -1815,9 +1826,9 @@
       (catch Exception e (.printStackTrace e)))))
 
 (pco/defmutation delete-result!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {:keys [patient-identifier result]}]
   {::pco/op-name 'pc4.rsdb/delete-result}
   (log/info "delete result request: " result "user: " authenticated-user)
@@ -1831,11 +1842,11 @@
                                     :t_death_certificate/part1c
                                     :t_death_certificate/part2]))
 (pco/defmutation notify-death!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/notify-death}
   (log/info "notify death request: " params "user: " authenticated-user)
   (when-not (s/valid? ::notify-death params)
@@ -1844,20 +1855,20 @@
   (rsdb/notify-death! rsdb params))
 
 (pco/defmutation set-date-death!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager}
    {patient-identifier :t_patient/patient_identifier
-    :as params}]
+    :as                params}]
   {::pco/op-name 'pc4.rsdb/set-date-death}
   (guard-can-for-patient? rsdb authorization-manager patient-identifier :PATIENT_EDIT)
   (rsdb/set-date-death! rsdb params))
 
 (pco/defmutation change-pseudonymous-registration
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager}
-   {patient-pk :t_patient/id
+   {patient-pk      :t_patient/id
     :t_patient/keys [patient_identifier nhs_number sex date_birth]
-    :as params}]
+    :as             params}]
   {::pco/op-name 'pc4.rsdb/change-pseudonymous-registration}
   (guard-can-for-patient? rsdb authorization-manager patient_identifier :PATIENT_CHANGE_PSEUDONYMOUS_DATA)
   ;; check that we are not changing the existing NHS number
@@ -1880,13 +1891,13 @@
                                  :opt [:t_user/password]))
 
 (pco/defmutation change-password!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb               :com.eldrix/rsdb
     authenticated-user :session/authenticated-user
-    :as env}
+    :as                env}
    {username     :t_user/username
     password     :t_user/password
     new-password :t_user/new_password
-    :as params}]
+    :as          params}]
   {::pco/op-name 'pc4.rsdb/change-password}
   (when-not (s/valid? ::change-password params)
     (throw (ex-info "invalid parameters for change-password! " (s/explain-data ::change-password params))))
@@ -1902,9 +1913,9 @@
                                       :t_episode/date_registration
                                       :t_episode/date_discharge]))
 (pco/defmutation save-admission!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    params]
   {::pco/op-name 'pc4.rsdb/save-admission}
   (let [user-id (:t_user/id authenticated-user)]
@@ -1916,12 +1927,12 @@
     (rsdb/save-admission! rsdb user-id params)))
 
 (pco/defmutation delete-admission!
-  [{rsdb :com.eldrix/rsdb
+  [{rsdb                  :com.eldrix/rsdb
     authorization-manager :session/authorization-manager
-    authenticated-user :session/authenticated-user}
+    authenticated-user    :session/authenticated-user}
    {episode-id :t_episode/id
     patient-fk :t_episode/patient_fk
-    :as params}]
+    :as        params}]
   {::pco/op-name 'pc4.rsdb/delete-admission}
   (if (and episode-id patient-fk)
     (let [patient-identifier (rsdb/patient-pk->patient-identifier rsdb patient-fk)]

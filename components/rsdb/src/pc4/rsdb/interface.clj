@@ -663,8 +663,8 @@
   If no modern definition exists, adds :id from :nspace for consistency."
   (reduce-kv (fn [acc form-type-id {:keys [table-kw nspace] :as form-type}]
                (assoc acc form-type-id
-                      (or (nf/form-definition-by-table table-kw)
-                          (assoc form-type :id nspace))))
+                          (or (nf/form-definition-by-table table-kw)
+                              (assoc form-type :id nspace))))
              {} forms/form-type-by-id))
 
 (def ^:private multiple-form-types
@@ -674,21 +674,33 @@
        (map :id)
        set))
 
-(defn ^:private form-types-for-encounter#
-  "Return available form types for an encounter based on its template.
-  Returns a map of status keyword (:available, :optional, :mandatory) to
-  sequences of form definitions."
+(defn form-definitions-for-encounter
+  "Return the available form definitions for a given encounter based on the
+  encounter template for that encounter. Returns a map of form status to a sequence
+  of form definitions.
+  e.g.,
+  (form-definitions-for-encounter conn 246234)
+  ;; =>
+   "
   [conn encounter-id]
-  (update-vals (forms/form-types-for-encounter conn encounter-id)
-               (fn [form-types]
-                 (map (fn [{:form_type/keys [id ordering]}]
-                         (when-let [form-def (get form-type-id->form-definition id)]
-                           (assoc form-def :ordering ordering)))
-                       form-types))))
+  (reduce
+    (fn [acc {:t_encounter_template__form_type/keys [formtypeid status ordering]}]
+      (if-let [form-def (nf/form-definition-by-legacy-form-type formtypeid)]
+        (update acc (keyword (str/lower-case status))
+                conj (assoc form-def :ordering ordering))
+        acc))
+    {}
+    (jdbc/plan conn (sql/format
+                      {:select :* :from :t_encounter_template__form_type
+                       :where  [:= :encountertemplateid {:select :encounter_template_fk :from :t_encounter :where [:= :id encounter-id]}]}))))
 
-(defn ^:private duplicated-form-types#
-  "Returns form types that have duplicate forms within an encounter
-  but should only have one per encounter."
+(defn ^:private duplicated-form-type-ids
+  "Returns a set of form types that have duplicate forms within an encounter
+  but should only have one per encounter.
+  For example,
+  (duplicated-form-type-ids [{:form_type :edss/v1} {:form_type :edss/v1}])
+  =>
+  #{:edss/v1}"
   [forms]
   (reduce-kv (fn [acc form-type forms']
                (if (and (not (multiple-form-types form-type)) (> (count forms') 1))
@@ -703,7 +715,6 @@
   - :available-form-types  - form definitions available per template (not yet completed)
   - :optional-form-types   - optional form definitions per template
   - :mandatory-form-types  - mandatory form definitions per template
-  - :existing-form-types   - form types already recorded (as form_type keywords)
   - :completed-forms       - completed forms (new API format)
   - :duplicated-form-types - form types with duplicates (should be one per encounter)
   - :deleted-forms         - deleted forms (new API format)"
@@ -716,18 +727,23 @@
         ;; get set of form_type keywords for completed forms
         completed-types (into #{} (map :form_type) completed)
         ;; get available form types from encounter template, grouped by status
-        {:keys [available optional mandatory]} (form-types-for-encounter# conn encounter-id)]
-    {:available-form-types  (remove #(completed-types (:id %)) available)
-     :optional-form-types   (remove #(completed-types (:id %)) optional)
-     :mandatory-form-types  (remove #(completed-types (:id %)) mandatory)
-     :existing-form-types   (sort completed-types)
-     :completed-forms       completed
-     :duplicated-form-types (duplicated-form-types# completed)
-     :deleted-forms         deleted}))
-
-;;
-;; new forms - upsert / fetch one / fetch multiple
-;;
+        {:keys [available optional mandatory] :as form-defs} (form-definitions-for-encounter conn encounter-id)]
+    (log/debug form-defs)
+    {:available-form-types     (->> available
+                                    (remove #(completed-types (:id %)))
+                                    (sort-by (juxt :ordering :title))
+                                    (map #(dissoc % :ordering)))
+     :optional-form-types      (->> optional
+                                    (remove #(completed-types (:id %)))
+                                    (sort-by (juxt :ordering :title))
+                                    (map #(dissoc % :ordering)))
+     :mandatory-form-types     (->> mandatory
+                                    (remove #(completed-types (:id %)))
+                                    (sort-by (juxt :ordering :title))
+                                    (map #(dissoc % :ordering)))
+     :completed-forms          completed
+     :duplicated-form-types    (map form-type-id->form-definition (duplicated-form-type-ids completed))
+     :deleted-forms            deleted}))
 
 (defn upsert-form [{:keys [form-store]} form]
   (nf/upsert! form-store form))

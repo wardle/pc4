@@ -87,6 +87,9 @@
   [table]
   (registry/form-definition-by-table table))
 
+(defn form-definition-by-legacy-form-type [form-type-id]
+  (registry/form-definition-by-legacy-form-type-id form-type-id))
+
 (comment
   (def ds (jdbc/get-datasource {:dbtype "postgresql" :dbname "rsdb"}))
   (require '[pc4.rsdb.interface :as rsdb])

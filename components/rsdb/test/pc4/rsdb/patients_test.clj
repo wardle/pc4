@@ -368,10 +368,9 @@
     (let [result2 (rsdb/forms-and-form-types-in-encounter svc encounter-id)]
       (clojure.pprint/pprint result2)
       (is (= 1 (count (:available-form-types result2))))
-      (is (= :edss/v1 (-> result2 :available-form-types first :id))))
+      (is (= :edss/v1 (some-> result2 :available-form-types first :id))))
 
     ;; add an EDSS result using the new forms API
-    ;; Note: new API uses hydrated values like "1.0" not database values like "SCORE1_0"
     (let [saved-edss (nf/upsert! form-store
                                  {:form_type    :edss/v1
                                   :encounter_fk encounter-id
@@ -385,10 +384,8 @@
 
       ;; should now have one existing form type as we have one completed form
       (is (= 0 (count (:available-form-types result3))) "EDSS should no longer be available (already completed)")
-      (is (= 1 (count (:existing-form-types result3))))
       (is (= 1 (count (:completed-forms result3))))
       (is (= 0 (count (:deleted-forms result3))))
-      (is (= :edss/v1 (first (:existing-form-types result3))))
 
       ;; the completed form should have correct data
       (let [returned-form (first (:completed-forms result3))]
