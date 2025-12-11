@@ -1204,4 +1204,4 @@
   transaction."
   [conn encounter]
   (jdbc/with-transaction [txn conn]
-    (save-encounter-and-forms! txn encounter)))
+    (save-encounter-and-forms*! txn encounter)))

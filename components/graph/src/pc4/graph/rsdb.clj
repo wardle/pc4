@@ -1700,8 +1700,18 @@
                 :t_encounter/patient_fk
                 :t_encounter/date_time
                 :t_encounter/encounter_template_fk]
-          :opt [:t_encounter/id                             ;; if we've saving an existing encounter
+          :opt [:t_encounter/id                             ;; if saving an existing encounter, or tempid for new
                 :t_encounter/episode_fk]))
+
+(defn- valid-save-encounter-params?
+  "Validate save-encounter params, allowing tempids for :t_encounter/id"
+  [params]
+  (let [id (:t_encounter/id params)
+        ;; For validation, remove tempid or check int
+        params' (if (tempid/tempid? id)
+                  (dissoc params :t_encounter/id)
+                  params)]
+    (s/valid? ::save-encounter params')))
 
 (pco/defmutation save-encounter!
   [{rsdb                  :com.eldrix/rsdb
@@ -1712,16 +1722,23 @@
   (let [user-id (:t_user/id authenticated-user)]
     (log/info "save encounter request: " params "user: " user-id)
     (let [date (:t_encounter/date_time params)
+          encounter-id (:t_encounter/id params)
+          create? (or (nil? encounter-id) (tempid/tempid? encounter-id))
           params' (-> params
                       (assoc :t_encounter/date_time (if (instance? LocalDate date) (.atStartOfDay date) date)
-                             :t_user/id user-id))]
-      (when-not (s/valid? ::save-encounter params')
-        (log/error "invalid call" (s/explain-data ::save-encounter params'))
-        (throw (ex-info "Invalid data" (s/explain-data ::save-encounter params'))))
-      (try
-        (guard-can-for-patient? rsdb authorization-manager (:t_patient/patient_identifier params) :PATIENT_EDIT)
-        (rsdb/save-encounter-and-forms! rsdb params')
-        (catch Exception e (.printStackTrace e))))))
+                             :t_user/id user-id)
+                      (cond-> create? (dissoc :t_encounter/id)))]
+      (when-not (valid-save-encounter-params? params)
+        (log/error "invalid call" (s/explain-data ::save-encounter (dissoc params :t_encounter/id)))
+        (throw (ex-info "Invalid data" (s/explain-data ::save-encounter (dissoc params :t_encounter/id)))))
+      (guard-can-for-patient? rsdb authorization-manager (:t_patient/patient_identifier params) :PATIENT_EDIT)
+      (let [{saved-encounter-id :t_encounter/id :as result} (rsdb/save-encounter! rsdb params')]
+        (when (contains? params :t_encounter/users)
+          (rsdb/set-encounter-users! rsdb saved-encounter-id (:t_encounter/users params)))
+        ;; Return tempid mapping if this was a create with tempid
+        (cond-> result
+          (tempid/tempid? encounter-id)
+          (assoc :tempids {encounter-id saved-encounter-id}))))))
 
 (s/def ::delete-encounter (s/keys :req [:t_encounter/id :t_patient/patient_identifier]))
 (pco/defmutation delete-encounter!
