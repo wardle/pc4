@@ -95,6 +95,7 @@
    [:body
     [:noscript "'PatientCare v4' is a JavaScript app. Please enable JavaScript to continue."]
     [:div#app]
+    [:div#modal-root]
     [:script {:src (str "/js/compiled/" src)}]]])
 
 (defn landing*
