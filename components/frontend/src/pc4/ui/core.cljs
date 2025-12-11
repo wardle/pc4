@@ -9,7 +9,8 @@
    [com.fulcrologic.fulcro.dom.events :as evt]
    [goog.string :as gstr]
    [taoensso.timbre :as log]
-   ["react-quill" :as ReactQuill])
+   ["react-quill" :as ReactQuill]
+   ["react-dom" :as react-dom])
   (:import [goog.date Date DateTime]))
 
 (def months-en
@@ -79,6 +80,15 @@
 (defn icon-chevron-down []
   (svg :.-mr-1.ml-2.h-5.w-5 {:xmlns "http://www.w3.org/2000/svg" :viewBox "0 0 20 20" :fill "white" :aria-hidden "true"}
        (path {:fillRule "evenodd" :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" :clipRule "evenodd"})))
+
+(defn icon-selector
+  "A chevron icon for selector/dropdown controls. Uses currentColor for fill."
+  []
+  (svg :.w-5.h-5.text-gray-400.flex-shrink-0
+    {:viewBox "0 0 20 20" :fill "currentColor" :aria-hidden "true"}
+    (path {:fillRule "evenodd"
+           :d "M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+           :clipRule "evenodd"})))
 
 (defn icon-exclamation [& {:keys [text]}]                   ;; from https://flowbite.com/icons/
   (svg :.w-6.h-6.text-gray-800.dark:text-white {:aria-hidden "true" :xmlns "http://www.w3.org/2000/svg" :fill "none" :viewBox "0 0 20 20"}
@@ -491,41 +501,60 @@
 
 (def ui-button-with-dropdown (comp/factory UIButtonWithDropdown))
 
-(defsc UIModal [this {:keys [disabled? title actions onClose]}]
+(defsc UIModal [this {:keys [disabled? title actions onClose size]}]
   (let [onClose' (or (when onClose
                        (if (fn? onClose) onClose  ;; but if onClose is an id and not a fn, look for it in actions and use that for onClose:
                            (some-> (reduce (fn [_ {:keys [id] :as v}] (when (= onClose id) (reduced v))) nil actions)
                                    :onClick)))
-                     (constantly nil))]
-    (div :.fixed.z-10.inset-0.overflow-y-auto
-         {:aria-labelledby title :role "dialog" :aria-modal "true"
-          :className       (when disabled? "hidden")}
-         (div :.flex.items-end.justify-center.min-h-max.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
-              (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
-                   {:aria-hidden "true"
-                    :onClick     onClose'})
-              (span :.hidden.sm:inline-block.min-h-max {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
-              (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.max-w-screen-sm.lg:max-w-screen-lg.w-full.sm:p-6
-                   (div
-                    (div :.mt-3.text-center.sm:mt-5
-                         (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
-                    (div :.mt-2
-                         (comp/children this)))
-                   (when (seq actions)
-                     (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse
-                          (for [action actions, :when (and action (not (:hidden? action)))]
-                            (ui-button
-                             {:key       (or (:id action) (log/error "action missing :id field" action))
-                              :role      (:role action)
-                              :disabled? (:disabled? action)
-                              :onClick   #(when-let [f (:onClick action)] (f))}
-                             (:title action))))))))))
+                     (constantly nil))
+        full-size? (= size :full)
+        ;; Size classes for the modal container
+        size-classes (case size
+                       :xl ["max-w-screen-xl" "w-full"]
+                       :full ["max-w-[95vw]" "w-full" "h-[85vh]"]
+                       ;; default (nil or :lg)
+                       ["max-w-screen-sm" "lg:max-w-screen-lg" "w-full"])
+        modal-content
+        (div :.fixed.z-10.inset-0.overflow-y-auto
+             {:aria-labelledby title :role "dialog" :aria-modal "true"
+              :className       (when disabled? "hidden")}
+             (div :.flex.items-end.justify-center.min-h-max.pt-4.px-4.pb-20.text-center.sm:block.sm:p-0
+                  (div :.fixed.inset-0.bg-gray-500.bg-opacity-75.transition-opacity
+                       {:aria-hidden "true"
+                        :onClick     onClose'})
+                  (span :.hidden.sm:inline-block.min-h-max {:aria-hidden "true"} (gstr/unescapeEntities "&#8203;"))
+                  (div :.inline-block.align-bottom.bg-white.rounded-lg.px-4.pt-5.pb-4.text-left.overflow-hidden.shadow-xl.transform.transition-all.sm:my-8.sm:align-middle.sm:p-6
+                       {:classes size-classes}
+                       (div :.flex.flex-col.h-full
+                         ;; Title - fixed at top
+                         (div :.text-center.flex-shrink-0
+                           (when title (dom/h3 :.modal-title.text-lg.leading-6.font-medium.text-gray-900 title)))
+                         ;; Content - scrollable in full mode
+                         (div {:classes (if full-size?
+                                          ["mt-2" "flex-1" "min-h-0" "overflow-hidden" "flex" "flex-col"]
+                                          ["mt-2"])}
+                           (comp/children this))
+                         ;; Actions - fixed at bottom
+                         (when (seq actions)
+                           (div :.mt-5.sm:mt-4.sm:flex.sm:flex-row-reverse.flex-shrink-0
+                             (for [action actions, :when (and action (not (:hidden? action)))]
+                               (ui-button
+                                 {:key       (or (:id action) (log/error "action missing :id field" action))
+                                  :role      (:role action)
+                                  :disabled? (:disabled? action)
+                                  :onClick   #(when-let [f (:onClick action)] (f))}
+                                 (:title action)))))))))]
+    ;; Use React portal to render modal at document body, escaping any nested scroll contexts
+    (if-let [portal-root (js/document.getElementById "modal-root")]
+      (react-dom/createPortal modal-content portal-root)
+      modal-content)))
 
 (def ui-modal
   "A modal dialog.
   Parameters
   - :disabled?
   - :title
+  - :size     - :lg (default), :xl, or :full (almost full screen)
   - :actions - a sequence with :id,:title,:role,:disabled?:hidden?,onClick
   - :onClose - fn if modal closed, or the id of the action"
   (comp/factory UIModal))
